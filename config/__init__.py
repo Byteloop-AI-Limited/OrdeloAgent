@@ -16,5 +16,3 @@ from .ms_setting import ms_settings
 from .google_setting import g_client
 from .cat_con_setting import cat_conn
 from .pg_setting import pg_settings
-
-
