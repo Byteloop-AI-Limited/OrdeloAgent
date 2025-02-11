@@ -23,8 +23,9 @@ class PgSetting(BaseSettings):
     def headers(self):
         return {
             # "Authorization": f"Bearer {self.rest_key}",
-            "apiKey": self.rest_key,
+            "apiKey": self.service_key,
             "Accept": "application/json",
+            "Authorization": f"Bearer {self.rest_key}",
             "Content-Type": "application/json",
         }
 
