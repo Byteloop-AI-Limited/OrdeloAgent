@@ -158,38 +158,6 @@ async def receive_pub(request: Request):
     
     
 
-@app.post("/pub123")
-async def receive_pub123(request: Request):
-    try:
-        # Retrieve and print the incoming request JSON payload
-        payload = await request.json()
-        # if '_type' in payload and payload['_type'] == 'transition':
-        if '_type' in payload:
-            wa.send_text(
-                to=recipient,
-                text=json.dumps(payload)
-            )
-        # Convert Unix timestamp to readable format
-        if 'tst' in payload:
-            timestamp = datetime.fromtimestamp(payload['tst'])
-            payload['readable_time'] = timestamp.strftime('%Y-%m-%d %H:%M:%S')
-        print("Received JSON payload:", json.dumps(payload, indent=4))
-
-        # Dump payload into a pickle file
-        pickle_file_path = f"{project_settings.project_root}/data/live_location.pkl"
-        try:
-            with open(pickle_file_path, 'ab') as pickle_file:
-                pickle.dump(payload, pickle_file)
-            print(f"Payload dumped to {pickle_file_path}")
-        except Exception as e:
-            print(f"Error dumping payload to pickle file: {e}")
-
-        return {"message": "Payload received successfully", "payload": payload}
-        
-    except Exception as e:
-        print("Error while handling request:", str(e))
-        return {"error": "Invalid request or JSON payload"}
-
 # Insert the function definition for generating the configuration URL
 def generate_config_href(config: dict) -> str:
     config_json = json.dumps(config)

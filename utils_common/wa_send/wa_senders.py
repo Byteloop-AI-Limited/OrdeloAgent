@@ -4,13 +4,73 @@ from typing import List, Optional
 from pywa.types import Template as Temp
 from pywa_async import WhatsApp
 import asyncio
-from pywa.types import ProductsSection
+from pywa.types import ProductsSection, ButtonUrl
+import json
+import base64
+from datetime import datetime
 
-# %%
 _async_wa_client = waba_business_settings.create_wa()
-# _wa_client_local = waba_business_settings.create_wa_local()
 
 # %%
+def generate_config_href(config: dict) -> str:
+    config_json = json.dumps(config)
+    config_base64 = base64.b64encode(config_json.encode()).decode()
+    return f"owntracks:///config?inline={config_base64}"
+
+
+
+# %% Driver Senders
+async def send_driver_start_job_link(
+    recipient: str,
+    _async_wa_client: WhatsApp = _async_wa_client,
+):
+    waypoints = [
+        {
+            "_type": "waypoint",
+            "tst": int(datetime.now().timestamp()),
+            "rid": "restaurant",
+            "desc": "restaurant",
+            "rad": 10,
+            "lat": 51.354107,
+            "lon": 0.095921
+        },
+        {
+            "_type": "waypoint",
+            "tst": int(datetime.now().timestamp()),
+            "rid": "customer",
+            "desc": "customer",
+            "rad": 10,
+            "lat": 51.37367242361126,
+            "lon": 0.09653313354081415
+        },
+        ]
+
+    start_job_config = {
+        "_type": "configuration",
+        "mode": 3,
+        "allowRemoteLocation": True,
+        "usePassword" : False,
+        "monitoring": 2,
+        "username": "447448440754",
+        "deviceId": "447448440754-order123",
+        "password": "",
+        "url": "https://live-track.byteloop.ai/pub",
+        "locatorDisplacement": 10,
+        "locatorInterval" : 10,
+        "waypoints": waypoints
+    }
+    # Encode config as href
+    start_href = generate_config_href(start_job_config)
+
+    await _async_wa_client.send_message(
+        to=recipient,
+        text=f"Start Job",
+        reply_to_message_id=None,
+        buttons=ButtonUrl(title="Click Here", url=start_href)
+    )
+    return True
+
+# %% Non Driver Senders
 
 async def send_request_payment_link(
     recipient: str,
@@ -109,7 +169,6 @@ async def send_order_reciept_wa(
     return
 
 
-
 async def send_delayed_text(recipient: str, text: str, wait_time: int=3):
     """
     Sends a text message to a recipient with a specified delay.
@@ -153,7 +212,7 @@ async def send_product_sections(
 # %%
 recipient='447448440754'
 user_name='10gan'
-await send_reservation_link(_async_wa_client, recipient=recipient, user_name='10gan', reservation_id='123')
+await send_driver_start_job_link(recipient=recipient)
 
 # %%
 """

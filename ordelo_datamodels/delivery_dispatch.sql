@@ -1,20 +1,22 @@
 CREATE TABLE delivery_dispatch (
-    dispatch_id      VARCHAR(100) NOT NULL,
+    dispatch_id      SERIAL PRIMARY KEY,
     order_number     VARCHAR(100) NOT NULL,
     driver_id        VARCHAR(12) NOT NULL,
     driver_payout    DOUBLE PRECISION NOT NULL,
     distance         DOUBLE PRECISION NOT NULL,
     recipient        VARCHAR(12) NOT NULL,
     rest_id          VARCHAR(50) NOT NULL, -- restaurant id
+    rest_name        TEXT NOT NULL,
     rest_location    POINT NOT NULL,   -- represents (lat, lon)
     rest_address     TEXT NOT NULL,
-    cust_id          VARCHAR(50) NOT NULL, -- customer id
-    cust_location    POINT NOT NULL,   -- represents (lat, lon)
-    cust_address     TEXT NOT NULL,
-    dt               DATE NOT NULL,
+    customer_id          VARCHAR(50) NOT NULL, -- customer id
+    customer_name        TEXT NOT NULL,
+    customer_location    POINT NOT NULL,   -- represents (lat, lon)
+    customer_address     TEXT NOT NULL,
+    dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status  VARCHAR(50) NOT NULL
-) WITH (OIDS=FALSE);
+);
 
 
 CREATE TABLE delivery_inflight (
@@ -22,7 +24,7 @@ CREATE TABLE delivery_inflight (
     order_number     VARCHAR(100) NOT NULL,
     driver_id        VARCHAR(12) NOT NULL,
     cust_id        VARCHAR(12) NOT NULL,
-    dt               DATE NOT NULL,
+    dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (dispatch_id)
 ) WITH (OIDS=FALSE);
@@ -33,7 +35,7 @@ CREATE OR REPLACE FUNCTION handle_delivery_dispatch_changes()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Insert into delivery_inflight when status is 'open'
-    IF TG_OP = 'INSERT' AND NEW.status = 'open' THEN
+    IF TG_OP = 'UPDATE' AND NEW.status = 'open' THEN
         INSERT INTO delivery_inflight (dispatch_id, order_number, driver_id, cust_id, dt, ddts)
         VALUES (NEW.dispatch_id, NEW.order_number, NEW.driver_id, NEW.cust_id, NEW.dt, NEW.ddts);
         RETURN NEW;
@@ -65,6 +67,27 @@ CREATE TABLE delivery_inflight_location_events (
     driver_id      VARCHAR(12) NOT NULL,
     cust_id        VARCHAR(12) NOT NULL,
     event_type     VARCHAR(50) NOT NULL, -- 'res_enter', 'res_leave',  'cust_enter', 'cust_leave'
-    dt             DATE NOT NULL,
-    ddts           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    dt             DATE NOT,
+    ddts           TIMESTAMP NOT NULL
 );
+
+-- For rest insert 
+ALTER TABLE delivery_dispatch ENABLE ROW LEVEL SECURITY;
+CREATE POLICY insert_policy ON delivery_dispatch
+FOR INSERT
+WITH CHECK (auth.uid() IS NOT NULL);
+
+-- For all tables in public
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN SELECT table_name 
+              FROM information_schema.tables 
+              WHERE table_schema = 'public' 
+                AND table_type = 'BASE TABLE'
+                AND table_name != 'spatial_ref_sys'  -- Exclude system tables
+    LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', r.table_name);
+    END LOOP;
+END $$;

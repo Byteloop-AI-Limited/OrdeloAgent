@@ -33,3 +33,26 @@ def generate_config_href(config: dict) -> str:
     return f"owntracks:///config?inline={config_base64}"
 
 generate_config_href(start_job_config)
+
+
+# %%
+import httpx 
+from utils_common.db_utils.sbase_rest_ops import sql_to_supabase_rest
+
+_condition = sql_to_supabase_rest(driver_id__like='7448440754')
+_condition
+# %%
+async with httpx.AsyncClient() as client:
+    try:
+        response = await client.get(
+            # f"{pg_settings.rest_url}/rest/v1/driver_location?{_condition}", 
+            f"{pg_settings.rest_url}/rest/v1/driver_location", 
+            headers=pg_settings.headers
+        )
+        response.raise_for_status()
+        # Parse the response
+        response_data = response.json()
+        print(response_data)
+    except:
+        print("Error: ", response.status_code, response.text)
+        

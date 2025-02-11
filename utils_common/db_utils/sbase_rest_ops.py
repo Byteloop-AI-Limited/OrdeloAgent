@@ -4,8 +4,9 @@ import httpx
 import re
 
 HEADERS = pg_settings.headers
+HEADERS
+# %% SQL to Supabase REST condition
 
-# %%
 def sql_to_supabase_rest(**kwargs):
     """
     Convert keyword arguments to Supabase REST API query format.
@@ -41,113 +42,7 @@ def sql_to_supabase_rest(**kwargs):
 
 rest_query = sql_to_supabase_rest(reservation_id='RES-UOYH-23')
 
-# %% Select data
-async def select_sbase_data(table_name: str, **kwargs):
-    """
-    Async function to fetch data from Supabase REST API.
 
-    Args:
-        table_name (str): Name of the Supabase table
-        **kwargs: Filtering conditions for the query
-
-    Returns:
-        dict: JSON response from Supabase
-
-    Raises:
-        ValueError: If the Supabase response contains an error code
-        RuntimeError: For other unexpected errors during the API call
-    """
-
-    # Convert kwargs to Supabase REST filter
-    rest_filter = sql_to_supabase_rest(**kwargs)
-
-    # Use AsyncClient for async HTTP requests
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                f"{pg_settings.rest_url}/rest/v1/{table_name}?{rest_filter}", 
-                headers=HEADERS
-            )
-            
-            # Parse the response
-            response_data = response.json()
-            
-            # Check for error codes in the response
-            if isinstance(response_data, dict) and 'code' in response_data:
-                # Raise a specific error with detailed message
-                error_message = f"Supabase API Error: {response_data.get('message', 'Unknown error')} " \
-                                f"(Code: {response_data.get('code', 'N/A')})"
-                raise ValueError(error_message)
-            
-            return response_data
-        
-        except httpx.RequestError as e:
-            # Handle network-related errors
-            raise RuntimeError(f"Network error occurred: {str(e)}")
-        except ValueError as ve:
-            # Re-raise ValueError from Supabase response
-            raise
-        except Exception as e:
-            # Catch any other unexpected errors
-            raise RuntimeError(f"Unexpected error: {str(e)}")
-
-# %% Update data
-async def update_sbase_data(update_fields: dict, table_name: str, **kwargs):
-    """
-    Async function to update data in Supabase REST API.
-
-    Args:
-        update_fields (dict): Dictionary of fields to update
-        table_name (str): Name of the Supabase table
-        **kwargs: Filtering conditions for the update query
-
-    Returns:
-        bool: True if update was successful
-
-    Raises:
-        ValueError: If the Supabase response contains an error
-        RuntimeError: For other unexpected errors during the API call
-    """
-    # Convert kwargs to Supabase REST filter
-    rest_filter = sql_to_supabase_rest(**kwargs)
-
-    # Use AsyncClient for async HTTP requests
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.patch(
-                f"{pg_settings.rest_url}/rest/v1/{table_name}?{rest_filter}", 
-                headers=HEADERS,
-                json=update_fields
-            )
-            
-            # Check for successful update (No Content)
-            if response.status_code == 204:
-                return True
-            
-            # Parse response for potential error details
-            try:
-                response_data = response.json()
-            except ValueError:
-                response_data = {}
-            
-            # Raise error with status code and any available error details
-            error_message = f"Update failed with status code {response.status_code}"
-            if 'message' in response_data:
-                error_message += f": {response_data['message']}"
-            
-            raise ValueError(error_message)
-        
-        except httpx.RequestError as e:
-            # Handle network-related errors
-            raise RuntimeError(f"Network error occurred: {str(e)}")
-        except ValueError as ve:
-            # Re-raise ValueError from Supabase response
-            raise
-        except Exception as e:
-            # Catch any other unexpected errors
-            raise RuntimeError(f"Unexpected error: {str(e)}")
-
-# %% SQL condition from KWargs
 
 
 def get_sql_condition_new(**kwargs) -> str:
@@ -225,3 +120,156 @@ def get_sql_condition_new(**kwargs) -> str:
         conditions.append(process_value(key, value))
 
     return ' AND '.join(conditions)
+
+
+
+# %% Select data
+async def sbase_get(table_name: str, **kwargs):
+    """
+    Async function to fetch data from Supabase REST API.
+
+    Args:
+        table_name (str): Name of the Supabase table
+        **kwargs: Filtering conditions for the query
+
+    Returns:
+        dict: JSON response from Supabase
+
+    Raises:
+        ValueError: If the Supabase response contains an error code
+        RuntimeError: For other unexpected errors during the API call
+    """
+
+    # Convert kwargs to Supabase REST filter
+    rest_filter = sql_to_supabase_rest(**kwargs)
+
+    # Use AsyncClient for async HTTP requests
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"{pg_settings.rest_url}/rest/v1/{table_name}?{rest_filter}", 
+                headers=HEADERS
+            )
+            
+            # Parse the response
+            response_data = response.json()
+            
+            # Check for error codes in the response
+            if isinstance(response_data, dict) and 'code' in response_data:
+                # Raise a specific error with detailed message
+                error_message = f"Supabase API Error: {response_data.get('message', 'Unknown error')} " \
+                                f"(Code: {response_data.get('code', 'N/A')})"
+                raise ValueError(error_message)
+            
+            return response_data
+        
+        except httpx.RequestError as e:
+            # Handle network-related errors
+            raise RuntimeError(f"Network error occurred: {str(e)}")
+        except ValueError as ve:
+            # Re-raise ValueError from Supabase response
+            raise
+        except Exception as e:
+            # Catch any other unexpected errors
+            raise RuntimeError(f"Unexpected error: {str(e)}")
+
+
+# %% Insert data
+async def sbase_insert(table_name: str, payload: dict):
+    """
+    Async function to insert data into Supabase REST API.
+
+    Args:
+        table_name (str): Name of the Supabase table
+        payload (dict): Data fields to insert
+
+    Returns:
+        dict: JSON response from Supabase
+
+    Raises:
+        ValueError: If the Supabase response contains an error
+        RuntimeError: For other unexpected errors during the API call
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{pg_settings.rest_url}/rest/v1/{table_name}",
+                headers=HEADERS,
+                json=payload,
+            )
+            return response.status_code == 201
+            
+        except httpx.HTTPError as e:
+            error_context = {
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'request_url': f"{pg_settings.rest_url}/rest/v1/{table_name}",
+                'request_data': payload
+            }
+            raise RuntimeError(f"HTTP error during Supabase insert: {error_context}")
+        except Exception as e:
+            error_context = {
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'traceback': getattr(e, '__traceback__', None)
+            }
+            raise RuntimeError(f"Unexpected error during Supabase insert: {error_context}")
+
+
+# %% Update data
+async def sbase_update(update_fields: dict, table_name: str, **kwargs):
+    """
+    Async function to update data in Supabase REST API.
+
+    Args:
+        update_fields (dict): Dictionary of fields to update
+        table_name (str): Name of the Supabase table
+        **kwargs: Filtering conditions for the update query
+
+    Returns:
+        bool: True if update was successful
+
+    Raises:
+        ValueError: If the Supabase response contains an error
+        RuntimeError: For other unexpected errors during the API call
+    """
+    # Convert kwargs to Supabase REST filter
+    rest_filter = sql_to_supabase_rest(**kwargs)
+
+    # Use AsyncClient for async HTTP requests
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.patch(
+                f"{pg_settings.rest_url}/rest/v1/{table_name}?{rest_filter}", 
+                headers=HEADERS,
+                json=update_fields
+            )
+            
+            # Check for successful update (No Content)
+            if response.status_code == 204:
+                return True
+            
+            # Parse response for potential error details
+            try:
+                response_data = response.json()
+            except ValueError:
+                response_data = {}
+            
+            # Raise error with status code and any available error details
+            error_message = f"Update failed with status code {response.status_code}"
+            if 'message' in response_data:
+                error_message += f": {response_data['message']}"
+            
+            raise ValueError(error_message)
+        
+        except httpx.RequestError as e:
+            # Handle network-related errors
+            raise RuntimeError(f"Network error occurred: {str(e)}")
+        except ValueError as ve:
+            # Re-raise ValueError from Supabase response
+            raise
+        except Exception as e:
+            # Catch any other unexpected errors
+            raise RuntimeError(f"Unexpected error: {str(e)}")
+
+# %% SQL condition from KWargs
