@@ -16,8 +16,9 @@ from psycopg_pool import AsyncConnectionPool
 from pywa.types import Message
 from pywa_async import WhatsApp, filters
 from utils_common.thread_management import ThreadHandler
-from utils_common.live_location.models import Location
+from ordelo_datamodels.location_models import Location
 import pickle
+from watomation.routers import delivery_hooks
 
 from config import (
     project_settings,
@@ -77,7 +78,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="OrdeloAgent", lifespan=lifespan)
+app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
+
 recipient='447448440754'
+
+# Mount the delivery hooks router
+app.mount("/delivery-hooks", delivery_hooks.router)
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
@@ -90,7 +96,8 @@ if __name__ == "__main__":
         server=app,
         verify_token=waba_business_settings.verify_token,
         phone_id=waba_business_settings.phone_id,
-        callback_url=waba_business_settings.callback_url,
+        # callback_url=waba_business_settings.callback_url,
+        webhook_challenge_delay=5,
         app_id=waba_business_settings.app_id,
         app_secret=waba_business_settings.app_secret,
         continue_handling=False,
@@ -102,6 +109,7 @@ else:
         verify_token=waba_business_settings.verify_token,
         phone_id=waba_business_settings.phone_id,
         callback_url=waba_business_settings.callback_url,
+        webhook_challenge_delay=5,
         app_id=waba_business_settings.app_id,
         app_secret=waba_business_settings.app_secret,
         continue_handling=False,
@@ -228,6 +236,26 @@ async def get_config(request: Request):
     return templates.TemplateResponse("get-config.html", {"request": request, "start_href": start_href, "stop_href": stop_href})
 
 
+@wa.on_message()
+async def echo_msg(wa: WhatsApp, msg: Message):
+    recipient = msg.sender
+    logger.info(msg)
+    await wa.send_text(
+        to=recipient,
+        text=msg.text.lower()
+    )
+
+@wa.on_callback_button()
+async def callback_selection(wa: WhatsApp, msg: Message):
+    recipient = msg.sender
+    
+    logger.info(msg)
+    logger.info(msg.data)
+    logger.info(msg.title)
+    # await wa.send_text(
+    #     to=recipient,
+    #     text=msg.text.lower()
+    # )
 
 # %% WA Overrides - reset, payment complete, reservation confirmation
 

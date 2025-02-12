@@ -20,7 +20,7 @@ def generate_config_href(config: dict) -> str:
 
 
 # %% Driver Senders
-async def send_driver_start_job_link(
+async def send_start_live_tracking_link(
     recipient: str,
     _async_wa_client: WhatsApp = _async_wa_client,
 ):
@@ -181,6 +181,7 @@ async def send_delayed_text(recipient: str, text: str, wait_time: int=3):
     """
     await asyncio.sleep(wait_time)
     await _async_wa_client.send_text(to=recipient, text=text)
+
 
 # %% Send product sections
 async def send_product_sections(

@@ -197,7 +197,15 @@ async def sbase_insert(table_name: str, payload: dict):
                 headers=HEADERS,
                 json=payload,
             )
-            return response.status_code == 201
+            if response.status_code == 201:
+                return True
+            error_context = {
+                'status_code': response.status_code,
+                'error_response': response.text,
+                'request_url': f"{pg_settings.rest_url}/rest/v1/{table_name}",
+                'request_data': payload
+            }
+            raise RuntimeError(f"Supabase insert failed: {error_context}")
             
         except httpx.HTTPError as e:
             error_context = {

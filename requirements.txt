@@ -25,6 +25,8 @@ pyarrow==19.0.0
 gspread
 # utilities
 requests
+httpx
+pytest-asyncio
 annotated-types
 python-dotenv
 typing_extensions

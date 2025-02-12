@@ -50,8 +50,6 @@ CREATE INDEX IF NOT EXISTS idx_location_event_order_number ON location_event(ord
 CREATE INDEX IF NOT EXISTS idx_location_event_tst ON location_event(tst);
 CREATE INDEX IF NOT EXISTS idx_location_event_dt ON location_event(dt);
 
-
-
 -- Getting distance between two locations
 select ST_DistanceSphere(
     ST_MakePoint(0.10458276590699943, 51.361073759134904), 
