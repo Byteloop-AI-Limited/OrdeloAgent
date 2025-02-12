@@ -19,51 +19,24 @@ from utils_common.lg_utils import (
 from ordelo.state import AgentState
 from config import logger
 from utils_common.wa_send.wa_senders import send_order_reciept_wa, send_catalog
+from utils_common.db_utils.sbase_rest_ops import sbase_get
+from ordelo_datamodels.delivery_pymodels import DeliveryDetail
+from datetime import datetime
+import json 
+import base64
 
 
 # %% Create Tools
-async def dispatch_delivery_job(driver_ids: List[str], delivery_dispatch: dict) -> dict:
-    """
-    Dispatches delivery jobs to available drivers asynchronously.
-    
-    Sends delivery details to drivers for review and acceptance.
 
-    Args:
-        driver_ids (List[str]): IDs of drivers to receive dispatch
-        delivery_dispatch (dict): Job details containing:
-            - restaurant_location: Address and coordinates dict
-            - customer_location: Delivery address and coordinates dict
-            - distance: Trip distance in km
-            - payout: Job payout amount
-            - additional_notes: Optional instructions
+def generate_config_href(config: dict) -> str:
+    config_json = json.dumps(config)
+    config_base64 = base64.b64encode(config_json.encode()).decode()
+    return f"owntracks:///config?inline={config_base64}"
 
-    Returns:
-        dict: Contains dispatch_id, timestamp, and target_drivers list
-    """
-    pass
-
-async def capture_delivery_job_acceptance(dispatch_id: str, driver_id: str) -> dict:
-    """
-    Records a driver's acceptance of a dispatched delivery job asynchronously.
-    
-    When a driver indicates they want to accept a job, this function validates 
-    the dispatch is still available and records their acceptance, preventing
-    other drivers from accepting the same job.
-
-    Args:
-        dispatch_id (str): Unique identifier of the dispatched delivery job
-        driver_id (str): Unique identifier of the driver accepting the job
-
-    Returns:
-        dict: A dictionary containing:
-            - acceptance_id: Unique identifier for this acceptance
-            - timestamp: UTC timestamp of when acceptance was recorded
-            - status: String indicating success or reason for failure
-            - next_steps: Dict containing instructions for the driver
-    """
-    pass
-
-async def send_start_live_tracking_link(dispatch_id: str, driver_id: str) -> dict:
+async def send_start_live_tracking_link(
+    dispatch_id: str, 
+    driver_id: str
+    ) -> dict:
     """
     Generates and sends a URL for initiating live tracking on the driver's device.
     
@@ -81,7 +54,50 @@ async def send_start_live_tracking_link(dispatch_id: str, driver_id: str) -> dic
             - expiry: UTC timestamp when the URL expires
             - config_params: Dict of tracking configuration parameters
     """
+    _delivery_detail = sbase_get("delivery_dispatch", dispatch_id=dispatch_id)
+    delivery_detail = DeliveryDetail(**_delivery_detail)
+
+    waypoints = [
+        {
+            "_type": "waypoint",
+            "tst": int(datetime.now().timestamp()),
+            "rid": "restaurant",
+            "desc": "restaurant",
+            "rad": 10,
+            "lat": delivery_detail.rest_lat,
+            "lon": delivery_detail.rest_lon
+        },
+        {
+            "_type": "waypoint",
+            "tst": int(datetime.now().timestamp()),
+            "rid": "customer",
+            "desc": "customer",
+            "rad": 10,
+            "lat": delivery_detail.customer_lat,
+            "lon": delivery_detail.customer_lon
+        },
+        ]
+
+    start_job_config = {
+        "_type": "configuration",
+        "mode": 3,
+        "allowRemoteLocation": True,
+        "usePassword" : False,
+        "monitoring": 2,
+        "username": "447448440754",
+        "deviceId": "447448440754-order123",
+        "password": "",
+        "url": "https://live-track.byteloop.ai/pub",
+        "locatorDisplacement": 10,
+        "locatorInterval" : 10,
+        "waypoints": waypoints
+    }
+    # Encode config as href
+    start_href = generate_config_href(start_job_config)
+    
     pass
+
+# %% 
 
 async def verify_delivery_confirmation_code(dispatch_id: str, driver_id: str, code: str) -> dict:
     """
@@ -127,13 +143,9 @@ async def send_end_live_tracking_link(dispatch_id: str, driver_id: str) -> dict:
 with open(f"{project_settings.project_root}/ordelo/agents/driver_agent.md", "r") as file:
     driver_agent_prompt = file.read()
 
-# %%
-type(driver_agent_prompt)
 
-# %%)
+# %%
 _driver_agent_tools = [
-    dispatch_delivery_job,
-    capture_delivery_job_acceptance,
     send_start_live_tracking_link,
     verify_delivery_confirmation_code,
     send_end_live_tracking_link,
@@ -149,7 +161,7 @@ driver_agent = create_agent_w_sys_prompt_n_tools(
 # %%
 ip = {
     "messages": [
-        HumanMessage("hi, what can you help me with?")
+        HumanMessage("HI, I have accepted the delivery job. What's next?")
     ]
 }
 driver_agent.invoke(ip)
