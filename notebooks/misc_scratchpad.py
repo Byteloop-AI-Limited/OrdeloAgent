@@ -1,7 +1,18 @@
 # %%
 from config import pg_settings
 from psycopg_pool import AsyncConnectionPool
+from utils_common.db_utils.sbase_rest_ops import sbase_insert
 
+# %%
+
+payload = {
+    "order_number": "ORD123456",
+    "driver_id": "447448440754",
+    "driver_payout": 5.00,
+    "distance": 1.5,
+    "status": "unassigned"
+}
+await sbase_insert("delivery_dispatch", payload)
 
 # %%
 

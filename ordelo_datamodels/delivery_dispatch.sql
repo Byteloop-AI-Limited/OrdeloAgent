@@ -1,10 +1,18 @@
-CREATE TABLE delivery_dispatch (
-    dispatch_id      SERIAL PRIMARY KEY,
+CREATE TABLE delivery_pricing_detail (
+    order_number     VARCHAR(100) NOT NULL,
+    distance         DOUBLE PRECISION NOT NULL,
+    byteloop_cost    DOUBLE PRECISION NOT NULL,
+    rest_cost    DOUBLE PRECISION NOT NULL,
+    driver_payout    DOUBLE PRECISION NOT NULL,
+    dt               DATE NOT NULL DEFAULT CURRENT_DATE,
+    ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+);
+
+CREATE TABLE delivery_detail (
     order_number     VARCHAR(100) NOT NULL,
     driver_id        VARCHAR(12) NOT NULL,
     driver_payout    DOUBLE PRECISION NOT NULL,
     distance         DOUBLE PRECISION NOT NULL,
-    recipient        VARCHAR(12) NOT NULL,
     rest_id          VARCHAR(50) NOT NULL, -- restaurant id
     rest_name        TEXT NOT NULL,
     rest_location    POINT NOT NULL,   -- represents (lat, lon)
@@ -13,6 +21,17 @@ CREATE TABLE delivery_dispatch (
     customer_name        TEXT NOT NULL,
     customer_location    POINT NOT NULL,   -- represents (lat, lon)
     customer_address     TEXT NOT NULL,
+    dt               DATE NOT NULL DEFAULT CURRENT_DATE,
+    ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE delivery_dispatch (
+    dispatch_id      SERIAL PRIMARY KEY,
+    order_number     VARCHAR(100) NOT NULL,
+    driver_id        VARCHAR(12) NOT NULL,
+    driver_payout    DOUBLE PRECISION NOT NULL,
+    distance         DOUBLE PRECISION NOT NULL,
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status  VARCHAR(50) NOT NULL
@@ -27,8 +46,19 @@ CREATE TABLE delivery_inflight (
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (dispatch_id)
-) WITH (OIDS=FALSE);
+);
 
+
+-- Create a table for the location events
+CREATE TABLE delivery_inflight_location_events (
+    dispatch_id    VARCHAR(100) NOT NULL,
+    order_number   VARCHAR(100) NOT NULL,
+    driver_id      VARCHAR(12) NOT NULL,
+    cust_id        VARCHAR(12) NOT NULL,
+    event_type     VARCHAR(50) NOT NULL, -- 'res_enter', 'res_leave',  'cust_enter', 'cust_leave'
+    dt             DATE NOT NULL,
+    ddts           TIMESTAMP NOT NULL
+);
 
 -- Create a trigger function to handle the insertion and deletion logic
 CREATE OR REPLACE FUNCTION handle_delivery_dispatch_changes()
@@ -60,16 +90,7 @@ FOR EACH ROW
 EXECUTE FUNCTION handle_delivery_dispatch_changes();
 
 
--- Create a table for the location events
-CREATE TABLE delivery_inflight_location_events (
-    dispatch_id    VARCHAR(100) NOT NULL,
-    order_number   VARCHAR(100) NOT NULL,
-    driver_id      VARCHAR(12) NOT NULL,
-    cust_id        VARCHAR(12) NOT NULL,
-    event_type     VARCHAR(50) NOT NULL, -- 'res_enter', 'res_leave',  'cust_enter', 'cust_leave'
-    dt             DATE NOT,
-    ddts           TIMESTAMP NOT NULL
-);
+
 
 -- For rest insert 
 ALTER TABLE delivery_dispatch ENABLE ROW LEVEL SECURITY;
