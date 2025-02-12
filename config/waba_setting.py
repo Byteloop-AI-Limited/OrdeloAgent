@@ -72,6 +72,7 @@ class WabaBusinessSettings(BaseSettings):
 # %%
 # waba_business_setting = WabaBusinessSettings.with_env_prefix("LAI_WAA_")
 waba_business_settings = WabaBusinessSettings.with_env_prefix("BLOOP_WAA_")
+_async_wa_client = waba_business_settings.create_wa()
 
 # %%
 class WabaCatalogSettings(BaseSettings):
@@ -283,7 +284,6 @@ def update_inventory_following_checkout(
 
 
 # %%
-
 
 class ProductUpdate(BaseModel):
     sku: str

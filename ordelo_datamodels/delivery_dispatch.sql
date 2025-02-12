@@ -9,18 +9,20 @@ CREATE TABLE delivery_pricing_detail (
 );
 
 CREATE TABLE delivery_detail (
-    order_number     VARCHAR(100) NOT NULL,
-    driver_id        VARCHAR(12) NOT NULL,
+    order_number     VARCHAR(100) PRIMARY KEY,
     driver_payout    DOUBLE PRECISION NOT NULL,
     distance         DOUBLE PRECISION NOT NULL,
     rest_id          VARCHAR(50) NOT NULL, -- restaurant id
     rest_name        TEXT NOT NULL,
-    rest_location    POINT NOT NULL,   -- represents (lat, lon)
+    rest_lon         DOUBLE PRECISION NOT NULL,
+    rest_lat         DOUBLE PRECISION NOT NULL,
     rest_address     TEXT NOT NULL,
     customer_id          VARCHAR(50) NOT NULL, -- customer id
     customer_name        TEXT NOT NULL,
-    customer_location    POINT NOT NULL,   -- represents (lat, lon)
+    customer_lon         DOUBLE PRECISION NOT NULL,
+    customer_lat         DOUBLE PRECISION NOT NULL,
     customer_address     TEXT NOT NULL,
+    status  VARCHAR(50) NOT NULL, -- 'unassigned', 'assigned', 'in_progress', 'completed', 'cancelled'
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -32,9 +34,9 @@ CREATE TABLE delivery_dispatch (
     driver_id        VARCHAR(12) NOT NULL,
     driver_payout    DOUBLE PRECISION NOT NULL,
     distance         DOUBLE PRECISION NOT NULL,
+    status  VARCHAR(50) NOT NULL,
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
-    ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    status  VARCHAR(50) NOT NULL
+    ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 

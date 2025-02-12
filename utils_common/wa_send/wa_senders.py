@@ -1,15 +1,15 @@
 # %%
-from config import waba_business_settings, waba_cat_settings
+from config import waba_business_settings, waba_cat_settings, _async_wa_client
 from typing import List, Optional
-from pywa.types import Template as Temp
+from pywa.types import Template as Temp, Button, ButtonUrl
 from pywa_async import WhatsApp
 import asyncio
-from pywa.types import ProductsSection, ButtonUrl
+from pywa.types import ProductsSection
 import json
 import base64
-from datetime import datetime
-
-_async_wa_client = waba_business_settings.create_wa()
+from datetime import datetime, timedelta
+from ordelo_datamodels.delivery_pymodels import DeliveryDetail
+from utils_common.db_utils.sbase_rest_ops import sbase_update, sbase_get
 
 # %%
 def generate_config_href(config: dict) -> str:
@@ -17,11 +17,122 @@ def generate_config_href(config: dict) -> str:
     config_base64 = base64.b64encode(config_json.encode()).decode()
     return f"owntracks:///config?inline={config_base64}"
 
+# %% Send Delivery Dispatch
+async def wa_send_delivery_dispatch(
+    recipient: str,
+    delivery_detail: DeliveryDetail,
+    dispatch_id: int,
+    _async_wa_client: WhatsApp = _async_wa_client,
+):
+    order_number = delivery_detail.order_number
 
+    accept_pl = {
+        "command": "/dispatchResponse",
+        "order_number": order_number,
+        "dispatch_id": dispatch_id,
+        "status": "accepted"
+    }
+
+    decline_pl = {
+        "command": "/dispatchResponse",
+        "order_number": order_number,
+        "dispatch_id": dispatch_id,
+        "status": "declined"
+    }
+
+    # send restaurant location
+    await _async_wa_client.send_location(
+        to=recipient,
+        latitude=delivery_detail.rest_lat,
+        longitude=delivery_detail.rest_lon,
+        name= f"{delivery_detail.rest_name} Pick Up",
+        address= delivery_detail.rest_address
+    )
+
+    # send customer location
+    await _async_wa_client.send_location(
+        to=recipient,
+        latitude=delivery_detail.customer_lat,
+        longitude=delivery_detail.customer_lon,
+        name=f"{delivery_detail.customer_name} Drop Off",
+        address=delivery_detail.customer_address,
+    )
+
+    pickup_time = (datetime.now() + timedelta(minutes=25)).strftime("%I:%M %p")
+    # print(delivery_detail.map_url)
+
+    # msg =await _async_wa_client.send_message(
+    #     to=recipient,
+    #     header='Job details: 1.2 Miles £3.5',
+    #     text=f'Pickup time - {pickup_time}',
+    #     reply_to_message_id=None,
+    #     footer='⚡Ordelo',
+    #     buttons=ButtonUrl(title='View on Map', url=delivery_detail.google_maps_url),
+    # )
+   
+    wa_text = f"""
+    Pickup time - *{pickup_time}*
+
+Pickup location - *{delivery_detail.rest_name}*
+{delivery_detail.rest_address}
+
+Drop off location - *{delivery_detail.customer_name}*
+{delivery_detail.customer_address}
+    """
+    await _async_wa_client.send_message(
+        to=recipient,
+        # reply_to_message_id=msg.id,
+        header=f'1.2 Miles, £3.5, @{pickup_time}',
+        text=wa_text,
+        footer='⚡Ordelo',
+        buttons=[
+            Button(title='Accept', callback_data=json.dumps(accept_pl)),
+            Button(title='Decline', callback_data=json.dumps(decline_pl)),
+        ]
+    )
+
+
+# %%
+async def wa_send_delivery_dispatch_response(
+    recipient: str,
+    callback_data: dict,
+    _async_wa_client: WhatsApp = _async_wa_client,
+):
+    _dispatch_id = callback_data['dispatch_id']
+    _order_number = callback_data['order_number']
+
+    if callback_data['status'] == 'declined':
+        await sbase_update(
+            update_fields={"status": "declined"},
+            table_name="delivery_dispatch",
+            dispatch_id=_dispatch_id
+        )
+
+    elif callback_data['status'] == 'accepted':
+        delivery_dispatch = await sbase_get("delivery_dispatch", dispatch_id=_dispatch_id)
+
+        if delivery_dispatch[0]['status'] == 'accepted':
+            await _async_wa_client.send_message(
+                to=recipient,
+                text='Sorry, This job has already been assigned'
+            )
+        else:
+            # No one has accepted the job yet, so update the status
+            await sbase_update(
+                update_fields={"status": "accepted"},
+                table_name="delivery_dispatch",
+                dispatch_id=_dispatch_id
+            )
+            await sbase_update(
+                update_fields={"status": "accepted"},
+                table_name="delivery_detail",
+                order_number=_order_number
+            )
 
 # %% Driver Senders
 async def send_start_live_tracking_link(
     recipient: str,
+    delivery_detail: DeliveryDetail,
     _async_wa_client: WhatsApp = _async_wa_client,
 ):
     waypoints = [

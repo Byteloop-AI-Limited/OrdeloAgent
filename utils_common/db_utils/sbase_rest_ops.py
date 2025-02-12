@@ -280,4 +280,54 @@ async def sbase_update(update_fields: dict, table_name: str, **kwargs):
             # Catch any other unexpected errors
             raise RuntimeError(f"Unexpected error: {str(e)}")
 
+# %% Delete data
+async def sbase_delete(table_name: str, **kwargs):
+    """
+    Async function to delete data from Supabase REST API.
+
+    Args:
+        table_name (str): Name of the Supabase table
+        **kwargs: Key-value pairs for filtering records to delete
+
+    Returns:
+        bool: True if deletion was successful
+
+    Raises:
+        ValueError: If the Supabase response contains an error
+        RuntimeError: For other unexpected errors during the API call
+    """
+    rest_filter = sql_to_supabase_rest(**kwargs)
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.delete(
+                f"{pg_settings.rest_url}/rest/v1/{table_name}",
+                headers=HEADERS,
+                params=rest_filter
+            )
+            if response.status_code == 204:
+                return True
+            error_context = {
+                'status_code': response.status_code,
+                'error_response': response.text,
+                'request_url': f"{pg_settings.rest_url}/rest/v1/{table_name}",
+                'request_params': rest_filter
+            }
+            raise RuntimeError(f"Supabase delete failed: {error_context}")
+            
+        except httpx.HTTPError as e:
+            error_context = {
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'request_url': f"{pg_settings.rest_url}/rest/v1/{table_name}",
+                'request_params': rest_filter
+            }
+            raise RuntimeError(f"HTTP error during Supabase delete: {error_context}")
+        except Exception as e:
+            error_context = {
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'traceback': getattr(e, '__traceback__', None)
+            }
+            raise RuntimeError(f"Unexpected error during Supabase delete: {error_context}")
+
 # %% SQL condition from KWargs

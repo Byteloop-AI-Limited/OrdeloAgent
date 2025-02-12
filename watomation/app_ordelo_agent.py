@@ -27,6 +27,9 @@ from config import (
     waba_business_settings,
 )
 
+from utils_common.wa_send.wa_senders import wa_send_delivery_dispatch_response
+from utils_common.db_utils.sbase_rest_ops import sbase_insert, sbase_update, sbase_get
+
 # %% Setup html templates
 templates = Jinja2Templates(directory=str(f"{project_settings.project_root}/elai/pages_template"))
 
@@ -90,6 +93,7 @@ if __name__ == "__main__":
 
     project_root = project_settings.project_root
     load_dotenv(f"{project_root}/.env")
+    logger.info("Starting OrdeloAgent locally ...")
 
     wa: WhatsApp = WhatsApp(
         token=waba_business_settings.token,
@@ -165,7 +169,7 @@ async def receive_pub(request: Request):
         raise HTTPException(status_code=500, detail=f"Insertion failed. Debug info: {debug_info}")
     
     
-
+# %% Config page
 # Insert the function definition for generating the configuration URL
 def generate_config_href(config: dict) -> str:
     config_json = json.dumps(config)
@@ -236,32 +240,14 @@ async def get_config(request: Request):
     return templates.TemplateResponse("get-config.html", {"request": request, "start_href": start_href, "stop_href": stop_href})
 
 
-@wa.on_message()
-async def echo_msg(wa: WhatsApp, msg: Message):
-    recipient = msg.sender
-    logger.info(msg)
-    await wa.send_text(
-        to=recipient,
-        text=msg.text.lower()
-    )
-
-@wa.on_callback_button()
-async def callback_selection(wa: WhatsApp, msg: Message):
-    recipient = msg.sender
-    
-    logger.info(msg)
-    logger.info(msg.data)
-    logger.info(msg.title)
-    # await wa.send_text(
-    #     to=recipient,
-    #     text=msg.text.lower()
-    # )
 
 # %% WA Overrides - reset, payment complete, reservation confirmation
 
+TEST_DELIVERY = filters.contains("/testdelivery", ignore_case=True)
 WHEN_RESET = filters.contains("/reset", ignore_case=True)
 PAYMENT_COMPLETE = filters.contains("/paid", ignore_case=True)
 RESERVATION_CONFIRMED = filters.contains("/confirm", ignore_case=True)
+IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 
 # ADMIN_LIST = ['447448440754']
 ADMIN_LIST = []
@@ -271,6 +257,17 @@ def is_update_availability_admin_msg(_: WhatsApp, msg: Message):
     is_order = bool(msg.order)
     return is_sender_admin and is_order
 
+@wa.on_message(TEST_DELIVERY)
+async def test_delivery(wa: WhatsApp, msg: Message):
+    # Create a delivery dispatch
+    delivery_dispatch = {
+        'order_number': 'test123',
+        'driver_id': "447448440754",
+        'driver_payout': 0.5,
+        'distance': 0.5,
+        'status': 'unassigned'
+    }
+    await sbase_insert("delivery_dispatch", delivery_dispatch)
 
 
 @wa.on_message(WHEN_RESET)
@@ -283,6 +280,36 @@ async def reset_thread(wa: WhatsApp, msg: Message):
     await thread_handler.make_threads_inactive(from_number=recipient)
     await wa.send_message(to=recipient, text="Starting new conversation")
 
+
+# %% WA Handlers
+
+@wa.on_message()
+async def echo_msg(wa: WhatsApp, msg: Message):
+    recipient = msg.sender
+    logger.info(msg)
+    await wa.send_text(
+        to=recipient,
+        text=msg.text.lower()
+    )
+
+@wa.on_callback_button(IS_DISPATCH_RESPONSE)
+async def callback_selection(wa: WhatsApp, msg: Message):
+    recipient = msg.sender
+    callback_data = json.loads(msg.data)
+    _dispatch_id = callback_data['dispatch_id']
+
+    await wa_send_delivery_dispatch_response(
+        recipient=recipient,
+        callback_data=callback_data
+    )
+
+    logger.info(callback_data)
+    logger.info(msg.data)
+    logger.info(msg.title)
+    # await wa.send_text(
+    #     to=recipient,
+    #     text=msg.text.lower()
+    # )
 
 # %%
 

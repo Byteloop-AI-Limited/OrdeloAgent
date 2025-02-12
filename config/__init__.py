@@ -3,6 +3,7 @@ __all__ = [
     "get_project_root",
     "waba_cat_settings", 
     "waba_business_settings",
+    "_async_wa_client", 
     "ms_settings",
     "cat_conn",
     "g_client",
@@ -10,7 +11,7 @@ __all__ = [
     "logger"
 ]
 from .project_setting import project_settings, get_project_root
-from .waba_setting import waba_business_settings, waba_cat_settings
+from .waba_setting import waba_business_settings, waba_cat_settings, _async_wa_client
 from .logger_setting import logger
 from .ms_setting import ms_settings
 from .google_setting import g_client
