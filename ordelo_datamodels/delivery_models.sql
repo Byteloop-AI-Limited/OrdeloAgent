@@ -23,6 +23,7 @@ CREATE TABLE delivery_detail (
     customer_lat         DOUBLE PRECISION NOT NULL,
     customer_address     TEXT NOT NULL,
     status  VARCHAR(50) NOT NULL, -- 'unassigned', 'assigned', 'in_progress', 'completed', 'cancelled'
+    dispatch_id     VARCHAR(100),
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

@@ -44,9 +44,7 @@ logging.basicConfig(
 POOL_MIN_SIZE = 10
 POOL_MAX_SIZE = 25
 
-# %% Define Lifespan
-
-
+# %% Define Lifespan Events
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize the pool
@@ -79,6 +77,7 @@ async def lifespan(app: FastAPI):
         # Close the pool on shutdown
         await pool.close()
 
+# %% Define Fastapi app with lifespan and routers
 
 app = FastAPI(title="OrdeloAgent", lifespan=lifespan)
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
@@ -88,6 +87,7 @@ recipient='447448440754'
 # Mount the delivery hooks router
 app.mount("/delivery-hooks", delivery_hooks.router)
 
+# %% Local runs
 if __name__ == "__main__":
     from dotenv import load_dotenv
 

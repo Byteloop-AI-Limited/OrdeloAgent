@@ -12,10 +12,7 @@ from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from utils_common.db_utils.sbase_rest_ops import sbase_update, sbase_get
 
 # %%
-def generate_config_href(config: dict) -> str:
-    config_json = json.dumps(config)
-    config_base64 = base64.b64encode(config_json.encode()).decode()
-    return f"owntracks:///config?inline={config_base64}"
+
 
 # %% Send Delivery Dispatch
 async def wa_send_delivery_dispatch(
@@ -92,7 +89,7 @@ Drop off location - *{delivery_detail.customer_name}*
     )
 
 
-# %%
+# %% Send Delivery Dispatch Response
 async def wa_send_delivery_dispatch_response(
     recipient: str,
     callback_data: dict,
@@ -124,12 +121,14 @@ async def wa_send_delivery_dispatch_response(
                 dispatch_id=_dispatch_id
             )
             await sbase_update(
-                update_fields={"status": "accepted"},
+                update_fields={"status": "accepted", "dispatch_id": _dispatch_id},
                 table_name="delivery_detail",
                 order_number=_order_number
             )
 
-# %% Driver Senders
+
+# %% Send Start Live Tracking Link
+
 async def send_start_live_tracking_link(
     recipient: str,
     delivery_detail: DeliveryDetail,
@@ -142,8 +141,8 @@ async def send_start_live_tracking_link(
             "rid": "restaurant",
             "desc": "restaurant",
             "rad": 10,
-            "lat": 51.354107,
-            "lon": 0.095921
+            "lat": delivery_detail.rest_lat,
+            "lon": delivery_detail.rest_lon
         },
         {
             "_type": "waypoint",
@@ -151,8 +150,8 @@ async def send_start_live_tracking_link(
             "rid": "customer",
             "desc": "customer",
             "rad": 10,
-            "lat": 51.37367242361126,
-            "lon": 0.09653313354081415
+            "lat": delivery_detail.customer_lat,
+            "lon": delivery_detail.customer_lon
         },
         ]
 
@@ -175,7 +174,7 @@ async def send_start_live_tracking_link(
 
     await _async_wa_client.send_message(
         to=recipient,
-        text=f"Start Job",
+        text=f"Start Live Tracking",
         reply_to_message_id=None,
         buttons=ButtonUrl(title="Click Here", url=start_href)
     )
