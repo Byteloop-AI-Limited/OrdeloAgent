@@ -9,34 +9,44 @@ from utils_common.db_utils.sbase_rest_ops import sbase_insert
 class RestaurantMaster(BaseModel):
     rest_id: str = Field(..., max_length=50)
     rest_name: str
-    rest_location: str
+    rest_lon: float
+    rest_lat: float
     rest_address: str
 
 
 class CustomerMaster(BaseModel):
     customer_id: str = Field(..., max_length=50)
     customer_name: str
-    customer_location: str
+    customer_lon: float
+    customer_lat: float
     customer_address: str
 
 
-class DeliveryDispatch(BaseModel):
+class DeliveryDetail(BaseModel):
     order_number: str = Field(..., max_length=100)
-    driver_id: str = Field(..., max_length=12)
     driver_payout: float = 0.0
     distance: float = 0.0
-    recipient: str = Field(..., max_length=12)
     rest_id: str = Field(..., max_length=50)
     rest_name: str
-    rest_location: str
+    rest_lon: float
+    rest_lat: float
     rest_address: str
     customer_id: str = Field(..., max_length=50)
     customer_name: str
-    customer_location: str
+    customer_lon: float
+    customer_lat: float
     customer_address: str
     status: str = Field(..., max_length=50)
 
-# %%
+    @property
+    def google_maps_url(self) -> str:
+        """Generate Google Maps URL for navigation from restaurant to customer."""
+        return f"https://maps.google.com/maps?dirflg=d&saddr={self.rest_lat},{self.rest_lon}&daddr={self.customer_lat},{self.customer_lon}"
+
+
+
+""" Test
+#%%
 elai_basingstoke = RestaurantMaster(
     **{
         "rest_id": "elai_basingstoke", 
@@ -50,12 +60,9 @@ elai_customer = CustomerMaster(
         "customer_id": "447448440754",
         "customer_name": "10hith",
         "customer_location": "(0.09590008054155555, 51.35408136953724)",
-        "customer_address": "456 Elm St, New York, NY",
+        "customer_address": "27 Waring Drive, Orpington, BR66DN",
     })
 
-
-""" Test
-#%%
 insert_data = {
     "order_number": "10h123456",
     "driver_id": "DRIVER01",
@@ -66,11 +73,11 @@ insert_data = {
 }
 
 # elai_customer = CustomerInfo(**insert_data)
-_delivery_dispatch = DeliveryDispatch(
+_delivery_detail = DeliveryDetail(
     **insert_data, 
     **elai_basingstoke.model_dump(),
     **elai_customer.model_dump()
     )
-_delivery_dispatch.model_dump()
+_delivery_detail.model_dump()
 # %%
 """

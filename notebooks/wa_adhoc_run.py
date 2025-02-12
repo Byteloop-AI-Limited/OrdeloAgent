@@ -30,9 +30,8 @@ wa.send_message(
     to=recipient,
     text='make selection',
     buttons=[
-        Button(title='⬇️ Download', callback_data=f'dl:ola'),
-        Button(title='💬 Comments', callback_data=f'cmnts:ola'),
-        Button(title='🎬 Info', callback_data=f'info:sola'),
+        Button(title='Accept', callback_data=f'dl:ola'),
+        Button(title='Decline', callback_data=f'cmnts:ola'),
     ]
 )
 # %% Send documents 
@@ -81,6 +80,7 @@ config_json = json.dumps(config)
 config_base64 = base64.b64encode(config_json.encode()).decode()
 href = f"owntracks:///config?inline={config_base64}"
 
+
 # Send as interactive message with URL button
 wa.send_message(
     to=recipient,
@@ -89,6 +89,30 @@ wa.send_message(
     buttons=ButtonUrl(title="Start Job", url=href)
 )
 
+
+# %%
+msg_id = wa.send_message(
+        to=recipient,
+        header='Job details: 1.2 Miles £3.5',
+        text=f'Do you accept the job?',
+        reply_to_message_id=None,
+        footer='⚡Ordelo',
+        buttons=ButtonUrl(title='View on Map', url="https://www.google.com/maps"),
+    )
+
+# %%
+wa.send_message(
+    to=recipient,
+    reply_to_message_id=msg_id.id, 
+    text='Accepted',
+    buttons=[
+            Button(title='Accept', callback_data="sadf"),
+            Button(title='Decline', callback_data="asdf"),
+    ]
+    )
+
+# %%
+msg_id.id
 # %%
 current_location="https://maps.google.com/?q=Order('1234')@51.354126,0.099301"
 
