@@ -1,6 +1,16 @@
 # %%
 from ordelo_datamodels.delivery_pymodels import RestaurantMaster, CustomerMaster, DeliveryDetail
 from utils_common.db_utils.sbase_rest_ops import sbase_insert, sbase_delete, sbase_get
+
+# %%
+delivery_dispatch = {
+    'order_number': 'test123',
+    'rider_id': "447448440754",
+    'rider_payout': 0.5,
+    'distance': 0.5,
+    'status': 'unassigned'
+}
+await sbase_insert("delivery_dispatch", delivery_dispatch)
 # %%
 
 warren_road = RestaurantMaster(

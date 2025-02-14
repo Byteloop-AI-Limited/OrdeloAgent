@@ -27,13 +27,11 @@ recipient = 447448440754
 
 # %% investigate callback data 
 wa.send_message(
-    to=recipient,
-    text='make selection',
-    buttons=[
-        Button(title='Accept', callback_data=f'dl:ola'),
-        Button(title='Decline', callback_data=f'cmnts:ola'),
-    ]
-)
+            to=recipient,
+            text="hi",
+            reply_to_message_id=None,
+            buttons=ButtonUrl(title="Click Here", url="https://google.com")
+        )
 # %% Send documents 
 from pywa import WhatsApp
 import requests

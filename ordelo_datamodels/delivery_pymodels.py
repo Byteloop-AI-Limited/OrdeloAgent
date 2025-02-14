@@ -3,28 +3,13 @@
 from typing import Optional
 from pydantic import BaseModel, Field
 from decimal import Decimal
+from ordelo_datamodels.masterdata_pymodels import RestaurantMaster, CustomerMaster
 from utils_common.db_utils.sbase_rest_ops import sbase_insert
-
-
-class RestaurantMaster(BaseModel):
-    rest_id: str = Field(..., max_length=50)
-    rest_name: str
-    rest_lon: float
-    rest_lat: float
-    rest_address: str
-
-
-class CustomerMaster(BaseModel):
-    customer_id: str = Field(..., max_length=50)
-    customer_name: str
-    customer_lon: float
-    customer_lat: float
-    customer_address: str
 
 
 class DeliveryDetail(BaseModel):
     order_number: str = Field(..., max_length=100)
-    driver_payout: float = 0.0
+    rider_payout: float = 0.0
     distance: float = 0.0
     rest_id: str = Field(..., max_length=50)
     rest_name: str
@@ -36,6 +21,7 @@ class DeliveryDetail(BaseModel):
     customer_lon: float
     customer_lat: float
     customer_address: str
+    dispatch_id: str = Field(..., max_length=50)
     status: str = Field(..., max_length=50)
 
     @property
@@ -44,6 +30,13 @@ class DeliveryDetail(BaseModel):
         return f"https://maps.google.com/maps?dirflg=d&saddr={self.rest_lat},{self.rest_lon}&daddr={self.customer_lat},{self.customer_lon}"
 
 
+class DeliveryDispatch(BaseModel):
+    dispatch_id:int = Field(...)
+    order_number: str = Field(..., max_length=100)
+    rider_id: str = Field(..., max_length=12)
+    rider_payout: float = 0.0
+    distance: float = 0.0
+    status: str = Field(..., max_length=50)
 
 """ Test
 #%%
@@ -65,8 +58,8 @@ elai_customer = CustomerMaster(
 
 insert_data = {
     "order_number": "10h123456",
-    "driver_id": "DRIVER01",
-    "driver_payout": 25.50,
+    "rider_id": "DRIVER01",
+    "rider_payout": 25.50,
     "distance": 10.5,
     "recipient": "RECIPIENT01",
     "status": "Delivered"

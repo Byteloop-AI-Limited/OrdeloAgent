@@ -19,6 +19,9 @@ from utils_common.thread_management import ThreadHandler
 from ordelo_datamodels.location_models import Location
 import pickle
 from watomation.routers import delivery_hooks
+from ordelo.agents.rider_agent import builder
+from langgraph.checkpoint.memory import MemorySaver
+
 
 from config import (
     project_settings,
@@ -27,7 +30,7 @@ from config import (
     waba_business_settings,
 )
 
-from utils_common.wa_send.wa_senders import wa_send_delivery_dispatch_response
+from utils_common.wa_send.wa_senders import process_dispatch_response_from_rider
 from utils_common.db_utils.sbase_rest_ops import sbase_insert, sbase_update, sbase_get
 
 # %% Setup html templates
@@ -63,12 +66,13 @@ async def lifespan(app: FastAPI):
     checkpointer = AsyncPostgresSaver(pool)
     thread_handler = ThreadHandler(pool)
     # graph = builder.compile(checkpointer=checkpointer)
+    graph = builder.compile(checkpointer=MemorySaver())
 
     # Store it in the app state
     app.state.pool = pool
     app.state.checkpointer = checkpointer
     app.state.thread_handler = thread_handler
-    # app.state.graph = graph
+    app.state.graph = graph
 
     # Yield to start the application
     try:
@@ -247,23 +251,15 @@ TEST_DELIVERY = filters.contains("/testdelivery", ignore_case=True)
 WHEN_RESET = filters.contains("/reset", ignore_case=True)
 PAYMENT_COMPLETE = filters.contains("/paid", ignore_case=True)
 RESERVATION_CONFIRMED = filters.contains("/confirm", ignore_case=True)
-IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 
-# ADMIN_LIST = ['447448440754']
-ADMIN_LIST = []
-
-def is_update_availability_admin_msg(_: WhatsApp, msg: Message):
-    is_sender_admin = msg.sender in ADMIN_LIST
-    is_order = bool(msg.order)
-    return is_sender_admin and is_order
 
 @wa.on_message(TEST_DELIVERY)
 async def test_delivery(wa: WhatsApp, msg: Message):
     # Create a delivery dispatch
     delivery_dispatch = {
         'order_number': 'test123',
-        'driver_id': "447448440754",
-        'driver_payout': 0.5,
+        'rider_id': msg.sender,
+        'rider_payout': 0.5,
         'distance': 0.5,
         'status': 'unassigned'
     }
@@ -294,18 +290,19 @@ async def echo_msg(wa: WhatsApp, msg: Message):
 
 @wa.on_callback_button(IS_DISPATCH_RESPONSE)
 async def callback_selection(wa: WhatsApp, msg: Message):
+    """
+    Rider's response to delivery dispatch
+    """
     recipient = msg.sender
     callback_data = json.loads(msg.data)
     _dispatch_id = callback_data['dispatch_id']
 
-    await wa_send_delivery_dispatch_response(
+    # Process Rider's response
+    await process_dispatch_response_from_rider(
         recipient=recipient,
         callback_data=callback_data
     )
 
-    logger.info(callback_data)
-    logger.info(msg.data)
-    logger.info(msg.title)
     # await wa.send_text(
     #     to=recipient,
     #     text=msg.text.lower()

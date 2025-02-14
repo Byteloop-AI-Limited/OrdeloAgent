@@ -90,11 +90,23 @@ Drop off location - *{delivery_detail.customer_name}*
 
 
 # %% Send Delivery Dispatch Response
-async def wa_send_delivery_dispatch_response(
+async def process_dispatch_response_from_rider(
     recipient: str,
     callback_data: dict,
     _async_wa_client: WhatsApp = _async_wa_client,
 ):
+    """
+    Rider's response recieved via WhatsApp. Update detail and dispatch tables.
+    Detail table update triggers as db webhook to delivery-detail-update that will initialize the graph.
+
+    Args:
+        recipient: The phone number of the recipient.
+        callback_data: The callback data containing the dispatch ID and order number.
+        _async_wa_client: An instance of the AsyncWhatsApp client.
+
+    Returns:
+
+    """
     _dispatch_id = callback_data['dispatch_id']
     _order_number = callback_data['order_number']
 
@@ -128,50 +140,17 @@ async def wa_send_delivery_dispatch_response(
 
 
 # %% Send Start Live Tracking Link
-
+# fair and consistent
 async def send_start_live_tracking_link(
     recipient: str,
-    delivery_detail: DeliveryDetail,
+    start_href: str,
     _async_wa_client: WhatsApp = _async_wa_client,
 ):
-    waypoints = [
-        {
-            "_type": "waypoint",
-            "tst": int(datetime.now().timestamp()),
-            "rid": "restaurant",
-            "desc": "restaurant",
-            "rad": 10,
-            "lat": delivery_detail.rest_lat,
-            "lon": delivery_detail.rest_lon
-        },
-        {
-            "_type": "waypoint",
-            "tst": int(datetime.now().timestamp()),
-            "rid": "customer",
-            "desc": "customer",
-            "rad": 10,
-            "lat": delivery_detail.customer_lat,
-            "lon": delivery_detail.customer_lon
-        },
-        ]
-
-    start_job_config = {
-        "_type": "configuration",
-        "mode": 3,
-        "allowRemoteLocation": True,
-        "usePassword" : False,
-        "monitoring": 2,
-        "username": "447448440754",
-        "deviceId": "447448440754-order123",
-        "password": "",
-        "url": "https://live-track.byteloop.ai/pub",
-        "locatorDisplacement": 10,
-        "locatorInterval" : 10,
-        "waypoints": waypoints
-    }
-    # Encode config as href
-    start_href = generate_config_href(start_job_config)
-
+    _text="""
+    Thank you for accepting the job! Please use the live tracking link below to start tracking your delivery.
+    Remember to provide the 2-digit confirmation code after the delivery is completed!
+    Please let me know if you have any questions during the delivery process. 
+    """
     await _async_wa_client.send_message(
         to=recipient,
         text=f"Start Live Tracking",

@@ -26,7 +26,7 @@ BEGIN
   response := (
     SELECT content 
     FROM http_post(
-      'https://live-track.byteloop.ai/delivery-hooks/delivery_dispatch', 
+      'https://live-track.byteloop.ai/delivery-hooks/delivery-dispatch', 
       webhook_payload::text,
       'application/json'
     )
@@ -44,8 +44,9 @@ AFTER INSERT ON public.delivery_dispatch
 FOR EACH ROW
 EXECUTE FUNCTION public.delivery_dispatch_whook();
 
+------------------------------------------------
 -- Trigger for delivery_detail
-
+------------------------------------------------
 CREATE OR REPLACE FUNCTION public.delivery_detail_update_whook()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -63,6 +64,7 @@ BEGIN
       FROM (
         SELECT * FROM delivery_dispatch 
         WHERE order_number=NEW.order_number AND status='accepted'
+        ORDER BY dtts DESC
         LIMIT 1
       ) t
     )
@@ -72,7 +74,7 @@ BEGIN
   response := (
     SELECT content 
     FROM http_post(
-      'https://live-track.byteloop.ai/delivery-hooks/delivery_detail_update', 
+      'https://live-track.byteloop.ai/delivery-hooks/delivery-detail-update', 
       webhook_payload::text,
       'application/json'
     )
@@ -89,3 +91,6 @@ CREATE TRIGGER trigger_delivery_detail_whook
 AFTER UPDATE OF status ON public.delivery_detail
 FOR EACH ROW
 EXECUTE FUNCTION public.delivery_detail_update_whook();
+
+-- trigger_delivery_dispatch_whook
+-- DROP TRIGGER IF EXISTS trigger_delivery_detail_whook ON delivery_detail;

@@ -7,11 +7,7 @@ from typing_extensions import TypedDict
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     wa_user_name: str
-    next_agent: str
-    order_id: str
-    order_summary: dict
-    is_reservation_confirmed: bool
-    is_payment_successful: bool
-    payment_link: str
-    reservation_dt: str
+    dispatch_id: int
+    order_number: str
+    start_live_tracking_url: str
     
