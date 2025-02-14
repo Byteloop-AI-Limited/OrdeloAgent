@@ -32,8 +32,8 @@ CREATE TABLE delivery_detail (
 CREATE TABLE delivery_dispatch (
     dispatch_id      SERIAL PRIMARY KEY,
     order_number     VARCHAR(100) NOT NULL,
-    driver_id        VARCHAR(12) NOT NULL,
-    driver_payout    DOUBLE PRECISION NOT NULL,
+    rider_id        VARCHAR(12) NOT NULL,
+    rider_payout    DOUBLE PRECISION NOT NULL,
     distance         DOUBLE PRECISION NOT NULL,
     status  VARCHAR(50) NOT NULL,
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -59,6 +59,10 @@ CREATE TABLE delivery_inflight_location_events (
     driver_id      VARCHAR(12) NOT NULL,
     cust_id        VARCHAR(12) NOT NULL,
     event_type     VARCHAR(50) NOT NULL, -- 'res_enter', 'res_leave',  'cust_enter', 'cust_leave'
+    res_enter_dtts TIMESTAMP,
+    res_leave_dtts TIMESTAMP,
+    cust_enter_dtts TIMESTAMP,
+    cust_leave_dtts TIMESTAMP,
     dt             DATE NOT NULL,
     ddts           TIMESTAMP NOT NULL
 );

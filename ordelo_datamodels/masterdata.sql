@@ -1,6 +1,6 @@
 -- 1. Create custom enum types
 
-CREATE TYPE vehicle_type_enum AS ENUM ('bike', 'electric_bike', 'car', 'cycle');
+-- CREATE TYPE vehicle_type_enum AS ENUM ('bike', 'electric_bike', 'car', 'cycle');
 
 -- 2. Driver Master Table
 CREATE TABLE driver_master (
