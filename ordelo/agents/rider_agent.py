@@ -61,7 +61,6 @@ Please let me know if you have any questions during the delivery process.
     """
     
     start_live_tracking_url = state.get('start_live_tracking_url', None)
-    logger.info(f"start_live_tracking_url: {start_live_tracking_url}")
 
     if start_live_tracking_url is not None:
         # Send the URL to the rider

@@ -1,17 +1,24 @@
 # %%
 from ordelo_datamodels.delivery_pymodels import RestaurantMaster, CustomerMaster, DeliveryDetail
-from utils_common.db_utils.sbase_rest_ops import sbase_insert, sbase_delete, sbase_get
+from utils_common.db_utils.sbase_rest_ops import sbase_insert, sbase_delete, sbase_get, sbase_update
+
+# %% Update detail to accepted to test the tigger
+await sbase_update(
+                update_fields={"status": "accepted"},
+                table_name="delivery_detail",
+                order_number='test123'
+            )
 
 # %%
-delivery_dispatch = {
-    'order_number': 'test123',
-    'rider_id': "447448440754",
-    'rider_payout': 0.5,
-    'distance': 0.5,
-    'status': 'unassigned'
-}
-await sbase_insert("delivery_dispatch", delivery_dispatch)
-# %%
+# delivery_dispatch = {
+#     'order_number': 'test123',
+#     'rider_id': "447448440754",
+#     'rider_payout': 0.5,
+#     'distance': 0.5,
+#     'status': 'unassigned'
+# }
+# await sbase_insert("delivery_dispatch", delivery_dispatch)
+# %% Create test delivery
 
 warren_road = RestaurantMaster(
     **{
@@ -33,10 +40,9 @@ elai_customer = CustomerMaster(
 
 insert_data = {
     "order_number": "test123",
-    "driver_payout": 25.50,
+    "rider_payout": 5.50,
     "distance": 10.5,
-    "dispatch_id": 16,
-    "status": "Delivered"
+    "status": "unassigned"
 }
 
 # elai_customer = CustomerInfo(**insert_data)
@@ -45,7 +51,7 @@ _delivery_detail = DeliveryDetail(
     **warren_road.model_dump(),
     **elai_customer.model_dump()
     )
-
+_delivery_detail
 
 # %% 
 _delivery_detail.google_maps_url
