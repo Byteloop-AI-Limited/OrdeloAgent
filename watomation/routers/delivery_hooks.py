@@ -30,7 +30,10 @@ async def delivery_dispatch_hook(request: Request):
               payload data.
     """
     payload = await request.json()
-    logger.success("Received delivery dispatch update: {}".format(payload))
+    if len(payload['delivery_detail']) == 0:
+        logger.error("no delivery_detail found for dispatch: {}".format(payload))
+        return {"status": "error", "data": payload}
+
     # todo
     delivery_dispatch = DeliveryDispatch(**payload['delivery_dispatch'][0])
     delivery_detail = DeliveryDetail(**payload['delivery_detail'][0])
@@ -40,8 +43,7 @@ async def delivery_dispatch_hook(request: Request):
         delivery_detail=delivery_detail,
         dispatch_id=delivery_dispatch.dispatch_id
     )
-
-    # print(f"Received delivery dispatch webhook: {payload}")
+    
     return {"status": "success", "data": payload}
 
 

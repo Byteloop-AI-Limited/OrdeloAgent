@@ -6,12 +6,11 @@ from pywa_async import WhatsApp
 import asyncio
 from pywa.types import ProductsSection
 import json
+from config import logger
 import base64
 from datetime import datetime, timedelta
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from utils_common.db_utils.sbase_rest_ops import sbase_update, sbase_get
-
-# %%
 
 
 # %% Send Delivery Dispatch
@@ -97,7 +96,6 @@ async def process_dispatch_response_from_rider(
 ):
     """
     Rider's response recieved via WhatsApp. Update detail and dispatch tables.
-    Detail table update triggers as db webhook to delivery-detail-update that will initialize the graph.
 
     Args:
         recipient: The phone number of the recipient.
@@ -105,39 +103,46 @@ async def process_dispatch_response_from_rider(
         _async_wa_client: An instance of the AsyncWhatsApp client.
 
     Returns:
-
+        None
     """
-    _dispatch_id = callback_data['dispatch_id']
+    _dispatch_id = int(callback_data['dispatch_id'])
     _order_number = callback_data['order_number']
 
     if callback_data['status'] == 'declined':
         await sbase_update(
-            update_fields={"status": "declined"},
+            update_fields={"status": "declined", "status_update_dtts": datetime.now().isoformat()},
             table_name="delivery_dispatch",
             dispatch_id=_dispatch_id
         )
 
     elif callback_data['status'] == 'accepted':
+        # get dispatch details
         delivery_dispatch = await sbase_get("delivery_dispatch", dispatch_id=_dispatch_id)
+        status = delivery_dispatch[0]['status']
+        rider_id = delivery_dispatch[0]['rider_id']
 
-        if delivery_dispatch[0]['status'] == 'accepted':
+        if status == 'accepted':
+            # Job is already accepted
             await _async_wa_client.send_message(
                 to=recipient,
                 text='Sorry, This job has already been assigned'
             )
         else:
             # No one has accepted the job yet, so update the status
+
+            # Update dispatch
             await sbase_update(
-                update_fields={"status": "accepted"},
+                update_fields={"status": "accepted", "status_update_dtts": datetime.now().isoformat()},
                 table_name="delivery_dispatch",
                 dispatch_id=_dispatch_id
             )
+
+            # Update detail with dispatch_id, 
             await sbase_update(
-                update_fields={"status": "accepted", "dispatch_id": _dispatch_id},
+                update_fields={"status": "accepted", "dispatch_id": _dispatch_id, "rider_id": rider_id},
                 table_name="delivery_detail",
                 order_number=_order_number
             )
-
 
 # %% Send Start Live Tracking Link
 # fair and consistent

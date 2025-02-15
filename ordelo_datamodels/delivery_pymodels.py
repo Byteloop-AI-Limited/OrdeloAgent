@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from decimal import Decimal
 from ordelo_datamodels.masterdata_pymodels import RestaurantMaster, CustomerMaster
 from utils_common.db_utils.sbase_rest_ops import sbase_insert
-
+from datetime import datetime
 
 class DeliveryDetail(BaseModel):
     order_number: str = Field(..., max_length=100)
@@ -21,7 +21,8 @@ class DeliveryDetail(BaseModel):
     customer_lon: float
     customer_lat: float
     customer_address: str
-    dispatch_id: str = Field(..., max_length=50)
+    dispatch_id: Optional[int] = Field(default=None)
+    rider_id: Optional[str] = Field(default=None, max_length=12)   
     status: str = Field(..., max_length=50)
 
     @property

@@ -8,26 +8,6 @@ CREATE TABLE delivery_pricing_detail (
     ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 );
 
-CREATE TABLE delivery_detail (
-    order_number     VARCHAR(100) PRIMARY KEY,
-    driver_payout    DOUBLE PRECISION NOT NULL,
-    distance         DOUBLE PRECISION NOT NULL,
-    rest_id          VARCHAR(50) NOT NULL, -- restaurant id
-    rest_name        TEXT NOT NULL,
-    rest_lon         DOUBLE PRECISION NOT NULL,
-    rest_lat         DOUBLE PRECISION NOT NULL,
-    rest_address     TEXT NOT NULL,
-    customer_id          VARCHAR(50) NOT NULL, -- customer id
-    customer_name        TEXT NOT NULL,
-    customer_lon         DOUBLE PRECISION NOT NULL,
-    customer_lat         DOUBLE PRECISION NOT NULL,
-    customer_address     TEXT NOT NULL,
-    status  VARCHAR(50) NOT NULL, -- 'unassigned', 'assigned', 'in_progress', 'completed', 'cancelled'
-    dispatch_id     VARCHAR(100),
-    dt               DATE NOT NULL DEFAULT CURRENT_DATE,
-    ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
 
 CREATE TABLE delivery_dispatch (
     dispatch_id      SERIAL PRIMARY KEY,
@@ -95,7 +75,8 @@ CREATE TRIGGER update_delivery_inflight
 AFTER UPDATE ON delivery_dispatch
 FOR EACH ROW
 EXECUTE FUNCTION handle_delivery_dispatch_changes();
-
+-- Drop the trigger
+DROP TRIGGER update_delivery_inflight ON delivery_dispatch;
 
 
 
@@ -119,3 +100,14 @@ BEGIN
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', r.table_name);
     END LOOP;
 END $$;
+
+-- Show table schema
+SELECT 
+    table_name, 
+    column_name, 
+    data_type, 
+    is_nullable 
+FROM 
+    information_schema.columns 
+WHERE 
+    table_name = 'delivery_detail';

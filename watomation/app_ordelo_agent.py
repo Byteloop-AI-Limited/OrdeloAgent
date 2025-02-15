@@ -16,7 +16,7 @@ from psycopg_pool import AsyncConnectionPool
 from pywa.types import Message
 from pywa_async import WhatsApp, filters
 from utils_common.thread_management import ThreadHandler
-from ordelo_datamodels.location_models import Location
+from ordelo_datamodels.location_pymodels import Location
 import pickle
 from watomation.routers import delivery_hooks
 from ordelo.agents.rider_agent import builder
@@ -251,10 +251,17 @@ TEST_DELIVERY = filters.contains("/testdelivery", ignore_case=True)
 WHEN_RESET = filters.contains("/reset", ignore_case=True)
 PAYMENT_COMPLETE = filters.contains("/paid", ignore_case=True)
 RESERVATION_CONFIRMED = filters.contains("/confirm", ignore_case=True)
+IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 
 
 @wa.on_message(TEST_DELIVERY)
 async def test_delivery(wa: WhatsApp, msg: Message):
+    # reset the status of test delivery to unassigned
+    await sbase_update(
+        update_fields={"status": "unassigned", "dispatch_id": None, "rider_id": None},
+        table_name="delivery_detail",
+        order_number='test123'
+    )
     # Create a delivery dispatch
     delivery_dispatch = {
         'order_number': 'test123',
@@ -286,7 +293,7 @@ async def echo_msg(wa: WhatsApp, msg: Message):
     await wa.send_text(
         to=recipient,
         text=msg.text.lower()
-    )
+    ) 
 
 @wa.on_callback_button(IS_DISPATCH_RESPONSE)
 async def callback_selection(wa: WhatsApp, msg: Message):
@@ -301,7 +308,7 @@ async def callback_selection(wa: WhatsApp, msg: Message):
     await process_dispatch_response_from_rider(
         recipient=recipient,
         callback_data=callback_data
-    )
+    ) 
 
     # await wa.send_text(
     #     to=recipient,
