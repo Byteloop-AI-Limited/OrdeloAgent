@@ -1,4 +1,4 @@
-# %%
+# %% To be changed later
 from timeit import timeit
 import psycopg
 from psycopg_pool import ConnectionPool
@@ -17,7 +17,7 @@ def process_dispatch_response_from_rider(
     _sync_wa_client: _sync_wa_client
 ):
     """
-    Process rider's response to a delivery dispatch.
+    Process rider's response to a delivery dispatch in a sync context.
     
     This function executes database operations in an async context.
     

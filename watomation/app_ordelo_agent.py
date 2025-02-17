@@ -1,42 +1,31 @@
 # %% Imports
+import json
 import logging
 from contextlib import asynccontextmanager
-from typing import Optional
-import json
-import base64
-from datetime import datetime
-import psycopg
-
-import uvicorn as uvicorn
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+import asyncio
+import uvicorn
+from fastapi import BackgroundTasks, FastAPI
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from ordelo.agents.rider_agent import builder
 from psycopg_pool import AsyncConnectionPool, ConnectionPool
 from pywa.types import Message
 from pywa_async import WhatsApp, filters
-from pywa import WhatsApp as WhatsAppNonSync
-from utils_common.thread_management import ThreadHandler
-from ordelo_datamodels.location_pymodels import Location
-import pickle
-from watomation.routers import delivery_hooks, location_hooks
-from ordelo.agents.rider_agent import builder
-from langgraph.checkpoint.memory import MemorySaver
-import asyncio
-
+from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 
 from config import (
-    project_settings,
     logger,
     pg_settings,
+    project_settings,
     waba_business_settings,
 )
-
-from utils_common.wa_send.wa_senders import process_dispatch_response_from_rider, process_dispatch_response_from_rider_sync
-from utils_common.db_utils.sbase_rest_ops import sbase_insert, sbase_update, sbase_get
-
-# %% Setup html templates
-templates = Jinja2Templates(directory=str(f"{project_settings.project_root}/elai/pages_template"))
+from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_insert, sbase_update
+from utils_common.thread_management import ThreadHandler
+from utils_common.wa_send.wa_senders import (
+    process_dispatch_response_from_rider_sync,
+)
+from ordelo.agent_app_handlers import init_ordelo_graph, run_ordelo_graph
+from watomation.routers import delivery_hooks, location_hooks
 
 # %%
 # Configure logging settings
@@ -81,6 +70,9 @@ async def lifespan(app: FastAPI):
     app.state.thread_handler = thread_handler
     app.state.graph = graph
 
+    # in memory data
+    app.state.DELIVERY_INFLIGHT = await sbase_get("delivery_inflight")
+
     # Yield to start the application
     try:
         yield
@@ -92,7 +84,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="OrdeloAgent", lifespan=lifespan)
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
-app.include_router(location_hooks.router, prefix="/pub")
+app.include_router(location_hooks.router, prefix="/location-hooks")
 
 recipient='447448440754'
 
@@ -150,9 +142,10 @@ TEST_DELIVERY = filters.contains("/test", ignore_case=True)
 WHEN_RESET = filters.contains("/reset", ignore_case=True)
 PAYMENT_COMPLETE = filters.contains("/paid", ignore_case=True)
 RESERVATION_CONFIRMED = filters.contains("/confirm", ignore_case=True)
+IS_DISPATCH_RESPONSE_DECLINED = filters.contains("/dispatchResponse", ignore_case=False) & filters.contains("status: declined", ignore_case=False)
 IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 
-
+# %% TestDelivery
 @wa.on_message(TEST_DELIVERY)
 async def test_delivery(wa: WhatsApp, msg: Message):
     # reset the status of test delivery to unassigned
@@ -185,7 +178,7 @@ async def test_delivery(wa: WhatsApp, msg: Message):
     }
     await sbase_insert("delivery_dispatch", delivery_dispatch)
 
-
+# %% Reset
 @wa.on_message(WHEN_RESET)
 async def reset_thread(wa: WhatsApp, msg: Message):
     logger.info("=============== reset the thread ===============")
@@ -197,47 +190,58 @@ async def reset_thread(wa: WhatsApp, msg: Message):
     await wa.send_message(to=recipient, text="Starting new conversation")
 
 
-# %% WA Handlers
-
-@wa.on_message()
-async def echo_msg(wa: WhatsApp, msg: Message):
-    recipient = msg.sender
-    logger.info(msg)
-    await wa.send_text(
-        to=recipient,
-        text=msg.text.lower()
-    ) 
-
+# %% WA Handlers - Callback
 @wa.on_callback_button(IS_DISPATCH_RESPONSE)
 def callback_selection(wa: WhatsApp, msg: Message):
     """
     Rider's response to delivery dispatch. This is a blocking operation.
     """
-    logger.info(msg)
+    # logger.info(msg)
     recipient = msg.sender
     callback_data: dict = json.loads(msg.data)
+    
+    dispatch_id = callback_data['dispatch_id']
+    order_number = callback_data['order_number']
+    rider_response = callback_data['status']
 
-    process_dispatch_response_from_rider_sync(
-        recipient=recipient,
+    # start db operations in sync context
+    pool_sync = app.state.pool_sync
+    pool = app.state.pool
+    graph = app.state.graph
+
+    d_detail_dict = process_dispatch_response_from_rider_sync(
+        pool_sync=pool_sync,
+        rider_id=recipient,
         callback_data=callback_data
     )
-    # toDo - initilize the graph here, avoid another trigger from the detail table.
     
-# @wa.on_callback_button(IS_DISPATCH_RESPONSE)
-# async def callback_selection(wa: WhatsApp, msg: Message):
-#     """
-#     Rider's response to delivery dispatch. This is a blocking operation.
-#     """
-#     logger.info(msg)
-#     recipient = msg.sender
-#     callback_data: dict = json.loads(msg.data)
+    if isinstance(d_detail_dict, str):
+        # either declined or job already taken
+        return 
 
-#     await process_dispatch_response_from_rider(
-#         recipient=recipient,
-#         callback_data=callback_data,
-#         _async_wa_client=wa
-#     )
+    # update delivery detail since the fetch was from before the table update
+    d_detail_dict['dispatch_id'] = dispatch_id
+    d_detail_dict['rider_id'] = recipient
+    d_detail_dict['status'] = 'assigned'
 
+
+    # Create the model instance
+    d_detail = DeliveryDetail(**d_detail_dict)
+    
+    logger.info(d_detail_dict)
+
+    # Initiate the graph execution as background task
+    asyncio.create_task(init_ordelo_graph(graph, pool, d_detail))
+
+
+@wa.on_message()
+async def process_wa_msg(wa: WhatsApp, msg: Message):
+    recipient = msg.sender
+    pool = app.state.pool
+    graph = app.state.graph
+
+    # Run the graph
+    await run_ordelo_graph(msg, graph, pool)
 # %%
 
 if __name__ == "__main__":

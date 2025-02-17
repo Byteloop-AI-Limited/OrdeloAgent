@@ -19,43 +19,19 @@ CREATE TABLE delivery_detail (
     dtts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-------------------------------------------------
--- Trigger for delivery_detail
-------------------------------------------------
-CREATE OR REPLACE FUNCTION public.delivery_detail_update_whook()
-RETURNS trigger
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  response json;
-  webhook_payload json;
-BEGIN
-  -- Combine the NEW record with additional data from a SELECT query
-  SELECT json_build_object(
-    'delivery_detail', json_build_array(row_to_json(NEW))
-  ) INTO webhook_payload;
+CREATE TABLE delivery_inflight (
+    dispatch_id     INTEGER,
+    order_number     VARCHAR(100) NOT NULL,
+    rider_id        VARCHAR(12) NOT NULL,
+    customer_id        VARCHAR(12) NOT NULL,
+    dt               DATE NOT NULL DEFAULT CURRENT_DATE,
+    dtts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (dispatch_id)
+);
 
-  -- Make the HTTP POST request with the combined payload
-  response := (
-    SELECT content 
-    FROM http_post(
-      'https://live-track.byteloop.ai/delivery-hooks/delivery-detail-update', 
-      webhook_payload::text,
-      'application/json'
-    )
-  );
-  -- Log the response
-  RAISE NOTICE 'Response from HTTP POST: %', response;
-  RETURN NEW;
-END;
-$$;
 
-CREATE TRIGGER trigger_delivery_detail_whook
-AFTER UPDATE OF status ON public.delivery_detail
-FOR EACH ROW
-WHEN (NEW.status = 'assigned')
-EXECUTE FUNCTION public.delivery_detail_update_whook();
+
 
 -- CLEANUP
--- DROP TRIGGER IF EXISTS trigger_delivery_detail_whook ON delivery_detail;
+-- DROP TRIGGER IF EXISTS manage_inflight ON delivery_detail;
 -- drop table delivery_detail;

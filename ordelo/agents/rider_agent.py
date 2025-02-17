@@ -57,10 +57,10 @@ Thank you for accepting the job! Please use the live tracking link below to star
 
 Remember to provide the 2-digit confirmation code after the delivery is completed!
 
-Please let me know if you have any questions during the delivery process. 
+Please let me know if you have any questions during the delivery process.  
     """
     
-    start_live_tracking_url = state.get('start_live_tracking_url', None)
+    start_live_tracking_url = state.get('start_live_tracking_url', None) 
 
     if start_live_tracking_url is not None:
         # Send the URL to the rider
