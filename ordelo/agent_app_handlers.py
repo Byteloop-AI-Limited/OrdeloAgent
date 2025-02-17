@@ -30,8 +30,7 @@ def generate_config_href(config: dict) -> str:
 
 
 def create_start_job_config(
-    d_detail: DeliveryDetail,
-    d_dispatch: DeliveryDispatch
+    d_detail: DeliveryDetail
     ) -> str:
     waypoints = [
         {
@@ -60,8 +59,8 @@ def create_start_job_config(
         "allowRemoteLocation": True,
         "usePassword" : False,
         "monitoring": 2,
-        "username": d_dispatch.rider_id,
-        "deviceId": f"{d_dispatch.rider_id}-{d_detail.order_number}",
+        "username": d_detail.rider_id,
+        "deviceId": f"{d_detail.rider_id}-{d_detail.order_number}",
         "password": "",
         "url": "https://live-track.byteloop.ai/pub",
         "locatorDisplacement": 10,
@@ -78,14 +77,13 @@ def create_start_job_config(
 
 async def init_ordelo_graph(
     graph, pool, 
-    d_detail: DeliveryDetail, 
-    d_dispatch: DeliveryDispatch
+    d_detail: DeliveryDetail
     ):
-    logger.info(f"Initializing Ordelo Graph with rider_id: {d_dispatch.rider_id}")
+    logger.info(f"Initializing Ordelo Graph with rider_id: {d_detail.rider_id}")
     # Setup Graph
-    start_live_tracking_url = create_start_job_config(d_detail, d_dispatch)
+    start_live_tracking_url = create_start_job_config(d_detail)
     
-    config = await get_config_for_recipient(d_dispatch.rider_id, pool)
+    config = await get_config_for_recipient(d_detail.rider_id, pool)
 
     # update graph state
 
@@ -100,7 +98,7 @@ async def init_ordelo_graph(
     await graph.aupdate_state(  
         config,
         {
-            "dispatch_id": d_dispatch.dispatch_id,
+            "dispatch_id": d_detail.dispatch_id,
             "order_number": d_detail.order_number,
             "start_live_tracking_url": start_live_tracking_url
         }

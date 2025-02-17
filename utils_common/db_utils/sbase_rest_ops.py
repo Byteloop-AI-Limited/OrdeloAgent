@@ -174,6 +174,45 @@ async def sbase_get(table_name: str, **kwargs):
             raise RuntimeError(f"Unexpected error: {str(e)}")
 
 
+def sbase_sync_get(table_name: str, **kwargs):
+    """
+    Synchronous function to fetch data from Supabase REST API.
+
+    Args:
+        table_name (str): Name of the Supabase table
+        **kwargs: Filtering conditions for the query
+
+    Returns:
+        dict: JSON response from Supabase
+
+    Raises:
+        ValueError: If the Supabase response contains an error code
+        RuntimeError: For other unexpected errors during the API call
+    """
+    # Convert kwargs to Supabase REST filter
+    rest_filter = sql_to_supabase_rest(**kwargs)
+
+    # Use Client for sync HTTP requests
+    with httpx.Client() as client:
+        try:
+            response = client.get(
+                f"{pg_settings.rest_url}/rest/v1/{table_name}?{rest_filter}", 
+                headers=HEADERS
+            )
+            
+            # Check for error status codes
+            if response.status_code >= 400:
+                error_msg = response.json().get('error', 'Unknown error')
+                raise ValueError(f"Supabase error: {error_msg}")
+            
+            return response.json()
+            
+        except httpx.HTTPError as e:
+            raise RuntimeError(f"HTTP error occurred: {str(e)}")
+        except Exception as e:
+            raise RuntimeError(f"Unexpected error: {str(e)}")
+
+
 # %% Insert data
 async def sbase_insert(table_name: str, payload: dict):
     """
@@ -279,6 +318,83 @@ async def sbase_update(update_fields: dict, table_name: str, **kwargs):
         except Exception as e:
             # Catch any other unexpected errors
             raise RuntimeError(f"Unexpected error: {str(e)}")
+
+
+def sbase_sync_update(update_fields: dict, table_name: str, **kwargs):
+    """
+    Synchronous function to update data in Supabase REST API.
+
+    Args:
+        update_fields (dict): Dictionary of fields to update
+        table_name (str): Name of the Supabase table
+        **kwargs: Filtering conditions for the update query
+
+    Returns:
+        bool: True if update was successful
+
+    Raises:
+        ValueError: If update_fields is empty or invalid
+        HTTPError: If the Supabase API request fails
+            - 400: Bad Request (invalid data format)
+            - 401: Unauthorized (invalid API key)
+            - 403: Forbidden (insufficient permissions)
+            - 404: Not Found (table or record not found)
+            - 409: Conflict (data integrity violation)
+            - 5xx: Server-side errors
+        RuntimeError: For other unexpected errors during the API call
+    """
+    if not update_fields:
+        raise ValueError("update_fields cannot be empty")
+
+    # Convert kwargs to Supabase REST filter
+    rest_filter = sql_to_supabase_rest(**kwargs)
+
+    # Use Client for sync HTTP requests
+    with httpx.Client() as client:
+        try:
+            response = client.patch(
+                f"{pg_settings.rest_url}/rest/v1/{table_name}?{rest_filter}",
+                headers=HEADERS,
+                json=update_fields
+            )
+            
+            # Check for error status codes
+            if response.status_code >= 400:
+                error_data = response.json()
+                error_msg = error_data.get('error', 'Unknown error')
+                error_details = error_data.get('details', '')
+                
+                error_context = (
+                    f"Status: {response.status_code}\n"
+                    f"Table: {table_name}\n"
+                    f"Error: {error_msg}\n"
+                    f"Details: {error_details if error_details else 'No additional details'}"
+                )
+                
+                if response.status_code == 400:
+                    raise ValueError(f"Bad Request - Invalid data format:\n{error_context}")
+                elif response.status_code == 401:
+                    raise httpx.HTTPStatusError("Unauthorized - Invalid API key", request=response.request, response=response)
+                elif response.status_code == 403:
+                    raise httpx.HTTPStatusError("Forbidden - Insufficient permissions", request=response.request, response=response)
+                elif response.status_code == 404:
+                    raise httpx.HTTPStatusError("Not Found - Table or record doesn't exist", request=response.request, response=response)
+                elif response.status_code == 409:
+                    raise ValueError(f"Conflict - Data integrity violation:\n{error_context}")
+                elif response.status_code >= 500:
+                    raise httpx.HTTPStatusError(f"Server Error:\n{error_context}", request=response.request, response=response)
+                else:
+                    raise httpx.HTTPStatusError(f"Unexpected Error:\n{error_context}", request=response.request, response=response)
+            
+            return True
+            
+        except httpx.HTTPError as e:
+            raise RuntimeError(f"HTTP error occurred: {str(e)}\nTable: {table_name}\nFilter: {rest_filter}")
+        except ValueError as e:
+            raise  # Re-raise ValueError with existing message
+        except Exception as e:
+            raise RuntimeError(f"Unexpected error while updating {table_name}: {str(e)}")
+
 
 # %% Delete data
 async def sbase_delete(table_name: str, **kwargs):

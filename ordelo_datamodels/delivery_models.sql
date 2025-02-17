@@ -24,8 +24,8 @@ CREATE TABLE delivery_dispatch (
 CREATE TABLE delivery_inflight (
     dispatch_id      VARCHAR(100) NOT NULL,
     order_number     VARCHAR(100) NOT NULL,
-    driver_id        VARCHAR(12) NOT NULL,
-    cust_id        VARCHAR(12) NOT NULL,
+    rider_id        VARCHAR(12) NOT NULL,
+    customer_id        VARCHAR(12) NOT NULL,
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (dispatch_id)
@@ -53,8 +53,8 @@ RETURNS TRIGGER AS $$
 BEGIN
     -- Insert into delivery_inflight when status is 'open'
     IF TG_OP = 'UPDATE' AND NEW.status = 'open' THEN
-        INSERT INTO delivery_inflight (dispatch_id, order_number, driver_id, cust_id, dt, ddts)
-        VALUES (NEW.dispatch_id, NEW.order_number, NEW.driver_id, NEW.cust_id, NEW.dt, NEW.ddts);
+        INSERT INTO delivery_inflight (dispatch_id, order_number, rider_id, customer_id, dt, ddts)
+        VALUES (NEW.dispatch_id, NEW.order_number, NEW.rider_id, NEW.customer_id, NEW.dt, NEW.ddts);
         RETURN NEW;
     ELSIF TG_OP = 'UPDATE' AND NEW.status = 'closed' THEN
         DELETE FROM delivery_inflight WHERE dispatch_id = OLD.dispatch_id;

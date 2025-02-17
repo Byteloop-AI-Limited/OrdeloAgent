@@ -13,6 +13,7 @@ import requests
 from pydantic import BaseModel, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pywa_async import WhatsApp
+from pywa import WhatsApp as WhatsAppSync
 from pywa_async.types import Product, ReferredProduct
 
 from config.logger_setting import logger
@@ -43,8 +44,8 @@ class WabaBusinessSettings(BaseSettings):
             kwargs["server"] = app
         return WhatsApp(**kwargs)
         
-    def create_wa_local(self):
-        return WhatsApp(
+    def create_wa_sync(self):
+        return WhatsAppSync(
             token=self.token,
             verify_token=self.verify_token,
             phone_id=self.phone_id
@@ -73,6 +74,7 @@ class WabaBusinessSettings(BaseSettings):
 # waba_business_setting = WabaBusinessSettings.with_env_prefix("LAI_WAA_")
 waba_business_settings = WabaBusinessSettings.with_env_prefix("BLOOP_WAA_")
 _async_wa_client = waba_business_settings.create_wa()
+_sync_wa_client = waba_business_settings.create_wa_sync()
 
 # %%
 class WabaCatalogSettings(BaseSettings):

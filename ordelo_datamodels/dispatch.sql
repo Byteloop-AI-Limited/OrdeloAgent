@@ -4,8 +4,8 @@ CREATE TABLE delivery_dispatch (
     rider_id        VARCHAR(12) NOT NULL,
     rider_payout    DOUBLE PRECISION NOT NULL,
     distance         DOUBLE PRECISION NOT NULL,
-    status  VARCHAR(50) NOT NULL,
-    status_update_ddts             TIMESTAMP,
+    status          VARCHAR(50) NOT NULL CHECK (status IN ('unassigned', 'assigned', 'completed', 'declined')),
+    status_update_dtts             TIMESTAMP,
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     ddts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -60,3 +60,4 @@ EXECUTE FUNCTION public.delivery_dispatch_whook();
 
 -- cleanup
 drop trigger if exists trigger_delivery_dispatch_whook on delivery_dispatch;
+drop table delivery_dispatch;
