@@ -1,5 +1,5 @@
 # %%
-from config import waba_business_settings, waba_cat_settings, _async_wa_client
+from config import waba_business_settings, waba_cat_settings, _async_wa_client, _sync_wa_client
 from typing import List, Optional
 from pywa.types import Template as Temp, Button, ButtonUrl
 from pywa_async import WhatsApp
@@ -10,15 +10,15 @@ from config import logger
 import base64
 from datetime import datetime, timedelta
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
-from utils_common.db_utils.sbase_rest_ops import sbase_update, sbase_get
+from utils_common.db_utils.sbase_rest_ops import sbase_update, sbase_get, sbase_sync_update, sbase_sync_get
 
 
 # %% Send Delivery Dispatch
-async def wa_send_delivery_dispatch(
+async def wa_send_delivery_dispatch_request_to_rider(
     recipient: str,
     delivery_detail: DeliveryDetail,
     dispatch_id: int,
-    _async_wa_client: WhatsApp = _async_wa_client,
+    _async_wa_client: WhatsApp = _async_wa_client
 ):
     order_number = delivery_detail.order_number
 
@@ -37,34 +37,25 @@ async def wa_send_delivery_dispatch(
     }
 
     # send restaurant location
-    await _async_wa_client.send_location(
-        to=recipient,
-        latitude=delivery_detail.rest_lat,
-        longitude=delivery_detail.rest_lon,
-        name= f"{delivery_detail.rest_name} Pick Up",
-        address= delivery_detail.rest_address
-    )
+    # await _async_wa_client.send_location(
+    #     to=recipient,
+    #     latitude=delivery_detail.rest_lat,
+    #     longitude=delivery_detail.rest_lon,
+    #     name= f"{delivery_detail.rest_name} Pick Up",
+    #     address= delivery_detail.rest_address
+    # )
+    
 
     # send customer location
-    await _async_wa_client.send_location(
-        to=recipient,
-        latitude=delivery_detail.customer_lat,
-        longitude=delivery_detail.customer_lon,
-        name=f"{delivery_detail.customer_name} Drop Off",
-        address=delivery_detail.customer_address,
-    )
+    # await _async_wa_client.send_location(
+    #     to=recipient,
+    #     latitude=delivery_detail.customer_lat,
+    #     longitude=delivery_detail.customer_lon,
+    #     name=f"{delivery_detail.customer_name} Drop Off",
+    #     address=delivery_detail.customer_address,
+    # )
 
     pickup_time = (datetime.now() + timedelta(minutes=25)).strftime("%I:%M %p")
-    # print(delivery_detail.map_url)
-
-    # msg =await _async_wa_client.send_message(
-    #     to=recipient,
-    #     header='Job details: 1.2 Miles £3.5',
-    #     text=f'Pickup time - {pickup_time}',
-    #     reply_to_message_id=None,
-    #     footer='⚡Ordelo',
-    #     buttons=ButtonUrl(title='View on Map', url=delivery_detail.google_maps_url),
-    # )
    
     wa_text = f"""
     Pickup time - *{pickup_time}*
@@ -88,40 +79,100 @@ Drop off location - *{delivery_detail.customer_name}*
     )
 
 
+
 # %% Send Delivery Dispatch Response
+def process_dispatch_response_from_rider_sync(
+    recipient: str,
+    callback_data: dict,
+    _sync_wa_client: WhatsApp = _sync_wa_client
+):
+    """
+    Process rider's response to a delivery dispatch (synchronous version).
+    
+    This function executes database operations in a synchronous context.
+    
+    Args:
+        recipient: The phone number of the recipient.
+        callback_data: The callback data containing the dispatch ID and order number.
+        _async_wa_client: An instance of the WhatsApp client.
+    
+    Returns:
+        None
+    """
+    _dispatch_id = callback_data['dispatch_id']
+    _order_number = callback_data['order_number']
+    rider_response = callback_data['status']
+    
+    if rider_response == 'declined':
+        sbase_sync_update(
+            update_fields={"status": "declined", "status_update_dtts": datetime.now().isoformat()},
+            table_name="delivery_dispatch",
+            dispatch_id=_dispatch_id
+        )
+
+    elif rider_response == 'accepted':
+        # get latest dispatch details
+        _detail = sbase_sync_get("delivery_detail", order_number=_order_number)
+        status = _detail[0]['status']
+
+        if status == 'assigned':
+            # Job is already accepted
+            _sync_wa_client.send_message(
+                to=recipient,
+                text='Sorry, This job has already been assigned'
+            )
+        else:
+            # No one has accepted the job yet, so update the status
+            # Update dispatch
+            sbase_sync_update(
+                update_fields={"status": "assigned", "status_update_dtts": datetime.now().isoformat()},
+                table_name="delivery_dispatch",
+                dispatch_id=_dispatch_id
+            )
+
+            # Update detail with dispatch_id
+            sbase_sync_update(
+                update_fields={"status": "assigned", "dispatch_id": _dispatch_id, "rider_id": recipient},
+                table_name="delivery_detail",
+                order_number=_order_number
+            )
+
+
 async def process_dispatch_response_from_rider(
     recipient: str,
     callback_data: dict,
     _async_wa_client: WhatsApp = _async_wa_client,
 ):
     """
-    Rider's response recieved via WhatsApp. Update detail and dispatch tables.
-
+    Process rider's response to a delivery dispatch.
+    
+    This function executes database operations in an async context.
+    
     Args:
         recipient: The phone number of the recipient.
         callback_data: The callback data containing the dispatch ID and order number.
         _async_wa_client: An instance of the AsyncWhatsApp client.
-
+    
     Returns:
         None
     """
-    _dispatch_id = int(callback_data['dispatch_id'])
+    _dispatch_id = callback_data['dispatch_id']
     _order_number = callback_data['order_number']
-
-    if callback_data['status'] == 'declined':
+    rider_response = callback_data['status']
+    
+    if rider_response == 'declined':
         await sbase_update(
             update_fields={"status": "declined", "status_update_dtts": datetime.now().isoformat()},
             table_name="delivery_dispatch",
             dispatch_id=_dispatch_id
         )
 
-    elif callback_data['status'] == 'accepted':
-        # get dispatch details
-        delivery_dispatch = await sbase_get("delivery_dispatch", dispatch_id=_dispatch_id)
-        status = delivery_dispatch[0]['status']
-        rider_id = delivery_dispatch[0]['rider_id']
+    elif rider_response == 'accepted':
+        # get latest dispatch details
+        _detail = await sbase_get("delivery_detail", order_number=_order_number)
+        status = _detail[0]['status']
 
-        if status == 'accepted':
+        if status == 'assigned':
             # Job is already accepted
             await _async_wa_client.send_message(
                 to=recipient,
@@ -129,20 +180,20 @@ async def process_dispatch_response_from_rider(
             )
         else:
             # No one has accepted the job yet, so update the status
-
             # Update dispatch
             await sbase_update(
-                update_fields={"status": "accepted", "status_update_dtts": datetime.now().isoformat()},
+                update_fields={"status": "assigned", "status_update_dtts": datetime.now().isoformat()},
                 table_name="delivery_dispatch",
                 dispatch_id=_dispatch_id
             )
 
-            # Update detail with dispatch_id, 
+            # Update detail with dispatch_id
             await sbase_update(
-                update_fields={"status": "accepted", "dispatch_id": _dispatch_id, "rider_id": rider_id},
+                update_fields={"status": "assigned", "dispatch_id": _dispatch_id, "rider_id": recipient},
                 table_name="delivery_detail",
                 order_number=_order_number
             )
+
 
 # %% Send Start Live Tracking Link
 # fair and consistent

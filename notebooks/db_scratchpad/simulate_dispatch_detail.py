@@ -1,10 +1,16 @@
 # %%
 from ordelo_datamodels.delivery_pymodels import RestaurantMaster, CustomerMaster, DeliveryDetail
-from utils_common.db_utils.sbase_rest_ops import sbase_insert, sbase_delete, sbase_get, sbase_update
+from utils_common.db_utils.sbase_rest_ops import sbase_insert, sbase_delete, sbase_get, sbase_update, sbase_sync_update, sbase_sync_get
 
 # %% Update detail to accepted to test the tigger
 await sbase_update(
-                update_fields={"status": "accepted"},
+                update_fields={"status": "unassigned"},
+                table_name="delivery_detail",
+                order_number='test123'
+            )
+# %%  
+sbase_sync_update(
+                update_fields={"status": "assigned"},
                 table_name="delivery_detail",
                 order_number='test123'
             )

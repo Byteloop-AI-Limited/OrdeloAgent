@@ -12,7 +12,7 @@ CREATE TABLE delivery_detail (
     customer_lon         DOUBLE PRECISION NOT NULL,
     customer_lat         DOUBLE PRECISION NOT NULL,
     customer_address     TEXT NOT NULL,
-    status  VARCHAR(50) NOT NULL, -- 'unassigned', 'assigned', 'in_progress', 'completed', 'cancelled'
+    status          VARCHAR(50) NOT NULL CHECK (status IN ('unassigned', 'assigned', 'completed', 'declined')),
     dispatch_id     INTEGER,
     rider_id        VARCHAR(12),
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -32,17 +32,7 @@ DECLARE
 BEGIN
   -- Combine the NEW record with additional data from a SELECT query
   SELECT json_build_object(
-    'delivery_detail', json_build_array(row_to_json(NEW)),
-    'delivery_dispatch', (
-      -- Replace this SELECT with your actual query
-      SELECT json_agg(row_to_json(t))
-      FROM (
-        SELECT * FROM delivery_dispatch 
-        WHERE dispatch_id=NEW.dispatch_id AND status='accepted'
-        ORDER BY status_update_dtts ASC
-        LIMIT 1
-      ) t
-    )
+    'delivery_detail', json_build_array(row_to_json(NEW))
   ) INTO webhook_payload;
 
   -- Make the HTTP POST request with the combined payload
@@ -63,7 +53,7 @@ $$;
 CREATE TRIGGER trigger_delivery_detail_whook
 AFTER UPDATE OF status ON public.delivery_detail
 FOR EACH ROW
-WHEN (NEW.status = 'accepted')
+WHEN (NEW.status = 'assigned')
 EXECUTE FUNCTION public.delivery_detail_update_whook();
 
 -- CLEANUP
