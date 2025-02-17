@@ -2,25 +2,18 @@
 All handlers for the fastapi app that serves the Elai Ai agent
 """
 # %%
+import base64
 import json
+from datetime import datetime
 
-import uvicorn as uvicorn
-
-from config import (
-    logger,
-)
-
+import uvicorn
+from langchain_core.messages import HumanMessage, SystemMessage
 from pywa_async.types import Message
 
-from langchain_core.messages import HumanMessage, SystemMessage
-
+from config import logger
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliveryDispatch
-
-from utils_common.lg_utils import (
-    get_config_for_recipient,
-)
-import base64
-from datetime import datetime
+from utils_common.db_utils.sbase_rest_ops import sbase_get
+from utils_common.lg_utils import get_config_for_recipient
 
 # %% Funcs
 def generate_config_href(config: dict) -> str:
@@ -28,16 +21,16 @@ def generate_config_href(config: dict) -> str:
     config_base64 = base64.b64encode(config_json.encode()).decode()
     return f"owntracks:///config?inline={config_base64}"
 
-
-def create_start_job_config(
+# %% Start Job Config
+async def create_start_job_config(
     d_detail: DeliveryDetail
     ) -> str:
     waypoints = [
         {
             "_type": "waypoint",
             "tst": int(datetime.now().timestamp()),
-            "rid": "restaurant",
-            "desc": "restaurant",
+            "rid": "rest",
+            "desc": "rest",
             "rad": 10,
             "lat": d_detail.rest_lat,
             "lon": d_detail.rest_lon
@@ -45,8 +38,8 @@ def create_start_job_config(
         {
             "_type": "waypoint",
             "tst": int(datetime.now().timestamp()),
-            "rid": "customer",
-            "desc": "customer",
+            "rid": "cust",
+            "desc": "cust",
             "rad": 10,
             "lat": d_detail.customer_lat,
             "lon": d_detail.customer_lon
@@ -62,7 +55,7 @@ def create_start_job_config(
         "username": d_detail.rider_id,
         "deviceId": f"{d_detail.rider_id}-{d_detail.order_number}",
         "password": "",
-        "url": "https://live-track.byteloop.ai/pub",
+        "url": "https://live-track.byteloop.ai/location-hooks/pub",
         "locatorDisplacement": 10,
         "locatorInterval" : 10,
         "waypoints": waypoints
@@ -73,15 +66,18 @@ def create_start_job_config(
 
     return start_href
 
-# %% Run Ordelo Graph
+# %% Initialize Ordelo Graph
 
 async def init_ordelo_graph(
-    graph, pool, 
-    d_detail: DeliveryDetail
+    graph, 
+    pool, 
+    d_detail: DeliveryDetail,
     ):
     logger.info(f"Initializing Ordelo Graph with rider_id: {d_detail.rider_id}")
     # Setup Graph
-    start_live_tracking_url = create_start_job_config(d_detail)
+    start_live_tracking_url = await create_start_job_config(
+        d_detail
+        )
     
     config = await get_config_for_recipient(d_detail.rider_id, pool)
 
@@ -106,6 +102,7 @@ async def init_ordelo_graph(
 
     await graph.ainvoke(input=ip_msgs, config=config)
 
+# %% Run Ordelo Graph
 async def run_ordelo_graph(msg: Message, graph, pool):
     """Executes the takeaway graph and returns the AI's response."""
     human_msg = msg.text
