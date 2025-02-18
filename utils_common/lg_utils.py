@@ -9,9 +9,11 @@ from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
     ToolMessage,
+    RemoveMessage,
     filter_messages
 )
 from langgraph.graph import END, StateGraph, START
+
 from langgraph.graph.state import CompiledStateGraph
 from langchain_openai import ChatOpenAI
 from openai import OpenAI
@@ -456,6 +458,12 @@ def shorten_state_messages(messages: List[dict]) -> List[Dict[str, Dict[str, Any
     short_msgs.reverse()
     return short_msgs
 # is_last_tool_call(err_lead_capture_graph, 'send_acknowledgement_email')
+
+# %% Delete messages
+def delete_messages(state):
+    messages = state["messages"]
+    if len(messages) > 3:
+        return {"messages": [RemoveMessage(id=m.id) for m in messages[:-3]]}
 
 # %% Display graph using mermaid 
 # takeaway_graph.get_graph(xray=True).draw_mermaid()
