@@ -10,6 +10,7 @@ from loguru import logger
 class GoogleSettings(BaseSettings):
     email: str
     encoded_credentials: str 
+    maps_api_key: str
 
     model_config = SettingsConfigDict(
         env_prefix="GOOGLE_SERVICE_ACCOUNT_",
