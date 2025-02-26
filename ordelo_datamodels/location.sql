@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS rider_location (
     id VARCHAR(255),
     PRIMARY KEY (rider_id,order_number, tst)
 );
+-- drop table
+
 
 CREATE INDEX IF NOT EXISTS idx_rider_location_tst_desc ON rider_location (tst DESC);
 CREATE INDEX IF NOT EXISTS idx_rider_location_dtts_desc ON rider_location (dtts DESC);

@@ -2,7 +2,6 @@ from fastapi import APIRouter, Request
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliveryDispatch
 from utils_common.wa_send.wa_senders import wa_send_delivery_dispatch_request_to_rider
 from loguru import logger
-from ordelo.agent_app_handlers import init_ordelo_graph
 
 # %%
 # https://live-track.byteloop.ai/delivery-hooks

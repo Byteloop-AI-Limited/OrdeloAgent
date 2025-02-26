@@ -173,7 +173,7 @@ async def live_location_map(
     return {"current_location": current_location}
 
 
-# %% webhook for location
+# %% Define Paths
 @router.post("/pub",
     summary="OwnTracks Location Webhook",
     description="""
