@@ -10,4 +10,6 @@ class AgentState(TypedDict):
     dispatch_id: int
     order_number: str
     start_live_tracking_url: str
+    delivery_start_dtts: str
+    
     

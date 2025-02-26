@@ -168,15 +168,15 @@ async def test_delivery(wa: WhatsApp, msg: Message):
         'status': 'unassigned'
     }
     await sbase_insert("delivery_dispatch", delivery_dispatch)
-    # todo
-    delivery_dispatch = {
-        'order_number': 'test123',
-        'rider_id': '447448440754',
-        'rider_payout': 0.5,
-        'distance': 0.5,
-        'status': 'unassigned'
-    }
-    await sbase_insert("delivery_dispatch", delivery_dispatch)
+    # todo - this is to test the sync accept
+    # delivery_dispatch = {
+    #     'order_number': 'test123',
+    #     'rider_id': '447448440754',
+    #     'rider_payout': 0.5,
+    #     'distance': 0.5,
+    #     'status': 'unassigned'
+    # }
+    # await sbase_insert("delivery_dispatch", delivery_dispatch)
 
 # %% Reset
 @wa.on_message(WHEN_RESET)
@@ -194,7 +194,7 @@ async def reset_thread(wa: WhatsApp, msg: Message):
 @wa.on_callback_button(IS_DISPATCH_RESPONSE)
 def callback_selection(wa: WhatsApp, msg: Message):
     """
-    Rider's response to delivery dispatch. This is a blocking operation.
+    Rider's response to delivery dispatch. This is a blocking operation. Entry point into the graph.
     """
     # logger.info(msg)
     recipient = msg.sender
@@ -232,6 +232,8 @@ def callback_selection(wa: WhatsApp, msg: Message):
 
     # Initiate the graph execution as background task
     asyncio.create_task(init_ordelo_graph(graph, pool, d_detail))
+
+# %%
 
 
 @wa.on_message()
