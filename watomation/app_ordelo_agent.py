@@ -194,8 +194,7 @@ async def test_delivery(wa: WhatsApp, msg: Message):
         **warren_road.model_dump(),
         **elai_customer.model_dump()
         )
-    # %%
-    # DB operations
+    # %% DB operations
     # delete existing order and insert new one
     delete_existing_order_q = f"DELETE FROM delivery_detail WHERE order_number = '{order_number}'"
     await execute_sql_query(pool, query=delete_existing_order_q)
