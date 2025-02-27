@@ -10,10 +10,12 @@ import asyncio
 import uvicorn
 from langchain_core.messages import HumanMessage, SystemMessage
 from pywa_async.types import Message
-
+from psycopg_pool import AsyncConnectionPool
+import psycopg
 from config import logger, _async_wa_client
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliveryDispatch
 from utils_common.db_utils.sbase_rest_ops import sbase_get
+from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 from utils_common.lg_utils import get_config_for_recipient
 
 # %% Funcs
@@ -88,7 +90,7 @@ async def create_stop_job_config() -> str:
 async def init_ordelo_graph(
     graph, 
     pool, 
-    d_detail: DeliveryDetail,
+    d_detail: DeliveryDetail
     ):
     logger.info(f"Initializing Ordelo Graph with rider_id {d_detail.rider_id}")
     # Setup Graph
@@ -121,12 +123,14 @@ async def init_ordelo_graph(
 
     # Verify if live location enabled
         # sleep for 4 seconds
-    await asyncio.sleep(15)
+    await asyncio.sleep(65)
     async with pool.connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute(
                 """
-                select * from rider_location where rider_id=%s and order_number=%s and dtts >= %s
+                SELECT * FROM
+                rider_location 
+                WHERE rider_id=%s AND order_number=%s AND dtts >= %s
                 """,
                 (d_detail.rider_id, d_detail.order_number, delivery_start_dtts)
             )
@@ -175,3 +179,24 @@ async def run_ordelo_graph(msg: Message, graph, pool):
     ai_msg_content = ai_msg["messages"][-1].content
 
     return ai_msg_content
+
+# %% Get live location on map 
+
+
+# %% Dispatch and delivery complete
+async def process_dispatch_complete(
+    pool: AsyncConnectionPool,
+    rider_id: str,
+    callback_data: dict,
+):
+    async with pool.connection() as conn:
+        async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+            await cur.execute(
+                """
+                UPDATE delivery_dispatch
+                SET status = 'completed'
+                WHERE dispatch_id = %s
+                """,
+                (callback_data['dispatch_id'],),
+            )
+            await conn.commit()

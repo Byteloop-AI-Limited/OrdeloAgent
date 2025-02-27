@@ -82,44 +82,99 @@ await sbase_insert("delivery_dispatch", delivery_dispatch)
 # %%
 await sbase_get("delivery_dispatch", dispatch_id=15)
 
-# %% wa_send_delivery_dispatch
-_delivery_dispatch_webhook = {'delivery_dispatch': [{'dispatch_id': 16, 'order_number': 'test123', 'driver_id': '447448440754', 'driver_payout': 0.5, 'distance': 0.5, 'dt': '2025-02-12', 'ddts': '2025-02-12T13:58:31.030378', 'status': 'unassigned'}], 'delivery_detail': [{'order_number': 'test123', 'driver_id': 'DRIVER01', 'driver_payout': 25.5, 'distance': 10.5, 'rest_id': 'elai_basingstoke', 'rest_name': 'Elai Basingstoke', 'rest_lon': -1.08459464266133, 'rest_lat': 51.2625171747331, 'rest_address': 'Unit 1, Anchor Court, 28 London St, Basingstoke RG21 7NY', 'customer_id': '447448440754', 'customer_name': '10hith', 'customer_lon': 0.0959000805415555, 'customer_lat': 51.3540813695372, 'customer_address': '27 Waring Drive, Orpington, BR66DN', 'status': 'Delivered', 'dt': '2025-02-12', 'ddts': '2025-02-12T13:44:30.865297'}]}
-driver_id = _delivery_dispatch_webhook['delivery_dispatch'][0]['driver_id']
+# %% With pool
+from config import pg_settings
+from psycopg_pool import ConnectionPool
+from datetime import datetime, timedelta
+from ordelo_datamodels.delivery_pymodels import RestaurantMaster, CustomerMaster, DeliveryDetail
+
+pool = ConnectionPool(pg_settings.db_uri)
+
+def insert_model_to_db(pool, table_name, model_instance):
+    """
+    Insert a Pydantic model instance into a database table.
+    
+    Args:
+        pool: Database connection pool
+        table_name: Name of the target database table
+        model_instance: Pydantic model instance to insert
+        
+    Returns:
+        None
+    """
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            # Get model fields dynamically
+            model_data = model_instance.model_dump()
+            columns = list(model_data.keys())
+            placeholders = ', '.join(['%s'] * len(columns))
+            columns_str = ', '.join(columns)
+            
+            # Build SQL query dynamically
+            query = f"""
+                INSERT INTO {table_name} ({columns_str})
+                VALUES ({placeholders})
+            """
+            
+            # Execute with values in the correct order
+            values = tuple(model_data.values())
+            cur.execute(query, values)
+            conn.commit()
+
+# Example usage
+insert_model_to_db(pool, 'delivery_detail', _delivery_detail)
+
 # %%
-_delivery_detail = DeliveryDetail(**_delivery_dispatch_webhook['delivery_detail'][0])
-_delivery_detail.driver_id
-# %%
-from utils_common.wa_send.wa_senders import _async_wa_client
+warren_road = RestaurantMaster(
+    **{
+        "rest_id": "warren_road", 
+        "rest_name": "Warren Road", 
+        "rest_lon": 0.09076387564540894,
+        "rest_lat": 51.36020627498843,
+        "rest_address": "Unit 1, Anchor Court, 28 London St, Basingstoke RG21 7NY"}
+    )
 
-# send restaurant location
-await _async_wa_client.send_location(
-    to=driver_id,
-    latitude=_delivery_detail.rest_lat,
-    longitude=_delivery_detail.rest_lon,
-    name= f"{_delivery_detail.rest_name} Pick Up",
-    address= _delivery_detail.rest_address
-)
+elai_customer = CustomerMaster(
+    **{
+        "customer_id": "447448440754",
+        "customer_name": "10hith",
+        "customer_lon": 0.09590008054155555,
+        "customer_lat": 51.35408136953724,
+        "customer_address": "27 Waring Drive, Orpington, BR66DN",
+    })
 
-# send customer location
-await _async_wa_client.send_location(
-    to=driver_id,
-    latitude=_delivery_detail.customer_lat,
-    longitude=_delivery_detail.customer_lon,
-    name=f"{_delivery_detail.customer_name} Drop Off",
-    address=_delivery_detail.customer_address,
-)
+insert_data = {
+    "order_number": "test1234",
+    "rider_payout": 5.50,
+    "distance": 10.5,
+    "status": "unassigned"
+}
 
-# %%
-from pywa.types import SectionList, Section, SectionRow, Button, CallbackButton, Message, ButtonUrl
-
-_async_wa_client.send_message(
-    to=driver_id,
-    text='make selection',
-    buttons=[
-        Button(title='Accept', callback_data=f'/jobAccepted'),
-        Button(title='Decline', callback_data=f'/jobDeclined'),
-    ]
-)
+# elai_customer = CustomerInfo(**insert_data)
+_delivery_detail = DeliveryDetail(
+    **insert_data, 
+    **warren_road.model_dump(),
+    **elai_customer.model_dump()
+    )
+_delivery_detail.model_dump()
 
 # %%
 
+# with pool.connection() as conn:
+#     with conn.cursor() as cur:
+#         # Get model fields dynamically
+#         model_data = _delivery_detail.model_dump()
+#         columns = list(model_data.keys())
+#         placeholders = ', '.join(['%s'] * len(columns))
+#         columns_str = ', '.join(columns)
+        
+#         # Build SQL query dynamically
+#         query = f"""
+#             INSERT INTO delivery_detail ({columns_str})
+#             VALUES ({placeholders})
+#         """
+        
+#         # Execute with values in the correct order
+#         values = tuple(model_data.values())
+#         cur.execute(query, values)
+#         conn.commit()

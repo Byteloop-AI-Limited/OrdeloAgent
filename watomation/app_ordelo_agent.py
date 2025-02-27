@@ -11,7 +11,9 @@ from ordelo.agents.rider_agent import builder
 from psycopg_pool import AsyncConnectionPool, ConnectionPool
 from pywa.types import Message
 from pywa_async import WhatsApp, filters
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail
+from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliveryDispatch
+from ordelo_datamodels.masterdata_pymodels import RestaurantMaster, CustomerMaster
+from utils_common.db_utils.sbase_pool_ops import insert_model_to_db, execute_sql_query
 
 from config import (
     logger,
@@ -19,7 +21,7 @@ from config import (
     project_settings,
     waba_business_settings,
 )
-from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_insert, sbase_update
+from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_insert, sbase_update, sbase_delete
 from utils_common.thread_management import ThreadHandler
 from utils_common.wa_send.wa_senders import (
     process_dispatch_response_from_rider_sync,
@@ -148,26 +150,101 @@ IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 # %% TestDelivery
 @wa.on_message(TEST_DELIVERY)
 async def test_delivery(wa: WhatsApp, msg: Message):
-    # reset the status of test delivery to unassigned
-    await sbase_update(
-        update_fields={"status": "unassigned", "dispatch_id": None, "rider_id": None},
-        table_name="delivery_detail",
-        order_number='test123'
+    pool = app.state.pool
+    recipient = msg.sender
+    order_number = msg.text.replace('/', '').strip()
+    # %%
+    warren_road = RestaurantMaster(
+    **{
+        "rest_id": "warren_road", 
+        "rest_name": "Warren Road", 
+        "rest_lon": 0.09076387564540894,
+        "rest_lat": 51.36020627498843,
+        "rest_address": "Warren Rd, Orpington BR6 6JF"}
     )
-    await sbase_update(
-        update_fields={"status": "completed"},
-        table_name="delivery_dispatch",
-        status='assigned'
-    )
-    # Create a delivery dispatchs
+    if recipient == '447448440754':
+        elai_customer = CustomerMaster(
+            **{
+                "customer_id": "447448440754",
+                "customer_name": "10hith",
+                "customer_lon": 0.09590008054155555,
+                "customer_lat": 51.35408136953724,
+                "customer_address": "27 Waring Drive, Orpington, BR66DN",
+            })
+    else:
+        elai_customer = CustomerMaster(
+            **{
+                "customer_id": "447446933210",
+                "customer_name": "Rahul",
+                "customer_lon": 0.09807413931483216,
+                "customer_lat": 51.361305286779476,
+                "customer_address": "29 Hollywell Close, BR69XP",
+            })
+
+    insert_data = {
+        "order_number": order_number,
+        "rider_payout": 5.50,
+        "distance": 10.5,
+        "status": "unassigned"
+    }
+
+    # elai_customer = CustomerInfo(**insert_data)
+    _delivery_detail = DeliveryDetail(
+        **insert_data, 
+        **warren_road.model_dump(),
+        **elai_customer.model_dump()
+        )
+    # %%
+    # DB operations
+    # delete existing order and insert new one
+    delete_existing_order_q = f"DELETE FROM delivery_detail WHERE order_number = '{order_number}'"
+    await execute_sql_query(pool, query=delete_existing_order_q)
+    await insert_model_to_db(pool, table_name="delivery_detail", model_instance=_delivery_detail)
+
+    # Update existing dispatch status and insert new one
+    update_dispatch_status_q = f"UPDATE delivery_dispatch SET status = 'completed' WHERE order_number = '{order_number}'"
+    await execute_sql_query(pool, query=update_dispatch_status_q)
     delivery_dispatch = {
-        'order_number': 'test123',
-        'rider_id': msg.sender,
+        'order_number': order_number,
+        'rider_id': recipient,
         'rider_payout': 0.5,
         'distance': 0.5,
         'status': 'unassigned'
     }
-    await sbase_insert("delivery_dispatch", delivery_dispatch)
+    _delivery_dispatch = DeliveryDispatch(**delivery_dispatch)
+    await insert_model_to_db(pool, table_name="delivery_dispatch", model_instance=_delivery_dispatch)
+
+    # delete from rider_location_event
+    delete_existing_order_q = f"DELETE FROM rider_location_event WHERE order_number = '{order_number}'"
+    await execute_sql_query(pool, query=delete_existing_order_q)
+
+
+# @wa.on_message(TEST_DELIVERY)
+# async def test_delivery(wa: WhatsApp, msg: Message):
+#     test_order_number='test123'
+#     logger.info(msg.text)
+#     # reset the status of test delivery to unassigned
+#     await sbase_update(
+#         update_fields={"status": "unassigned", "dispatch_id": None, "rider_id": None},
+#         table_name="delivery_detail",
+#         order_number=test_order_number
+#     )
+#     await sbase_update(
+#         update_fields={"status": "completed"},
+#         table_name="delivery_dispatch",
+#         status='assigned'
+#     )
+#     # Create a delivery dispatchs
+#     delivery_dispatch = {
+#         'order_number': test_order_number,
+#         'rider_id': msg.sender,
+#         'rider_payout': 0.5,
+#         'distance': 0.5,
+#         'status': 'unassigned'
+#     }
+
+#     await sbase_insert("delivery_dispatch", delivery_dispatch)
+#     await sbase_delete("rider_location_event", order_number=test_order_number)
     # todo - this is to test the sync accept
     # delivery_dispatch = {
     #     'order_number': 'test123',

@@ -25,7 +25,7 @@ from ordelo.state import AgentState
 from config import logger
 from utils_common.wa_send.wa_senders import send_order_reciept_wa, send_catalog
 from ordelo.agent_app_handlers import create_stop_job_config
-from utils_common.db_utils.sbase_rest_ops import sbase_get
+from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_update, sbase_delete
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 
 from langchain_core.tools.base import InjectedToolCallId
@@ -91,7 +91,9 @@ async def send_start_live_tracking_link(
 # %% DELIVERY END
 
 async def verify_delivery_confirmation_code(
-    dispatch_id: str, driver_id: str, confirmation_code: str, tool_call_id: Annotated[str, InjectedToolCallId]
+    confirmation_code: str,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId]
 ) -> dict:
     """
     Verifies the 2-digit confirmation code provided by the customer upon delivery.
@@ -100,8 +102,6 @@ async def verify_delivery_confirmation_code(
     this delivery and marks the delivery as completed if the code is correct.
 
     Args:
-        dispatch_id (str): Unique identifier of the dispatched delivery job
-        driver_id (str): Unique identifier of the driver completing the delivery
         confirmation_code (str): 2-digit confirmation code provided by the customer
 
     Returns:
@@ -110,23 +110,66 @@ async def verify_delivery_confirmation_code(
             - delivery_status: Updated status of the delivery
             - timestamp: UTC timestamp of verification attempt
     """
-    if confirmation_code == "77":
+    # Extract dispatch_id
+    dispatch_id = state.get('dispatch_id', None)
+    order_number = state.get('order_number', None)
+    # if either one of them is NULL 
+    if dispatch_id is None or order_number is None:
         return Command(
             update={
                 "messages": [
-                    ToolMessage("Confirmation code accepted. Delivery completed. Send end live tracking link (tool: `send_end_live_tracking_link`).", tool_call_id=tool_call_id)
-                ]
-            }
-        )
-    else:
-        return Command(
-            update={
-                "messages": [
-                    ToolMessage("Confirmation code is incorrect. Please try again.", tool_call_id=tool_call_id)
+                    ToolMessage("Something went wrong. Please try again later.", tool_call_id=tool_call_id)
                 ]
             }
         )
 
+    # If wrong confirmation code 
+    if confirmation_code != "77":
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage("Wrong confirmation code. Please try again.", tool_call_id=tool_call_id)
+                ]
+            }
+        )
+    
+    # On right confirmation code
+    # Update db status
+    try:
+        await sbase_update(
+            update_fields={"status": "completed"},
+            table_name="delivery_dispatch", 
+            dispatch_id=dispatch_id
+        )
+        
+        await sbase_update(
+            update_fields={"status": "completed"},
+            table_name="delivery_detail", 
+            order_number=order_number
+        )
+        
+        await sbase_delete(
+            table_name="delivery_inflight", 
+            dispatch_id=dispatch_id
+        )
+    except Exception as e:
+        error_message = f"Error updating delivery status: {str(e)}"
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(error_message, tool_call_id=tool_call_id)
+                ]
+            }
+        )
+
+    return Command(
+        update={
+            "messages": [
+                ToolMessage("Confirmation code accepted. Delivery completed. Send end live tracking link (tool: `send_end_live_tracking_link`).", tool_call_id=tool_call_id)
+            ]
+        }
+    )
+    
 # %% DELIVERY END - send live tracking
 
 async def send_end_live_tracking_link(
@@ -152,6 +195,7 @@ async def send_end_live_tracking_link(
     recipient = get_recipient_from_config(config)
     stop_job_url = await create_stop_job_config()
     
+    # update delivery detail and dispatch to completed
     # Send the URL to the rider
     await _async_wa_client.send_message(
             to=recipient,

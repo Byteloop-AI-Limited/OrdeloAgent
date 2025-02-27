@@ -3,7 +3,7 @@ import os
 import requests
 import json
 import os
-from pywa import WhatsApp
+from config import _async_wa_client
 from pywa.types import SectionList, Section, SectionRow, Button, CallbackButton, Message, ButtonUrl
 
 from pywa import filters as fil
@@ -13,19 +13,19 @@ from pywa.types import Template as Temp
 # waba_phone_setting, waba_business_setting
 
 # %%
-
-wa = WhatsApp(
-    business_account_id=waba_business_settings.account_id,
-    token=waba_business_settings.token,
-    phone_id=waba_business_settings.phone_id,
-    # server=app,
-    # verify_token=waba_business_setting.verify_token,
-)
-
 recipient = 447448440754
 # recipient = "447448440754"
 
 # %% investigate callback data 
+order_number = 'test123'
+await _async_wa_client.send_message(
+                to=recipient,
+                header=f"{order_number} Update",
+                text=f"Our delivery rider has left the restaurant, you can view the live location using the below link.",
+                buttons=ButtonUrl(title="Live Location Tracker", url="https://google.com")
+            )
+
+# %%
 wa.send_message(
             to=recipient,
             text="hi",

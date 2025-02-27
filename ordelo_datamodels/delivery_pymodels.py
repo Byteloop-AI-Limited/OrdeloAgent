@@ -32,7 +32,6 @@ class DeliveryDetail(BaseModel):
 
 
 class DeliveryDispatch(BaseModel):
-    dispatch_id:int = Field(...)
     order_number: str = Field(..., max_length=100)
     rider_id: str = Field(..., max_length=12)
     rider_payout: float = 0.0
