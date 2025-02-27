@@ -34,4 +34,4 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-SELECT get_available_riders(order_number), * from delivery_detail;
+SELECT get_available_riders(order_number), * from delivery_detail where status='unassigned';
