@@ -2,6 +2,7 @@
 from config import pg_settings
 from psycopg_pool import ConnectionPool
 from datetime import datetime, timezone
+import requests 
 # %%
 pool = ConnectionPool(pg_settings.db_uri)
 
@@ -21,8 +22,7 @@ with pool.connection() as conn:
 
 
 
-# %%
-import requests 
+# %% Rest enter
 
 url = "https://live-track.byteloop.ai/location-hooks/pub"
 payload = {
@@ -39,6 +39,10 @@ payload = {
             'tid': '23', 
             '_type': 'transition'
         }
+
+requests.post(url, json=payload)
+
+# %% rest leave
 payload = {
             'lon': 0.096501, 
             'acc': 2, 
@@ -53,12 +57,14 @@ payload = {
             'tid': '23', 
             '_type': 'transition'
         }
+requests.post(url, json=payload)
 
+# %% cust enter
 payload = {
             'lon': 0.096501, 
             'acc': 2, 
             'wtst': 1739801838, 
-            'event': 'leave', 
+            'event': 'enter', 
             'rid': 'cust', 
             'desc': 'home', 
             'topic': 'owntracks/447448440754/447448440754-test123/event', 
@@ -68,4 +74,35 @@ payload = {
             'tid': '23', 
             '_type': 'transition'
         }
+
 requests.post(url, json=payload)
+
+
+# %% Debug standard location update
+from ordelo_datamodels.location_pymodels import Location
+from utils_common.db_utils.sbase_pool_ops import insert_model_to_db
+
+payload = {
+    'batt': 25,
+    'lon': 0.09078,
+    'acc': 23,
+    'bs': 1,
+    'inrids': ['rest'],
+    'vac': 13,
+    'inregions': ['rest'],
+    'lat': 51.360026,
+    'topic': 'owntracks/447448440754/447448440754-test123',
+    't': 'c',
+    'conn': 'm',
+    'm': 2,
+    'tst': 1740670305,
+    'alt': 69,
+    '_type': 'location',
+    'tid': '23'
+}
+location = Location(**payload)
+
+requests.post(url, json=payload)
+# %%
+
+# %%

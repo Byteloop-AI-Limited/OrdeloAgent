@@ -182,25 +182,6 @@ def process_dispatch_response_from_rider_sync(
         # conn.commit()
 
 
-# %% Send Start Live Tracking Link
-# fair and consistent
-async def send_start_live_tracking_link(
-    recipient: str,
-    start_href: str,
-    _async_wa_client: WhatsApp = _async_wa_client,
-):
-    _text="""
-    Thank you for accepting the job! Please use the live tracking link below to start tracking your delivery.
-    Remember to provide the 2-digit confirmation code after the delivery is completed!
-    Please let me know if you have any questions during the delivery process. 
-    """
-    await _async_wa_client.send_message(
-        to=recipient,
-        text="Start Live Tracking",
-        reply_to_message_id=None,
-        buttons=ButtonUrl(title="Click Here", url=start_href)
-    )
-    return True
 
 # %% live location on map 
 async def get_live_location_map_url(order_number: str):

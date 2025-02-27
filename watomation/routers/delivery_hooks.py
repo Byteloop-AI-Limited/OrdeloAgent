@@ -72,6 +72,7 @@ async def delivery_dispatch_hook(request: Request):
               payload data.
     """
     payload = await request.json()
+    logger.info(payload)
     if len(payload['delivery_detail']) == 0:
         logger.error("no delivery_detail found for dispatch: {}".format(payload))
         return {"status": "error", "data": payload}
@@ -81,14 +82,15 @@ async def delivery_dispatch_hook(request: Request):
         logger.error("no delivery_dispatch or detail found for dispatch: {}".format(payload))
         return {"status": "error", "data": payload}
 
-    # todo
-    delivery_dispatch = DeliveryDispatch(**payload['delivery_dispatch'][0])
+    # extract from payload
+    rider_id = payload['delivery_dispatch'][0]['rider_id']
+    dispatch_id = payload['delivery_dispatch'][0]['dispatch_id']
     delivery_detail = DeliveryDetail(**payload['delivery_detail'][0])
     
     await wa_send_delivery_dispatch_request_to_rider(
-        recipient = delivery_dispatch.rider_id, 
+        recipient = rider_id, 
         delivery_detail=delivery_detail,
-        dispatch_id=delivery_dispatch.dispatch_id
+        dispatch_id=dispatch_id
     )
     
     return {"status": "success", "data": payload}
