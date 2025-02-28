@@ -14,6 +14,7 @@ from pywa_async import WhatsApp, filters
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliveryDispatch
 from ordelo_datamodels.masterdata_pymodels import RestaurantMaster, CustomerMaster
 from utils_common.db_utils.sbase_pool_ops import insert_model_to_db, execute_sql_query
+import uuid
 
 from config import (
     logger,
@@ -152,7 +153,9 @@ IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 async def test_delivery(wa: WhatsApp, msg: Message):
     pool = app.state.pool
     recipient = msg.sender
-    order_number = msg.text.replace('/', '').strip()
+    # order_number = msg.text.replace('/', '').strip()
+    # order_number should be uuid
+    order_number = uuid.uuid4().hex
     # %%
     warren_road = RestaurantMaster(
     **{
@@ -162,16 +165,7 @@ async def test_delivery(wa: WhatsApp, msg: Message):
         "rest_lat": 51.36020627498843,
         "rest_address": "Warren Rd, Orpington BR6 6JF"}
     )
-    if recipient == '447448440754':
-        elai_customer = CustomerMaster(
-            **{
-                "customer_id": "447448440754",
-                "customer_name": "10hith",
-                "customer_lon": 0.09590008054155555,
-                "customer_lat": 51.35408136953724,
-                "customer_address": "27 Waring Drive, Orpington, BR66DN",
-            })
-    else:
+    if msg.text.endswith('r'):
         elai_customer = CustomerMaster(
             **{
                 "customer_id": "447446933210",
@@ -179,6 +173,15 @@ async def test_delivery(wa: WhatsApp, msg: Message):
                 "customer_lon": 0.09807413931483216,
                 "customer_lat": 51.361305286779476,
                 "customer_address": "29 Hollywell Close, BR69XP",
+            })
+    else:
+        elai_customer = CustomerMaster(
+            **{
+                "customer_id": "447448440754",
+                "customer_name": "10hith",
+                "customer_lon": 0.09590008054155555,
+                "customer_lat": 51.35408136953724,
+                "customer_address": "27 Waring Drive, Orpington, BR66DN",
             })
 
     insert_data = {
@@ -203,19 +206,28 @@ async def test_delivery(wa: WhatsApp, msg: Message):
     # Update existing dispatch status and insert new one
     update_dispatch_status_q = f"UPDATE delivery_dispatch SET status = 'completed' WHERE order_number = '{order_number}'"
     await execute_sql_query(pool, query=update_dispatch_status_q)
-    delivery_dispatch = {
-        'order_number': order_number,
-        'rider_id': recipient,
-        'rider_payout': 0.5,
-        'distance': 0.5,
-        'status': 'unassigned'
-    }
-    _delivery_dispatch = DeliveryDispatch(**delivery_dispatch)
-    await insert_model_to_db(pool, table_name="delivery_dispatch", model_instance=_delivery_dispatch)
 
     # delete from rider_location_event
     delete_existing_order_q = f"DELETE FROM rider_location_event WHERE order_number = '{order_number}'"
     await execute_sql_query(pool, query=delete_existing_order_q)
+
+    # Create a initial delivery dispatchs
+    next_available_rider_q = f"SELECT * FROM get_available_riders('{order_number}');"
+    available_riders = await execute_sql_query(pool, query=next_available_rider_q)
+    initial_rider_id = available_riders[0][0]
+    
+    initial_delivery_dispatch = {
+        'order_number': order_number,
+        'rider_id': initial_rider_id,
+        'rider_payout': 0.5,
+        'distance': 0.5,
+        'status': 'unassigned'
+    }
+    
+    _delivery_dispatch = DeliveryDispatch(**initial_delivery_dispatch)
+    await insert_model_to_db(pool, table_name="delivery_dispatch", model_instance=_delivery_dispatch)
+
+    
 
 
 # @wa.on_message(TEST_DELIVERY)

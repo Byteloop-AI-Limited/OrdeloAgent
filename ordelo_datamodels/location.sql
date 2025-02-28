@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS rider_location (
     topic VARCHAR(255),
     rider_id VARCHAR(25),
     recipient VARCHAR(25),
-    order_number VARCHAR(25),
+    order_number VARCHAR(100),
     acc INTEGER,
     alt INTEGER,
     batt INTEGER,
@@ -20,8 +20,7 @@ CREATE TABLE IF NOT EXISTS rider_location (
     m INTEGER,
     dt DATE,
     dtts TIMESTAMP,
-    id VARCHAR(255),
-    PRIMARY KEY (rider_id,order_number, tst)
+    id VARCHAR(255)
 );
 -- drop table
 
