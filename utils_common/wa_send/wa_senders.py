@@ -67,6 +67,8 @@ Pickup location - *{delivery_detail.rest_name}*
 
 Drop off location - *{delivery_detail.customer_name}*
 {delivery_detail.customer_address}
+
+Order number - *{delivery_detail.order_number}*
     """
     await _async_wa_client.send_message(
         to=recipient,

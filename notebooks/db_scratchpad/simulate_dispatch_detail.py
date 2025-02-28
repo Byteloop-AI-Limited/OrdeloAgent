@@ -178,3 +178,9 @@ _delivery_detail.model_dump()
 #         values = tuple(model_data.values())
 #         cur.execute(query, values)
 #         conn.commit()
+
+# %%
+from utils_common.db_utils.sbase_pool_ops import execute_sql_query
+# %%
+
+execute_sql_query()
