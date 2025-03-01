@@ -13,6 +13,8 @@ import re
 from datetime import datetime, timezone
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query, insert_model_to_db
 from pywa.types import ButtonUrl
+from config import waba_business_settings
+
 
 # %% Define Dependancies
 async def get_payload(request: Request):
@@ -88,20 +90,20 @@ async def process_location_transition(pool, payload):
             update_statement = """
                 UPDATE rider_location_event
                 SET res_leave_dtts = %s
-                WHERE topic = %s AND res_enter_dtts IS NOT NULL;
+                WHERE topic = %s AND res_enter_dtts IS NOT NULL AND res_leave_dtts IS NULL;
             """
             
         elif event=='enter' and rid=='cust':
             update_statement = """
                 UPDATE rider_location_event
                 SET cust_enter_dtts = %s
-                WHERE topic = %s AND res_enter_dtts IS NOT NULL;
+                WHERE topic = %s AND res_enter_dtts IS NOT NULL AND cust_enter_dtts IS NULL;
             """
         elif event=='leave' and rid=='cust':
             update_statement = """
                 UPDATE rider_location_event
                 SET cust_leave_dtts = %s
-                WHERE topic = %s AND res_enter_dtts IS NOT NULL;
+                WHERE topic = %s AND res_enter_dtts IS NOT NULL AND cust_leave_dtts IS NULL;
             """
 
         async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
@@ -130,7 +132,7 @@ async def get_live_map_location_url(
     LIMIT 1
     """
     result = await execute_sql_query(pool, query, (order_number,))
-    if result is None:
+    if len(result) == 0:
         return None
     
     lat, lon = result[0]
@@ -138,7 +140,7 @@ async def get_live_map_location_url(
     logger.info(f"lat:{lat}, lon:{lon}")
 
     live_map_url=f"https://maps.google.com/?q=Order('{order_number}')@{lat},{lon}"
-
+    
     return live_map_url
 
 # %% Define paths - live location on map
@@ -235,20 +237,29 @@ async def notify_rider_location_event(request: Request):
     recipient = rider_id
     
     live_map_url = await get_live_map_location_url(request.app.state.pool, order_number)
+    if live_map_url is None:
+        return
     # Unpack changed fields
     changed_fields = payload.get('changed_fields', {})
     
     if changed_fields is not None:
         if 'res_leave_dtts' in changed_fields.keys():
-            await _async_wa_client.send_message(
-                to=recipient,
-                header=f"{order_number} Update",
-                reply_to_message_id=None,
-                text="""
-                Our delivery driver has left the restaurant
-                """,
-                buttons=ButtonUrl(title="Live Location", url=live_map_url)
-            )
+            if live_map_url is not None:
+                await _async_wa_client.send_message(
+                    to=recipient,
+                    header=f"{order_number} Update",
+                    reply_to_message_id=None,
+                    text="""
+                    Our delivery driver has left the restaurant
+                    """,
+                    buttons=ButtonUrl(title="Live Location", url=live_map_url)
+                )
+            else:
+                await _async_wa_client.send_message(
+                    to=recipient,
+                    header=f"{order_number} Update",
+                    text="Our delivery driver has left the restaurant"
+                )
             
         elif 'res_enter_dtts' in changed_fields.keys():
             await _async_wa_client.send_message(
