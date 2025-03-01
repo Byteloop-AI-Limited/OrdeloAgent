@@ -142,6 +142,8 @@ async def get_details():
 
 # TEST_DELIVERY = filters.contains("/testdelivery", ignore_case=True)
 TEST_DELIVERY = filters.contains("/test", ignore_case=True)
+LIVE_LOCATION = filters.contains("/live", ignore_case=True)
+
 WHEN_RESET = filters.contains("/reset", ignore_case=True)
 PAYMENT_COMPLETE = filters.contains("/paid", ignore_case=True)
 RESERVATION_CONFIRMED = filters.contains("/confirm", ignore_case=True)
@@ -149,6 +151,43 @@ IS_DISPATCH_RESPONSE_DECLINED = filters.contains("/dispatchResponse", ignore_cas
 IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 
 # %% TestDelivery
+import requests 
+import json
+
+@wa.on_message(LIVE_LOCATION)
+async def live_location(wa: WhatsApp, msg: Message):
+    recipient = msg.sender
+    logger.info("liv_location requested ...")
+    _inflight = await sbase_get(table_name="delivery_inflight", rider_id=recipient)
+    order_number = _inflight[0]['order_number']
+    pool = app.state.pool
+    # live location logic, reused
+    query = """
+    SELECT 
+        lat, 
+        lon
+    FROM rider_location LOC INNER JOIN delivery_inflight DI
+    ON LOC.rider_id = DI.rider_id
+    WHERE LOC.order_number = %s
+    ORDER BY tst DESC
+    LIMIT 1
+    """
+    result = await execute_sql_query(pool, query, (order_number,))
+    if result is None:
+        return None
+    
+    lat, lon = result[0]
+    
+    logger.info(f"lat:{lat}, lon:{lon}")
+
+    live_map_url=f"https://maps.google.com/?q=Order('{order_number}')@{lat},{lon}"
+    logger.info(live_map_url)
+    await wa.send_message(
+        to=recipient, 
+        text=live_map_url
+        )
+
+
 @wa.on_message(TEST_DELIVERY)
 async def test_delivery(wa: WhatsApp, msg: Message):
     pool = app.state.pool
@@ -210,22 +249,24 @@ async def test_delivery(wa: WhatsApp, msg: Message):
     # delete from rider_location_event
     delete_existing_order_q = f"DELETE FROM rider_location_event WHERE order_number = '{order_number}'"
     await execute_sql_query(pool, query=delete_existing_order_q)
-
+    
+    clear_inflight_q = f"delete from delivery_inflight;"
+    await execute_sql_query(pool, query=clear_inflight_q)
     # Create a initial delivery dispatchs
-    next_available_rider_q = f"SELECT * FROM get_available_riders('{order_number}');"
-    available_riders = await execute_sql_query(pool, query=next_available_rider_q)
-    initial_rider_id = available_riders[0][0]
+    # next_available_rider_q = f"SELECT * FROM get_available_riders('{order_number}');"
+    # available_riders = await execute_sql_query(pool, query=next_available_rider_q)
+    # initial_rider_id = available_riders[0][0]
     
-    initial_delivery_dispatch = {
-        'order_number': order_number,
-        'rider_id': initial_rider_id,
-        'rider_payout': 0.5,
-        'distance': 0.5,
-        'status': 'unassigned'
-    }
+    # initial_delivery_dispatch = {
+    #     'order_number': order_number,
+    #     'rider_id': initial_rider_id,
+    #     'rider_payout': 0.5,
+    #     'distance': 0.5,
+    #     'status': 'unassigned'
+    # }
     
-    _delivery_dispatch = DeliveryDispatch(**initial_delivery_dispatch)
-    await insert_model_to_db(pool, table_name="delivery_dispatch", model_instance=_delivery_dispatch)
+    # _delivery_dispatch = DeliveryDispatch(**initial_delivery_dispatch)
+    # await insert_model_to_db(pool, table_name="delivery_dispatch", model_instance=_delivery_dispatch)
 
     
 
