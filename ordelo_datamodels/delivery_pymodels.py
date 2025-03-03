@@ -16,6 +16,7 @@ class DeliveryDetail(BaseModel):
     rest_lon: float
     rest_lat: float
     rest_address: str
+    town: str
     customer_id: str = Field(..., max_length=50)
     customer_name: str
     customer_lon: float
@@ -32,7 +33,6 @@ class DeliveryDetail(BaseModel):
 
 
 class DeliveryDispatch(BaseModel):
-    dispatch_id:int = Field(...)
     order_number: str = Field(..., max_length=100)
     rider_id: str = Field(..., max_length=12)
     rider_payout: float = 0.0

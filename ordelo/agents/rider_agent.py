@@ -24,7 +24,8 @@ from utils_common.lg_utils import (
 from ordelo.state import AgentState
 from config import logger
 from utils_common.wa_send.wa_senders import send_order_reciept_wa, send_catalog
-from utils_common.db_utils.sbase_rest_ops import sbase_get
+from ordelo.agent_app_handlers import create_stop_job_config
+from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_update, sbase_delete, sbase_call_function
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 
 from langchain_core.tools.base import InjectedToolCallId
@@ -32,7 +33,7 @@ from langchain_core.messages import ToolMessage, AIMessage
 
 
 
-# %% Create Tools
+# %% DELIVERY START - send live tracking
 
 async def send_start_live_tracking_link(
     config: RunnableConfig,
@@ -41,23 +42,22 @@ async def send_start_live_tracking_link(
     ) -> dict:
     """
     Generates and sends a URL for initiating live tracking on the driver's device.
-    URL will be sent to rider on WhatsApp. AI Agent to respond as instructed by the tool message.
+    URL will be sent to rider on WhatsApp.
     
     Args:
         None
 
     Returns:
-        str: Agent to respond as instructed by the tool message.
+        dict: Agent to respond as instructed by the tool message.
     """
     recipient = get_recipient_from_config(config)
-    logger.info(f"sending link to recipient: {recipient}")
 
     _text="""
-Thank you for accepting the job! Please use the live tracking link below to start tracking your delivery.
+🚀 Get started with the delivery by cliking the below link
 
-Remember to provide the 2-digit confirmation code after the delivery is completed!
+🔑 Remember to provide the 2-digit confirmation code after the delivery is completed!
 
-Please let me know if you have any questions during the delivery process.  
+👨‍💻 Please let me know if you have any questions during the delivery process.  
     """
     
     start_live_tracking_url = state.get('start_live_tracking_url', None) 
@@ -68,8 +68,9 @@ Please let me know if you have any questions during the delivery process.
             to=recipient,
             text=_text,
             reply_to_message_id=None,
-            buttons=ButtonUrl(title="Click Here", url=start_live_tracking_url)
+            buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url)
         )
+        
         return Command(
             update={
                 "messages": [
@@ -87,9 +88,13 @@ Please let me know if you have any questions during the delivery process.
             }
         )
 
-# %% 
+# %% DELIVERY END
 
-async def verify_delivery_confirmation_code(dispatch_id: str, driver_id: str, code: str) -> dict:
+async def verify_delivery_confirmation_code(
+    confirmation_code: str,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId]
+) -> dict:
     """
     Verifies the 2-digit confirmation code provided by the customer upon delivery.
     
@@ -97,9 +102,7 @@ async def verify_delivery_confirmation_code(dispatch_id: str, driver_id: str, co
     this delivery and marks the delivery as completed if the code is correct.
 
     Args:
-        dispatch_id (str): Unique identifier of the dispatched delivery job
-        driver_id (str): Unique identifier of the driver completing the delivery
-        code (str): 2-digit confirmation code provided by the customer
+        confirmation_code (str): 2-digit confirmation code provided by the customer
 
     Returns:
         dict: A dictionary containing:
@@ -107,19 +110,70 @@ async def verify_delivery_confirmation_code(dispatch_id: str, driver_id: str, co
             - delivery_status: Updated status of the delivery
             - timestamp: UTC timestamp of verification attempt
     """
-    pass
+    # Extract dispatch_id
+    dispatch_id = state.get('dispatch_id', None)
+    order_number = state.get('order_number', None)
+    # if either one of them is NULL 
+    if dispatch_id is None or order_number is None:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage("Something went wrong. Please try again later.", tool_call_id=tool_call_id)
+                ]
+            }
+        )
 
-async def send_end_live_tracking_link(dispatch_id: str, driver_id: str) -> dict:
-    """
-    Generates and sends a URL for ending live tracking on the driver's device.
+    # If wrong confirmation code 
+    if confirmation_code != "77":
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage("Wrong confirmation code. Please try again.", tool_call_id=tool_call_id)
+                ]
+            }
+        )
     
+    # On right confirmation code
+    # Update db status
+    try:
+        _response = await sbase_call_function(
+            function_name='dispatch_complete_func',
+            input_args={'p_dispatch_id': dispatch_id}
+        )
+        logger.info(_response)
+    except Exception as e:
+        error_message = f"Error updating delivery status: {str(e)}"
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(error_message, tool_call_id=tool_call_id)
+                ]
+            }
+        )
+
+    return Command(
+        update={
+            "messages": [
+                ToolMessage("Confirmation code accepted. Delivery completed. Send end live tracking link (tool: `send_end_live_tracking_link`).", tool_call_id=tool_call_id)
+            ]
+        }
+    )
+    
+# %% DELIVERY END - send live tracking
+
+async def send_end_live_tracking_link(
+    config: RunnableConfig,
+    tool_call_id: Annotated[str, InjectedToolCallId]
+    ) -> dict:
+    """
+    Sends a URL for ending live tracking on the driver's device.
+
     This function creates a unique URL that, when opened on the driver's phone,
     automatically stops the live tracking feature in the driver app and performs
     any necessary cleanup for the completed delivery job.
 
     Args:
-        dispatch_id (str): Unique identifier of the dispatched delivery job
-        driver_id (str): Unique identifier of the driver completing the job
+        None
 
     Returns:
         dict: A dictionary containing:
@@ -127,7 +181,28 @@ async def send_end_live_tracking_link(dispatch_id: str, driver_id: str) -> dict:
             - expiry: UTC timestamp when the URL expires
             - cleanup_params: Dict of cleanup configuration parameters
     """
-    pass
+    recipient = get_recipient_from_config(config)
+    stop_job_url = await create_stop_job_config()
+    
+    # update delivery detail and dispatch to completed
+    # Send the URL to the rider
+    await _async_wa_client.send_message(
+            to=recipient,
+            text="Thank you, delivery is complete. Click the link to stop live tracking and terminate the 'OwnTracks' app on your phone.",
+            reply_to_message_id=None,
+            buttons=ButtonUrl(title="Stop live tracking", url=stop_job_url)
+        )
+
+    return Command(
+            update={
+                "messages": [
+                    ToolMessage("Link to stop tracking sent.", tool_call_id=tool_call_id),
+                    AIMessage(f"/dontRespond: Link to stop tracking sent.")
+                ]
+            }
+        )
+
+    
 
 # %% Create Agent
 with open(f"{project_settings.project_root}/ordelo/agents/rider_agent.md", "r") as file:

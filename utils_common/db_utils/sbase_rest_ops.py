@@ -4,7 +4,25 @@ import httpx
 import re
 
 HEADERS = pg_settings.headers
-HEADERS
+
+# %% sbase_call_function
+async def sbase_call_function(function_name: str, input_args: dict):
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{pg_settings.rest_url}/rest/v1/rpc/{function_name}", 
+                headers=HEADERS,
+                json=input_args
+            )
+        except httpx.RequestError as e:
+            raise RuntimeError(f"Network error occurred: {str(e)}")
+    
+    return response.json()
+
+# await sbase_call_function('dispatch_complete', {'p_dispatch_id': 11})
+
+
 # %% SQL to Supabase REST condition
 
 def sql_to_supabase_rest(**kwargs):
@@ -43,7 +61,7 @@ def sql_to_supabase_rest(**kwargs):
 rest_query = sql_to_supabase_rest(reservation_id='RES-UOYH-23')
 
 
-
+# %%
 
 def get_sql_condition_new(**kwargs) -> str:
     """
