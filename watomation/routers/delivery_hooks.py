@@ -72,7 +72,7 @@ async def delivery_dispatch_hook(request: Request):
               payload data.
     """
     payload = await request.json()
-    logger.info(payload)
+
     if len(payload['delivery_detail']) == 0:
         logger.error("no delivery_detail found for dispatch: {}".format(payload))
         return {"status": "error", "data": payload}
@@ -116,16 +116,13 @@ async def delivery_dispatch_hook(request: Request):
     }
 )
 async def delivery_inflight_sync(request: Request):
-    # Initialize the graph
+    # ToDo - This is not required anymore
 
     payload = await request.json()
 
     # Update the FastAPI state variable
     # request.app.state.DELIVERY_INFLIGHT = payload['delivery_inflight']
-    
-    logger.info("------------delivery-inflight-sync------------")
-    logger.info(payload)
-    
+        
     return {"status": "success", "data": payload}
 
 

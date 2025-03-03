@@ -116,7 +116,8 @@ async def init_ordelo_graph(
             "order_number": d_detail.order_number,
             "start_live_tracking_url": start_live_tracking_url,
             "delivery_start_dtts": delivery_start_dtts
-        }
+        },
+        as_node="toolNode",
     )
     # Run Graph
     await graph.ainvoke(input=ip_msgs, config=config)

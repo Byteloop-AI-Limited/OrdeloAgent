@@ -3,6 +3,13 @@ from ordelo_datamodels.delivery_pymodels import RestaurantMaster, CustomerMaster
 from utils_common.db_utils.sbase_rest_ops import sbase_insert, sbase_delete, sbase_get, sbase_update, sbase_sync_update, sbase_sync_get
 
 # %%
+open_dispatch = await sbase_get(table_name='delivery_dispatch', status='assigned')
+for dispatch in open_dispatch:
+    print(dispatch['dispatch_id'])
+    await sbase_call_function(function_name='dispatch_complete_func', input_args={'p_dispatch_id': dispatch['dispatch_id']})
+
+
+# %%
 # %% Update detail to accepted to test the tigger
 await sbase_update(
                 update_fields={"status": "unassigned"},
