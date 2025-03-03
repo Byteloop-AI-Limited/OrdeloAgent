@@ -25,7 +25,7 @@ from ordelo.state import AgentState
 from config import logger
 from utils_common.wa_send.wa_senders import send_order_reciept_wa, send_catalog
 from ordelo.agent_app_handlers import create_stop_job_config
-from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_update, sbase_delete
+from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_update, sbase_delete, sbase_call_function
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 
 from langchain_core.tools.base import InjectedToolCallId
@@ -136,22 +136,11 @@ async def verify_delivery_confirmation_code(
     # On right confirmation code
     # Update db status
     try:
-        await sbase_update(
-            update_fields={"status": "completed"},
-            table_name="delivery_dispatch", 
-            dispatch_id=dispatch_id
+        _response = await sbase_call_function(
+            function_name='dispatch_complete_func',
+            input_args={'p_dispatch_id': dispatch_id}
         )
-        
-        await sbase_update(
-            update_fields={"status": "completed"},
-            table_name="delivery_detail", 
-            order_number=order_number
-        )
-        
-        await sbase_delete(
-            table_name="delivery_inflight", 
-            dispatch_id=dispatch_id
-        )
+        logger.info(_response)
     except Exception as e:
         error_message = f"Error updating delivery status: {str(e)}"
         return Command(

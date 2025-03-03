@@ -9,6 +9,7 @@ class RestaurantMaster(BaseModel):
     rest_lon: float
     rest_lat: float
     rest_address: str
+    town: str
 
 
 class CustomerMaster(BaseModel):

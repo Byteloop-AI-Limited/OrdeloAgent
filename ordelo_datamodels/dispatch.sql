@@ -4,8 +4,8 @@ CREATE TABLE delivery_dispatch (
     rider_id        VARCHAR(12) NOT NULL,
     rider_payout    DOUBLE PRECISION NOT NULL,
     distance         DOUBLE PRECISION NOT NULL,
-    status          VARCHAR(50) NOT NULL CHECK (status IN ('unassigned', 'timeout', 'declined', 'assigned', 'completed')),
-    status_update_dtts             TIMESTAMP,
+    status          VARCHAR(50) NOT NULL CHECK (status IN ('unassigned', 'timedout', 'declined', 'assigned', 'completed')),
+    status_update_dtts        TIMESTAMP,
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     dtts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
