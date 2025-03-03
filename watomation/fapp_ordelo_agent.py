@@ -4,7 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 import asyncio
 import uvicorn
-from fastapi import BackgroundTasks, FastAPI
+from fastapi import FastAPI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from ordelo.agents.rider_agent import builder
@@ -12,6 +12,9 @@ from psycopg_pool import AsyncConnectionPool, ConnectionPool
 from pywa.types import Message
 from pywa_async import WhatsApp, filters
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
+from ordelo_datamodels.masterdata_pymodels import RestaurantMaster, CustomerMaster
+from utils_common.db_utils.sbase_pool_ops import insert_model_to_db, execute_sql_query
+import uuid
 
 from config import (
     logger,
@@ -19,7 +22,7 @@ from config import (
     project_settings,
     waba_business_settings,
 )
-from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_insert, sbase_update
+from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_call_function
 from utils_common.thread_management import ThreadHandler
 from utils_common.wa_send.wa_senders import (
     process_dispatch_response_from_rider_sync,
@@ -71,7 +74,7 @@ async def lifespan(app: FastAPI):
     app.state.graph = graph
 
     # in memory data
-    app.state.DELIVERY_INFLIGHT = await sbase_get("delivery_inflight")
+    # app.state.DELIVERY_INFLIGHT = await sbase_get("delivery_inflight")
 
     # Yield to start the application
     try:
@@ -139,6 +142,8 @@ async def get_details():
 
 # TEST_DELIVERY = filters.contains("/testdelivery", ignore_case=True)
 TEST_DELIVERY = filters.contains("/test", ignore_case=True)
+LIVE_LOCATION = filters.contains("/live", ignore_case=True)
+
 WHEN_RESET = filters.contains("/reset", ignore_case=True)
 PAYMENT_COMPLETE = filters.contains("/paid", ignore_case=True)
 RESERVATION_CONFIRMED = filters.contains("/confirm", ignore_case=True)
@@ -146,38 +151,134 @@ IS_DISPATCH_RESPONSE_DECLINED = filters.contains("/dispatchResponse", ignore_cas
 IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 
 # %% TestDelivery
+
+@wa.on_message(LIVE_LOCATION)
+async def live_location(wa: WhatsApp, msg: Message):
+    #toDo this needs to go
+    recipient = msg.sender
+    logger.info("liv_location requested ...")
+    
+    _inflight = await sbase_get(table_name="delivery_inflight", rider_id=recipient)
+
+    order_number = _inflight[0]['order_number']
+    pool = app.state.pool
+    # live location logic, reused
+    query = """
+    SELECT 
+        lat, 
+        lon
+    FROM rider_location LOC INNER JOIN delivery_inflight DI
+    ON LOC.rider_id = DI.rider_id
+    WHERE LOC.order_number = %s
+    ORDER BY tst DESC
+    LIMIT 1
+    """
+    result = await execute_sql_query(pool, query, (order_number,))
+    if result is None:
+        return None
+    
+    lat, lon = result[0]
+    
+    logger.info(f"lat:{lat}, lon:{lon}")
+
+    live_map_url=f"https://maps.google.com/?q=Order('{order_number}')@{lat},{lon}"
+    logger.info(live_map_url)
+    await wa.send_message(
+        to=recipient, 
+        text=live_map_url
+        )
+
+# %% test delivery
 @wa.on_message(TEST_DELIVERY)
 async def test_delivery(wa: WhatsApp, msg: Message):
-    # reset the status of test delivery to unassigned
-    await sbase_update(
-        update_fields={"status": "unassigned", "dispatch_id": None, "rider_id": None},
-        table_name="delivery_detail",
-        order_number='test123'
+    pool = app.state.pool
+    recipient = msg.sender
+    # order_number = msg.text.replace('/', '').strip()
+    # order_number should be uuid
+    order_number = uuid.uuid4().hex
+    # %%
+    warren_road = RestaurantMaster(
+    **{
+        "rest_id": "warren_road", 
+        "rest_name": "Warren Road", 
+        "rest_lon": 0.09076387564540894,
+        "rest_lat": 51.36020627498843,
+        "rest_address": "Warren Rd, Orpington BR6 6JF",
+        "town": "Orpington"}
     )
-    await sbase_update(
-        update_fields={"status": "completed"},
-        table_name="delivery_dispatch",
-        status='assigned'
-    )
-    # Create a delivery dispatchs
-    delivery_dispatch = {
-        'order_number': 'test123',
-        'rider_id': msg.sender,
-        'rider_payout': 0.5,
-        'distance': 0.5,
-        'status': 'unassigned'
-    }
-    await sbase_insert("delivery_dispatch", delivery_dispatch)
-    # todo
-    delivery_dispatch = {
-        'order_number': 'test123',
-        'rider_id': '447448440754',
-        'rider_payout': 0.5,
-        'distance': 0.5,
-        'status': 'unassigned'
-    }
-    await sbase_insert("delivery_dispatch", delivery_dispatch)
+    if msg.text.endswith('r'):
+        elai_customer = CustomerMaster(
+            **{
+                "customer_id": "447446933210",
+                "customer_name": "Rahul",
+                "customer_lon": 0.09807413931483216,
+                "customer_lat": 51.361305286779476,
+                "customer_address": "29 Hollywell Close, BR69XP",
+            })
+    else:
+        elai_customer = CustomerMaster(
+            **{
+                "customer_id": "447448440754",
+                "customer_name": "10hith",
+                "customer_lon": 0.09590008054155555,
+                "customer_lat": 51.35408136953724,
+                "customer_address": "27 Waring Drive, Orpington, BR66DN",
+            })
 
+    insert_data = {
+        "order_number": order_number,
+        "rider_payout": 5.50,
+        "distance": 10.5,
+        "status": "unassigned"
+    }
+
+    # elai_customer = CustomerInfo(**insert_data)
+    _delivery_detail = DeliveryDetail(
+        **insert_data, 
+        **warren_road.model_dump(),
+        **elai_customer.model_dump()
+        )
+    # %% DB operations
+    # Cleanup - update dispatch complete
+    open_dispatch = await sbase_get(table_name='delivery_dispatch', status='assigned')
+    for dispatch in open_dispatch:
+        await sbase_call_function(function_name='dispatch_complete_func', input_args={'p_dispatch_id': dispatch['dispatch_id']})
+
+    # Cleanup - delete from rider_location_event
+    delete_old_location_events = f"DELETE FROM rider_location_event WHERE order_number = '{order_number}'"
+    await execute_sql_query(pool, query=delete_old_location_events)
+    
+    # Create delivery detail
+    await insert_model_to_db(pool, table_name="delivery_detail", model_instance=_delivery_detail)
+    
+    # delete existing order and insert new one
+    # delete_old_order = f"DELETE FROM delivery_detail WHERE order_number = '{order_number}'"
+    # await execute_sql_query(pool, query=delete_old_order)
+
+    # Update existing dispatch status and insert new one
+    # update_dispatch_status_q = f"UPDATE delivery_dispatch SET status = 'completed' WHERE order_number = '{order_number}'"
+    # await execute_sql_query(pool, query=update_dispatch_status_q)
+
+    # clear_inflight_q = "delete from delivery_inflight;"
+    # await execute_sql_query(pool, query=clear_inflight_q)
+
+    # Create a initial delivery dispatchs
+    # next_available_rider_q = f"SELECT * FROM get_available_riders('{order_number}');"
+    # available_riders = await execute_sql_query(pool, query=next_available_rider_q)
+    # initial_rider_id = available_riders[0][0]
+    
+    # initial_delivery_dispatch = {
+    #     'order_number': order_number,
+    #     'rider_id': initial_rider_id,
+    #     'rider_payout': 0.5,
+    #     'distance': 0.5,
+    #     'status': 'unassigned'
+    # }
+    
+    # _delivery_dispatch = DeliveryDispatch(**initial_delivery_dispatch)
+    # await insert_model_to_db(pool, table_name="delivery_dispatch", model_instance=_delivery_dispatch)
+
+    
 # %% Reset
 @wa.on_message(WHEN_RESET)
 async def reset_thread(wa: WhatsApp, msg: Message):
@@ -185,6 +286,12 @@ async def reset_thread(wa: WhatsApp, msg: Message):
     recipient = msg.from_user.wa_id
     pool = app.state.pool
     thread_handler = ThreadHandler(pool)
+
+    _inflight = await sbase_get("delivery_inflight", rider_id=recipient)
+    dispatch_id = _inflight[0]['dispatch_id']
+
+    await sbase_call_function(function_name='dispatch_complete_func', input_args={'p_dispatch_id': dispatch_id})
+
 
     await thread_handler.make_threads_inactive(from_number=recipient)
     await wa.send_message(to=recipient, text="Starting new conversation")
@@ -194,7 +301,7 @@ async def reset_thread(wa: WhatsApp, msg: Message):
 @wa.on_callback_button(IS_DISPATCH_RESPONSE)
 def callback_selection(wa: WhatsApp, msg: Message):
     """
-    Rider's response to delivery dispatch. This is a blocking operation.
+    Rider's response to delivery dispatch. This is a blocking operation. Entry point into the graph.
     """
     # logger.info(msg)
     recipient = msg.sender
@@ -202,7 +309,7 @@ def callback_selection(wa: WhatsApp, msg: Message):
     
     dispatch_id = callback_data['dispatch_id']
     order_number = callback_data['order_number']
-    rider_response = callback_data['status']
+    rider_response = callback_data['status'] 
 
     # start db operations in sync context
     pool_sync = app.state.pool_sync
@@ -233,6 +340,8 @@ def callback_selection(wa: WhatsApp, msg: Message):
     # Initiate the graph execution as background task
     asyncio.create_task(init_ordelo_graph(graph, pool, d_detail))
 
+# %%
+
 
 @wa.on_message()
 async def process_wa_msg(wa: WhatsApp, msg: Message):
@@ -245,4 +354,4 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
 # %%
 
 if __name__ == "__main__":
-    uvicorn.run("watomation.app_ordelo_agent:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("watomation.fapp_ordelo_agent:app", host="0.0.0.0", port=8000, reload=True)

@@ -12,7 +12,7 @@ from psycopg_pool import ConnectionPool
 import base64
 from datetime import datetime, timedelta
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
-from utils_common.db_utils.sbase_rest_ops import sbase_update, sbase_get, sbase_sync_update, sbase_sync_get
+from utils_common.db_utils.sbase_rest_ops import sbase_update, sbase_get, sbase_sync_update, sbase_sync_get, sbase_call_function
 
 
 # %% Send Delivery Dispatch
@@ -67,6 +67,8 @@ Pickup location - *{delivery_detail.rest_name}*
 
 Drop off location - *{delivery_detail.customer_name}*
 {delivery_detail.customer_address}
+
+Order number - *{delivery_detail.order_number}*
     """
     await _async_wa_client.send_message(
         to=recipient,
@@ -133,40 +135,22 @@ def process_dispatch_response_from_rider_sync(
                     )
                     return_value = "job already assigned"
                 else:
-                        # Update dispatch status
+                        # dispatch_accepted; Needs to send back the delivery detail
                         cur.execute(
                             """
-                            UPDATE delivery_dispatch 
-                            SET status = 'assigned', status_update_dtts = %s 
-                            WHERE dispatch_id = %s
+                            SELECT dispatch_accept_func(%s, %s, %s)
                             """,
-                            (datetime.now().isoformat(), dispatch_id)
+                            (dispatch_id, order_number, rider_id)
                         )
-                        
-                        # Update delivery detail
-                        cur.execute(
-                            """
-                            UPDATE delivery_detail 
-                            SET status = 'assigned', dispatch_id = %s, rider_id = %s 
-                            WHERE order_number = %s
-                            """,
-                            (dispatch_id, rider_id, order_number)
-                        )
-
-                        # Update delivery_inflight
-                        cur.execute(
-                            """
-                            INSERT INTO delivery_inflight (dispatch_id, order_number, rider_id, customer_id)
-                            VALUES (%s, %s, %s, (SELECT customer_id FROM delivery_detail WHERE order_number = %s LIMIT 1))
-                            """,
-                            (dispatch_id, order_number, rider_id, order_number)
-                        )
+                        _detail = cur.fetchone()
+                        if not isinstance(_detail['dispatch_accept_func'], dict):
+                            logger.error("Issue with return type of dispatch_accept_func")
 
                         _sync_wa_client.send_message(
                             to=rider_id,
                             text='Thank you for accepting the job!'
                         )
-                        return_value = _detail
+                        return_value = _detail['dispatch_accept_func']
             else:
                 cur.execute(
                     """
@@ -179,28 +163,7 @@ def process_dispatch_response_from_rider_sync(
                 return_value = "job declined"
         conn.commit()
         return return_value
-        # conn.commit()
 
-
-# %% Send Start Live Tracking Link
-# fair and consistent
-async def send_start_live_tracking_link(
-    recipient: str,
-    start_href: str,
-    _async_wa_client: WhatsApp = _async_wa_client,
-):
-    _text="""
-    Thank you for accepting the job! Please use the live tracking link below to start tracking your delivery.
-    Remember to provide the 2-digit confirmation code after the delivery is completed!
-    Please let me know if you have any questions during the delivery process. 
-    """
-    await _async_wa_client.send_message(
-        to=recipient,
-        text="Start Live Tracking",
-        reply_to_message_id=None,
-        buttons=ButtonUrl(title="Click Here", url=start_href)
-    )
-    return True
 
 # %% live location on map 
 async def get_live_location_map_url(order_number: str):

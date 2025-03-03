@@ -5,14 +5,17 @@ All handlers for the fastapi app that serves the Elai Ai agent
 import base64
 import json
 from datetime import datetime
+import asyncio
 
 import uvicorn
 from langchain_core.messages import HumanMessage, SystemMessage
 from pywa_async.types import Message
-
-from config import logger
+from psycopg_pool import AsyncConnectionPool
+import psycopg
+from config import logger, _async_wa_client
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliveryDispatch
 from utils_common.db_utils.sbase_rest_ops import sbase_get
+from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 from utils_common.lg_utils import get_config_for_recipient
 
 # %% Funcs
@@ -57,7 +60,7 @@ async def create_start_job_config(
         "password": "",
         "url": "https://live-track.byteloop.ai/location-hooks/pub",
         "locatorDisplacement": 10,
-        "locatorInterval" : 10,
+        "locatorInterval" : 60,
         "waypoints": waypoints
     }
 
@@ -66,14 +69,30 @@ async def create_start_job_config(
 
     return start_href
 
+# %% 
+stop_job_config = {
+        "_type": "configuration",
+        "mode": 3,
+        "allowRemoteLocation": False,
+        "usePassword" : False,
+        "monitoring": -1,
+        "username": "NA",
+        "password": "",
+        "url": "",
+    }
+async def create_stop_job_config() -> str:
+    # Encode config as href
+    stop_href = generate_config_href(stop_job_config)
+    return stop_href
+
 # %% Initialize Ordelo Graph
 
 async def init_ordelo_graph(
     graph, 
     pool, 
-    d_detail: DeliveryDetail,
+    d_detail: DeliveryDetail
     ):
-    logger.info(f"Initializing Ordelo Graph with rider_id: {d_detail.rider_id}")
+    logger.info(f"Initializing Ordelo Graph with rider_id {d_detail.rider_id}")
     # Setup Graph
     start_live_tracking_url = await create_start_job_config(
         d_detail
@@ -82,25 +101,49 @@ async def init_ordelo_graph(
     config = await get_config_for_recipient(d_detail.rider_id, pool)
 
     # update graph state
-
-    # Setup context
+        # Setup context 
     ip_msgs = {
         "messages": [
             SystemMessage("Rider has accepted the delivery job, send the live tracking link."),
             HumanMessage("I have accepted the delivery job."),
         ]
     }
-    
+    delivery_start_dtts = datetime.now().isoformat()
     await graph.aupdate_state(  
         config,
         {
             "dispatch_id": d_detail.dispatch_id,
             "order_number": d_detail.order_number,
-            "start_live_tracking_url": start_live_tracking_url
-        }
+            "start_live_tracking_url": start_live_tracking_url,
+            "delivery_start_dtts": delivery_start_dtts
+        },
+        as_node="toolNode",
     )
-
+    # Run Graph
     await graph.ainvoke(input=ip_msgs, config=config)
+
+    # Verify if live location enabled
+        # sleep for 4 seconds
+    await asyncio.sleep(65)
+    async with pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+                SELECT * FROM
+                rider_location 
+                WHERE rider_id=%s AND order_number=%s AND dtts >= %s
+                """,
+                (d_detail.rider_id, d_detail.order_number, delivery_start_dtts)
+            )
+            location_data = await cur.fetchone()
+    
+    if location_data:
+        logger.success(f"location data being recieved from {d_detail.rider_id}: {location_data}")
+    else:
+        await _async_wa_client.send_message(
+            to=d_detail.rider_id,
+            text=f"I am unable to get your live location, please enable it by clicking the link sent to you.",
+        )
 
 # %% Run Ordelo Graph
 async def run_ordelo_graph(msg: Message, graph, pool):
@@ -137,3 +180,24 @@ async def run_ordelo_graph(msg: Message, graph, pool):
     ai_msg_content = ai_msg["messages"][-1].content
 
     return ai_msg_content
+
+# %% Get live location on map 
+
+
+# %% Dispatch and delivery complete
+async def process_dispatch_complete(
+    pool: AsyncConnectionPool,
+    rider_id: str,
+    callback_data: dict,
+):
+    async with pool.connection() as conn:
+        async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+            await cur.execute(
+                """
+                UPDATE delivery_dispatch
+                SET status = 'completed'
+                WHERE dispatch_id = %s
+                """,
+                (callback_data['dispatch_id'],),
+            )
+            await conn.commit()

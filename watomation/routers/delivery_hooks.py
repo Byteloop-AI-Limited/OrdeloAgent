@@ -2,7 +2,6 @@ from fastapi import APIRouter, Request
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliveryDispatch
 from utils_common.wa_send.wa_senders import wa_send_delivery_dispatch_request_to_rider
 from loguru import logger
-from ordelo.agent_app_handlers import init_ordelo_graph
 
 # %%
 # https://live-track.byteloop.ai/delivery-hooks
@@ -73,6 +72,7 @@ async def delivery_dispatch_hook(request: Request):
               payload data.
     """
     payload = await request.json()
+
     if len(payload['delivery_detail']) == 0:
         logger.error("no delivery_detail found for dispatch: {}".format(payload))
         return {"status": "error", "data": payload}
@@ -82,14 +82,15 @@ async def delivery_dispatch_hook(request: Request):
         logger.error("no delivery_dispatch or detail found for dispatch: {}".format(payload))
         return {"status": "error", "data": payload}
 
-    # todo
-    delivery_dispatch = DeliveryDispatch(**payload['delivery_dispatch'][0])
+    # extract from payload
+    rider_id = payload['delivery_dispatch'][0]['rider_id']
+    dispatch_id = payload['delivery_dispatch'][0]['dispatch_id']
     delivery_detail = DeliveryDetail(**payload['delivery_detail'][0])
     
     await wa_send_delivery_dispatch_request_to_rider(
-        recipient = delivery_dispatch.rider_id, 
+        recipient = rider_id, 
         delivery_detail=delivery_detail,
-        dispatch_id=delivery_dispatch.dispatch_id
+        dispatch_id=dispatch_id
     )
     
     return {"status": "success", "data": payload}
@@ -115,16 +116,13 @@ async def delivery_dispatch_hook(request: Request):
     }
 )
 async def delivery_inflight_sync(request: Request):
-    # Initialize the graph
+    # ToDo - This is not required anymore
 
     payload = await request.json()
 
     # Update the FastAPI state variable
     # request.app.state.DELIVERY_INFLIGHT = payload['delivery_inflight']
-    
-    logger.info("------------delivery-inflight-sync------------")
-    logger.info(payload)
-    
+        
     return {"status": "success", "data": payload}
 
 
