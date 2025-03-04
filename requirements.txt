@@ -17,6 +17,7 @@ psycopg==3.2.3
 psycopg-pool
 pywa==2.7.0
 # data transforms
+supabase==2.13.0
 duckdb==1.2.0
 pandas==2.2.3
 numpy
