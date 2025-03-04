@@ -182,22 +182,3 @@ async def run_ordelo_graph(msg: Message, graph, pool):
     return ai_msg_content
 
 # %% Get live location on map 
-
-
-# %% Dispatch and delivery complete
-async def process_dispatch_complete(
-    pool: AsyncConnectionPool,
-    rider_id: str,
-    callback_data: dict,
-):
-    async with pool.connection() as conn:
-        async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
-            await cur.execute(
-                """
-                UPDATE delivery_dispatch
-                SET status = 'completed'
-                WHERE dispatch_id = %s
-                """,
-                (callback_data['dispatch_id'],),
-            )
-            await conn.commit()
