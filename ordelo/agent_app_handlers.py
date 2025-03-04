@@ -34,7 +34,7 @@ async def create_start_job_config(
             "tst": int(datetime.now().timestamp()),
             "rid": "rest",
             "desc": "rest",
-            "rad": 10,
+            "rad": 35,
             "lat": d_detail.rest_lat,
             "lon": d_detail.rest_lon
         },

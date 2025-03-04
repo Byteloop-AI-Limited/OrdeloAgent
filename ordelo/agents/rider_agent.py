@@ -113,8 +113,10 @@ async def verify_delivery_confirmation_code(
     # Extract dispatch_id
     dispatch_id = state.get('dispatch_id', None)
     order_number = state.get('order_number', None)
+    
     # if either one of them is NULL 
     if dispatch_id is None or order_number is None:
+        logger.error("dispatch_id or order_number is None")
         return Command(
             update={
                 "messages": [
@@ -136,11 +138,13 @@ async def verify_delivery_confirmation_code(
     # On right confirmation code
     # Update db status
     try:
+        logger.info("Updating delivery status to completed")
+
         _response = await sbase_call_function(
             function_name='dispatch_complete_func',
             input_args={'p_dispatch_id': dispatch_id}
         )
-        logger.info(_response)
+
     except Exception as e:
         error_message = f"Error updating delivery status: {str(e)}"
         return Command(
