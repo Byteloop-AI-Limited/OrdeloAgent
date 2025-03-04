@@ -111,46 +111,83 @@ def process_dispatch_response_from_rider_sync(
     with pool_sync.connection() as conn:
         with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
             if rider_response == 'accepted':
-                # Check current status
+                # Rider accepted, but check for timeout
                 cur.execute(
-                    "SELECT * FROM delivery_detail WHERE order_number = %s",
-                    (order_number,)
+                    """
+                    SELECT 
+                    * 
+                    FROM delivery_dispatch
+                    WHERE rider_id = %s AND order_number = %s
+                    """,
+                    (rider_id, order_number)
                 )
-                _detail = cur.fetchone()
+                _dispatch = cur.fetchone()
 
-                if _detail and _detail['status'] == 'assigned':
-                    # Job already assigned, update dtts
+                if _dispatch['status'] == 'timedout':
                     cur.execute(
                         """
-                        UPDATE delivery_dispatch 
-                        SET status_update_dtts = %s 
-                        WHERE dispatch_id = %s
+                        DELETE FROM delivery_dispatch
+                        WHERE rider_id = %s AND order_number = %s
                         """,
-                        (datetime.now().isoformat(), dispatch_id)
+                        (rider_id, order_number)
                     )
+                    conn.commit() 
+
                     # Job already assigned
                     _sync_wa_client.send_message(
                         to=rider_id,
-                        text='Sorry, This job has already been assigned'
+                        text='Please be on stand by. We will re-assign the job if not taken by other riders'
                     )
-                    return_value = "job already assigned"
+
+                    return_value = "Dispatch is timedout"
+
                 else:
-                        # dispatch_accepted; Needs to send back the delivery detail
+                    # Check current status
+                    cur.execute(
+                        """
+                        SELECT 
+                        * 
+                        FROM delivery_detail
+                        WHERE order_number = %s
+                        """,
+                        (order_number,)
+                    )
+                    _detail = cur.fetchone()
+
+                    if _detail and (_detail['status'] == 'assigned' or _detail['status'] == 'timedout') and _detail['rider_id'] != rider_id:
+                        # Job already assigned, update dtts
                         cur.execute(
                             """
-                            SELECT dispatch_accept_func(%s, %s, %s)
+                            UPDATE delivery_dispatch 
+                            SET status_update_dtts = %s 
+                            WHERE dispatch_id = %s
                             """,
-                            (dispatch_id, order_number, rider_id)
+                            (datetime.now().isoformat(), dispatch_id)
                         )
-                        _detail = cur.fetchone()
-                        if not isinstance(_detail['dispatch_accept_func'], dict):
-                            logger.error("Issue with return type of dispatch_accept_func")
-
+                        # Job already assigned
                         _sync_wa_client.send_message(
                             to=rider_id,
-                            text='Thank you for accepting the job!'
+                            text='Sorry, This job has already been assigned'
                         )
-                        return_value = _detail['dispatch_accept_func']
+                        return_value = "job already assigned"
+                    else:
+                            # dispatch_accepted; Needs to send back the delivery detail
+                            cur.execute(
+                                """
+                                SELECT dispatch_accept_func(%s, %s, %s)
+                                """,
+                                (dispatch_id, order_number, rider_id)
+                            )
+                            _detail = cur.fetchone()
+                            if not isinstance(_detail['dispatch_accept_func'], dict):
+                                logger.error("Issue with return type of dispatch_accept_func")
+                            
+                            # 
+                            _sync_wa_client.send_message(
+                                to=rider_id,
+                                text='Thank you for accepting the job!'
+                            )
+                            return_value = _detail['dispatch_accept_func']
             else:
                 cur.execute(
                     """

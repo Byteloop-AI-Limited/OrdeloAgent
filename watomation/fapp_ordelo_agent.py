@@ -287,14 +287,18 @@ async def reset_thread(wa: WhatsApp, msg: Message):
     pool = app.state.pool
     thread_handler = ThreadHandler(pool)
 
-    _inflight = await sbase_get("delivery_inflight", rider_id=recipient)
-    dispatch_id = _inflight[0]['dispatch_id']
-
-    await sbase_call_function(function_name='dispatch_complete_func', input_args={'p_dispatch_id': dispatch_id})
-
-
     await thread_handler.make_threads_inactive(from_number=recipient)
     await wa.send_message(to=recipient, text="Starting new conversation")
+
+
+    _inflight = await sbase_get("delivery_inflight", rider_id=recipient)
+    # do below only when there is an inflight
+    if not _inflight:
+        return
+        
+    dispatch_id = _inflight[0]['dispatch_id']
+    await sbase_call_function(function_name='dispatch_complete_func', input_args={'p_dispatch_id': dispatch_id})
+
 
 
 # %% WA Handlers - Callback

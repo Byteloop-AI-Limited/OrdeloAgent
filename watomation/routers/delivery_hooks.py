@@ -87,6 +87,7 @@ async def delivery_dispatch_hook(request: Request):
     dispatch_id = payload['delivery_dispatch'][0]['dispatch_id']
     delivery_detail = DeliveryDetail(**payload['delivery_detail'][0])
     
+    logger.info(f"dispatch request sent to rider: {rider_id}")
     await wa_send_delivery_dispatch_request_to_rider(
         recipient = rider_id, 
         delivery_detail=delivery_detail,

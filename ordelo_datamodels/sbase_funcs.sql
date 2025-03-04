@@ -69,7 +69,8 @@ FROM availableRiders ar
 WHERE dd.order_number = ar.order_number
 AND ar.rider_count = 0
 AND dd.status = 'unassigned'
-AND dd.order_number NOT IN (SELECT order_number FROM dispatch_insert);
+AND dd.order_number NOT IN (SELECT order_number FROM dispatch_insert)
+AND (current_timestamp - dd.dtts) >= interval '3 minutes';
 
 ----------------------------------------
 -- TimeoutUnassignedDispatch
