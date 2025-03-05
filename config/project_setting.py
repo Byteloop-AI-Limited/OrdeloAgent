@@ -17,6 +17,7 @@ def get_project_root():
 
 class ProjectSetting(BaseSettings):
     salt: str
+    base_url: str
 
     @property
     def project_root(self) -> str:

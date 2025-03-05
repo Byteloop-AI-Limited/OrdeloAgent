@@ -15,6 +15,8 @@ from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from ordelo_datamodels.masterdata_pymodels import RestaurantMaster, CustomerMaster
 from utils_common.db_utils.sbase_pool_ops import insert_model_to_db, execute_sql_query
 import uuid
+from typing import Optional
+from ordelo.agent_app_handlers import debug_state
 
 from config import (
     logger,
@@ -24,10 +26,7 @@ from config import (
 )
 from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_call_function
 from utils_common.thread_management import ThreadHandler
-from utils_common.wa_send.wa_senders import (
-    process_dispatch_response_from_rider_sync,
-)
-from ordelo.agent_app_handlers import init_ordelo_graph, run_ordelo_graph
+from ordelo.agent_app_handlers import init_ordelo_graph, run_ordelo_graph, process_dispatch_response_from_rider_sync
 from watomation.routers import delivery_hooks, location_hooks
 
 # %%
@@ -130,14 +129,24 @@ async def get_details():
     phone_id = waba_business_settings.phone_id
     phone_num = business_phone_number.display_phone_number
     bus_name = business_phone_number.verified_name
-    callback_url = business_phone_number.webhook_configuration["application"]
+    callback_url_on_waba = business_phone_number.webhook_configuration["application"]
+    callback_url = waba_business_settings.callback_url
+
     return {
         "phone_id": str(phone_id),
         "display_phone_num": phone_num,
         "verified_name": bus_name,
         "callback_url": callback_url,
+        "callback_url_on_waba": callback_url_on_waba
     }
 
+# %% debug state 
+@app.get("/debug-state")
+async def debug_state_path(recipient: Optional[str] = "447448440754"):
+    graph = app.state.graph
+    pool = app.state.pool
+    debug_stack = await debug_state(recipient, graph, pool)
+    return debug_stack
 # %% WA Overrides - reset, payment complete, reservation confirmation
 
 # TEST_DELIVERY = filters.contains("/testdelivery", ignore_case=True)
@@ -284,14 +293,14 @@ async def test_delivery(wa: WhatsApp, msg: Message):
 async def reset_thread(wa: WhatsApp, msg: Message):
     logger.info("=============== reset the thread ===============")
     recipient = msg.from_user.wa_id
-    pool = app.state.pool
-    thread_handler = ThreadHandler(pool)
-
+    thread_handler = app.state.thread_handler
+    
     _inflight = await sbase_get("delivery_inflight", rider_id=recipient)
-    dispatch_id = _inflight[0]['dispatch_id']
-
-    await sbase_call_function(function_name='dispatch_complete_func', input_args={'p_dispatch_id': dispatch_id})
-
+    
+    # Exit if there is no active dispatch 
+    if len(_inflight) != 0:
+        dispatch_id = _inflight[0]['dispatch_id']
+        await sbase_call_function(function_name='dispatch_complete_func', input_args={'p_dispatch_id': dispatch_id})
 
     await thread_handler.make_threads_inactive(from_number=recipient)
     await wa.send_message(to=recipient, text="Starting new conversation")
@@ -316,7 +325,7 @@ def callback_selection(wa: WhatsApp, msg: Message):
     pool = app.state.pool
     graph = app.state.graph
 
-    d_detail_dict = process_dispatch_response_from_rider_sync(
+    d_detail_dict: DeliveryDetail = process_dispatch_response_from_rider_sync(
         pool_sync=pool_sync,
         rider_id=recipient,
         callback_data=callback_data
@@ -348,10 +357,17 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
     recipient = msg.sender
     pool = app.state.pool
     graph = app.state.graph
+    thread_handler = app.state.thread_handler
+
+    thread_row = await thread_handler.get_active_thread(recipient)
+
+    # exit if there is not active delivery
+    if thread_row is None:
+        await wa.send_message(to=recipient, text="You have no active delivery")
+        return
 
     # Run the graph
     await run_ordelo_graph(msg, graph, pool)
 # %%
-
 if __name__ == "__main__":
-    uvicorn.run("watomation.fapp_ordelo_agent:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("watomation.fapp_ordelo_agent:app", host="0.0.0.0", port=3100, reload=True)

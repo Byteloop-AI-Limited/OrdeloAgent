@@ -1,12 +1,84 @@
 from fastapi import APIRouter, Request
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliveryDispatch
-from utils_common.wa_send.wa_senders import wa_send_delivery_dispatch_request_to_rider
-from loguru import logger
+from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 
+from config import logger, _async_wa_client
+from pywa.types import Button
+from pywa_async import WhatsApp
+from datetime import datetime, timedelta
+import json
 # %%
 # https://live-track.byteloop.ai/delivery-hooks
 router = APIRouter(tags=["delivery_hooks"])
 
+# %% supporting functions
+async def wa_send_delivery_dispatch_request_to_rider(
+    recipient: str,
+    delivery_detail: DeliveryDetail,
+    dispatch_id: int,
+    _async_wa_client: WhatsApp = _async_wa_client
+):
+    order_number = delivery_detail.order_number
+
+    accept_pl = {
+        "command": "/dispatchResponse",
+        "order_number": order_number,
+        "dispatch_id": dispatch_id,
+        "status": "accepted"
+    }
+
+    decline_pl = {
+        "command": "/dispatchResponse",
+        "order_number": order_number,
+        "dispatch_id": dispatch_id,
+        "status": "declined"
+    }
+
+    # send restaurant location
+    # await _async_wa_client.send_location(
+    #     to=recipient,
+    #     latitude=delivery_detail.rest_lat,
+    #     longitude=delivery_detail.rest_lon,
+    #     name= f"{delivery_detail.rest_name} Pick Up",
+    #     address= delivery_detail.rest_address
+    # )
+    
+
+    # send customer location
+    # await _async_wa_client.send_location(
+    #     to=recipient,
+    #     latitude=delivery_detail.customer_lat,
+    #     longitude=delivery_detail.customer_lon,
+    #     name=f"{delivery_detail.customer_name} Drop Off",
+    #     address=delivery_detail.customer_address,
+    # )
+
+    pickup_time = (datetime.now() + timedelta(minutes=25)).strftime("%I:%M %p")
+   
+    wa_text = f"""
+    Pickup time - *{pickup_time}*
+
+Pickup location - *{delivery_detail.rest_name}*
+{delivery_detail.rest_address}
+
+Drop off location - *{delivery_detail.customer_name}*
+{delivery_detail.customer_address}
+
+Order number - *{delivery_detail.order_number}*
+    """
+    await _async_wa_client.send_message(
+        to=recipient,
+        # reply_to_message_id=msg.id,
+        header=f'1.2 Miles, £3.5, @{pickup_time}',
+        text=wa_text,
+        footer='⚡Ordelo',
+        buttons=[
+            Button(title='Accept', callback_data=json.dumps(accept_pl)),
+            Button(title='Decline', callback_data=json.dumps(decline_pl)),
+        ]
+    )
+
+
+# %% Define paths
 @router.get("/",
     summary="Root Endpoint",
     description="Returns a simple message to verify the delivery hooks router is working",
@@ -24,7 +96,7 @@ router = APIRouter(tags=["delivery_hooks"])
         }
     }
 )
-async def root():
+async def delivery_hook_root():
     return {"message": "Delivery Hooks Router"}
 
 
@@ -94,55 +166,3 @@ async def delivery_dispatch_hook(request: Request):
     )
     
     return {"status": "success", "data": payload}
-
-
-
-@router.post("/delivery-inflight-sync",
-    summary="Sync Delivery Inflight Data",
-    description="Synchronizes the current in-flight delivery data with the system",
-    response_description="Status of the sync operation and the processed data",
-    responses={
-        200: {
-            "description": "Successfully synced delivery inflight data",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "status": "success",
-                        "data": {"delivery_inflight": []}
-                    }
-                }
-            }
-        }
-    }
-)
-async def delivery_inflight_sync(request: Request):
-    # ToDo - This is not required anymore
-
-    payload = await request.json()
-
-    # Update the FastAPI state variable
-    # request.app.state.DELIVERY_INFLIGHT = payload['delivery_inflight']
-        
-    return {"status": "success", "data": payload}
-
-
-@router.get("/delivery-inflight-sync",
-    summary="Get Delivery Inflight Data",
-    description="Retrieves the current in-flight delivery data from the system state",
-    response_description="Current delivery inflight data",
-    responses={
-        200: {
-            "description": "Successfully retrieved delivery inflight data",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "status": "success",
-                        "data": []
-                    }
-                }
-            }
-        }
-    }
-)
-async def delivery_inflight_sync_get(request: Request):
-    return {"status": "success", "data": request.app.state.DELIVERY_INFLIGHT}
