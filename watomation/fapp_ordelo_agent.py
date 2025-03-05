@@ -284,14 +284,14 @@ async def test_delivery(wa: WhatsApp, msg: Message):
 async def reset_thread(wa: WhatsApp, msg: Message):
     logger.info("=============== reset the thread ===============")
     recipient = msg.from_user.wa_id
-    pool = app.state.pool
-    thread_handler = ThreadHandler(pool)
-
+    thread_handler = app.state.thread_handler
+    
     _inflight = await sbase_get("delivery_inflight", rider_id=recipient)
-    dispatch_id = _inflight[0]['dispatch_id']
-
-    await sbase_call_function(function_name='dispatch_complete_func', input_args={'p_dispatch_id': dispatch_id})
-
+    
+    # Exit if there is no active dispatch 
+    if len(_inflight) != 0:
+        dispatch_id = _inflight[0]['dispatch_id']
+        await sbase_call_function(function_name='dispatch_complete_func', input_args={'p_dispatch_id': dispatch_id})
 
     await thread_handler.make_threads_inactive(from_number=recipient)
     await wa.send_message(to=recipient, text="Starting new conversation")
@@ -348,6 +348,14 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
     recipient = msg.sender
     pool = app.state.pool
     graph = app.state.graph
+    thread_handler = app.state.thread_handler
+
+    thread_row = await thread_handler.get_active_thread(recipient)
+
+    # exit if there is not active delivery
+    if thread_row is None:
+        await wa.send_message(to=recipient, text="You have no active delivery")
+        return
 
     # Run the graph
     await run_ordelo_graph(msg, graph, pool)
