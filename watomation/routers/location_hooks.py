@@ -166,6 +166,9 @@ async def live_location_map(
     pool: psycopg.AsyncConnection = Depends(get_pool)
     ):
     live_map_url = await get_live_map_location_url(pool, order_number)
+    if live_map_url is None:
+        return {"current_location": None}
+    
     return {"current_location": live_map_url}
 
 
@@ -236,7 +239,10 @@ async def notify_rider_location_event(request: Request):
     # recipient = location_event_new.get('recipient') 
     recipient = rider_id
     
-    live_map_url = await get_live_map_location_url(request.app.state.pool, order_number)
+    # Call the live-location-map endpoint instead of directly calling get_live_map_location_url
+    response = await live_location_map(order_number=order_number, pool=request.app.state.pool)
+    live_map_url = response.get("current_location", None)
+    
     if live_map_url is None:
         return
     # Unpack changed fields

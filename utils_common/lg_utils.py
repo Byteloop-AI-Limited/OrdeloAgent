@@ -408,6 +408,7 @@ def get_state_values(state, exclude_key='messages'):
 async def get_config_for_recipient(recipient: str, pool) -> Dict[str, Any]:
     """
     Retrieves or creates a thread for a recipient and returns a configuration dictionary.
+    Also create passes a connection pool that can be used by tools !!!
 
     Args:
         recipient: The recipient identifier (e.g., a user ID).
@@ -421,7 +422,7 @@ async def get_config_for_recipient(recipient: str, pool) -> Dict[str, Any]:
         recipient
     )
 
-    config = {"configurable": {"thread_id": thread_id, "recipient": recipient}}
+    config = {"configurable": {"thread_id": thread_id, "recipient": recipient, 'pool':pool}}
     return config
 
 #%%

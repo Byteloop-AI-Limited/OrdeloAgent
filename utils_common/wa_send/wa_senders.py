@@ -107,7 +107,8 @@ def process_dispatch_response_from_rider_sync(
     dispatch_id = callback_data['dispatch_id']
     order_number = callback_data['order_number']
     rider_response = callback_data['status']
-    
+    return_value = ''
+
     with pool_sync.connection() as conn:
         with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
             if rider_response == 'accepted':
@@ -135,23 +136,23 @@ def process_dispatch_response_from_rider_sync(
                     )
                     return_value = "job already assigned"
                 else:
-                        # dispatch_accepted; Needs to send back the delivery detail
-                        cur.execute(
-                            """
-                            SELECT dispatch_accept_func(%s, %s, %s)
-                            """,
+                    # dispatch_accepted; Needs to send back the delivery detail
+                    cur.execute(
+                        """
+                        SELECT dispatch_accept_func(%s, %s, %s)
+                        """,
                             (dispatch_id, order_number, rider_id)
                         )
-                        _detail = cur.fetchone()
-                        if not isinstance(_detail['dispatch_accept_func'], dict):
-                            logger.error("Issue with return type of dispatch_accept_func")
-
+                    _detail = cur.fetchone()
+                    if not isinstance(_detail['dispatch_accept_func'], dict):
+                        logger.error("Issue with return type of dispatch_accept_func")
                         _sync_wa_client.send_message(
                             to=rider_id,
                             text='Thank you for accepting the job!'
                         )
-                        return_value = _detail['dispatch_accept_func']
-            else:
+                    return_value = _detail['dispatch_accept_func']
+
+            elif rider_response == 'declined':
                 cur.execute(
                     """
                     UPDATE delivery_dispatch 

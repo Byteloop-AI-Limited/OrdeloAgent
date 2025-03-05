@@ -21,10 +21,13 @@ with pool.connection() as conn:
         conn.commit()
 
 
+# %% Test params
+
+url = "https://live-track.byteloop.ai/location-hooks/pub"
+topic = 'owntracks/447448440754/447448440754-0e72014e350a431e90c0be06cf626f9e/event'
 
 # %% Rest enter
 
-url = "https://live-track.byteloop.ai/location-hooks/pub"
 payload = {
             'lon': 0.096501, 
             'acc': 2, 
@@ -32,7 +35,7 @@ payload = {
             'event': 'enter', 
             'rid': 'rest', 
             'desc': 'home', 
-            'topic': 'owntracks/447448440754/447448440754-test123/event', 
+            'topic': topic, 
             'lat': 51.354255, 
             't': 'c', 
             'tst': 1739802742, 
@@ -50,7 +53,7 @@ payload = {
             'event': 'leave', 
             'rid': 'rest', 
             'desc': 'home', 
-            'topic': 'owntracks/447448440754/447448440754-test123/event', 
+            'topic': topic,
             'lat': 51.354255, 
             't': 'c', 
             'tst': 1739802742, 
@@ -67,7 +70,7 @@ payload = {
             'event': 'enter', 
             'rid': 'cust', 
             'desc': 'home', 
-            'topic': 'owntracks/447448440754/447448440754-test123/event', 
+            'topic': topic, 
             'lat': 51.354255, 
             't': 'c', 
             'tst': 1739802742, 
@@ -91,7 +94,7 @@ payload = {
     'vac': 13,
     'inregions': ['rest'],
     'lat': 51.360026,
-    'topic': 'owntracks/447448440754/447448440754-test123',
+    'topic': topic,
     't': 'c',
     'conn': 'm',
     'm': 2,

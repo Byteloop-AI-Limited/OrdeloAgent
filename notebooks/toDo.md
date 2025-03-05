@@ -1,6 +1,6 @@
-When a random message to WhatsApp, send standard message if no active thread.
+Change the live location link to call the url - Done
 
-Always close the thread. 
-    On Reset, close all threads. - Complete
-    On Open d_detail, if not more riders, update as timedout - complete
+When a random message to WhatsApp, send standard message if no active thread.
+    Look at thread
+
     

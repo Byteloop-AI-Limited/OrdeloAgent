@@ -30,6 +30,7 @@ from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 
 from langchain_core.tools.base import InjectedToolCallId
 from langchain_core.messages import ToolMessage, AIMessage
+from utils_common.thread_management import ThreadHandler
 
 
 
@@ -92,6 +93,7 @@ async def send_start_live_tracking_link(
 
 async def verify_delivery_confirmation_code(
     confirmation_code: str,
+    config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId]
 ) -> dict:
@@ -110,6 +112,12 @@ async def verify_delivery_confirmation_code(
             - delivery_status: Updated status of the delivery
             - timestamp: UTC timestamp of verification attempt
     """
+    pool = config['configurable'].get('pool', None)
+    recipient = get_recipient_from_config(config)
+    
+    if pool is None:
+        logger.error("pool unavailable")
+
     # Extract dispatch_id
     dispatch_id = state.get('dispatch_id', None)
     order_number = state.get('order_number', None)
@@ -140,7 +148,11 @@ async def verify_delivery_confirmation_code(
             function_name='dispatch_complete_func',
             input_args={'p_dispatch_id': dispatch_id}
         )
-        logger.info(_response)
+        # End the thread
+        thread_handler = ThreadHandler(pool)
+        response = await thread_handler.make_threads_inactive(from_number=recipient)
+        logger.info(response['message'])
+
     except Exception as e:
         error_message = f"Error updating delivery status: {str(e)}"
         return Command(
@@ -161,12 +173,12 @@ async def verify_delivery_confirmation_code(
     
 # %% DELIVERY END - send live tracking
 
-async def send_end_live_tracking_link(
+async def end_delivery(
     config: RunnableConfig,
     tool_call_id: Annotated[str, InjectedToolCallId]
     ) -> dict:
     """
-    Sends a URL for ending live tracking on the driver's device.
+    Ends the delivery by sending a URL that stops live tracking on the driver's device.
 
     This function creates a unique URL that, when opened on the driver's phone,
     automatically stops the live tracking feature in the driver app and performs
@@ -185,6 +197,7 @@ async def send_end_live_tracking_link(
     stop_job_url = await create_stop_job_config()
     
     # update delivery detail and dispatch to completed
+
     # Send the URL to the rider
     await _async_wa_client.send_message(
             to=recipient,
@@ -213,7 +226,7 @@ with open(f"{project_settings.project_root}/ordelo/agents/rider_agent.md", "r") 
 _rider_agent_tools = [
     send_start_live_tracking_link,
     verify_delivery_confirmation_code,
-    send_end_live_tracking_link,
+    end_delivery,
 ]
 
 rider_agent_tools = [ tool(service) for service in _rider_agent_tools ]
