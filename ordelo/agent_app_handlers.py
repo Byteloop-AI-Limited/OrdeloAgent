@@ -7,18 +7,14 @@ import json
 from datetime import datetime
 import asyncio
 
-import uvicorn
 from langchain_core.messages import HumanMessage, SystemMessage
 from pywa_async.types import Message
-from psycopg_pool import AsyncConnectionPool
 import psycopg
 from config import logger, _async_wa_client, project_settings, _sync_wa_client
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliveryDispatch
-from utils_common.db_utils.sbase_rest_ops import sbase_get
-from utils_common.db_utils.sbase_pool_ops import execute_sql_query
+from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from utils_common.lg_utils import get_state_values, shorten_state_messages, get_config_for_recipient
 from psycopg_pool import ConnectionPool
-from pywa.types import Template as Temp, Button, ButtonUrl
+from pywa.types import ButtonUrl
 from pywa_async import WhatsApp
 
 

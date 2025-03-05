@@ -201,9 +201,6 @@ async def live_location(wa: WhatsApp, msg: Message):
 @wa.on_message(TEST_DELIVERY)
 async def test_delivery(wa: WhatsApp, msg: Message):
     pool = app.state.pool
-    recipient = msg.sender
-    # order_number = msg.text.replace('/', '').strip()
-    # order_number should be uuid
     order_number = uuid.uuid4().hex
     # %%
     warren_road = RestaurantMaster(
@@ -317,8 +314,6 @@ def callback_selection(wa: WhatsApp, msg: Message):
     callback_data: dict = json.loads(msg.data)
     
     dispatch_id = callback_data['dispatch_id']
-    order_number = callback_data['order_number']
-    rider_response = callback_data['status'] 
 
     # start db operations in sync context
     pool_sync = app.state.pool_sync
