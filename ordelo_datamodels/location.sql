@@ -65,7 +65,7 @@ BEGIN
     WHEN key = 'updated_at' THEN false  -- exclude updated_at from comparison
     ELSE json_extract_path_text(row_to_json(OLD), key) IS DISTINCT FROM json_extract_path_text(row_to_json(NEW), key)
   END;
-
+  
   -- Build the webhook payload with both complete record and changed fields
   webhook_payload := json_build_object(
     'location_event_new', row_to_json(NEW),
@@ -74,11 +74,10 @@ BEGIN
 
   -- Make the HTTP POST request and ignore the response
   PERFORM http_post(
-    'https://live-track.byteloop.ai/location-hooks/notify-rider-location-event', 
+    'https://agent.ordelo.app/location-hooks/notify-rider-location-event', 
     webhook_payload::text,
     'application/json'
   );
-
   RETURN NEW;
 END;
 $$;

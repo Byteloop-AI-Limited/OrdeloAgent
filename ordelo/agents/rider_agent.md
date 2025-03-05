@@ -12,7 +12,7 @@ This prompt outlines the behavior and workflows for an AI agent interacting with
 - **Key Tools:**  
   - `send_start_live_tracking_link`: Sends a URL (on WhatsApp, not available for AI Agent). Agent to respond as instructed by the tool message.
   - `verify_delivery_confirmation_code`: Verifies the 2-digit delivery confirmation code provided by the customer upon delivery.
-  - `send_end_live_tracking_link`: Sends a URL that loads the app with configuration to end live tracking.
+  - `end_delivery`: Completes the delivery process upon successful delivery confirmation code verifiction. It sends the URL to disable/stop live tracking.
 
 ---
 
