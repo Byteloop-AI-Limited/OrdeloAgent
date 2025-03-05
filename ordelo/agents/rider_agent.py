@@ -1,38 +1,31 @@
 # %%
 from config import project_settings
-from typing import Annotated, List
+from typing import Annotated
 
 from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import InjectedState, ToolNode
 from langgraph.types import Command
 from typing_extensions import Literal
-from langgraph.checkpoint.memory import MemorySaver
 from config import _async_wa_client
 from pywa.types import ButtonUrl
-from langchain_core.messages import RemoveMessage
 
 from utils_common.lg_utils import (
     create_agent_w_sys_prompt_n_tools,
     get_recipient_from_config,
-    LLM_4o as llm,
-    display_graph
+    LLM_4o as llm
 )
 # from elai.agents.respond_agent import respond_node
 from ordelo.state import AgentState
 from config import logger
-from utils_common.wa_send.wa_senders import send_order_reciept_wa, send_catalog
 from ordelo.agent_app_handlers import create_stop_job_config
-from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_update, sbase_delete, sbase_call_function
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail
+from utils_common.db_utils.sbase_rest_ops import sbase_call_function
 
 from langchain_core.tools.base import InjectedToolCallId
-from langchain_core.messages import ToolMessage, AIMessage
+from langchain_core.messages import ToolMessage
 from utils_common.thread_management import ThreadHandler
-
-
 
 # %% DELIVERY START - send live tracking
 
@@ -53,7 +46,8 @@ async def send_start_live_tracking_link(
     """
     recipient = get_recipient_from_config(config)
 
-    _text="""
+    agents_first_text="""
+
 🚀 Get started with the delivery by cliking the below link
 
 🔑 Remember to provide the 2-digit confirmation code after the delivery is completed!
@@ -62,12 +56,14 @@ async def send_start_live_tracking_link(
     """
     
     start_live_tracking_url = state.get('start_live_tracking_url', None) 
+    order_number = state.get('order_number', None)
 
     if start_live_tracking_url is not None:
         # Send the URL to the rider
         await _async_wa_client.send_message(
             to=recipient,
-            text=_text,
+            header=order_number,
+            text=agents_first_text,
             reply_to_message_id=None,
             buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url)
         )
@@ -76,7 +72,7 @@ async def send_start_live_tracking_link(
             update={
                 "messages": [
                     ToolMessage("Url and instructions sent to user.", tool_call_id=tool_call_id),
-                    AIMessage(f"/dontRespond: {_text}")
+                    AIMessage(f"/dontRespond: {agents_first_text}")
                 ]
             }
         )
@@ -123,6 +119,7 @@ async def verify_delivery_confirmation_code(
     order_number = state.get('order_number', None)
     # if either one of them is NULL 
     if dispatch_id is None or order_number is None:
+        logger.debug(f"dispatch_id is None or order_number is None: {dispatch_id} {order_number}")
         return Command(
             update={
                 "messages": [
@@ -210,7 +207,7 @@ async def end_delivery(
             update={
                 "messages": [
                     ToolMessage("Link to stop tracking sent.", tool_call_id=tool_call_id),
-                    AIMessage(f"/dontRespond: Link to stop tracking sent.")
+                    AIMessage("/dontRespond: Link to stop tracking sent.")
                 ]
             }
         )

@@ -12,13 +12,98 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pywa_async.types import Message
 from psycopg_pool import AsyncConnectionPool
 import psycopg
-from config import logger, _async_wa_client
+from config import logger, _async_wa_client, project_settings, _sync_wa_client
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliveryDispatch
 from utils_common.db_utils.sbase_rest_ops import sbase_get
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
-from utils_common.lg_utils import get_config_for_recipient
+from utils_common.lg_utils import get_state_values, shorten_state_messages, get_config_for_recipient
+from psycopg_pool import ConnectionPool
+from pywa.types import Template as Temp, Button, ButtonUrl
+from pywa_async import WhatsApp
 
-# %% Funcs
+
+# %% Supporting Funcs
+def process_dispatch_response_from_rider_sync(
+    pool_sync: ConnectionPool,
+    rider_id: str,
+    callback_data: dict,
+    _sync_wa_client: WhatsApp = _sync_wa_client
+):
+    """
+    Processes the rider's response to a delivery dispatch in a synchronous context.
+
+    Depending on whether the rider accepted or declined the job, it updates the
+    delivery dispatch and delivery detail records in the database accordingly.
+
+    Args:
+        pool_sync (ConnectionPool): A synchronous connection pool for database operations.
+        recipient (str): The phone number of the rider.
+        callback_data (dict): The callback data containing the dispatch ID, order number, and rider response.
+        _sync_wa_client (WhatsApp, optional): The WhatsApp client for sending messages. Defaults to _sync_wa_client.
+
+    """
+    dispatch_id = callback_data['dispatch_id']
+    order_number = callback_data['order_number']
+    rider_response = callback_data['status']
+    return_value = ''
+
+    with pool_sync.connection() as conn:
+        with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+            if rider_response == 'accepted':
+                # Check current status
+                cur.execute(
+                    "SELECT * FROM delivery_detail WHERE order_number = %s",
+                    (order_number,)
+                )
+                _detail = cur.fetchone()
+
+                if _detail and _detail['status'] == 'assigned':
+                    # Job already assigned, update dtts
+                    cur.execute(
+                        """
+                        UPDATE delivery_dispatch 
+                        SET status_update_dtts = %s 
+                        WHERE dispatch_id = %s
+                        """,
+                        (datetime.now().isoformat(), dispatch_id)
+                    )
+                    # Job already assigned
+                    _sync_wa_client.send_message(
+                        to=rider_id,
+                        text='Sorry, This job has already been assigned'
+                    )
+                    return_value = "job already assigned"
+                else:
+                    # dispatch_accepted; Needs to send back the delivery detail
+                    cur.execute(
+                        """
+                        SELECT dispatch_accept_func(%s, %s, %s)
+                        """,
+                            (dispatch_id, order_number, rider_id)
+                        )
+                    _detail = cur.fetchone()
+                    if not isinstance(_detail['dispatch_accept_func'], dict):
+                        logger.error("Issue with return type of dispatch_accept_func")
+                        _sync_wa_client.send_message(
+                            to=rider_id,
+                            text='Thank you for accepting the job!'
+                        )
+                    return_value = _detail['dispatch_accept_func']
+
+            elif rider_response == 'declined':
+                cur.execute(
+                    """
+                    UPDATE delivery_dispatch 
+                    SET status = 'declined', status_update_dtts = %s 
+                    WHERE dispatch_id = %s
+                    """,
+                    (datetime.now().isoformat(), dispatch_id)
+                )
+                return_value = "job declined"
+        conn.commit()
+        return return_value
+
+# %% Generate Config Href
 def generate_config_href(config: dict) -> str:
     config_json = json.dumps(config)
     config_base64 = base64.b64encode(config_json.encode()).decode()
@@ -58,7 +143,7 @@ async def create_start_job_config(
         "username": d_detail.rider_id,
         "deviceId": f"{d_detail.rider_id}-{d_detail.order_number}",
         "password": "",
-        "url": "https://live-track.byteloop.ai/location-hooks/pub",
+        "url": f"{project_settings.base_url}/location-hooks/pub",
         "locatorDisplacement": 10,
         "locatorInterval" : 60,
         "waypoints": waypoints
@@ -69,7 +154,7 @@ async def create_start_job_config(
 
     return start_href
 
-# %% 
+# %% Stop Job Config
 stop_job_config = {
         "_type": "configuration",
         "mode": 3,
@@ -121,7 +206,7 @@ async def init_ordelo_graph(
     )
     # Run Graph
     await graph.ainvoke(input=ip_msgs, config=config)
-
+    
     # Verify if live location enabled
         # sleep for 4 seconds
     await asyncio.sleep(65)
@@ -130,20 +215,27 @@ async def init_ordelo_graph(
             await cur.execute(
                 """
                 SELECT * FROM
-                rider_location 
-                WHERE rider_id=%s AND order_number=%s AND dtts >= %s
+                rider_location riderLocation
+                WHERE rider_id=%s AND order_number=%s AND dtts >= %s AND EXISTS
+                (SELECT 1 from delivery_inflight 
+                WHERE rider_id = riderLocation.rider_id
+                AND order_number = riderLocation.order_number
+                )
                 """,
                 (d_detail.rider_id, d_detail.order_number, delivery_start_dtts)
             )
             location_data = await cur.fetchone()
-    
+
     if location_data:
         logger.success(f"location data being recieved from {d_detail.rider_id}: {location_data}")
     else:
-        
+        text="I am unable to get your live location, please enable it by clicking the link sent to you."
         await _async_wa_client.send_message(
             to=d_detail.rider_id,
-            text=f"I am unable to get your live location, please enable it by clicking the link sent to you.",
+            header=d_detail.order_number,
+            text=text,
+            reply_to_message_id=None,
+            buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url)
         )
 
 # %% Run Ordelo Graph
@@ -182,4 +274,14 @@ async def run_ordelo_graph(msg: Message, graph, pool):
 
     return ai_msg_content
 
-# %% Get live location on map 
+# %% Debug state
+# %% Debug State
+async def debug_state(recipient: str, graph, pool) -> dict:
+    config = await get_config_for_recipient(recipient, pool)
+    state = await graph.aget_state(config=config)
+
+    debug_stack = {
+        **get_state_values(state.values),
+        "messages": shorten_state_messages(state.values["messages"]),
+    }
+    return debug_stack
