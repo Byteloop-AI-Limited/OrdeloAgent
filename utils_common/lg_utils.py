@@ -66,6 +66,7 @@ def agent_node(state, agent, name):
 #%%
 LLM_4o = ChatOpenAI(
     model="gpt-4o-mini-2024-07-18", 
+    # model="o1-mini-2024-09-12", 
     temperature=0, 
     max_tokens=None, 
     timeout=None, 

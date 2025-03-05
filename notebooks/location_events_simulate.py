@@ -1,30 +1,13 @@
 # %%
-from config import pg_settings
+from config import pg_settings, project_settings
 from psycopg_pool import ConnectionPool
-from datetime import datetime, timezone
+from datetime import datetime
 import requests 
-# %%
-pool = ConnectionPool(pg_settings.db_uri)
-
-# %%
-with pool.connection() as conn:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO rider_location_event (topic, rider_id, order_number, tst, res_enter_dtts)
-            VALUES (%s, %s, %s, %s, %s)
-            ON CONFLICT (topic) DO UPDATE SET
-                res_enter_dtts = EXCLUDED.res_enter_dtts
-            """,
-            (1, 1231, 1, 1739802745, "2025-02-17 14:32:07", 1231, 1231)
-        )
-        conn.commit()
-
 
 # %% Test params
 
-url = "https://live-track.byteloop.ai/location-hooks/pub"
-topic = 'owntracks/447448440754/447448440754-0e72014e350a431e90c0be06cf626f9e/event'
+url = f"{project_settings.base_url}/location-hooks/pub"
+topic = 'owntracks/447448440754/447448440754-e153845d621d497ea780a9ce5647d822/event'
 
 # %% Rest enter
 
@@ -45,6 +28,8 @@ payload = {
 
 requests.post(url, json=payload)
 
+# %%
+from config import logger
 # %% rest leave
 payload = {
             'lon': 0.096501, 

@@ -40,15 +40,13 @@ BEGIN
   response := (
     SELECT content 
     FROM http_post(
-      'https://live-track.byteloop.ai/delivery-hooks/delivery-dispatch', 
+      'https://agent.ordelo.app/delivery-hooks/delivery-dispatch', 
       webhook_payload::text,
       'application/json'
     )
   );
-
   -- Log the response
   RAISE NOTICE 'Response from HTTP POST: %', response;
-
   RETURN NEW;
 END;
 $$;
