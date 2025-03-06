@@ -20,16 +20,6 @@ CREATE TABLE delivery_detail (
     dtts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE delivery_inflight (
-    dispatch_id     INTEGER,
-    order_number     VARCHAR(100) NOT NULL,
-    rider_id        VARCHAR(12) NOT NULL,
-    customer_id        VARCHAR(12) NOT NULL,
-    dt               DATE NOT NULL DEFAULT CURRENT_DATE,
-    dtts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (dispatch_id)
-);
-
 
 
 

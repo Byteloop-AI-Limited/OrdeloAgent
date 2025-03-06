@@ -24,7 +24,7 @@ from config import (
     project_settings,
     waba_business_settings,
 )
-from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_call_function
+from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_call_function, sbase_update
 from utils_common.thread_management import ThreadHandler
 from ordelo.agent_app_handlers import init_ordelo_graph, run_ordelo_graph, process_dispatch_response_from_rider_sync
 from watomation.routers import delivery_hooks, location_hooks
@@ -304,45 +304,61 @@ async def reset_thread(wa: WhatsApp, msg: Message):
 
 
 # %% WA Handlers - Callback
-@wa.on_callback_button(IS_DISPATCH_RESPONSE)
-def callback_selection(wa: WhatsApp, msg: Message):
-    """
-    Rider's response to delivery dispatch. This is a blocking operation. Entry point into the graph.
-    """
-    # logger.info(msg)
-    recipient = msg.sender
-    callback_data: dict = json.loads(msg.data)
+# @wa.on_callback_button(IS_DISPATCH_RESPONSE)
+# def callback_selection(wa: WhatsApp, msg: Message):
+#     """
+#     Rider's response to delivery dispatch. This is a blocking operation. Entry point into the graph.
+#     """
+#     # logger.info(msg)
+#     recipient = msg.sender
+#     callback_data: dict = json.loads(msg.data)
+#     callback_data['rider_id']=recipient
+#     logger.info(callback_data)
+
+#     await sbase_update(table_name='delivery_dispatch', )
+
+# %% WA Handlers - Callback Old
+# @wa.on_callback_button(IS_DISPATCH_RESPONSE)
+# def callback_selection(wa: WhatsApp, msg: Message):
+#     """
+#     Rider's response to delivery dispatch. This is a blocking operation. Entry point into the graph.
+#     """
+#     # logger.info(msg)
+#     recipient = msg.sender
+#     callback_data: dict = json.loads(msg.data)
+#     callback_data['rider_id']=recipient
+#     logger.info(callback_data)
     
-    dispatch_id = callback_data['dispatch_id']
+#     dispatch_id = callback_data['dispatch_id']
 
-    # start db operations in sync context
-    pool_sync = app.state.pool_sync
-    pool = app.state.pool
-    graph = app.state.graph
+#     # start db operations in sync context
+#     pool_sync = app.state.pool_sync
+#     pool = app.state.pool
+#     graph = app.state.graph
 
-    d_detail_dict: DeliveryDetail = process_dispatch_response_from_rider_sync(
-        pool_sync=pool_sync,
-        rider_id=recipient,
-        callback_data=callback_data
-    )
+#     d_detail_dict: DeliveryDetail = process_dispatch_response_from_rider_sync(
+#         pool_sync=pool_sync,
+#         rider_id=recipient,
+#         callback_data=callback_data
+#     )
     
-    if isinstance(d_detail_dict, str):
-        # either declined or job already taken
-        return 
+#     if isinstance(d_detail_dict, str):
+#         # either declined or job already taken
+#         return 
 
-    # update delivery detail since the fetch was from before the table update
-    d_detail_dict['dispatch_id'] = dispatch_id
-    d_detail_dict['rider_id'] = recipient
-    d_detail_dict['status'] = 'assigned'
+#     # update delivery detail since the fetch was from before the table update
+#     d_detail_dict['dispatch_id'] = dispatch_id
+#     d_detail_dict['rider_id'] = recipient
+#     d_detail_dict['status'] = 'assigned'
 
 
-    # Create the model instance
-    d_detail = DeliveryDetail(**d_detail_dict)
+#     # Create the model instance
+#     d_detail = DeliveryDetail(**d_detail_dict)
     
-    logger.info(d_detail_dict)
+#     logger.info(d_detail_dict)
 
-    # Initiate the graph execution as background task
-    asyncio.create_task(init_ordelo_graph(graph, pool, d_detail))
+#     # Initiate the graph execution as background task
+#     asyncio.create_task(init_ordelo_graph(graph, pool, d_detail))
 
 # %%
 

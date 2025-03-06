@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Request
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 
-from config import logger, _async_wa_client
+from config import logger, _async_wa_client, pg_settings
 from pywa.types import Button
 from pywa_async import WhatsApp
 from datetime import datetime, timedelta
 import json
+
+client = pg_settings.client
 # %%
 # https://live-track.byteloop.ai/delivery-hooks
 router = APIRouter(tags=["delivery_hooks"])
@@ -166,3 +168,176 @@ async def delivery_dispatch_hook(request: Request):
     )
     
     return {"status": "success", "data": payload}
+
+# %% Delivery Inflight Graph Init
+@router.post("/delivery-inflight-graph-init",
+    summary="Initialize Delivery Inflight Graph",
+    description="""
+    Processes a new delivery inflight record and initializes the delivery tracking graph.
+    
+    This endpoint:
+    1. Receives delivery inflight and detail information
+    2. Validates the payload contains required information
+    3. Initializes the delivery tracking graph for the inflight delivery
+    """,
+    response_description="Status of the graph initialization operation and the processed data",
+    responses={
+        200: {
+            "description": "Successfully initialized delivery tracking graph",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "data": {
+                            "delivery_inflight": [{"dispatch_id": "123", "rider_id": "456", "order_number": "789"}],
+                            "delivery_detail": [{"order_number": "789", "customer_name": "John Doe"}]
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+async def delivery_inflight_graph_init_hook(request: Request):
+    """
+    On insert into delivery_inflight table, trigger delivery inflight graph initialization webhook.
+
+    This endpoint processes a delivery inflight record by extracting 
+    rider ID, dispatch ID, order number, and delivery details from the request payload.
+    It then initializes the delivery tracking graph for this inflight delivery.
+
+    Args:
+        request (Request): The HTTP request object containing JSON payload.
+
+    Returns:
+        dict: A dictionary with the status of the operation and the original 
+              payload data.
+    """
+    payload = await request.json()
+
+    # Validate payload
+    if 'delivery_inflight' not in payload or len(payload['delivery_inflight']) == 0:
+        logger.error("No delivery_inflight data found in payload: {}".format(payload))
+        return {"status": "error", "data": payload}
+    
+    if 'delivery_detail' not in payload or len(payload['delivery_detail']) == 0:
+        logger.error("No delivery_detail found for inflight record: {}".format(payload))
+        return {"status": "error", "data": payload}
+
+    # Extract data from payload
+    inflight_data = payload['delivery_inflight'][0]
+    detail_data = payload['delivery_detail'][0]
+    
+    # Log the received data
+    logger.info(f"Initializing delivery tracking graph for dispatch_id: {inflight_data['dispatch_id']}, order_number: {inflight_data['order_number']}")
+    
+    # Here you would add the logic to initialize the delivery tracking graph
+    # This could involve creating graph nodes, setting up tracking state, etc.
+    
+    # For now, we'll just return success with the payload
+    return {"status": "success", "data": payload}
+
+# %% Notify missed dispatches
+@router.post("/notify-missed-dispatches",
+    summary="Notify Missed Dispatches",
+    description="""
+    Notifies riders about missed dispatches.
+    
+    This endpoint:
+    1. Receives order_number and a list of rider IDs
+    2. Sends a notification to each rider (logger.info)
+    3. Uses sbase_update(table='delivery_dispatch', {"status": "missed"}, order_number=order_number)
+    """,
+    response_description="Status of the notification operation and the processed data",
+    responses={
+        200: {
+            "description": "Successfully notified about missed dispatches",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "data": {
+                            "order_numbers": ["ORD123", "ORD456"],
+                            "updated_dispatch_count": 5
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
+async def notify_missed_dispatches_hook(request: Request):
+    """
+    Process missed dispatches notification.
+    
+    This endpoint receives information about dispatches that have timed out
+    and updates their status to 'missed' in the database. It also logs
+    notifications that would be sent to riders.
+    
+    Args:
+        request (Request): The HTTP request object containing JSON payload.
+        
+    Returns:
+        dict: A dictionary with the status of the operation and summary data.
+    """
+    # from ordelo.sbase import sbase_update
+    
+    payload = await request.json()
+    
+    # Handle empty or missing missed_dispatches
+    if 'missed_dispatches' not in payload or not payload['missed_dispatches']:
+        logger.info("No missed_dispatches data found in payload, nothing to process")
+        return {"status": "success", "message": "No missed dispatches to process", "data": {"order_numbers": [], "updated_dispatch_count": 0}}
+    
+    updated_count = 0
+    order_numbers = []
+    
+    # Process each order with missed dispatches
+    for missed_dispatch in payload['missed_dispatches']:
+        logger.info(f"notify_missed_dispatches_hook received: {missed_dispatch}")
+
+        order_number = missed_dispatch['order_number']
+        order_numbers.append(order_number)
+        
+        dispatches_to_be_updated_as_missed = []
+        
+        # Log notification for each rider
+        for dispatch in missed_dispatch['dispatches']:
+            rider_id = dispatch['rider_id']
+            dispatch_id = dispatch['dispatch_id']
+            dispatches_to_be_updated_as_missed.append(dispatch_id)
+
+            logger.info(f"Notifying rider {rider_id} about missed dispatch for order {order_number}")
+        
+        # Mark dispatches as missed, they will not be pickup by notify_missed_dispatches sql function again
+        response = client.table("delivery_dispatch")\
+            .update({"status": "missed"})\
+            .in_("dispatch_id", dispatches_to_be_updated_as_missed)\
+            .execute()
+
+        logger.success(f"Marked dispatches as missed for order {response}")
+        # Update dispatch status to 'missed'
+        # try:
+        #     # Update all unassigned dispatches for this order to 'missed'
+        #     result = await sbase_update(
+        #         table='delivery_dispatch', 
+        #         values={"status": "missed", "status_update_dtts": "CURRENT_TIMESTAMP"}, 
+        #         where={"order_number": order_number, "status": "unassigned"}
+        #     )
+            
+        #     if result and 'affected_rows' in result:
+        #         updated_count += result['affected_rows']
+        #         logger.info(f"Updated {result['affected_rows']} dispatch records to 'missed' for order {order_number}")
+        #     else:
+        #         logger.warning(f"No dispatch records updated for order {order_number}")
+                
+        # except Exception as e:
+        #     logger.error(f"Error updating dispatch status for order {order_number}: {str(e)}")
+    
+    return {
+        "status": "success", 
+        "data": {
+            "order_numbers": order_numbers,
+            "updated_dispatch_count": updated_count
+        }
+    }

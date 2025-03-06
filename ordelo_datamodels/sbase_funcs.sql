@@ -5,6 +5,7 @@
     Gets available riders for a given order number and town.
 - dispatch_accept_func(p_dispatch_id bigint): Create required db records when rider accepts a dispatch.
 - dispatch_complete_func: Completes a dispatch.
+- assign_accepted_dispatch(p_order_number VARCHAR(100)): Assigns the first accepted dispatch for an order.
 **/
 ----------------------------------------
 
@@ -100,7 +101,7 @@ BEGIN
 
     -- Update delivery_detail status, dispatch_id and rider_id
     UPDATE delivery_detail 
-    SET status = 'completed', 
+    SET status = 'assigned', 
         dispatch_id = p_dispatch_id, 
         rider_id = p_rider_id
     WHERE order_number = p_order_number;
