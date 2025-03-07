@@ -16,7 +16,7 @@ from pywa.types import ButtonUrl
 from config import waba_business_settings
 
 
-# %% Define Dependancies
+# %% Define Dependancies and routes
 async def get_payload(request: Request):
     return await request.json()
 

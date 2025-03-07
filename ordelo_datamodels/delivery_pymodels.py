@@ -2,10 +2,6 @@
 
 from typing import Optional
 from pydantic import BaseModel, Field
-from decimal import Decimal
-from ordelo_datamodels.masterdata_pymodels import RestaurantMaster, CustomerMaster
-from utils_common.db_utils.sbase_rest_ops import sbase_insert
-from datetime import datetime
 
 class DeliveryDetail(BaseModel):
     order_number: str = Field(..., max_length=100)

@@ -8,18 +8,15 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
-    ToolMessage,
     RemoveMessage,
     filter_messages
 )
-from langgraph.graph import END, StateGraph, START
 
 from langgraph.graph.state import CompiledStateGraph
-from langchain_openai import ChatOpenAI
 from openai import OpenAI
 from pydantic import BaseModel, Field
 import json
-from typing import List, Dict, Any
+from typing import Dict
 from utils_common.thread_management import ThreadHandler
 from langchain_core.runnables.config import RunnableConfig
     
@@ -268,15 +265,6 @@ def call_tool(state, config, tool_executor):
     
     # We return a list, because this will get added to the existing list
     return {"messages": [tool_message]}
-
-# %% dispaly graph
-def display_graph(compiled_graph: Any) -> None:
-    try:
-        display(Image(compiled_graph.get_graph(xray=True).draw_mermaid_png()))
-    except Exception:
-        # This requires some extra dependencies and is optional
-        pass
-
 
 
 #%%

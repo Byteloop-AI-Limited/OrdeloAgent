@@ -7,6 +7,7 @@ import uvicorn
 from fastapi import FastAPI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.graph.state import CompiledStateGraph
 from ordelo.agents.rider_agent import builder
 from psycopg_pool import AsyncConnectionPool, ConnectionPool
 from pywa.types import Message
@@ -24,9 +25,14 @@ from config import (
     project_settings,
     waba_business_settings,
 )
-from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_call_function
+from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_call_function, sbase_update
 from utils_common.thread_management import ThreadHandler
-from ordelo.agent_app_handlers import init_ordelo_graph, run_ordelo_graph, process_dispatch_response_from_rider_sync
+from ordelo.agent_app_handlers import (
+    initial_handle_of_rider_response,
+    init_ordelo_graph, 
+    run_ordelo_graph, 
+    process_dispatch_response_from_rider_sync
+)
 from watomation.routers import delivery_hooks, location_hooks
 
 # %%
@@ -53,11 +59,9 @@ async def lifespan(app: FastAPI):
         kwargs=pg_settings.connection_kwargs,
         open=False,
     )
-
     pool_sync = ConnectionPool(pg_settings.db_uri)
     pool_sync.open()
-
-
+    
     # Explicitly open the pool
     await pool.open()
     checkpointer = AsyncPostgresSaver(pool)
@@ -66,11 +70,12 @@ async def lifespan(app: FastAPI):
     graph = builder.compile(checkpointer=MemorySaver())
 
     # Store it in the app state
-    app.state.pool = pool
-    app.state.pool_sync = pool_sync
+    app.state.pool: AsyncConnectionPool = pool
+    app.state.pool_sync: ConnectionPool = pool_sync
+    app.state.client = pg_settings.client
     app.state.checkpointer = checkpointer
     app.state.thread_handler = thread_handler
-    app.state.graph = graph
+    app.state.graph: CompiledStateGraph = graph
 
     # in memory data
     # app.state.DELIVERY_INFLIGHT = await sbase_get("delivery_inflight")
@@ -201,9 +206,6 @@ async def live_location(wa: WhatsApp, msg: Message):
 @wa.on_message(TEST_DELIVERY)
 async def test_delivery(wa: WhatsApp, msg: Message):
     pool = app.state.pool
-    recipient = msg.sender
-    # order_number = msg.text.replace('/', '').strip()
-    # order_number should be uuid
     order_number = uuid.uuid4().hex
     # %%
     warren_road = RestaurantMaster(
@@ -308,46 +310,83 @@ async def reset_thread(wa: WhatsApp, msg: Message):
 
 # %% WA Handlers - Callback
 @wa.on_callback_button(IS_DISPATCH_RESPONSE)
-def callback_selection(wa: WhatsApp, msg: Message):
+async def dispatch_response(wa: WhatsApp, msg: Message):
     """
     Rider's response to delivery dispatch. This is a blocking operation. Entry point into the graph.
     """
+    client = app.state.client
     # logger.info(msg)
     recipient = msg.sender
     callback_data: dict = json.loads(msg.data)
+    # remove command from callback data and add rider_id
+    callback_data.pop('command') 
+    callback_data['rider_id']=recipient
+
+    order_status = client.table("delivery_detail")\
+        .select("status")\
+        .eq("order_number", callback_data['order_number'])\
+        .execute()
+    
+    if len(order_status.data) == 0:
+        logger.error("No delivery detail found for order number: {}".format(callback_data['order_number']))
+        await wa.send_message(
+                        to=recipient,
+                        text='Sorry, This job is no longer available'
+                    )
+        return
+
+    order_status=order_status.data[0]
+    await initial_handle_of_rider_response(order_status, callback_data)
     
     dispatch_id = callback_data['dispatch_id']
     order_number = callback_data['order_number']
-    rider_response = callback_data['status'] 
+    rider_response = callback_data['status']
 
-    # start db operations in sync context
-    pool_sync = app.state.pool_sync
-    pool = app.state.pool
-    graph = app.state.graph
 
-    d_detail_dict: DeliveryDetail = process_dispatch_response_from_rider_sync(
-        pool_sync=pool_sync,
-        rider_id=recipient,
-        callback_data=callback_data
-    )
+    # await sbase_update(table_name='delivery_dispatch', )
+
+# %% WA Handlers - Callback Old
+# @wa.on_callback_button(IS_DISPATCH_RESPONSE)
+# def callback_selection(wa: WhatsApp, msg: Message):
+#     """
+#     Rider's response to delivery dispatch. This is a blocking operation. Entry point into the graph.
+#     """ 
+#     # logger.info(msg)
+#     recipient = msg.sender
+#     callback_data: dict = json.loads(msg.data)
+#     callback_data['rider_id']=recipient
+#     logger.info(callback_data)
     
-    if isinstance(d_detail_dict, str):
-        # either declined or job already taken
-        return 
+#     dispatch_id = callback_data['dispatch_id']
 
-    # update delivery detail since the fetch was from before the table update
-    d_detail_dict['dispatch_id'] = dispatch_id
-    d_detail_dict['rider_id'] = recipient
-    d_detail_dict['status'] = 'assigned'
+#     # start db operations in sync context
+#     pool_sync = app.state.pool_sync
+#     pool = app.state.pool
+#     graph = app.state.graph
 
-
-    # Create the model instance
-    d_detail = DeliveryDetail(**d_detail_dict)
+#     d_detail_dict: DeliveryDetail = process_dispatch_response_from_rider_sync(
+#         pool_sync=pool_sync,
+#         rider_id=recipient,
+#         callback_data=callback_data
+#     )
     
-    logger.info(d_detail_dict)
+#     if isinstance(d_detail_dict, str):
+#         # either declined or job already taken
+#         return 
 
-    # Initiate the graph execution as background task
-    asyncio.create_task(init_ordelo_graph(graph, pool, d_detail))
+#     # update delivery detail since the fetch was from before the table update
+#     d_detail_dict['dispatch_id'] = dispatch_id
+#     d_detail_dict['rider_id'] = recipient
+#     d_detail_dict['status'] = 'assigned'
+
+
+#     # Create the model instance
+#     d_detail = DeliveryDetail(**d_detail_dict)
+    
+#     logger.info(d_detail_dict)
+
+#     # Initiate the graph execution as background task
+#     asyncio.create_task(init_ordelo_graph(graph, pool, d_detail))
 
 # %%
 
