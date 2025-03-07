@@ -3,6 +3,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from langchain_postgres.vectorstores import PGVector
 from langchain_openai import OpenAIEmbeddings
+from supabase import create_client, Client, create_async_client, AsyncClient
 
 class PgSetting(BaseSettings):
     db_uri: str
@@ -52,6 +53,14 @@ class PgSetting(BaseSettings):
         env_file=None,
         extra="ignore"
     )
+
+    @property
+    def client(self) -> Client:
+        return create_client(self.rest_url, self.rest_key)
+
+    @property
+    def async_client(self) -> AsyncClient:
+        return create_async_client(self.rest_url, self.rest_key)
 
     @property
     def vector_store(self):
