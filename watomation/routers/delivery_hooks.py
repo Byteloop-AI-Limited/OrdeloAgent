@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 
 from config import logger, _async_wa_client, pg_settings
@@ -6,10 +6,28 @@ from pywa.types import Button
 from pywa_async import WhatsApp
 from datetime import datetime, timedelta
 import json
+from psycopg_pool import AsyncConnectionPool
+from ordelo.agent_app_handlers import init_ordelo_graph
+from ordelo_datamodels.delivery_pymodels import DeliveryDetail
+import asyncio
+
+# %%
+
+
+# %% Define Dependancies and routes
+async def get_payload(request: Request):
+    return await request.json()
+
+async def get_pool(request: Request):
+    # Get pool from the main app
+    return request.app.state.pool
+
+async def get_graph(request: Request):
+    # Get pool from the main app
+    return request.app.state.graph
 
 client = pg_settings.client
-# %%
-# https://live-track.byteloop.ai/delivery-hooks
+
 router = APIRouter(tags=["delivery_hooks"])
 
 # %% supporting functions
@@ -25,14 +43,16 @@ async def wa_send_delivery_dispatch_request_to_rider(
         "command": "/dispatchResponse",
         "order_number": order_number,
         "dispatch_id": dispatch_id,
-        "status": "accepted"
+        "status": "accepted",
+        "rider_id": recipient
     }
 
     decline_pl = {
         "command": "/dispatchResponse",
         "order_number": order_number,
         "dispatch_id": dispatch_id,
-        "status": "declined"
+        "status": "declined",
+        "rider_id": recipient
     }
 
     # send restaurant location
@@ -130,7 +150,7 @@ async def delivery_hook_root():
         }
     }
 )
-async def delivery_dispatch_hook(request: Request):
+async def delivery_dispatch_hook(payload: dict = Depends(get_payload)):
     """
     On insert into delivery_dispatch table, trigger delivery dispatch webhook.
 
@@ -145,7 +165,6 @@ async def delivery_dispatch_hook(request: Request):
         dict: A dictionary with the status of the operation and the original 
               payload data.
     """
-    payload = await request.json()
 
     if len(payload['delivery_detail']) == 0:
         logger.error("no delivery_detail found for dispatch: {}".format(payload))
@@ -198,7 +217,11 @@ async def delivery_dispatch_hook(request: Request):
         }
     }
 )
-async def delivery_inflight_graph_init_hook(request: Request):
+async def delivery_inflight_graph_init_hook(
+    payload: dict = Depends(get_payload),
+    graph = Depends(get_graph),
+    pool: AsyncConnectionPool = Depends(get_pool)
+):
     """
     On insert into delivery_inflight table, trigger delivery inflight graph initialization webhook.
 
@@ -213,29 +236,18 @@ async def delivery_inflight_graph_init_hook(request: Request):
         dict: A dictionary with the status of the operation and the original 
               payload data.
     """
-    payload = await request.json()
-
-    # Validate payload
-    if 'delivery_inflight' not in payload or len(payload['delivery_inflight']) == 0:
-        logger.error("No delivery_inflight data found in payload: {}".format(payload))
-        return {"status": "error", "data": payload}
-    
+    # Validate payload   
     if 'delivery_detail' not in payload or len(payload['delivery_detail']) == 0:
-        logger.error("No delivery_detail found for inflight record: {}".format(payload))
+        logger.error("No delivery_detail found: from inflight hook")
         return {"status": "error", "data": payload}
 
     # Extract data from payload
-    inflight_data = payload['delivery_inflight'][0]
-    detail_data = payload['delivery_detail'][0]
-    
-    # Log the received data
-    logger.info(f"Initializing delivery tracking graph for dispatch_id: {inflight_data['dispatch_id']}, order_number: {inflight_data['order_number']}")
-    
-    # Here you would add the logic to initialize the delivery tracking graph
-    # This could involve creating graph nodes, setting up tracking state, etc.
-    
-    # For now, we'll just return success with the payload
-    return {"status": "success", "data": payload}
+    delivery_detail = DeliveryDetail(**payload['delivery_detail'][0])
+
+    # Create as background task as the db webhook on inflight waits and errors out
+    asyncio.create_task(init_ordelo_graph(graph, pool, delivery_detail))
+
+    return {"status": "success"}
 
 # %% Notify missed dispatches
 @router.post("/notify-missed-dispatches",
@@ -266,7 +278,7 @@ async def delivery_inflight_graph_init_hook(request: Request):
         }
     }
 )
-async def notify_missed_dispatches_hook(request: Request):
+async def notify_missed_dispatches_hook(payload: dict = Depends(get_payload)):
     """
     Process missed dispatches notification.
     
@@ -282,14 +294,11 @@ async def notify_missed_dispatches_hook(request: Request):
     """
     # from ordelo.sbase import sbase_update
     
-    payload = await request.json()
-    
     # Handle empty or missing missed_dispatches
     if 'missed_dispatches' not in payload or not payload['missed_dispatches']:
         logger.info("No missed_dispatches data found in payload, nothing to process")
         return {"status": "success", "message": "No missed dispatches to process", "data": {"order_numbers": [], "updated_dispatch_count": 0}}
     
-    updated_count = 0
     order_numbers = []
     
     # Process each order with missed dispatches
@@ -307,7 +316,15 @@ async def notify_missed_dispatches_hook(request: Request):
             dispatch_id = dispatch['dispatch_id']
             dispatches_to_be_updated_as_missed.append(dispatch_id)
 
-            logger.info(f"Notifying rider {rider_id} about missed dispatch for order {order_number}")
+            _text = f"""
+            Sorry, the order was picked up by another rider. Order number: *{order_number}*
+            """
+
+            # send notification to rider
+            await _async_wa_client.send_message(
+                to=rider_id,
+                text=_text
+            )
         
         # Mark dispatches as missed, they will not be pickup by notify_missed_dispatches sql function again
         response = client.table("delivery_dispatch")\
@@ -334,10 +351,4 @@ async def notify_missed_dispatches_hook(request: Request):
         # except Exception as e:
         #     logger.error(f"Error updating dispatch status for order {order_number}: {str(e)}")
     
-    return {
-        "status": "success", 
-        "data": {
-            "order_numbers": order_numbers,
-            "updated_dispatch_count": updated_count
-        }
-    }
+    return {"status": "success"}

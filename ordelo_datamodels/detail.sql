@@ -19,10 +19,3 @@ CREATE TABLE delivery_detail (
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     dtts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
-
-
-
--- CLEANUP
--- DROP TRIGGER IF EXISTS manage_inflight ON delivery_detail;
--- drop table delivery_detail;
