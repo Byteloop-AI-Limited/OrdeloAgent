@@ -18,7 +18,7 @@ DECLARE
   webhook_payload json;
   notify_result BOOLEAN;
 BEGIN
-  -- Combine the NEW record with additional data from delivery_detail
+  -- Combine the NEW record with additional data from delivery_detail; required to invoke graph
   SELECT json_build_object(
     'delivery_inflight', json_build_array(row_to_json(NEW)),
     'delivery_detail', (
