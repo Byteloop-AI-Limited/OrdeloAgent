@@ -23,6 +23,7 @@ from utils_common.params import filter_dict
 
 class WabaBusinessSettings(BaseSettings):
     account_id: str
+    business_account_id: str
     token: str
     phone_id: int
     callback_url: str
@@ -36,6 +37,7 @@ class WabaBusinessSettings(BaseSettings):
 
     def create_wa(self, app=None):
         kwargs = {
+            "business_account_id": self.account_id,
             "token": self.token,
             "verify_token": self.verify_token,
             "phone_id": self.phone_id,
@@ -47,6 +49,7 @@ class WabaBusinessSettings(BaseSettings):
     def create_wa_sync(self):
         return WhatsAppSync(
             token=self.token,
+            business_account_id=self.account_id,
             verify_token=self.verify_token,
             phone_id=self.phone_id
         )
