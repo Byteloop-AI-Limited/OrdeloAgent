@@ -51,14 +51,16 @@ POOL_MAX_SIZE = 25
 async def lifespan(app: FastAPI):
     # Initialize the pool
     pool = AsyncConnectionPool(
-        conninfo=pg_settings.db_uri,
-        # min_size=20,
-        # max_size=200,
-        # max_lifetime=0,
-        # max_idle=0,
+        conninfo=pg_settings.uri,
         kwargs=pg_settings.connection_kwargs,
         open=False,
-    )
+        min_size=2,
+        max_size=10,
+        timeout=10,  # Connection timeout in seconds
+        max_idle=300,  # Maximum idle time for connections in seconds
+        reconnect_timeout=3,  # Time to wait between reconnection attempts
+    )    
+
     pool_sync = ConnectionPool(pg_settings.db_uri)
     pool_sync.open()
     
