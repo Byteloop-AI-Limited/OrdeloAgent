@@ -12,20 +12,20 @@ wa = WhatsApp(
         )
 
 
-# %%
-flow_id = await wa.create_flow(
-    name="OrdeloFlow",
-    categories=[FlowCategory.CUSTOMER_SUPPORT, FlowCategory.SURVEY]
-)
-print(wa.get_flow(flow_id))
+# %% Creating flow
+# flow_id = await wa.create_flow(
+#     name="OrdeloFlow",
+#     categories=[FlowCategory.CUSTOMER_SUPPORT, FlowCategory.SURVEY]
+# )
+# print(wa.get_flow(flow_id))
 # %% 
-FLOW_ID = 654860316950174
+FLOW_ID = 1144380177007023
 # %%
 print(wa.get_flow(FLOW_ID))
 
 # %% Create dynamic flow
 # from pywa.types import FlowButton, FlowActionType, FlowStatus, FlowJSON, Screen, ScreenData, Layout, LayoutType, Form, TextInput, InputType, Footer, CompleteAction
-from pywa.types.flows import Screen, FlowJSON, ScreenData, Layout, LayoutType, Form, TextInput, InputType, Footer, CompleteAction
+from pywa.types.flows import Screen, FlowJSON, ScreenData, Layout, LayoutType, Form, TextInput, InputType, Footer, CompleteAction, OpenUrlAction
 from pywa import utils
 
 dynamic_flow = FlowJSON(
@@ -57,7 +57,7 @@ dynamic_flow = FlowJSON(
                             ),
                             last_name := TextInput(
                                 name="last_name",
-                                label="Last Name",
+                                label="Your Last Name",
                                 input_type=InputType.TEXT,
                                 required=is_last_name_required.ref,
                             ),
@@ -76,6 +76,9 @@ dynamic_flow = FlowJSON(
                                         "email": email.ref,
                                     },
                                 ),
+                                # on_click_action=OpenUrlAction(
+                                #     url='https://example.com'
+                                # )
                             ),
                         ],
                     )
@@ -99,14 +102,15 @@ from pywa.types import FlowButton
 # %%
 wa.send_message(
     to="447448440754",
+    # to="44744633210",
     text="Hi, You need to finish your sign up!",
     buttons=FlowButton(
-        title="Finish Sign Up",
-        flow_id=FLOW_ID,  # The `static_flow` flow id from above
-        flow_token="AQAAAAACS5FpgQ_cAAAAAD0QI3s.",
+        title="Home",
+        flow_id=1144380177007023,  # The `static_flow` flow id from above
+        flow_token="123.",
         mode=FlowStatus.DRAFT,
         flow_action_type=FlowActionType.NAVIGATE,
-        flow_action_screen="SIGN_UP", # The screen id to open when the user clicks the button
+        flow_action_screen="START", # The screen id to open when the user clicks the button
     )
 )
 

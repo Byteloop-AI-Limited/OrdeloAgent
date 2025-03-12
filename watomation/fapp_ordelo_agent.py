@@ -18,6 +18,7 @@ from utils_common.db_utils.sbase_pool_ops import insert_model_to_db, execute_sql
 import uuid
 from typing import Optional
 from ordelo.agent_app_handlers import debug_state
+from typing_extensions import TypedDict
 
 from config import (
     logger,
@@ -51,7 +52,7 @@ POOL_MAX_SIZE = 25
 async def lifespan(app: FastAPI):
     # Initialize the pool
     pool = AsyncConnectionPool(
-        conninfo=pg_settings.uri,
+        conninfo=pg_settings.db_uri,
         kwargs=pg_settings.connection_kwargs,
         open=False,
         min_size=2,
@@ -96,7 +97,6 @@ app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
 app.include_router(location_hooks.router, prefix="/location-hooks")
 
 recipient='447448440754'
-
 # %% Local runs
 if __name__ == "__main__":
     from dotenv import load_dotenv
@@ -110,11 +110,14 @@ if __name__ == "__main__":
         server=app,
         verify_token=waba_business_settings.verify_token,
         phone_id=waba_business_settings.phone_id,
-        # callback_url=waba_business_settings.callback_url,
+        callback_url=waba_business_settings.callback_url,
         webhook_challenge_delay=3,
         app_id=waba_business_settings.app_id,
         app_secret=waba_business_settings.app_secret,
         continue_handling=False,
+        business_private_key=waba_business_settings.private_key,
+        # business_private_key=open("/home/basal/PycharmProjects/OrdeloAgent/data/certs/private.pem").read(),
+        business_private_key_password=waba_business_settings.private_key_password
     )
 else:
     wa: WhatsApp = WhatsApp(
@@ -122,13 +125,23 @@ else:
         server=app,
         verify_token=waba_business_settings.verify_token,
         phone_id=waba_business_settings.phone_id,
-        # callback_url=waba_business_settings.callback_url,
+        callback_url=waba_business_settings.callback_url,
         webhook_challenge_delay=3,
         app_id=waba_business_settings.app_id,
         app_secret=waba_business_settings.app_secret,
         continue_handling=False,
+        business_private_key=waba_business_settings.private_key,
+        # business_private_key=open("/home/basal/PycharmProjects/OrdeloAgent/data/certs/private.pem").read(),
+        business_private_key_password=waba_business_settings.private_key_password
     )
-    
+
+# %% Add handlers
+from pywa import handlers
+from watomation.my_handlers import handle_message, handle_callback_button
+# wa.add_handlers(
+#     handlers.MessageHandler(callback=handle_message),
+#     handlers.CallbackButtonHandler(callback=handle_callback_button)
+# )
 # %% details
 @app.get("/details")
 async def get_details():
@@ -409,6 +422,51 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
 
     # Run the graph
     await run_ordelo_graph(msg, graph, pool)
+
+# %% MY FLOW
+from pywa.types.flows import FlowRequest, FlowResponse, FlowRequestActionType
+
+
+@wa.on_flow_request("/sign-up-flow1")
+async def on_sign_up_request(_: WhatsApp, flow: FlowRequest) -> FlowResponse | None:
+    logger.info("Received flow request: %s", flow.data)
+    
+    # # Handle health check request
+    # if flow.action == "ping":
+    #     logger.info("Received health check ping request")
+    #     return FlowResponse(
+    #         data={"status": "active"}
+    #     )
+    
+    if flow.has_error:
+        logger.error("Flow request has error: %s", flow.data)
+        return FlowResponse(
+            data={"acknowledged": True}
+        )
+
+    return FlowResponse(
+        version=flow.version,
+        screen="START",
+        data={},
+    )
+
+@on_sign_up_request.on(
+    action=FlowRequestActionType.DATA_EXCHANGE,
+    screen="SIGN_UP",
+)
+async def if_already_registered(_: WhatsApp, request: FlowRequest) -> FlowResponse | None:
+    logger.info("Received data exchange request: %s", request.data)
+    return FlowResponse(
+        version=request.version,
+        screen="LOGIN",
+        error_message="You are already registered. Please login",
+        data={
+            "email_initial_value": f"{request.data['email']}; common !!!",
+            "password_initial_value": request.data["password"],
+        },
+    )
+
+
 # %%
 if __name__ == "__main__":
     uvicorn.run("watomation.fapp_ordelo_agent:app", host="0.0.0.0", port=3100, reload=True)
