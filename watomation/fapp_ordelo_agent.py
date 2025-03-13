@@ -21,6 +21,7 @@ from watomation.routers import delivery_hooks, location_hooks
 from watomation.on_message_wa_handler import reset_thread, test_delivery, process_wa_msg, live_location
 from watomation.on_callback_wa_handler import dispatch_response
 from watomation.on_flow_request_wa_handler import on_customer_address_flow, on_customer_address_flow_data_exchange, on_customer_address_flow_completion
+from watomation.on_flow_request_postcode_search import on_pc_search_init, on_ip_pc
 
 
 from ordelo.agent_app_handlers import debug_state
@@ -134,6 +135,18 @@ wa.add_flow_request_handler(
     )
 ).add_handler(
     callback=on_customer_address_flow_data_exchange, 
+    action=FlowRequestActionType.DATA_EXCHANGE, 
+    screen="START",
+    filters=None
+)
+
+wa.add_flow_request_handler(
+    handlers.FlowRequestHandler(
+        endpoint="/flows/postcode-search",
+        callback=on_pc_search_init,
+    )
+).add_handler(
+    callback=on_ip_pc, 
     action=FlowRequestActionType.DATA_EXCHANGE, 
     screen="START",
     filters=None
