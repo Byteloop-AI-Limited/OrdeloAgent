@@ -3,9 +3,6 @@ Utility functions for postgres with psycopg3
 """
 # %%
 
-from functools import lru_cache
-from psycopg_pool import AsyncConnectionPool
-from config import pg_settings
 import uuid
 from datetime import datetime
 import psycopg

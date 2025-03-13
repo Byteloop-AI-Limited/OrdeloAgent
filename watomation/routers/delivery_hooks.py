@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 import json
 from psycopg_pool import AsyncConnectionPool
 from ordelo.agent_app_handlers import init_ordelo_graph
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 import asyncio
 
 # %%

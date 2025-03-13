@@ -1,6 +1,6 @@
 # %%
 import requests
-from typing import Optional, Union, Dict, Any, List
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, field_validator
 import logging
 from config import google_settings
