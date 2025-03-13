@@ -24,7 +24,8 @@ from pywa.types.flows import (
     DataSource,
     PhotoPicker,
     PhotoSource,
-    Dropdown
+    Dropdown,
+    OpenUrlAction
 )
 
 SIGN_UP_FLOW_JSON = FlowJSON(
@@ -40,8 +41,18 @@ SIGN_UP_FLOW_JSON = FlowJSON(
         Screen(
             id="START",
             title="Home",
+            data=[
+                dynamic_welcome := ScreenData(key='user_name', example='Welcome to my store!'),
+                is_email_required := ScreenData(key='is_email_required', example=False)
+            ],
             layout=Layout(
                 children=[
+                    EmbeddedLink(
+                        text="Get Customer Location",
+                        on_click_action=OpenUrlAction(
+                            url='https://example.com'
+                        )
+                    ),
                     Dropdown(
                         name='ddOptions',
                         data_source=[
@@ -95,20 +106,20 @@ SIGN_UP_FLOW_JSON = FlowJSON(
                             },
                         ),
                     ),
-                    EmbeddedLink(
-                        text="Click here to login",
-                        on_click_action=Action(
-                            name=FlowActionType.NAVIGATE,
-                            next=Next(
-                                type=NextType.SCREEN,
-                                name="LOGIN",
-                            ),
-                            payload={
-                                "email_initial_value": "",
-                                "password_initial_value": "",
-                            },
-                        ),
-                    ),
+                    # EmbeddedLink(
+                    #     text="Click here to login",
+                    #     on_click_action=Action(
+                    #         name=FlowActionType.NAVIGATE,
+                    #         next=Next(
+                    #             type=NextType.SCREEN,
+                    #             name="LOGIN",
+                    #         ),
+                    #         payload={
+                    #             "email_initial_value": "",
+                    #             "password_initial_value": "",
+                    #         },
+                    #     ),
+                    # ),
                 ]
             ),
         ),
@@ -313,6 +324,7 @@ wa = WhatsApp(
             phone_id=waba_business_settings.phone_id
         )
 
+FLOW_ID = '1144380177007023'
 # %% Create a flow
 
 # flow_id = wa.create_flow(
@@ -321,7 +333,7 @@ wa = WhatsApp(
 # )
 
 # %%
-FLOW_ID = '1144380177007023'
+
 # %% have to set the endpoint URI first??
 # wa.update_flow_metadata(
 #     flow_id=FLOW_ID,
