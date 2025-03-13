@@ -45,7 +45,6 @@ POST_CODE_SEARCH = FlowJSON(
                 customer_id := ScreenData(key='customer_id', example='447234123412'),
                 postcode_init := ScreenData(key='postcode_init', example='BR6 6DN'),
                 ip_postcode := ScreenData(key='ip_postcode', example="1 kingdom street"),
-                error_message := ScreenData(key='error_message', example="this is error msg")
             ],
             layout=Layout(
                 children=[
@@ -62,7 +61,6 @@ POST_CODE_SEARCH = FlowJSON(
                                 input_type=InputType.TEXT,
                                 required=True,
                                 init_value=postcode_init.ref,
-                                # error_message=error_message.ref,
                             ),
                             Footer(
                                 label="Search",
@@ -95,10 +93,7 @@ POST_CODE_SEARCH = FlowJSON(
             terminal=True,
             layout=Layout(
                 children=[
-                    TextHeading(
-                        text=FlowStr("Complete your address details"),
-                    ),
-                    TextSubheading(text="Please fill in all required fields"),
+                    TextSubheading(text="Complete your address details"),
                     Form(
                         name="address_details",
                         children=[
@@ -135,7 +130,8 @@ POST_CODE_SEARCH = FlowJSON(
                                 name="postcode",
                                 label="Postcode",
                                 input_type=InputType.TEXT,
-                                required=True,
+                                required=False,
+                                enabled=False,
                                 init_value=postcode.ref,
                             ),
                             Footer(
@@ -204,13 +200,14 @@ wa.get_flow(flow_id=FLOW_ID)
 
 # %% Send draft flow:
 from pywa.types.flows import FlowActionType, FlowStatus
-from pywa.types import FlowButton
+from pywa.types import FlowButton, Button
+
 
 wa.send_message(
+    to="447448440754",
     # to="447448440754",
-    # to="447448440754",
-    to="447446933210",
-    text="Update your details",
+    # to="447446933210",
+    text="Update your address details",
     buttons=FlowButton(
         title="Update Details",
         flow_id=FLOW_ID,  # The `static_flow` flow id from above
