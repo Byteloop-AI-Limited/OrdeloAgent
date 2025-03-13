@@ -4,10 +4,9 @@ import logging
 
 import uvicorn
 
-from pywa.types import ChatOpened
 from pywa_async import WhatsApp, filters
 from pywa_async import handlers
-from pywa.types.flows import FlowRequest, FlowResponse, FlowRequestActionType, FlowCompletion
+from pywa.types.flows import FlowRequestActionType
 from typing import Optional
 
 from config import (
@@ -18,7 +17,7 @@ from config import (
 
 from watomation.init_app_state import init_app_state
 from watomation.routers import delivery_hooks, location_hooks
-from watomation.on_message_wa_handler import reset_thread, test_delivery, process_wa_msg, live_location
+from watomation.on_message_wa_handler import reset_thread, test_delivery, process_wa_msg, live_location, test_flow
 from watomation.on_callback_wa_handler import dispatch_response
 from watomation.on_flow_request_wa_handler import on_customer_address_flow, on_customer_address_flow_data_exchange, on_customer_address_flow_completion
 from watomation.on_flow_request_postcode_search import on_pc_search_init, on_ip_pc
@@ -110,6 +109,7 @@ else:
 
 TEST_DELIVERY = filters.contains("/test", ignore_case=True)
 LIVE_LOCATION = filters.contains("/live", ignore_case=True)
+TEST_FLOW = filters.contains("/flow", ignore_case=True)
 
 WHEN_RESET = filters.contains("/reset", ignore_case=True)
 IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
@@ -118,6 +118,7 @@ IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 wa.add_handlers(
     handlers.MessageHandler(callback=reset_thread, filters=WHEN_RESET),
     handlers.MessageHandler(callback=test_delivery, filters=TEST_DELIVERY),
+    handlers.MessageHandler(callback=test_flow, filters=TEST_FLOW),
     handlers.MessageHandler(callback=live_location, filters=LIVE_LOCATION),
     handlers.MessageHandler(callback=process_wa_msg),
     handlers.CallbackButtonHandler(callback=dispatch_response, filters=IS_DISPATCH_RESPONSE),

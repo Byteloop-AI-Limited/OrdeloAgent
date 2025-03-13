@@ -1,11 +1,9 @@
 # %%
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Request, Depends
 from loguru import logger
 import psycopg
-from pydantic import BaseModel
 import json
 import base64
-from fastapi.templating import Jinja2Templates
 from fastapi import Path
 from ordelo_datamodels.location_pymodels import Location
 from config import logger, _async_wa_client
@@ -13,7 +11,6 @@ import re
 from datetime import datetime, timezone
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query, insert_model_to_db
 from pywa.types import ButtonUrl
-from config import waba_business_settings
 
 
 # %% Define Dependancies and routes

@@ -1,19 +1,14 @@
 # %%
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
 import uvicorn
 import json
-import asyncio
-from typing import Dict
-import paho.mqtt.client as mqtt
 from datetime import datetime
 import base64
 from fastapi.templating import Jinja2Templates
 
 from pywa import WhatsApp
-import pandas as pd
 import pickle
-from config import project_settings, logger, waba_business_settings
+from config import project_settings, waba_business_settings
 
 wa = WhatsApp(
     business_account_id=waba_business_settings.account_id,

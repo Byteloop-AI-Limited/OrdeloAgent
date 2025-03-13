@@ -1,18 +1,18 @@
 # %%
 from pywa_async import WhatsApp, types
-from config import logger
-from pywa.types.flows import FlowRequest, FlowResponse, FlowRequestActionType, FlowCompletion
-from fastapi import APIRouter
-from pywa.handlers import MessageHandler
+from config import logger, _sync_wa_client
+from pywa.types.flows import FlowRequest, FlowResponse
 from pywa.types import Message
 import uuid
 # project modules
 from watomation.init_app_state import get_app_state
-from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_call_function, sbase_update
+from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_call_function
 from utils_common.db_utils.sbase_pool_ops import insert_model_to_db, execute_sql_query
 from ordelo_datamodels.masterdata_pymodels import RestaurantMaster, CustomerMaster
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from ordelo.agent_app_handlers import run_ordelo_graph
+from pywa.types.flows import FlowActionType
+from pywa.types import FlowButton
 
 # %% Run graph on msg
 async def process_wa_msg(wa: WhatsApp, msg: Message):
@@ -111,6 +111,27 @@ async def test_delivery(wa: WhatsApp, msg: Message):
     await insert_model_to_db(pool, table_name="delivery_detail", model_instance=_delivery_detail)
 
 
+# %% Test flow
+async def test_flow(wa: WhatsApp, msg: Message):
+    recipient = msg.sender
+    _sync_wa_client.send_message(
+        to=recipient,
+        text="Update your address details",
+        buttons=FlowButton(
+            title="Update Details",
+            flow_id=955259853427256,  # The `static_flow` flow id from above
+            flow_token="123",
+            # mode=FlowStatus.DRAFT,
+            flow_action_type=FlowActionType.NAVIGATE,
+            flow_action_screen="START", # The screen id to open when the user clicks the button
+            flow_action_payload={
+                "flow_name": "Postcode Search",
+                "customer_id": "44744123123123",
+                "postcode_init": "BR6 6DN"
+            }
+        )
+    )
+# %%
 # %% live_location
 async def live_location(wa: WhatsApp, msg: Message):
     #toDo this needs to go

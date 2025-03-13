@@ -5,7 +5,6 @@ import gspread
 from google.oauth2.service_account import Credentials
 import json
 import base64
-from loguru import logger
 
 class GoogleSettings(BaseSettings):
     email: str

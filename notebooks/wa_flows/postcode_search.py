@@ -9,24 +9,11 @@ from pywa.types.flows import (
     Footer,
     Layout,
     Action,
-    Next,
-    NextType,
     FlowActionType,
-    ComponentRef,
     InputType,
     TextHeading,
     TextSubheading,
-    TextInput,
-    OptIn,
-    EmbeddedLink,
-    RichText,
-    ChipsSelector,
-    DataSource,
-    PhotoPicker,
-    PhotoSource,
-    Dropdown,
-    OpenUrlAction,
-    CompleteAction
+    TextInput
 )
 from pywa.errors import FlowUpdatingError
 # %%
@@ -160,7 +147,6 @@ POST_CODE_SEARCH = FlowJSON(
 # %%
 from config import waba_business_settings
 from pywa import WhatsApp
-from pywa.types import FlowCategory
 
 wa = WhatsApp(
             token=waba_business_settings.token,
@@ -191,7 +177,7 @@ try:
         flow_json=POST_CODE_SEARCH,
     )
     print(success, validation_errors)
-except FlowUpdatingError as e:
+except FlowUpdatingError:
     print("Flow updating failed")
     print(validation_errors)
 
@@ -200,7 +186,7 @@ wa.get_flow(flow_id=FLOW_ID)
 
 # %% Send draft flow:
 from pywa.types.flows import FlowActionType, FlowStatus
-from pywa.types import FlowButton, Button
+from pywa.types import FlowButton
 
 
 wa.send_message(
