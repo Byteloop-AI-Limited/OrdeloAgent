@@ -18,17 +18,22 @@ from pywa_async.types import Product, ReferredProduct
 
 from config.logger_setting import logger
 from utils_common.params import filter_dict
+import base64
+import os
 
 # %%
 
 class WabaBusinessSettings(BaseSettings):
     account_id: str
+    business_account_id: str
     token: str
     phone_id: int
     callback_url: str
     verify_token: str
     app_id: str
     app_secret: str
+    private_key_password: str
+    
 
     model_config = SettingsConfigDict(
         env_prefix="WAA_BUSINESS_", env_file_encoding="utf-8", extra="ignore"
@@ -36,6 +41,7 @@ class WabaBusinessSettings(BaseSettings):
 
     def create_wa(self, app=None):
         kwargs = {
+            "business_account_id": self.account_id,
             "token": self.token,
             "verify_token": self.verify_token,
             "phone_id": self.phone_id,
@@ -47,10 +53,29 @@ class WabaBusinessSettings(BaseSettings):
     def create_wa_sync(self):
         return WhatsAppSync(
             token=self.token,
+            business_account_id=self.account_id,
             verify_token=self.verify_token,
             phone_id=self.phone_id
         )
 
+    @property
+    def private_key(self) -> str:
+        """Get the private key from the config/temp_keys folder"""
+        
+        # Construct the path to the private key file
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        key_path = os.path.join(base_dir, "config", "temp_cache", "test_cde")
+        
+        try:
+            with open(key_path, 'r') as f:
+                return f.read()
+        except FileNotFoundError:
+            logger.warning(f"Private key file not found at: {key_path}")
+            return ""
+        except Exception as e:
+            logger.warning(f"Error reading private key file: {e}")
+            return ""
+    
     @property
     def headers(self) -> Dict[str, str]:
         return {
