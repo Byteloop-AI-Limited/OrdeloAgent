@@ -16,10 +16,15 @@ class PgSetting(BaseSettings):
     @property
     def connection_kwargs(self):
         return {
-            "autocommit": False,
-            "prepare_threshold": None
+            "autocommit": True,
+            "prepare_threshold": None,
+            "connect_timeout": 10,  # Connection timeout in seconds
+            "keepalives": 1,        # Enable TCP keepalives
+            "keepalives_idle": 60,  # Seconds of inactivity before sending keepalive
+            "keepalives_interval": 10,  # Seconds between keepalives
+            "keepalives_count": 5   # Number of keepalives before considering connection dead
         }
-
+    
     @property
     def headers(self):
         return {
