@@ -63,13 +63,15 @@ def agent_node(state, agent, name):
 #%%
 LLM_4o = ChatOpenAI(
     model="gpt-4o-mini-2024-07-18", 
-    # model="o1-mini-2024-09-12", 
+    # model="o3-mini-2025-01-31", 
     temperature=0, 
     max_tokens=None, 
     timeout=None, 
     max_retries=2
 )
 
+#  run llm invoke
+LLM_4o.invoke("tell me a joke; return json")
 # %%
 
 client = OpenAI()
