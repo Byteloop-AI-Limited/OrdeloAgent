@@ -87,6 +87,7 @@ async def test_delivery(wa: WhatsApp, msg: Message):
     insert_data = {
         "order_number": order_number,
         "rider_payout": 5.50,
+        "vehicle_type": "car",
         "distance": 10.5,
         "status": "unassigned"
     }

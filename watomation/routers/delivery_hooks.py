@@ -36,6 +36,19 @@ async def wa_send_delivery_dispatch_request_to_rider(
     dispatch_id: int,
     _async_wa_client: WhatsApp = _async_wa_client
 ):
+    """
+    Sends a delivery dispatch request to a rider via WhatsApp.
+    
+    This function prepares the payload for a rider to accept or decline a delivery dispatch.
+    It creates JSON payloads for both accept and decline responses that will be used in 
+    interactive buttons sent to the rider.
+    
+    Args:
+        recipient (str): The WhatsApp phone number of the rider to receive the dispatch
+        delivery_detail (DeliveryDetail): Details of the delivery order
+        dispatch_id (int): Unique identifier for this dispatch request
+        _async_wa_client (WhatsApp, optional): WhatsApp client instance for sending messages
+    """
     order_number = delivery_detail.order_number
 
     accept_pl = {
