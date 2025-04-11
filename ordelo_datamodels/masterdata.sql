@@ -1,6 +1,6 @@
 -- 1. Create custom enum types
 
--- CREATE TYPE vehicle_type_enum AS ENUM ('bike', 'electric_bike', 'car', 'cycle');
+CREATE TYPE vehicle_type_enum AS ENUM ('bike', 'electric_bike', 'car', 'cycle');
 
 -- 2. Driver Master Table
 
@@ -15,12 +15,12 @@ CREATE TABLE rider_master (
 );
 
 CREATE TABLE restaurant_master (
-    id          VARCHAR(3) PRIMARY KEY,
+    rest_ref    VARCHAR(4) PRIMARY KEY,
     rest_id   VARCHAR(12) UNIQUE,
     rest_name     TEXT NOT NULL,
     rest_email     TEXT NULL,
     house_number     TEXT NOT NULL,
-    building_name     TEXT NOT NULL,
+    building_name     TEXT NULL,
     street_name     TEXT NOT NULL,
     city     TEXT NOT NULL,
     postcode     TEXT NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE customer_master (
     cust_name     TEXT NOT NULL,
     cust_email     TEXT NULL,
     house_number     TEXT NOT NULL,
-    building_name     TEXT NOT NULL,
+    building_name     TEXT NULL,
     street_name     TEXT NOT NULL,
     city     TEXT NOT NULL,
     postcode     TEXT NOT NULL,
@@ -45,9 +45,64 @@ CREATE TABLE customer_master (
     dtts        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
+
+-- Test Values 
+INSERT INTO restaurant_master (
+    rest_ref,
+    rest_id,
+    rest_name,
+    rest_email,
+    house_number,
+    building_name,
+    street_name,
+    city,
+    postcode,
+    lat,
+    lon
+) VALUES (
+    'ELAB',                              
+    '447440880754',                     
+    'Elai - Basingstoke',               
+    NULL,                               
+    'Unit 1',                           
+    'Anchor Court',                     
+    'London Street',                    
+    'Basingstoke',                      
+    'RG21 7NY',                        
+    51.26266799796382,                 
+    -1.084616059190678                
+);
+
+INSERT INTO restaurant_master (
+    rest_ref,
+    rest_id,
+    rest_name,
+    rest_email,
+    house_number,
+    building_name,
+    street_name,
+    city,
+    postcode,
+    lat,
+    lon
+) VALUES (
+    'WREN',
+    '447448440754',
+    'Warren Road School',
+    NULL,
+    '1',
+    NULL,
+    'Warren Road',
+    'Orpington',
+    'BR6 6JF',
+    51.36024994020377,
+    0.09075077116472913
+);
+
 -- INSERT sample data into rider_master
-INSERT INTO rider_master (rider_id, rider_name, vehicle_type, town, status, dtts)
-VALUES
+INSERT INTO rider_master (
+    rider_id, rider_name, vehicle_type, town, status, dtts
+) VALUES
     ('447448440754', 'Lohith', 'car', 'Basingstoke', 'active', CURRENT_TIMESTAMP),
     ('447446933210', 'Rahul', 'bike', 'Basingstoke', 'active', CURRENT_TIMESTAMP),
-    ('447424334783', 'Chaitra', 'bike', 'Basingstoke', 'active', CURRENT_TIMESTAMP)
+    ('447424334783', 'Chaitra', 'bike', 'Basingstoke', 'active', CURRENT_TIMESTAMP);
