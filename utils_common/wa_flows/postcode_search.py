@@ -1,4 +1,6 @@
 # %%
+from pywa.types.flows import FlowActionType, FlowStatus
+from pywa.types import FlowButton
 from pywa import utils
 from pywa.types.flows import (
     FlowJSON,
@@ -13,9 +15,10 @@ from pywa.types.flows import (
     InputType,
     TextHeading,
     TextSubheading,
-    TextInput
+    TextInput,
 )
 from pywa.errors import FlowUpdatingError
+
 # %%
 POST_CODE_SEARCH = FlowJSON(
     version=utils.Version.FLOW_JSON,
@@ -28,10 +31,14 @@ POST_CODE_SEARCH = FlowJSON(
             id="START",
             title="Search Address",
             data=[
-                flow_name := ScreenData(key='flow_name', example='Customer Address Capture'),
-                customer_id := ScreenData(key='customer_id', example='447234123412'),
-                postcode_init := ScreenData(key='postcode_init', example='BR6 6DN'),
-                ip_postcode := ScreenData(key='ip_postcode', example="1 kingdom street"),
+                flow_name := ScreenData(
+                    key="flow_name", example="Customer Address Capture"
+                ),
+                customer_id := ScreenData(key="customer_id", example="447234123412"),
+                postcode_init := ScreenData(key="postcode_init", example="BR6 6DN"),
+                ip_postcode := ScreenData(
+                    key="ip_postcode", example="1 kingdom street"
+                ),
             ],
             layout=Layout(
                 children=[
@@ -55,11 +62,11 @@ POST_CODE_SEARCH = FlowJSON(
                                     name=FlowActionType.DATA_EXCHANGE,
                                     payload={
                                         "flow_name": flow_name.ref,
-                                        "ip_postcode": ip_postcode.ref
+                                        "ip_postcode": ip_postcode.ref,
                                     },
                                 ),
                             ),
-                        ]
+                        ],
                     ),
                 ]
             ),
@@ -68,13 +75,15 @@ POST_CODE_SEARCH = FlowJSON(
             id="ADDRESS",
             title="Update Address",
             data=[
-                flow_name := ScreenData(key='flow_name', example='Customer Address Capture'),
-                customer_id := ScreenData(key='customer_id', example='447234123412'),
-                house_number := ScreenData(key='house_number', example="42"),
-                building := ScreenData(key='building', example="Maple Court"),
-                street := ScreenData(key='street', example="Kingdom Street"),
-                city := ScreenData(key='city', example="London"),
-                postcode := ScreenData(key='postcode', example="BR6 6DN"),
+                flow_name := ScreenData(
+                    key="flow_name", example="Customer Address Capture"
+                ),
+                customer_id := ScreenData(key="customer_id", example="447234123412"),
+                house_number := ScreenData(key="house_number", example="42"),
+                building := ScreenData(key="building", example="Maple Court"),
+                street := ScreenData(key="street", example="Kingdom Street"),
+                city := ScreenData(key="city", example="London"),
+                postcode := ScreenData(key="postcode", example="BR6 6DN"),
                 # error_message := ScreenData(key='error_message', example="this is error msg")
             ],
             terminal=True,
@@ -132,16 +141,16 @@ POST_CODE_SEARCH = FlowJSON(
                                         "building": building_input.ref,
                                         "street": street_input.ref,
                                         "city": city_input.ref,
-                                        "postcode": postcode.ref
+                                        "postcode": postcode.ref,
                                     },
                                 ),
                             ),
-                        ]
+                        ],
                     ),
                 ]
             ),
-        )
-    ]
+        ),
+    ],
 )
 
 # %%
@@ -149,13 +158,13 @@ from config import waba_business_settings
 from pywa import WhatsApp
 
 wa = WhatsApp(
-            token=waba_business_settings.token,
-            business_account_id=waba_business_settings.account_id,
-            verify_token=waba_business_settings.verify_token,
-            phone_id=waba_business_settings.phone_id
-        )
+    token=waba_business_settings.token,
+    business_account_id=waba_business_settings.account_id,
+    verify_token=waba_business_settings.verify_token,
+    phone_id=waba_business_settings.phone_id,
+)
 
-FLOW_ID = '955259853427256'
+FLOW_ID = "955259853427256"
 # %% Create a flow
 
 # flow_id = wa.create_flow(
@@ -181,14 +190,10 @@ except FlowUpdatingError:
     print("Flow updating failed")
     print(validation_errors)
 
-# %% GET FLOW DATA 
+# %% GET FLOW DATA
 wa.get_flow(flow_id=FLOW_ID)
 
 # %% Send draft flow:
-from pywa.types.flows import FlowActionType, FlowStatus
-from pywa.types import FlowButton
-
-
 wa.send_message(
     to="447448440754",
     # to="447448440754",
@@ -200,13 +205,13 @@ wa.send_message(
         flow_token="123",
         mode=FlowStatus.DRAFT,
         flow_action_type=FlowActionType.NAVIGATE,
-        flow_action_screen="START", # The screen id to open when the user clicks the button
+        flow_action_screen="START",  # The screen id to open when the user clicks the button
         flow_action_payload={
             "flow_name": "Postcode Search",
             "customer_id": "44744123123123",
-            "postcode_init": "BR6 6DN"
-        }
-    )
+            "postcode_init": "BR6 6DN",
+        },
+    ),
 )
 
 # %%
@@ -214,5 +219,5 @@ wa.send_message(
     to="447448440754",
     # to="447448440754",
     # to="447446933210",
-    text="Update your details"
+    text="Update your details",
 )
