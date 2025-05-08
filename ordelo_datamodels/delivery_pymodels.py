@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class DeliveryDetail(BaseModel):
     order_number: str = Field(..., max_length=100)
+    vehicle_type: str
     rider_payout: float = 0.0
     distance: float = 0.0
     rest_id: str = Field(..., max_length=50)
@@ -18,9 +19,9 @@ class DeliveryDetail(BaseModel):
     customer_lon: float
     customer_lat: float
     customer_address: str
+    status: str = Field(..., max_length=50)
     dispatch_id: Optional[int] = Field(default=None)
     rider_id: Optional[str] = Field(default=None, max_length=12)   
-    status: str = Field(..., max_length=50)
 
     @property
     def google_maps_url(self) -> str:
