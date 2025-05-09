@@ -33,4 +33,38 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function: init_delivery_detail
+-- Description: Initializes delivery_detail for a given order_number and customer_id if not already present
+CREATE OR REPLACE FUNCTION init_delivery_detail(order_number varchar, customer_id varchar)
+RETURNS VOID AS $$
+DECLARE
+    v_vehicle_type varchar;
+BEGIN
+    -- Debug: Log the order_number being checked
+    RAISE NOTICE 'Checking if order_number % exists in delivery_detail', init_delivery_detail.order_number;
+
+    -- Check if order_number already exists in delivery_detail
+    IF EXISTS (
+        SELECT 1 FROM delivery_detail WHERE order_number = init_delivery_detail.order_number
+    ) THEN
+        RAISE NOTICE 'Order % already exists in delivery_detail. Skipping insert.', init_delivery_detail.order_number;
+        RETURN;
+    END IF;
+
+    RAISE NOTICE 'Order % does not exist in delivery_detail. Proceeding to insert.', init_delivery_detail.order_number;
+
+    -- Get vehicle_type from delivery_option with rank = 1
+    SELECT vehicle_type INTO v_vehicle_type
+    FROM delivery_option
+    WHERE order_number = init_delivery_detail.order_number AND rank = 1
+    LIMIT 1;
+
+    -- Only insert if vehicle_type was found
+    IF v_vehicle_type IS NOT NULL THEN
+        PERFORM insert_delivery_detail(init_delivery_detail.customer_id, init_delivery_detail.order_number, v_vehicle_type);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
 -- drop function insert_delivery_detail(p_cust_id character varying, p_order_number character varying, p_vehicle_type vehicle_type_enum)
