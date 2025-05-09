@@ -1,11 +1,8 @@
 ## Delivery and Dispatch:
-- Dispatch based on vehicle type; Requires change in dispatch logic; 
-    - get_available_riders to include vehicle type
-    - Create delivery_detail record with vehicle type *(ordered)*; Insert record only if the order_id is unassigned
 - Integrate the 2 digit confirmation code; Should it exist in dispatch or delivery detail?
 - add pickup time to delivery detail table and the pymodel
-- Add vehicle type to delivery_dispatch table (job_create_dispatch)
-- Change ant_master city to town (change in create_delivery_detail)
+- Change restaurant_master city to town (change in create_delivery_detail)
+- On timeout of a delivery, notify the customer on not being able to accept the order.
 
 ## Location handling
 - Change from atomic inserts to batch inserts using queues
