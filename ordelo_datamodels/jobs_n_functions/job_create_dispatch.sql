@@ -36,28 +36,30 @@ BEGIN
         FROM delivery_detail dd
         LEFT JOIN LATERAL get_available_riders(dd.order_number, LOWER(dd.town), dd.vehicle_type) gar ON true
         WHERE dd.status = 'unassigned'
-        GROUP BY dd.order_number, dd.rider_payout, dd.distance, gar.rider_id
+        GROUP BY dd.order_number, dd.rider_payout, dd.distance, dd.vehicle_type, gar.rider_id
     ), dispatch_insert AS (
         -- Insert for orders with available riders
-        INSERT INTO delivery_dispatch(order_number, rider_id, rider_payout, distance, status)
+        INSERT INTO delivery_dispatch(order_number, rider_id, rider_payout, distance, vehicle_type, status)
         SELECT 
             order_number,
             rider_id_to_dispatch,
             rider_payout,
             distance,
+            vehicle_type,
             'unassigned'
         FROM availableRiders
         WHERE rider_count > 0
-        LIMIT 5 
+        LIMIT 1 
+        -- limit is the batch size
         RETURNING order_number
     )
     -- Update delivery_detail for orders with no riders
     UPDATE delivery_detail dd
-    SET status = 'timedout'
+    SET status = 'vehicle_type_timedout'
     FROM availableRiders ar
     WHERE dd.order_number = ar.order_number
     -- AND ar.rider_count = 0
-    AND CURRENT_TIMESTAMP - dd.dtts > INTERVAL '30 minutes'
+    -- AND CURRENT_TIMESTAMP - dd.dtts > INTERVAL '30 minutes'
     AND dd.status = 'unassigned'
     AND dd.order_number NOT IN (SELECT order_number FROM dispatch_insert);
     
@@ -82,7 +84,7 @@ BEGIN
     WITH ridersToExclude AS (
         SELECT DISTINCT dDispatch.rider_id 
         FROM delivery_dispatch dDispatch
-        WHERE dDispatch.order_number = p_order_number
+        WHERE dDispatch.order_number = p_order_number 
         UNION 
         SELECT DISTINCT inflight.rider_id 
         FROM delivery_inflight inflight

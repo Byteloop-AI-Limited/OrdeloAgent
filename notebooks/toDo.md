@@ -5,7 +5,7 @@
 - Integrate the 2 digit confirmation code; Should it exist in dispatch or delivery detail?
 - add pickup time to delivery detail table and the pymodel
 - Add vehicle type to delivery_dispatch table (job_create_dispatch)
-- Change restaurant_master city to town (change in create_delivery_detail)
+- Change ant_master city to town (change in create_delivery_detail)
 
 ## Location handling
 - Change from atomic inserts to batch inserts using queues

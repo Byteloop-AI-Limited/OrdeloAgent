@@ -1,8 +1,7 @@
-CREATE TYPE vehicle_enum AS ENUM ('bicycle', 'ebike', 'bike', 'car');
 
 CREATE TABLE delivery_detail (
     order_number     VARCHAR(100),
-    vehicle_type    VARCHAR(10) NOT NULL DEFAULT 'car',
+    vehicle_type    VARCHAR(15) NOT NULL DEFAULT 'car',
     rider_payout    DOUBLE PRECISION NOT NULL,
     distance         DOUBLE PRECISION NOT NULL,
     rest_id          VARCHAR(12) NOT NULL, -- restaurant id
@@ -16,10 +15,30 @@ CREATE TABLE delivery_detail (
     customer_lon         DOUBLE PRECISION NOT NULL,
     customer_lat         DOUBLE PRECISION NOT NULL,
     customer_address     TEXT NOT NULL,
-    status          VARCHAR(50) NOT NULL CHECK (status IN ('unassigned', 'declined', 'timedout', 'assigned', 'completed')),
+    status          VARCHAR(50) NOT NULL CHECK (status IN ('unassigned', 'declined', 'timedout', 'assigned', 'completed', 'vehicle_type_timedout')),
     dispatch_id     INTEGER,
     rider_id        VARCHAR(12),
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     dtts             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (order_number, vehicle_type)
 );
+
+-- altering the constraint table
+SELECT conname
+FROM pg_constraint
+WHERE conrelid = 'delivery_detail'::regclass
+  AND contype = 'c'
+  AND pg_get_constraintdef(oid) LIKE '%status%';
+-- delivery_detail_status_check
+ALTER TABLE delivery_detail DROP CONSTRAINT delivery_detail_status_check;
+
+ALTER TABLE delivery_detail
+ADD CONSTRAINT delivery_detail_status_check
+CHECK (status IN (
+    'unassigned',
+    'declined',
+    'timedout',
+    'assigned',
+    'completed',
+    'vehicle_type_timedout'
+));
