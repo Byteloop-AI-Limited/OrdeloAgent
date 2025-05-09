@@ -116,6 +116,9 @@ Vehicle type - *{delivery_detail.vehicle_type}*
             Button(title="Decline", callback_data=json.dumps(decline_pl)),
         ],
     )
+    logger.debug(
+        f"dispatch request sent to rider: {recipient}, order number: {order_number}, vehicle type: {delivery_detail.vehicle_type}"
+    )
 
 
 # %% Define paths

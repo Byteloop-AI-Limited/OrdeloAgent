@@ -50,7 +50,7 @@ BEGIN
         FROM availableRiders
         WHERE rider_count > 0
         LIMIT 1 
-        -- limit is the batch size
+        -- limit is the batch
         RETURNING order_number
     )
     -- Update delivery_detail for orders with no riders
