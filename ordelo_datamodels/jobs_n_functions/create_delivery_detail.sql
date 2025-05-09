@@ -26,7 +26,9 @@ BEGIN
         v_rider_payout,
         v_distance
     FROM delivery_option
-    WHERE vehicle_type = p_vehicle_type AND breakdown IS NOT NULL
+    WHERE vehicle_type = p_vehicle_type 
+    AND breakdown IS NOT NULL
+    AND order_number = p_order_number
     LIMIT 1; -- Ensure only one row is selected
 
     -- Raise exception if no delivery option found for the specified type

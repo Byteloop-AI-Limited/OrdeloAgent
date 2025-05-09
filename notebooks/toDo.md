@@ -3,6 +3,9 @@
     - get_available_riders to include vehicle type
     - Create delivery_detail record with vehicle type *(ordered)*; Insert record only if the order_id is unassigned
 - Integrate the 2 digit confirmation code; Should it exist in dispatch or delivery detail?
+- add pickup time to delivery detail table and the pymodel
+- Add vehicle type to delivery_dispatch table (job_create_dispatch)
+- Change restaurant_master city to town (change in create_delivery_detail)
 
 ## Location handling
 - Change from atomic inserts to batch inserts using queues
@@ -12,6 +15,10 @@
 
 ## Delivery flow
 - notification of the location events, order completion.
+
+## Pricing service
+- Is the distance calculated based on the vehicle type?
+
 
 ## Agent enhancements
 When a random message to WhatsApp, send standard message if no active thread.
