@@ -57,6 +57,14 @@ async def reset_thread(wa: WhatsApp, msg: Message):
     await wa.send_message(to=recipient, text="Starting new conversation")
 
 
+# %% Clear Dispatch
+async def clear_dispatch(wa: WhatsApp, msg: Message):
+    # Get app state resources
+    pool, pool_sync, checkpointer, thread_handler, graph, client = get_app_state()
+    recipient = msg.from_user.wa_id
+    client.rpc("clear_dispatch", {}).execute()
+
+
 # %% Test Delivery
 async def test_delivery(wa: WhatsApp, msg: Message):
     # Get app state resources
