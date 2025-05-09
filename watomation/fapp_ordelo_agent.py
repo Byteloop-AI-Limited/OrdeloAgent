@@ -17,9 +17,20 @@ from config import (
 
 from watomation.init_app_state import init_app_state
 from watomation.routers import delivery_hooks, location_hooks
-from watomation.on_message_wa_handler import reset_thread, test_delivery, process_wa_msg, live_location, test_flow
+from watomation.on_message_wa_handler import (
+    reset_thread,
+    test_delivery,
+    process_wa_msg,
+    live_location,
+    test_flow,
+    clear_dispatch,
+)
 from watomation.on_callback_wa_handler import dispatch_response
-from watomation.on_flow_request_wa_handler import on_customer_address_flow, on_customer_address_flow_data_exchange, on_customer_address_flow_completion
+from watomation.on_flow_request_wa_handler import (
+    on_customer_address_flow,
+    on_customer_address_flow_data_exchange,
+    on_customer_address_flow_completion,
+)
 from watomation.on_flow_request_postcode_search import on_pc_search_init, on_ip_pc
 
 
@@ -42,8 +53,15 @@ POOL_MAX_SIZE = 25
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize app state resources
-    pool, pool_sync, checkpointer, thread_handler, graph, client = await init_app_state()
-    
+    (
+        pool,
+        pool_sync,
+        checkpointer,
+        thread_handler,
+        graph,
+        client,
+    ) = await init_app_state()
+
     # Store resources in the app state
     app.state.pool = pool
     app.state.pool_sync = pool_sync
@@ -60,6 +78,7 @@ async def lifespan(app: FastAPI):
         # Close the pool on shutdown
         if pool:
             await pool.close()
+
 
 # Define and set the app, call import soon after
 app = FastAPI(title="OrdeloAgent", lifespan=lifespan)
@@ -88,7 +107,7 @@ if __name__ == "__main__":
         continue_handling=False,
         business_private_key=waba_business_settings.private_key,
         # business_private_key=open("/home/basal/PycharmProjects/OrdeloAgent/data/certs/private.pem").read(),
-        business_private_key_password=waba_business_settings.private_key_password
+        business_private_key_password=waba_business_settings.private_key_password,
     )
 else:
     wa: WhatsApp = WhatsApp(
@@ -103,11 +122,12 @@ else:
         continue_handling=False,
         business_private_key=waba_business_settings.private_key,
         # business_private_key=open("/home/basal/PycharmProjects/OrdeloAgent/data/certs/private.pem").read(),
-        business_private_key_password=waba_business_settings.private_key_password
+        business_private_key_password=waba_business_settings.private_key_password,
     )
 
 
 TEST_DELIVERY = filters.contains("/test", ignore_case=True)
+CLEAR_DISPATCH = filters.contains("/cleardis", ignore_case=True)
 LIVE_LOCATION = filters.contains("/live", ignore_case=True)
 TEST_FLOW = filters.contains("/flow", ignore_case=True)
 
@@ -118,15 +138,18 @@ IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 wa.add_handlers(
     handlers.MessageHandler(callback=reset_thread, filters=WHEN_RESET),
     handlers.MessageHandler(callback=test_delivery, filters=TEST_DELIVERY),
+    handlers.MessageHandler(callback=clear_dispatch, filters=CLEAR_DISPATCH),
     handlers.MessageHandler(callback=test_flow, filters=TEST_FLOW),
     handlers.MessageHandler(callback=live_location, filters=LIVE_LOCATION),
     handlers.MessageHandler(callback=process_wa_msg),
-    handlers.CallbackButtonHandler(callback=dispatch_response, filters=IS_DISPATCH_RESPONSE),
+    handlers.CallbackButtonHandler(
+        callback=dispatch_response, filters=IS_DISPATCH_RESPONSE
+    ),
     handlers.FlowCompletionHandler(callback=on_customer_address_flow_completion),
 )
 
-print_chat_opened = lambda _, msg: print(msg)
-wa.add_handlers(handlers.ChatOpenedHandler(print_chat_opened))
+# print_chat_opened = lambda _, msg: print(msg)
+# wa.add_handlers(handlers.ChatOpenedHandler(print_chat_opened))
 
 # %% Add WA Flow Request handlers
 wa.add_flow_request_handler(
@@ -135,10 +158,10 @@ wa.add_flow_request_handler(
         callback=on_customer_address_flow,
     )
 ).add_handler(
-    callback=on_customer_address_flow_data_exchange, 
-    action=FlowRequestActionType.DATA_EXCHANGE, 
+    callback=on_customer_address_flow_data_exchange,
+    action=FlowRequestActionType.DATA_EXCHANGE,
     screen="START",
-    filters=None
+    filters=None,
 )
 
 wa.add_flow_request_handler(
@@ -147,11 +170,12 @@ wa.add_flow_request_handler(
         callback=on_pc_search_init,
     )
 ).add_handler(
-    callback=on_ip_pc, 
-    action=FlowRequestActionType.DATA_EXCHANGE, 
+    callback=on_ip_pc,
+    action=FlowRequestActionType.DATA_EXCHANGE,
     screen="START",
-    filters=None
+    filters=None,
 )
+
 
 # %% debug
 @app.get("/details")
@@ -168,7 +192,7 @@ async def get_details():
         "display_phone_num": phone_num,
         "verified_name": bus_name,
         "callback_url": callback_url,
-        "callback_url_on_waba": callback_url_on_waba
+        "callback_url_on_waba": callback_url_on_waba,
     }
 
 
@@ -179,14 +203,17 @@ async def debug_state_path(recipient: Optional[str] = "447448440754"):
     debug_stack = await debug_state(recipient, graph, pool)
     return debug_stack
 
+
 # %% On chat opened
 # @wa.on_chat_opened
 # async def chat_opened_handler(wa: WhatsApp, chat_opened: ChatOpened):
 #     # logger.success(f"The user {chat_opened.from_user.wa_id} just opened a chat with us!")
 #     logger.success(f"The user just opened a chat with us!")
-#     return 
+#     return
 
 
 # %%
 if __name__ == "__main__":
-    uvicorn.run("watomation.fapp_ordelo_agent:app", host="0.0.0.0", port=3100, reload=True)
+    uvicorn.run(
+        "watomation.fapp_ordelo_agent:app", host="0.0.0.0", port=3100, reload=True
+    )
