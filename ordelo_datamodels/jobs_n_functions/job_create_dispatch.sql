@@ -31,9 +31,10 @@ BEGIN
             gar.rider_id as rider_id_to_dispatch,
             dd.rider_payout,
             dd.distance,
+            dd.vehicle_type,
             COUNT(gar.rider_id) as rider_count
         FROM delivery_detail dd
-        LEFT JOIN LATERAL get_available_riders(dd.order_number) gar ON true
+        LEFT JOIN LATERAL get_available_riders(dd.order_number, LOWER(dd.town), dd.vehicle_type) gar ON true
         WHERE dd.status = 'unassigned'
         GROUP BY dd.order_number, dd.rider_payout, dd.distance, gar.rider_id
     ), dispatch_insert AS (
@@ -47,7 +48,7 @@ BEGIN
             'unassigned'
         FROM availableRiders
         WHERE rider_count > 0
-        LIMIT 5
+        LIMIT 5 
         RETURNING order_number
     )
     -- Update delivery_detail for orders with no riders
@@ -73,8 +74,8 @@ $$ LANGUAGE plpgsql;
 ----------------------------------------
 -- Get available riders for a given order number and town
 ----------------------------------------
-DROP FUNCTION IF EXISTS get_available_riders(text, text);
-CREATE OR REPLACE FUNCTION get_available_riders(p_order_number text, p_town text DEFAULT 'basingstoke')
+DROP FUNCTION IF EXISTS get_available_riders(text, text, text);
+CREATE OR REPLACE FUNCTION get_available_riders(p_order_number text, p_town text, p_vehicle_type text)
 RETURNS TABLE(rider_id VARCHAR(12)) AS $$
 BEGIN
     RETURN QUERY
@@ -90,7 +91,9 @@ BEGIN
         allRiders.rider_id
     FROM rider_master allRiders 
     WHERE 
-    LOWER(allRiders.town)=LOWER(p_town) AND NOT EXISTS 
+    LOWER(allRiders.town)=LOWER(p_town)
+    AND allRiders.vehicle_type = p_vehicle_type
+    AND NOT EXISTS 
     (SELECT 1 FROM ridersToExclude WHERE ridersToExclude.rider_id = allRiders.rider_id);
 
 END;
