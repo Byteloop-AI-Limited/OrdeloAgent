@@ -41,6 +41,7 @@ BEGIN
                 ) AS next_vehicle_rank
             FROM (
                 SELECT DISTINCT order_number, customer_id
+                -- ToDo - Need to exclude order that have assigned/accepted
                 FROM delivery_detail
                 WHERE status = 'vehicle_type_timedout'
             ) vto
@@ -85,7 +86,7 @@ BEGIN
         FROM eligible_orders eo
         WHERE dd.order_number = eo.order_number
         AND dd.status = 'vehicle_type_timedout'
-        AND CURRENT_TIMESTAMP - eo.min_dtts > INTERVAL '1 minutes'
+        AND CURRENT_TIMESTAMP - eo.min_dtts > INTERVAL '3 minutes'
         RETURNING dd.order_number
     )
     SELECT string_agg(DISTINCT format('Updated: order=%s', order_number), E'\n'), count(*)

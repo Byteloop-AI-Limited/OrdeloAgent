@@ -294,6 +294,8 @@ async def initial_handle_of_rider_response(
     callback_data: dict,
     _async_wa_client: WhatsApp = _async_wa_client,
 ):
+    logger.debug(f"Initial handle of rider response: {callback_data}")
+    logger.debug(f"Order status: {order_status}")
     # handle diclined so the rest does not have tobe in an else block
     if callback_data["status"] == "declined":
         client.table("delivery_dispatch").update({"status": "declined"}).eq(
@@ -302,7 +304,10 @@ async def initial_handle_of_rider_response(
         return
 
     # now handle the accept, eagerly handle unassigned
-    if order_status["status"] == "unassigned":
+    if (
+        order_status["status"] == "unassigned"
+        or order_status["status"] == "vehicle_type_timedout"
+    ):
         client.table("delivery_dispatch").update({"status": "accepted"}).eq(
             "dispatch_id", callback_data["dispatch_id"]
         ).execute()
@@ -329,7 +334,6 @@ async def initial_handle_of_rider_response(
         return
 
 
-# %% Debug state
 # %% Debug State
 async def debug_state(recipient: str, graph, pool) -> dict:
     config = await get_config_for_recipient(recipient, pool)
