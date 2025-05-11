@@ -7,7 +7,6 @@ INSERT INTO app_config (config_key, config_value)
 VALUES ('dispatch_batch_limit', '1')
 ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value;
 
-
 -- example usage
 CREATE OR REPLACE FUNCTION job_create_dispatch()
 RETURNS void AS $$
@@ -27,8 +26,14 @@ BEGIN
     WITH availableRiders AS (
         -- ... your existing CTE ...
     ), dispatch_insert AS (
-        INSERT INTO delivery_dispatch(...)
-        SELECT ...
+        INSERT INTO delivery_dispatch(order_number, rider_id, rider_payout, distance, vehicle_type, status)
+        SELECT 
+            order_number,
+            rider_id_to_dispatch,
+            rider_payout,
+            distance,
+            vehicle_type,
+            'unassigned'
         FROM availableRiders
         WHERE rider_count > 0
         LIMIT batch_limit -- Use the runtime config here!
