@@ -1,3 +1,23 @@
+/**
+Delivery Assignment to Riders (Job Assignment Step)
+
+Invocation:
+- Called by external service whenever a delivery needs to be initialized. OR
+- Also scheduled via cron job every 5 seconds for continuous processing.
+
+Purpose:
+- Manage the assignment and timeout of delivery_detail records for delivery orders.
+- For each order with a timed-out vehicle_type, insert a new delivery_detail for the next eligible vehicle_type (if any).
+- Ensure only one vehicle_type is processed per order per run.
+- If all vehicle_types for an order have timed out and the minimum timeout is exceeded, mark all related delivery_details as 'timedout'.
+- Trigger downstream delivery processes or notifications as needed based on status changes. -- to be implemented ToDo
+
+Execution:
+- Frequency: Every 5 seconds (via cron) or on-demand by external service.
+
+Side Effects:
+- May trigger webhook: to notify called service that delivery could not be processed
+**/
 CREATE OR REPLACE FUNCTION manage_delivery_detail()
 RETURNS TEXT AS $$
 DECLARE
@@ -40,7 +60,6 @@ BEGIN
         END IF;
         inserted_details := inserted_details || format('Inserted: order=%s, vehicle_type=%s, customer_id=%s', rec.order_number, rec.vehicle_type, rec.customer_id);
     END LOOP;
-    -- timeout delivery_detail records
     -- timeout delivery_detail records
     WITH
     option_types AS (
