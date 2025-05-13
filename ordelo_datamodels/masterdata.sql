@@ -1,16 +1,16 @@
 -- 1. Create custom enum types
-
-CREATE TYPE vehicle_type_enum AS ENUM ('bike', 'electric_bike', 'car', 'cycle');
+-- DROP TYPE vehicle_type_enum cascade;
 
 -- 2. Driver Master Table
 
 CREATE TABLE rider_master (
     id          SERIAL PRIMARY KEY,
-    rider_id   VARCHAR(12) UNIQUE,
+    rider_id   VARCHAR(12) ,
     rider_name     TEXT NOT NULL,
-    vehicle_type vehicle_type_enum NOT NULL,
+    vehicle_type VARCHAR(15) NOT NULL,
     town        VARCHAR(255) NOT NULL,
     status      VARCHAR(50) NOT NULL,
+    is_in_shift BOOLEAN NOT NULL DEFAULT TRUE,
     dtts        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

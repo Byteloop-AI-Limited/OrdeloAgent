@@ -19,13 +19,14 @@ Side Effects:
 **/
 
 CREATE TABLE delivery_dispatch (
-    dispatch_id      SERIAL PRIMARY KEY,
-    order_number     VARCHAR(100) NOT NULL,
+    dispatch_id     SERIAL PRIMARY KEY,
+    order_number    VARCHAR(100) NOT NULL,
     rider_id        VARCHAR(12) NOT NULL,
     rider_payout    DOUBLE PRECISION NOT NULL,
-    distance         DOUBLE PRECISION NOT NULL,
+    vehicle_type    VARCHAR(15) NOT NULL,
+    distance        DOUBLE PRECISION NOT NULL,
     status          VARCHAR(50) NOT NULL CHECK (status IN ('unassigned', 'timedout', 'declined', 'accepted', 'missed', 'assigned', 'completed')),
-    status_update_dtts        TIMESTAMP,
+    status_update_dtts TIMESTAMP,
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     dtts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -50,6 +51,7 @@ BEGIN
       FROM (
         SELECT * FROM delivery_detail 
         WHERE order_number=NEW.order_number
+        ORDER BY dtts DESC
         LIMIT 1
       ) t
     )

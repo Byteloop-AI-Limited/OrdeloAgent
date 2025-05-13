@@ -6,9 +6,10 @@ This document outlines the end-to-end delivery workflow implemented at the datab
 
 ## 1. Components & Files
 
-| File                                    | Responsibility                                         |
-| --------------------------------------- | ------------------------------------------------------ |
-| `create_delivery_detail.sql`            | Insert a new delivery request into `delivery_detail`   |
+| File                                    | Responsibility                                                           |
+| --------------------------------------- | ------------------------------------------------------------------------ |
+| `manage_delivery_detail.sql`            | Manage `delivery_detail` inserts per vehicle_type; handles timeouts      |
+| `insert_delivery_detail.sql`            | Insert a new delivery request into `delivery_detail`   |
 | `job_create_dispatch.sql`               | Batch-create dispatches for unassigned deliveries      |
 | `get_available_riders` (in same file)   | Retrieve up to 5 eligible riders per order             |
 | `job_assign_delivery.sql`               | Trigger assignment logic for accepted dispatches       |
@@ -20,9 +21,20 @@ This document outlines the end-to-end delivery workflow implemented at the datab
 
 ## 2. Sequence of Events
 
+### 2.0 Delivery Process Entry Point: `manage_delivery_detail.sql`
+- **Invocation**: Triggered by external service or scheduled via cron job every 5 seconds.
+- **Purpose**: Entry point for the delivery assignment process. Responsible for:
+  - Managing assignment and timeout of `delivery_detail` records for delivery orders.
+  - For each order with a timed-out vehicle_type, marking it as `vehicle_type_timedout` and insert a new `delivery_detail` for the next eligible vehicle_type (if any).
+  - Ensuring only one vehicle_type is processed per order per run.
+  - If all vehicle_types for an order have timed out (`vehicle_type_timedout`) and the minimum timeout is exceeded, marking all related `delivery_detail` records as 'timedout'.
+  - Logging outcomes for auditing and monitoring.
+  - (To be implemented) Triggering downstream delivery processes or notifications as needed based on status changes.
+- **Downstream**: All subsequent jobs (dispatch creation, assignment, notification, completion) are orchestrated after this entry point, based on the state of `delivery_detail` records updated/created by this function.
+
 ### 2.1 Delivery Request Creation
-- **Invocation**: External app calls `insert_delivery_detail(p_cust_id, p_order_number, p_vehicle_type)`.
-- **Purpose**: Fetch restaurant & customer info, compute distance & payout, insert into `delivery_detail`.
+- **Invocation**: Called within `manage_delivery_detail` as part of automated delivery assignment/timeout management.
+- **Purpose**: Fetch restaurant & customer info. rider payout, distance are fetched from `delivery_option`. Insert into `delivery_detail`.
 - **Logic**:
   1. Derive `rest_ref` from `p_order_number`.
   2. Query `delivery_option` for `p_vehicle_type` → `driver_payout`, `distance_miles`.
@@ -83,9 +95,35 @@ This document outlines the end-to-end delivery workflow implemented at the datab
 
 ---
 
+## 3a. `delivery_detail.status` Field
+
+The `status` column in the `delivery_detail` table tracks the state of each delivery request throughout its lifecycle. Allowed values:
+
+| Status                   | Meaning                                                                                       |
+|--------------------------|----------------------------------------------------------------------------------------------|
+| `unassigned`             | Delivery detail created, no rider assigned yet.                                               |
+| `declined`               | All riders declined or did not accept the job; not assigned.                                  |
+| `timedout`               | No eligible vehicle types remain, or all options timed out; delivery process ended for order.  |
+| `assigned`               | A rider has been assigned to this delivery.                                                   |
+| `completed`              | Delivery successfully completed.                                                              |
+| `vehicle_type_timedout`  | The current vehicle_type option timed out; next eligible vehicle_type may be considered.       |
+
+**Typical Status Transitions:**
+- `unassigned` → `assigned` (when a rider is assigned)
+- `unassigned` → `declined` (if all riders decline)
+- `unassigned` → `vehicle_type_timedout` (if no rider accepts in time for a vehicle_type)
+- `vehicle_type_timedout` → `unassigned` (if a new vehicle_type is tried)
+- `vehicle_type_timedout` → `timedout` (if all vehicle_types have timed out and grace period has elapsed)
+- `assigned` → `completed` (when delivery is finished)
+
+This status field is central to the workflow and is updated by various jobs and functions as described above.
+
+---
+
 ## 4. Scheduling & Triggers
 
 - **pg_cron Jobs**:
+  - `manage_delivery_detail` → `manage_delivery_detail()`
   - `create_dispatch_for_unassigned_orders` → `job_create_dispatch()`
   - `assign_delivery_for_accepted_jobs` → `job_assign_delivery()`
 
