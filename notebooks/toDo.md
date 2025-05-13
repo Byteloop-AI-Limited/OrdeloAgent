@@ -1,10 +1,11 @@
 ## Delivery and Dispatch:
-- Integrate the 2 digit confirmation code; Should it exist in dispatch or delivery detail?
+- Integrate the 2 digit confirmation code; Should it exist in dispatch or delivery detail? - partially done, need to control > 100
+- Find where notify_missed_dispatches is called
 - add pickup time to delivery detail table and the pymodel
 - Change restaurant_master city to town (change in create_delivery_detail)
 - On timeout of a delivery, notify the customer on not being able to accept the order.
 - Assigment of multiple accepts should be based on most recent dispatch.
-- Caraousel of the jobs
+- Caraousel of the jobs?
 - Reply to a particular msg when rider accepts
 
 ## Issues identified

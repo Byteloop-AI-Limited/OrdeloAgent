@@ -17,14 +17,15 @@ Side Effects:
 **/
 
 CREATE OR REPLACE FUNCTION job_create_dispatch()
-RETURNS void AS $$
+RETURNS TABLE(action TEXT)
+AS $$
 DECLARE
   has_unassigned BOOLEAN;
 BEGIN
-  -- Check if there are any unassigned orders
   SELECT EXISTS (SELECT 1 FROM delivery_detail WHERE status = 'unassigned' LIMIT 1) INTO has_unassigned;
   
   IF has_unassigned THEN
+    RETURN QUERY
     WITH availableRiders AS (
         SELECT 
             dd.order_number,
@@ -37,9 +38,20 @@ BEGIN
         LEFT JOIN LATERAL get_available_riders(dd.order_number, LOWER(dd.town), dd.vehicle_type) gar ON true
         WHERE dd.status = 'unassigned'
         GROUP BY dd.order_number, dd.rider_payout, dd.distance, dd.vehicle_type, gar.rider_id
+    ), dispatch_candidates AS (
+        SELECT ar.order_number,
+               ar.rider_id_to_dispatch,
+               ar.rider_payout,
+               ar.distance,
+               ar.vehicle_type,
+               ar.rider_count,
+               COALESCE(oc.config_value::int, 1) AS batch_size,
+               row_number() OVER (PARTITION BY ar.vehicle_type ORDER BY ar.order_number) AS rn
+        FROM availableRiders ar
+        LEFT JOIN ordelo_config oc
+          ON oc.config_key = 'DISPATCH_BATCH_SIZE_' || UPPER(ar.vehicle_type)
     ), dispatch_insert AS (
-        -- Insert for orders with available riders
-        INSERT INTO delivery_dispatch(order_number, rider_id, rider_payout, distance, vehicle_type, status)
+        INSERT INTO delivery_dispatch (order_number, rider_id, rider_payout, distance, vehicle_type, status)
         SELECT 
             order_number,
             rider_id_to_dispatch,
@@ -47,31 +59,30 @@ BEGIN
             distance,
             vehicle_type,
             'unassigned'
-        FROM availableRiders
+        FROM dispatch_candidates 
         WHERE rider_count > 0
-        LIMIT 1 
-        -- limit is the batch
-        RETURNING order_number
+          AND rn <= batch_size
+        RETURNING
+          'Order ' || order_number || ' → dispatch created for rider ' || rider_id AS action,
+          order_number
+    ), update_detail_logs AS (
+        UPDATE delivery_detail dd
+        SET status = 'vehicle_type_timedout'
+        FROM availableRiders ar
+        WHERE dd.order_number = ar.order_number
+          AND dd.status = 'unassigned'
+          AND dd.order_number NOT IN (SELECT di.order_number FROM dispatch_insert di)
+        RETURNING
+          'Order ' || dd.order_number || ' → status set to vehicle_type_timedout' AS action
     )
-    -- Update delivery_detail for orders with no riders
-    UPDATE delivery_detail dd
-    SET status = 'vehicle_type_timedout'
-    FROM availableRiders ar
-    WHERE dd.order_number = ar.order_number
-    -- AND ar.rider_count = 0
-    -- AND CURRENT_TIMESTAMP - dd.dtts > INTERVAL '30 minutes'
-    AND dd.status = 'unassigned'
-    AND dd.order_number NOT IN (SELECT order_number FROM dispatch_insert);
-    
-    RAISE NOTICE 'Processed dispatch creation for unassigned orders.';
+    SELECT di.action FROM dispatch_insert di
+    UNION ALL
+    SELECT ul.action FROM update_detail_logs ul;
   ELSE
-    RAISE NOTICE 'No unassigned orders found.';
+    RETURN QUERY SELECT 'No unassigned orders found.'::text AS action;
   END IF;
 END;
 $$ LANGUAGE plpgsql;
-
--- To call this function from pgcorn:
--- SELECT job_create_dispatch();
 
 ----------------------------------------
 -- Get available riders for a given order number and town
@@ -95,6 +106,7 @@ BEGIN
     WHERE 
     LOWER(allRiders.town)=LOWER(p_town)
     AND allRiders.vehicle_type = p_vehicle_type
+    AND allRiders.is_in_shift
     AND NOT EXISTS 
     (SELECT 1 FROM ridersToExclude WHERE ridersToExclude.rider_id = allRiders.rider_id);
 
