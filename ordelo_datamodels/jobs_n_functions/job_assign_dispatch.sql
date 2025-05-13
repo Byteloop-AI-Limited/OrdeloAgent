@@ -18,17 +18,17 @@ Side Effects:
 **/
 
 CREATE OR REPLACE FUNCTION job_assign_dispatch()
-RETURNS void AS $$
+RETURNS TABLE(action TEXT) AS $$
 BEGIN
   IF EXISTS (SELECT 1 FROM delivery_detail WHERE status = 'unassigned' or status = 'vehicle_type_timedout' LIMIT 1) THEN
     -- Process unassigned orders
-    PERFORM assign_accepted_dispatch(order_number) 
-    FROM delivery_detail 
-    WHERE status='unassigned' or status = 'vehicle_type_timedout'
+    PERFORM assign_accepted_dispatch(order_number)
+    FROM delivery_detail
+    WHERE status IN ('unassigned','vehicle_type_timedout')
     ORDER BY dtts ASC;
-    RAISE NOTICE 'Processed unassigned orders.';
+    RETURN QUERY SELECT 'Processed unassigned orders.';
   ELSE
-    RAISE NOTICE 'No unassigned orders found.';
+    RETURN QUERY SELECT 'No unassigned orders found.';
   END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -77,6 +77,12 @@ BEGIN
             rider_id = acceptedDispatch.rider_id
         FROM acceptedDispatch
         WHERE delivery_detail.order_number = acceptedDispatch.order_number and delivery_detail.vehicle_type = acceptedDispatch.vehicle_type
+        RETURNING 1
+    ), updateSummary AS (
+        UPDATE delivery_summary 
+        SET status = 'assigned'
+        FROM acceptedDispatch
+        WHERE delivery_summary.order_number = acceptedDispatch.order_number
         RETURNING 1
     ), insertInflight AS (
         INSERT INTO delivery_inflight (
