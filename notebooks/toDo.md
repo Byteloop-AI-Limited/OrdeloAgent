@@ -1,8 +1,18 @@
 ## Delivery and Dispatch:
-- Dispatch based on vehicle type; Requires change in dispatch logic; 
-    - get_available_riders to include vehicle type
-    - Create delivery_detail record with vehicle type *(ordered)*; Insert record only if the order_id is unassigned
 - Integrate the 2 digit confirmation code; Should it exist in dispatch or delivery detail?
+- add pickup time to delivery detail table and the pymodel
+- Change restaurant_master city to town (change in create_delivery_detail)
+- On timeout of a delivery, notify the customer on not being able to accept the order.
+- Assigment of multiple accepts should be based on most recent dispatch.
+- Caraousel of the jobs
+- Reply to a particular msg when rider accepts
+
+## Issues identified
+- when multiple accepts, there is no response
+- No decline sent to other accepts
+
+## rider_registration
+- build logic to populate rider_master table from rider_registration table
 
 ## Location handling
 - Change from atomic inserts to batch inserts using queues
@@ -11,7 +21,14 @@
 
 
 ## Delivery flow
+- restaurant 2 digit confirmation
+- Restaurant confirming food ready for pickup
 - notification of the location events, order completion.
+
+## Pricing service
+- Is the distance calculated based on the vehicle type?
+- Increase the coverage limit
+
 
 ## Agent enhancements
 When a random message to WhatsApp, send standard message if no active thread.
