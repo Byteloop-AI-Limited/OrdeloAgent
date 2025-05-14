@@ -4,7 +4,15 @@ import requests
 import json
 import os
 from config import _async_wa_client
-from pywa.types import SectionList, Section, SectionRow, Button, CallbackButton, Message, ButtonUrl
+from pywa.types import (
+    SectionList,
+    Section,
+    SectionRow,
+    Button,
+    CallbackButton,
+    Message,
+    ButtonUrl,
+)
 
 from pywa import filters as fil
 from config.waba_setting import waba_business_settings, waba_cat_settings
@@ -16,32 +24,40 @@ from pywa.types import Template as Temp
 recipient = 447448440754
 # recipient = "447448440754"
 
-# %% investigate callback data 
-order_number = 'test123'
-await _async_wa_client.send_message(
-                to=recipient,
-                header=f"{order_number} Update",
-                text=f"Our delivery rider has left the restaurant, you can view the live location using the below link.",
-                buttons=ButtonUrl(title="Live Location Tracker", url="https://google.com")
-            )
-
+# %% investigate callback data
+order_number = "test123"
+msg = await _async_wa_client.send_message(
+    to=recipient,
+    reply_to_message_id="wamid.HBgMNDQ3NDQ4NDQwNzU0FQIAERgSRTMzMEZCNEM4OTRGRDc2ODZFAA==",
+    header=f"{order_number} Update",
+    text=(
+        "🚗 **Our delivery rider has left the restaurant!**\n\n"
+        "You can track your order live using the button below:\n\n"
+        "Warren Road, Orpington, BR6 6JF"
+    ),
+    buttons=ButtonUrl(title="Live Location", url="https://google.com"),
+)
+# %%
+msg.id
 # %%
 wa.send_message(
-            to=recipient,
-            text="hi",
-            reply_to_message_id=None,
-            buttons=ButtonUrl(title="Click Here", url="https://google.com")
-        )
-# %% Send documents 
+    to=recipient,
+    text="hi",
+    reply_to_message_id=None,
+    buttons=ButtonUrl(title="Click Here", url="https://google.com"),
+)
+# %% Send documents
 from pywa import WhatsApp
 import requests
 
-res = requests.get('https://cdn.pixabay.com/photo/2014/10/01/10/44/animal-468228_1280.jpg')
+res = requests.get(
+    "https://cdn.pixabay.com/photo/2014/10/01/10/44/animal-468228_1280.jpg"
+)
 wa.send_document(
     to=recipient,
     document=res.content,
-    filename='animal.jpg',
-    mime_type='image/jpeg',
+    filename="animal.jpg",
+    mime_type="image/jpeg",
 )
 
 # %% Send OwnTracks Config to drivers
@@ -49,28 +65,30 @@ wa.send_document(
 import base64
 import json
 
-waypoints = [{
+waypoints = [
+    {
         "_type": "waypoint",
         "tst": 1708625557,
         "rid": "h0me",
         "desc": "home",
         "rad": 1,
         "lat": 51.354107,
-        "lon": 0.095921
-    }]
+        "lon": 0.095921,
+    }
+]
 
 config = {
     "_type": "configuration",
     "mode": 3,
     "allowRemoteLocation": True,
-    "usePassword" : False,
+    "usePassword": False,
     "monitoring": 2,
     "username": "iphone14",
     "password": "",
     "url": "https://live-track.byteloop.ai/pub",
     "locatorDisplacement": 2,
-    "locatorInterval" : 60,
-    "waypoints": waypoints
+    "locatorInterval": 60,
+    "waypoints": waypoints,
 }
 
 # Convert config to JSON string and encode to base64
@@ -84,48 +102,49 @@ wa.send_message(
     to=recipient,
     text=f"...",
     reply_to_message_id=None,
-    buttons=ButtonUrl(title="Start Job", url=href)
+    buttons=ButtonUrl(title="Start Job", url=href),
 )
 
 
 # %%
 msg_id = wa.send_message(
-        to=recipient,
-        header='Job details: 1.2 Miles £3.5',
-        text=f'Do you accept the job?',
-        reply_to_message_id=None,
-        footer='⚡Ordelo',
-        buttons=ButtonUrl(title='View on Map', url="https://www.google.com/maps"),
-    )
+    to=recipient,
+    header="Job details: 1.2 Miles £3.5",
+    text=f"Do you accept the job?",
+    reply_to_message_id=None,
+    footer="⚡Ordelo",
+    buttons=ButtonUrl(title="View on Map", url="https://www.google.com/maps"),
+)
 
 # %%
 wa.send_message(
     to=recipient,
-    reply_to_message_id=msg_id.id, 
-    text='Accepted',
+    reply_to_message_id=msg_id.id,
+    text="Accepted",
     buttons=[
-            Button(title='Accept', callback_data="sadf"),
-            Button(title='Decline', callback_data="asdf"),
-    ]
-    )
+        Button(title="Accept", callback_data="sadf"),
+        Button(title="Decline", callback_data="asdf"),
+    ],
+)
 
 # %%
 msg_id.id
 # %%
-current_location="https://maps.google.com/?q=Order('1234')@51.354126,0.099301"
+current_location = "https://maps.google.com/?q=Order('1234')@51.354126,0.099301"
 
 wa.send_message(
     to=recipient,
     text=f"Live location for your order",
     reply_to_message_id=None,
-    buttons=ButtonUrl(title="Live Location", url=current_location)
+    buttons=ButtonUrl(title="Live Location", url=current_location),
 )
 
 # %%
 wa.send_location(to=recipient, latitude=51.354126, longitude=0.099301)
 
 # %%
-wa.send_text(to=recipient, text='Hello World')
+wa.send_text(to=recipient, text="Hello World")
+
 
 # %% payment reciept
 def generate_whatsapp_receipt(order_summary):
@@ -148,6 +167,7 @@ def generate_whatsapp_receipt(order_summary):
 
     return [order_id, order_type, items_details, total_amount]
 
+
 order_summary = {
     "order_id": "EDJJ-26",
     "order_type": "Paid Collection",
@@ -155,18 +175,10 @@ order_summary = {
     "recipient": "447448440754",
     "thread_id": "39e55759-c10f-44de-8510-25f00682ec8f",
     "items": [
-        {
-            "product_name": "Cheesecake",
-            "price": 5.95,
-            "quantity": 2
-        },
-        {
-            "product_name": "Meen Mulakittathu Curry",
-            "price": 13.95,
-            "quantity": 2
-        }
+        {"product_name": "Cheesecake", "price": 5.95, "quantity": 2},
+        {"product_name": "Meen Mulakittathu Curry", "price": 13.95, "quantity": 2},
     ],
-    "currency": "GBP"
+    "currency": "GBP",
 }
 
 # Generate receipt
@@ -177,7 +189,7 @@ print(receipt)
 wa.send_template(
     to=recipient,
     template=Temp(
-        name='payment_reciept_elai',
+        name="payment_reciept_elai",
         language=Temp.Language.ENGLISH_UK,
         body=[
             Temp.TextValue(value=receipt[0]),
@@ -185,7 +197,7 @@ wa.send_template(
             Temp.TextValue(value=receipt[2]),
             Temp.TextValue(value=receipt[3]),
         ],
-    )  
+    ),
 )
 
 # %%
@@ -195,14 +207,16 @@ import tenacity
 wa.send_template(
     to=recipient,
     template=Temp(
-        name='request_payment',
+        name="request_payment",
         language=Temp.Language.ENGLISH_UK,
         body=[
-            Temp.TextValue(value='10hith'),
-            Temp.TextValue(value='pubg-14'),
+            Temp.TextValue(value="10hith"),
+            Temp.TextValue(value="pubg-14"),
         ],
         buttons=[
-            Temp.UrlButtonValue(value="c/pay/cs_test_a1D1wkHFSLtrEZhTnVnfiztBDNIUvVvfeWzkhnO97bWEDRRx0wZE8HpiOp#fidkdWxOYHwnPyd1blpxYHZxWjA0VE1dcGlCYz1JYkw3UHZxdG9TSHxMc2YxbFNpPU5SNWltYlBUfUNxdHx3ZmhtQlZxVF9TfEZDNUZwTFB0XX03PEs8cmswdnZRfG5TcFNxN0lsdG5rQWo1NTVWSU03YVdcbicpJ2N3amhWYHdzYHcnP3F3cGApJ2lkfGpwcVF8dWAnPyd2bGtiaWBabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl"),
+            Temp.UrlButtonValue(
+                value="c/pay/cs_test_a1D1wkHFSLtrEZhTnVnfiztBDNIUvVvfeWzkhnO97bWEDRRx0wZE8HpiOp#fidkdWxOYHwnPyd1blpxYHZxWjA0VE1dcGlCYz1JYkw3UHZxdG9TSHxMc2YxbFNpPU5SNWltYlBUfUNxdHx3ZmhtQlZxVF9TfEZDNUZwTFB0XX03PEs8cmswdnZRfG5TcFNxN0lsdG5rQWo1NTVWSU03YVdcbicpJ2N3amhWYHdzYHcnP3F3cGApJ2lkfGpwcVF8dWAnPyd2bGtiaWBabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl"
+            ),
             # Temp.TextValue(value="https://checkout.stripe.com/c/pay/cs_test_a1D1wkHFSLtrEZhTnVnfiztBDNIUvVvfeWzkhnO97bWEDRRx0wZE8HpiOp#fidkdWxOYHwnPyd1blpxYHZxWjA0VE1dcGlCYz1JYkw3UHZxdG9TSHxMc2YxbFNpPU5SNWltYlBUfUNxdHx3ZmhtQlZxVF9TfEZDNUZwTFB0XX03PEs8cmswdnZRfG5TcFNxN0lsdG5rQWo1NTVWSU03YVdcbicpJ2N3amhWYHdzYHcnP3F3cGApJ2lkfGpwcVF8dWAnPyd2bGtiaWBabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl")
         ],
     ),
@@ -210,26 +224,24 @@ wa.send_template(
 
 # %%
 wa.send_template(
-    to="447850773336",
-    template=Temp(
-        name='demo_tryout',
-        language=Temp.Language.ENGLISH
-    )
+    to="447850773336", template=Temp(name="demo_tryout", language=Temp.Language.ENGLISH)
 )
 
 # %%
 Temp(
-        name='order_management_3',
-        language=Temp.Language.ENGLISH_US,
-        body=[
-            Temp.TextValue(value='Rahul'),
-            Temp.TextValue(value='123'),
-        ],
-        buttons=[
-            Temp.UrlButtonValue(value="c/pay/cs_test_a1D1wkHFSLtrEZhTnVnfiztBDNIUvVvfeWzkhnO97bWEDRRx0wZE8HpiOp#fidkdWxOYHwnPyd1blpxYHZxWjA0VE1dcGlCYz1JYkw3UHZxdG9TSHxMc2YxbFNpPU5SNWltYlBUfUNxdHx3ZmhtQlZxVF9TfEZDNUZwTFB0XX03PEs8cmswdnZRfG5TcFNxN0lsdG5rQWo1NTVWSU03YVdcbicpJ2N3amhWYHdzYHcnP3F3cGApJ2lkfGpwcVF8dWAnPyd2bGtiaWBabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl"),
-            # Temp.TextValue(value="https://checkout.stripe.com/c/pay/cs_test_a1D1wkHFSLtrEZhTnVnfiztBDNIUvVvfeWzkhnO97bWEDRRx0wZE8HpiOp#fidkdWxOYHwnPyd1blpxYHZxWjA0VE1dcGlCYz1JYkw3UHZxdG9TSHxMc2YxbFNpPU5SNWltYlBUfUNxdHx3ZmhtQlZxVF9TfEZDNUZwTFB0XX03PEs8cmswdnZRfG5TcFNxN0lsdG5rQWo1NTVWSU03YVdcbicpJ2N3amhWYHdzYHcnP3F3cGApJ2lkfGpwcVF8dWAnPyd2bGtiaWBabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl")
-        ],
-    ).to_dict()
+    name="order_management_3",
+    language=Temp.Language.ENGLISH_US,
+    body=[
+        Temp.TextValue(value="Rahul"),
+        Temp.TextValue(value="123"),
+    ],
+    buttons=[
+        Temp.UrlButtonValue(
+            value="c/pay/cs_test_a1D1wkHFSLtrEZhTnVnfiztBDNIUvVvfeWzkhnO97bWEDRRx0wZE8HpiOp#fidkdWxOYHwnPyd1blpxYHZxWjA0VE1dcGlCYz1JYkw3UHZxdG9TSHxMc2YxbFNpPU5SNWltYlBUfUNxdHx3ZmhtQlZxVF9TfEZDNUZwTFB0XX03PEs8cmswdnZRfG5TcFNxN0lsdG5rQWo1NTVWSU03YVdcbicpJ2N3amhWYHdzYHcnP3F3cGApJ2lkfGpwcVF8dWAnPyd2bGtiaWBabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl"
+        ),
+        # Temp.TextValue(value="https://checkout.stripe.com/c/pay/cs_test_a1D1wkHFSLtrEZhTnVnfiztBDNIUvVvfeWzkhnO97bWEDRRx0wZE8HpiOp#fidkdWxOYHwnPyd1blpxYHZxWjA0VE1dcGlCYz1JYkw3UHZxdG9TSHxMc2YxbFNpPU5SNWltYlBUfUNxdHx3ZmhtQlZxVF9TfEZDNUZwTFB0XX03PEs8cmswdnZRfG5TcFNxN0lsdG5rQWo1NTVWSU03YVdcbicpJ2N3amhWYHdzYHcnP3F3cGApJ2lkfGpwcVF8dWAnPyd2bGtiaWBabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl")
+    ],
+).to_dict()
 # %%
 # This is the whatsapp link to start a conversation
 markdown_text = """
@@ -242,13 +254,13 @@ https://wa.me/447424334783?text=Hello%2C%20I%20would%20like%20more%20information
 
 wa.send_message(
     to=recipient,
-    text='PyWa [markdown](https://faq.whatsapp.com/539178204879377)',
+    text="PyWa [markdown](https://faq.whatsapp.com/539178204879377)",
     preview_url=False,
     buttons=[
-    Button(title='⬇️ Download', callback_data=f'https://pywa.readthedocs.io/'),
-    Button(title='💬 Comments', callback_data=f'cmnts'),
-    Button(title='🎬 Info', callback_data=f'info'),
-]
+        Button(title="⬇️ Download", callback_data=f"https://pywa.readthedocs.io/"),
+        Button(title="💬 Comments", callback_data=f"cmnts"),
+        Button(title="🎬 Info", callback_data=f"info"),
+    ],
 )
 
 # wa.send_bu(
@@ -280,21 +292,21 @@ wa.send_message(
 # response = requests.get(url, headers=waba_cat_setting.cat_headers, data=json.dumps(payload))
 # response.text
 
-# %% send catalog 
+# %% send catalog
 wa.send_catalog(
     to=recipient,
-    body='Check out our catalog!',
+    body="Check out our catalog!",
     # footer='Powered by PyWa',
-    thumbnail_product_sku='123',
+    thumbnail_product_sku="123",
 )
 
-# %% send location 
+# %% send location
 wa.send_location(
     to=recipient,
     latitude=51.2626545707999,
     longitude=-1.0845731448928566,
-    name='Elai Restaurant',
-    address='Unit 1, Anchor Court, 28 London St, Basingstoke RG21 7NY',
+    name="Elai Restaurant",
+    address="Unit 1, Anchor Court, 28 London St, Basingstoke RG21 7NY",
 )
 # %% Getting Commerce settings
 
@@ -359,7 +371,6 @@ def filter_any_dict(dicts, **kwargs):
         if match:
             filtered_dicts.append(d)
     return filtered_dicts
-
 
 
 # %% Update inventory based on product id - Works
@@ -460,7 +471,6 @@ wa.ucts(
 # status_url = f'https://graph.facebook.com/{upload_id}/error_report'
 # status_response = requests.get(status_url, headers=headers)
 # status_response.status_code, status_response.text
-
 
 
 # %% When msg was sent on individual product

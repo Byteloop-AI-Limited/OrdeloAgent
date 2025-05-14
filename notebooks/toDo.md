@@ -1,15 +1,7 @@
 ## Delivery and Dispatch:
-- Integrate the 2 digit confirmation code; Should it exist in dispatch or delivery detail?
-- add pickup time to delivery detail table and the pymodel
 - Change restaurant_master city to town (change in create_delivery_detail)
 - On timeout of a delivery, notify the customer on not being able to accept the order.
-- Assigment of multiple accepts should be based on most recent dispatch.
-- Caraousel of the jobs
-- Reply to a particular msg when rider accepts
-
-## Issues identified
-- when multiple accepts, there is no response
-- No decline sent to other accepts
+- Reply to a particular msg when rider accepts - This of how to implement this. May be add the msg_id?
 
 ## rider_registration
 - build logic to populate rider_master table from rider_registration table
@@ -20,7 +12,7 @@
 - Make use of reusable CallBackButton data
 
 
-## Delivery flow
+## Delivery flow - Agent
 - restaurant 2 digit confirmation
 - Restaurant confirming food ready for pickup
 - notification of the location events, order completion.

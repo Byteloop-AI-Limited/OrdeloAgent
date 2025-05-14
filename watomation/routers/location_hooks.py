@@ -1,5 +1,6 @@
 # %%
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, Path, HTTPException
+from fastapi.responses import RedirectResponse
 from loguru import logger
 import psycopg
 import json
@@ -141,22 +142,11 @@ async def get_live_map_location_url(
     return live_map_url
 
 # %% Define paths - live location on map
-@router.get("/live-location-map/{order_number}",
-    summary="Get Live Location Map URL",
-    description="Retrieves the latest location of a rider for a specific order and returns a Google Maps URL",
-    response_description="A Google Maps URL pointing to the rider's current location",
-    responses={
-        200: {
-            "description": "Successfully retrieved location",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "current_location": "https://maps.google.com/?q=Order('123')@12.34,56.78"
-                    }
-                }
-            }
-        }
-    }
+@router.get(
+    "/live-location-map/{order_number}",
+    response_class=RedirectResponse,
+    summary="Redirect to Live Location Map",
+    description="Redirects the client to a Google Maps URL for the rider's current location",
 )
 async def live_location_map(
     order_number: str = Path(..., description="The order number to track"), 
@@ -164,9 +154,9 @@ async def live_location_map(
     ):
     live_map_url = await get_live_map_location_url(pool, order_number)
     if live_map_url is None:
-        return {"current_location": None}
+        raise HTTPException(status_code=404, detail="No live location found")
     
-    return {"current_location": live_map_url}
+    return live_map_url
 
 
 # %% Define Paths - location updates and transition events
