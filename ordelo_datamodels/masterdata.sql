@@ -11,6 +11,7 @@ CREATE TABLE rider_master (
     town        VARCHAR(255) NOT NULL,
     status      VARCHAR(50) NOT NULL,
     is_in_shift BOOLEAN NOT NULL DEFAULT TRUE,
+    priority    INT NOT NULL DEFAULT 1,
     dtts        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
