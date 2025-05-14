@@ -95,6 +95,7 @@ $$ LANGUAGE plpgsql;
 ----------------------------------------
 -- Get available riders for a given order number and town; 
 -- Exclude riders who are already assigned to the order OR dispatched already sent
+-- ToDo -- Remove vehicle_type from ridersToExclude when moving to production
 ----------------------------------------
 -- DROP FUNCTION IF EXISTS get_available_riders(text, text, text);
 CREATE OR REPLACE FUNCTION get_available_riders(p_order_number text, p_town text, p_vehicle_type text)
@@ -102,11 +103,11 @@ RETURNS TABLE(rider_id VARCHAR(12), priority INT) AS $$
 BEGIN
     RETURN QUERY
     WITH ridersToExclude AS (
-        SELECT DISTINCT dDispatch.rider_id 
+        SELECT DISTINCT dDispatch.rider_id, dDispatch.vehicle_type
         FROM delivery_dispatch dDispatch
         WHERE dDispatch.order_number = p_order_number 
         UNION 
-        SELECT DISTINCT inflight.rider_id 
+        SELECT DISTINCT inflight.rider_id, 'dummy_vehicle_type'
         FROM delivery_inflight inflight
     )
     SELECT 
@@ -118,7 +119,12 @@ BEGIN
     AND allRiders.vehicle_type = p_vehicle_type
     AND allRiders.is_in_shift
     AND NOT EXISTS 
-    (SELECT 1 FROM ridersToExclude WHERE ridersToExclude.rider_id = allRiders.rider_id);
+    (
+      SELECT 1 
+      FROM ridersToExclude 
+      WHERE ridersToExclude.rider_id = allRiders.rider_id 
+      AND ridersToExclude.vehicle_type = p_vehicle_type
+    );
 
 END;
 $$ LANGUAGE plpgsql;
