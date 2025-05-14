@@ -26,8 +26,9 @@ recipient = 447448440754
 
 # %% investigate callback data
 order_number = "test123"
-await _async_wa_client.send_message(
+msg = await _async_wa_client.send_message(
     to=recipient,
+    reply_to_message_id="wamid.HBgMNDQ3NDQ4NDQwNzU0FQIAERgSRTMzMEZCNEM4OTRGRDc2ODZFAA==",
     header=f"{order_number} Update",
     text=(
         "🚗 **Our delivery rider has left the restaurant!**\n\n"
@@ -36,7 +37,8 @@ await _async_wa_client.send_message(
     ),
     buttons=ButtonUrl(title="Live Location", url="https://google.com"),
 )
-
+# %%
+msg.id
 # %%
 wa.send_message(
     to=recipient,
