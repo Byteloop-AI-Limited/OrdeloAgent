@@ -36,7 +36,7 @@ router = APIRouter(tags=["delivery_hooks"])
 # %% supporting functions
 async def wa_send_delivery_dispatch_request_to_rider(
     recipient: str,
-    delivery_detail: DeliveryDetail,
+    delivery_summary: dict,
     dispatch_id: int,
     _async_wa_client: WhatsApp = _async_wa_client,
 ):
@@ -53,7 +53,7 @@ async def wa_send_delivery_dispatch_request_to_rider(
         dispatch_id (int): Unique identifier for this dispatch request
         _async_wa_client (WhatsApp, optional): WhatsApp client instance for sending messages
     """
-    order_number = delivery_detail.order_number
+    order_number = delivery_summary["order_number"]
 
     accept_pl = {
         "command": "/dispatchResponse",
@@ -91,19 +91,19 @@ async def wa_send_delivery_dispatch_request_to_rider(
 
     pickup_time = (datetime.now() + timedelta(minutes=25)).strftime("%I:%M %p")
 
-    header_text = f"{delivery_detail.distance} miles, £{delivery_detail.rider_payout}, @{pickup_time}"
+    header_text = f"{delivery_summary['distance']} miles, £{delivery_summary['rider_payout']}, @{pickup_time}"
     wa_text = f"""
     Pickup time - *{pickup_time}*
 
-Pickup location - *{delivery_detail.rest_name}*
-{delivery_detail.rest_address}
+Pickup location - *{delivery_summary["rest_name"]}*
+{delivery_summary["rest_address"]}
 
-Drop off location - *{delivery_detail.customer_name}*
-{delivery_detail.customer_address}
+Drop off location - *{delivery_summary["customer_name"]}*
+{delivery_summary["customer_address"]}
 
-Order number - *{delivery_detail.order_number}*
+Order number - *{delivery_summary["order_number"]}*
 
-Vehicle type - *{delivery_detail.vehicle_type}*
+Vehicle type - *{delivery_summary["vehicle_type"]}*
     """
     await _async_wa_client.send_message(
         to=recipient,
@@ -117,7 +117,7 @@ Vehicle type - *{delivery_detail.vehicle_type}*
         ],
     )
     logger.debug(
-        f"dispatch request sent to rider: {recipient}, order number: {order_number}, vehicle type: {delivery_detail.vehicle_type}"
+        f"dispatch request sent to rider: {recipient}, order number: {order_number}, vehicle type: {delivery_summary['vehicle_type']}"
     )
 
 
@@ -159,14 +159,6 @@ async def delivery_hook_root():
                 "application/json": {
                     "example": {
                         "status": "success",
-                        "data": {
-                            "delivery_dispatch": [
-                                {"dispatch_id": "123", "rider_id": "456"}
-                            ],
-                            "delivery_detail": [
-                                {"order_number": "789", "customer_name": "John Doe"}
-                            ],
-                        },
                     }
                 }
             },
@@ -174,42 +166,20 @@ async def delivery_hook_root():
     },
 )
 async def delivery_dispatch_hook(payload: dict = Depends(get_payload)):
-    """
-    On insert into delivery_dispatch table, trigger delivery dispatch webhook.
-
-    This endpoint processes a delivery dispatch request by extracting
-    rider ID, dispatch ID, and delivery details from the request payload.
-    It then uses these details to send a dispatch message via WhatsApp.
-
-    Args:
-        request (Request): The HTTP request object containing JSON payload.
-
-    Returns:
-        dict: A dictionary with the status of the operation and the original
-              payload data.
-    """
-
-    if len(payload["delivery_detail"]) == 0:
-        logger.error("no delivery_detail found for dispatch: {}".format(payload))
-        return {"status": "error", "data": payload}
-
-    # if delivery_dispatch or detail is not in payload, logger.error
-    if len(payload["delivery_dispatch"]) == 0 or len(payload["delivery_detail"]) == 0:
-        logger.error(
-            "no delivery_dispatch or detail found for dispatch: {}".format(payload)
+    dispatches = payload["bulk_dispatch"]
+    if len(dispatches) == 0:
+        # When instead of insert, the job udpates the status
+        return {"status": "success"}
+    for delivery_summary in dispatches:
+        print(delivery_summary["dispatch_id"], delivery_summary["order_number"])
+        dispatch_id = delivery_summary["dispatch_id"]
+        rider_id = delivery_summary["rider_id"]
+        await wa_send_delivery_dispatch_request_to_rider(
+            recipient=rider_id,
+            delivery_summary=delivery_summary,
+            dispatch_id=dispatch_id,
         )
-        return {"status": "error", "data": payload}
-
-    # extract from payload
-    rider_id = payload["delivery_dispatch"][0]["rider_id"]
-    dispatch_id = payload["delivery_dispatch"][0]["dispatch_id"]
-    delivery_detail = DeliveryDetail(**payload["delivery_detail"][0])
-
-    await wa_send_delivery_dispatch_request_to_rider(
-        recipient=rider_id, delivery_detail=delivery_detail, dispatch_id=dispatch_id
-    )
-
-    return {"status": "success", "data": payload}
+    return {"status": "success"}
 
 
 # %% Delivery Inflight Graph Init
