@@ -1,3 +1,24 @@
+/**
+Delivery Detail Management
+Invocation:
+1. Scheduled via pg_cron job manage_delivery_detail() every 5 seconds
+
+Purpose:
+- Manage assignment and timeout of `delivery_detail` records per order
+- Prioritize vehicle types based on rank
+- Insert next eligible `delivery_detail` when timeouts occur
+- Mark orders as `timedout` in `delivery_summary` when all vehicle types have timed out
+- The status for this table is updated to `vehicle_type_timedout` by `job_create_dispatch`
+Depends on tables: `delivery_summary`, `delivery_detail`, `delivery_option`
+
+Execution:
+- Frequency: Every 5 seconds
+
+Side Effects:
+1. Insert new `delivery_detail` rows
+2. Update `delivery_summary` statuses
+**/
+
 CREATE OR REPLACE FUNCTION process_delivery()
   RETURNS TABLE(action TEXT)
   LANGUAGE plpgsql

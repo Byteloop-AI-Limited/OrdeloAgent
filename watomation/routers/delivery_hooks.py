@@ -166,13 +166,12 @@ async def delivery_hook_root():
     },
 )
 async def delivery_dispatch_hook(payload: dict = Depends(get_payload)):
-    dispatches = payload["bulk_dispatch"]
-    if len(dispatches) == 0:
+    dispatches = payload.get("bulk_dispatch", None)
+    if dispatches is None or len(dispatches) == 0:
         # When instead of insert, the job udpates the status
         return {"status": "success"}
     for delivery_summary in dispatches:
-        print(delivery_summary["dispatch_id"], delivery_summary["order_number"])
-        dispatch_id = delivery_summary["dispatch_id"]
+        dispatch_id = delivery_summary.get("dispatch_id")
         rider_id = delivery_summary["rider_id"]
         await wa_send_delivery_dispatch_request_to_rider(
             recipient=rider_id,
@@ -182,7 +181,7 @@ async def delivery_dispatch_hook(payload: dict = Depends(get_payload)):
     return {"status": "success"}
 
 
-# %% Delivery Inflight Graph Init
+# %% Delivery Inflight Graph Init; Fix this
 @router.post(
     "/delivery-inflight-graph-init",
     summary="Initialize Delivery Inflight Graph",

@@ -1,18 +1,19 @@
 /**
 Dispatch Creation and Management Process
 Invocation:
-1. Scheduled cron job 'create_dispatch_for_unassigned_orders' (10s interval)
+1. Scheduled cron job 'job_create_dispatch' (5s interval)
 
 Purpose:
-- Manage unassigned orders
 - Create new dispatch entries based on available riders (function - get_available_riders())
-- Update delivery_detail with timeout status
+- priority is taken into consideration during dispatch creation
+- Update delivery_detail with `vehicle_type_timedout` when is is no more available riders for dispatch
+- The number of dispatches to be sent is defined by the config value `DISPATCH_BATCH_SIZE_` for each vehicle type
 
 Execution:
 - Frequency: Every 5 seconds
 
 Side Effects:
-1. Trigger webhook: /delivery-hooks/delivery-dispatch on insert
+1. Trigger webhook: /delivery-hooks/delivery-dispatch on insert into `delivery_dispatch` table
 2. Send WhatsApp messages to riders with delivery summaries
 **/
 
@@ -95,7 +96,6 @@ $$ LANGUAGE plpgsql;
 ----------------------------------------
 -- Get available riders for a given order number and town; 
 -- Exclude riders who are already assigned to the order OR dispatched already sent
--- ToDo -- Remove vehicle_type from ridersToExclude when moving to production
 ----------------------------------------
 -- DROP FUNCTION IF EXISTS get_available_riders(text, text, text);
 CREATE OR REPLACE FUNCTION get_available_riders(p_order_number text, p_town text, p_vehicle_type text)
@@ -107,7 +107,7 @@ BEGIN
         FROM delivery_dispatch dDispatch
         WHERE dDispatch.order_number = p_order_number 
         UNION 
-        SELECT DISTINCT inflight.rider_id, 'dummy_vehicle_type'
+        SELECT DISTINCT inflight.rider_id, 'inflight'
         FROM delivery_inflight inflight
     )
     SELECT 
@@ -119,12 +119,7 @@ BEGIN
     AND allRiders.vehicle_type = p_vehicle_type
     AND allRiders.is_in_shift
     AND NOT EXISTS 
-    (
-      SELECT 1 
-      FROM ridersToExclude 
-      WHERE ridersToExclude.rider_id = allRiders.rider_id 
-      AND ridersToExclude.vehicle_type = p_vehicle_type
-    );
+    (SELECT 1 FROM ridersToExclude WHERE ridersToExclude.rider_id = allRiders.rider_id);
 
 END;
 $$ LANGUAGE plpgsql;

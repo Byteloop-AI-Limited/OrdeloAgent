@@ -1,12 +1,22 @@
-CREATE TABLE delivery_inflight (
-    dispatch_id     INTEGER,
-    order_number     VARCHAR(100) NOT NULL,
-    rider_id        VARCHAR(12) NOT NULL,
-    customer_id        VARCHAR(12) NOT NULL,
-    dt               DATE NOT NULL DEFAULT CURRENT_DATE,
-    dtts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (dispatch_id)
-);
+/**
+Delivery Inflight Trigger
+
+Invocation:
+1. Row-level trigger AFTER INSERT on `delivery_inflight`
+
+Purpose:
+- Kick off rider graph flow via HTTP POST to `/delivery-hooks/delivery-inflight-graph-init`
+- Notify missed dispatches by calling `notify_missed_dispatches()`
+
+Depends on tables: `delivery_inflight`, `delivery_detail`
+
+Execution:
+- Fires per new `delivery_inflight` row
+
+Side Effects:
+1. HTTP POST to graph-init endpoint
+2. Calls `notify_missed_dispatches`
+**/
 
 -- Webhook function for delivery_inflight
 CREATE OR REPLACE FUNCTION public.delivery_inflight_whook()
@@ -24,8 +34,30 @@ BEGIN
     'delivery_detail', (
       SELECT json_agg(row_to_json(t))
       FROM (
-        SELECT * FROM delivery_detail 
-        WHERE order_number = NEW.order_number AND dispatch_id = NEW.dispatch_id
+        SELECT
+          det.order_number,
+          det.vehicle_type,
+          det.rider_payout,
+          det.distance,
+          summ.rest_id,
+          summ.rest_name,
+          summ.rest_lon,
+          summ.rest_lat,
+          summ.rest_address,
+          summ.town,
+          summ.customer_id,
+          summ.customer_name,
+          summ.customer_lon,
+          summ.customer_lat,
+          summ.customer_address,
+          det.status,
+          det.dispatch_id,
+          det.rider_id
+        FROM delivery_detail det
+        INNER JOIN delivery_summary summ
+          ON det.order_number = summ.order_number
+        WHERE det.order_number = NEW.order_number
+          AND det.dispatch_id = NEW.dispatch_id
         LIMIT 1
       ) t
     )
@@ -59,3 +91,70 @@ CREATE TRIGGER trigger_delivery_inflight_whook
 AFTER INSERT ON public.delivery_inflight
 FOR EACH ROW
 EXECUTE FUNCTION public.delivery_inflight_whook();
+
+
+----------------------------------------
+-- notify_missed_dispatches - Identifies dispatches that have timed out and notifies the system
+----------------------------------------
+DROP FUNCTION IF EXISTS notify_missed_dispatches();
+CREATE OR REPLACE FUNCTION notify_missed_dispatches()
+RETURNS BOOLEAN AS $$
+DECLARE
+    response json;
+    webhook_payload json;
+    notified BOOLEAN := FALSE;
+BEGIN
+    WITH missed_dispatches AS (
+        SELECT 
+            dd.order_number,
+            json_agg(json_build_object(
+                'dispatch_id', d.dispatch_id,
+                'rider_id', d.rider_id,
+                'order_number', d.order_number,
+                'order_status', dd.status,
+                'dtts', d.dtts
+            )) AS dispatches
+        FROM delivery_dispatch d
+        INNER JOIN delivery_detail dd ON d.order_number = dd.order_number
+        WHERE d.status = 'accepted'
+        -- AND DATE(d.dtts) = DATE(dd.dtts)
+        AND dd.status = 'assigned'
+        GROUP BY dd.order_number
+    )
+    SELECT 
+        json_build_object(
+            'missed_dispatches', (
+                SELECT json_agg(row_to_json(md))
+                FROM missed_dispatches md
+            )
+        ) INTO webhook_payload;
+    
+    -- Make the HTTP POST request with the payload
+    response := (
+        SELECT content 
+        FROM http_post(
+            'https://agent.ordelo.app/delivery-hooks/notify-missed-dispatches', 
+            webhook_payload::text,
+            'application/json'
+        )
+    );
+    
+    -- Log the response
+    RAISE NOTICE 'Response from notify-missed-dispatches: %', response;
+    notified := TRUE;
+    
+    RETURN notified;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Table definition
+CREATE TABLE delivery_inflight (
+    dispatch_id     INTEGER,
+    order_number     VARCHAR(100) NOT NULL,
+    rider_id        VARCHAR(12) NOT NULL,
+    customer_id        VARCHAR(12) NOT NULL,
+    dt               DATE NOT NULL DEFAULT CURRENT_DATE,
+    dtts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (dispatch_id)
+);
