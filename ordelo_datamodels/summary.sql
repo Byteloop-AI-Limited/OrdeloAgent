@@ -15,6 +15,8 @@ CREATE TABLE delivery_summary (
     status          VARCHAR(50) NOT NULL CHECK (status IN ('unassigned', 'timedout', 'assigned', 'completed')),
     rest_confirmation_code INTEGER NOT NULL,
     cust_confirmation_code INTEGER NOT NULL,
+    pickup_time      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP + INTERVAL '30 minutes',
+    pickup_date      DATE NOT NULL DEFAULT CURRENT_DATE,
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     dtts             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (order_number)
