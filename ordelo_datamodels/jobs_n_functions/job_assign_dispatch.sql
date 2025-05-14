@@ -5,30 +5,30 @@ Invocation:
 1. Scheduled cron job 'create_dispatch_for_unassigned_orders' (10s interval)
 
 Purpose:
-- Manage unassigned orders
-- Create new dispatch entries based on available riders (function - get_available_riders())
-- Update delivery_detail with timeout status
+- Look for accepted dispatches, assign based on first accepted dispatch
+- Update the statuses of dispatch, detail and summary
+- Insert into delivery_inflight, which kicks off rider graph and notification of missed dispatches
 
 Execution:
 - Frequency: Every 5 seconds
 
 Side Effects:
-1. Trigger webhook: /delivery-hooks/delivery-dispatch on insert
+1. insert into delivery_inflight, which kicks off rider graph and notification of missed dispatches
 2. Send WhatsApp messages to riders with delivery summaries
 **/
 
 CREATE OR REPLACE FUNCTION job_assign_dispatch()
-RETURNS void AS $$
+RETURNS TABLE(action TEXT) AS $$
 BEGIN
   IF EXISTS (SELECT 1 FROM delivery_detail WHERE status = 'unassigned' or status = 'vehicle_type_timedout' LIMIT 1) THEN
     -- Process unassigned orders
-    PERFORM assign_accepted_dispatch(order_number) 
-    FROM delivery_detail 
-    WHERE status='unassigned' or status = 'vehicle_type_timedout'
+    PERFORM assign_accepted_dispatch(order_number)
+    FROM delivery_detail
+    WHERE status IN ('unassigned','vehicle_type_timedout')
     ORDER BY dtts ASC;
-    RAISE NOTICE 'Processed unassigned orders.';
+    RETURN QUERY SELECT 'Processed unassigned orders.';
   ELSE
-    RAISE NOTICE 'No unassigned orders found.';
+    RETURN QUERY SELECT 'No unassigned orders found.';
   END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -77,6 +77,12 @@ BEGIN
             rider_id = acceptedDispatch.rider_id
         FROM acceptedDispatch
         WHERE delivery_detail.order_number = acceptedDispatch.order_number and delivery_detail.vehicle_type = acceptedDispatch.vehicle_type
+        RETURNING 1
+    ), updateSummary AS (
+        UPDATE delivery_summary 
+        SET status = 'assigned'
+        FROM acceptedDispatch
+        WHERE delivery_summary.order_number = acceptedDispatch.order_number
         RETURNING 1
     ), insertInflight AS (
         INSERT INTO delivery_inflight (
