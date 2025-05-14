@@ -71,7 +71,7 @@ BEGIN
     END IF;
 
     -- Generate confirmation codes
-    v_rest_confirmation_code := (floor(random() * 89) + 11)::INT;
+    v_rest_confirmation_code := floor(random() * (90 - (v_salt_number - 100) + 1) + (v_salt_number - 100))::INT;
     v_cust_confirmation_code := v_salt_number - v_rest_confirmation_code;
 
     -- Insert summary record
@@ -108,7 +108,8 @@ BEGIN
         v_rest_confirmation_code,
         v_cust_confirmation_code
     );
-
+    -- eagerly kick off process_delivery; May be add condition on pickup_time
+    PERFORM process_delivery();
     RETURN p_order_number;
 END;
 $$ LANGUAGE plpgsql;
