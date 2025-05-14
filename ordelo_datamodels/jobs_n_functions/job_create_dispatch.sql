@@ -93,7 +93,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 ----------------------------------------
--- Get available riders for a given order number and town
+-- Get available riders for a given order number and town; 
+-- Exclude riders who are already assigned to the order OR dispatched already sent
 ----------------------------------------
 -- DROP FUNCTION IF EXISTS get_available_riders(text, text, text);
 CREATE OR REPLACE FUNCTION get_available_riders(p_order_number text, p_town text, p_vehicle_type text)
