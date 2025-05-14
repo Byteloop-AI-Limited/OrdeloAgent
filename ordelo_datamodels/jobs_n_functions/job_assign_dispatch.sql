@@ -5,15 +5,15 @@ Invocation:
 1. Scheduled cron job 'create_dispatch_for_unassigned_orders' (10s interval)
 
 Purpose:
-- Manage unassigned orders
-- Create new dispatch entries based on available riders (function - get_available_riders())
-- Update delivery_detail with timeout status
+- Look for accepted dispatches, assign based on first accepted dispatch
+- Update the statuses of dispatch, detail and summary
+- Insert into delivery_inflight, which kicks off rider graph and notification of missed dispatches
 
 Execution:
 - Frequency: Every 5 seconds
 
 Side Effects:
-1. Trigger webhook: /delivery-hooks/delivery-dispatch on insert
+1. insert into delivery_inflight, which kicks off rider graph and notification of missed dispatches
 2. Send WhatsApp messages to riders with delivery summaries
 **/
 

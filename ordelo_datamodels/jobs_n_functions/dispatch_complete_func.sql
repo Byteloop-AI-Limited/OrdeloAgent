@@ -6,7 +6,7 @@ Invocation:
 2. Used by test
 
 Purpose:
-- Updates the dispatch, detail table with status='completed', 
+- Updates the dispatch, detail and summary table with status='completed', 
 - Removes the inflight record
 
 Side Effects:

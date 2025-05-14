@@ -1,3 +1,20 @@
+/**
+Delivery Initiation
+Invocation:
+1. Called by external service
+
+Purpose:
+- Initialize delivery details by creating a record in `delivery_summary`
+- Depends on tables: `customer_master`, `restaurant_master`, `delivery_detail`, `ordelo_config`
+- Creates the confirmation codes for the restaurant and customer
+- Eagerly executes process_delivery so the dispatch is created without waiting for the scheduled job 
+
+Execution:
+- Called by external service
+
+Side Effects:
+- None
+**/
 CREATE OR REPLACE FUNCTION init_delivery(p_cust_id VARCHAR, p_order_number VARCHAR)
 RETURNS VARCHAR AS $$
 DECLARE
@@ -108,7 +125,7 @@ BEGIN
         v_rest_confirmation_code,
         v_cust_confirmation_code
     );
-    -- eagerly kick off process_delivery; May be add condition on pickup_time
+    -- kick off process_delivery; May be add condition on pickup_time
     PERFORM process_delivery();
     RETURN p_order_number;
 END;

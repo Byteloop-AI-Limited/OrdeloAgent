@@ -1,23 +1,84 @@
 /**
-Dispatch Creation and Management Process
+Batch Dispatch Webhook Trigger
 
 Invocation:
-1. Trigger when a dispatch is inserted into deliver_dispatch
-2. Function call: create_dispatch()
+1. Statement-level trigger on `delivery_dispatch` INSERTs
 
 Purpose:
-- Manage unassigned orders
-- Create new dispatch entries
-- Update delivery_detail with timeout status
+- Aggregate newly inserted dispatch rows into a bulk JSON payload
+- Enrich with details from `delivery_detail` and `delivery_summary`
+
+Depends on tables: `delivery_dispatch`, `delivery_detail`, `delivery_summary`
 
 Execution:
-- Frequency: Trigger based
+- Fires once per INSERT statement (statement-level trigger)
 
 Side Effects:
-1. Trigger webhook: /delivery-hooks/delivery-dispatch on insert
-2. Send WhatsApp messages to riders with delivery summaries
+1. Sends single HTTP POST to `/delivery-hooks/delivery-dispatch` with bulk payload
 **/
 
+-- Drop existing bulk trigger if any
+-- DROP TRIGGER IF EXISTS trigger_delivery_dispatch_whook ON public.delivery_dispatch;
+
+-- Trigger function to process batch inserts
+CREATE OR REPLACE FUNCTION public.delivery_dispatch_whook_statement()
+RETURNS trigger AS $$
+DECLARE
+  response json;
+  webhook_payload json;
+BEGIN
+  -- Build payload by joining new_rows with delivery_detail in one query
+  SELECT json_build_object(
+    'bulk_dispatch', json_agg(row_to_json(t))
+  )
+  INTO webhook_payload
+  FROM (
+    SELECT 
+      nr.dispatch_id,
+      nr.order_number,
+      nr.rider_id,
+      nr.rider_payout,
+      nr.vehicle_type,
+      nr.distance,
+      summ.rest_id, 
+      summ.rest_name, 
+      summ.rest_lon, 
+      summ.rest_lat, 
+      summ.rest_address, 
+      summ.town,
+      summ.customer_id, 
+      summ.customer_name, 
+      summ.customer_lon, 
+      summ.customer_lat, 
+      summ.customer_address
+    FROM new_rows nr 
+    JOIN delivery_detail det ON nr.order_number = det.order_number AND det.vehicle_type = nr.vehicle_type
+    JOIN delivery_summary summ ON summ.order_number = nr.order_number
+  ) t;
+
+  -- Send single HTTP POST for all new rows
+  response := (
+    SELECT content
+    FROM http_post(
+      'https://agent.ordelo.app/delivery-hooks/delivery-dispatch',
+      webhook_payload::text,
+      'application/json'
+    )
+  );
+  RAISE NOTICE 'Response from HTTP POST: %', response;
+
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Statement-level trigger on batch insert
+CREATE TRIGGER trigger_delivery_dispatch_whook
+AFTER INSERT ON public.delivery_dispatch
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT
+EXECUTE FUNCTION public.delivery_dispatch_whook_statement();
+
+-- Table definition
 CREATE TABLE delivery_dispatch (
     dispatch_id     SERIAL PRIMARY KEY,
     order_number    VARCHAR(100) NOT NULL,
@@ -30,83 +91,3 @@ CREATE TABLE delivery_dispatch (
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     dtts             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
-------------------------------------------------
--- 
-------------------------------------------------
-CREATE OR REPLACE FUNCTION public.delivery_dispatch_whook()
-RETURNS trigger
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  response json;
-  webhook_payload json;
-BEGIN
-  -- Build webhook payload combining the new dispatch and rich delivery detail
-  SELECT json_build_object(
-    'delivery_dispatch', json_build_array(row_to_json(NEW)),
-    'delivery_detail', (
-      SELECT json_agg(row_to_json(t))
-      FROM (
-        SELECT 
-          det.order_number, 
-          det.vehicle_type, 
-          det.rider_payout,
-          det.distance, 
-          det.rest_id, 
-          det.rest_name, 
-          det.rest_lon, 
-          det.rest_lat, 
-          det.rest_address, 
-          det.town, 
-          det.customer_id, 
-          summ.customer_name, 
-          summ.customer_lon, 
-          summ.customer_lat, 
-          summ.customer_address, 
-          det.status, 
-          det.dispatch_id, 
-          det.rider_id
-        FROM delivery_detail det
-        INNER JOIN delivery_summary summ ON det.order_number = summ.order_number
-        WHERE det.order_number = NEW.order_number
-        ORDER BY det.dtts DESC
-        LIMIT 1
-      ) t
-    )
-  ) INTO webhook_payload;
-
-  -- Make the HTTP POST request with the combined payload
-  response := (
-    SELECT content 
-    FROM http_post(
-      'https://agent.ordelo.app/delivery-hooks/delivery-dispatch', 
-      webhook_payload::text,
-      'application/json'
-    )
-  );
-  -- Log the response
-  RAISE NOTICE 'Response from HTTP POST: %', response;
-  RETURN NEW;
-END;
-$$;
-
--- Trigger to call the webhook on row insert
-DROP TRIGGER IF EXISTS trigger_delivery_dispatch_whook ON public.delivery_dispatch;
-
-CREATE TRIGGER trigger_delivery_dispatch_whook
-AFTER INSERT ON public.delivery_dispatch
-FOR EACH ROW
-EXECUTE FUNCTION public.delivery_dispatch_whook();
-
-
--- bulk
-select 
-new_rows.dispatch_id,
-new_rows.order_number,
-new_rows.rider_id,
-new_rows.rider_payout,
-new_rows.vehicle_type,
-new_rows.distance
-from delivery_dispatch new_rows 
-join delivery_detail det on new_rows.order_number = det.order_number and det.vehicle_type = new_rows.vehicle_type
