@@ -15,7 +15,7 @@ Execution:
 Side Effects:
 - None
 **/
-CREATE OR REPLACE FUNCTION init_delivery(p_cust_id VARCHAR, p_order_number VARCHAR)
+CREATE OR REPLACE FUNCTION public.init_delivery(p_cust_id VARCHAR, p_order_number VARCHAR)
 RETURNS VARCHAR AS $$
 DECLARE
     v_rest_ref VARCHAR;
