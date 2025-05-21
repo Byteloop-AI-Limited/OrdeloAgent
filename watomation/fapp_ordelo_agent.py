@@ -16,7 +16,7 @@ from config import (
 )
 
 from watomation.init_app_state import init_app_state
-from watomation.routers import delivery_hooks, location_hooks
+from watomation.routers import delivery_hooks, location_hooks, alert_hooks
 from watomation.on_message_wa_handler import (
     reset_thread,
     test_delivery,
@@ -86,6 +86,7 @@ app = FastAPI(title="OrdeloAgent", lifespan=lifespan)
 # %% Add routers
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
 app.include_router(location_hooks.router, prefix="/location-hooks")
+app.include_router(alert_hooks.router, prefix="/alert-hooks")
 
 # %% DEFINE WA
 if __name__ == "__main__":
