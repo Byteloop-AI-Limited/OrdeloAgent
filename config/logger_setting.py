@@ -1,6 +1,10 @@
-# %%
+"""
+Logger configuration for OrdeloAgent.
+    . Sets up loguru logger with console and file handlers
+    . Configures extra log context (user)
+    . Depends on: loguru, sys
+"""
 # Import the logger and sys modules
-from loguru import logger
 import sys
 
 # Configuration for the logger

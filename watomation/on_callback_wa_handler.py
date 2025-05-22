@@ -1,3 +1,10 @@
+"""
+Handles WhatsApp callback button responses for delivery dispatch.
+    . Entry point for rider responses to delivery assignments
+    . Parses callback data and updates delivery status
+    . Integrates with OrdeloAgent delivery graph logic
+"""
+
 # %%
 from pywa_async import WhatsApp
 from config import logger

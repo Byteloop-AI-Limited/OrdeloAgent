@@ -1,17 +1,22 @@
+"""
+WhatsApp message handler logic for OrdeloAgent.
+    . Handles incoming WhatsApp messages and triggers delivery workflows
+    . Manages thread state, delivery dispatch, and flow actions
+    . Integrates with database and async messaging for delivery updates
+    . Provides handlers for reset, test, clear dispatch, and live location
+"""
+
 # %%
 from pywa_async import WhatsApp, types
 from config import logger, _sync_wa_client
 from pywa.types.flows import FlowRequest, FlowResponse
 from pywa.types import Message
 import random
-import uuid
 
 # project modules
 from watomation.init_app_state import get_app_state
 from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_call_function
-from utils_common.db_utils.sbase_pool_ops import insert_model_to_db, execute_sql_query
-from ordelo_datamodels.masterdata_pymodels import RestaurantMaster, CustomerMaster
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail
+from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 from ordelo.agent_app_handlers import run_ordelo_graph
 from pywa.types.flows import FlowActionType
 from pywa.types import FlowButton
