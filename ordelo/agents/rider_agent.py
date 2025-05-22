@@ -1,4 +1,11 @@
 # %%
+"""
+Rider agent implementation for Elai Ordelo.
+    . Defines LangGraph agent nodes and tool functions for rider workflow
+    . Tools handle live tracking, confirmation code verification, and delivery completion
+    . Utilises WhatsApp async client, project settings, and Supabase REST calls
+"""
+
 from config import project_settings
 from typing import Annotated
 
