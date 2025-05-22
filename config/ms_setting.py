@@ -1,4 +1,10 @@
-# %%
+"""
+Microsoft API settings and client configuration for OrdeloAgent.
+    . Defines MsSettings for Microsoft Graph API integration
+    . Handles confidential client authentication and token management
+    . Provides property for API request headers
+    . Depends on: pydantic_settings, msal
+"""
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from msal import ConfidentialClientApplication
 

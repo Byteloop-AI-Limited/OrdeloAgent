@@ -1,4 +1,10 @@
-# %% 
+"""
+PostgreSQL and Supabase settings for OrdeloAgent.
+    . Defines PgSetting for database, REST, and vector store configuration
+    . Integrates with Langchain, Supabase, and OpenAI embeddings
+    . Provides helpers for connection, headers, and vector search
+    . Depends on: pydantic_settings, langchain_postgres, langchain_openai, supabase
+"""
 # Move over to https://python.langchain.com/docs/integrations/vectorstores/supabase/#similarity-search-with-score
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from langchain_postgres.vectorstores import PGVector

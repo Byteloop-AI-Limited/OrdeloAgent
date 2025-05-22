@@ -1,3 +1,11 @@
+"""
+Delivery hooks router for OrdeloAgent FastAPI service.
+    . Defines endpoints for delivery-related webhook events (dispatch, inflight, missed)
+    . Processes payloads and updates delivery_dispatch and related database tables
+    . Notifies riders of delivery events using WhatsApp messaging
+    . Implements extensible webhook and DB update patterns
+"""
+
 from fastapi import APIRouter, Request, Depends
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 
@@ -9,8 +17,6 @@ import json
 from psycopg_pool import AsyncConnectionPool
 from ordelo.agent_app_handlers import init_ordelo_graph
 import asyncio
-
-# %%
 
 
 # %% Define Dependancies and routes
