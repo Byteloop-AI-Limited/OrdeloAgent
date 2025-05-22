@@ -1,5 +1,9 @@
 # %%
-
+"""
+Async helper functions for generic Postgres CRUD using `psycopg_pool.AsyncConnectionPool`.
+    . `insert_model_to_db` dynamically builds INSERT from a Pydantic instance
+    . `execute_sql_query` runs arbitrary SQL with optional parameters and commit handling
+"""
 from psycopg_pool import AsyncConnectionPool
 
 async def insert_model_to_db(pool: AsyncConnectionPool, table_name, model_instance):

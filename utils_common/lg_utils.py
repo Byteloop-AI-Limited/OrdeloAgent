@@ -1,4 +1,13 @@
 #%%
+"""
+LangChain/LangGraph utility helpers for agent creation and graph orchestration.
+    . Dependencies: langchain, langgraph, openai, pydantic, pywa, etc.
+    . `create_agent*` builders construct prompt templates and bind tools
+    . `agent_node` adapter executes agent and formats state update
+    . Provides shared LLM instance `LLM_4o` and embedding helper
+    . Misc helpers: message shortening, state extraction, graph display
+"""
+#%%
 from typing import Any, List
 from IPython.display import Image, display
 from langchain_core.messages import ToolMessage
