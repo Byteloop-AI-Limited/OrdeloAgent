@@ -8,14 +8,13 @@ Delivery hooks router for OrdeloAgent FastAPI service.
 
 from fastapi import APIRouter, Request, Depends
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
-
 from config import logger, _async_wa_client, pg_settings
 from pywa.types import Button
 from pywa_async import WhatsApp
 from datetime import datetime, timedelta
 import json
 from psycopg_pool import AsyncConnectionPool
-from ordelo.agent_app_handlers import init_ordelo_graph
+from ordelo.agents.agent_runner import init_ordelo_graph
 import asyncio
 
 

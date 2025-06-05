@@ -12,6 +12,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from langchain_postgres.vectorstores import PGVector
 from langchain_openai import OpenAIEmbeddings
 from supabase import create_client, Client, create_async_client, AsyncClient
+from psycopg_pool import AsyncConnectionPool
+from typing import Optional
 
 
 class PgSetting(BaseSettings):
@@ -21,6 +23,7 @@ class PgSetting(BaseSettings):
     rest_key: str
     service_key: str
     collection_name: str = "elai_embed"
+    _async_pool: Optional[AsyncConnectionPool] = None
 
     @property
     def connection_kwargs(self):
@@ -32,6 +35,17 @@ class PgSetting(BaseSettings):
             "keepalives_idle": 60,  # Seconds of inactivity before sending keepalive
             "keepalives_interval": 10,  # Seconds between keepalives
             "keepalives_count": 5,  # Number of keepalives before considering connection dead
+        }
+
+    @property
+    def pool_kwargs(self):
+        return {
+            "min_size": 1,  # Only ever open 1 connection at a time in lambda
+            "max_size": 5,  # Maximum connections in pool
+            "max_idle": 30,  # if lambda is idles > 30s, automatically close idle sockets
+            "timeout": 20,  # when aquiring, wait up to 20s before throwing "timeout"
+            "reconnect_timeout": 10,  # If socket is broken, attempts to reconnect automatically
+            "open": False,  # We'll open it explicitly
         }
 
     @property
@@ -68,6 +82,21 @@ class PgSetting(BaseSettings):
     @property
     def client(self) -> Client:
         return create_client(self.rest_url, self.rest_key)
+
+    async def get_pool(self) -> AsyncConnectionPool:
+        if self._async_pool is None:
+            self._async_pool = AsyncConnectionPool(
+                conninfo=self.db_uri,
+                kwargs=self.connection_kwargs,
+                min_size=self.pool_kwargs["min_size"],
+                max_size=self.pool_kwargs["max_size"],
+                max_idle=float(self.pool_kwargs["max_idle"]),
+                timeout=float(self.pool_kwargs["timeout"]),
+                reconnect_timeout=float(self.pool_kwargs["reconnect_timeout"]),
+                open=False,
+            )
+            await self._async_pool.open()
+        return self._async_pool
 
     @property
     def async_client(self) -> AsyncClient:

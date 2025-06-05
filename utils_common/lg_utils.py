@@ -1,4 +1,4 @@
-#%%
+# %%
 """
 LangChain/LangGraph utility helpers for agent creation and graph orchestration.
     . Dependencies: langchain, langgraph, openai, pydantic, pywa, etc.
@@ -7,7 +7,8 @@ LangChain/LangGraph utility helpers for agent creation and graph orchestration.
     . Provides shared LLM instance `LLM_4o` and embedding helper
     . Misc helpers: message shortening, state extraction, graph display
 """
-#%%
+
+# %%
 from typing import Any, List
 from IPython.display import Image, display
 from langchain_core.messages import ToolMessage
@@ -18,7 +19,7 @@ from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
     RemoveMessage,
-    filter_messages
+    filter_messages,
 )
 
 from langgraph.graph.state import CompiledStateGraph
@@ -28,8 +29,9 @@ import json
 from typing import Dict
 from utils_common.thread_management import ThreadHandler
 from langchain_core.runnables.config import RunnableConfig
-    
-#%%
+
+
+# %%
 def create_agent(llm, tools, system_message: str):
     """Create an agent."""
     prompt = ChatPromptTemplate.from_messages(
@@ -51,7 +53,8 @@ def create_agent(llm, tools, system_message: str):
     prompt = prompt.partial(tool_names=", ".join([tool.name for tool in tools]))
     return prompt | llm.bind_tools(tools)
 
-#%%
+
+# %%
 def agent_node(state, agent, name):
     """
     Processes the given state with the specified agent and returns a formatted message.
@@ -69,14 +72,14 @@ def agent_node(state, agent, name):
     return {"messages": [HumanMessage(content=result["output"], name=name)]}
 
 
-#%%
+# %%
 LLM_4o = ChatOpenAI(
-    model="gpt-4o-mini-2024-07-18", 
-    # model="o3-mini-2025-01-31", 
-    temperature=0, 
-    max_tokens=None, 
-    timeout=None, 
-    max_retries=2
+    model="gpt-4o-mini-2024-07-18",
+    # model="o3-mini-2025-01-31",
+    temperature=0,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2,
 )
 
 #  run llm invoke
@@ -85,15 +88,14 @@ LLM_4o.invoke("tell me a joke; return json")
 
 client = OpenAI()
 
+
 def generate_embedding(text):
-    response = client.embeddings.create(
-        input=text,
-        model='text-embedding-3-small'
-    )
+    response = client.embeddings.create(input=text, model="text-embedding-3-small")
     return response.data[0].embedding
 
+
 # LLM_4o.invoke("tell me a joke; return json", response_format={"type": "json_object"})
-#%%
+# %%
 def create_agent_w_sys_prompt(system_prompt, llm=LLM_4o):
     """
     Create an agent chain with the given system prompt and language model.
@@ -121,7 +123,9 @@ def create_agent_w_sys_prompt(system_prompt, llm=LLM_4o):
     return agent_chain
 
 
-def create_agent_w_tools_so_prompt(system_prompt, response_model=None | BaseModel, tools=[], llm=LLM_4o):
+def create_agent_w_tools_so_prompt(
+    system_prompt, response_model=None | BaseModel, tools=[], llm=LLM_4o
+):
     """
     Create an agent chain, bind_tools -> response_model -> sys_prompt
 
@@ -143,9 +147,9 @@ def create_agent_w_tools_so_prompt(system_prompt, response_model=None | BaseMode
     agent_chain_prompt = ChatPromptTemplate.from_messages(
         [("system", system_prompt), ("placeholder", "{messages}")]
     )
-    
+
     if len(tools) == 0:
-        agent_chain = agent_chain_prompt | llm    
+        agent_chain = agent_chain_prompt | llm
         return agent_chain
 
     if response_model is None:
@@ -153,16 +157,13 @@ def create_agent_w_tools_so_prompt(system_prompt, response_model=None | BaseMode
     else:
         llm_w_tools = llm.bind_tools(tools).with_structured_output(response_model)
 
-    agent_chain = agent_chain_prompt | llm_w_tools    
+    agent_chain = agent_chain_prompt | llm_w_tools
     return agent_chain
 
 
 def create_agent_w_sys_prompt_n_tools(
-    system_prompt, 
-    tools=[], 
-    llm=LLM_4o, 
-    parallel_tool_calls=True
-    ):
+    system_prompt, tools=[], llm=LLM_4o, parallel_tool_calls=True
+):
     """
     Create an agent chain, bind_tools -> response_model -> sys_prompt
 
@@ -184,17 +185,18 @@ def create_agent_w_sys_prompt_n_tools(
     agent_chain_prompt = ChatPromptTemplate.from_messages(
         [("system", system_prompt), ("placeholder", "{messages}")]
     )
-    
+
     if len(tools) == 0:
-        agent_chain = agent_chain_prompt | llm    
+        agent_chain = agent_chain_prompt | llm
         return agent_chain
     if not parallel_tool_calls:
         llm_w_tools = llm.bind_tools(tools, parallel_tool_calls=False)
     else:
         llm_w_tools = llm.bind_tools(tools)
 
-    agent_chain = agent_chain_prompt | llm_w_tools    
+    agent_chain = agent_chain_prompt | llm_w_tools
     return agent_chain
+
 
 # %% Extract and parse state variables from tool_msgs
 def extract_state_fields_from_tool_msgs(state):
@@ -204,15 +206,13 @@ def extract_state_fields_from_tool_msgs(state):
     if not isinstance(last_message, BaseMessage):
         return {}
 
-    if 'Error' in last_message.content:
+    if "Error" in last_message.content:
         # check for error in the tool msg
-        return {
-            **state
-        }
-    tool_msgs = filter_messages(state["messages"], include_types=['tool'])
+        return {**state}
+    tool_msgs = filter_messages(state["messages"], include_types=["tool"])
     result_dict = {}
     for tool_msg in tool_msgs:
-        if 'Error' not in tool_msg.content:
+        if "Error" not in tool_msg.content:
             try:
                 data = json.loads(tool_msg.content)
                 result_dict.update(data)
@@ -220,7 +220,7 @@ def extract_state_fields_from_tool_msgs(state):
                 # If parsing fails, skip to the next message
                 continue
     ## Only extract state_vals if present
-    return result_dict.get('state_fields',{})
+    return result_dict.get("state_fields", {})
 
 
 def display_graph(compiled_graph: Any) -> None:
@@ -249,10 +249,7 @@ def call_agent_chain(state, chain, config):
     # thread_id = config["configurable"].get("thread_id")
     # messages = state["messages"]
     response = chain.invoke(state)
-    return {
-        **state, 
-        "messages": [response]
-        }
+    return {**state, "messages": [response]}
 
 
 # Define the function to execute tools (This is not needed anymore - ToolNode)
@@ -266,28 +263,36 @@ def call_tool(state, config, tool_executor):
         tool=tool_call["name"],
         tool_input=tool_call["args"],
     )
-    
+
     response = tool_executor.invoke(action)
 
     # We use the response to create a ToolMessage
     tool_message = ToolMessage(
         content=str(response), name=action.tool, tool_call_id=tool_call["id"]
     )
-    
+
     # We return a list, because this will get added to the existing list
     return {"messages": [tool_message]}
 
 
-#%%
+# %%
 class FormattedResponse(BaseModel):
     """Response formatter. ONLY formats what is available in the input. Does not offer additional options"""
 
-    general_ai_response: str = Field(description="General response from ai, could be a question, greeting and a probe to select from options")
-    options: List[str] = Field(default=None, description="If input is a question, this will a list Options to be presented to the user so user can select, can be None if there are no options or if its not a question.")
+    general_ai_response: str = Field(
+        description="General response from ai, could be a question, greeting and a probe to select from options"
+    )
+    options: List[str] = Field(
+        default=None,
+        description="If input is a question, this will a list Options to be presented to the user so user can select, can be None if there are no options or if its not a question.",
+    )
 
 
-prompt = ChatPromptTemplate.from_messages([
-    ("system", """
+prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """
         You are an expert and accurate text formatter. You will be provided with
         an AI Response as input
         Your task is to extract the `general_ai_response` and the options presented.
@@ -312,11 +317,15 @@ prompt = ChatPromptTemplate.from_messages([
             output: {{'general_ai_response': 'I am awaiting for the payment', 'options': []}}
             }},
         ]
-    """),
-    ("user", "{input}")
-])
+    """,
+        ),
+        ("user", "{input}"),
+    ]
+)
 
-response_formatter_agent = prompt | LLM_4o.with_structured_output(FormattedResponse, method="json_schema")
+response_formatter_agent = prompt | LLM_4o.with_structured_output(
+    FormattedResponse, method="json_schema"
+)
 
 # example_text = "Hello! Welcome to Trishna. How can I assist you today? You can ask about our restaurant, menu, or if you're interested in placing an order for takeaway or dine-in."
 # formatted_response: FormattedResponse = response_formatter_agent.invoke(example_text)
@@ -325,7 +334,10 @@ response_formatter_agent = prompt | LLM_4o.with_structured_output(FormattedRespo
 
 # %%
 
-def is_last_tool_call(graph: CompiledStateGraph, config, tool_call_nm='send_acknowledgement_email'):
+
+def is_last_tool_call(
+    graph: CompiledStateGraph, config, tool_call_nm="send_acknowledgement_email"
+):
     """
     Check if the most recent tool call in the specified graph's state matches the given tool call name.
 
@@ -342,19 +354,19 @@ def is_last_tool_call(graph: CompiledStateGraph, config, tool_call_nm='send_ackn
     Returns:
         bool: True if the last tool message's name matches the specified tool call name, False otherwise.
                Returns False if there are no messages present.
-    
+
     Usage:
         is_last_tool_call(err_lead_capture_graph, config)
     """
-    msgs = graph.get_state(config).values.get('messages')
-    
+    msgs = graph.get_state(config).values.get("messages")
+
     if msgs is None:
         return False
 
     # Print the msgs
     print(config)
     [msg.pretty_print() for msg in msgs]
-    filtered_msgs = filter_messages(msgs, include_types=['tool'])
+    filtered_msgs = filter_messages(msgs, include_types=["tool"])
     last_tool_msg: ToolMessage = filtered_msgs[-1] if filtered_msgs else None
 
     if last_tool_msg is not None and last_tool_msg.name == tool_call_nm:
@@ -362,7 +374,9 @@ def is_last_tool_call(graph: CompiledStateGraph, config, tool_call_nm='send_ackn
     else:
         return False
 
+
 # %%
+
 
 def is_json(s: str) -> bool:
     """Check if a string is a valid json or not"""
@@ -371,6 +385,7 @@ def is_json(s: str) -> bool:
         return True
     except json.JSONDecodeError:
         return False
+
 
 # %% get recent messages
 def get_recent_messages(messages: List, num_msgs=7):
@@ -386,24 +401,27 @@ def get_recent_messages(messages: List, num_msgs=7):
     """
     # Ensure num_msgs does not exceed the total number of messages
     num_msgs = min(num_msgs, len(messages))
-    
+
     # check if the last message is a tool message
     if num_msgs > 0 and isinstance(messages[-num_msgs], ToolMessage):
-        return messages[-(num_msgs+1):] if num_msgs < len(messages) else messages
+        return messages[-(num_msgs + 1) :] if num_msgs < len(messages) else messages
     else:
         return messages[-num_msgs:]
 
+
 # %% Print state values
-def get_state_values(state, exclude_key='messages'):
+def get_state_values(state, exclude_key="messages"):
     state_dict = {}
     for key, value in state.items():
         if key != exclude_key:
             state_dict[key] = value
 
-            print(f"{key}: {value}") # Keep the print for now
+            print(f"{key}: {value}")  # Keep the print for now
     return state_dict
 
+
 # %% Get Config for recipient
+
 
 async def get_config_for_recipient(recipient: str, pool) -> Dict[str, Any]:
     """
@@ -418,25 +436,27 @@ async def get_config_for_recipient(recipient: str, pool) -> Dict[str, Any]:
         A dictionary containing configuration information, including the thread ID and recipient.
     """
     thread_handler = ThreadHandler(pool)
-    thread_id, _ = await thread_handler.get_or_create_thread(
-        recipient
-    )
+    thread_id, _ = await thread_handler.get_or_create_thread(recipient)
 
-    config = {"configurable": {"thread_id": thread_id, "recipient": recipient, 'pool':pool}}
+    config = {"configurable": {"thread_id": thread_id, "recipient": recipient}}
     return config
 
-#%%
+
+# %%
+
 
 def get_thread_from_config(config: RunnableConfig) -> str:
     """Extracts the thread_id from the config."""
-    return config['configurable']['thread_id']
+    return config["configurable"]["thread_id"]
 
 
 def get_recipient_from_config(config: RunnableConfig) -> str:
     """Extracts the recipient from the config."""
-    return config['configurable']['recipient']
-    
+    return config["configurable"]["recipient"]
+
+
 # %% Shorten the msgs
+
 
 def shorten_state_messages(messages: List[dict]) -> List[Dict[str, Dict[str, Any]]]:
     """
@@ -447,18 +467,20 @@ def shorten_state_messages(messages: List[dict]) -> List[Dict[str, Dict[str, Any
 
     Returns:
         A list of dictionaries, where each dictionary represents a shortened message
-        in the format {type(message).__name__: message_dict}, 
+        in the format {type(message).__name__: message_dict},
         and message_dict contains only the fields in MSG_COLS.
     """
-    MSG_COLS = ['content', 'additional_kwargs']
-    
+    MSG_COLS = ["content", "additional_kwargs"]
+
     short_msgs: List[Dict[str, Dict[str, Any]]] = [
-        {type(_msg).__name__: _msg.model_dump(include=MSG_COLS)}
-        for _msg in messages
+        {type(_msg).__name__: _msg.model_dump(include=MSG_COLS)} for _msg in messages
     ]
     short_msgs.reverse()
     return short_msgs
+
+
 # is_last_tool_call(err_lead_capture_graph, 'send_acknowledgement_email')
+
 
 # %% Delete messages
 def delete_messages(state):
@@ -466,7 +488,8 @@ def delete_messages(state):
     if len(messages) > 3:
         return {"messages": [RemoveMessage(id=m.id) for m in messages[:-3]]}
 
-# %% Display graph using mermaid 
+
+# %% Display graph using mermaid
 # takeaway_graph.get_graph(xray=True).draw_mermaid()
 
 # %% Building test graph based on agent, tools- it provides a toolNode to execute tools

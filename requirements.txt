@@ -7,8 +7,10 @@ pydantic-settings==2.7.1
 # Langchain
 langchain-core
 langchain-google-genai
-langgraph-checkpoint-postgres==2.0.13
-langchain-postgres
+psycopg[binary]
+psycopg-pool
+langgraph-checkpoint-postgres==2.0.21
+langchain-postgres==0.0.14
 langchain-openai==0.3.4
 langchain-community==0.3.17
 langgraph==0.2.70
