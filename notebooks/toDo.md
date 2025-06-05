@@ -1,7 +1,7 @@
 ## Delivery flow - Agent
-- Implement restaurant 2 digit confirmation
 - Implement restaurant confirming food ready for pickup
-- notification of the location events, order completion.
+- Remove the init_ordelo_graph, work on the setup node and add get_journey_instructions
+- otification of the location events, order completion.
 
 ## Delivery and Dispatch:
 - Change restaurant_master city to town (change in create_delivery_detail)
