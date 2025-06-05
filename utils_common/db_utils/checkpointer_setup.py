@@ -1,4 +1,10 @@
 # %%
+"""
+One-off script to initialise LangGraph Postgres checkpoint table.
+    . Opens connection pool using project `pg_settings`
+    . Creates `PostgresSaver` and calls `.setup()` which issues DDL
+    . Run manually to prepare database for graph checkpointing
+"""
 from psycopg_pool import ConnectionPool
 from config import pg_settings
 from langgraph.checkpoint.postgres import PostgresSaver

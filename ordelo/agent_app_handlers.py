@@ -1,5 +1,10 @@
 """
-All handlers for the fastapi app that serves the Elai Ai agent
+FastAPI handlers for the Elai Ordelo AI agent.
+    . Exposes endpoints and utility functions for dispatch and state management
+    . Integrates with LangGraph, WhatsApp clients (pywa, pywa_async), and PostgreSQL
+    . Key functions: process_dispatch_response_from_rider_sync, generate_config_href,
+      create_start_job_config, create_stop_job_config, init_ordelo_graph, run_ordelo_graph,
+      initial_handle_of_rider_response, debug_state
 """
 
 # %%
@@ -126,7 +131,7 @@ async def create_start_job_config(d_detail: DeliveryDetail) -> str:
             "tst": int(datetime.now().timestamp()),
             "rid": "rest",
             "desc": "rest",
-            "rad": 10,
+            "rad": 20,
             "lat": d_detail.rest_lat,
             "lon": d_detail.rest_lon,
         },
@@ -135,7 +140,7 @@ async def create_start_job_config(d_detail: DeliveryDetail) -> str:
             "tst": int(datetime.now().timestamp()),
             "rid": "cust",
             "desc": "cust",
-            "rad": 10,
+            "rad": 20,
             "lat": d_detail.customer_lat,
             "lon": d_detail.customer_lon,
         },

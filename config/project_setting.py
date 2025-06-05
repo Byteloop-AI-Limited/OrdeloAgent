@@ -1,11 +1,13 @@
-# %%
 """
-Configurations for project
+Project-level configuration for OrdeloAgent.
+    . Defines ProjectSetting for base settings (salt, base_url)
+    . Provides get_project_root for dynamic project path resolution
+    . Loads environment variables and logging
+    . Depends on: os, pydantic_settings, dotenv, loguru
 """
 
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from dotenv import load_dotenv
 from loguru import logger
 
 # %%
@@ -24,9 +26,7 @@ class ProjectSetting(BaseSettings):
         return get_project_root()
 
     model_config = SettingsConfigDict(
-        env_prefix="PROJECT_SETTINGS_",
-        env_file=None,
-        extra="ignore"
+        env_prefix="PROJECT_SETTINGS_", env_file=None, extra="ignore"
     )
 
 

@@ -1,15 +1,22 @@
 # %% Setup Python Path
+"""
+Utilities for analysing OwnTracks pickle dump using DuckDB.
+    . Dependencies: pickle, duckdb, pandas, pathlib
+    . `read_pickle_file` streams all payload objects from pkl
+    . `create_duckdb_table` registers dataframe as `iot_data`
+    . `query_location_data` transforms JSON rows with DuckDB SQL CTE and optional type filter
+    . Script section demonstrates usage and prints query results
+"""
+
 import os
-import sys
-from config import logger
 
 # %%
 import pickle
 import duckdb
 import pandas as pd
-from pathlib import Path
 
 root = "/home/basal/PycharmProjects/elai"
+
 
 def read_pickle_file(file_path):
     """
@@ -23,7 +30,7 @@ def read_pickle_file(file_path):
     """
     data_list = []
     try:
-        with open(file_path, 'rb') as pickle_file:
+        with open(file_path, "rb") as pickle_file:
             while True:
                 try:
                     data = pickle.load(pickle_file)
@@ -33,6 +40,7 @@ def read_pickle_file(file_path):
     except Exception as e:
         print(f"Error reading pickle file: {e}")
     return data_list
+
 
 def create_duckdb_table(data_list):
     """
@@ -46,14 +54,15 @@ def create_duckdb_table(data_list):
     """
     # Convert the list to a pandas DataFrame
     df = pd.DataFrame(data_list)
-    
+
     # Create a DuckDB connection
-    con = duckdb.connect(database=':memory:')
-    
+    con = duckdb.connect(database=":memory:")
+
     # Register the DataFrame as a table
-    con.register('iot_data', df)
-    
+    con.register("iot_data", df)
+
     return con
+
 
 # %%
 def query_location_data(con, query_type=None):
@@ -150,14 +159,17 @@ def query_location_data(con, query_type=None):
         from parsedData0
     )
     """
-    
+
     # Add type filter if specified
     if query_type:
-        query += f"\nSELECT * FROM parsedData WHERE _type = '{query_type}' ORDER BY tst DESC"
+        query += (
+            f"\nSELECT * FROM parsedData WHERE _type = '{query_type}' ORDER BY tst DESC"
+        )
     else:
         query += "\nSELECT * FROM parsedData ORDER BY tst DESC"
-    
-    return con.execute(query).df().to_dict('records')
+
+    return con.execute(query).df().to_dict("records")
+
 
 # %%
 pickle_file_path = f"{root}/data/live_location.pkl"
@@ -166,13 +178,11 @@ pickle_file_path = f"{root}/data/live_location.pkl"
 data_list = read_pickle_file(pickle_file_path)
 data_list
 
-# %% 
-from utils_common.params import filter_dict
+# %%
 # filter_dict(data_list)
 
 # from config import logger
-import os 
-os.environ.get('PYTHONPATH')
+os.environ.get("PYTHONPATH")
 # %%
 # Create DuckDB table
 con = create_duckdb_table(data_list)

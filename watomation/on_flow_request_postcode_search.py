@@ -1,3 +1,10 @@
+"""
+Handles postcode search flows via WhatsApp.
+    . Implements WhatsApp flow request handlers for postcode search
+    . Performs address lookup and builds flow responses
+    . Integrates with external address resolver service
+"""
+
 # %%
 from pywa_async import WhatsApp
 from config import logger

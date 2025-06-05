@@ -1,3 +1,10 @@
+"""
+Handles customer address capture flows via WhatsApp.
+    . Implements WhatsApp flow request handlers for address capture
+    . Provides data exchange and completion logic for the flow
+    . Logs and responds to customer address input events
+"""
+
 # %%
 from pywa_async import WhatsApp
 from config import logger
