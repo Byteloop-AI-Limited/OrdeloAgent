@@ -159,6 +159,10 @@ async def verify_restaurant_confirmation_code(
             }
         )
     else:
+        #  toDo
+        # Check if the live location is turned on
+        # If turned on, provide live tracking link to customer
+        # Add get_journey_instructions to the agent
         return Command(
             update={
                 "messages": [
