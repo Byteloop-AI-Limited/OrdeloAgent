@@ -24,16 +24,17 @@ thread_handler = None
 graph = None
 client = None
 
+
 async def init_app_state():
     """
     Initialize application state resources.
     This function must be called within an async context.
-    
+
     Returns:
         tuple: A tuple containing (pool, pool_sync, checkpointer, thread_handler, graph, client)
     """
     global pool, pool_sync, checkpointer, thread_handler, graph, client
-    
+
     # Initialize the pool if not already initialized
     if pool is None:
         pool = AsyncConnectionPool(
@@ -48,34 +49,35 @@ async def init_app_state():
         )
         # Explicitly open the pool
         await pool.open()
-    
+
     # Initialize pool_sync if not already initialized
     if pool_sync is None:
         pool_sync = ConnectionPool(pg_settings.db_uri)
         pool_sync.open()
-    
+
     # Initialize other resources if not already initialized
     if checkpointer is None:
         checkpointer = AsyncPostgresSaver(pool)
-    
+
     if thread_handler is None:
         thread_handler = ThreadHandler(pool)
-    
+
     if graph is None:
         graph = builder.compile(checkpointer=MemorySaver())
-    
+
     if client is None:
         client = pg_settings.client
-    
+
     return pool, pool_sync, checkpointer, thread_handler, graph, client
 
-def get_app_state():
-    """
-    Get the current application state resources.
-    This function can be called from a synchronous context.
-    
-    Returns:
-        tuple: A tuple containing (pool, pool_sync, checkpointer, thread_handler, graph, client)
-        Note: Returns None for resources that haven't been initialized yet.
-    """
-    return pool, pool_sync, checkpointer, thread_handler, graph, client
+
+# def get_app_state():
+#     """
+#     Get the current application state resources.
+#     This function can be called from a synchronous context.
+
+#     Returns:
+#         tuple: A tuple containing (pool, pool_sync, checkpointer, thread_handler, graph, client)
+#         Note: Returns None for resources that haven't been initialized yet.
+#     """
+#     return pool, pool_sync, checkpointer, thread_handler, graph, client

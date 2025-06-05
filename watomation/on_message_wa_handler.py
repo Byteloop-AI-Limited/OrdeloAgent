@@ -8,26 +8,26 @@ WhatsApp message handler logic for OrdeloAgent.
 
 # %%
 from pywa_async import WhatsApp, types
-from config import logger, _sync_wa_client
+from config import logger, _sync_wa_client, pg_settings
 from pywa.types.flows import FlowRequest, FlowResponse
 from pywa.types import Message
 import random
 
 # project modules
-from watomation.init_app_state import get_app_state
 from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_call_function
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
-from ordelo.agents.agent_runner import run_rider_graph
 from pywa.types.flows import FlowActionType
 from pywa.types import FlowButton
+from utils_common.thread_management import ThreadHandler
+from psycopg_pool import AsyncConnectionPool
+from ordelo.agents.agent_runner import run_rider_graph
 
 
 # %% Run graph on msg
 async def process_wa_msg(wa: WhatsApp, msg: Message):
-    # Get app state resources
-    pool, pool_sync, checkpointer, thread_handler, graph, client = get_app_state()
-
+    pool: AsyncConnectionPool = await pg_settings.get_pool()
     recipient = msg.sender
+    thread_handler = ThreadHandler(pool)
 
     thread_row = await thread_handler.get_active_thread(recipient)
 
@@ -42,9 +42,8 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
 
 # %% Reset
 async def reset_thread(wa: WhatsApp, msg: Message):
-    # Get app state resources
-    pool, pool_sync, checkpointer, thread_handler, graph, client = get_app_state()
-
+    pool: AsyncConnectionPool = await pg_settings.get_pool()
+    thread_handler = ThreadHandler(pool)
     logger.info("=============== reset the thread ===============")
     recipient = msg.from_user.wa_id
 
@@ -64,24 +63,27 @@ async def reset_thread(wa: WhatsApp, msg: Message):
 
 # %% Clear Dispatch
 async def clear_dispatch(wa: WhatsApp, msg: Message):
-    # Get app state resources
-    pool, pool_sync, checkpointer, thread_handler, graph, client = get_app_state()
     recipient = msg.from_user.wa_id
+    client = pg_settings.client
     client.rpc("clear_dispatch", {}).execute()
 
 
 # %% Test Delivery
 async def test_delivery(wa: WhatsApp, msg: Message):
-    # Get app state resources
-    pool, pool_sync, checkpointer, thread_handler, graph, client = get_app_state()
+    pool: AsyncConnectionPool = await pg_settings.get_pool()
+    client = pg_settings.client
     recipient = msg.sender
     order_number = f"WREN-{random.randint(1000, 9999)}-{random.randint(10, 99)}"
     vehicle_type = "car"
-    # %%
     # DB operations
     # Cleanup - update dispatch complete
-    open_dispatch = await sbase_get(table_name="delivery_dispatch", status="assigned")
-    for dispatch in open_dispatch:
+    open_dispatch = (
+        client.table("delivery_dispatch")
+        .select("dispatch_id")
+        .eq("status", "assigned")
+        .execute()
+    )
+    for dispatch in open_dispatch.data:
         await sbase_call_function(
             function_name="dispatch_complete_func",
             input_args={"p_dispatch_id": dispatch["dispatch_id"]},
@@ -136,9 +138,8 @@ async def test_flow(wa: WhatsApp, msg: Message):
 # %%
 # %% live_location
 async def live_location(wa: WhatsApp, msg: Message):
-    # toDo this needs to go
-    # get app state resources
-    pool, pool_sync, checkpointer, thread_handler, graph, client = get_app_state()
+    # toDo - change to pool from pg_settings.
+    pool: AsyncConnectionPool = await pg_settings.get_pool()
     recipient = msg.sender
     logger.info("liv_location requested ...")
 

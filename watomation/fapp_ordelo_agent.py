@@ -25,7 +25,6 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from config import logger, project_settings, waba_business_settings, pg_settings
 
-from watomation.init_app_state import init_app_state
 from watomation.routers import delivery_hooks, location_hooks, alert_hooks
 from watomation.on_message_wa_handler import (
     reset_thread,
@@ -51,7 +50,6 @@ from ordelo.agent_app_handlers import debug_state
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-# https://10hiths-app.up.railway.app/
 
 # %% define fastapi
 POOL_MIN_SIZE = 10
@@ -60,38 +58,38 @@ POOL_MAX_SIZE = 25
 # %% Define Lifespan Events
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Initialize app state resources
-    (
-        pool,
-        pool_sync,
-        checkpointer,
-        thread_handler,
-        graph,
-        client,
-    ) = await init_app_state()
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # Initialize app state resources
+#     (
+#         pool,
+#         pool_sync,
+#         checkpointer,
+#         thread_handler,
+#         graph,
+#         client,
+#     ) = await init_app_state()
 
-    # Store resources in the app state
-    app.state.pool = pool
-    app.state.pool_sync = pool_sync
-    app.state.client = client
-    app.state.checkpointer = checkpointer
-    app.state.thread_handler = thread_handler
-    app.state.graph = graph
-    app.state.wa = wa
+#     # Store resources in the app state
+#     app.state.pool = pool
+#     app.state.pool_sync = pool_sync
+#     app.state.client = client
+#     app.state.checkpointer = checkpointer
+#     app.state.thread_handler = thread_handler
+#     app.state.graph = graph
+#     app.state.wa = wa
 
-    # Yield to start the application
-    try:
-        yield
-    finally:
-        # Close the pool on shutdown
-        if pool:
-            await pool.close()
+#     # Yield to start the application
+#     try:
+#         yield
+#     finally:
+#         # Close the pool on shutdown
+#         if pool:
+#             await pool.close()
 
 
 # Define and set the app, call import soon after
-app = FastAPI(title="OrdeloAgent", lifespan=lifespan)
+app = FastAPI(title="OrdeloAgent")
 
 # %% Add routers
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
