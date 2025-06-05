@@ -4,18 +4,29 @@ Logger configuration for OrdeloAgent.
     . Configures extra log context (user)
     . Depends on: loguru, sys
 """
+
 # Import the logger and sys modules
 import sys
+from loguru import logger
 
 # Configuration for the logger
 config = {
-    # Define the handlers for the logger
     "handlers": [
-        # Handler to output log messages to the console
-        {"sink": sys.stdout, "format": "{time} - {message}"},
-        # Handler to output log messages to a file
-        {"sink": "file.log", "serialize": True},
+        {
+            "sink": sys.stdout,
+            "format": "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+            "level": "INFO",
+        },
+        {
+            "sink": "file.log",
+            "serialize": True,
+            "rotation": "10 MB",
+            "retention": "10 days",
+            "level": "DEBUG",
+        },
+        {"sink": "error.log", "level": "ERROR", "backtrace": True, "diagnose": True},
     ],
-    # Extra information to include in the log messages
     "extra": {"user": "someone"},
 }
+
+logger.configure(**config)

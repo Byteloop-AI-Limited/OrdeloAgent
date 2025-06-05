@@ -1,0 +1,91 @@
+
+select status,
+	*
+from delivery_summary
+order by dtts desc
+limit 10;
+
+
+select *
+from delivery_detail
+order by dtts desc
+limit 10;
+
+
+select *
+from delivery_inflight
+order by dtts desc
+limit 10;
+
+
+select *
+from delivery_dispatch
+order by dtts desc
+limit 10;
+
+
+delete
+from delivery_inflight ;
+
+
+select *
+from dispatch_complete_func(2254);
+
+
+select *
+from delivery_
+select count(*)
+from delivery_detail;
+
+-- check queues
+
+SELECT *
+FROM pgmq_public.read('rider_dispatch_accepted');
+
+-- Check current status
+
+select DET.status as detail_status,
+	dispatch.status as dispatch_status,
+	DET.order_number
+FROM delivery_detail as DET
+left outer join delivery_dispatch as dispatch on DET.dispatch_id = dispatch.dispatch_id
+order by DET.dispatch_id desc;
+
+
+select status,
+	order_number,
+	current_timestamp - dtts,
+	rider_id,
+	dispatch_id
+from delivery_detail
+order by dtts desc
+limit 10;
+
+
+select dispatch_id,
+	status,
+	order_number,
+	rider_id,
+	dtts
+from delivery_dispatch
+order by dtts desc;
+
+
+select *
+from delivery_inflight
+order by dtts desc;
+
+
+select job_assign_delivery();
+
+
+SELECT public.job_assign_delivery();
+
+
+select
+from delivery_dispatch
+left outer join rider_location
+update DELIVERY_DETAIL
+set STATUS='assigned' --set STATUS='completed'
+
+where ORDER_NUMBER='faef370445774ab6aef91b6b1904470a';
