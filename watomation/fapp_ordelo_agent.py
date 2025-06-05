@@ -8,6 +8,7 @@ FastAPI WhatsApp Agent integration for OrdeloAgent.
     . Provides debug and detail endpoints for diagnostics
     . Entry point for running OrdeloAgent locally or in production
 """
+
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import logging
@@ -19,11 +20,10 @@ from pywa_async import handlers
 from pywa.types.flows import FlowRequestActionType
 from typing import Optional
 
-from config import (
-    logger,
-    project_settings,
-    waba_business_settings,
-)
+from ordelo.agents.rider_agent import builder
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+from config import logger, project_settings, waba_business_settings, pg_settings
 
 from watomation.init_app_state import init_app_state
 from watomation.routers import delivery_hooks, location_hooks, alert_hooks
@@ -209,8 +209,9 @@ async def get_details():
 
 @app.get("/debug-state")
 async def debug_state_path(recipient: Optional[str] = "447448440754"):
-    graph = app.state.graph
-    pool = app.state.pool
+    pool = await pg_settings.get_pool()
+    checkpointer = AsyncPostgresSaver(pool)
+    graph = builder.compile(checkpointer=checkpointer)
     debug_stack = await debug_state(recipient, graph, pool)
     return debug_stack
 

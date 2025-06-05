@@ -17,7 +17,7 @@ import random
 from watomation.init_app_state import get_app_state
 from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_call_function
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
-from ordelo.agent_app_handlers import run_ordelo_graph
+from ordelo.agents.agent_runner import run_rider_graph
 from pywa.types.flows import FlowActionType
 from pywa.types import FlowButton
 
@@ -37,7 +37,7 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
         return
 
     # Run the graph
-    await run_ordelo_graph(msg, graph, pool)
+    await run_rider_graph(recipient, human_msg=msg.text)
 
 
 # %% Reset
