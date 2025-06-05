@@ -1,3 +1,13 @@
+"""
+FastAPI WhatsApp Agent integration for OrdeloAgent.
+    . Initializes and configures the FastAPI app for WhatsApp messaging
+    . Integrates pywa_async for WhatsApp event and flow handling
+    . Defines app lifespan events and manages application state
+    . Sets up routers for delivery, location, and alert webhooks
+    . Registers WhatsApp message, callback, and flow handlers
+    . Provides debug and detail endpoints for diagnostics
+    . Entry point for running OrdeloAgent locally or in production
+"""
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import logging
@@ -16,7 +26,7 @@ from config import (
 )
 
 from watomation.init_app_state import init_app_state
-from watomation.routers import delivery_hooks, location_hooks
+from watomation.routers import delivery_hooks, location_hooks, alert_hooks
 from watomation.on_message_wa_handler import (
     reset_thread,
     test_delivery,
@@ -86,6 +96,7 @@ app = FastAPI(title="OrdeloAgent", lifespan=lifespan)
 # %% Add routers
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
 app.include_router(location_hooks.router, prefix="/location-hooks")
+app.include_router(alert_hooks.router, prefix="/alert-hooks")
 
 # %% DEFINE WA
 if __name__ == "__main__":

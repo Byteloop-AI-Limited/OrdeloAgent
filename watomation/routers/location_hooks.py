@@ -1,3 +1,12 @@
+"""
+Location hooks router for OrdeloAgent FastAPI service.
+    . Defines endpoints for location-related webhook events (OwnTracks, transitions)
+    . Processes location transitions and updates rider_location_event table
+    . Exposes endpoints for live location tracking and map URLs
+    . Notifies users of delivery progress via WhatsApp
+    . Follows extensible webhook and DB update patterns
+"""
+
 # %%
 from fastapi import APIRouter, Request, Depends, Path, HTTPException
 from fastapi.responses import RedirectResponse

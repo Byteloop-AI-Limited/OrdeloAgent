@@ -1,4 +1,13 @@
 # %%
+"""
+FastAPI microservice for live location tracking and configuration.
+    . Dependencies: fastapi, uvicorn, base64, datetime, pywa, pickle, Jinja2Templates, config
+    . `/pub` endpoint receives OwnTracks JSON payloads, converts timestamps, stores to pickle, and forwards message to WhatsApp
+    . `generate_config_href` encodes configuration dicts to inline OwnTracks URLs
+    . `/config` endpoint returns an HTML template with start/stop configuration links
+    . `/test-sbase` debug endpoint echoes received JSON for testing
+    . Provides `uvicorn` entrypoint for local execution
+"""
 from fastapi import FastAPI, Request
 import uvicorn
 import json

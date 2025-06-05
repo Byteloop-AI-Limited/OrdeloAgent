@@ -1,5 +1,7 @@
 """
-Utility functions for postgres with psycopg3
+Postgres thread DB operations
+    . Provides async functions to manage threads in Postgres
+    . Uses psycopg3 for async DB access
 """
 # %%
 

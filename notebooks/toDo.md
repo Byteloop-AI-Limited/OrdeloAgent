@@ -1,3 +1,8 @@
+## Delivery flow - Agent
+- Implement restaurant 2 digit confirmation
+- Implement restaurant confirming food ready for pickup
+- notification of the location events, order completion.
+
 ## Delivery and Dispatch:
 - Change restaurant_master city to town (change in create_delivery_detail)
 - On timeout of a delivery, notify the customer on not being able to accept the order.
@@ -10,12 +15,6 @@
 - Change from atomic inserts to batch inserts using queues
 - Change the live location link to call the url 
 - Make use of reusable CallBackButton data
-
-
-## Delivery flow - Agent
-- restaurant 2 digit confirmation
-- Restaurant confirming food ready for pickup
-- notification of the location events, order completion.
 
 ## Pricing service
 - Is the distance calculated based on the vehicle type?

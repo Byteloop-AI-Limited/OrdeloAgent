@@ -1,4 +1,10 @@
-# %%
+"""
+Google API settings and client configuration for OrdeloAgent.
+    . Defines GoogleSettings for service account and API key management
+    . Provides method to instantiate gspread client for Google Sheets
+    . Handles credential decoding and authentication
+    . Depends on: pydantic_settings, gspread, google.oauth2, base64, json
+"""
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import gspread

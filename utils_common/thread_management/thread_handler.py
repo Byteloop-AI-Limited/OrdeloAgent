@@ -1,13 +1,10 @@
+"""Provides ThreadHandler for asynchronous thread operations in Postgres
+    . Utilizes psycopg3 for async database access
+    . Defines create_thread and get_active_thread methods
 """
-Utility functions for postgres with psycopg3
-"""
-# %%
 
 import uuid
 import psycopg
-
-# conninfo = pg_settings.db_uri
-
 
 class ThreadHandler:
     def __init__(self, pool):

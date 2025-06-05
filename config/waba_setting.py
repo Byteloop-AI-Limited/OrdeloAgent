@@ -1,27 +1,28 @@
-# %%
 """
-Configurations for project
+WhatsApp Business API settings and catalog configuration for OrdeloAgent.
+    . Defines WabaBusinessSettings and WabaCatalogSettings for WhatsApp integration
+    . Handles authentication, API tokens, and private key management
+    . Provides methods for WhatsApp client instantiation (sync and async)
+    . Includes inventory/product update helpers and Facebook Graph API integration
+    . Depends on: pydantic_settings, pywa_async, pywa, duckdb, pandas, requests, loguru, base64, os
 """
 
-import dataclasses
 import json
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import duckdb as ddb
 import pandas as pd
 import requests
-from pydantic import BaseModel, computed_field, field_validator
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pywa_async import WhatsApp
 from pywa import WhatsApp as WhatsAppSync
-from pywa_async.types import Product, ReferredProduct
 
 from config.logger_setting import logger
-from utils_common.params import filter_dict
-import base64
 import os
 
 # %%
+
 
 class WabaBusinessSettings(BaseSettings):
     account_id: str
@@ -33,7 +34,6 @@ class WabaBusinessSettings(BaseSettings):
     app_id: str
     app_secret: str
     private_key_password: str
-    
 
     model_config = SettingsConfigDict(
         env_prefix="WAA_BUSINESS_", env_file_encoding="utf-8", extra="ignore"
@@ -49,25 +49,25 @@ class WabaBusinessSettings(BaseSettings):
         if app is not None:
             kwargs["server"] = app
         return WhatsApp(**kwargs)
-        
+
     def create_wa_sync(self):
         return WhatsAppSync(
             token=self.token,
             business_account_id=self.account_id,
             verify_token=self.verify_token,
-            phone_id=self.phone_id
+            phone_id=self.phone_id,
         )
 
     @property
     def private_key(self) -> str:
         """Get the private key from the config/temp_keys folder"""
-        
+
         # Construct the path to the private key file
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         key_path = os.path.join(base_dir, "config", "temp_cache", "test_cde")
-        
+
         try:
-            with open(key_path, 'r') as f:
+            with open(key_path, "r") as f:
                 return f.read()
         except FileNotFoundError:
             logger.warning(f"Private key file not found at: {key_path}")
@@ -75,7 +75,7 @@ class WabaBusinessSettings(BaseSettings):
         except Exception as e:
             logger.warning(f"Error reading private key file: {e}")
             return ""
-    
+
     @property
     def headers(self) -> Dict[str, str]:
         return {
@@ -101,6 +101,7 @@ waba_business_settings = WabaBusinessSettings.with_env_prefix("LAI_WAA_")
 _async_wa_client = waba_business_settings.create_wa()
 _sync_wa_client = waba_business_settings.create_wa_sync()
 
+
 # %%
 class WabaCatalogSettings(BaseSettings):
     account_id: str
@@ -112,10 +113,10 @@ class WabaCatalogSettings(BaseSettings):
     admins: List[str] = []
 
     model_config = SettingsConfigDict(
-        env_prefix="WAA_BUSINESS_", 
-        env_file_encoding="utf-8", 
+        env_prefix="WAA_BUSINESS_",
+        env_file_encoding="utf-8",
         env_file=None,
-        extra="ignore"
+        extra="ignore",
     )
 
     @property
@@ -135,24 +136,39 @@ class WabaCatalogSettings(BaseSettings):
             f"{cls.__name__}_{env_prefix}", (cls,), {"model_config": config}
         )
         return NewClass()
-    
-    def fetch_all_products_from_meta(self, filter_condition: dict = None, sel_cols: List[str] =None):
+
+    def fetch_all_products_from_meta(
+        self, filter_condition: dict = None, sel_cols: List[str] = None
+    ):
         logger.info("hitting the products without cache")
         # Define the base endpoint URL
         base_url = f"https://graph.facebook.com/v21.0/{self.cat_id}/products"
         headers = self.cat_headers
         filter_json = json.dumps(filter_condition or {})
-        _default_sel_cols = ["name","quantity_to_sell_on_facebook", "availability", "id", "retailer_id", "price", "description", "url", "image_url", "condition", "currency", "product_id"]
-        
+        _default_sel_cols = [
+            "name",
+            "quantity_to_sell_on_facebook",
+            "availability",
+            "id",
+            "retailer_id",
+            "price",
+            "description",
+            "url",
+            "image_url",
+            "condition",
+            "currency",
+            "product_id",
+        ]
+
         # Initialize parameters and storage for all products
         params = {
-            "fields": f'{_default_sel_cols}',
+            "fields": f"{_default_sel_cols}",
             "filter": filter_json,
         }
 
         if sel_cols is not None:
             params = {
-                "fields": f'{sel_cols}',
+                "fields": f"{sel_cols}",
                 "filter": filter_json,
             }
 
@@ -180,6 +196,7 @@ class WabaCatalogSettings(BaseSettings):
 
 
 waba_cat_settings = WabaCatalogSettings.with_env_prefix("BLOOP_WAA_")
+
 
 # %%timeit
 # waba_cat_setting.fetch_products()
@@ -216,6 +233,7 @@ def search_available_items(search_item: str) -> List[dict]:
     con.close()
     return filtered_records
 
+
 # %%
 def update_product(product_row: dict):
     """
@@ -250,7 +268,7 @@ def update_product(product_row: dict):
 
 def update_inventory_for_product(sku: str, quantity_to_sell_on_facebook: int) -> str:
     product_id = waba_cat_settings.sku_product_id_map.get(sku)
-    
+
     payload = {
         "product_id": product_id,
         "quantity_to_sell_on_facebook": quantity_to_sell_on_facebook,
@@ -311,6 +329,7 @@ def update_inventory_following_checkout(
 
 
 # %%
+
 
 class ProductUpdate(BaseModel):
     sku: str

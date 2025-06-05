@@ -1,6 +1,9 @@
 """
-Application state initialization module.
-This module provides functions to initialize and manage application state resources.
+Application state initialization for OrdeloAgent.
+    . Initializes async and sync database connection pools
+    . Sets up graph, checkpointer, thread handler, and client
+    . Provides async and sync accessors for shared app state resources
+    . Ensures resources are initialized once and reused across the app
 """
 
 from langgraph.checkpoint.memory import MemorySaver
