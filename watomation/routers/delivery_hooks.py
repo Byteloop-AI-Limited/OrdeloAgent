@@ -23,16 +23,6 @@ async def get_payload(request: Request):
     return await request.json()
 
 
-async def get_pool(request: Request):
-    # Get pool from the main app
-    return request.app.state.pool
-
-
-async def get_graph(request: Request):
-    # Get pool from the main app
-    return request.app.state.graph
-
-
 client = pg_settings.client
 
 router = APIRouter(tags=["delivery_hooks"])
@@ -224,11 +214,7 @@ async def delivery_dispatch_hook(payload: dict = Depends(get_payload)):
         }
     },
 )
-async def delivery_inflight_graph_init_hook(
-    payload: dict = Depends(get_payload),
-    graph=Depends(get_graph),
-    pool: AsyncConnectionPool = Depends(get_pool),
-):
+async def delivery_inflight_graph_init_hook(payload: dict = Depends(get_payload)):
     """
     On insert into delivery_inflight table, trigger delivery inflight graph initialization webhook.
 
@@ -252,7 +238,7 @@ async def delivery_inflight_graph_init_hook(
     delivery_detail = DeliveryDetail(**payload["delivery_detail"][0])
 
     # Create as background task as the db webhook on inflight waits and errors out
-    asyncio.create_task(init_ordelo_graph(graph, pool, delivery_detail))
+    asyncio.create_task(init_ordelo_graph(delivery_detail))
 
     return {"status": "success"}
 

@@ -56,17 +56,16 @@ async def run_rider_graph(
 
 
 # %% Init Ordelo graph
-async def init_ordelo_graph(graph, pool, d_detail: DeliveryDetail):
+async def init_ordelo_graph(d_detail: DeliveryDetail):
     logger.info(f"Initializing Ordelo Graph with rider_id {d_detail.rider_id}")
+
     # Setup Graph
-    start_live_tracking_url = await create_start_job_config(d_detail)
-
-    # Always compile the graph with the latest pool/checkpointer
-    pool = await pg_settings.get_pool()
-    checkpointer = AsyncPostgresSaver(pool)
+    pool: AsyncConnectionPool = await pg_settings.get_pool()
+    checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
     graph = builder.compile(checkpointer=checkpointer)
-
     config = await get_config_for_recipient(d_detail.rider_id, pool)
+
+    start_live_tracking_url = await create_start_job_config(d_detail)
 
     # update graph state
     # Setup context

@@ -6,7 +6,7 @@ Rider agent implementation for Elai Ordelo.
     . Utilises WhatsApp async client, project settings, and Supabase REST calls
 """
 
-from config import project_settings, client_ordelo
+from config import project_settings, client_ordelo, pg_settings
 from typing import Annotated
 
 from langchain_core.runnables.config import RunnableConfig
@@ -101,34 +101,23 @@ async def send_start_live_tracking_link(
 
 
 # %% DELIVERY END
-
-
-async def verify_customer_confirmation_code(
-    customer_confirmation_code: str,
+async def verify_restaurant_confirmation_code(
+    restaurant_confirmation_code: int,
     config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
     """
-    Verifies the 2-digit customer confirmation code provided by the customer upon delivery.
-
-    This function validates that the provided customer confirmation code matches the one generated for
-    this delivery and marks the delivery as completed if the code is correct.
-
+    Verifies the 2-digit restaurant confirmation code provided by the restaurant upon pickup.
+    This function validates that the provided restaurant confirmation code is correct.
     Args:
-        customer_confirmation_code (str): 2-digit customer confirmation code provided by the customer
-
+        restaurant_confirmation_code (int): 2-digit restaurant confirmation code provided by the restaurant
     Returns:
         dict: A dictionary containing:
             - is_valid: Boolean indicating if the code is correct
             - delivery_status: Updated status of the delivery
             - timestamp: UTC timestamp of verification attempt
     """
-    pool = config["configurable"].get("pool", None)
-    recipient = get_recipient_from_config(config)
-    logger.debug(f"ToolCalled - recipient: {recipient}")
-    if pool is None:
-        logger.error("pool unavailable")
 
     # Extract dispatch_id
     dispatch_id = state.get("dispatch_id", None)
@@ -149,7 +138,82 @@ async def verify_customer_confirmation_code(
             }
         )
 
-    correct_customer_confirmation_code = (
+    correct_restaurant_confirmation_code: int = (
+        client_ordelo.table("delivery_summary")
+        .select("rest_confirmation_code")
+        .eq("order_number", order_number)
+        .execute()
+        .data[0]["rest_confirmation_code"]
+    )
+
+    # If wrong confirmation code
+    if restaurant_confirmation_code != correct_restaurant_confirmation_code:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        f"Wrong *restaurant* confirmation code. Please try again.\n\nCorrect code is: {correct_restaurant_confirmation_code}, {type(correct_restaurant_confirmation_code)}",
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+    else:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "Restaurant confirmation code accepted. Rider is on the way to the customer.",
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+
+
+async def verify_customer_confirmation_code(
+    customer_confirmation_code: int,
+    config: RunnableConfig,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> dict:
+    """
+    Verifies the 2-digit customer confirmation code provided by the customer upon delivery.
+
+    This function validates that the provided customer confirmation code matches the one generated for
+    this delivery and marks the delivery as completed if the code is correct.
+
+    Args:
+        customer_confirmation_code (int): 2-digit customer confirmation code provided by the customer
+
+    Returns:
+        dict: A dictionary containing:
+            - is_valid: Boolean indicating if the code is correct
+            - delivery_status: Updated status of the delivery
+            - timestamp: UTC timestamp of verification attempt
+    """
+    recipient = get_recipient_from_config(config)
+
+    # Extract dispatch_id
+    dispatch_id = state.get("dispatch_id", None)
+    order_number = state.get("order_number", None)
+    # if either one of them is NULL
+    if dispatch_id is None or order_number is None:
+        logger.error(
+            f"dispatch_id is None or order_number is None: {dispatch_id} {order_number}"
+        )
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "dispatch_id or order_number is NULL. Please try again later.",
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+
+    correct_customer_confirmation_code: int = (
         client_ordelo.table("delivery_summary")
         .select("cust_confirmation_code")
         .eq("order_number", order_number)
@@ -158,10 +222,7 @@ async def verify_customer_confirmation_code(
     )
 
     # If wrong confirmation code
-    if (
-        customer_confirmation_code != correct_customer_confirmation_code
-        or customer_confirmation_code == "77"
-    ):
+    if customer_confirmation_code != correct_customer_confirmation_code:
         return Command(
             update={
                 "messages": [
@@ -181,6 +242,7 @@ async def verify_customer_confirmation_code(
             input_args={"p_dispatch_id": dispatch_id},
         )
         # End the thread
+        pool = await pg_settings.get_pool()
         thread_handler = ThreadHandler(pool)
         response = await thread_handler.make_threads_inactive(from_number=recipient)
         logger.info(response["message"])
@@ -249,7 +311,9 @@ async def end_delivery(
 
 
 # %% Create Agent
-with open(f"{project_settings.project_root}/ordelo/agents/rider_agent.md", "r") as file:
+with open(
+    f"{project_settings.project_root}/ordelo/agents/rider_agent_prompt.md", "r"
+) as file:
     rider_agent_prompt = file.read()
 
 
@@ -257,6 +321,7 @@ with open(f"{project_settings.project_root}/ordelo/agents/rider_agent.md", "r") 
 _rider_agent_tools = [
     send_start_live_tracking_link,
     verify_customer_confirmation_code,
+    verify_restaurant_confirmation_code,
     end_delivery,
 ]
 
