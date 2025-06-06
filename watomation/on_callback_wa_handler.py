@@ -23,6 +23,7 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
     # get app state resources
     client = pg_settings.client
     recipient = msg.sender
+
     callback_data: dict = json.loads(msg.data)
     # remove command from callback data and add rider_id
     callback_data.pop("command")

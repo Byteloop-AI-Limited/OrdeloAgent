@@ -1,10 +1,12 @@
 """
-FastAPI handlers for the Elai Ordelo AI agent.
-    . Exposes endpoints and utility functions for dispatch and state management
-    . Integrates with LangGraph, WhatsApp clients (pywa, pywa_async), and PostgreSQL
-    . Key functions: process_dispatch_response_from_rider_sync, generate_config_href,
-      create_start_job_config, create_stop_job_config, init_ordelo_graph, run_ordelo_graph,
-      initial_handle_of_rider_response, debug_state
+Agent app handlers and utilities for Elai Ordelo agent workflows.
+    . Depends on FastAPI, LangGraph, WhatsApp (pywa, pywa_async), PostgreSQL
+    . Handles rider dispatch responses and delivery state transitions
+    . Generates configuration and job links for agents (generate_config_href, create_start_job_config, create_stop_job_config)
+    . Processes synchronous and async WhatsApp delivery instructions (process_dispatch_response_from_rider_sync, initial_handle_of_rider_response, _send_delivery_instructions)
+    . Provides live map location and location enablement checks (get_live_map_location_url, is_live_location_enabled)
+    . Includes debugging and state inspection tools (debug_state)
+    . Utility imports for database and graph operations
 """
 
 # %%
@@ -15,6 +17,9 @@ import psycopg
 from psycopg_pool import ConnectionPool
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from pywa_async import WhatsApp
+from datetime import timedelta
+from config import pg_settings, _async_wa_client
+from pywa.types import ButtonUrl
 from config import (
     logger,
     _async_wa_client,
@@ -266,6 +271,78 @@ def is_live_location_enabled(order_number):
     )
     return len(rows) > 0
 
+# %%
+
+async def _send_delivery_instructions(dispatch_id: int, start_job_config_url: str, recipient: str):
+    """
+    Sends delivery instructions (pickup and drop-off locations) via WhatsApp for a given dispatch_id.
+    """
+    client = pg_settings.client
+
+    dispatch = (
+        client.table("delivery_dispatch")
+        .select("*")
+        .eq("dispatch_id", dispatch_id)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    order_number = dispatch["order_number"]
+
+    summary = (
+        client.table("delivery_summary")
+        .select("*")
+        .eq("order_number", order_number)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    logger.info(f"dispatch: {dispatch}")
+    logger.info(f"summary: {summary}")
+
+    delivery_summary_dtts = datetime.fromisoformat(summary["dtts"])
+    pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
+
+    body_text = f"""
+
+  ⏰ Pickup Time - *@{pickup_time}*
+  💰 Earning - *£{dispatch["rider_payout"]}*
+  🛣️ Distance - *{dispatch["distance"]} miles*
+
+🚀 Get started with the delivery by cliking the below link
+
+🔑 2-digit *Restaurant* confirmation code after the delivery is completed!
+
+🔑 2-digit *Customer* confirmation code after the delivery is completed!
+
+👨‍💻 Please let me know if you have any questions during the delivery process.
+    """
+    delivery_instructions_msg = await _async_wa_client.send_message(
+        to=recipient,
+        header=f"🌟 {summary['order_number']} 🌟",
+        text=body_text,
+        reply_to_message_id=None,
+        buttons=ButtonUrl(title="Start live tracking", url=start_job_config_url),
+    )
+
+    await _async_wa_client.send_location(
+        to=recipient,
+        latitude=summary['rest_lat'],
+        longitude=summary['rest_lon'],
+        name=f"{summary['rest_name']} - Pick Up",
+        address=summary['rest_address'],
+        reply_to_message_id=delivery_instructions_msg.id,
+    )
+
+    await _async_wa_client.send_location(
+        to=recipient,
+        latitude=summary['customer_lat'],
+        longitude=summary['customer_lon'],
+        name=f"{summary['customer_name']} - Drop Off",
+        address=summary['customer_address'],
+        reply_to_message_id=delivery_instructions_msg.id,
+    )
+    return delivery_instructions_msg.id
 
 # %% Debug State
 async def debug_state(recipient: str, graph, pool) -> dict:

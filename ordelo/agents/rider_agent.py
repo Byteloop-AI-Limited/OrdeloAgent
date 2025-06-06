@@ -27,7 +27,7 @@ from utils_common.lg_utils import (
 
 # from elai.agents.respond_agent import respond_node
 from config import logger
-from ordelo.agent_app_handlers import create_stop_job_config, is_live_location_enabled
+from ordelo.agent_app_handlers import create_stop_job_config, is_live_location_enabled, _send_delivery_instructions
 from utils_common.db_utils.sbase_rest_ops import sbase_call_function
 
 from langchain_core.tools.base import InjectedToolCallId
@@ -45,6 +45,7 @@ class AgentState(TypedDict):
     wa_user_name: str
     dispatch_id: int
     order_number: str
+    delivery_instructions_msg_id: str
     start_live_tracking_url: str
     delivery_start_dtts: str
     is_restaurant_confirmation_code_verified: bool
@@ -73,8 +74,38 @@ class AgentState(TypedDict):
 #         return "Refer to the original system prompt and continue with the journey."
 
 
-# %% DELIVERY START - send live tracking
+# %% Sending delivery instructions
 
+
+async def send_delivery_instructions(
+    config: RunnableConfig,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> dict:
+    """
+    This tool provides the delivery instructions to the rider. 
+
+    Args:
+        None
+
+    Returns:
+        dict: Agent to respond as instructed by the tool message.
+    """
+    recipient = get_recipient_from_config(config)
+    dispatch_id = state.get("dispatch_id", None)
+    start_live_tracking_url = state.get("start_live_tracking_url", None)
+    delivery_instructions_msg_id = await _send_delivery_instructions(dispatch_id, start_live_tracking_url, recipient)
+
+    return Command(
+        update={
+            "delivery_instructions_msg_id": delivery_instructions_msg_id,
+            "messages": [
+                ToolMessage("Delivery instructions sent to user."),
+                AIMessage(f"/dontRespond: Delivery instructions sent to user."),
+            ]
+        }
+    )
+# %% DELIVERY START - send live tracking
 
 async def send_start_live_tracking_link(
     send_delivery_instructions: bool,
@@ -95,32 +126,18 @@ async def send_start_live_tracking_link(
     recipient = get_recipient_from_config(config)
 
     start_live_tracking_url = state.get("start_live_tracking_url", None)
-    order_number = state.get("order_number", None)
-
-    if not send_delivery_instructions:
-        agents_first_text = (
-            "Please turn on the live tracking by clicking the link below."
-        )
-    else:
-        agents_first_text = """
-
-🚀 Get started with the delivery by cliking the below link
-
-🔑 2-digit *Restaurant* confirmation code after the delivery is completed!
-
-🔑 2-digit *Customer* confirmation code after the delivery is completed!
-
-👨‍💻 Please let me know if you have any questions during the delivery process.  
-    """
+    delivery_instructions_msg_id = state.get("delivery_instructions_msg_id", None)
+    body_text = "Please turn on the live tracking by clicking the link below."
 
     # Send the URL to the rider
-    await _async_wa_client.send_message(
+    msg = await _async_wa_client.send_message(
         to=recipient,
-        header=order_number,
-        text=agents_first_text,
-        reply_to_message_id=None,
+        header="Enable Live Tracking",
+        text=body_text,
+        reply_to_message_id=delivery_instructions_msg_id,
         buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
     )
+    logger.info(f"Message sent to {recipient}: {msg}")
 
     return Command(
         update={
@@ -128,7 +145,7 @@ async def send_start_live_tracking_link(
                 ToolMessage(
                     "Url and instructions sent to user.", tool_call_id=tool_call_id
                 ),
-                AIMessage(f"/dontRespond: {agents_first_text}"),
+                AIMessage(f"/dontRespond: {body_text}"),
             ]
         }
     )
@@ -378,6 +395,7 @@ with open(
 
 # %%
 _rider_agent_tools = [
+    send_delivery_instructions,
     send_start_live_tracking_link,
     verify_restaurant_confirmation_code,
     verify_customer_confirmation_code,
