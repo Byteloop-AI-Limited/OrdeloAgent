@@ -1,9 +1,11 @@
 """
-PostgreSQL and Supabase settings for OrdeloAgent.
-    . Defines PgSetting for database, REST, and vector store configuration
-    . Integrates with Langchain, Supabase, and OpenAI embeddings
-    . Provides helpers for connection, headers, and vector search
-    . Depends on: pydantic_settings, langchain_postgres, langchain_openai, supabase
+Manages PostgreSQL and Supabase settings for the OrdeloAgent application.
+    . Defines the `PgSetting` class using `pydantic_settings` for loading database URIs, Supabase REST URLs, API keys, and vector store configurations from environment variables.
+    . Initializes and provides access to a `supabase.Client` and `supabase.AsyncClient` for interacting with Supabase services.
+    . Manages an `psycopg_pool.AsyncConnectionPool` for direct asynchronous PostgreSQL database connections. This pool is intended to be managed by the FastAPI application's lifespan events.
+    . Configures and provides a `langchain_postgres.vectorstores.PGVector` instance for vector similarity searches, using OpenAI embeddings.
+    . Includes helper properties for Supabase headers, REST endpoints, and connection/pool keyword arguments.
+    . Dependencies: `pydantic_settings`, `langchain_postgres`, `langchain_openai`, `supabase`, `psycopg_pool`.
 """
 
 # %%
@@ -14,6 +16,7 @@ from langchain_openai import OpenAIEmbeddings
 from supabase import create_client, Client, create_async_client, AsyncClient
 from psycopg_pool import AsyncConnectionPool
 from typing import Optional
+from . import logger
 
 
 class PgSetting(BaseSettings):
@@ -28,7 +31,7 @@ class PgSetting(BaseSettings):
     @property
     def connection_kwargs(self):
         return {
-            "autocommit": True,
+            "autocommit": False,
             "prepare_threshold": None,
             "connect_timeout": 10,  # Connection timeout in seconds
             "keepalives": 1,  # Enable TCP keepalives
@@ -84,7 +87,10 @@ class PgSetting(BaseSettings):
         return create_client(self.rest_url, self.rest_key)
 
     async def get_pool(self) -> AsyncConnectionPool:
-        if self._async_pool is None:
+        # If pool doesn't exist, or if it exists but was closed
+        if self._async_pool is None or self._async_pool.closed:
+            # Optional: Add logging here if you want to know when a closed pool is being recreated
+            logger.info("AsyncConnectionPool is None or closed, creating a new one.")
             self._async_pool = AsyncConnectionPool(
                 conninfo=self.db_uri,
                 kwargs=self.connection_kwargs,
@@ -93,9 +99,9 @@ class PgSetting(BaseSettings):
                 max_idle=float(self.pool_kwargs["max_idle"]),
                 timeout=float(self.pool_kwargs["timeout"]),
                 reconnect_timeout=float(self.pool_kwargs["reconnect_timeout"]),
-                open=False,
+                open=False,  # Initialize with open=False
             )
-            await self._async_pool.open()
+            await self._async_pool.open()  # Explicitly open it
         return self._async_pool
 
     @property

@@ -1,25 +1,15 @@
 # %%
-from config import client_ordelo
+from config import pg_settings
 
-data = (
-    client_ordelo.table("delivery_summary")
-    .select("rest_confirmation_code")
-    .eq("order_number", "WREN-TMCH-28")
-    .execute()
-).data[0]
-# data["rest_confirmation_code"]
-
+client = pg_settings.client
+pg_settings.db_uri
 
 # %%
-
-order_number = "WREN-LYTQ-23"
+pg_settings.client.table("rider_location").select("*").like(
+    "order_number", "91827398172-%"
+).limit(1).execute().data
 
 # %%
-correct_customer_confirmation_code = (
-    client_ordelo.table("delivery_summary")
-    .select("cust_confirmation_code")
-    .eq("order_number", order_number)
-    .execute()
-    .data[0]["cust_confirmation_code"]
-)
-correct_customer_confirmation_code
+client.table("delivery_option").select("order_number").like(
+    "order_number", "WREN-TEST-%"
+).order("id", desc=True).limit(1).execute().data[0]["order_number"]

@@ -26,19 +26,58 @@ from utils_common.lg_utils import (
 )
 
 # from elai.agents.respond_agent import respond_node
-from ordelo.state import AgentState
 from config import logger
-from ordelo.agent_app_handlers import create_stop_job_config
+from ordelo.agent_app_handlers import create_stop_job_config, is_live_location_enabled
 from utils_common.db_utils.sbase_rest_ops import sbase_call_function
 
 from langchain_core.tools.base import InjectedToolCallId
 from langchain_core.messages import ToolMessage
 from utils_common.thread_management import ThreadHandler
+from langgraph.graph import add_messages
+from langchain_core.messages import BaseMessage
+from typing import Annotated, Sequence
+from typing_extensions import TypedDict
+
+
+# %%
+class AgentState(TypedDict):
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    wa_user_name: str
+    dispatch_id: int
+    order_number: str
+    start_live_tracking_url: str
+    delivery_start_dtts: str
+    is_restaurant_confirmation_code_verified: bool
+    is_customer_confirmation_code_verified: bool
+
+
+# # %% Get Journey Instruction
+# async def get_journey_instructions(state: AgentState) -> str:
+#     if state.get("dispatch_id", None) is None:
+#         return "Rider is not on active job. Please standby, you will be notified when we have a delivery request."
+#     elif not state.get("is_delivery_instructions_sent", False):
+#         return "Rider is on active job. Call `send_start_live_tracking_link` tool to send the live tracking link along with delivery_instructions."
+#     elif not state.get("is_restaurant_confirmation_code_verified", False):
+#         return ""
+#     elif state.get("min_order_value", None) is None:
+#         return "Delivery address confirmed, Calculate the minimum order value"
+#     elif state.get("order_id", None) is None:
+#         return "Delivery address confirmed, min_order_value calculated. Request user to place order using the catalog button on top right."
+#     elif state.get("is_payment_successful", False) is False:
+#         return "Delivery address confirmed, min_order_value calculated. Order placed. Send payment link ONLY when order value is more than min_order_value."
+#     elif state.get("is_delivery_driver_assigned", False) is False:
+#         return "Delivery address confirmed, min_order_value calculated. Order placed. Payment completed. Inform user that we are looking for available delivery drivers."
+#     elif state.get("food_collected_from_restaurant", False) is False:
+#         return "Delivery address confirmed, min_order_value calculated. Order placed. Payment completed. Inform user that driver is assigned and is yet to collect the food from the restaurant."
+#     else:
+#         return "Refer to the original system prompt and continue with the journey."
+
 
 # %% DELIVERY START - send live tracking
 
 
 async def send_start_live_tracking_link(
+    send_delivery_instructions: bool,
     config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
@@ -48,56 +87,51 @@ async def send_start_live_tracking_link(
     URL will be sent to rider on WhatsApp.
 
     Args:
-        None
+        send_delivery_instructions (bool): Whether to send delivery instructions along with the live tracking link.
 
     Returns:
         dict: Agent to respond as instructed by the tool message.
     """
     recipient = get_recipient_from_config(config)
 
-    agents_first_text = """
+    start_live_tracking_url = state.get("start_live_tracking_url", None)
+    order_number = state.get("order_number", None)
+
+    if not send_delivery_instructions:
+        agents_first_text = (
+            "Please turn on the live tracking by clicking the link below."
+        )
+    else:
+        agents_first_text = """
 
 🚀 Get started with the delivery by cliking the below link
 
-🔑 Remember to provide the 2-digit confirmation code after the delivery is completed!
+🔑 2-digit *Restaurant* confirmation code after the delivery is completed!
+
+🔑 2-digit *Customer* confirmation code after the delivery is completed!
 
 👨‍💻 Please let me know if you have any questions during the delivery process.  
     """
 
-    start_live_tracking_url = state.get("start_live_tracking_url", None)
-    order_number = state.get("order_number", None)
+    # Send the URL to the rider
+    await _async_wa_client.send_message(
+        to=recipient,
+        header=order_number,
+        text=agents_first_text,
+        reply_to_message_id=None,
+        buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
+    )
 
-    if start_live_tracking_url is not None:
-        # Send the URL to the rider
-        await _async_wa_client.send_message(
-            to=recipient,
-            header=order_number,
-            text=agents_first_text,
-            reply_to_message_id=None,
-            buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
-        )
-
-        return Command(
-            update={
-                "messages": [
-                    ToolMessage(
-                        "Url and instructions sent to user.", tool_call_id=tool_call_id
-                    ),
-                    AIMessage(f"/dontRespond: {agents_first_text}"),
-                ]
-            }
-        )
-    else:
-        return Command(
-            update={
-                "messages": [
-                    ToolMessage(
-                        "Something went wrong. Please try again later.",
-                        tool_call_id=tool_call_id,
-                    )
-                ]
-            }
-        )
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    "Url and instructions sent to user.", tool_call_id=tool_call_id
+                ),
+                AIMessage(f"/dontRespond: {agents_first_text}"),
+            ]
+        }
+    )
 
 
 # %% DELIVERY END
@@ -145,34 +179,49 @@ async def verify_restaurant_confirmation_code(
         .execute()
         .data[0]["rest_confirmation_code"]
     )
+    correct_restaurant_confirmation_code_str = (
+        f"{correct_restaurant_confirmation_code:02d}"
+    )
 
-    # If wrong confirmation code
+    # If wrong restaurant confirmation code
     if restaurant_confirmation_code != correct_restaurant_confirmation_code:
         return Command(
             update={
                 "messages": [
                     ToolMessage(
-                        f"Wrong *restaurant* confirmation code. Please try again.\n\nCorrect code is: {correct_restaurant_confirmation_code}, {type(correct_restaurant_confirmation_code)}",
+                        f"Wrong *restaurant* confirmation code. Please try again.\n\nCorrect code is: {correct_restaurant_confirmation_code_str}",
                         tool_call_id=tool_call_id,
                     )
                 ]
             }
         )
     else:
-        #  toDo
+        #  If corrent restaurant confirmation code
         # Check if the live location is turned on
+        if is_live_location_enabled(order_number):
+            append_to_ai_msg = ""
+        else:
+            append_to_ai_msg = "Live tracking is not enabled. Call tool `send_start_live_tracking_link` without the delivery instructions."
+        logger.info(
+            f"Live location is turned on: {is_live_location_enabled(order_number)}"
+        )
         # If turned on, provide live tracking link to customer
         # Add get_journey_instructions to the agent
         return Command(
             update={
+                "is_restaurant_confirmation_code_verified": True,
                 "messages": [
                     ToolMessage(
-                        "Restaurant confirmation code accepted. Rider is on the way to the customer.",
+                        "Restaurant confirmation code accepted. Rider is on the way to the customer.\n\n"
+                        + append_to_ai_msg,
                         tool_call_id=tool_call_id,
                     )
-                ]
+                ],
             }
         )
+
+
+# %%
 
 
 async def verify_customer_confirmation_code(
@@ -201,6 +250,7 @@ async def verify_customer_confirmation_code(
     # Extract dispatch_id
     dispatch_id = state.get("dispatch_id", None)
     order_number = state.get("order_number", None)
+
     # if either one of them is NULL
     if dispatch_id is None or order_number is None:
         logger.error(
@@ -224,6 +274,7 @@ async def verify_customer_confirmation_code(
         .execute()
         .data[0]["cust_confirmation_code"]
     )
+    correct_confirmation_code_str = f"{correct_customer_confirmation_code:02d}"
 
     # If wrong confirmation code
     if customer_confirmation_code != correct_customer_confirmation_code:
@@ -231,7 +282,7 @@ async def verify_customer_confirmation_code(
             update={
                 "messages": [
                     ToolMessage(
-                        f"Wrong *customer* confirmation code. Please try again.\n\nCorrect code is: {correct_customer_confirmation_code}",
+                        f"Wrong *customer* confirmation code. Please try again.{correct_confirmation_code_str}",
                         tool_call_id=tool_call_id,
                     )
                 ]
@@ -259,12 +310,13 @@ async def verify_customer_confirmation_code(
 
     return Command(
         update={
+            "is_customer_confirmation_code_verified": True,
             "messages": [
                 ToolMessage(
-                    "Confirmation code accepted. Delivery completed. Send end live tracking link (tool: `send_end_live_tracking_link`).",
+                    "Customer confirmation code accepted. Delivery completed. Send end live tracking link (tool: `send_end_live_tracking_link`).",
                     tool_call_id=tool_call_id,
                 )
-            ]
+            ],
         }
     )
 
@@ -314,6 +366,9 @@ async def end_delivery(
     )
 
 
+# %%
+
+
 # %% Create Agent
 with open(
     f"{project_settings.project_root}/ordelo/agents/rider_agent_prompt.md", "r"
@@ -324,8 +379,8 @@ with open(
 # %%
 _rider_agent_tools = [
     send_start_live_tracking_link,
-    verify_customer_confirmation_code,
     verify_restaurant_confirmation_code,
+    verify_customer_confirmation_code,
     end_delivery,
 ]
 

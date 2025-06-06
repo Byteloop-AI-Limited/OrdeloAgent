@@ -28,6 +28,8 @@ from utils_common.lg_utils import (
     get_config_for_recipient,
 )
 
+from utils_common.db_utils.sbase_pool_ops import execute_sql_query
+
 client = pg_settings.client
 
 
@@ -225,6 +227,44 @@ async def initial_handle_of_rider_response(
             to=callback_data["rider_id"], text="Sorry, This job is no longer available"
         )
         return
+
+
+# %% Live map location
+async def get_live_map_location_url(order_number: str):
+    query = """
+    SELECT 
+        lat, 
+        lon
+    FROM rider_location LOC INNER JOIN delivery_inflight DI
+    ON LOC.rider_id = DI.rider_id
+    WHERE LOC.order_number = %s
+    ORDER BY tst DESC
+    LIMIT 1
+    """
+    result = await execute_sql_query(query, (order_number,))
+    if len(result) == 0:
+        return None
+
+    lat, lon = result[0]
+
+    logger.info(f"lat:{lat}, lon:{lon}")
+
+    live_map_url = f"https://maps.google.com/?q=Order('{order_number}')@{lat},{lon}"
+
+    return live_map_url
+
+
+# %%
+def is_live_location_enabled(order_number):
+    rows = (
+        pg_settings.client.table("rider_location")
+        .select("*")
+        .like("order_number", order_number)
+        .limit(10)
+        .execute()
+        .data
+    )
+    return len(rows) > 0
 
 
 # %% Debug State
