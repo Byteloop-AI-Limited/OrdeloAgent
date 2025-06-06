@@ -168,3 +168,4 @@ cython_debug/
 
 # windsurf rules
 .windsurfrules
+nohup.out

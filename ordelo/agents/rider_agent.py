@@ -6,7 +6,7 @@ Rider agent implementation for Elai Ordelo.
     . Utilises WhatsApp async client, project settings, and Supabase REST calls
 """
 
-from config import project_settings, client_ordelo
+from config import project_settings, client_ordelo, pg_settings
 from typing import Annotated
 
 from langchain_core.runnables.config import RunnableConfig
@@ -26,19 +26,89 @@ from utils_common.lg_utils import (
 )
 
 # from elai.agents.respond_agent import respond_node
-from ordelo.state import AgentState
 from config import logger
-from ordelo.agent_app_handlers import create_stop_job_config
+from ordelo.agent_app_handlers import create_stop_job_config, is_live_location_enabled, _send_delivery_instructions
 from utils_common.db_utils.sbase_rest_ops import sbase_call_function
 
 from langchain_core.tools.base import InjectedToolCallId
 from langchain_core.messages import ToolMessage
 from utils_common.thread_management import ThreadHandler
+from langgraph.graph import add_messages
+from langchain_core.messages import BaseMessage
+from typing import Annotated, Sequence
+from typing_extensions import TypedDict
 
+
+# %%
+class AgentState(TypedDict):
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    wa_user_name: str
+    dispatch_id: int
+    order_number: str
+    delivery_instructions_msg_id: str
+    start_live_tracking_url: str
+    delivery_start_dtts: str
+    is_restaurant_confirmation_code_verified: bool
+    is_customer_confirmation_code_verified: bool
+
+
+# # %% Get Journey Instruction
+# async def get_journey_instructions(state: AgentState) -> str:
+#     if state.get("dispatch_id", None) is None:
+#         return "Rider is not on active job. Please standby, you will be notified when we have a delivery request."
+#     elif not state.get("is_delivery_instructions_sent", False):
+#         return "Rider is on active job. Call `send_start_live_tracking_link` tool to send the live tracking link along with delivery_instructions."
+#     elif not state.get("is_restaurant_confirmation_code_verified", False):
+#         return ""
+#     elif state.get("min_order_value", None) is None:
+#         return "Delivery address confirmed, Calculate the minimum order value"
+#     elif state.get("order_id", None) is None:
+#         return "Delivery address confirmed, min_order_value calculated. Request user to place order using the catalog button on top right."
+#     elif state.get("is_payment_successful", False) is False:
+#         return "Delivery address confirmed, min_order_value calculated. Order placed. Send payment link ONLY when order value is more than min_order_value."
+#     elif state.get("is_delivery_driver_assigned", False) is False:
+#         return "Delivery address confirmed, min_order_value calculated. Order placed. Payment completed. Inform user that we are looking for available delivery drivers."
+#     elif state.get("food_collected_from_restaurant", False) is False:
+#         return "Delivery address confirmed, min_order_value calculated. Order placed. Payment completed. Inform user that driver is assigned and is yet to collect the food from the restaurant."
+#     else:
+#         return "Refer to the original system prompt and continue with the journey."
+
+
+# %% Sending delivery instructions
+
+
+async def send_delivery_instructions(
+    config: RunnableConfig,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> dict:
+    """
+    This tool provides the delivery instructions to the rider. 
+
+    Args:
+        None
+
+    Returns:
+        dict: Agent to respond as instructed by the tool message.
+    """
+    recipient = get_recipient_from_config(config)
+    dispatch_id = state.get("dispatch_id", None)
+    start_live_tracking_url = state.get("start_live_tracking_url", None)
+    delivery_instructions_msg_id = await _send_delivery_instructions(dispatch_id, start_live_tracking_url, recipient)
+
+    return Command(
+        update={
+            "delivery_instructions_msg_id": delivery_instructions_msg_id,
+            "messages": [
+                ToolMessage("Delivery instructions sent to user."),
+                AIMessage(f"/dontRespond: Delivery instructions sent to user."),
+            ]
+        }
+    )
 # %% DELIVERY START - send live tracking
 
-
 async def send_start_live_tracking_link(
+    send_delivery_instructions: bool,
     config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
@@ -48,87 +118,57 @@ async def send_start_live_tracking_link(
     URL will be sent to rider on WhatsApp.
 
     Args:
-        None
+        send_delivery_instructions (bool): Whether to send delivery instructions along with the live tracking link.
 
     Returns:
         dict: Agent to respond as instructed by the tool message.
     """
     recipient = get_recipient_from_config(config)
 
-    agents_first_text = """
-
-🚀 Get started with the delivery by cliking the below link
-
-🔑 Remember to provide the 2-digit confirmation code after the delivery is completed!
-
-👨‍💻 Please let me know if you have any questions during the delivery process.  
-    """
-
     start_live_tracking_url = state.get("start_live_tracking_url", None)
-    order_number = state.get("order_number", None)
+    delivery_instructions_msg_id = state.get("delivery_instructions_msg_id", None)
+    body_text = "Please turn on the live tracking by clicking the link below."
 
-    if start_live_tracking_url is not None:
-        # Send the URL to the rider
-        await _async_wa_client.send_message(
-            to=recipient,
-            header=order_number,
-            text=agents_first_text,
-            reply_to_message_id=None,
-            buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
-        )
+    # Send the URL to the rider
+    msg = await _async_wa_client.send_message(
+        to=recipient,
+        header="Enable Live Tracking",
+        text=body_text,
+        reply_to_message_id=delivery_instructions_msg_id,
+        buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
+    )
+    logger.info(f"Message sent to {recipient}: {msg}")
 
-        return Command(
-            update={
-                "messages": [
-                    ToolMessage(
-                        "Url and instructions sent to user.", tool_call_id=tool_call_id
-                    ),
-                    AIMessage(f"/dontRespond: {agents_first_text}"),
-                ]
-            }
-        )
-    else:
-        return Command(
-            update={
-                "messages": [
-                    ToolMessage(
-                        "Something went wrong. Please try again later.",
-                        tool_call_id=tool_call_id,
-                    )
-                ]
-            }
-        )
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    "Url and instructions sent to user.", tool_call_id=tool_call_id
+                ),
+                AIMessage(f"/dontRespond: {body_text}"),
+            ]
+        }
+    )
 
 
 # %% DELIVERY END
-
-
-async def verify_customer_confirmation_code(
-    customer_confirmation_code: str,
+async def verify_restaurant_confirmation_code(
+    restaurant_confirmation_code: int,
     config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
     """
-    Verifies the 2-digit customer confirmation code provided by the customer upon delivery.
-
-    This function validates that the provided customer confirmation code matches the one generated for
-    this delivery and marks the delivery as completed if the code is correct.
-
+    Verifies the 2-digit restaurant confirmation code provided by the restaurant upon pickup.
+    This function validates that the provided restaurant confirmation code is correct.
     Args:
-        customer_confirmation_code (str): 2-digit customer confirmation code provided by the customer
-
+        restaurant_confirmation_code (int): 2-digit restaurant confirmation code provided by the restaurant
     Returns:
         dict: A dictionary containing:
             - is_valid: Boolean indicating if the code is correct
             - delivery_status: Updated status of the delivery
             - timestamp: UTC timestamp of verification attempt
     """
-    pool = config["configurable"].get("pool", None)
-    recipient = get_recipient_from_config(config)
-    logger.debug(f"ToolCalled - recipient: {recipient}")
-    if pool is None:
-        logger.error("pool unavailable")
 
     # Extract dispatch_id
     dispatch_id = state.get("dispatch_id", None)
@@ -149,24 +189,117 @@ async def verify_customer_confirmation_code(
             }
         )
 
-    correct_customer_confirmation_code = (
+    correct_restaurant_confirmation_code: int = (
+        client_ordelo.table("delivery_summary")
+        .select("rest_confirmation_code")
+        .eq("order_number", order_number)
+        .execute()
+        .data[0]["rest_confirmation_code"]
+    )
+    correct_restaurant_confirmation_code_str = (
+        f"{correct_restaurant_confirmation_code:02d}"
+    )
+
+    # If wrong restaurant confirmation code
+    if restaurant_confirmation_code != correct_restaurant_confirmation_code:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        f"Wrong *restaurant* confirmation code. Please try again.\n\nCorrect code is: {correct_restaurant_confirmation_code_str}",
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+    else:
+        #  If corrent restaurant confirmation code
+        # Check if the live location is turned on
+        if is_live_location_enabled(order_number):
+            append_to_ai_msg = ""
+        else:
+            append_to_ai_msg = "Live tracking is not enabled. Call tool `send_start_live_tracking_link` without the delivery instructions."
+        logger.info(
+            f"Live location is turned on: {is_live_location_enabled(order_number)}"
+        )
+        # If turned on, provide live tracking link to customer
+        # Add get_journey_instructions to the agent
+        return Command(
+            update={
+                "is_restaurant_confirmation_code_verified": True,
+                "messages": [
+                    ToolMessage(
+                        "Restaurant confirmation code accepted. Rider is on the way to the customer.\n\n"
+                        + append_to_ai_msg,
+                        tool_call_id=tool_call_id,
+                    )
+                ],
+            }
+        )
+
+
+# %%
+
+
+async def verify_customer_confirmation_code(
+    customer_confirmation_code: int,
+    config: RunnableConfig,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> dict:
+    """
+    Verifies the 2-digit customer confirmation code provided by the customer upon delivery.
+
+    This function validates that the provided customer confirmation code matches the one generated for
+    this delivery and marks the delivery as completed if the code is correct.
+
+    Args:
+        customer_confirmation_code (int): 2-digit customer confirmation code provided by the customer
+
+    Returns:
+        dict: A dictionary containing:
+            - is_valid: Boolean indicating if the code is correct
+            - delivery_status: Updated status of the delivery
+            - timestamp: UTC timestamp of verification attempt
+    """
+    recipient = get_recipient_from_config(config)
+
+    # Extract dispatch_id
+    dispatch_id = state.get("dispatch_id", None)
+    order_number = state.get("order_number", None)
+
+    # if either one of them is NULL
+    if dispatch_id is None or order_number is None:
+        logger.error(
+            f"dispatch_id is None or order_number is None: {dispatch_id} {order_number}"
+        )
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "dispatch_id or order_number is NULL. Please try again later.",
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+
+    correct_customer_confirmation_code: int = (
         client_ordelo.table("delivery_summary")
         .select("cust_confirmation_code")
         .eq("order_number", order_number)
         .execute()
         .data[0]["cust_confirmation_code"]
     )
+    correct_confirmation_code_str = f"{correct_customer_confirmation_code:02d}"
 
     # If wrong confirmation code
-    if (
-        customer_confirmation_code != correct_customer_confirmation_code
-        or customer_confirmation_code == "77"
-    ):
+    if customer_confirmation_code != correct_customer_confirmation_code:
         return Command(
             update={
                 "messages": [
                     ToolMessage(
-                        f"Wrong *customer* confirmation code. Please try again.\n\nCorrect code is: {correct_customer_confirmation_code}",
+                        f"Wrong *customer* confirmation code. Please try again.{correct_confirmation_code_str}",
                         tool_call_id=tool_call_id,
                     )
                 ]
@@ -181,6 +314,7 @@ async def verify_customer_confirmation_code(
             input_args={"p_dispatch_id": dispatch_id},
         )
         # End the thread
+        pool = await pg_settings.get_pool()
         thread_handler = ThreadHandler(pool)
         response = await thread_handler.make_threads_inactive(from_number=recipient)
         logger.info(response["message"])
@@ -193,12 +327,13 @@ async def verify_customer_confirmation_code(
 
     return Command(
         update={
+            "is_customer_confirmation_code_verified": True,
             "messages": [
                 ToolMessage(
-                    "Confirmation code accepted. Delivery completed. Send end live tracking link (tool: `send_end_live_tracking_link`).",
+                    "Customer confirmation code accepted. Delivery completed. Send end live tracking link (tool: `send_end_live_tracking_link`).",
                     tool_call_id=tool_call_id,
                 )
-            ]
+            ],
         }
     )
 
@@ -248,14 +383,21 @@ async def end_delivery(
     )
 
 
+# %%
+
+
 # %% Create Agent
-with open(f"{project_settings.project_root}/ordelo/agents/rider_agent.md", "r") as file:
+with open(
+    f"{project_settings.project_root}/ordelo/agents/rider_agent_prompt.md", "r"
+) as file:
     rider_agent_prompt = file.read()
 
 
 # %%
 _rider_agent_tools = [
+    send_delivery_instructions,
     send_start_live_tracking_link,
+    verify_restaurant_confirmation_code,
     verify_customer_confirmation_code,
     end_delivery,
 ]

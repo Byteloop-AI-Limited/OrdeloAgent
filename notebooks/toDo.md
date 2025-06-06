@@ -1,7 +1,9 @@
 ## Delivery flow - Agent
-- Implement restaurant 2 digit confirmation
-- Implement restaurant confirming food ready for pickup
-- notification of the location events, order completion.
+- Create tool for sending_delivery_instructions
+    - this tools should send a very detailed delivery instructions, along with locations of pickup and dropoff. Mainly, this should store the wa.msg_id in the graph state.
+- Remove the init_ordelo_graph, work on the setup node and add get_journey_instructions
+
+- otification of the location events, order completion.
 
 ## Delivery and Dispatch:
 - Change restaurant_master city to town (change in create_delivery_detail)

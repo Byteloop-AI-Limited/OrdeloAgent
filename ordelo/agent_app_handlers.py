@@ -1,37 +1,39 @@
 """
-FastAPI handlers for the Elai Ordelo AI agent.
-    . Exposes endpoints and utility functions for dispatch and state management
-    . Integrates with LangGraph, WhatsApp clients (pywa, pywa_async), and PostgreSQL
-    . Key functions: process_dispatch_response_from_rider_sync, generate_config_href,
-      create_start_job_config, create_stop_job_config, init_ordelo_graph, run_ordelo_graph,
-      initial_handle_of_rider_response, debug_state
+Agent app handlers and utilities for Elai Ordelo agent workflows.
+    . Depends on FastAPI, LangGraph, WhatsApp (pywa, pywa_async), PostgreSQL
+    . Handles rider dispatch responses and delivery state transitions
+    . Generates configuration and job links for agents (generate_config_href, create_start_job_config, create_stop_job_config)
+    . Processes synchronous and async WhatsApp delivery instructions (process_dispatch_response_from_rider_sync, initial_handle_of_rider_response, _send_delivery_instructions)
+    . Provides live map location and location enablement checks (get_live_map_location_url, is_live_location_enabled)
+    . Includes debugging and state inspection tools (debug_state)
+    . Utility imports for database and graph operations
 """
 
 # %%
 import base64
 import json
 from datetime import datetime
-import asyncio
-
-from langchain_core.messages import HumanMessage, SystemMessage
-from pywa_async.types import Message
 import psycopg
+from psycopg_pool import ConnectionPool
+from ordelo_datamodels.delivery_pymodels import DeliveryDetail
+from pywa_async import WhatsApp
+from datetime import timedelta
+from config import pg_settings, _async_wa_client
+from pywa.types import ButtonUrl
 from config import (
     logger,
     _async_wa_client,
-    project_settings,
     _sync_wa_client,
     pg_settings,
+    project_settings,
 )
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from utils_common.lg_utils import (
     get_state_values,
     shorten_state_messages,
     get_config_for_recipient,
 )
-from psycopg_pool import ConnectionPool
-from pywa.types import ButtonUrl
-from pywa_async import WhatsApp
+
+from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 
 client = pg_settings.client
 
@@ -186,114 +188,7 @@ async def create_stop_job_config() -> str:
     return stop_href
 
 
-# %% Initialize Ordelo Graph
-
-
-async def init_ordelo_graph(graph, pool, d_detail: DeliveryDetail):
-    logger.info(f"Initializing Ordelo Graph with rider_id {d_detail.rider_id}")
-    # Setup Graph
-    start_live_tracking_url = await create_start_job_config(d_detail)
-
-    config = await get_config_for_recipient(d_detail.rider_id, pool)
-
-    # update graph state
-    # Setup context
-    ip_msgs = {
-        "messages": [
-            SystemMessage(
-                "Rider has accepted the delivery job, send the live tracking link."
-            ),
-            HumanMessage("I have accepted the delivery job."),
-        ]
-    }
-    delivery_start_dtts = datetime.now().isoformat()
-    await graph.aupdate_state(
-        config,
-        {
-            "dispatch_id": d_detail.dispatch_id,
-            "order_number": d_detail.order_number,
-            "start_live_tracking_url": start_live_tracking_url,
-            "delivery_start_dtts": delivery_start_dtts,
-        },
-        as_node="toolNode",
-    )
-    # Run Graph
-    await graph.ainvoke(input=ip_msgs, config=config)
-
-    # Verify if live location enabled
-    # sleep for 4 seconds
-    await asyncio.sleep(65)
-    async with pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
-                """
-                SELECT * FROM
-                rider_location riderLocation
-                WHERE rider_id=%s AND order_number=%s AND dtts >= %s AND EXISTS
-                (SELECT 1 from delivery_inflight 
-                WHERE rider_id = riderLocation.rider_id
-                AND order_number = riderLocation.order_number
-                )
-                """,
-                (d_detail.rider_id, d_detail.order_number, delivery_start_dtts),
-            )
-            location_data = await cur.fetchone()
-
-    if location_data:
-        logger.success(
-            f"location data being recieved from {d_detail.rider_id}: {location_data}"
-        )
-    else:
-        text = "I am unable to get your live location, please enable it by clicking the link sent to you."
-        await _async_wa_client.send_message(
-            to=d_detail.rider_id,
-            header=d_detail.order_number,
-            text=text,
-            reply_to_message_id=None,
-            buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
-        )
-
-
-# %% Run Ordelo Graph
-async def run_ordelo_graph(msg: Message, graph, pool):
-    """Executes the takeaway graph and returns the AI's response."""
-    human_msg = msg.text
-    recipient = msg.sender
-    wa_user_name = msg.from_user.name
-
-    config = await get_config_for_recipient(recipient, pool)
-
-    # Check is name is captured
-    state = await graph.aget_state(config=config)
-    if not state.values.get(" "):
-        _system_msg = f"""User Name {wa_user_name}. Address by name 
-        in scenarios like first messages, When there is change in intent, user frustrated. Dont over do it.
-        """
-        await graph.aupdate_state(
-            config,
-            {"wa_user_name": wa_user_name, "messages": [SystemMessage(_system_msg)]},
-            as_node="toolNode",
-        )
-
-    ip_msgs = {
-        "messages": [
-            HumanMessage(human_msg),
-        ]
-    }
-
-    ai_msg = await graph.ainvoke(input=ip_msgs, config=config)
-    # Debug
-    recent_msgs = ai_msg["messages"][-4:]
-    [logger.info(msg.content) for msg in recent_msgs]
-
-    ai_msg_content = ai_msg["messages"][-1].content
-
-    return ai_msg_content
-
-
-# %% inital rider response handler
-
-
+# %%
 async def initial_handle_of_rider_response(
     order_status: dict,
     callback_data: dict,
@@ -301,7 +196,7 @@ async def initial_handle_of_rider_response(
 ):
     logger.debug(f"Initial handle of rider response: {callback_data}")
     logger.debug(f"Order status: {order_status}")
-    # handle diclined so the rest does not have tobe in an else block
+    # handle declined so the rest does not have tobe in an else block
     if callback_data["status"] == "declined":
         client.table("delivery_dispatch").update({"status": "declined"}).eq(
             "dispatch_id", callback_data["dispatch_id"]
@@ -338,6 +233,116 @@ async def initial_handle_of_rider_response(
         )
         return
 
+
+# %% Live map location
+async def get_live_map_location_url(order_number: str):
+    query = """
+    SELECT 
+        lat, 
+        lon
+    FROM rider_location LOC INNER JOIN delivery_inflight DI
+    ON LOC.rider_id = DI.rider_id
+    WHERE LOC.order_number = %s
+    ORDER BY tst DESC
+    LIMIT 1
+    """
+    result = await execute_sql_query(query, (order_number,))
+    if len(result) == 0:
+        return None
+
+    lat, lon = result[0]
+
+    logger.info(f"lat:{lat}, lon:{lon}")
+
+    live_map_url = f"https://maps.google.com/?q=Order('{order_number}')@{lat},{lon}"
+
+    return live_map_url
+
+
+# %%
+def is_live_location_enabled(order_number):
+    rows = (
+        pg_settings.client.table("rider_location")
+        .select("*")
+        .like("order_number", order_number)
+        .limit(10)
+        .execute()
+        .data
+    )
+    return len(rows) > 0
+
+# %%
+
+async def _send_delivery_instructions(dispatch_id: int, start_job_config_url: str, recipient: str):
+    """
+    Sends delivery instructions (pickup and drop-off locations) via WhatsApp for a given dispatch_id.
+    """
+    client = pg_settings.client
+
+    dispatch = (
+        client.table("delivery_dispatch")
+        .select("*")
+        .eq("dispatch_id", dispatch_id)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    order_number = dispatch["order_number"]
+
+    summary = (
+        client.table("delivery_summary")
+        .select("*")
+        .eq("order_number", order_number)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    logger.info(f"dispatch: {dispatch}")
+    logger.info(f"summary: {summary}")
+
+    delivery_summary_dtts = datetime.fromisoformat(summary["dtts"])
+    pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
+
+    body_text = f"""
+
+  ⏰ Pickup Time - *@{pickup_time}*
+  💰 Earning - *£{dispatch["rider_payout"]}*
+  🛣️ Distance - *{dispatch["distance"]} miles*
+
+🚀 Get started with the delivery by cliking the below link
+
+🔑 2-digit *Restaurant* confirmation code after the delivery is completed!
+
+🔑 2-digit *Customer* confirmation code after the delivery is completed!
+
+👨‍💻 Please let me know if you have any questions during the delivery process.
+    """
+    delivery_instructions_msg = await _async_wa_client.send_message(
+        to=recipient,
+        header=f"🌟 {summary['order_number']} 🌟",
+        text=body_text,
+        reply_to_message_id=None,
+        buttons=ButtonUrl(title="Start live tracking", url=start_job_config_url),
+    )
+
+    await _async_wa_client.send_location(
+        to=recipient,
+        latitude=summary['rest_lat'],
+        longitude=summary['rest_lon'],
+        name=f"{summary['rest_name']} - Pick Up",
+        address=summary['rest_address'],
+        reply_to_message_id=delivery_instructions_msg.id,
+    )
+
+    await _async_wa_client.send_location(
+        to=recipient,
+        latitude=summary['customer_lat'],
+        longitude=summary['customer_lon'],
+        name=f"{summary['customer_name']} - Drop Off",
+        address=summary['customer_address'],
+        reply_to_message_id=delivery_instructions_msg.id,
+    )
+    return delivery_instructions_msg.id
 
 # %% Debug State
 async def debug_state(recipient: str, graph, pool) -> dict:
