@@ -70,7 +70,7 @@ async def init_ordelo_graph(d_detail: DeliveryDetail):
     ip_msgs = {
         "messages": [
             SystemMessage(
-                "Rider has accepted the delivery job, send_start_live_tracking_link tool to send the live tracking link."
+                "Rider has accepted the delivery job, call `send_delivery_instructions` tool to send the delivery instructions"
             ),
             HumanMessage("I have accepted the delivery job."),
         ]
