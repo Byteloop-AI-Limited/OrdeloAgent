@@ -1,37 +1,28 @@
 """
 Delivery hooks router for OrdeloAgent FastAPI service.
-    . Defines endpoints for delivery-related webhook events (dispatch, inflight, missed)
-    . Processes payloads and updates delivery_dispatch and related database tables
-    . Notifies riders of delivery events using WhatsApp messaging
-    . Implements extensible webhook and DB update patterns
+    . Defines FastAPI endpoints for delivery-related webhook events (delivery_dispatch_hook, delivery_inflight_graph_init_hook, notify_missed_dispatches_hook)
+    . Processes webhook payloads and updates delivery_dispatch and related tables
+    . Notifies riders of delivery events using WhatsApp messaging (wa_send_delivery_dispatch_request_to_rider)
+    . Implements extensible webhook and DB update patterns for delivery workflows
+    . Supports function chaining and conditional database operations
+    . Handles empty payloads gracefully
 """
 
 from fastapi import APIRouter, Request, Depends
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
-
 from config import logger, _async_wa_client, pg_settings
 from pywa.types import Button
 from pywa_async import WhatsApp
 from datetime import datetime, timedelta
 import json
 from psycopg_pool import AsyncConnectionPool
-from ordelo.agent_app_handlers import init_ordelo_graph
+from ordelo.agents.agent_runner import init_ordelo_graph
 import asyncio
 
 
 # %% Define Dependancies and routes
 async def get_payload(request: Request):
     return await request.json()
-
-
-async def get_pool(request: Request):
-    # Get pool from the main app
-    return request.app.state.pool
-
-
-async def get_graph(request: Request):
-    # Get pool from the main app
-    return request.app.state.graph
 
 
 client = pg_settings.client
@@ -225,11 +216,7 @@ async def delivery_dispatch_hook(payload: dict = Depends(get_payload)):
         }
     },
 )
-async def delivery_inflight_graph_init_hook(
-    payload: dict = Depends(get_payload),
-    graph=Depends(get_graph),
-    pool: AsyncConnectionPool = Depends(get_pool),
-):
+async def delivery_inflight_graph_init_hook(payload: dict = Depends(get_payload)):
     """
     On insert into delivery_inflight table, trigger delivery inflight graph initialization webhook.
 
@@ -253,7 +240,7 @@ async def delivery_inflight_graph_init_hook(
     delivery_detail = DeliveryDetail(**payload["delivery_detail"][0])
 
     # Create as background task as the db webhook on inflight waits and errors out
-    asyncio.create_task(init_ordelo_graph(graph, pool, delivery_detail))
+    asyncio.create_task(init_ordelo_graph(delivery_detail))
 
     return {"status": "success"}
 

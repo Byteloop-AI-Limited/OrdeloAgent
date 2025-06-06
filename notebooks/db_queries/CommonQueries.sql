@@ -1,9 +1,16 @@
 
 select status,
+	rest_confirmation_code,
+	cust_confirmation_code,
 	*
 from delivery_summary
 order by dtts desc
 limit 10;
+
+
+select *
+from delivery_option
+order by id desc;
 
 
 select *
@@ -30,6 +37,12 @@ from delivery_inflight ;
 
 select *
 from dispatch_complete_func(2254);
+
+
+select *
+from rider_location
+order by dtts desc
+limit 100;
 
 
 select *

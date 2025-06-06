@@ -2,14 +2,15 @@
 FastAPI WhatsApp Agent integration for OrdeloAgent.
     . Initializes and configures the FastAPI app for WhatsApp messaging
     . Integrates pywa_async for WhatsApp event and flow handling
-    . Defines app lifespan events and manages application state
+    . Defines app lifespan events and manages application state, including DB connection pool
     . Sets up routers for delivery, location, and alert webhooks
     . Registers WhatsApp message, callback, and flow handlers
     . Provides debug and detail endpoints for diagnostics
     . Entry point for running OrdeloAgent locally or in production
 """
+
 from fastapi import FastAPI
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager  # Added
 import logging
 
 import uvicorn
@@ -19,13 +20,16 @@ from pywa_async import handlers
 from pywa.types.flows import FlowRequestActionType
 from typing import Optional
 
+from ordelo.agents.rider_agent import builder
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
 from config import (
     logger,
     project_settings,
     waba_business_settings,
-)
+    pg_settings,
+)  # Added pg_settings
 
-from watomation.init_app_state import init_app_state
 from watomation.routers import delivery_hooks, location_hooks, alert_hooks
 from watomation.on_message_wa_handler import (
     reset_thread,
@@ -34,6 +38,7 @@ from watomation.on_message_wa_handler import (
     live_location,
     test_flow,
     clear_dispatch,
+    send_live_map_location,
 )
 from watomation.on_callback_wa_handler import dispatch_response
 from watomation.on_flow_request_wa_handler import (
@@ -51,7 +56,6 @@ from ordelo.agent_app_handlers import debug_state
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-# https://10hiths-app.up.railway.app/
 
 # %% define fastapi
 POOL_MIN_SIZE = 10
@@ -60,38 +64,38 @@ POOL_MAX_SIZE = 25
 # %% Define Lifespan Events
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Initialize app state resources
-    (
-        pool,
-        pool_sync,
-        checkpointer,
-        thread_handler,
-        graph,
-        client,
-    ) = await init_app_state()
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # Initialize app state resources
+#     (
+#         pool,
+#         pool_sync,
+#         checkpointer,
+#         thread_handler,
+#         graph,
+#         client,
+#     ) = await init_app_state()
 
-    # Store resources in the app state
-    app.state.pool = pool
-    app.state.pool_sync = pool_sync
-    app.state.client = client
-    app.state.checkpointer = checkpointer
-    app.state.thread_handler = thread_handler
-    app.state.graph = graph
-    app.state.wa = wa
+#     # Store resources in the app state
+#     app.state.pool = pool
+#     app.state.pool_sync = pool_sync
+#     app.state.client = client
+#     app.state.checkpointer = checkpointer
+#     app.state.thread_handler = thread_handler
+#     app.state.graph = graph
+#     app.state.wa = wa
 
-    # Yield to start the application
-    try:
-        yield
-    finally:
-        # Close the pool on shutdown
-        if pool:
-            await pool.close()
+#     # Yield to start the application
+#     try:
+#         yield
+#     finally:
+#         # Close the pool on shutdown
+#         if pool:
+#             await pool.close()
 
 
 # Define and set the app, call import soon after
-app = FastAPI(title="OrdeloAgent", lifespan=lifespan)
+app = FastAPI(title="OrdeloAgent")
 
 # %% Add routers
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
@@ -151,7 +155,7 @@ wa.add_handlers(
     handlers.MessageHandler(callback=test_delivery, filters=TEST_DELIVERY),
     handlers.MessageHandler(callback=clear_dispatch, filters=CLEAR_DISPATCH),
     handlers.MessageHandler(callback=test_flow, filters=TEST_FLOW),
-    handlers.MessageHandler(callback=live_location, filters=LIVE_LOCATION),
+    handlers.MessageHandler(callback=send_live_map_location, filters=LIVE_LOCATION),
     handlers.MessageHandler(callback=process_wa_msg),
     handlers.CallbackButtonHandler(
         callback=dispatch_response, filters=IS_DISPATCH_RESPONSE
@@ -209,8 +213,9 @@ async def get_details():
 
 @app.get("/debug-state")
 async def debug_state_path(recipient: Optional[str] = "447448440754"):
-    graph = app.state.graph
-    pool = app.state.pool
+    pool = await pg_settings.get_pool()
+    checkpointer = AsyncPostgresSaver(pool)
+    graph = builder.compile(checkpointer=checkpointer)
     debug_stack = await debug_state(recipient, graph, pool)
     return debug_stack
 

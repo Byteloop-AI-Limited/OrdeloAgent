@@ -1,9 +1,11 @@
 """
-PostgreSQL and Supabase settings for OrdeloAgent.
-    . Defines PgSetting for database, REST, and vector store configuration
-    . Integrates with Langchain, Supabase, and OpenAI embeddings
-    . Provides helpers for connection, headers, and vector search
-    . Depends on: pydantic_settings, langchain_postgres, langchain_openai, supabase
+Manages PostgreSQL and Supabase settings for the OrdeloAgent application.
+    . Defines the `PgSetting` class using `pydantic_settings` for loading database URIs, Supabase REST URLs, API keys, and vector store configurations from environment variables.
+    . Initializes and provides access to a `supabase.Client` and `supabase.AsyncClient` for interacting with Supabase services.
+    . Manages an `psycopg_pool.AsyncConnectionPool` for direct asynchronous PostgreSQL database connections. This pool is intended to be managed by the FastAPI application's lifespan events.
+    . Configures and provides a `langchain_postgres.vectorstores.PGVector` instance for vector similarity searches, using OpenAI embeddings.
+    . Includes helper properties for Supabase headers, REST endpoints, and connection/pool keyword arguments.
+    . Dependencies: `pydantic_settings`, `langchain_postgres`, `langchain_openai`, `supabase`, `psycopg_pool`.
 """
 
 # %%
@@ -12,6 +14,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from langchain_postgres.vectorstores import PGVector
 from langchain_openai import OpenAIEmbeddings
 from supabase import create_client, Client, create_async_client, AsyncClient
+from psycopg_pool import AsyncConnectionPool
+from typing import Optional
+from . import logger
 
 
 class PgSetting(BaseSettings):
@@ -21,17 +26,29 @@ class PgSetting(BaseSettings):
     rest_key: str
     service_key: str
     collection_name: str = "elai_embed"
+    _async_pool: Optional[AsyncConnectionPool] = None
 
     @property
     def connection_kwargs(self):
         return {
-            "autocommit": True,
+            "autocommit": False,
             "prepare_threshold": None,
             "connect_timeout": 10,  # Connection timeout in seconds
             "keepalives": 1,  # Enable TCP keepalives
             "keepalives_idle": 60,  # Seconds of inactivity before sending keepalive
             "keepalives_interval": 10,  # Seconds between keepalives
             "keepalives_count": 5,  # Number of keepalives before considering connection dead
+        }
+
+    @property
+    def pool_kwargs(self):
+        return {
+            "min_size": 1,  # Only ever open 1 connection at a time in lambda
+            "max_size": 5,  # Maximum connections in pool
+            "max_idle": 30,  # if lambda is idles > 30s, automatically close idle sockets
+            "timeout": 20,  # when aquiring, wait up to 20s before throwing "timeout"
+            "reconnect_timeout": 10,  # If socket is broken, attempts to reconnect automatically
+            "open": False,  # We'll open it explicitly
         }
 
     @property
@@ -68,6 +85,24 @@ class PgSetting(BaseSettings):
     @property
     def client(self) -> Client:
         return create_client(self.rest_url, self.rest_key)
+
+    async def get_pool(self) -> AsyncConnectionPool:
+        # If pool doesn't exist, or if it exists but was closed
+        if self._async_pool is None or self._async_pool.closed:
+            # Optional: Add logging here if you want to know when a closed pool is being recreated
+            logger.info("AsyncConnectionPool is None or closed, creating a new one.")
+            self._async_pool = AsyncConnectionPool(
+                conninfo=self.db_uri,
+                kwargs=self.connection_kwargs,
+                min_size=self.pool_kwargs["min_size"],
+                max_size=self.pool_kwargs["max_size"],
+                max_idle=float(self.pool_kwargs["max_idle"]),
+                timeout=float(self.pool_kwargs["timeout"]),
+                reconnect_timeout=float(self.pool_kwargs["reconnect_timeout"]),
+                open=False,  # Initialize with open=False
+            )
+            await self._async_pool.open()  # Explicitly open it
+        return self._async_pool
 
     @property
     def async_client(self) -> AsyncClient:
