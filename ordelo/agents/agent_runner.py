@@ -88,35 +88,3 @@ async def init_ordelo_graph(d_detail: DeliveryDetail):
     )
     # Run Graph
     await graph.ainvoke(input=ip_msgs, config=config)
-
-    # Verify if live location enabled and ping at a later point. Do I still need this?
-    # await asyncio.sleep(65)
-    # async with pool.connection() as conn:
-    #     async with conn.cursor() as cur:
-    #         await cur.execute(
-    #             """
-    #             SELECT * FROM
-    #             rider_location riderLocation
-    #             WHERE rider_id=%s AND order_number=%s AND dtts >= %s AND EXISTS
-    #             (SELECT 1 from delivery_inflight
-    #             WHERE rider_id = riderLocation.rider_id
-    #             AND order_number = riderLocation.order_number
-    #             )
-    #             """,
-    #             (d_detail.rider_id, d_detail.order_number, delivery_start_dtts),
-    #         )
-    #         location_data = await cur.fetchone()
-
-    # if location_data:
-    #     logger.success(
-    #         f"location data being recieved from {d_detail.rider_id}: {location_data}"
-    #     )
-    # else:
-    #     text = "I am unable to get your live location, please enable it by clicking the link sent to you."
-    #     await _async_wa_client.send_message(
-    #         to=d_detail.rider_id,
-    #         header=d_detail.order_number,
-    #         text=text,
-    #         reply_to_message_id=None,
-    #         buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
-    #     )
