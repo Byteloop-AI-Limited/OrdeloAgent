@@ -5,7 +5,7 @@ select * from delivery_pricing_detail where order_number ='WREN-RQGI-29';
 update delivery_pricing_detail set
 
 -- debug
-select status,CURRENT_TIMESTAMP - dtts, * from delivery_detail 
+select status, CURRENT_TIMESTAMP - dtts, * from delivery_detail 
 order by dtts desc;
 
 
@@ -26,8 +26,6 @@ select * from rider_master ;
 
 INSERT INTO rider_master (rider_id, rider_name, vehicle_type, town, status)
 VALUES ('447446933210', 'Rahul', 'car', 'Basingstoke', 'active');
-
-
 
 select * from delivery_dispatch order by dtts desc;  where rider_id='447448440754';
 

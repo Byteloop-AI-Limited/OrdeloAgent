@@ -21,6 +21,7 @@ from pywa.types import FlowButton
 from utils_common.thread_management import ThreadHandler
 from psycopg_pool import AsyncConnectionPool
 from ordelo.agents.agent_runner import run_rider_graph
+from ordelo.agent_app_handlers import get_live_map_location_url
 
 
 # %% Run graph on msg
@@ -73,8 +74,8 @@ async def test_delivery(wa: WhatsApp, msg: Message):
     pool: AsyncConnectionPool = await pg_settings.get_pool()
     client = pg_settings.client
     recipient = msg.sender
-    order_number = f"WREN-{random.randint(1000, 9999)}-{random.randint(10, 99)}"
-    vehicle_type = "car"
+    order_number = f"WREN-TEST-{random.randint(10, 99)}"
+
     # DB operations
     # Cleanup - update dispatch complete
     open_dispatch = (
@@ -93,24 +94,53 @@ async def test_delivery(wa: WhatsApp, msg: Message):
     delete_old_location_events = (
         f"DELETE FROM rider_location_event WHERE order_number = '{order_number}'"
     )
-    await execute_sql_query(pool, query=delete_old_location_events)
+    await execute_sql_query(query=delete_old_location_events)
     # Cleanup complete;
-    # Move to inserting the order
-    client.table("delivery_pricing_detail").insert(
-        {"order_number": order_number, "distance": 0.83, "message": ""}
-    ).execute()
-    client.table("delivery_option").update({"order_number": order_number}).gte(
-        "id", 1813
-    ).lte("id", 1816).execute()
 
-    client.rpc(
-        "insert_delivery_detail",
-        {
-            "p_cust_id": recipient,
-            "p_order_number": order_number,
-            "p_vehicle_type": vehicle_type,
-        },
+    # Move to inserting the order; Create reference in pricing_detail table
+    client.table("delivery_pricing_detail").insert(
+        {"order_number": order_number, "distance": 0.83}
     ).execute()
+
+    # Update a different order to instead on inserting into delivery_option
+    example_order_to_update = (
+        client.table("delivery_option")
+        .select("order_number")
+        .like("order_number", "WREN-TEST-%")
+        .order("id", desc=True)
+        .limit(1)
+        .execute()
+        .data[0]["order_number"]
+    )
+
+    client.table("delivery_option").update({"order_number": order_number}).eq(
+        "order_number", example_order_to_update
+    ).execute()
+
+    # Now init the delivery so the process follows
+    client.rpc(
+        "init_delivery", {"p_cust_id": recipient, "p_order_number": order_number}
+    ).execute()
+
+
+# %%
+async def send_live_map_location(wa: WhatsApp, msg: Message):
+    recipient = msg.sender
+    _inflight = await sbase_get(table_name="delivery_inflight", rider_id=recipient)
+
+    if len(_inflight) == 0:
+        await wa.send_message(
+            to=recipient, text="Location not available. You have no active delivery"
+        )
+        return
+
+    order_number = _inflight[0]["order_number"]
+    live_map_url = await get_live_map_location_url(order_number)
+    if live_map_url is None:
+        await wa.send_message(to=recipient, text="Live map location not available")
+        return
+    url = f"https://agent.ordelo.app/location-hooks/live-location-map/{order_number}"
+    await wa.send_message(to=recipient, text=url)
 
 
 # %% Test flow
@@ -135,7 +165,6 @@ async def test_flow(wa: WhatsApp, msg: Message):
     )
 
 
-# %%
 # %% live_location
 async def live_location(wa: WhatsApp, msg: Message):
     # toDo - change to pool from pg_settings.

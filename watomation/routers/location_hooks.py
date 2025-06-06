@@ -16,23 +16,21 @@ import json
 import base64
 from fastapi import Path
 from ordelo_datamodels.location_pymodels import Location
-from config import logger, _async_wa_client
+from config import _async_wa_client, pg_settings
 import re
 from datetime import datetime, timezone
-from utils_common.db_utils.sbase_pool_ops import execute_sql_query, insert_model_to_db
 from pywa.types import ButtonUrl
+from ordelo.agent_app_handlers import get_live_map_location_url
+from utils_common.db_utils.sbase_pool_ops import insert_model_to_db
 
 
 # %% Define Dependancies and routes
 async def get_payload(request: Request):
     return await request.json()
 
-async def get_pool(request: Request):
-    # Get pool from the main app
-    return request.app.state.pool
 
 router = APIRouter(tags=["location_hooks"])
-# templates = Jinja2Templates(directory="/home/basal/PycharmProjects/OrdeloAgent/watomation/routers/templates")
+
 
 # %%
 def generate_config_href(config: dict) -> str:
@@ -40,12 +38,14 @@ def generate_config_href(config: dict) -> str:
     config_base64 = base64.b64encode(config_json.encode()).decode()
     return f"owntracks:///config?inline={config_base64}"
 
+
 # %% Define functions
 
 
 # %% process location event
 
-async def process_location_transition(pool, payload):
+
+async def process_location_transition(payload):
     """
     Process a location transition event.
 
@@ -59,24 +59,28 @@ async def process_location_transition(pool, payload):
     :param payload: A Location object to be inserted into the rider_location table
     :return: A JSON object containing the result of the query
     """
-    tst = payload['tst']
+    tst = payload["tst"]
     dtts = datetime.fromtimestamp(tst, tz=timezone.utc)
-    topic = payload['topic']
-    event = payload['event']
-    rid = payload['rid']
+    topic = payload["topic"]
+    event = payload["event"]
+    rid = payload["rid"]
 
-    match = re.match(r"owntracks/(?P<rider_id>[^/]+)/(?P<recipient>[^-]+)-(?P<order_number>[^/]+)/event$", topic)
+    match = re.match(
+        r"owntracks/(?P<rider_id>[^/]+)/(?P<recipient>[^-]+)-(?P<order_number>[^/]+)/event$",
+        topic,
+    )
     if match:
-        rider_id = match.group('rider_id')
-        recipient = match.group('recipient')
-        order_number = match.group('order_number')
-    
+        rider_id = match.group("rider_id")
+        recipient = match.group("recipient")
+        order_number = match.group("order_number")
+
+    pool = await pg_settings.get_pool()
     async with pool.connection() as conn:
         # Initialize with a default value
         update_statement = None
         update_vals = (dtts, topic)
 
-        if event=='enter' and rid=='rest':
+        if event == "enter" and rid == "rest":
             # Updates the database based on rider location events:
             # - For restaurant enter: Creates new record or updates existing one
             # - For restaurant leave: Records departure time
@@ -93,20 +97,20 @@ async def process_location_transition(pool, payload):
                 """
             update_vals = (topic, rider_id, order_number, tst, dtts, dtts)
 
-        elif event=='leave' and rid=='rest':
+        elif event == "leave" and rid == "rest":
             update_statement = """
                 UPDATE rider_location_event
                 SET res_leave_dtts = %s
                 WHERE topic = %s AND res_enter_dtts IS NOT NULL AND res_leave_dtts IS NULL;
             """
-            
-        elif event=='enter' and rid=='cust':
+
+        elif event == "enter" and rid == "cust":
             update_statement = """
                 UPDATE rider_location_event
                 SET cust_enter_dtts = %s
                 WHERE topic = %s AND res_enter_dtts IS NOT NULL AND cust_enter_dtts IS NULL;
             """
-        elif event=='leave' and rid=='cust':
+        elif event == "leave" and rid == "cust":
             update_statement = """
                 UPDATE rider_location_event
                 SET cust_leave_dtts = %s
@@ -115,40 +119,16 @@ async def process_location_transition(pool, payload):
 
         async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
             if update_statement is None:
-                raise ValueError(f"No valid update statement found for event={event} and rid={rid}")
+                raise ValueError(
+                    f"No valid update statement found for event={event} and rid={rid}"
+                )
             await cur.execute(update_statement, update_vals)
             await conn.commit()
-    
+
     logger.info(f"transition event processed:{topic}")
 
     return True
 
-# %% Live map location 
-async def get_live_map_location_url(
-    pool: psycopg.AsyncConnection, 
-    order_number: str
-    ):
-    query = """
-    SELECT 
-        lat, 
-        lon
-    FROM rider_location LOC INNER JOIN delivery_inflight DI
-    ON LOC.rider_id = DI.rider_id
-    WHERE LOC.order_number = %s
-    ORDER BY tst DESC
-    LIMIT 1
-    """
-    result = await execute_sql_query(pool, query, (order_number,))
-    if len(result) == 0:
-        return None
-    
-    lat, lon = result[0]
-    
-    logger.info(f"lat:{lat}, lon:{lon}")
-
-    live_map_url=f"https://maps.google.com/?q=Order('{order_number}')@{lat},{lon}"
-    
-    return live_map_url
 
 # %% Define paths - live location on map
 @router.get(
@@ -158,18 +138,18 @@ async def get_live_map_location_url(
     description="Redirects the client to a Google Maps URL for the rider's current location",
 )
 async def live_location_map(
-    order_number: str = Path(..., description="The order number to track"), 
-    pool: psycopg.AsyncConnection = Depends(get_pool)
-    ):
-    live_map_url = await get_live_map_location_url(pool, order_number)
+    order_number: str = Path(..., description="The order number to track"),
+):
+    live_map_url = await get_live_map_location_url(order_number)
     if live_map_url is None:
         raise HTTPException(status_code=404, detail="No live location found")
-    
+
     return live_map_url
 
 
 # %% Define Paths - location updates and transition events
-@router.post("/pub",
+@router.post(
+    "/pub",
     summary="OwnTracks Location Webhook",
     description="""
     
@@ -180,13 +160,12 @@ async def live_location_map(
     response_description="Successful processing of the location event",
     responses={
         200: {"description": "Location event processed successfully"},
-        500: {"description": "Error processing location event"}
-    }
+        500: {"description": "Error processing location event"},
+    },
 )
 async def receive_pub(
-    payload: dict = Depends(get_payload), 
-    pool: psycopg.AsyncConnection = Depends(get_pool)
-    ):
+    payload: dict = Depends(get_payload),
+):
     """
     Webhook to receive location events from OwnTracks
 
@@ -197,29 +176,34 @@ async def receive_pub(
     into the database.
 
     :param payload: The JSON payload from the OwnTracks location event
-    :param pool: The Async PostgreSQL connection pool
     """
     logger.info(payload)
-        
+
     if payload.get("_type") == "transition":
-        await process_location_transition(pool, payload)
+        await process_location_transition(payload)
         return
 
     elif payload.get("_type") == "location":
         location = Location(**payload)
-        await insert_model_to_db(pool=pool, table_name='rider_location', model_instance=location)
+        await insert_model_to_db(
+            table_name="rider_location",
+            model_instance=location,
+        )
         return
+
 
 # %% listen for location events
 
-@router.post("/notify-rider-location-event",
+
+@router.post(
+    "/notify-rider-location-event",
     summary="Notify Rider Location Events To Customer",
     description="Routes Rider's location events, including zone transitions and status updates",
     response_description="Successful processing of the rider location event",
     responses={
         200: {"description": "Location event processed successfully"},
-        500: {"description": "Error processing location event"}
-    }
+        500: {"description": "Error processing location event"},
+    },
 )
 async def notify_rider_location_event(request: Request):
     """
@@ -227,25 +211,23 @@ async def notify_rider_location_event(request: Request):
     """
     payload = await request.json()
 
-
     # Unpack location event row
-    location_event_new = payload.get('location_event_new')
-    order_number = location_event_new.get('order_number')
-    rider_id = location_event_new.get('rider_id')
-    # recipient = location_event_new.get('recipient') 
+    location_event_new = payload.get("location_event_new")
+    order_number = location_event_new.get("order_number")
+    rider_id = location_event_new.get("rider_id")
+    # recipient = location_event_new.get('recipient')
     recipient = rider_id
-    
-    # Call the live-location-map endpoint instead of directly calling get_live_map_location_url
-    response = await live_location_map(order_number=order_number, pool=request.app.state.pool)
+
+    response = await live_location_map(order_number=order_number)
     live_map_url = response.get("current_location", None)
-    
+
     if live_map_url is None:
         return
     # Unpack changed fields
-    changed_fields = payload.get('changed_fields', {})
-    
+    changed_fields = payload.get("changed_fields", {})
+
     if changed_fields is not None:
-        if 'res_leave_dtts' in changed_fields.keys():
+        if "res_leave_dtts" in changed_fields.keys():
             if live_map_url is not None:
                 await _async_wa_client.send_message(
                     to=recipient,
@@ -254,39 +236,40 @@ async def notify_rider_location_event(request: Request):
                     text="""
                     Our delivery driver has left the restaurant
                     """,
-                    buttons=ButtonUrl(title="Live Location", url=live_map_url)
+                    buttons=ButtonUrl(title="Live Location", url=live_map_url),
                 )
             else:
                 await _async_wa_client.send_message(
                     to=recipient,
                     header=f"{order_number} Update",
-                    text="Our delivery driver has left the restaurant"
+                    text="Our delivery driver has left the restaurant",
                 )
-            
-        elif 'res_enter_dtts' in changed_fields.keys():
+
+        elif "res_enter_dtts" in changed_fields.keys():
             await _async_wa_client.send_message(
                 to=recipient,
                 header=f"{order_number} Update",
-                text="Our delivery driver has entered the restaurant"
+                text="Our delivery driver has entered the restaurant",
             )
-            
-        elif 'cust_enter_dtts' in changed_fields.keys():
+
+        elif "cust_enter_dtts" in changed_fields.keys():
             await _async_wa_client.send_message(
                 to=recipient,
                 header=f"{order_number} Update",
-                text="Our delivery rider is near you"
+                text="Our delivery rider is near you",
             )
-            
-        elif 'cust_leave_dtts' in changed_fields.keys():
+
+        elif "cust_leave_dtts" in changed_fields.keys():
             await _async_wa_client.send_message(
                 to=recipient,
                 header=f"{order_number} Update",
-                text="Our delivery rider has left your location"
+                text="Our delivery rider has left your location",
             )
-            
+
     # location = Location(**payload)
     # logger.info(location)
     return
+
 
 # %% get config unused
 
@@ -336,7 +319,7 @@ async def notify_rider_location_event(request: Request):
 #         "locatorInterval" : 10,
 #         "waypoints": waypoints
 #     }
-    
+
 #     stop_job_config = {
 #         "_type": "configuration",
 #         "mode": 3,
@@ -347,8 +330,8 @@ async def notify_rider_location_event(request: Request):
 #         "password": "",
 #         "url": "",
 #     }
-    
+
 #     start_href = generate_config_href(start_job_config)
 #     stop_href = generate_config_href(stop_job_config)
-    
+
 #     return templates.TemplateResponse("get-config.html", {"request": request, "start_href": start_href, "stop_href": stop_href})

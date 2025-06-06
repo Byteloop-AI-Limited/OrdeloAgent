@@ -2,7 +2,7 @@
 FastAPI WhatsApp Agent integration for OrdeloAgent.
     . Initializes and configures the FastAPI app for WhatsApp messaging
     . Integrates pywa_async for WhatsApp event and flow handling
-    . Defines app lifespan events and manages application state
+    . Defines app lifespan events and manages application state, including DB connection pool
     . Sets up routers for delivery, location, and alert webhooks
     . Registers WhatsApp message, callback, and flow handlers
     . Provides debug and detail endpoints for diagnostics
@@ -10,7 +10,7 @@ FastAPI WhatsApp Agent integration for OrdeloAgent.
 """
 
 from fastapi import FastAPI
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager  # Added
 import logging
 
 import uvicorn
@@ -23,7 +23,12 @@ from typing import Optional
 from ordelo.agents.rider_agent import builder
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-from config import logger, project_settings, waba_business_settings, pg_settings
+from config import (
+    logger,
+    project_settings,
+    waba_business_settings,
+    pg_settings,
+)  # Added pg_settings
 
 from watomation.routers import delivery_hooks, location_hooks, alert_hooks
 from watomation.on_message_wa_handler import (
@@ -33,6 +38,7 @@ from watomation.on_message_wa_handler import (
     live_location,
     test_flow,
     clear_dispatch,
+    send_live_map_location,
 )
 from watomation.on_callback_wa_handler import dispatch_response
 from watomation.on_flow_request_wa_handler import (
@@ -149,7 +155,7 @@ wa.add_handlers(
     handlers.MessageHandler(callback=test_delivery, filters=TEST_DELIVERY),
     handlers.MessageHandler(callback=clear_dispatch, filters=CLEAR_DISPATCH),
     handlers.MessageHandler(callback=test_flow, filters=TEST_FLOW),
-    handlers.MessageHandler(callback=live_location, filters=LIVE_LOCATION),
+    handlers.MessageHandler(callback=send_live_map_location, filters=LIVE_LOCATION),
     handlers.MessageHandler(callback=process_wa_msg),
     handlers.CallbackButtonHandler(
         callback=dispatch_response, filters=IS_DISPATCH_RESPONSE
