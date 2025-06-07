@@ -1,9 +1,21 @@
 """
-Application state initialization for OrdeloAgent.
+Application state initialization for OrdeloAgent
     . Initializes async and sync database connection pools
-    . Sets up graph, checkpointer, thread handler, and client
-    . Provides async and sync accessors for shared app state resources
-    . Ensures resources are initialized once and reused across the app
+    . Sets up LangGraph checkpointer, thread handler, and client
+    . Compiles the rider agent graph with appropriate checkpoints
+    . Provides global access to initialized resources
+    . Ensures thread-safe initialization of shared resources
+
+Key Components:
+    . pool - Async database connection pool
+    . pool_sync - Synchronous database connection pool
+    . checkpointer - AsyncPostgresSaver for graph state
+    . thread_handler - Manages conversation threads
+    . graph - Compiled rider agent graph
+    . client - Database client instance
+
+Functions:
+    . init_app_state - Initializes all application state resources
 """
 
 from langgraph.checkpoint.memory import MemorySaver

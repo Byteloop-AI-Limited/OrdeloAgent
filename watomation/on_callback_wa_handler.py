@@ -1,8 +1,13 @@
 """
-Handles WhatsApp callback button responses for delivery dispatch.
-    . Entry point for rider responses to delivery assignments
-    . Parses callback data and updates delivery status
+WhatsApp callback button handler for delivery dispatch responses
+    . Processes rider responses to delivery dispatch assignments
+    . Validates callback data and updates delivery status
     . Integrates with OrdeloAgent delivery graph logic
+    . Handles cases where jobs are no longer available
+    . Provides feedback to riders about dispatch status
+
+Key Functions:
+    . dispatch_response - Main entry point for rider dispatch responses
 """
 
 # %%

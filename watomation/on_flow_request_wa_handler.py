@@ -1,15 +1,22 @@
 """
-Handles customer address capture flows via WhatsApp.
-    . Implements WhatsApp flow request handlers for address capture
+WhatsApp flow request handlers for customer address capture
+    . Implements WhatsApp flow request handlers for address capture workflow
     . Provides data exchange and completion logic for the flow
-    . Logs and responds to customer address input events
+    . Validates and processes customer address input
+    . Handles flow errors and provides appropriate responses
+    . Logs flow events for debugging and analytics
+
+Key Functions:
+    . on_customer_address_flow - Initial flow entry point
+    . on_customer_address_flow_data_exchange - Handles data exchange during flow
+    . on_customer_address_flow_completion - Processes flow completion events
 """
 
 # %%
 from pywa_async import WhatsApp
 from config import logger
 # project modules
-from pywa.types.flows import FlowRequest, FlowResponse, FlowRequestActionType, FlowCompletion
+from pywa.types.flows import FlowRequest, FlowResponse, FlowCompletion
 
 # @WhatsApp.on_flow_request("/customer-address-capture")
 async def on_customer_address_flow(_: WhatsApp, request: FlowRequest) -> FlowResponse | None:

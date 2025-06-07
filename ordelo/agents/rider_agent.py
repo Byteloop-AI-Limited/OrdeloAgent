@@ -27,7 +27,11 @@ from utils_common.lg_utils import (
 
 # from elai.agents.respond_agent import respond_node
 from config import logger
-from ordelo.agent_app_handlers import create_stop_job_config, is_live_location_enabled, _send_delivery_instructions
+from ordelo.agent_app_handlers import (
+    create_stop_job_config,
+    is_live_location_enabled,
+    _send_delivery_instructions,
+)
 from utils_common.db_utils.sbase_rest_ops import sbase_call_function
 
 from langchain_core.tools.base import InjectedToolCallId
@@ -83,7 +87,7 @@ async def send_delivery_instructions(
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
     """
-    This tool provides the delivery instructions to the rider. 
+    This tool provides the delivery instructions to the rider.
 
     Args:
         None
@@ -94,21 +98,27 @@ async def send_delivery_instructions(
     recipient = get_recipient_from_config(config)
     dispatch_id = state.get("dispatch_id", None)
     start_live_tracking_url = state.get("start_live_tracking_url", None)
-    delivery_instructions_msg_id = await _send_delivery_instructions(dispatch_id, start_live_tracking_url, recipient)
+    delivery_instructions_msg_id = await _send_delivery_instructions(
+        dispatch_id, start_live_tracking_url, recipient
+    )
 
     return Command(
         update={
             "delivery_instructions_msg_id": delivery_instructions_msg_id,
             "messages": [
-                ToolMessage("Delivery instructions sent to user."),
+                ToolMessage(
+                    "Delivery instructions sent to user.", tool_call_id=tool_call_id
+                ),
                 AIMessage(f"/dontRespond: Delivery instructions sent to user."),
-            ]
+            ],
         }
     )
+
+
 # %% DELIVERY START - send live tracking
 
+
 async def send_start_live_tracking_link(
-    send_delivery_instructions: bool,
     config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
@@ -118,7 +128,7 @@ async def send_start_live_tracking_link(
     URL will be sent to rider on WhatsApp.
 
     Args:
-        send_delivery_instructions (bool): Whether to send delivery instructions along with the live tracking link.
+        None
 
     Returns:
         dict: Agent to respond as instructed by the tool message.

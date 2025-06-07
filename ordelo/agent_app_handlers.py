@@ -1,12 +1,23 @@
 """
-Agent app handlers and utilities for Elai Ordelo agent workflows.
+Agent app handlers and utilities for Ordelo agent workflows.
     . Depends on FastAPI, LangGraph, WhatsApp (pywa, pywa_async), PostgreSQL
     . Handles rider dispatch responses and delivery state transitions
-    . Generates configuration and job links for agents (generate_config_href, create_start_job_config, create_stop_job_config)
-    . Processes synchronous and async WhatsApp delivery instructions (process_dispatch_response_from_rider_sync, initial_handle_of_rider_response, _send_delivery_instructions)
-    . Provides live map location and location enablement checks (get_live_map_location_url, is_live_location_enabled)
-    . Includes debugging and state inspection tools (debug_state)
+    . Generates configuration and job links for agents
+    . Processes synchronous and async WhatsApp delivery instructions
+    . Provides live map location and location enablement checks
+    . Includes debugging and state inspection tools
     . Utility imports for database and graph operations
+
+Functions/Classes:
+    . process_dispatch_response_from_rider_sync
+    . generate_config_href
+    . create_start_job_config
+    . create_stop_job_config
+    . initial_handle_of_rider_response
+    . get_live_map_location_url
+    . is_live_location_enabled
+    . _send_delivery_instructions
+    . debug_state
 """
 
 # %%
@@ -271,9 +282,13 @@ def is_live_location_enabled(order_number):
     )
     return len(rows) > 0
 
+
 # %%
 
-async def _send_delivery_instructions(dispatch_id: int, start_job_config_url: str, recipient: str):
+
+async def _send_delivery_instructions(
+    dispatch_id: int, start_job_config_url: str, recipient: str
+):
     """
     Sends delivery instructions (pickup and drop-off locations) via WhatsApp for a given dispatch_id.
     """
@@ -297,14 +312,12 @@ async def _send_delivery_instructions(dispatch_id: int, start_job_config_url: st
         .execute()
         .data[0]
     )
-    logger.info(f"dispatch: {dispatch}")
-    logger.info(f"summary: {summary}")
 
     delivery_summary_dtts = datetime.fromisoformat(summary["dtts"])
     pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
 
     body_text = f"""
-
+Delivery Details:
   ⏰ Pickup Time - *@{pickup_time}*
   💰 Earning - *£{dispatch["rider_payout"]}*
   🛣️ Distance - *{dispatch["distance"]} miles*
@@ -327,22 +340,23 @@ async def _send_delivery_instructions(dispatch_id: int, start_job_config_url: st
 
     await _async_wa_client.send_location(
         to=recipient,
-        latitude=summary['rest_lat'],
-        longitude=summary['rest_lon'],
+        latitude=summary["rest_lat"],
+        longitude=summary["rest_lon"],
         name=f"{summary['rest_name']} - Pick Up",
-        address=summary['rest_address'],
+        address=summary["rest_address"],
         reply_to_message_id=delivery_instructions_msg.id,
     )
 
     await _async_wa_client.send_location(
         to=recipient,
-        latitude=summary['customer_lat'],
-        longitude=summary['customer_lon'],
+        latitude=summary["customer_lat"],
+        longitude=summary["customer_lon"],
         name=f"{summary['customer_name']} - Drop Off",
-        address=summary['customer_address'],
+        address=summary["customer_address"],
         reply_to_message_id=delivery_instructions_msg.id,
     )
     return delivery_instructions_msg.id
+
 
 # %% Debug State
 async def debug_state(recipient: str, graph, pool) -> dict:
