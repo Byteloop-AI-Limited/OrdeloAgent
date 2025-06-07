@@ -1,10 +1,15 @@
 # %%
 """
-Agent runner utilities for WhatsApp automation and AI workflows.
-    . Provides async utilities to run agent graphs
-    . Integrates with LangGraph, LangChain messages, and PostgreSQL
-    . Contains run_rider_graph for executing the rider agent's workflow
-    . Contains init_ordelo_graph for initializing the rider's delivery workflow
+Core agent runner for Ordelo's delivery workflow system
+    . Dependencies: LangGraph, LangChain, psycopg_pool, WhatsApp client
+    . Initializes and runs LangGraph-based agent workflows
+    . Processes messages between rider agents and WhatsApp interface
+    . Manages delivery job state through PostgreSQL persistence
+    . Coordinates with rider_agent for workflow execution
+
+Functions:
+    . run_rider_graph - Executes rider graph and returns AI response
+    . init_ordelo_graph - Initializes delivery workflow for given detail
 """
 
 from typing import Any

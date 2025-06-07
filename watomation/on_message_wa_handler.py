@@ -1,9 +1,19 @@
 """
-WhatsApp message handler logic for OrdeloAgent.
-    . Handles incoming WhatsApp messages and triggers delivery workflows
+WhatsApp message handler for Ordelo delivery system
+    . Processes incoming WhatsApp messages and triggers delivery workflows
     . Manages thread state, delivery dispatch, and flow actions
     . Integrates with database and async messaging for delivery updates
     . Provides handlers for reset, test, clear dispatch, and live location
+    . Supports rider responses to delivery assignments via callback buttons
+
+Key Functions:
+    . process_wa_msg - Main message processing entry point
+    . reset_thread - Resets conversation state for a rider
+    . test_delivery - Simulates delivery workflow for testing
+    . clear_dispatch - Clears active dispatch assignments
+    . send_live_map_location - Shares live location map with rider
+    . live_location - Processes live location updates from riders
+    . handle_callback_button - Handles rider responses to dispatches
 """
 
 # %%
