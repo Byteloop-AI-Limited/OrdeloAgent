@@ -18,6 +18,7 @@ from delivery_detail
 order by dtts desc
 limit 10;
 
+--
 
 select *
 from delivery_inflight

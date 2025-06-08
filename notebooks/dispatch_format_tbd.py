@@ -13,6 +13,7 @@ import datetime
 from datetime import timedelta
 from config import pg_settings, _async_wa_client
 from pywa.types import ButtonUrl
+from pywa.types import Button
 
 
 async def send_delivery_instructions(dispatch_id: int):
@@ -64,7 +65,11 @@ async def send_delivery_instructions(dispatch_id: int):
         header=f"🌟 {summary['order_number']} 🌟",
         text=body_text,
         reply_to_message_id=None,
-        buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
+        buttons=[
+            # ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
+            Button(title="Get Pickup Location", callback_data="pickup_location"),
+            Button(title="Get Dropoff Location", callback_data="dropoff_location"),
+        ],
     )
 
     await _async_wa_client.send_location(
@@ -84,6 +89,7 @@ async def send_delivery_instructions(dispatch_id: int):
         address=summary["customer_address"],
         reply_to_message_id=delivery_instructions_msg.id,
     )
+
 
 # %%
 await send_delivery_instructions(dispatch_id=2329)
