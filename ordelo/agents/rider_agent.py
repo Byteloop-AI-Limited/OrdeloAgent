@@ -1,9 +1,24 @@
 # %%
 """
-Rider agent implementation for Elai Ordelo.
-    . Defines LangGraph agent nodes and tool functions for rider workflow
-    . Tools handle live tracking, confirmation code verification, and delivery completion
-    . Utilises WhatsApp async client, project settings, and Supabase REST calls
+LangGraph agent implementation for rider delivery workflow
+    . Implements rider agent nodes and tools using LangGraph and LangChain
+    . Manages delivery workflow from instructions to completion
+    . Handles live tracking, confirmation codes, and delivery status
+
+Dependencies:
+    - LangGraph for state management
+    - LangChain for tool definitions
+    - WhatsApp async client for communication
+    - Supabase REST calls for data operations
+
+Key Functions:
+    - send_delivery_instructions
+    - send_start_live_tracking_link
+    - verify_restaurant_confirmation_code
+    - verify_customer_confirmation_code
+    - end_delivery
+    - agent_node
+    - respond_node
 """
 
 from config import project_settings, client_ordelo, pg_settings
@@ -233,6 +248,9 @@ async def verify_restaurant_confirmation_code(
             f"Live location is turned on: {is_live_location_enabled(order_number)}"
         )
         # If turned on, provide live tracking link to customer
+        # Notify the customer that food has been picked up from the restaurat
+        # Provide the live tracking link to customer
+
         # Add get_journey_instructions to the agent
         return Command(
             update={
@@ -366,9 +384,9 @@ async def end_delivery(
 
     Returns:
         dict: A dictionary containing:
-            - tracking_url: URL for ending live tracking
-            - expiry: UTC timestamp when the URL expires
-            - cleanup_params: Dict of cleanup configuration parameters
+        - tracking_url: URL for ending live tracking
+        - expiry: UTC timestamp when the URL expires
+        - cleanup_params: Dict of cleanup configuration parameters
     """
     recipient = get_recipient_from_config(config)
     stop_job_url = await create_stop_job_config()

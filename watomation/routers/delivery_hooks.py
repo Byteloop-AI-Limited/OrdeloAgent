@@ -1,11 +1,25 @@
 """
-Delivery hooks router for OrdeloAgent FastAPI service.
-    . Defines FastAPI endpoints for delivery-related webhook events (delivery_dispatch_hook, delivery_inflight_graph_init_hook, notify_missed_dispatches_hook)
-    . Processes webhook payloads and updates delivery_dispatch and related tables
-    . Notifies riders of delivery events using WhatsApp messaging (wa_send_delivery_dispatch_request_to_rider)
-    . Implements extensible webhook and DB update patterns for delivery workflows
-    . Supports function chaining and conditional database operations
-    . Handles empty payloads gracefully
+Delivery webhook handlers for Ordelo delivery system
+    . Processes delivery-related webhook events from database triggers
+    . Manages delivery dispatch assignments and inflight tracking
+    . Implements function chaining pattern for complex workflows
+    . Handles missed dispatch notifications and rider communications
+    . Provides FastAPI endpoints for:
+        - Delivery dispatch assignments (delivery_dispatch_hook)
+        - Inflight tracking initialization (delivery_inflight_graph_init_hook)
+        - Missed dispatch notifications (notify_missed_dispatches_hook)
+
+Key Functions:
+    . wa_send_delivery_dispatch_request_to_rider - Notifies riders via WhatsApp
+    . delivery_dispatch_hook - Processes dispatch assignments
+    . delivery_inflight_graph_init_hook - Initializes inflight tracking
+    . notify_missed_dispatches_hook - Handles missed dispatch cases
+    . get_payload - Helper to parse webhook payloads
+
+Patterns Used:
+    . Function chaining between webhooks and SQL functions
+    . Conditional database operations
+    . Graceful empty payload handling
 """
 
 from fastapi import APIRouter, Request, Depends
@@ -238,6 +252,8 @@ async def delivery_inflight_graph_init_hook(payload: dict = Depends(get_payload)
 
     # Extract data from payload
     delivery_detail = DeliveryDetail(**payload["delivery_detail"][0])
+
+    # Call restaurant webhook - rider-inflight-event
 
     # Create as background task as the db webhook on inflight waits and errors out
     asyncio.create_task(init_ordelo_graph(delivery_detail))
