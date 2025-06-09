@@ -1,0 +1,46 @@
+# %%
+from collections import namedtuple
+
+# Define config for restaurant and webhooks. Config will be  a namedtuple called RestaurantConfig, with fields REST_REF, TYPE, REST_WEBHOOK_URL
+RestaurantConfig = namedtuple(
+    "RestaurantConfig", ["type", "base_url", "rest_webhook_url"]
+)
+
+RESTAURANT_CONFIG = {
+    "WREN-RIDER-INFLIGHT": RestaurantConfig(
+        "rider-event-inflight",
+        "https://live-track.byteloop.ai/",
+        "rider-event-hooks/rider-inflight",
+    ),
+    "WREN-RIDER-REST-CC": RestaurantConfig(
+        "rider-event-restaurant-cc",
+        "https://live-track.byteloop.ai/",
+        "rider-event-hooks/on-restaurant-cc",
+    ),
+    "WREN-RIDER-CUST-CC": RestaurantConfig(
+        "rider-event-customer-cc",
+        "https://live-track.byteloop.ai/",
+        "rider-event-hooks/on-customer-cc",
+    ),
+}
+
+
+# %%
+def get_restaurant_config(rest_ref: str, type: str) -> RestaurantConfig:
+    key = f"{rest_ref.upper()}-{type.upper()}"
+    config = RESTAURANT_CONFIG.get(key, None)
+    if config is None:
+        raise ValueError(f"Config for {key} not found")
+    return config
+
+
+# %% get_webhook_url
+
+
+def get_webhook_url(rest_ref: str, type: str) -> str:
+    config = get_restaurant_config(rest_ref, type)
+    return config.base_url + config.rest_webhook_url
+
+
+# %%
+get_restaurant_config("WREN", "rider-inflight")

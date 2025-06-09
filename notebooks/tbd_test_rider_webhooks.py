@@ -4,61 +4,37 @@ import httpx
 import asyncio
 
 # from utils_common.order_management.delivery_pymodels import DeliverySummary
-from config import client_ordelo
+from config import client_ordelo, get_webhook_url
+
 
 # %%
-p_order_number = "WREN-HFIB-21"
-delivery_summary = (
-    client_ordelo.table("delivery_summary")
-    .select("*")
-    .eq("order_number", p_order_number)
-    .limit(1)
-    .execute()
-    .data[0]
-)
-delivery_summary
-# %%
-
-
-async def post_rider_event_inflight(delivery_summary: dict):
+async def post_rider_event_restaurant_cc(order_number: str):
+    rest_ref = order_number.split("-")[0]
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            "https://live-track.byteloop.ai/rider-event-hooks/rider-inflight",
-            json=delivery_summary,
+            get_webhook_url(rest_ref, "rider-rest-cc") + "/" + order_number,
+            json={},
         )
         print("Status code:", response.status_code)
         print("Response JSON:", response.json())
 
 
-await post_rider_event_inflight(delivery_summary)
+await post_rider_event_restaurant_cc("WREN-HFIB-21")
 
 
 # %%
-async def post_rider_event_restaurant_cc(delivery_summary: dict):
+async def post_rider_event_customer_cc(order_number: str):
+    rest_ref = order_number.split("-")[0]
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            "https://live-track.byteloop.ai/rider-event-hooks/on-restaurant-cc",
-            json=delivery_summary,
+            get_webhook_url(rest_ref, "rider-cust-cc") + "/" + order_number,
+            json={},
         )
         print("Status code:", response.status_code)
         print("Response JSON:", response.json())
 
 
-await post_rider_event_restaurant_cc(delivery_summary)
-
-
-# %%
-async def post_rider_event_customer_cc(delivery_summary: dict):
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://live-track.byteloop.ai/rider-event-hooks/on-customer-cc",
-            json=delivery_summary,
-        )
-        print("Status code:", response.status_code)
-        print("Response JSON:", response.json())
-
-
-await post_rider_event_customer_cc(delivery_summary)
+await post_rider_event_customer_cc("WREN-HFIB-21")
 # %%
 # Example usage:
 # delivery = DeliverySummary(**your_kwargs_here)

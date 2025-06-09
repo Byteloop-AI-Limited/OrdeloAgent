@@ -32,6 +32,8 @@ import json
 from psycopg_pool import AsyncConnectionPool
 from ordelo.agents.agent_runner import init_ordelo_graph
 import asyncio
+from config import client_ordelo, get_webhook_url
+import httpx
 
 
 # %% Define Dependancies and routes
@@ -130,6 +132,36 @@ Vehicle type - *{delivery_summary["vehicle_type"]}*
     logger.debug(
         f"dispatch request sent to rider: {recipient}, order number: {order_number}, vehicle type: {delivery_summary['vehicle_type']}"
     )
+
+
+# %% post rider event inflight
+async def post_rider_event_inflight(order_number: str):
+    """
+    Posts the delivery summary for a given order_number to the rider-inflight webhook.
+
+    Args:
+        order_number (str): The unique identifier for the order.
+
+    Side Effects:
+        Sends an HTTP POST request to the configured rider-inflight webhook endpoint
+        with the delivery summary as JSON payload and prints the response status and JSON.
+    """
+    delivery_summary: dict = (
+        client_ordelo.table("delivery_summary")
+        .select("*")
+        .eq("order_number", order_number)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    rest_ref = order_number.split("-")[0]
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            get_webhook_url(rest_ref, "rider-inflight"),
+            json=delivery_summary,
+        )
+        logger.debug("Status code:", response.status_code)
+        logger.debug("Response JSON:", response.json())
 
 
 # %% Define paths
@@ -253,9 +285,10 @@ async def delivery_inflight_graph_init_hook(payload: dict = Depends(get_payload)
     # Extract data from payload
     delivery_detail = DeliveryDetail(**payload["delivery_detail"][0])
 
-    # Call restaurant webhook - rider-inflight-event
+    # 1. Call restaurant webhook - rider-inflight-event
+    await post_rider_event_inflight(delivery_detail.order_number)
 
-    # Create as background task as the db webhook on inflight waits and errors out
+    # 2. Create as background task as the db webhook on inflight waits and errors out
     asyncio.create_task(init_ordelo_graph(delivery_detail))
 
     return {"status": "success"}

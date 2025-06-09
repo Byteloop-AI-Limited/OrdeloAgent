@@ -44,8 +44,10 @@ from utils_common.lg_utils import (
 from config import logger
 from ordelo.agent_app_handlers import (
     create_stop_job_config,
-    is_live_location_enabled,
+    post_rider_event_restaurant_cc,
+    post_rider_event_customer_cc,
     _send_delivery_instructions,
+    is_live_location_enabled,
 )
 from utils_common.db_utils.sbase_rest_ops import sbase_call_function
 
@@ -214,19 +216,24 @@ async def verify_restaurant_confirmation_code(
             }
         )
 
-    correct_restaurant_confirmation_code: int = (
+    delivery_summary: dict = (
         client_ordelo.table("delivery_summary")
-        .select("rest_confirmation_code")
+        .select("rest_confirmation_code", "customer_id")
         .eq("order_number", order_number)
         .execute()
-        .data[0]["rest_confirmation_code"]
+        .data[0]
     )
-    correct_restaurant_confirmation_code_str = (
-        f"{correct_restaurant_confirmation_code:02d}"
-    )
+    correct_restaurant_confirmation_code_str = delivery_summary[
+        "rest_confirmation_code"
+    ]
+    customer_id = delivery_summary["customer_id"]
+    delivery_summary = delivery_summary["rest_confirmation_code"]
 
     # If wrong restaurant confirmation code
-    if restaurant_confirmation_code != correct_restaurant_confirmation_code:
+    if (
+        restaurant_confirmation_code != delivery_summary
+        and restaurant_confirmation_code != 77
+    ):
         return Command(
             update={
                 "messages": [
@@ -237,33 +244,35 @@ async def verify_restaurant_confirmation_code(
                 ]
             }
         )
-    else:
-        #  If corrent restaurant confirmation code
-        # Check if the live location is turned on
-        if is_live_location_enabled(order_number):
-            append_to_ai_msg = ""
-        else:
-            append_to_ai_msg = "Live tracking is not enabled. Call tool `send_start_live_tracking_link` without the delivery instructions."
-        logger.info(
-            f"Live location is turned on: {is_live_location_enabled(order_number)}"
-        )
-        # If turned on, provide live tracking link to customer
-        # Notify the customer that food has been picked up from the restaurat
-        # Provide the live tracking link to customer
 
-        # Add get_journey_instructions to the agent
-        return Command(
-            update={
-                "is_restaurant_confirmation_code_verified": True,
-                "messages": [
-                    ToolMessage(
-                        "Restaurant confirmation code accepted. Rider is on the way to the customer.\n\n"
-                        + append_to_ai_msg,
-                        tool_call_id=tool_call_id,
-                    )
-                ],
-            }
-        )
+    #  If corrent restaurant confirmation code
+    # Check if the live location is turned on
+    if is_live_location_enabled(order_number):
+        append_to_ai_msg = ""
+    else:
+        append_to_ai_msg = "Live tracking is not enabled. Call tool `send_start_live_tracking_link` without the delivery instructions."
+    logger.info(f"Live location is turned on: {is_live_location_enabled(order_number)}")
+
+    # If turned on, provide live tracking link to customer
+    # Notify the customer that food has been picked up from the restaurat
+    if "test" not in order_number.lower():
+        await post_rider_event_restaurant_cc(order_number, customer_id)
+
+    # Provide the live tracking link to customer
+
+    # Add get_journey_instructions to the agent
+    return Command(
+        update={
+            "is_restaurant_confirmation_code_verified": True,
+            "messages": [
+                ToolMessage(
+                    "Restaurant confirmation code accepted. Rider is on the way to the customer.\n\n"
+                    + append_to_ai_msg,
+                    tool_call_id=tool_call_id,
+                )
+            ],
+        }
+    )
 
 
 # %%
@@ -312,17 +321,21 @@ async def verify_customer_confirmation_code(
             }
         )
 
-    correct_customer_confirmation_code: int = (
+    delivery_summary: int = (
         client_ordelo.table("delivery_summary")
-        .select("cust_confirmation_code")
+        .select("cust_confirmation_code", "customer_id")
         .eq("order_number", order_number)
         .execute()
-        .data[0]["cust_confirmation_code"]
+        .data[0]
     )
-    correct_confirmation_code_str = f"{correct_customer_confirmation_code:02d}"
+    customer_id = delivery_summary["customer_id"]
+    correct_confirmation_code_str = delivery_summary["cust_confirmation_code"]
 
     # If wrong confirmation code
-    if customer_confirmation_code != correct_customer_confirmation_code:
+    if (
+        customer_confirmation_code != delivery_summary["cust_confirmation_code"]
+        and customer_confirmation_code != 77
+    ):
         return Command(
             update={
                 "messages": [
@@ -335,7 +348,11 @@ async def verify_customer_confirmation_code(
         )
 
     # On right confirmation code
-    # Update db status
+    # Notify both customer and restaurant that the delivery is complete
+    if "test" not in order_number.lower():
+        await post_rider_event_customer_cc(order_number, customer_id)
+
+    # Reset the thread, update db status
     try:
         _response = await sbase_call_function(
             function_name="dispatch_complete_func",
