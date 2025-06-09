@@ -7,6 +7,7 @@
 - otification of the location events, order completion.
 
 ## Delivery and Dispatch:
+- The dispatches are being sent even after the job has been accepted - Debug + notify missed dispatches should be tested as well. 
 - Change restaurant_master city to town (change in create_delivery_detail)
 - On timeout of a delivery, notify the customer on not being able to accept the order.
 - Reply to a particular msg when rider accepts - This of how to implement this. May be add the msg_id?
