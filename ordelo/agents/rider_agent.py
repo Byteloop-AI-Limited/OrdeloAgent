@@ -334,7 +334,7 @@ async def verify_customer_confirmation_code(
     # If wrong confirmation code
     if (
         customer_confirmation_code != delivery_summary["cust_confirmation_code"]
-        and customer_confirmation_code != 77
+        and customer_confirmation_code != 44
     ):
         return Command(
             update={
