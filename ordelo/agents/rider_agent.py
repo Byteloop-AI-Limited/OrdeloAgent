@@ -17,8 +17,16 @@ Key Functions:
     - verify_restaurant_confirmation_code
     - verify_customer_confirmation_code
     - end_delivery
-    - agent_node
+    - agent_nodecall tool `send_rider_live_location_link`
     - respond_node
+
+Fields/Functions Updated:
+    . reply_to_msg_id (was delivery_instructions_msg_id)
+    . send_delivery_instructions
+    . send_start_live_tracking_link
+    . end_delivery
+    . agent_node
+    . respond_node
 """
 
 from config import project_settings, client_ordelo, pg_settings
@@ -66,7 +74,7 @@ class AgentState(TypedDict):
     wa_user_name: str
     dispatch_id: int
     order_number: str
-    delivery_instructions_msg_id: str
+    reply_to_msg_id: str
     start_live_tracking_url: str
     delivery_start_dtts: str
     is_restaurant_confirmation_code_verified: bool
@@ -121,12 +129,12 @@ async def send_delivery_instructions(
 
     return Command(
         update={
-            "delivery_instructions_msg_id": delivery_instructions_msg_id,
+            "reply_to_msg_id": delivery_instructions_msg_id,
             "messages": [
                 ToolMessage(
                     "Delivery instructions sent to user.", tool_call_id=tool_call_id
                 ),
-                AIMessage(f"/dontRespond: Delivery instructions sent to user."),
+                AIMessage("/dontRespond: Delivery instructions sent to user."),
             ],
         }
     )
@@ -153,7 +161,7 @@ async def send_start_live_tracking_link(
     recipient = get_recipient_from_config(config)
 
     start_live_tracking_url = state.get("start_live_tracking_url", None)
-    delivery_instructions_msg_id = state.get("delivery_instructions_msg_id", None)
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
     body_text = "Please turn on the live tracking by clicking the link below."
 
     # Send the URL to the rider
@@ -161,7 +169,7 @@ async def send_start_live_tracking_link(
         to=recipient,
         header="Enable Live Tracking",
         text=body_text,
-        reply_to_message_id=delivery_instructions_msg_id,
+        reply_to_message_id=reply_to_msg_id,
         buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
     )
     logger.info(f"Message sent to {recipient}: {msg}")
@@ -407,6 +415,7 @@ async def end_delivery(
     """
     recipient = get_recipient_from_config(config)
     stop_job_url = await create_stop_job_config()
+    reply_to_msg_id = config.get("reply_to_msg_id", None)
 
     # update delivery detail and dispatch to completed
 
@@ -414,7 +423,7 @@ async def end_delivery(
     await _async_wa_client.send_message(
         to=recipient,
         text="Thank you, delivery is complete. Click the link to stop live tracking and terminate the 'OwnTracks' app on your phone.",
-        reply_to_message_id=None,
+        reply_to_message_id=reply_to_msg_id,
         buttons=ButtonUrl(title="Stop live tracking", url=stop_job_url),
     )
 

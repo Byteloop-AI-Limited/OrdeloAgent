@@ -37,6 +37,7 @@ $$ LANGUAGE plpgsql;
 -- SELECT job_assign_dispatch();
 ----------------------------------------
 -- assign_accepted_dispatch - Assigns the first accepted dispatch for an order
+-- Delivery dispatch status is updated to accepted in the initial handle of rider response thats run by on_callback `dispatch_response`
 ----------------------------------------
 DROP FUNCTION IF EXISTS assign_accepted_dispatch(VARCHAR(100));
 CREATE OR REPLACE FUNCTION assign_accepted_dispatch(p_order_number VARCHAR(100))

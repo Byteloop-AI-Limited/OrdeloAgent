@@ -35,7 +35,7 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
     callback_data["rider_id"] = recipient
 
     order_status = (
-        client.table("delivery_detail")
+        client.table("delivery_summary")
         .select("status")
         .eq("order_number", callback_data["order_number"])
         .execute()

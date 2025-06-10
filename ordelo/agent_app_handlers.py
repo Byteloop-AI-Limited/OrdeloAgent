@@ -210,8 +210,9 @@ async def initial_handle_of_rider_response(
     callback_data: dict,
     _async_wa_client: WhatsApp = _async_wa_client,
 ):
-    logger.debug(f"Initial handle of rider response: {callback_data}")
-    logger.debug(f"Order status: {order_status}")
+    logger.info(f"Initial handle of rider response: {callback_data}")
+    logger.info(f"Order status: {order_status}")
+
     # handle declined so the rest does not have tobe in an else block
     if callback_data["status"] == "declined":
         client.table("delivery_dispatch").update({"status": "declined"}).eq(
@@ -220,16 +221,14 @@ async def initial_handle_of_rider_response(
         return
 
     # now handle the accept, eagerly handle unassigned
-    if (
-        order_status["status"] == "unassigned"
-        or order_status["status"] == "vehicle_type_timedout"
-    ):
+    if order_status["status"] == "unassigned":
+        # Update dispatch status, will be done for all accepted dispatches
         client.table("delivery_dispatch").update({"status": "accepted"}).eq(
             "dispatch_id", callback_data["dispatch_id"]
         ).execute()
         return
     elif order_status["status"] == "completed":
-        logger.debug(
+        logger.info(
             "Delivery job already completed for order number: {}".format(
                 callback_data["order_number"]
             )
@@ -239,7 +238,7 @@ async def initial_handle_of_rider_response(
         )
         return
     elif order_status["status"] == "timedout":
-        logger.debug(
+        logger.info(
             "Delivery job already timed out for order number: {}".format(
                 callback_data["order_number"]
             )
