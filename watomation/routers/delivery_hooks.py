@@ -135,7 +135,7 @@ Vehicle type - *{delivery_summary["vehicle_type"]}*
 
 
 # %% post rider event inflight
-async def post_rider_event_inflight(order_number: str):
+async def post_rider_event_inflight(delivery_detail: DeliveryDetail):
     """
     Posts the delivery summary for a given order_number to the rider-inflight webhook.
 
@@ -144,21 +144,35 @@ async def post_rider_event_inflight(order_number: str):
 
     Side Effects:
         Sends an HTTP POST request to the configured rider-inflight webhook endpoint
-        with the delivery summary as JSON payload and prints the response status and JSON.
+        with the all delivery details as JSON payload and prints the response status and JSON.
     """
     delivery_summary: dict = (
         client_ordelo.table("delivery_summary")
         .select("*")
-        .eq("order_number", order_number)
+        .eq("order_number", delivery_detail.order_number)
         .limit(1)
         .execute()
         .data[0]
     )
-    rest_ref = order_number.split("-")[0]
+    rider_master = (
+        client_ordelo.table("rider_master")
+        .select("rider_name", "rider_id")
+        .eq("rider_id", delivery_detail.rider_id)
+        .eq("vehicle_type", delivery_detail.vehicle_type)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    payload = {
+        "delivery_summary": delivery_summary,
+        "delivery_detail": delivery_detail.model_dump(),
+        "rider_master": rider_master,
+    }
+    rest_ref = delivery_detail.order_number.split("-")[0]
     async with httpx.AsyncClient() as client:
         response = await client.post(
             get_webhook_url(rest_ref, "rider-inflight"),
-            json=delivery_summary,
+            json=payload,
         )
         logger.debug("Status code:", response.status_code)
         logger.debug("Response JSON:", response.json())
@@ -287,10 +301,14 @@ async def delivery_inflight_graph_init_hook(payload: dict = Depends(get_payload)
 
     # 1. Call restaurant webhook - rider-inflight-event
     if "test" not in delivery_detail.order_number.lower():
-        await post_rider_event_inflight(delivery_detail.order_number)
+        asyncio.create_task(post_rider_event_inflight(delivery_detail))
 
     # 2. Create as background task as the db webhook on inflight waits and errors out
     asyncio.create_task(init_ordelo_graph(delivery_detail))
+
+    logger.info(
+        f"Delivery inflight graph initialized for order number: {delivery_detail.order_number}"
+    )
 
     return {"status": "success"}
 

@@ -16,7 +16,10 @@ Key Components:
     . Routers - delivery_hooks, location_hooks, alert_hooks
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from contextlib import asynccontextmanager  # Added
 import logging
 
@@ -103,6 +106,16 @@ POOL_MAX_SIZE = 25
 
 # Define and set the app, call import soon after
 app = FastAPI(title="OrdeloAgent")
+
+templates = Jinja2Templates(directory="watomation/routers/templates")
+
+@app.exception_handler(404)
+async def custom_404_handler(request: Request, exc: StarletteHTTPException):
+    return templates.TemplateResponse(
+        "404.html",
+        {"request": request},
+        status_code=404,
+    )
 
 # %% Add routers
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")

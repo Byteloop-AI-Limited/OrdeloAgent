@@ -131,6 +131,18 @@ async def process_location_transition(payload):
 
 
 # %% Define paths - live location on map
+"""
+Redirects to live location map for orders
+    . Depends on FastAPI, RedirectResponse, Path, HTTPException
+    . Defines live_location_map endpoint
+    . Validates order_number and handles missing or invalid input
+    . Calls get_live_map_location_url
+    . Returns HTTP 400 for invalid order_number, 404 for missing location
+    . Function:
+        . live_location_map
+"""
+from fastapi import HTTPException
+
 @router.get(
     "/live-location-map/{order_number}",
     response_class=RedirectResponse,
@@ -140,9 +152,15 @@ async def process_location_transition(payload):
 async def live_location_map(
     order_number: str = Path(..., description="The order number to track"),
 ):
+    if not order_number or order_number.lower() == "none":
+        logger.info("Invalid order_number received")
+        raise HTTPException(status_code=400, detail="Invalid order_number")
+
     live_map_url = await get_live_map_location_url(order_number)
-    if live_map_url is None:
-        raise HTTPException(status_code=404, detail="No live location found")
+    logger.info(f"live_map_url:{live_map_url}")
+    if not live_map_url:
+        logger.info("live_map_url is None")
+        raise HTTPException(status_code=404, detail="Live location not found")
 
     return live_map_url
 
