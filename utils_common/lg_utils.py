@@ -12,7 +12,6 @@ LangChain/LangGraph utility helpers for agent creation and graph orchestration.
 from typing import Any, List
 from IPython.display import Image, display
 from langchain_core.messages import ToolMessage
-from langgraph.prebuilt import ToolInvocation
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import (
@@ -250,29 +249,6 @@ def call_agent_chain(state, chain, config):
     # messages = state["messages"]
     response = chain.invoke(state)
     return {**state, "messages": [response]}
-
-
-# Define the function to execute tools (This is not needed anymore - ToolNode)
-def call_tool(state, config, tool_executor):
-    messages = state["messages"]
-    last_message = messages[-1]
-
-    # We construct an ToolInvocation from the function_call
-    tool_call = last_message.tool_calls[0]
-    action = ToolInvocation(
-        tool=tool_call["name"],
-        tool_input=tool_call["args"],
-    )
-
-    response = tool_executor.invoke(action)
-
-    # We use the response to create a ToolMessage
-    tool_message = ToolMessage(
-        content=str(response), name=action.tool, tool_call_id=tool_call["id"]
-    )
-
-    # We return a list, because this will get added to the existing list
-    return {"messages": [tool_message]}
 
 
 # %%

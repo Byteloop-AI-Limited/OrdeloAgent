@@ -5,28 +5,34 @@ LangGraph agent implementation for rider delivery workflow
     . Manages delivery workflow from instructions to completion
     . Handles live tracking, confirmation codes, and delivery status
 
-Dependencies:
-    - LangGraph for state management
-    - LangChain for tool definitions
-    - WhatsApp async client for communication
-    - Supabase REST calls for data operations
+    Dependencies:
+        - LangGraph for state management
+        - LangChain for tool definitions
+        - WhatsApp async client for communication
+        - Supabase REST calls for data operations
 
-Key Functions:
-    - send_delivery_instructions
-    - send_start_live_tracking_link
-    - verify_restaurant_confirmation_code
-    - verify_customer_confirmation_code
-    - end_delivery
-    - agent_nodecall tool `send_rider_live_location_link`
-    - respond_node
+    Key Functions:
+        - send_delivery_instructions
+        - send_start_live_tracking_link
+        - verify_restaurant_confirmation_code
+        - verify_customer_confirmation_code
+        - end_delivery
+        - agent_nodecall tool `send_rider_live_location_link`
+        - respond_node
 
-Fields/Functions Updated:
-    . reply_to_msg_id (was delivery_instructions_msg_id)
-    . send_delivery_instructions
-    . send_start_live_tracking_link
-    . end_delivery
-    . agent_node
-    . respond_node
+    Fields/Functions Updated:
+        . reply_to_msg_id (was delivery_instructions_msg_id)
+        . send_delivery_instructions
+        . send_start_live_tracking_link
+        . send_pickup_location
+        . send_dropoff_location
+        . end_delivery
+        . agent_node
+        . respond_node
+
+    Functions/Classes:
+        . send_pickup_location
+        . send_dropoff_location
 """
 
 from config import project_settings, client_ordelo, pg_settings
@@ -36,7 +42,7 @@ from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tools import tool
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, StateGraph
-from langgraph.prebuilt import InjectedState, ToolNode
+from langgraph.prebuilt import ToolNode, InjectedState
 from langgraph.types import Command
 from typing_extensions import Literal
 from config import _async_wa_client
@@ -81,6 +87,114 @@ class AgentState(TypedDict):
     is_customer_confirmation_code_verified: bool
 
 
+# %%
+async def send_pickup_location(
+    config: RunnableConfig,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> dict:
+    """
+    Sends the pickup (restaurant) location to the rider via WhatsApp.
+    Returns a Command with ToolMessage and AIMessage.
+    """
+    recipient = get_recipient_from_config(config)
+    order_number = state.get("order_number", None)
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
+    if not order_number:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "Order number not found in state.", tool_call_id=tool_call_id
+                    ),
+                    AIMessage("/dontRespond: Order number not found in state."),
+                ]
+            }
+        )
+    client = pg_settings.client
+    summary = (
+        client.table("delivery_summary")
+        .select("*")
+        .eq("order_number", order_number)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    await _async_wa_client.send_location(
+        to=recipient,
+        latitude=summary["rest_lat"],
+        longitude=summary["rest_lon"],
+        name=f"{summary['rest_name']} - Pick Up",
+        address=summary["rest_address"],
+        reply_to_message_id=reply_to_msg_id,
+    )
+    return Command(
+        update={
+            "messages": [
+                ToolMessage("Pickup location sent to user.", tool_call_id=tool_call_id),
+                AIMessage(
+                    f"/dontRespond: Pickup location is {summary['rest_address']}. Location is sent to rider on WhatsApp."
+                ),
+            ]
+        }
+    )
+
+
+# %%
+async def send_dropoff_location(
+    config: RunnableConfig,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> dict:
+    """
+    Sends the dropoff (customer) location to the rider via WhatsApp.
+    Returns a Command with ToolMessage and AIMessage.
+    """
+    recipient = get_recipient_from_config(config)
+    order_number = state.get("order_number", None)
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
+    if not order_number:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "Order number not found in state.", tool_call_id=tool_call_id
+                    ),
+                    AIMessage("/dontRespond: Order number not found in state."),
+                ]
+            }
+        )
+    client = pg_settings.client
+    summary = (
+        client.table("delivery_summary")
+        .select("*")
+        .eq("order_number", order_number)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    await _async_wa_client.send_location(
+        to=recipient,
+        latitude=summary["customer_lat"],
+        longitude=summary["customer_lon"],
+        name=f"{summary['customer_name']} - Drop Off",
+        address=summary["customer_address"],
+        reply_to_message_id=reply_to_msg_id,
+    )
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    "Dropoff location sent to user.", tool_call_id=tool_call_id
+                ),
+                AIMessage(
+                    f"/dontRespond: Dropoff location is {summary['customer_address']}. Location is sent to rider on WhatsApp."
+                ),
+            ]
+        }
+    )
+
+
 # # %% Get Journey Instruction
 # async def get_journey_instructions(state: AgentState) -> str:
 #     if state.get("dispatch_id", None) is None:
@@ -97,15 +211,9 @@ class AgentState(TypedDict):
 #         return "Delivery address confirmed, min_order_value calculated. Order placed. Send payment link ONLY when order value is more than min_order_value."
 #     elif state.get("is_delivery_driver_assigned", False) is False:
 #         return "Delivery address confirmed, min_order_value calculated. Order placed. Payment completed. Inform user that we are looking for available delivery drivers."
-#     elif state.get("food_collected_from_restaurant", False) is False:
-#         return "Delivery address confirmed, min_order_value calculated. Order placed. Payment completed. Inform user that driver is assigned and is yet to collect the food from the restaurant."
-#     else:
-#         return "Refer to the original system prompt and continue with the journey."
 
 
-# %% Sending delivery instructions
-
-
+# %%
 async def send_delivery_instructions(
     config: RunnableConfig,
     state: Annotated[dict, InjectedState],
@@ -122,19 +230,25 @@ async def send_delivery_instructions(
     """
     recipient = get_recipient_from_config(config)
     dispatch_id = state.get("dispatch_id", None)
-    start_live_tracking_url = state.get("start_live_tracking_url", None)
-    delivery_instructions_msg_id = await _send_delivery_instructions(
-        dispatch_id, start_live_tracking_url, recipient
-    )
+    # url updated in init
+    live_tracking_url = state.get("start_live_tracking_url", None)
+
+    (
+        reply_to_msg_id,
+        delivery_instructions_str,
+    ) = await _send_delivery_instructions(dispatch_id, live_tracking_url, recipient)
 
     return Command(
         update={
-            "reply_to_msg_id": delivery_instructions_msg_id,
+            "reply_to_msg_id": reply_to_msg_id,
             "messages": [
                 ToolMessage(
-                    "Delivery instructions sent to user.", tool_call_id=tool_call_id
+                    "Delivery instructions sent to user. Request rider to start live location tracking by calling `send_start_live_tracking_link` tool.",
+                    tool_call_id=tool_call_id,
                 ),
-                AIMessage("/dontRespond: Delivery instructions sent to user."),
+                AIMessage(
+                    f"/dontRespond: Delivery Instructions:{delivery_instructions_str}. Instructions are sent to rider on WhatsApp."
+                ),
             ],
         }
     )
@@ -149,7 +263,7 @@ async def send_start_live_tracking_link(
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
     """
-    Generates and sends a URL for initiating live tracking on the driver's device.
+    Generates and sends a URL for initiating live tracking on the rider's device.
     URL will be sent to rider on WhatsApp.
 
     Args:
@@ -451,6 +565,8 @@ with open(
 _rider_agent_tools = [
     send_delivery_instructions,
     send_start_live_tracking_link,
+    send_pickup_location,
+    send_dropoff_location,
     verify_restaurant_confirmation_code,
     verify_customer_confirmation_code,
     end_delivery,

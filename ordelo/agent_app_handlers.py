@@ -1,5 +1,9 @@
 """
 Agent app handlers and utilities for Ordelo agent workflows.
+
+from pydantic import BaseModel
+from typing import Optional
+
     . Depends on FastAPI, LangGraph, WhatsApp (pywa, pywa_async), PostgreSQL, httpx
     . Handles rider dispatch responses and delivery state transitions
     . Generates configuration and job links for agents
@@ -33,7 +37,9 @@ from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from pywa_async import WhatsApp
 from datetime import timedelta
 from config import pg_settings, _async_wa_client
-from pywa.types import ButtonUrl
+from pydantic import BaseModel
+from typing import Optional
+from pywa.types import ButtonUrl, Button
 from config import (
     logger,
     _async_wa_client,
@@ -287,16 +293,40 @@ def is_live_location_enabled(order_number):
     return len(rows) > 0
 
 
+# %% Callback model
+class CallbackButtonData(BaseModel):
+    model_config = {"frozen": True}
+    action: str
+    recipient: str
+    ai_msg: str
+    human_msg: str
+    response: Optional[str] = None
+
+
 # %%
 
 
 async def _send_delivery_instructions(
-    dispatch_id: int, start_job_config_url: str, recipient: str
+    dispatch_id: int, start_live_tracking_url: str, recipient: str
 ):
     """
     Sends delivery instructions (pickup and drop-off locations) via WhatsApp for a given dispatch_id.
     """
     client = pg_settings.client
+    pickup_cb_data = CallbackButtonData(
+        action="/riderLocationRequest",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="Send me the pickup location",
+        response="",
+    )
+    dropoff_cb_data = CallbackButtonData(
+        action="/riderLocationRequest",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="Send me the dropoff location",
+        response="",
+    )
 
     dispatch = (
         client.table("delivery_dispatch")
@@ -334,32 +364,36 @@ Delivery Details:
 
 👨‍💻 Please let me know if you have any questions during the delivery process.
     """
-    delivery_instructions_msg = await _async_wa_client.send_message(
+    reply_to_msg_id = await _async_wa_client.send_message(
         to=recipient,
         header=f"🌟 {summary['order_number']} 🌟",
         text=body_text,
         reply_to_message_id=None,
-        buttons=ButtonUrl(title="Start live tracking", url=start_job_config_url),
+        buttons=[
+            Button(
+                title="Pickup Location", callback_data=pickup_cb_data.model_dump_json()
+            ),
+            Button(
+                title="Dropoff Location",
+                callback_data=dropoff_cb_data.model_dump_json(),
+            ),
+        ],
     )
 
-    await _async_wa_client.send_location(
+    # Send the URL to the rider
+    await _async_wa_client.send_message(
         to=recipient,
-        latitude=summary["rest_lat"],
-        longitude=summary["rest_lon"],
-        name=f"{summary['rest_name']} - Pick Up",
-        address=summary["rest_address"],
-        reply_to_message_id=delivery_instructions_msg.id,
+        header="Enable Live Tracking",
+        text="Please turn on the live tracking by clicking the link below.",
+        reply_to_message_id=reply_to_msg_id.id,
+        buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
     )
+    return reply_to_msg_id.id, body_text
 
-    await _async_wa_client.send_location(
-        to=recipient,
-        latitude=summary["customer_lat"],
-        longitude=summary["customer_lon"],
-        name=f"{summary['customer_name']} - Drop Off",
-        address=summary["customer_address"],
-        reply_to_message_id=delivery_instructions_msg.id,
-    )
-    return delivery_instructions_msg.id
+
+# %% Test
+# dispatch_id = 2864
+# await _send_delivery_instructions(dispatch_id, "https://agent.ordelo.co.uk", "447448440754")
 
 
 # %%

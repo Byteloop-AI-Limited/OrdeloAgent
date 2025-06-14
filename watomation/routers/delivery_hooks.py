@@ -235,6 +235,9 @@ async def delivery_dispatch_hook(payload: dict = Depends(get_payload)):
             delivery_summary=delivery_summary,
             dispatch_id=dispatch_id,
         )
+        logger.info(
+            f"Delivery dispatch request sent to rider: {rider_id}, {delivery_summary['vehicle_type']}"
+        )
     return {"status": "success"}
 
 

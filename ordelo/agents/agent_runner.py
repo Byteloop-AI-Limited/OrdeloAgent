@@ -29,7 +29,11 @@ from langgraph.checkpoint.postgres import PostgresSaver
 
 
 async def run_rider_graph(
-    recipient: str, human_msg: str = None, ai_msg: str = None, system_msg: str = None
+    recipient: str,
+    human_msg: str = None,
+    ai_msg: str = None,
+    system_msg: str = None,
+    state_update_dict: dict = None,
 ):
     """Runs the rider graph and returns the AI's response."""
     logger.debug(
@@ -54,6 +58,8 @@ async def run_rider_graph(
     checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
     graph = builder.compile(checkpointer=checkpointer)
     config: dict[str, Any] = await get_config_for_recipient(recipient, pool)
+    if state_update_dict:
+        await graph.aupdate_state(config, state_update_dict, as_node="toolNode")
     ai_msg = await graph.ainvoke(input=ip_msgs, config=config)
     ai_msg_content: str = ai_msg["messages"][-1].content
 
