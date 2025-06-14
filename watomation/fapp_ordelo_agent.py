@@ -40,7 +40,11 @@ from config import (
     pg_settings,
 )  # Added pg_settings
 
-from watomation.routers import delivery_hooks, location_hooks, alert_hooks
+from watomation.routers import (
+    delivery_hooks,
+    location_hooks,
+    whatsapp_router,
+)
 from watomation.on_message_wa_handler import (
     reset_thread,
     test_delivery,
@@ -50,7 +54,7 @@ from watomation.on_message_wa_handler import (
     clear_dispatch,
     send_live_map_location,
 )
-from watomation.on_callback_wa_handler import dispatch_response
+from watomation.on_callback_wa_handler import dispatch_response, rider_request_location
 from watomation.on_flow_request_wa_handler import (
     on_customer_address_flow,
     on_customer_address_flow_data_exchange,
@@ -109,6 +113,7 @@ app = FastAPI(title="OrdeloAgent")
 
 templates = Jinja2Templates(directory="watomation/routers/templates")
 
+
 @app.exception_handler(404)
 async def custom_404_handler(request: Request, exc: StarletteHTTPException):
     return templates.TemplateResponse(
@@ -117,10 +122,12 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
         status_code=404,
     )
 
+
 # %% Add routers
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
 app.include_router(location_hooks.router, prefix="/location-hooks")
-app.include_router(alert_hooks.router, prefix="/alert-hooks")
+# app.include_router(twilio_router.router, prefix="/twilio-router")
+app.include_router(whatsapp_router.router, prefix="/whatsapp-router")
 
 # %% DEFINE WA
 if __name__ == "__main__":
@@ -168,6 +175,7 @@ TEST_FLOW = filters.contains("/flow", ignore_case=True)
 
 WHEN_RESET = filters.contains("/reset", ignore_case=True)
 IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
+IS_LOCATION_REQUEST = filters.contains("/riderLocationRequest", ignore_case=False)
 
 # %% Add WA On Msg handlers
 wa.add_handlers(
@@ -179,6 +187,9 @@ wa.add_handlers(
     handlers.MessageHandler(callback=process_wa_msg),
     handlers.CallbackButtonHandler(
         callback=dispatch_response, filters=IS_DISPATCH_RESPONSE
+    ),
+    handlers.CallbackButtonHandler(
+        callback=rider_request_location, filters=IS_LOCATION_REQUEST
     ),
     handlers.FlowCompletionHandler(callback=on_customer_address_flow_completion),
 )

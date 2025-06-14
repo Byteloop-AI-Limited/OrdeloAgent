@@ -6,6 +6,9 @@
 - On inflight create, send to restaurant from Elai
 - otification of the location events, order completion.
 
+## Rider Agent
+- Add rider name to the state, in init_ordelo_graph
+
 ## Delivery and Dispatch:
 - The dispatches are being sent even after the job has been accepted - Debug + notify missed dispatches should be tested as well. 
 - Change restaurant_master city to town (change in create_delivery_detail)

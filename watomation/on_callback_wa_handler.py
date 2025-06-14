@@ -19,6 +19,8 @@ import json
 # project modules
 from ordelo.agent_app_handlers import initial_handle_of_rider_response
 from config import pg_settings
+from ordelo.agents.agent_runner import run_rider_graph
+# %%
 
 
 async def dispatch_response(wa: WhatsApp, msg: Message):
@@ -54,3 +56,16 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
 
     order_status = order_status.data[0]
     await initial_handle_of_rider_response(order_status, callback_data)
+
+
+# %%
+async def rider_request_location(wa: WhatsApp, msg: Message):
+    """
+    Rider's request for location. This is a blocking operation. Entry point into the graph.
+    """
+
+    callback_data: dict = json.loads(msg.data)
+    logger.info(f"callbackdata: {callback_data}")
+    await run_rider_graph(
+        recipient=callback_data["recipient"], human_msg=callback_data["human_msg"]
+    )
