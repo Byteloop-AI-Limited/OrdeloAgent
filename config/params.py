@@ -22,6 +22,11 @@ RESTAURANT_CONFIG = {
         "https://live-track.byteloop.ai/",
         "rider-event-hooks/on-customer-cc",
     ),
+    "WREN-DELIVERY-TIMEDOUT": RestaurantConfig(
+        "delivery-timedout",
+        "https://live-track.byteloop.ai/",
+        "rider-event-hooks/delivery-timedout",
+    ),
 }
 
 
@@ -35,12 +40,10 @@ def get_restaurant_config(rest_ref: str, type: str) -> RestaurantConfig:
 
 
 # %% get_webhook_url
-
-
 def get_webhook_url(rest_ref: str, type: str) -> str:
     config = get_restaurant_config(rest_ref, type)
     return config.base_url + config.rest_webhook_url
 
 
 # %%
-get_restaurant_config("WREN", "rider-inflight")
+get_webhook_url("WREN", "delivery-timedout")

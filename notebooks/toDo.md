@@ -1,15 +1,8 @@
 ## Delivery flow - Agent
-- Create tool for sending_delivery_instructions
-    - this tools should send a very detailed delivery instructions, along with locations of pickup and dropoff. Mainly, this should store the wa.msg_id in the graph state.
 - Remove the init_ordelo_graph, work on the setup node and add get_journey_instructions
-- On dispatch create, send the delivery reciept from Ordelo
-- On inflight create, send to restaurant from Elai
-- otification of the location events, order completion.
 
 ## Rider Agent
-- Add rider name to the state, in init_ordelo_graph
-- On multiple accept, the flow fails; If accept and already inflight, dont do any ondb update and send a notification. Find out why the flow doesnt work.
-
+- Introduce timeout in process delivery
 ## Delivery and Dispatch:
 - The dispatches are being sent even after the job has been accepted - Debug + notify missed dispatches should be tested as well. 
 - Change restaurant_master city to town (change in create_delivery_detail)

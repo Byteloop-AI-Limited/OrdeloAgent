@@ -120,4 +120,40 @@ BEGIN
   ;
 END;
 $$;
--- - Change delivery_detail structure; Dont need insert_delivery_detail function, can just be insert into in the manage_delivery_detail function
+-- Create a trigger for when the status of delivery_summary changes to 'timedout'
+CREATE TRIGGER trigger_delivery_summary_timedout
+AFTER UPDATE ON public.delivery_summary
+FOR EACH ROW
+WHEN (OLD.status <> 'timedout' AND NEW.status = 'timedout')
+EXECUTE FUNCTION public.delivery_summary_timedout_whook();
+
+-- delivery_summary_timedout_whook function
+CREATE OR REPLACE FUNCTION public.delivery_summary_timedout_whook()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  response json;
+  webhook_payload json;
+BEGIN
+  -- Combine the NEW record with additional data from delivery_detail; required to invoke graph
+  SELECT json_build_object(
+    'delivery_summary', json_build_array(row_to_json(NEW))
+) INTO webhook_payload;
+
+  -- Make the HTTP POST request with the combined payload
+  response := (
+    SELECT content 
+    FROM http_post(
+      'https://agent.ordelo.app/delivery-hooks/delivery-timedout', 
+      webhook_payload::text,
+      'application/json'
+    )
+  );
+  
+  -- Log the response
+  RAISE NOTICE 'Response from HTTP POST to delivery-timedout: %', response;
+  
+  RETURN NEW;
+END;
+$$;

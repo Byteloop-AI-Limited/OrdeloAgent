@@ -3,6 +3,12 @@ select *
 from rider_master
 limit 2;
 
+-- on postgresql, how to find if there are any triggers defined on the table delivery_summary?
+
+select *
+from pg_trigger
+where tgrelid = 'delivery_summary'::regclass;
+
 
 select status,
 	rest_confirmation_code,
