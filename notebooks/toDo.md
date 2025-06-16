@@ -8,6 +8,7 @@
 
 ## Rider Agent
 - Add rider name to the state, in init_ordelo_graph
+- On multiple accept, the flow fails; If accept and already inflight, dont do any ondb update and send a notification. Find out why the flow doesnt work.
 
 ## Delivery and Dispatch:
 - The dispatches are being sent even after the job has been accepted - Debug + notify missed dispatches should be tested as well. 
