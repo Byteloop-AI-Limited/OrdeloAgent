@@ -1,6 +1,6 @@
 # %%
 """
-LangGraph agent implementation for rider delivery workflow
+LangGraph agent implementation for rider delivery workflo
     . Implements rider agent nodes and tools using LangGraph and LangChain
     . Manages delivery workflow from instructions to completion
     . Handles live tracking, confirmation codes, and delivery status
@@ -88,52 +88,42 @@ class AgentState(TypedDict):
 
 
 # %%
-async def send_pickup_location(
+async def notify_food_ready_for_pickup(
+    restaurant_name: str,
     config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
     """
-    Sends the pickup (restaurant) location to the rider via WhatsApp.
-    Returns a Command with ToolMessage and AIMessage.
+    Notifies the rider via WhatsApp that food is ready for pickup at the restaurant.
+
+    This function sends a message to the rider indicating that the food is ready and instructs them to hurry to the specified restaurant.
+    It also sends the pickup (restaurant) location. Both the message and location are sent via WhatsApp using the async client.
+
+    Args:
+        restaurant_name (str): Name of the restaurant where the food is ready.
+
+    Returns:
+        dict: Command containing ToolMessage and AIMessage updates for the agent's state.
     """
     recipient = get_recipient_from_config(config)
-    order_number = state.get("order_number", None)
     reply_to_msg_id = state.get("reply_to_msg_id", None)
-    if not order_number:
-        return Command(
-            update={
-                "messages": [
-                    ToolMessage(
-                        "Order number not found in state.", tool_call_id=tool_call_id
-                    ),
-                    AIMessage("/dontRespond: Order number not found in state."),
-                ]
-            }
-        )
-    client = pg_settings.client
-    summary = (
-        client.table("delivery_summary")
-        .select("*")
-        .eq("order_number", order_number)
-        .limit(1)
-        .execute()
-        .data[0]
-    )
-    await _async_wa_client.send_location(
+    rider_name = state.get("rider_name", None)
+
+    await _async_wa_client.send_message(
         to=recipient,
-        latitude=summary["rest_lat"],
-        longitude=summary["rest_lon"],
-        name=f"{summary['rest_name']} - Pick Up",
-        address=summary["rest_address"],
+        text=f"Hello {rider_name}, food is ready for pickup! Please hurry to {restaurant_name} to collect the order.",
         reply_to_message_id=reply_to_msg_id,
     )
+
     return Command(
         update={
             "messages": [
-                ToolMessage("Pickup location sent to user.", tool_call_id=tool_call_id),
+                ToolMessage(
+                    "Order number not found in state.", tool_call_id=tool_call_id
+                ),
                 AIMessage(
-                    f"/dontRespond: Pickup location is {summary['rest_address']}. Location is sent to rider on WhatsApp."
+                    "/dontRespond: Food is ready for pickup! Please hurry to {restaurant_name} to collect the order."
                 ),
             ]
         }
@@ -570,7 +560,7 @@ with open(
 _rider_agent_tools = [
     send_delivery_instructions,
     send_start_live_tracking_link,
-    send_pickup_location,
+    notify_food_ready_for_pickup,
     send_dropoff_location,
     verify_restaurant_confirmation_code,
     verify_customer_confirmation_code,

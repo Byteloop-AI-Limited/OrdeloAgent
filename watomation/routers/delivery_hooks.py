@@ -8,12 +8,14 @@ Delivery webhook handlers for Ordelo delivery system
         - Delivery dispatch assignments (delivery_dispatch_hook)
         - Inflight tracking initialization (delivery_inflight_graph_init_hook)
         - Missed dispatch notifications (notify_missed_dispatches_hook)
+        - Restaurant manager to rider message relay (relay_restaurant_manager_msgs_to_rider)
 
 Key Functions:
     . wa_send_delivery_dispatch_request_to_rider - Notifies riders via WhatsApp
     . delivery_dispatch_hook - Processes dispatch assignments
     . delivery_inflight_graph_init_hook - Initializes inflight tracking
     . notify_missed_dispatches_hook - Handles missed dispatch cases
+    . relay_restaurant_manager_msgs_to_rider - Relays manager messages to rider
     . get_payload - Helper to parse webhook payloads
 
 Patterns Used:
@@ -34,6 +36,7 @@ from ordelo.agents.agent_runner import init_ordelo_graph
 import asyncio
 from config import client_ordelo, get_webhook_url
 import httpx
+from ordelo.agents.agent_runner import run_rider_graph
 
 
 # %% Define Dependancies and routes
@@ -176,6 +179,28 @@ async def post_rider_event_inflight(delivery_detail: DeliveryDetail):
         )
         logger.debug("Status code:", response.status_code)
         logger.debug("Response JSON:", response.json())
+
+
+# %% post delivery timedout
+async def post_delivery_timedout(delivery_summary: dict):
+    """
+    Posts the delivery summary for a given order_number to the delivery-timedout webhook.
+
+    Args:
+        delivery_summary (dict): The payload for the delivery-timedout webhook.
+
+    Side Effects:
+        Sends an HTTP POST request to the configured delivery-timedout webhook endpoint
+        with the all delivery details as JSON payload and prints the response status and JSON.
+    """
+    rest_ref = delivery_summary["order_number"].split("-")[0]
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            get_webhook_url(rest_ref, "delivery-timedout"),
+            json=delivery_summary,
+        )
+    logger.info("Status code:", response.status_code)
+    logger.info("Response JSON:", response.json())
 
 
 # %% Define paths
@@ -423,3 +448,68 @@ async def notify_missed_dispatches_hook(payload: dict = Depends(get_payload)):
         #     logger.error(f"Error updating dispatch status for order {order_number}: {str(e)}")
 
     return {"status": "success"}
+
+
+# %% Notify food ready for pickup
+@router.post(
+    "/notify-food-ready-for-pickup/{recipient}",
+    summary="Notify food ready for pickup",
+    response_description="Status of the notification operation",
+)
+async def notify_food_ready_for_pickup(
+    recipient: str,
+    payload: dict = Depends(get_payload),
+):
+    """
+    Notify food ready for pickup to a specific rider.
+
+    Args:
+        recipient (str): The WhatsApp phone number or unique identifier of the rider.
+        payload (dict): The JSON payload sent in the POST request body.
+
+    Returns:
+        dict: Status of the notification operation.
+    """
+    restaurant_name = payload.get("restaurant_name", None)
+
+    await run_rider_graph(
+        recipient,
+        system_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {restaurant_name} to pickup the food.",
+    )
+    return {"status": "success", "recipient": recipient, "payload": payload}
+
+
+# %% delivery-timedout
+@router.post(
+    "/delivery-timedout",
+    summary="Handle delivery timedout",
+    response_description="Status of the delivery timedout operation",
+)
+async def delivery_timedout(
+    payload: dict = Depends(get_payload),
+):
+    delivery_summary_lst = payload.get("delivery_summary", None)
+    delivery_summary = delivery_summary_lst[0]
+    if "test" not in delivery_summary["order_number"]:  # skip test orders
+        await post_delivery_timedout(delivery_summary)
+    return {"status": "success"}
+
+
+# %% Check rider allocation status
+@router.get(
+    "/check-rider-allocation-status/{order_number}",
+    summary="Check rider allocation status",
+    response_description="Status of the rider allocation status operation",
+)
+async def check_rider_allocation_status(
+    order_number: str,
+):
+    delivery_summary = (
+        client.table("delivery_summary")
+        .select("*")
+        .eq("order_number", order_number)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    return {"delivery_summary_status": delivery_summary["status"]}
