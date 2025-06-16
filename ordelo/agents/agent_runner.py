@@ -18,7 +18,7 @@ import asyncio
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg_pool import AsyncConnectionPool
-from config import logger, pg_settings, _async_wa_client
+from config import logger, pg_settings, _async_wa_client, client_ordelo
 from utils_common.lg_utils import get_config_for_recipient
 from ordelo.agents.rider_agent import builder
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
@@ -75,13 +75,20 @@ async def init_ordelo_graph(d_detail: DeliveryDetail):
     config = await get_config_for_recipient(d_detail.rider_id, pool)
 
     start_live_tracking_url = await create_start_job_config(d_detail)
-
+    # using client.table, query the rider_master table on rider_id and get the name.
+    rider_name = (
+        client_ordelo.table("rider_master")
+        .select("rider_name")
+        .eq("rider_id", d_detail.rider_id)
+        .execute()
+        .data[0]["rider_name"]
+    )
     # update graph state
     # Setup context
     ip_msgs = {
         "messages": [
             SystemMessage(
-                "Rider has accepted the delivery job, call `send_delivery_instructions` tool to send the delivery instructions"
+                f"Rider {rider_name} has accepted the delivery job, call `send_delivery_instructions` tool to send the delivery instructions"
             ),
             HumanMessage("I have accepted the delivery job."),
         ]
@@ -94,6 +101,7 @@ async def init_ordelo_graph(d_detail: DeliveryDetail):
             "order_number": d_detail.order_number,
             "start_live_tracking_url": start_live_tracking_url,
             "delivery_start_dtts": delivery_start_dtts,
+            "rider_name": rider_name,
         },
         as_node="toolNode",
     )

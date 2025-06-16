@@ -307,7 +307,7 @@ class CallbackButtonData(BaseModel):
 
 
 async def _send_delivery_instructions(
-    dispatch_id: int, start_live_tracking_url: str, recipient: str
+    dispatch_id: int, start_live_tracking_url: str, recipient: str, rider_name: str
 ):
     """
     Sends delivery instructions (pickup and drop-off locations) via WhatsApp for a given dispatch_id.
@@ -351,7 +351,7 @@ async def _send_delivery_instructions(
     pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
 
     body_text = f"""
-Delivery Details:
+Hi {rider_name}, here are the Delivery details:
   ⏰ Pickup Time - *@{pickup_time}*
   💰 Earning - *£{dispatch["rider_payout"]}*
   🛣️ Distance - *{dispatch["distance"]} miles*

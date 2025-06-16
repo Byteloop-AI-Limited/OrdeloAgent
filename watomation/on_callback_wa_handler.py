@@ -18,7 +18,7 @@ import json
 
 # project modules
 from ordelo.agent_app_handlers import initial_handle_of_rider_response
-from config import pg_settings
+from config import pg_settings, client_ordelo
 from ordelo.agents.agent_runner import run_rider_graph
 # %%
 
@@ -28,7 +28,6 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
     Rider's response to delivery dispatch. This is a blocking operation. Entry point into the graph.
     """
     # get app state resources
-    client = pg_settings.client
     recipient = msg.sender
 
     callback_data: dict = json.loads(msg.data)
@@ -36,8 +35,9 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
     callback_data.pop("command")
     callback_data["rider_id"] = recipient
 
+    # If order is not found
     order_status = (
-        client.table("delivery_summary")
+        client_ordelo.table("delivery_summary")
         .select("status")
         .eq("order_number", callback_data["order_number"])
         .execute()
@@ -52,6 +52,22 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
         await wa.send_message(
             to=recipient, text="Sorry, This job is no longer available"
         )
+        return
+
+    # If order is rider is already inflight
+    inflight = (
+        client_ordelo.table("delivery_inflight")
+        .select("*")
+        .eq("rider_id", recipient)
+        .execute()
+    )
+    if len(inflight.data) > 0:
+        logger.info(
+            "Rider is already inflight for order number: {}".format(
+                callback_data["order_number"]
+            )
+        )
+        await wa.send_message(to=recipient, text="Sorry, You are already on a job")
         return
 
     order_status = order_status.data[0]

@@ -77,7 +77,7 @@ from typing_extensions import TypedDict
 # %%
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
-    wa_user_name: str
+    rider_name: str
     dispatch_id: int
     order_number: str
     reply_to_msg_id: str
@@ -232,11 +232,14 @@ async def send_delivery_instructions(
     dispatch_id = state.get("dispatch_id", None)
     # url updated in init
     live_tracking_url = state.get("start_live_tracking_url", None)
+    rider_name = state.get("rider_name", None)
 
     (
         reply_to_msg_id,
         delivery_instructions_str,
-    ) = await _send_delivery_instructions(dispatch_id, live_tracking_url, recipient)
+    ) = await _send_delivery_instructions(
+        dispatch_id, live_tracking_url, recipient, rider_name
+    )
 
     return Command(
         update={
@@ -372,7 +375,9 @@ async def verify_restaurant_confirmation_code(
     if is_live_location_enabled(order_number):
         append_to_ai_msg = ""
     else:
-        append_to_ai_msg = "Live tracking is not enabled. Call tool `send_start_live_tracking_link` without the delivery instructions."
+        append_to_ai_msg = (
+            "Live tracking is not enabled. Call tool `send_start_live_tracking_link`"
+        )
     logger.info(f"Live location is turned on: {is_live_location_enabled(order_number)}")
 
     # If turned on, provide live tracking link to customer
