@@ -39,18 +39,24 @@ BEGIN
         SELECT
             inflight.order_number,
             inflight.rider_id,
-            MAX(location.dtts) as dtts
+            MAX(location.dtts) as last_location_dtts
         FROM delivery_inflight inflight
         LEFT JOIN rider_location location
             ON inflight.order_number = location.order_number
             AND inflight.rider_id = location.rider_id
-        WHERE location.id IS NULL
-           OR (current_timestamp - location.dtts) > interval_expr
         GROUP BY inflight.order_number, inflight.rider_id
+    ), inflight_to_notify AS (
+        SELECT
+            order_number,
+            rider_id,
+            last_location_dtts AS dtts
+        FROM inflight_missing_location
+        WHERE last_location_dtts IS NULL
+           OR (current_timestamp - last_location_dtts) > interval_expr
     )
     SELECT json_agg(json_build_object('order_number', order_number, 'rider_id', rider_id, 'dtts', dtts))
       INTO webhook_payload
-      FROM inflight_missing_location;
+      FROM inflight_to_notify;
 
     -- Only POST if there is at least one item
     IF webhook_payload IS NOT NULL THEN

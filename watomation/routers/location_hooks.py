@@ -306,6 +306,15 @@ async def notify_rider_live_tracking_not_enabled(request: Request):
     """
     payloadinflight_rows = await request.json()
     logger.info(payloadinflight_rows)
+    for row in payloadinflight_rows:
+        rider_id = row["rider_id"]
+        order_number = row["order_number"]
+        await _async_wa_client.send_message(
+            to=rider_id,
+            # header=f"{order_number} Update",
+            text="Please enable live tracking to receive updates on your delivery.",
+        )
+
     # asyncio.create_task(run_rider_graph(
     #     payloadinflight_rows,
     #     system_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {restaurant_name} to pickup the food.",
