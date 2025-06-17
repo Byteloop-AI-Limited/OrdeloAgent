@@ -2,7 +2,7 @@
 Complete a dispatch (Complete the delivery process)
 
 Invocation:
-1. Called by agent when delivery is complete
+1. Called by agent(on customer confirmation code) when delivery is complete
 2. Used by test
 
 Purpose:
