@@ -1,23 +1,33 @@
 /**
-Delivery Detail Management
+Delivery Detail Management – Step 2 in Delivery Workflow
+
+Where This Fits in the Journey:
+    - This function is the second step in the delivery agent workflow, as outlined in handwritten_design.md.
+    - Step 1: init_delivery – Creates delivery_summary and calls process_delivery().
+    - Step 2: process_delivery – Creates delivery_detail records for each vehicle type, manages assignment, timeouts, and triggers further workflow.
+    - Step 3+: Downstream jobs (e.g., job_create_dispatch) and triggers handle dispatch creation, assignment, inflight tracking, and notifications.
+
 Invocation:
-1. Scheduled via pg_cron job manage_delivery_detail() every 5 seconds
+    - Scheduled via pg_cron job manage_delivery_detail() every 5 seconds, or called eagerly by init_delivery().
 
 Purpose:
-- Manage assignment and timeout of `delivery_detail` records per order
-- Prioritize vehicle types based on rank
-- Insert next eligible `delivery_detail` when timeouts occur
-- Mark orders as `timedout` in `delivery_summary` when all vehicle types have timed out AND the time delta between NOW() and ds.dtts exceeds DELIVERY_TIMEOUT_TIME (from ordelo_config)
-- DELIVERY_TIMEOUT_TIME is obtained from ordelo_config with config_key = 'delivery_timeout_TIME'
-- The status for this table is updated to `vehicle_type_timedout` by `job_create_dispatch`
-Depends on tables: `delivery_summary`, `delivery_detail`, `delivery_option`, `ordelo_config`
+    - Manage assignment and timeout of `delivery_detail` records per order.
+    - Prioritize vehicle types based on rank from `delivery_option`.
+    - Insert next eligible `delivery_detail` when timeouts occur.
+    - Mark orders as `timedout` in `delivery_summary` when all vehicle types have timed out and the time delta exceeds DELIVERY_TIMEOUT_TIME (from ordelo_config).
+    - DELIVERY_TIMEOUT_TIME is obtained from ordelo_config with config_key = 'delivery_timeout_TIME'.
+    - The status for this table is updated to `vehicle_type_timedout` by downstream jobs.
 
-Execution:
-- Frequency: Every 5 seconds
+Dependencies:
+    - Reads from: `delivery_summary`, `delivery_detail`, `delivery_option`, `ordelo_config`.
+    - Writes to: `delivery_detail`, `delivery_summary`.
 
 Side Effects:
-1. Insert new `delivery_detail` rows
-2. Update `delivery_summary` statuses
+    1. Insert new `delivery_detail` rows.
+    2. Update `delivery_summary` statuses.
+    3. Triggers downstream workflow (e.g., dispatch creation, notifications).
+
+See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/
 CREATE OR REPLACE FUNCTION process_delivery() RETURNS TABLE(action TEXT) LANGUAGE plpgsql AS $$
 BEGIN
@@ -55,7 +65,7 @@ BEGIN
          = SUM( (detail_vehicle_status = 'vehicle_type_timedout')::int )
   )
   , update_summary AS (
-    -- mark those orders as timed-out
+    -- mmark those orders as timed-outark those orders as timed-out
     UPDATE delivery_summary ds
        SET status = 'timedout'
       FROM timedout_orders t,

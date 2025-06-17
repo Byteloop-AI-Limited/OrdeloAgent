@@ -1,20 +1,33 @@
 /**
-Dispatch Creation and Management Process
+Dispatch Creation and Management – Step 3 in Delivery Workflow
+
+Where This Fits in the Journey:
+    - This function is the third step in the delivery agent workflow, as outlined in handwritten_design.md.
+    - Step 1: init_delivery – Creates delivery_summary and calls process_delivery().
+    - Step 2: process_delivery – Creates delivery_detail records and manages assignment/timeouts.
+    - Step 3: job_create_dispatch – For each unassigned order/vehicle type, finds available riders, inserts records into delivery_dispatch, and updates statuses for next batch or vehicle type.
+    - Step 4+: Downstream jobs and triggers handle dispatch assignment, inflight tracking, and notifications.
+
 Invocation:
-1. Scheduled cron job 'job_create_dispatch' (5s interval)
+    - Scheduled cron job 'job_create_dispatch' (typically every 5 seconds).
+    - Operates on all unassigned delivery_detail records.
 
 Purpose:
-- Create new dispatch entries based on available riders (function - get_available_riders())
-- priority is taken into consideration during dispatch creation
-- Update delivery_detail with `vehicle_type_timedout` when is is no more available riders for dispatch
-- The number of dispatches to be sent is defined by the config value `DISPATCH_BATCH_SIZE_` for each vehicle type
+    - Create new dispatch entries based on available riders (via get_available_riders()).
+    - Prioritize rider selection by priority during dispatch creation.
+    - Update delivery_detail with `vehicle_type_timedout` when no more available riders exist for dispatch.
+    - Control batch size of dispatches using config value `DISPATCH_BATCH_SIZE_` per vehicle type.
 
-Execution:
-- Frequency: Every 5 seconds
+Dependencies:
+    - Reads from: `delivery_detail`, `ordelo_config` (for batch size), and result of get_available_riders().
+    - Writes to: `delivery_dispatch`, `delivery_detail` (status updates).
 
 Side Effects:
-1. Trigger webhook: /delivery-hooks/delivery-dispatch on insert into `delivery_dispatch` table
-2. Send WhatsApp messages to riders with delivery summaries
+    1. Triggers webhook: /delivery-hooks/delivery-dispatch on insert into `delivery_dispatch`.
+    2. Sends WhatsApp messages to riders with delivery summaries.
+    3. Enables subsequent assignment and inflight jobs.
+
+See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/
 
 CREATE OR REPLACE FUNCTION job_create_dispatch()

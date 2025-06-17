@@ -1,20 +1,33 @@
 /**
-Delivery Initiation
+Delivery Initiation – Entry Point in Delivery Workflow
+
+Where This Fits in the Journey:
+    - This function is the first step in the delivery agent workflow. It is invoked by an external service when a new delivery order is created.
+    - As per the journey outlined in handwritten_design.md:
+        • Step 1: init_delivery – Creates the delivery_summary and eagerly calls process_delivery().
+        • Step 2: process_delivery – Handles creation of delivery_detail records and manages dispatch logic.
+        • Step 3+: Downstream jobs and triggers handle dispatch creation, assignment, inflight tracking, and notifications.
+
 Invocation:
-1. Called by external service
+    - Called by an external service (e.g., order placement system) to initiate the delivery process.
 
 Purpose:
-- Initialize delivery details by creating a record in `delivery_summary`
-- Depends on tables: `customer_master`, `restaurant_master`, `delivery_detail`, `ordelo_config`
-- Creates the confirmation codes for the restaurant and customer
-- Eagerly executes process_delivery so the dispatch is created without waiting for the scheduled job 
+    - Initialize delivery details by creating a record in `delivery_summary`.
+    - Generate confirmation codes for both the restaurant and the customer.
+    - Eagerly execute process_delivery to ensure dispatch creation is immediate, not delayed by scheduled jobs.
 
-Execution:
-- Called by external service
+Dependencies:
+    - Reads from: `customer_master`, `restaurant_master`, `ordelo_config`.
+    - Writes to: `delivery_summary`.
+    - Calls: `process_delivery()`.
 
 Side Effects:
-- None
+    - None directly, but triggers downstream workflow via process_delivery().
+
+See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/
+
+
 CREATE OR REPLACE FUNCTION public.init_delivery(p_cust_id VARCHAR, p_order_number VARCHAR)
 RETURNS VARCHAR AS $$
 DECLARE

@@ -1,16 +1,33 @@
 /**
-Complete a dispatch (Complete the delivery process)
+Dispatch Completion – Final Step in Delivery Workflow
+
+Where This Fits in the Journey:
+    - This function is the final step in the delivery agent workflow, as outlined in handwritten_design.md.
+    - Step 1: init_delivery – Creates delivery_summary and calls process_delivery().
+    - Step 2: process_delivery – Creates delivery_detail records and manages assignment/timeouts.
+    - Step 3: job_create_dispatch – Creates dispatches for available riders, updates statuses.
+    - Step 4: job_assign_dispatch – Assigns dispatches to riders who have accepted, updates statuses, and inserts into delivery_inflight.
+    - Step 5: delivery_inflight_whook – Kicks off rider graph and missed dispatch notifications.
+    - Step 6: dispatch_complete_func (this function) – Marks dispatch, detail, and summary as completed and removes inflight record.
 
 Invocation:
-1. Called by agent(on customer confirmation code) when delivery is complete
-2. Used by test
+    - Called by agent (on customer confirmation code) when delivery is complete.
+    - Used by test routines for delivery completion.
 
 Purpose:
-- Updates the dispatch, detail and summary table with status='completed', 
-- Removes the inflight record
+    - Update the dispatch, detail, and summary tables with status='completed'.
+    - Remove the inflight record associated with the completed dispatch.
+
+Dependencies:
+    - Reads from: `delivery_detail`, `delivery_dispatch`, `delivery_summary`, `delivery_inflight`.
+    - Writes to: `delivery_dispatch`, `delivery_detail`, `delivery_summary`, `delivery_inflight` (delete).
 
 Side Effects:
-None
+    1. Removes the inflight record for the completed dispatch.
+    2. Finalizes the order in all workflow tables.
+    3. Enables downstream reporting and archival jobs.
+
+See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/
 
 ----------------------------------------

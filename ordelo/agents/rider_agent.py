@@ -469,7 +469,7 @@ async def verify_customer_confirmation_code(
     if "test" not in order_number.lower():
         await post_rider_event_customer_cc(order_number, customer_id)
 
-    # Reset the thread, update db status
+    # Reset the thread, update db status, toDo - Should this go in the close thread function?
     try:
         _response = await sbase_call_function(
             function_name="dispatch_complete_func",
