@@ -70,6 +70,33 @@ select *
 from delivery_option
 limit 100;
 
+select to_timestamp(tst), dtts, * 
+from rider_location where order_number = 'WREN-DIOH-33' 
+order by dtts desc
+limit 5;
+
+WITH inflight_missing_location AS (
+        SELECT
+            inflight.order_number,
+            inflight.rider_id,
+            MAX(location.dtts) as last_location_dtts,
+			MAX(location.tst) AS tst
+        FROM delivery_inflight inflight
+        LEFT JOIN rider_location location
+            ON inflight.order_number = location.order_number
+            AND inflight.rider_id = location.rider_id
+		GROUP BY inflight.order_number, inflight.rider_id
+    )
+select 
+order_number,
+rider_id,
+tst,
+current_timestamp,
+current_timestamp - last_location_dtts as time_taken
+from inflight_missing_location
+where current_timestamp - last_location_dtts > (1|| ' minutes')::interval OR last_location_dtts IS NULL;
+;
+-- (interval_minutes || ' minutes')::interval
 
 select *
 from delivery_pricing_detail
