@@ -1,21 +1,33 @@
 /**
-Delivery Inflight Trigger
+Delivery Inflight Trigger – Step 5 in Delivery Workflow
+
+Where This Fits in the Journey:
+    - This function is the fifth step in the delivery agent workflow, as outlined in handwritten_design.md.
+    - Step 1: init_delivery – Creates delivery_summary and calls process_delivery().
+    - Step 2: process_delivery – Creates delivery_detail records and manages assignment/timeouts.
+    - Step 3: job_create_dispatch – Creates dispatches for available riders, updates statuses.
+    - Step 4: job_assign_dispatch – Assigns dispatches to riders who have accepted, updates statuses, and inserts into delivery_inflight.
+    - Step 5: delivery_inflight_whook (this function) – Triggered by insert into delivery_inflight, kicks off rider graph and missed dispatch notifications.
+    - Step 6+: Downstream jobs and triggers handle any further notification or tracking.
 
 Invocation:
-1. Row-level trigger AFTER INSERT on `delivery_inflight`
+    - Row-level trigger AFTER INSERT on `delivery_inflight`.
+    - Fires per new `delivery_inflight` row.
 
 Purpose:
-- Kick off rider graph flow via HTTP POST to `/delivery-hooks/delivery-inflight-graph-init`
-- Notify missed dispatches by calling `notify_missed_dispatches()`
+    - Kick off the rider graph flow via HTTP POST to `/delivery-hooks/delivery-inflight-graph-init`.
+    - Notify missed dispatches by calling `notify_missed_dispatches()`.
 
-Depends on tables: `delivery_inflight`, `delivery_detail`
-
-Execution:
-- Fires per new `delivery_inflight` row
+Dependencies:
+    - Reads from: `delivery_inflight`, `delivery_detail`.
+    - Calls: HTTP POST to webhook, `notify_missed_dispatches()`.
 
 Side Effects:
-1. HTTP POST to graph-init endpoint
-2. Calls `notify_missed_dispatches`
+    1. HTTP POST to graph-init endpoint.
+    2. Calls `notify_missed_dispatches`.
+    3. Enables downstream notification and tracking jobs.
+
+See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/ -- Webhook function for delivery_inflight
 
 CREATE OR REPLACE FUNCTION public.delivery_inflight_whook() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -177,9 +189,9 @@ $$ LANGUAGE plpgsql;
 
 -- Table definition
 
-CREATE TABLE delivery_inflight (dispatch_id INTEGER, order_number VARCHAR(100) NOT NULL,
-                                                                               rider_id VARCHAR(12) NOT NULL,
-                                                                                                    customer_id VARCHAR(12) NOT NULL,
-                                                                                                                            dt DATE NOT NULL DEFAULT CURRENT_DATE,
-                                                                                                                                                     dtts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                                                                                                                                                                                     PRIMARY KEY (dispatch_id));
+CREATE TABLE delivery_inflight (dispatch_id INTEGER PRIMARY KEY,
+                                                    order_number VARCHAR(100) NOT NULL,
+                                                                              rider_id VARCHAR(12) NOT NULL,
+                                                                                                   customer_id VARCHAR(12) NOT NULL,
+                                                                                                                           dt DATE NOT NULL DEFAULT CURRENT_DATE,
+                                                                                                                                                    dtts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);

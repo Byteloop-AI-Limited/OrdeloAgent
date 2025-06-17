@@ -1,20 +1,33 @@
 /**
-Assigning Delivery to Riders who have accepted the job.
-This is dependent on `assign_accepted_dispatch` function
+Dispatch Assignment – Step 4 in Delivery Workflow
+
+Where This Fits in the Journey:
+    - This function is the fourth step in the delivery agent workflow, as outlined in handwritten_design.md.
+    - Step 1: init_delivery – Creates delivery_summary and calls process_delivery().
+    - Step 2: process_delivery – Creates delivery_detail records and manages assignment/timeouts.
+    - Step 3: job_create_dispatch – Creates dispatches for available riders, updates statuses.
+    - Step 4: job_assign_dispatch – Assigns dispatches to riders who have accepted, updates statuses, and inserts into delivery_inflight to kick off rider graph and notifications.
+    - Step 5+: Downstream jobs and triggers handle inflight tracking and notifications.
+
 Invocation:
-1. Scheduled cron job 'create_dispatch_for_unassigned_orders' (10s interval)
+    - Scheduled cron job 'job_assign_dispatch' (typically every 5–10 seconds).
+    - Operates on all unassigned or vehicle_type_timedout delivery_detail records.
 
 Purpose:
-- Look for accepted dispatches, assign based on first accepted dispatch
-- Update the statuses of dispatch, detail and summary
-- Insert into delivery_inflight, which kicks off rider graph and notification of missed dispatches
+    - Look for accepted dispatches and assign based on the first accepted dispatch per order.
+    - Update the statuses of dispatch, detail, and summary tables accordingly.
+    - Insert into delivery_inflight, which kicks off the rider graph and notification of missed dispatches.
 
-Execution:
-- Frequency: Every 5 seconds
+Dependencies:
+    - Reads from: `delivery_detail`, `delivery_dispatch` (for status and acceptance), and uses assign_accepted_dispatch().
+    - Writes to: `delivery_dispatch`, `delivery_detail`, `delivery_summary`, `delivery_inflight`.
 
 Side Effects:
-1. insert into delivery_inflight, which kicks off rider graph and notification of missed dispatches
-2. Send WhatsApp messages to riders with delivery summaries
+    1. Inserts into delivery_inflight, kicking off rider graph and notification of missed dispatches.
+    2. Sends WhatsApp messages to riders with delivery summaries.
+    3. Enables downstream inflight and notification jobs.
+
+See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/
 
 CREATE OR REPLACE FUNCTION job_assign_dispatch()
