@@ -67,7 +67,12 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
                 callback_data["order_number"]
             )
         )
-        await wa.send_message(to=recipient, text="Sorry, You are already on a job")
+        inflight_row = inflight.data[0]
+        # Order number in the msg
+        await wa.send_message(
+            to=recipient,
+            text=f"Sorry, You are already on a job {inflight_row['order_number']}",
+        )
         return
 
     order_status = order_status.data[0]
