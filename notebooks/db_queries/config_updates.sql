@@ -28,6 +28,11 @@ UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
 
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('LOCATION_ENABLE_TIME_INTERVAL', '1', 'Time interval in minutes for location enable') ON CONFLICT (config_key) DO
+UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description;
 
 INSERT INTO ordelo_config (config_key, config_value, description)
 VALUES ('DELIVERY_TIMEOUT_TIME', '1', 'Timeout in minutes for delivery_summary status transition to timedout') ON CONFLICT (config_key) DO

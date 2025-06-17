@@ -14,7 +14,6 @@ from loguru import logger
 import psycopg
 import json
 import base64
-from fastapi import Path
 from ordelo_datamodels.location_pymodels import Location
 from config import _async_wa_client, pg_settings
 import re
@@ -22,6 +21,7 @@ from datetime import datetime, timezone
 from pywa.types import ButtonUrl
 from ordelo.agent_app_handlers import get_live_map_location_url
 from utils_common.db_utils.sbase_pool_ops import insert_model_to_db
+from ordelo.agents.agent_runner import run_rider_graph
 
 
 # %% Define Dependancies and routes
@@ -141,7 +141,7 @@ Redirects to live location map for orders
     . Function:
         . live_location_map
 """
-from fastapi import HTTPException
+
 
 @router.get(
     "/live-location-map/{order_number}",
@@ -286,6 +286,31 @@ async def notify_rider_location_event(request: Request):
 
     # location = Location(**payload)
     # logger.info(location)
+    return
+
+
+# %% Live tracking to be enabled
+@router.post(
+    "/live-tracking-not-enabled",
+    summary="Notify Rider to enabled live tracking",
+    description="Routes Rider's location events, including zone transitions and status updates",
+    response_description="Successful processing of the rider location event",
+    responses={
+        200: {"description": "Location event processed successfully"},
+        500: {"description": "Error processing live tracking event"},
+    },
+)
+async def notify_rider_live_tracking_not_enabled(request: Request):
+    """
+    Post requests are made via db webhooks based on the updates made in `process_location_transition`
+    """
+    payloadinflight_rows = await request.json()
+    logger.info(payloadinflight_rows)
+    # asyncio.create_task(run_rider_graph(
+    #     payloadinflight_rows,
+    #     system_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {restaurant_name} to pickup the food.",
+    # )
+
     return
 
 
