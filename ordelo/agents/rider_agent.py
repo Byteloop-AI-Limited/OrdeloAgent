@@ -131,6 +131,59 @@ async def notify_food_ready_for_pickup(
 
 
 # %%
+async def send_pickup_location(
+    config: RunnableConfig,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> dict:
+    """
+    Sends the pickup (restaurant) location to the rider via WhatsApp.
+    Returns a Command with ToolMessage and AIMessage.
+    """
+    recipient = get_recipient_from_config(config)
+    order_number = state.get("order_number", None)
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
+    if not order_number:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "Order number not found in state.", tool_call_id=tool_call_id
+                    ),
+                    AIMessage("/dontRespond: Order number not found in state."),
+                ]
+            }
+        )
+    client = pg_settings.client
+    summary = (
+        client.table("delivery_summary")
+        .select("*")
+        .eq("order_number", order_number)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    await _async_wa_client.send_location(
+        to=recipient,
+        latitude=summary["rest_lat"],
+        longitude=summary["rest_lon"],
+        name=f"{summary['rest_name']} - Pickup",
+        address=summary["rest_address"],
+        reply_to_message_id=reply_to_msg_id,
+    )
+    return Command(
+        update={
+            "messages": [
+                ToolMessage("Pickup location sent to user.", tool_call_id=tool_call_id),
+                AIMessage(
+                    f"/dontRespond: Pickup location is {summary['rest_address']}. Location is sent to rider on WhatsApp."
+                ),
+            ]
+        }
+    )
+
+
+# %%
 async def send_dropoff_location(
     config: RunnableConfig,
     state: Annotated[dict, InjectedState],
@@ -269,28 +322,20 @@ async def send_start_live_tracking_link(
 
     start_live_tracking_url = state.get("start_live_tracking_url", None)
     reply_to_msg_id = state.get("reply_to_msg_id", None)
+    order_number = state.get("order_number", None)
+
     body_text = "Please turn on the live tracking by clicking the link below."
-
-    # Send the URL to the rider
-    msg = await _async_wa_client.send_message(
-        to=recipient,
-        header="Enable Live Tracking",
-        text=body_text,
-        reply_to_message_id=reply_to_msg_id,
-        buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
-    )
-    logger.info(f"Message sent to {recipient}: {msg}")
-
-    return Command(
-        update={
-            "messages": [
-                ToolMessage(
-                    "Url and instructions sent to user.", tool_call_id=tool_call_id
-                ),
-                AIMessage(f"/dontRespond: {body_text}"),
-            ]
-        }
-    )
+    if is_live_location_enabled(order_number):
+        return "Live locaiton is enabled, only prompt again if live location is *not* up to date."
+    else:
+        await _async_wa_client.send_message(
+            to=recipient,
+            header="Enable Live Tracking",
+            text=body_text,
+            reply_to_message_id=reply_to_msg_id,
+            buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
+        )
+        return "Link to enable the live location tracking is sent to you."
 
 
 # %% DELIVERY END
@@ -363,19 +408,15 @@ async def verify_restaurant_confirmation_code(
     #  If corrent restaurant confirmation code
     # Check if the live location is turned on
     if is_live_location_enabled(order_number):
-        append_to_ai_msg = ""
+        append_to_ai_msg = "Live location is enabled. Only prompt again if live location is *not* up to date."
     else:
         append_to_ai_msg = (
             "Live tracking is not enabled. Call tool `send_start_live_tracking_link`"
         )
-    logger.info(f"Live location is turned on: {is_live_location_enabled(order_number)}")
 
-    # If turned on, provide live tracking link to customer
     # Notify the customer that food has been picked up from the restaurat
     if "test" not in order_number.lower():
         await post_rider_event_restaurant_cc(order_number, customer_id)
-
-    # Provide the live tracking link to customer
 
     # Add get_journey_instructions to the agent
     return Command(
@@ -561,6 +602,7 @@ _rider_agent_tools = [
     send_delivery_instructions,
     send_start_live_tracking_link,
     notify_food_ready_for_pickup,
+    send_pickup_location,
     send_dropoff_location,
     verify_restaurant_confirmation_code,
     verify_customer_confirmation_code,

@@ -35,8 +35,8 @@ This prompt outlines the behavior and workflows for an AI agent interacting with
 - **Tool Invocation:**  
   - Use `send_delivery_instructions` to provide the delivery instructions.
   - Then use `send_start_live_tracking_link` to provide the live tracking URL.
-  - Use `send_pickup_location` to provide the pickup (restaurant) location.
-  - Use `send_dropoff_location` to provide the dropoff (customer) location.
+  - Use `send_pickup_location` to provide the pickup (restaurant) location, if not already sent.
+  - Use `send_dropoff_location` to provide the dropoff (customer) location, if not already sent.
 
 ---
 
@@ -132,6 +132,7 @@ This prompt outlines the behavior and workflows for an AI agent interacting with
 ## **Final Notes**
 - **Tone and attitude**
   - Maintain an empathetic and professional tone to facilitate a smooth and efficient interaction. Make use of the rider name to address the rider at crucial points.
+
 - **Confirmation Code:**
   - Riders are familiar with the restaurant and customer confirmation code. So if there is a 2 digit number, assume the first one is the restaurant confirmation code and the second one is the customer confirmation code.
 

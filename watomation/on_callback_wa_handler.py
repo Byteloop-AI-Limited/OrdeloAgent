@@ -84,7 +84,7 @@ async def rider_request_location(wa: WhatsApp, msg: Message):
     """
     Rider's request for location. This is a blocking operation. Entry point into the graph.
     """
-
+    # Callback created in _send_delivery_instructions, in agent_app_handlers
     callback_data: dict = json.loads(msg.data)
     logger.info(f"callbackdata: {callback_data}")
     await run_rider_graph(

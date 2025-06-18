@@ -482,15 +482,16 @@ async def notify_food_ready_for_pickup(
 # %% delivery-timedout
 @router.post(
     "/delivery-timedout",
-    summary="Handle delivery timedout",
+    summary="Handle delivery timedout. Called by scheduled job `process_delivery`.",
     response_description="Status of the delivery timedout operation",
 )
 async def delivery_timedout(
     payload: dict = Depends(get_payload),
 ):
+    logger.info(f"delivery_timedout received: {payload}")
     delivery_summary_lst = payload.get("delivery_summary", None)
     delivery_summary = delivery_summary_lst[0]
-    if "test" not in delivery_summary["order_number"]:  # skip test orders
+    if "test" not in delivery_summary["order_number"].lower():  # skip test orders
         await post_delivery_timedout(delivery_summary)
     return {"status": "success"}
 
