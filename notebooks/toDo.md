@@ -1,7 +1,16 @@
+
 ## Delivery flow - Agent
 - Remove the init_ordelo_graph, work on the setup node and add get_journey_instructions
 
 ## Rider Agent
+
+## Scheduled delivery events
+- Create a new route for these events
+- Events include
+    - location not enabled for inflight deliveries
+    - Riders not moved for a while
+    - inflight not completed for over 45 mins
+    - order not ready for pick up even after the pickup time
 
 
 ## Delivery and Dispatch:

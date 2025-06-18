@@ -181,7 +181,7 @@ async def create_start_job_config(d_detail: DeliveryDetail) -> str:
         "password": "",
         "url": f"{project_settings.base_url}/location-hooks/pub",
         "locatorDisplacement": 10,
-        "locatorInterval": 60,
+        "locatorInterval": 10,
         "waypoints": waypoints,
     }
 
