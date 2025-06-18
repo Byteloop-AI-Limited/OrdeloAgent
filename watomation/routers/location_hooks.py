@@ -291,7 +291,7 @@ async def notify_rider_location_event(request: Request):
 
 # %% Live tracking to be enabled
 @router.post(
-    "/live-tracking-not-enabled",
+    "/null-or-outdated-location",
     summary="Notify Rider to enabled live tracking",
     description="Routes Rider's location events, including zone transitions and status updates",
     response_description="Successful processing of the rider location event",
@@ -300,7 +300,7 @@ async def notify_rider_location_event(request: Request):
         500: {"description": "Error processing live tracking event"},
     },
 )
-async def notify_rider_live_tracking_not_enabled(request: Request):
+async def notify_rider_null_or_outdated_location(request: Request):
     """
     Post requests are made via db webhooks based on the updates made in `process_location_transition`
     """
@@ -309,11 +309,19 @@ async def notify_rider_live_tracking_not_enabled(request: Request):
     for row in payloadinflight_rows:
         rider_id = row["rider_id"]
         order_number = row["order_number"]
-        await _async_wa_client.send_message(
-            to=rider_id,
-            # header=f"{order_number} Update",
-            text="Please enable live tracking to receive updates on your delivery.",
-        )
+        reason = row["reason"]
+        if reason == "NO_LOCATION_DATA":
+            await _async_wa_client.send_message(
+                to=rider_id,
+                # header=f"{order_number} Update",
+                text="Please enable live tracking to receive updates on your delivery.",
+            )
+        elif reason == "OUTDATED_LOCATION_DATA":
+            await _async_wa_client.send_message(
+                to=rider_id,
+                # header=f"{order_number} Update",
+                text="How is the delivery going? you seemed to have stopped.",
+            )
 
     # asyncio.create_task(run_rider_graph(
     #     payloadinflight_rows,
