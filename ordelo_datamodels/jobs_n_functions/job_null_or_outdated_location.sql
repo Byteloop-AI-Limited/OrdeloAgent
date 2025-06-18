@@ -3,14 +3,13 @@ Live Tracking Not Enabled Job – Notifies when rider live tracking is not enabl
     . Reads config from ordelo_config (location_enable_time_interval, ordelo_app_url)
     . Identifies inflight deliveries with missing or stale location data
     . Aggregates (order_number, rider_id) as JSON array
-    . Makes HTTP POST to /location-hooks/live-tracking-not-enabled
+    . Makes HTTP POST to /location-hooks/null-or-outdated-location
     . Returns boolean for success/failure
 Functions:
-    . job_live_track_not_enabled
+    . job_null_or_outdated_location
 */
-
-DROP FUNCTION IF EXISTS job_live_track_not_enabled();
-CREATE OR REPLACE FUNCTION job_live_track_not_enabled()
+DROP FUNCTION IF EXISTS job_null_or_outdated_location();
+CREATE OR REPLACE FUNCTION job_null_or_outdated_location()
 RETURNS BOOLEAN AS $$
 DECLARE
     interval_minutes INT;
@@ -33,7 +32,7 @@ BEGIN
     IF ordelo_app_url IS NULL OR ordelo_app_url = '' THEN
         ordelo_app_url := 'https://agent.ordelo.app'; -- Fallback default
     END IF;
-    webhook_url := ordelo_app_url || '/location-hooks/live-tracking-not-enabled';
+    webhook_url := ordelo_app_url || '/location-hooks/null-or-outdated-location';
 
     WITH inflight_missing_location AS (
         SELECT
@@ -49,12 +48,15 @@ BEGIN
         SELECT
             order_number,
             rider_id,
-            last_location_dtts AS dtts
+            last_location_dtts AS dtts,
+            CASE WHEN last_location_dtts IS NULL THEN 'NO_LOCATION_DATA'
+            ELSE 'OUTDATED_LOCATION_DATA'
+            END as reason
         FROM inflight_missing_location
         WHERE last_location_dtts IS NULL
            OR (current_timestamp - last_location_dtts) > interval_expr
     )
-    SELECT json_agg(json_build_object('order_number', order_number, 'rider_id', rider_id, 'dtts', dtts))
+    SELECT json_agg(json_build_object('order_number', order_number, 'rider_id', rider_id, 'reason', reason, 'dtts', dtts))
       INTO webhook_payload
       FROM inflight_to_notify;
 
@@ -68,7 +70,7 @@ BEGIN
                 'application/json'
             )
         );
-        RAISE NOTICE 'Response from live-tracking-not-enabled: %', response;
+        RAISE NOTICE 'Response from null-or-outdated-location: %', response;
         notified := TRUE;
     ELSE
         RAISE NOTICE 'No inflight deliveries missing location data.';
@@ -79,4 +81,4 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Usage:
--- select job_live_track_not_enabled();
+-- select job_null_or_outdated_location();
