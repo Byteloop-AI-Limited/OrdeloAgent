@@ -647,9 +647,12 @@ async def respond_node(
         # raise error
         raise ValueError("No recipient provided")
 
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
     last_ai_msg = state["messages"][-1]
 
-    await _async_wa_client.send_message(to=recipient, text=last_ai_msg.content)
+    await _async_wa_client.send_message(
+        to=recipient, text=last_ai_msg.content, reply_to_message_id=reply_to_msg_id
+    )
     return Command(goto=END, update={"messages": [last_ai_msg]})
 
 
