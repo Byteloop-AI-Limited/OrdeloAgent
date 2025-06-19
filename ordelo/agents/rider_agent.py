@@ -325,17 +325,26 @@ async def send_start_live_tracking_link(
     order_number = state.get("order_number", None)
 
     body_text = "Please turn on the live tracking by clicking the link below."
-    if is_live_location_enabled(order_number):
-        return "Live locaiton is enabled, only prompt again if live location is *not* up to date."
-    else:
-        await _async_wa_client.send_message(
-            to=recipient,
-            header="Enable Live Tracking",
-            text=body_text,
-            reply_to_message_id=reply_to_msg_id,
-            buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
-        )
-        return "Link to enable the live location tracking is sent to you."
+    await _async_wa_client.send_message(
+        to=recipient,
+        header="Enable Live Tracking",
+        text=body_text,
+        reply_to_message_id=reply_to_msg_id,
+        buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
+    )
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    "Link to enable the live location tracking is sent to you.",
+                    tool_call_id=tool_call_id,
+                ),
+                AIMessage(
+                    "/dontRespond: Link to enable the live location tracking is sent to you."
+                ),
+            ]
+        }
+    )
 
 
 # %% DELIVERY END
