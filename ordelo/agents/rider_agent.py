@@ -309,7 +309,7 @@ async def send_start_live_tracking_link(
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
     """
-    Generates and sends a URL for initiating live tracking on the rider's device.
+    Sends a URL for initiating live tracking on the rider's device.
     URL will be sent to rider on WhatsApp.
 
     Args:

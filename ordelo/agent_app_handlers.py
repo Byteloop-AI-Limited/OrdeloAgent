@@ -175,13 +175,13 @@ async def create_start_job_config(d_detail: DeliveryDetail) -> str:
         "mode": 3,
         "allowRemoteLocation": True,
         "usePassword": False,
+        "url": f"{project_settings.base_url}/location-hooks/pub",
         "monitoring": 2,
+        "locatorDisplacement": 10,
+        "locatorInterval": 30,
         "username": d_detail.rider_id,
         "deviceId": f"{d_detail.rider_id}-{d_detail.order_number}",
         "password": "",
-        "url": f"{project_settings.base_url}/location-hooks/pub",
-        "locatorDisplacement": 10,
-        "locatorInterval": 10,
         "waypoints": waypoints,
     }
 
@@ -196,10 +196,11 @@ stop_job_config = {
     "_type": "configuration",
     "mode": 3,
     "allowRemoteLocation": False,
-    "usePassword": False,
+    # "usePassword": False,
+    # "username": "NA",
+    "device_id": "NA",
+    # "password": "",
     "monitoring": -1,
-    "username": "NA",
-    "password": "",
     "url": "",
 }
 

@@ -102,7 +102,7 @@ select *
 from delivery_pricing_detail
 limit 100;
 
-
+-- Testing delivery
 delete
 from delivery_option
 where order_number like 'WREN-TEST%';
