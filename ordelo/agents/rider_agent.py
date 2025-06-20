@@ -37,7 +37,7 @@ LangGraph agent implementation for rider delivery workflo
 
 from config import project_settings, client_ordelo, pg_settings
 from typing import Annotated
-
+import uuid
 from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tools import tool
 from langchain_core.messages import AIMessage
@@ -283,21 +283,7 @@ async def send_delivery_instructions(
     ) = await _send_delivery_instructions(
         dispatch_id, live_tracking_url, recipient, rider_name
     )
-
-    return Command(
-        update={
-            "reply_to_msg_id": reply_to_msg_id,
-            "messages": [
-                ToolMessage(
-                    "Delivery instructions sent to user. Request rider to start live location tracking by calling `send_start_live_tracking_link` tool.",
-                    tool_call_id=tool_call_id,
-                ),
-                AIMessage(
-                    f"/dontRespond: Delivery Instructions:{delivery_instructions_str}. Instructions are sent to rider on WhatsApp."
-                ),
-            ],
-        }
-    )
+    return f"Delivery instructions sent to user. {delivery_instructions_str}. Request rider to start live location tracking by calling `send_start_live_tracking_link` tool."
 
 
 # %% DELIVERY START - send live tracking
@@ -407,7 +393,7 @@ async def verify_restaurant_confirmation_code(
             update={
                 "messages": [
                     ToolMessage(
-                        f"Wrong *restaurant* confirmation code. Please try again.\n\nCorrect code is: {correct_restaurant_confirmation_code_str}",
+                        f" ❌ Wrong *restaurant* confirmation code. Please try again.\n\nCorrect code is: {correct_restaurant_confirmation_code_str}",
                         tool_call_id=tool_call_id,
                     )
                 ]
@@ -433,7 +419,7 @@ async def verify_restaurant_confirmation_code(
             "is_restaurant_confirmation_code_verified": True,
             "messages": [
                 ToolMessage(
-                    "Restaurant confirmation code accepted. Rider is on the way to the customer.\n\n"
+                    "✅ Restaurant confirmation code accepted. Rider is on the way to the customer.\n\n"
                     + append_to_ai_msg,
                     tool_call_id=tool_call_id,
                 )
@@ -507,7 +493,7 @@ async def verify_customer_confirmation_code(
             update={
                 "messages": [
                     ToolMessage(
-                        f"Wrong *customer* confirmation code. Please try again.{correct_confirmation_code_str}",
+                        f"❌ Wrong *customer* confirmation code. Please try again.{correct_confirmation_code_str}",
                         tool_call_id=tool_call_id,
                     )
                 ]
@@ -542,7 +528,7 @@ async def verify_customer_confirmation_code(
             "is_customer_confirmation_code_verified": True,
             "messages": [
                 ToolMessage(
-                    "Customer confirmation code accepted. Delivery completed. Send end live tracking link (tool: `send_end_live_tracking_link`).",
+                    "✅ Customer confirmation code accepted. Delivery completed. Send end live tracking link (tool: `send_end_live_tracking_link`).",
                     tool_call_id=tool_call_id,
                 )
             ],
