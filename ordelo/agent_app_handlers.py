@@ -382,13 +382,13 @@ Hi {rider_name}, here are the Delivery details:
     )
 
     # Send the URL to the rider
-    await _async_wa_client.send_message(
-        to=recipient,
-        header="Enable Live Tracking",
-        text="Please turn on the live tracking by clicking the link below.",
-        reply_to_message_id=reply_to_msg_id.id,
-        buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
-    )
+    # await _async_wa_client.send_message(
+    #     to=recipient,
+    #     header="Enable Live Tracking",
+    #     text="Please turn on the live tracking by clicking the link below.",
+    #     reply_to_message_id=reply_to_msg_id.id,
+    #     buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
+    # )
     return reply_to_msg_id.id, body_text
 
 
@@ -411,7 +411,7 @@ async def post_rider_event_customer_cc(order_number: str, customer_id: int):
     """
     rest_ref = order_number.split("-")[0]
     async with httpx.AsyncClient() as client:
-        response = await client.post(
+        await client.post(
             get_webhook_url(rest_ref, "rider-cust-cc")
             + "/"
             + order_number
@@ -437,7 +437,7 @@ async def post_rider_event_restaurant_cc(order_number: str, customer_id: int):
     """
     rest_ref = order_number.split("-")[0]
     async with httpx.AsyncClient() as client:
-        response = await client.post(
+        await client.post(
             get_webhook_url(rest_ref, "rider-rest-cc")
             + "/"
             + order_number

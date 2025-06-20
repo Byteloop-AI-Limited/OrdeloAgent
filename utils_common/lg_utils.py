@@ -1,11 +1,22 @@
 # %%
 """
-LangChain/LangGraph utility helpers for agent creation and graph orchestration.
-    . Dependencies: langchain, langgraph, openai, pydantic, pywa, etc.
-    . `create_agent*` builders construct prompt templates and bind tools
-    . `agent_node` adapter executes agent and formats state update
-    . Provides shared LLM instance `LLM_4o` and embedding helper
-    . Misc helpers: message shortening, state extraction, graph display
+Utility helpers for agent creation, orchestration, and shared LLM resources in LangChain/LangGraph workflows.
+    . Dependencies: langchain, langgraph, openai, pydantic, pywa, IPython, etc.
+    . Agent builders: create_agent*, agent_node (prompt, tool binding, state update)
+    . Shared resources: LLM_4o (LLM instance), embedding helper
+    . Misc utilities: message shortening, state extraction, graph visualization
+    . Centralizes agent and graph setup logic for reuse
+
+Functions/Classes:
+    . create_agent
+    . create_agent_with_tools
+    . agent_node
+    . get_llm_4o
+    . get_embedding_helper
+    . shorten_message
+    . extract_state
+    . display_graph
+    . get_last_msg_ts
 """
 
 # %%
@@ -21,9 +32,7 @@ from langchain_core.messages import (
     filter_messages,
 )
 from config import pg_settings
-from ordelo.agents.rider_agent import builder
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from utils_common.lg_utils import get_config_for_recipient
 
 
 from langgraph.graph.state import CompiledStateGraph
@@ -322,7 +331,7 @@ def is_last_tool_call(
     """
     Check if the most recent tool call in the specified graph's state matches the given tool call name.
 
-    This function retrieves the messages from the state of the CompiledStateGraph for the provided configuration.
+    This function retrieves the messages from the state of the graph for the provided configuration.
     It then filters these messages to find the last message of type 'tool'. If the last tool message is found,
     it compares its name to the specified tool call name.
 
@@ -464,7 +473,7 @@ def shorten_state_messages(messages: List[dict]) -> List[Dict[str, Dict[str, Any
 
 
 # %%
-async def get_last_msg_ts(graph, recipient=None, thread_id=None):
+async def get_last_msg_ts(builder, recipient=None, thread_id=None):
     """
     Returns the created_at timestamp for the latest state snapshot for a given recipient or thread_id.
     Provide either recipient or thread_id (recipient takes precedence if both are provided).

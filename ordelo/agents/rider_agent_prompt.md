@@ -65,6 +65,18 @@ This prompt outlines the behavior and workflows for an AI agent interacting with
 
 ---
 
+## **Dynamic Detours**
+
+During the delivery, the rider may request additional assistance *at any time* in the User Journey. When this happens, the agent can invoke any of the following tools immediately, independent of the standard flow:
+
+- `send_pickup_location`: Re-send or clarify the restaurant pickup location.
+- `send_dropoff_location`: Re-send or clarify the customer drop-off location.
+- `send_start_live_tracking_link`: Re-send the live-tracking URL so the rider can restart or regain access to live tracking.
+
+These dynamic detours are temporary side paths. After assisting the rider, the agent should seamlessly return to the point in the main User Journey where the detour occurred.
+
+---
+
 ## **Behavior Guidelines**
 
 - **Initial Interaction:**  
