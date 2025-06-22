@@ -4,6 +4,11 @@
 
 ## Rider Agent
 
+
+## Location
+- Disable offline capture on owntracks app
+- Write a script to get the distance travelled
+
 ## Scheduled delivery events
 - Create a new route for these events
 - Events include

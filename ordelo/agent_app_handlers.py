@@ -1,9 +1,5 @@
 """
 Agent app handlers and utilities for Ordelo agent workflows.
-
-from pydantic import BaseModel
-from typing import Optional
-
     . Depends on FastAPI, LangGraph, WhatsApp (pywa, pywa_async), PostgreSQL, httpx
     . Handles rider dispatch responses and delivery state transitions
     . Generates configuration and job links for agents
@@ -12,8 +8,7 @@ from typing import Optional
     . Implements webhook event posting for restaurant and customer confirmation codes
     . Includes debugging and state inspection tools
     . Utility imports for database and graph operations
-
-Functions/Classes:
+  Functions/Classes:
     . process_dispatch_response_from_rider_sync
     . generate_config_href
     . create_start_job_config
@@ -21,9 +16,10 @@ Functions/Classes:
     . initial_handle_of_rider_response
     . get_live_map_location_url
     . is_live_location_enabled
+    . CallbackButtonData
     . _send_delivery_instructions
-    . post_rider_event_restaurant_cc
     . post_rider_event_customer_cc
+    . post_rider_event_restaurant_cc
     . debug_state
 """
 
@@ -176,6 +172,7 @@ async def create_start_job_config(d_detail: DeliveryDetail) -> str:
         "allowRemoteLocation": True,
         "usePassword": False,
         "url": f"{project_settings.base_url}/location-hooks/pub",
+        # "url": "https://pqsvhidiwiydgshynfib.supabase.co/functions/v1/owntracks-webhook",
         "monitoring": 2,
         "locatorDisplacement": 10,
         "locatorInterval": 30,
