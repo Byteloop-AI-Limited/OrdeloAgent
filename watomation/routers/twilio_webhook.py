@@ -1,4 +1,3 @@
-# %%
 """
 Alert hooks router for OrdeloAgent FastAPI service.
     . Defines endpoints for receiving alert and failure notifications
@@ -6,10 +5,10 @@ Alert hooks router for OrdeloAgent FastAPI service.
     . Handles both JSON (DB trigger) and form-encoded (Twilio SMS) webhook payloads
     . Logs payloads and supports future extension for business logic
     . Ensures robust handling of empty, malformed, or unexpected webhook payloads
-    . Functions/Classes:
-        . failure_notifications
-        . get_payload
-        . get_pool
+  Functions/Classes:
+    . get_payload - Extracts JSON payload from request with empty fallback
+    . get_pool - Returns the async connection pool from FastAPI app state
+    . failure_notifications - Handles Twilio SMS and DB trigger notifications
 """
 
 from fastapi import APIRouter, Request, Form
