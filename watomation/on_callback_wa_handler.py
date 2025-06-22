@@ -5,9 +5,11 @@ WhatsApp callback button handler for delivery dispatch responses
     . Integrates with OrdeloAgent delivery graph logic
     . Handles cases where jobs are no longer available
     . Provides feedback to riders about dispatch status
-
-Key Functions:
-    . dispatch_response - Main entry point for rider dispatch responses
+    . Checks for existing inflight deliveries to prevent conflicts
+    . Serves as entry point into the LangGraph agent workflow
+  Functions/Classes:
+    . dispatch_response - Processes rider responses to delivery dispatch assignments
+    . rider_request_location - Handles rider requests for location information
 """
 
 # %%
