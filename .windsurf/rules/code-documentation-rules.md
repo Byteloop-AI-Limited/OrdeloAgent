@@ -20,5 +20,9 @@ This line includes summary
     . Second step
   Functions/Clases
     . get_journery_instructions
-    . check_live_location available
+    . check_live_location available]
+  Key Functions:
+    . on_customer_address_flow - Initial flow entry point
+    . on_customer_address_flow_data_exchange - Handles data exchange during flow
+    . on_customer_address_flow_completion - Processes flow completion events
 """
