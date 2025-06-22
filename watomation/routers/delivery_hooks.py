@@ -4,24 +4,22 @@ Delivery webhook handlers for Ordelo delivery system
     . Manages delivery dispatch assignments and inflight tracking
     . Implements function chaining pattern for complex workflows
     . Handles missed dispatch notifications and rider communications
-    . Provides FastAPI endpoints for:
-        - Delivery dispatch assignments (delivery_dispatch_hook)
-        - Inflight tracking initialization (delivery_inflight_graph_init_hook)
-        - Missed dispatch notifications (notify_missed_dispatches_hook)
-        - Restaurant manager to rider message relay (relay_restaurant_manager_msgs_to_rider)
-
-Key Functions:
+    . Provides FastAPI endpoints for delivery operations
+    . Uses PostgreSQL CTEs for conditional database operations
+    . Follows webhook pattern where database triggers call FastAPI endpoints
+    . Handles empty payloads gracefully in endpoints
+  Functions/Classes:
+    . get_payload - Helper to parse webhook payloads
     . wa_send_delivery_dispatch_request_to_rider - Notifies riders via WhatsApp
+    . post_rider_event_inflight - Posts delivery summary to webhook
+    . post_delivery_timedout - Posts delivery timeout information
+    . delivery_hook_root - Root endpoint for delivery hooks
     . delivery_dispatch_hook - Processes dispatch assignments
     . delivery_inflight_graph_init_hook - Initializes inflight tracking
     . notify_missed_dispatches_hook - Handles missed dispatch cases
-    . relay_restaurant_manager_msgs_to_rider - Relays manager messages to rider
-    . get_payload - Helper to parse webhook payloads
-
-Patterns Used:
-    . Function chaining between webhooks and SQL functions
-    . Conditional database operations
-    . Graceful empty payload handling
+    . notify_food_ready_for_pickup - Notifies rider about food readiness
+    . delivery_timedout - Handles delivery timeout events
+    . check_rider_allocation_status - Checks rider allocation status
 """
 
 from fastapi import APIRouter, Request, Depends

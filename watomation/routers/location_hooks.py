@@ -5,6 +5,16 @@ Location hooks router for OrdeloAgent FastAPI service.
     . Exposes endpoints for live location tracking and map URLs
     . Notifies users of delivery progress via WhatsApp
     . Follows extensible webhook and DB update patterns
+    . Handles rider location events with zone-based transitions
+    . Supports live tracking enablement notifications
+  Functions/Classes:
+    . get_payload - Extracts JSON payload from request
+    . generate_config_href - Generates OwnTracks configuration URL
+    . process_location_transition - Processes location transition events
+    . live_location_map - Redirects to live location map for orders
+    . receive_pub - Webhook to receive location events from OwnTracks
+    . notify_rider_location_event - Handles rider location events
+    . notify_rider_null_or_outdated_location - Notifies riders about tracking issues
 """
 
 # %%
