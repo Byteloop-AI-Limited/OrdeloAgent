@@ -1,19 +1,16 @@
 """
-FastAPI WhatsApp Agent integration for Ordelo delivery system
-    . Initializes and configures the FastAPI app with WhatsApp messaging capabilities
-    . Integrates pywa_async for WhatsApp event and flow handling
+FastAPI application for Ordelo delivery system without WhatsApp integration
+    . Initializes and configures the FastAPI app for webhook handling
     . Manages application state including DB connection pools and graph checkpoints
-    . Sets up routers for delivery, location, and alert webhooks
-    . Registers WhatsApp message handlers, callback handlers, and flow request handlers
+    . Sets up routers for delivery, location, and webhook endpoints
     . Provides debug endpoints for diagnostics and testing
-    . Entry point for running OrdeloAgent locally or in production
-
-Key Components:
+    . Entry point for running OrdeloAgent in webhook-only mode
+    . Supports PostgreSQL database trigger webhook pattern
+  Functions/Classes:
+    . custom_404_handler - Handles 404 errors with custom template
+    . get_details - Returns configuration details
+    . debug_state_path - Provides debug information for agent state
     . app - FastAPI application instance
-    . wa - WhatsApp client instance
-    . Message handlers - process_wa_msg, reset_thread, test_delivery, etc.
-    . Flow handlers - on_customer_address_flow, on_pc_search_init
-    . Routers - delivery_hooks, location_hooks, alert_hooks
 """
 
 from fastapi import FastAPI, Request
