@@ -15,9 +15,9 @@ import psycopg
 import json
 import base64
 from ordelo_datamodels.location_pymodels import Location
-from config import _async_wa_client, pg_settings
+from config import _async_wa_client, pg_settings, client_ordelo
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pywa.types import ButtonUrl
 from ordelo.agent_app_handlers import get_live_map_location_url
 from utils_common.db_utils.sbase_pool_ops import insert_model_to_db
@@ -196,6 +196,20 @@ async def receive_pub(
     :param payload: The JSON payload from the OwnTracks location event
     """
     logger.info(payload)
+    # payload has a column tst which is epoch timestamp. Check if the location is within the last 5 minutes. If not, ignore it.
+    tst = payload.get("tst")
+    if tst is None:
+        return
+
+    # Convert epoch timestamp to datetime for comparison
+    tst_datetime = datetime.fromtimestamp(tst, tz=timezone.utc)
+    if tst_datetime < datetime.now(timezone.utc) - timedelta(minutes=1):
+        logger.info(f"ignoring location event: {tst_datetime}")
+        return
+
+    client_ordelo.schema("pgmq_public").rpc(
+        "send", {"queue_name": "owntracks", "message": payload}
+    ).execute()
 
     if payload.get("_type") == "transition":
         await process_location_transition(payload)

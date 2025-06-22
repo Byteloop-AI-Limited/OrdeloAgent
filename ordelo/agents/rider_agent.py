@@ -1,38 +1,24 @@
-# %%
 """
-LangGraph agent implementation for rider delivery workflo
+LangGraph agent implementation for rider delivery workflow
     . Implements rider agent nodes and tools using LangGraph and LangChain
     . Manages delivery workflow from instructions to completion
     . Handles live tracking, confirmation codes, and delivery status
-
-    Dependencies:
-        - LangGraph for state management
-        - LangChain for tool definitions
-        - WhatsApp async client for communication
-        - Supabase REST calls for data operations
-
-    Key Functions:
-        - send_delivery_instructions
-        - send_start_live_tracking_link
-        - verify_restaurant_confirmation_code
-        - verify_customer_confirmation_code
-        - end_delivery
-        - agent_nodecall tool `send_rider_live_location_link`
-        - respond_node
-
-    Fields/Functions Updated:
-        . reply_to_msg_id (was delivery_instructions_msg_id)
-        . send_delivery_instructions
-        . send_start_live_tracking_link
-        . send_pickup_location
-        . send_dropoff_location
-        . end_delivery
-        . agent_node
-        . respond_node
-
-    Functions/Classes:
-        . send_pickup_location
-        . send_dropoff_location
+    . Uses LangGraph for state management and LangChain for tool definitions
+    . Communicates via WhatsApp async client
+    . Performs data operations through Supabase REST calls
+    . Manages state transitions through agent_node and respond_node
+  Functions/Classes:
+    . AgentState - TypedDict for agent state management
+    . notify_food_ready_for_pickup - Notifies rider about food readiness
+    . send_pickup_location - Sends restaurant location to rider
+    . send_dropoff_location - Sends customer location to rider
+    . send_delivery_instructions - Provides delivery instructions
+    . send_start_live_tracking_link - Initiates live tracking
+    . verify_restaurant_confirmation_code - Validates restaurant code
+    . verify_customer_confirmation_code - Validates customer code
+    . end_delivery - Terminates delivery and tracking
+    . agent_node - Main agent processing node
+    . respond_node - Handles responses to user
 """
 
 from config import project_settings, client_ordelo, pg_settings
