@@ -3,6 +3,8 @@ select *
 
 select job_process_owntracks();
 
+select count(*) from rider_location_event;
+
 select *
 from rider_master
 limit 2;

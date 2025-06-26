@@ -6,7 +6,9 @@
 
 
 ## Location
-- Disable offline capture on owntracks app
+- Disable offline capture on owntracks app - Not possible, so implement a check to see if the location is within the last 5 minutes. This logic should be in @owntracks-webhook_edge_funciton.ts 
+- Update the job_process_owntracks_q to populate both rider_location and rider_location_event tables
+- rider_location_event table should have a trigger to call rider_hooks based on the order_number (ie call the right consumer)
 - Write a script to get the distance travelled
 
 ## Scheduled delivery events
