@@ -176,62 +176,62 @@ async def live_location_map(
 
 
 # %% Define Paths - location updates and transition events
-@router.post(
-    "/pub",
-    summary="OwnTracks Location Webhook",
-    description="""
-    
-    Handles two types of events:
-    - Location events: Records the rider's current position
-    - Transition events: Records when riders enter/leave specific zones
-    """,
-    response_description="Successful processing of the location event",
-    responses={
-        200: {"description": "Location event processed successfully"},
-        500: {"description": "Error processing location event"},
-    },
-)
-async def receive_pub(
-    payload: dict = Depends(get_payload),
-):
-    """
-    Webhook to receive location events from OwnTracks
+# @router.post(
+#     "/pub",
+#     summary="OwnTracks Location Webhook",
+#     description="""
 
-    This endpoint receives location events from OwnTracks and processes them
-    according to their type. If the event is a transition, it calls
-    `process_location_transition` to update the transition times in the database.
-    If the event is a location, it calls `process_location` to insert the location
-    into the database.
+#     Handles two types of events:
+#     - Location events: Records the rider's current position
+#     - Transition events: Records when riders enter/leave specific zones
+#     """,
+#     response_description="Successful processing of the location event",
+#     responses={
+#         200: {"description": "Location event processed successfully"},
+#         500: {"description": "Error processing location event"},
+#     },
+# )
+# async def receive_pub(
+#     payload: dict = Depends(get_payload),
+# ):
+#     """
+#     Webhook to receive location events from OwnTracks
 
-    :param payload: The JSON payload from the OwnTracks location event
-    """
-    logger.info(payload)
-    # payload has a column tst which is epoch timestamp. Check if the location is within the last 5 minutes. If not, ignore it.
-    tst = payload.get("tst")
-    if tst is None:
-        return
+#     This endpoint receives location events from OwnTracks and processes them
+#     according to their type. If the event is a transition, it calls
+#     `process_location_transition` to update the transition times in the database.
+#     If the event is a location, it calls `process_location` to insert the location
+#     into the database.
 
-    # Convert epoch timestamp to datetime for comparison
-    tst_datetime = datetime.fromtimestamp(tst, tz=timezone.utc)
-    if tst_datetime < datetime.now(timezone.utc) - timedelta(minutes=1):
-        logger.info(f"ignoring location event: {tst_datetime}")
-        return
+#     :param payload: The JSON payload from the OwnTracks location event
+#     """
+#     logger.info(payload)
+#     # payload has a column tst which is epoch timestamp. Check if the location is within the last 5 minutes. If not, ignore it.
+#     tst = payload.get("tst")
+#     if tst is None:
+#         return
 
-    client_ordelo.schema("pgmq_public").rpc(
-        "send", {"queue_name": "owntracks", "message": payload}
-    ).execute()
+#     # Convert epoch timestamp to datetime for comparison
+#     tst_datetime = datetime.fromtimestamp(tst, tz=timezone.utc)
+#     if tst_datetime < datetime.now(timezone.utc) - timedelta(minutes=1):
+#         logger.info(f"ignoring location event: {tst_datetime}")
+#         return
 
-    if payload.get("_type") == "transition":
-        await process_location_transition(payload)
-        return
+#     client_ordelo.schema("pgmq_public").rpc(
+#         "send", {"queue_name": "owntracks", "message": payload}
+#     ).execute()
 
-    elif payload.get("_type") == "location":
-        location = Location(**payload)
-        await insert_model_to_db(
-            table_name="rider_location",
-            model_instance=location,
-        )
-        return
+#     if payload.get("_type") == "transition":
+#         await process_location_transition(payload)
+#         return
+
+#     elif payload.get("_type") == "location":
+#         location = Location(**payload)
+#         await insert_model_to_db(
+#             table_name="rider_location",
+#             model_instance=location,
+#         )
+#         return
 
 
 # %% listen for location events
