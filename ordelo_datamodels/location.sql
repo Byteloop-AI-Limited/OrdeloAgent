@@ -1,26 +1,24 @@
 -- Updated DDL statement for the delivery_inflight_location_events table with all fields
 CREATE TABLE IF NOT EXISTS rider_location (
     topic VARCHAR(255),
-    rider_id VARCHAR(25),
-    recipient VARCHAR(25),
+    rider_id VARCHAR(12),
+    customer_id VARCHAR(12),
     order_number VARCHAR(100),
     acc INTEGER,
     alt INTEGER,
     batt INTEGER,
     lat DOUBLE PRECISION NOT NULL,
     lon DOUBLE PRECISION NOT NULL,
-    t VARCHAR(1),
     tst INTEGER,
     tid VARCHAR(255),
     conn VARCHAR(1),
     inregions TEXT[],
     inrids TEXT[],
-    SSID VARCHAR(255),
     created_at INTEGER,
     m INTEGER,
-    dt DATE,
-    dtts TIMESTAMP,
-    id VARCHAR(255)
+    tst_dtts TIMESTAMP,
+    dt DATE NOT NULL DEFAULT CURRENT_DATE,
+    dtts TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 -- drop table
 
@@ -31,16 +29,15 @@ CREATE INDEX IF NOT EXISTS idx_rider_location_dtts_desc ON rider_location (dtts 
 -- Create location_event table
 CREATE TABLE IF NOT EXISTS rider_location_event (
     topic VARCHAR(255) PRIMARY KEY,
-    rider_id VARCHAR(100) NOT NULL,
-    order_number VARCHAR(100) NOT NULL,
-    res_enter_dtts TIMESTAMP,
-    res_leave_dtts TIMESTAMP,
-    cust_enter_dtts TIMESTAMP,
-    cust_leave_dtts TIMESTAMP,
-    tst BIGINT NOT NULL,
-    dt DATE,
-    dtts TIMESTAMP
+    rider_id VARCHAR(12) NOT NULL,
+    customer_id VARCHAR(12),
+    order_number VARCHAR(100),
+    rid VARCHAR(20) NOT NULL,
+    event VARCHAR(20) NOT NULL,
+    dt DATE NOT NULL DEFAULT CURRENT_DATE,
+    dtts TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
 
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_rider_location_event_rider_id ON rider_location_event(rider_id);
