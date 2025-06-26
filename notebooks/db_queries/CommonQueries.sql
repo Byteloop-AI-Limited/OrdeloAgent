@@ -1,3 +1,7 @@
+select *
+      FROM pgmq.read('owntracks', 5, 1000);
+
+select job_process_owntracks();
 
 select *
 from rider_master
