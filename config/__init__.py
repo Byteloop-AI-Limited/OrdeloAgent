@@ -13,6 +13,7 @@ __all__ = [
     "pg_settings",
     "logger",
     "client_ordelo",
+    "get_webhook_url",
 ]
 from .project_setting import project_settings, get_project_root
 from .waba_setting import (
@@ -27,3 +28,4 @@ from .ms_setting import ms_settings
 from .google_setting import g_client, google_settings
 from .cat_con_setting import cat_conn
 from .pg_setting import pg_settings, client_ordelo
+from .params import get_webhook_url

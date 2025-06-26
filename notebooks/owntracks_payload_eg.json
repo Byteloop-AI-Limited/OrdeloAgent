@@ -1,0 +1,35 @@
+{
+    "t": "c",
+    "acc": 2,
+    "lat": 51.353808,
+    "lon": 0.095781,
+    "rid": "cust",
+    "tid": "21",
+    "tst": 1750956665,
+    "desc": "cust",
+    "wtst": 1750954105,
+    "_type": "transition",
+    "event": "enter",
+    "topic": "owntracks/447448440754/447448440754-WREN-QGZB-21/event"
+}
+
+
+{
+    "m": 2,
+    "bs": 1,
+    "acc": 2,
+    "alt": 115,
+    "cog": 342,
+    "lat": 51.353766,
+    "lon": 0.095792,
+    "tid": "21",
+    "tst": 1750956661,
+    "vac": 3,
+    "vel": 4,
+    "batt": 25,
+    "conn": "m",
+    "_type": "location",
+    "topic": "owntracks/447448440754/447448440754-WREN-QGZB-21",
+    "inrids": [],
+    "inregions": []
+}

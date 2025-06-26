@@ -1,11 +1,25 @@
 """
-Delivery hooks router for OrdeloAgent FastAPI service.
-    . Defines FastAPI endpoints for delivery-related webhook events (delivery_dispatch_hook, delivery_inflight_graph_init_hook, notify_missed_dispatches_hook)
-    . Processes webhook payloads and updates delivery_dispatch and related tables
-    . Notifies riders of delivery events using WhatsApp messaging (wa_send_delivery_dispatch_request_to_rider)
-    . Implements extensible webhook and DB update patterns for delivery workflows
-    . Supports function chaining and conditional database operations
-    . Handles empty payloads gracefully
+Delivery webhook handlers for Ordelo delivery system
+    . Processes delivery-related webhook events from database triggers
+    . Manages delivery dispatch assignments and inflight tracking
+    . Implements function chaining pattern for complex workflows
+    . Handles missed dispatch notifications and rider communications
+    . Provides FastAPI endpoints for delivery operations
+    . Uses PostgreSQL CTEs for conditional database operations
+    . Follows webhook pattern where database triggers call FastAPI endpoints
+    . Handles empty payloads gracefully in endpoints
+  Functions/Classes:
+    . get_payload - Helper to parse webhook payloads
+    . wa_send_delivery_dispatch_request_to_rider - Notifies riders via WhatsApp
+    . post_rider_event_inflight - Posts delivery summary to webhook
+    . post_delivery_timedout - Posts delivery timeout information
+    . delivery_hook_root - Root endpoint for delivery hooks
+    . delivery_dispatch_hook - Processes dispatch assignments
+    . delivery_inflight_graph_init_hook - Initializes inflight tracking
+    . notify_missed_dispatches_hook - Handles missed dispatch cases
+    . notify_food_ready_for_pickup - Notifies rider about food readiness
+    . delivery_timedout - Handles delivery timeout events
+    . check_rider_allocation_status - Checks rider allocation status
 """
 
 from fastapi import APIRouter, Request, Depends
@@ -18,6 +32,9 @@ import json
 from psycopg_pool import AsyncConnectionPool
 from ordelo.agents.agent_runner import init_ordelo_graph
 import asyncio
+from config import client_ordelo, get_webhook_url
+import httpx
+from ordelo.agents.agent_runner import run_rider_graph
 
 
 # %% Define Dependancies and routes
@@ -118,6 +135,72 @@ Vehicle type - *{delivery_summary["vehicle_type"]}*
     )
 
 
+# %% post rider event inflight
+async def post_rider_event_inflight(delivery_detail: DeliveryDetail):
+    """
+    Posts the delivery summary for a given order_number to the rider-inflight webhook.
+
+    Args:
+        order_number (str): The unique identifier for the order.
+
+    Side Effects:
+        Sends an HTTP POST request to the configured rider-inflight webhook endpoint
+        with the all delivery details as JSON payload and prints the response status and JSON.
+    """
+    delivery_summary: dict = (
+        client_ordelo.table("delivery_summary")
+        .select("*")
+        .eq("order_number", delivery_detail.order_number)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    rider_master = (
+        client_ordelo.table("rider_master")
+        .select("rider_name", "rider_id")
+        .eq("rider_id", delivery_detail.rider_id)
+        .eq("vehicle_type", delivery_detail.vehicle_type)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    payload = {
+        "delivery_summary": delivery_summary,
+        "delivery_detail": delivery_detail.model_dump(),
+        "rider_master": rider_master,
+    }
+    rest_ref = delivery_detail.order_number.split("-")[0]
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            get_webhook_url(rest_ref, "rider-inflight"),
+            json=payload,
+        )
+        logger.debug("Status code:", response.status_code)
+        logger.debug("Response JSON:", response.json())
+
+
+# %% post delivery timedout
+async def post_delivery_timedout(delivery_summary: dict):
+    """
+    Posts the delivery summary for a given order_number to the delivery-timedout webhook.
+
+    Args:
+        delivery_summary (dict): The payload for the delivery-timedout webhook.
+
+    Side Effects:
+        Sends an HTTP POST request to the configured delivery-timedout webhook endpoint
+        with the all delivery details as JSON payload and prints the response status and JSON.
+    """
+    rest_ref = delivery_summary["order_number"].split("-")[0]
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            get_webhook_url(rest_ref, "delivery-timedout"),
+            json=delivery_summary,
+        )
+    logger.info("Status code:", response.status_code)
+    logger.info("Response JSON:", response.json())
+
+
 # %% Define paths
 @router.get(
     "/",
@@ -174,6 +257,9 @@ async def delivery_dispatch_hook(payload: dict = Depends(get_payload)):
             recipient=rider_id,
             delivery_summary=delivery_summary,
             dispatch_id=dispatch_id,
+        )
+        logger.info(
+            f"Delivery dispatch request sent to rider: {rider_id}, {delivery_summary['vehicle_type']}"
         )
     return {"status": "success"}
 
@@ -239,8 +325,16 @@ async def delivery_inflight_graph_init_hook(payload: dict = Depends(get_payload)
     # Extract data from payload
     delivery_detail = DeliveryDetail(**payload["delivery_detail"][0])
 
-    # Create as background task as the db webhook on inflight waits and errors out
+    # 1. Call restaurant webhook - rider-inflight-event
+    if "test" not in delivery_detail.order_number.lower():
+        asyncio.create_task(post_rider_event_inflight(delivery_detail))
+
+    # 2. Create as background task as the db webhook on inflight waits and errors out
     asyncio.create_task(init_ordelo_graph(delivery_detail))
+
+    logger.info(
+        f"Delivery inflight graph initialized for order number: {delivery_detail.order_number}"
+    )
 
     return {"status": "success"}
 
@@ -352,3 +446,69 @@ async def notify_missed_dispatches_hook(payload: dict = Depends(get_payload)):
         #     logger.error(f"Error updating dispatch status for order {order_number}: {str(e)}")
 
     return {"status": "success"}
+
+
+# %% Notify food ready for pickup
+@router.post(
+    "/notify-food-ready-for-pickup/{recipient}",
+    summary="Notify food ready for pickup",
+    response_description="Status of the notification operation",
+)
+async def notify_food_ready_for_pickup(
+    recipient: str,
+    payload: dict = Depends(get_payload),
+):
+    """
+    Notify food ready for pickup to a specific rider.
+
+    Args:
+        recipient (str): The WhatsApp phone number or unique identifier of the rider.
+        payload (dict): The JSON payload sent in the POST request body.
+
+    Returns:
+        dict: Status of the notification operation.
+    """
+    restaurant_name = payload.get("restaurant_name", None)
+
+    await run_rider_graph(
+        recipient,
+        system_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {restaurant_name} to pickup the food.",
+    )
+    return {"status": "success", "recipient": recipient, "payload": payload}
+
+
+# %% delivery-timedout
+@router.post(
+    "/delivery-timedout",
+    summary="Handle delivery timedout. Called by scheduled job `process_delivery`.",
+    response_description="Status of the delivery timedout operation",
+)
+async def delivery_timedout(
+    payload: dict = Depends(get_payload),
+):
+    logger.info(f"delivery_timedout received: {payload}")
+    delivery_summary_lst = payload.get("delivery_summary", None)
+    delivery_summary = delivery_summary_lst[0]
+    if "test" not in delivery_summary["order_number"].lower():  # skip test orders
+        await post_delivery_timedout(delivery_summary)
+    return {"status": "success"}
+
+
+# %% Check rider allocation status
+@router.get(
+    "/check-rider-allocation-status/{order_number}",
+    summary="Check rider allocation status",
+    response_description="Status of the rider allocation status operation",
+)
+async def check_rider_allocation_status(
+    order_number: str,
+):
+    delivery_summary = (
+        client.table("delivery_summary")
+        .select("*")
+        .eq("order_number", order_number)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    return {"delivery_summary_status": delivery_summary["status"]}
