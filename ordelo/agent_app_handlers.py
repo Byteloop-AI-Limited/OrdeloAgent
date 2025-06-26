@@ -1,12 +1,26 @@
 """
-Agent app handlers and utilities for Elai Ordelo agent workflows.
-    . Depends on FastAPI, LangGraph, WhatsApp (pywa, pywa_async), PostgreSQL
+Agent app handlers and utilities for Ordelo agent workflows.
+    . Depends on FastAPI, LangGraph, WhatsApp (pywa, pywa_async), PostgreSQL, httpx
     . Handles rider dispatch responses and delivery state transitions
-    . Generates configuration and job links for agents (generate_config_href, create_start_job_config, create_stop_job_config)
-    . Processes synchronous and async WhatsApp delivery instructions (process_dispatch_response_from_rider_sync, initial_handle_of_rider_response, _send_delivery_instructions)
-    . Provides live map location and location enablement checks (get_live_map_location_url, is_live_location_enabled)
-    . Includes debugging and state inspection tools (debug_state)
+    . Generates configuration and job links for agents
+    . Processes synchronous and async WhatsApp delivery instructions
+    . Provides live map location and location enablement checks
+    . Implements webhook event posting for restaurant and customer confirmation codes
+    . Includes debugging and state inspection tools
     . Utility imports for database and graph operations
+  Functions/Classes:
+    . process_dispatch_response_from_rider_sync
+    . generate_config_href
+    . create_start_job_config
+    . create_stop_job_config
+    . initial_handle_of_rider_response
+    . get_live_map_location_url
+    . is_live_location_enabled
+    . CallbackButtonData
+    . _send_delivery_instructions
+    . post_rider_event_customer_cc
+    . post_rider_event_restaurant_cc
+    . debug_state
 """
 
 # %%
@@ -19,14 +33,18 @@ from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from pywa_async import WhatsApp
 from datetime import timedelta
 from config import pg_settings, _async_wa_client
-from pywa.types import ButtonUrl
+from pydantic import BaseModel
+from typing import Optional
+from pywa.types import ButtonUrl, Button
 from config import (
     logger,
     _async_wa_client,
     _sync_wa_client,
     pg_settings,
     project_settings,
+    get_webhook_url,
 )
+import httpx
 from utils_common.lg_utils import (
     get_state_values,
     shorten_state_messages,
@@ -153,13 +171,14 @@ async def create_start_job_config(d_detail: DeliveryDetail) -> str:
         "mode": 3,
         "allowRemoteLocation": True,
         "usePassword": False,
+        # "url": f"{project_settings.base_url}/location-hooks/pub",
+        "url": "https://pqsvhidiwiydgshynfib.supabase.co/functions/v1/owntracks-webhook",
         "monitoring": 2,
+        "locatorDisplacement": 10,
+        "locatorInterval": 30,
         "username": d_detail.rider_id,
         "deviceId": f"{d_detail.rider_id}-{d_detail.order_number}",
         "password": "",
-        "url": f"{project_settings.base_url}/location-hooks/pub",
-        "locatorDisplacement": 10,
-        "locatorInterval": 60,
         "waypoints": waypoints,
     }
 
@@ -174,10 +193,11 @@ stop_job_config = {
     "_type": "configuration",
     "mode": 3,
     "allowRemoteLocation": False,
-    "usePassword": False,
+    # "usePassword": False,
+    # "username": "NA",
+    "device_id": "NA",
+    # "password": "",
     "monitoring": -1,
-    "username": "NA",
-    "password": "",
     "url": "",
 }
 
@@ -194,8 +214,9 @@ async def initial_handle_of_rider_response(
     callback_data: dict,
     _async_wa_client: WhatsApp = _async_wa_client,
 ):
-    logger.debug(f"Initial handle of rider response: {callback_data}")
-    logger.debug(f"Order status: {order_status}")
+    logger.info(f"Initial handle of rider response: {callback_data}")
+    logger.info(f"Order status: {order_status}")
+
     # handle declined so the rest does not have tobe in an else block
     if callback_data["status"] == "declined":
         client.table("delivery_dispatch").update({"status": "declined"}).eq(
@@ -204,16 +225,14 @@ async def initial_handle_of_rider_response(
         return
 
     # now handle the accept, eagerly handle unassigned
-    if (
-        order_status["status"] == "unassigned"
-        or order_status["status"] == "vehicle_type_timedout"
-    ):
+    if order_status["status"] == "unassigned":
+        # Update dispatch status, will be done for all accepted dispatches
         client.table("delivery_dispatch").update({"status": "accepted"}).eq(
             "dispatch_id", callback_data["dispatch_id"]
         ).execute()
         return
     elif order_status["status"] == "completed":
-        logger.debug(
+        logger.info(
             "Delivery job already completed for order number: {}".format(
                 callback_data["order_number"]
             )
@@ -223,7 +242,7 @@ async def initial_handle_of_rider_response(
         )
         return
     elif order_status["status"] == "timedout":
-        logger.debug(
+        logger.info(
             "Delivery job already timed out for order number: {}".format(
                 callback_data["order_number"]
             )
@@ -271,13 +290,41 @@ def is_live_location_enabled(order_number):
     )
     return len(rows) > 0
 
+
+# %% Callback model
+class CallbackButtonData(BaseModel):
+    model_config = {"frozen": True}
+    action: str
+    recipient: str
+    ai_msg: str
+    human_msg: str
+    response: Optional[str] = None
+
+
 # %%
 
-async def _send_delivery_instructions(dispatch_id: int, start_job_config_url: str, recipient: str):
+
+async def _send_delivery_instructions(
+    dispatch_id: int, start_live_tracking_url: str, recipient: str, rider_name: str
+):
     """
     Sends delivery instructions (pickup and drop-off locations) via WhatsApp for a given dispatch_id.
     """
     client = pg_settings.client
+    pickup_cb_data = CallbackButtonData(
+        action="/riderLocationRequest",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="Send me the pickup location",
+        response="",
+    )
+    dropoff_cb_data = CallbackButtonData(
+        action="/riderLocationRequest",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="Send me the dropoff location",
+        response="",
+    )
 
     dispatch = (
         client.table("delivery_dispatch")
@@ -297,14 +344,12 @@ async def _send_delivery_instructions(dispatch_id: int, start_job_config_url: st
         .execute()
         .data[0]
     )
-    logger.info(f"dispatch: {dispatch}")
-    logger.info(f"summary: {summary}")
 
     delivery_summary_dtts = datetime.fromisoformat(summary["dtts"])
     pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
 
     body_text = f"""
-
+Hi {rider_name}, here are the Delivery details:
   ⏰ Pickup Time - *@{pickup_time}*
   💰 Earning - *£{dispatch["rider_payout"]}*
   🛣️ Distance - *{dispatch["distance"]} miles*
@@ -317,32 +362,88 @@ async def _send_delivery_instructions(dispatch_id: int, start_job_config_url: st
 
 👨‍💻 Please let me know if you have any questions during the delivery process.
     """
-    delivery_instructions_msg = await _async_wa_client.send_message(
+    reply_to_msg_id = await _async_wa_client.send_message(
         to=recipient,
         header=f"🌟 {summary['order_number']} 🌟",
         text=body_text,
         reply_to_message_id=None,
-        buttons=ButtonUrl(title="Start live tracking", url=start_job_config_url),
+        buttons=[
+            Button(
+                title="Pickup Location", callback_data=pickup_cb_data.model_dump_json()
+            ),
+            Button(
+                title="Dropoff Location",
+                callback_data=dropoff_cb_data.model_dump_json(),
+            ),
+        ],
     )
 
-    await _async_wa_client.send_location(
-        to=recipient,
-        latitude=summary['rest_lat'],
-        longitude=summary['rest_lon'],
-        name=f"{summary['rest_name']} - Pick Up",
-        address=summary['rest_address'],
-        reply_to_message_id=delivery_instructions_msg.id,
-    )
+    # Send the URL to the rider
+    # await _async_wa_client.send_message(
+    #     to=recipient,
+    #     header="Enable Live Tracking",
+    #     text="Please turn on the live tracking by clicking the link below.",
+    #     reply_to_message_id=reply_to_msg_id.id,
+    #     buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
+    # )
+    return reply_to_msg_id.id, body_text
 
-    await _async_wa_client.send_location(
-        to=recipient,
-        latitude=summary['customer_lat'],
-        longitude=summary['customer_lon'],
-        name=f"{summary['customer_name']} - Drop Off",
-        address=summary['customer_address'],
-        reply_to_message_id=delivery_instructions_msg.id,
-    )
-    return delivery_instructions_msg.id
+
+# %% Test
+# dispatch_id = 2864
+# await _send_delivery_instructions(dispatch_id, "https://agent.ordelo.co.uk", "447448440754")
+
+
+# %%
+async def post_rider_event_customer_cc(order_number: str, customer_id: int):
+    """
+    Posts a customer confirmation code event for a given order_number to the appropriate webhook.
+
+    Args:
+        order_number (str): The unique identifier for the order.
+
+    Side Effects:
+        Sends an HTTP POST request to the configured rider-customer-cc webhook endpoint
+        and prints the response status and JSON.
+    """
+    rest_ref = order_number.split("-")[0]
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            get_webhook_url(rest_ref, "rider-cust-cc")
+            + "/"
+            + order_number
+            + "/"
+            + str(customer_id),
+            json={},
+        )
+        logger.info("Cust-CC Webhook called for order number: {}".format(order_number))
+
+
+# %%
+async def post_rider_event_restaurant_cc(order_number: str, customer_id: int):
+    """
+    Posts a restaurant confirmation code event for a given order_number to the appropriate webhook.
+
+    Args:
+        order_number (str): The unique identifier for the order.
+        customer_id (int): The unique identifier for the customer.
+
+    Side Effects:
+        Sends an HTTP POST request to the configured rider-restaurant-cc webhook endpoint
+        and logs the call.
+    """
+    rest_ref = order_number.split("-")[0]
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            get_webhook_url(rest_ref, "rider-rest-cc")
+            + "/"
+            + order_number
+            + "/"
+            + str(customer_id),
+            json={},
+        )
+        logger.info("Rest-CC Webhook called for order number: {}".format(order_number))
+
 
 # %% Debug State
 async def debug_state(recipient: str, graph, pool) -> dict:

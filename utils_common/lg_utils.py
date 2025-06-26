@@ -1,18 +1,28 @@
 # %%
 """
-LangChain/LangGraph utility helpers for agent creation and graph orchestration.
-    . Dependencies: langchain, langgraph, openai, pydantic, pywa, etc.
-    . `create_agent*` builders construct prompt templates and bind tools
-    . `agent_node` adapter executes agent and formats state update
-    . Provides shared LLM instance `LLM_4o` and embedding helper
-    . Misc helpers: message shortening, state extraction, graph display
+Utility helpers for agent creation, orchestration, and shared LLM resources in LangChain/LangGraph workflows.
+    . Dependencies: langchain, langgraph, openai, pydantic, pywa, IPython, etc.
+    . Agent builders: create_agent*, agent_node (prompt, tool binding, state update)
+    . Shared resources: LLM_4o (LLM instance), embedding helper
+    . Misc utilities: message shortening, state extraction, graph visualization
+    . Centralizes agent and graph setup logic for reuse
+
+Functions/Classes:
+    . create_agent
+    . create_agent_with_tools
+    . agent_node
+    . get_llm_4o
+    . get_embedding_helper
+    . shorten_message
+    . extract_state
+    . display_graph
+    . get_last_msg_ts
 """
 
 # %%
 from typing import Any, List
 from IPython.display import Image, display
 from langchain_core.messages import ToolMessage
-from langgraph.prebuilt import ToolInvocation
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import (
@@ -21,6 +31,9 @@ from langchain_core.messages import (
     RemoveMessage,
     filter_messages,
 )
+from config import pg_settings
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
 
 from langgraph.graph.state import CompiledStateGraph
 from openai import OpenAI
@@ -252,29 +265,6 @@ def call_agent_chain(state, chain, config):
     return {**state, "messages": [response]}
 
 
-# Define the function to execute tools (This is not needed anymore - ToolNode)
-def call_tool(state, config, tool_executor):
-    messages = state["messages"]
-    last_message = messages[-1]
-
-    # We construct an ToolInvocation from the function_call
-    tool_call = last_message.tool_calls[0]
-    action = ToolInvocation(
-        tool=tool_call["name"],
-        tool_input=tool_call["args"],
-    )
-
-    response = tool_executor.invoke(action)
-
-    # We use the response to create a ToolMessage
-    tool_message = ToolMessage(
-        content=str(response), name=action.tool, tool_call_id=tool_call["id"]
-    )
-
-    # We return a list, because this will get added to the existing list
-    return {"messages": [tool_message]}
-
-
 # %%
 class FormattedResponse(BaseModel):
     """Response formatter. ONLY formats what is available in the input. Does not offer additional options"""
@@ -341,7 +331,7 @@ def is_last_tool_call(
     """
     Check if the most recent tool call in the specified graph's state matches the given tool call name.
 
-    This function retrieves the messages from the state of the CompiledStateGraph for the provided configuration.
+    This function retrieves the messages from the state of the graph for the provided configuration.
     It then filters these messages to find the last message of type 'tool'. If the last tool message is found,
     it compares its name to the specified tool call name.
 
@@ -480,6 +470,28 @@ def shorten_state_messages(messages: List[dict]) -> List[Dict[str, Dict[str, Any
 
 
 # is_last_tool_call(err_lead_capture_graph, 'send_acknowledgement_email')
+
+
+# %%
+async def get_last_msg_ts(builder, recipient=None, thread_id=None):
+    """
+    Returns the created_at timestamp for the latest state snapshot for a given recipient or thread_id.
+    Provide either recipient or thread_id (recipient takes precedence if both are provided).
+    """
+    pool = await pg_settings.get_pool()
+    checkpointer = AsyncPostgresSaver(pool)
+    graph = builder.compile(checkpointer=checkpointer)
+
+    if recipient is not None:
+        config = await get_config_for_recipient(recipient, pool)
+    elif thread_id is not None:
+        config = {"configurable": {"thread_id": thread_id}}
+    else:
+        raise ValueError("Either recipient or thread_id must be provided.")
+
+    state = await graph.aget_state(config=config)
+    # created_at is a top-level attribute on the state snapshot
+    return getattr(state, "created_at", None)
 
 
 # %% Delete messages

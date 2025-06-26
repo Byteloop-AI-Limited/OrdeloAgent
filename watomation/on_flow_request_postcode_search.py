@@ -1,8 +1,14 @@
 """
-Handles postcode search flows via WhatsApp.
+Handles postcode search flows via WhatsApp
     . Implements WhatsApp flow request handlers for postcode search
     . Performs address lookup and builds flow responses
     . Integrates with external address resolver service
+    . Handles flow request initialization and data exchange
+    . Validates address data and provides appropriate error responses
+    . Formats address components for WhatsApp flow display
+  Functions/Classes:
+    . on_pc_search_init - Initializes postcode search flow with default values
+    . on_ip_pc - Processes postcode input and returns address details
 """
 
 # %%

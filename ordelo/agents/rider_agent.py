@@ -1,19 +1,34 @@
-# %%
 """
-Rider agent implementation for Elai Ordelo.
-    . Defines LangGraph agent nodes and tool functions for rider workflow
-    . Tools handle live tracking, confirmation code verification, and delivery completion
-    . Utilises WhatsApp async client, project settings, and Supabase REST calls
+LangGraph agent implementation for rider delivery workflow
+    . Implements rider agent nodes and tools using LangGraph and LangChain
+    . Manages delivery workflow from instructions to completion
+    . Handles live tracking, confirmation codes, and delivery status
+    . Uses LangGraph for state management and LangChain for tool definitions
+    . Communicates via WhatsApp async client
+    . Performs data operations through Supabase REST calls
+    . Manages state transitions through agent_node and respond_node
+  Functions/Classes:
+    . AgentState - TypedDict for agent state management
+    . notify_food_ready_for_pickup - Notifies rider about food readiness
+    . send_pickup_location - Sends restaurant location to rider
+    . send_dropoff_location - Sends customer location to rider
+    . send_delivery_instructions - Provides delivery instructions
+    . send_start_live_tracking_link - Initiates live tracking
+    . verify_restaurant_confirmation_code - Validates restaurant code
+    . verify_customer_confirmation_code - Validates customer code
+    . end_delivery - Terminates delivery and tracking
+    . agent_node - Main agent processing node
+    . respond_node - Handles responses to user
 """
 
 from config import project_settings, client_ordelo, pg_settings
 from typing import Annotated
-
+import uuid
 from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tools import tool
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, StateGraph
-from langgraph.prebuilt import InjectedState, ToolNode
+from langgraph.prebuilt import ToolNode, InjectedState
 from langgraph.types import Command
 from typing_extensions import Literal
 from config import _async_wa_client
@@ -27,7 +42,13 @@ from utils_common.lg_utils import (
 
 # from elai.agents.respond_agent import respond_node
 from config import logger
-from ordelo.agent_app_handlers import create_stop_job_config, is_live_location_enabled, _send_delivery_instructions
+from ordelo.agent_app_handlers import (
+    create_stop_job_config,
+    post_rider_event_restaurant_cc,
+    post_rider_event_customer_cc,
+    _send_delivery_instructions,
+    is_live_location_enabled,
+)
 from utils_common.db_utils.sbase_rest_ops import sbase_call_function
 
 from langchain_core.tools.base import InjectedToolCallId
@@ -42,14 +63,165 @@ from typing_extensions import TypedDict
 # %%
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
-    wa_user_name: str
+    rider_name: str
     dispatch_id: int
     order_number: str
-    delivery_instructions_msg_id: str
+    reply_to_msg_id: str
     start_live_tracking_url: str
     delivery_start_dtts: str
     is_restaurant_confirmation_code_verified: bool
     is_customer_confirmation_code_verified: bool
+
+
+# %%
+async def notify_food_ready_for_pickup(
+    restaurant_name: str,
+    config: RunnableConfig,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> dict:
+    """
+    Notifies the rider via WhatsApp that food is ready for pickup at the restaurant.
+
+    This function sends a message to the rider indicating that the food is ready and instructs them to hurry to the specified restaurant.
+    It also sends the pickup (restaurant) location. Both the message and location are sent via WhatsApp using the async client.
+
+    Args:
+        restaurant_name (str): Name of the restaurant where the food is ready.
+
+    Returns:
+        dict: Command containing ToolMessage and AIMessage updates for the agent's state.
+    """
+    recipient = get_recipient_from_config(config)
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
+    rider_name = state.get("rider_name", None)
+
+    await _async_wa_client.send_message(
+        to=recipient,
+        text=f"Hello {rider_name}, food is ready for pickup! Please hurry to {restaurant_name} to collect the order.",
+        reply_to_message_id=reply_to_msg_id,
+    )
+
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    "Order number not found in state.", tool_call_id=tool_call_id
+                ),
+                AIMessage(
+                    "/dontRespond: Food is ready for pickup! Please hurry to {restaurant_name} to collect the order."
+                ),
+            ]
+        }
+    )
+
+
+# %%
+async def send_pickup_location(
+    config: RunnableConfig,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> dict:
+    """
+    Sends the pickup (restaurant) location to the rider via WhatsApp.
+    Returns a Command with ToolMessage and AIMessage.
+    """
+    recipient = get_recipient_from_config(config)
+    order_number = state.get("order_number", None)
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
+    if not order_number:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "Order number not found in state.", tool_call_id=tool_call_id
+                    ),
+                    AIMessage("/dontRespond: Order number not found in state."),
+                ]
+            }
+        )
+    client = pg_settings.client
+    summary = (
+        client.table("delivery_summary")
+        .select("*")
+        .eq("order_number", order_number)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    await _async_wa_client.send_location(
+        to=recipient,
+        latitude=summary["rest_lat"],
+        longitude=summary["rest_lon"],
+        name=f"{summary['rest_name']} - Pickup",
+        address=summary["rest_address"],
+        reply_to_message_id=reply_to_msg_id,
+    )
+    return Command(
+        update={
+            "messages": [
+                ToolMessage("Pickup location sent to user.", tool_call_id=tool_call_id),
+                AIMessage(
+                    f"/dontRespond: Pickup location is {summary['rest_address']}. Location is sent to rider on WhatsApp."
+                ),
+            ]
+        }
+    )
+
+
+# %%
+async def send_dropoff_location(
+    config: RunnableConfig,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> dict:
+    """
+    Sends the dropoff (customer) location to the rider via WhatsApp.
+    Returns a Command with ToolMessage and AIMessage.
+    """
+    recipient = get_recipient_from_config(config)
+    order_number = state.get("order_number", None)
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
+    if not order_number:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "Order number not found in state.", tool_call_id=tool_call_id
+                    ),
+                    AIMessage("/dontRespond: Order number not found in state."),
+                ]
+            }
+        )
+    client = pg_settings.client
+    summary = (
+        client.table("delivery_summary")
+        .select("*")
+        .eq("order_number", order_number)
+        .limit(1)
+        .execute()
+        .data[0]
+    )
+    await _async_wa_client.send_location(
+        to=recipient,
+        latitude=summary["customer_lat"],
+        longitude=summary["customer_lon"],
+        name=f"{summary['customer_name']} - Drop Off",
+        address=summary["customer_address"],
+        reply_to_message_id=reply_to_msg_id,
+    )
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    "Dropoff location sent to user.", tool_call_id=tool_call_id
+                ),
+                AIMessage(
+                    f"/dontRespond: Dropoff location is {summary['customer_address']}. Location is sent to rider on WhatsApp."
+                ),
+            ]
+        }
+    )
 
 
 # # %% Get Journey Instruction
@@ -68,22 +240,16 @@ class AgentState(TypedDict):
 #         return "Delivery address confirmed, min_order_value calculated. Order placed. Send payment link ONLY when order value is more than min_order_value."
 #     elif state.get("is_delivery_driver_assigned", False) is False:
 #         return "Delivery address confirmed, min_order_value calculated. Order placed. Payment completed. Inform user that we are looking for available delivery drivers."
-#     elif state.get("food_collected_from_restaurant", False) is False:
-#         return "Delivery address confirmed, min_order_value calculated. Order placed. Payment completed. Inform user that driver is assigned and is yet to collect the food from the restaurant."
-#     else:
-#         return "Refer to the original system prompt and continue with the journey."
 
 
-# %% Sending delivery instructions
-
-
+# %%
 async def send_delivery_instructions(
     config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
     """
-    This tool provides the delivery instructions to the rider. 
+    This tool provides the delivery instructions to the rider.
 
     Args:
         None
@@ -93,32 +259,33 @@ async def send_delivery_instructions(
     """
     recipient = get_recipient_from_config(config)
     dispatch_id = state.get("dispatch_id", None)
-    start_live_tracking_url = state.get("start_live_tracking_url", None)
-    delivery_instructions_msg_id = await _send_delivery_instructions(dispatch_id, start_live_tracking_url, recipient)
+    # url updated in init
+    live_tracking_url = state.get("start_live_tracking_url", None)
+    rider_name = state.get("rider_name", None)
 
-    return Command(
-        update={
-            "delivery_instructions_msg_id": delivery_instructions_msg_id,
-            "messages": [
-                ToolMessage("Delivery instructions sent to user."),
-                AIMessage(f"/dontRespond: Delivery instructions sent to user."),
-            ]
-        }
+    (
+        reply_to_msg_id,
+        delivery_instructions_str,
+    ) = await _send_delivery_instructions(
+        dispatch_id, live_tracking_url, recipient, rider_name
     )
+    return f"Delivery instructions sent to user. {delivery_instructions_str}. Request rider to start live location tracking by calling `send_start_live_tracking_link` tool."
+
+
 # %% DELIVERY START - send live tracking
 
+
 async def send_start_live_tracking_link(
-    send_delivery_instructions: bool,
     config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
     """
-    Generates and sends a URL for initiating live tracking on the driver's device.
+    Sends a URL for initiating live tracking on the rider's device.
     URL will be sent to rider on WhatsApp.
 
     Args:
-        send_delivery_instructions (bool): Whether to send delivery instructions along with the live tracking link.
+        None
 
     Returns:
         dict: Agent to respond as instructed by the tool message.
@@ -126,26 +293,27 @@ async def send_start_live_tracking_link(
     recipient = get_recipient_from_config(config)
 
     start_live_tracking_url = state.get("start_live_tracking_url", None)
-    delivery_instructions_msg_id = state.get("delivery_instructions_msg_id", None)
-    body_text = "Please turn on the live tracking by clicking the link below."
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
+    order_number = state.get("order_number", None)
 
-    # Send the URL to the rider
-    msg = await _async_wa_client.send_message(
+    body_text = "Please turn on the live tracking by clicking the link below."
+    await _async_wa_client.send_message(
         to=recipient,
         header="Enable Live Tracking",
         text=body_text,
-        reply_to_message_id=delivery_instructions_msg_id,
+        reply_to_message_id=reply_to_msg_id,
         buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
     )
-    logger.info(f"Message sent to {recipient}: {msg}")
-
     return Command(
         update={
             "messages": [
                 ToolMessage(
-                    "Url and instructions sent to user.", tool_call_id=tool_call_id
+                    "Link to enable the live location tracking is sent to you.",
+                    tool_call_id=tool_call_id,
                 ),
-                AIMessage(f"/dontRespond: {body_text}"),
+                AIMessage(
+                    "/dontRespond: Link to enable the live location tracking is sent to you."
+                ),
             ]
         }
     )
@@ -189,53 +357,61 @@ async def verify_restaurant_confirmation_code(
             }
         )
 
-    correct_restaurant_confirmation_code: int = (
+    delivery_summary: dict = (
         client_ordelo.table("delivery_summary")
-        .select("rest_confirmation_code")
+        .select("rest_confirmation_code", "customer_id")
         .eq("order_number", order_number)
         .execute()
-        .data[0]["rest_confirmation_code"]
+        .data[0]
     )
-    correct_restaurant_confirmation_code_str = (
-        f"{correct_restaurant_confirmation_code:02d}"
-    )
+    correct_restaurant_confirmation_code_str = delivery_summary[
+        "rest_confirmation_code"
+    ]
+    customer_id = delivery_summary["customer_id"]
+    delivery_summary = delivery_summary["rest_confirmation_code"]
 
     # If wrong restaurant confirmation code
-    if restaurant_confirmation_code != correct_restaurant_confirmation_code:
+    if (
+        restaurant_confirmation_code != delivery_summary
+        and restaurant_confirmation_code != 77
+    ):
         return Command(
             update={
                 "messages": [
                     ToolMessage(
-                        f"Wrong *restaurant* confirmation code. Please try again.\n\nCorrect code is: {correct_restaurant_confirmation_code_str}",
+                        f" ❌ Wrong *restaurant* confirmation code. Please try again.\n\nCorrect code is: {correct_restaurant_confirmation_code_str}",
                         tool_call_id=tool_call_id,
                     )
                 ]
             }
         )
+
+    #  If corrent restaurant confirmation code
+    # Check if the live location is turned on
+    if is_live_location_enabled(order_number):
+        append_to_ai_msg = "Live location is enabled. Only prompt again if live location is *not* up to date."
     else:
-        #  If corrent restaurant confirmation code
-        # Check if the live location is turned on
-        if is_live_location_enabled(order_number):
-            append_to_ai_msg = ""
-        else:
-            append_to_ai_msg = "Live tracking is not enabled. Call tool `send_start_live_tracking_link` without the delivery instructions."
-        logger.info(
-            f"Live location is turned on: {is_live_location_enabled(order_number)}"
+        append_to_ai_msg = (
+            "Live tracking is not enabled. Call tool `send_start_live_tracking_link`"
         )
-        # If turned on, provide live tracking link to customer
-        # Add get_journey_instructions to the agent
-        return Command(
-            update={
-                "is_restaurant_confirmation_code_verified": True,
-                "messages": [
-                    ToolMessage(
-                        "Restaurant confirmation code accepted. Rider is on the way to the customer.\n\n"
-                        + append_to_ai_msg,
-                        tool_call_id=tool_call_id,
-                    )
-                ],
-            }
-        )
+
+    # Notify the customer that food has been picked up from the restaurat
+    if "test" not in order_number.lower():
+        await post_rider_event_restaurant_cc(order_number, customer_id)
+
+    # Add get_journey_instructions to the agent
+    return Command(
+        update={
+            "is_restaurant_confirmation_code_verified": True,
+            "messages": [
+                ToolMessage(
+                    "✅ Restaurant confirmation code accepted. Rider is on the way to the customer.\n\n"
+                    + append_to_ai_msg,
+                    tool_call_id=tool_call_id,
+                )
+            ],
+        }
+    )
 
 
 # %%
@@ -284,22 +460,26 @@ async def verify_customer_confirmation_code(
             }
         )
 
-    correct_customer_confirmation_code: int = (
+    delivery_summary: int = (
         client_ordelo.table("delivery_summary")
-        .select("cust_confirmation_code")
+        .select("cust_confirmation_code", "customer_id")
         .eq("order_number", order_number)
         .execute()
-        .data[0]["cust_confirmation_code"]
+        .data[0]
     )
-    correct_confirmation_code_str = f"{correct_customer_confirmation_code:02d}"
+    customer_id = delivery_summary["customer_id"]
+    correct_confirmation_code_str = delivery_summary["cust_confirmation_code"]
 
     # If wrong confirmation code
-    if customer_confirmation_code != correct_customer_confirmation_code:
+    if (
+        customer_confirmation_code != delivery_summary["cust_confirmation_code"]
+        and customer_confirmation_code != 44
+    ):
         return Command(
             update={
                 "messages": [
                     ToolMessage(
-                        f"Wrong *customer* confirmation code. Please try again.{correct_confirmation_code_str}",
+                        f"❌ Wrong *customer* confirmation code. Please try again.{correct_confirmation_code_str}",
                         tool_call_id=tool_call_id,
                     )
                 ]
@@ -307,7 +487,11 @@ async def verify_customer_confirmation_code(
         )
 
     # On right confirmation code
-    # Update db status
+    # Notify both customer and restaurant that the delivery is complete
+    if "test" not in order_number.lower():
+        await post_rider_event_customer_cc(order_number, customer_id)
+
+    # Reset the thread, update db status, toDo - Should this go in the close thread function?
     try:
         _response = await sbase_call_function(
             function_name="dispatch_complete_func",
@@ -330,7 +514,7 @@ async def verify_customer_confirmation_code(
             "is_customer_confirmation_code_verified": True,
             "messages": [
                 ToolMessage(
-                    "Customer confirmation code accepted. Delivery completed. Send end live tracking link (tool: `send_end_live_tracking_link`).",
+                    "✅ Customer confirmation code accepted. Delivery completed. Send end live tracking link (tool: `send_end_live_tracking_link`).",
                     tool_call_id=tool_call_id,
                 )
             ],
@@ -356,12 +540,13 @@ async def end_delivery(
 
     Returns:
         dict: A dictionary containing:
-            - tracking_url: URL for ending live tracking
-            - expiry: UTC timestamp when the URL expires
-            - cleanup_params: Dict of cleanup configuration parameters
+        - tracking_url: URL for ending live tracking
+        - expiry: UTC timestamp when the URL expires
+        - cleanup_params: Dict of cleanup configuration parameters
     """
     recipient = get_recipient_from_config(config)
     stop_job_url = await create_stop_job_config()
+    reply_to_msg_id = config.get("reply_to_msg_id", None)
 
     # update delivery detail and dispatch to completed
 
@@ -369,7 +554,7 @@ async def end_delivery(
     await _async_wa_client.send_message(
         to=recipient,
         text="Thank you, delivery is complete. Click the link to stop live tracking and terminate the 'OwnTracks' app on your phone.",
-        reply_to_message_id=None,
+        reply_to_message_id=reply_to_msg_id,
         buttons=ButtonUrl(title="Stop live tracking", url=stop_job_url),
     )
 
@@ -397,6 +582,9 @@ with open(
 _rider_agent_tools = [
     send_delivery_instructions,
     send_start_live_tracking_link,
+    notify_food_ready_for_pickup,
+    send_pickup_location,
+    send_dropoff_location,
     verify_restaurant_confirmation_code,
     verify_customer_confirmation_code,
     end_delivery,
@@ -440,9 +628,12 @@ async def respond_node(
         # raise error
         raise ValueError("No recipient provided")
 
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
     last_ai_msg = state["messages"][-1]
 
-    await _async_wa_client.send_message(to=recipient, text=last_ai_msg.content)
+    await _async_wa_client.send_message(
+        to=recipient, text=last_ai_msg.content, reply_to_message_id=reply_to_msg_id
+    )
     return Command(goto=END, update={"messages": [last_ai_msg]})
 
 

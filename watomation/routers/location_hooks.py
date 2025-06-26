@@ -5,6 +5,16 @@ Location hooks router for OrdeloAgent FastAPI service.
     . Exposes endpoints for live location tracking and map URLs
     . Notifies users of delivery progress via WhatsApp
     . Follows extensible webhook and DB update patterns
+    . Handles rider location events with zone-based transitions
+    . Supports live tracking enablement notifications
+  Functions/Classes:
+    . get_payload - Extracts JSON payload from request
+    . generate_config_href - Generates OwnTracks configuration URL
+    . process_location_transition - Processes location transition events
+    . live_location_map - Redirects to live location map for orders
+    . receive_pub - Webhook to receive location events from OwnTracks
+    . notify_rider_location_event - Handles rider location events
+    . notify_rider_null_or_outdated_location - Notifies riders about tracking issues
 """
 
 # %%
@@ -14,14 +24,15 @@ from loguru import logger
 import psycopg
 import json
 import base64
-from fastapi import Path
 from ordelo_datamodels.location_pymodels import Location
-from config import _async_wa_client, pg_settings
+from config import _async_wa_client, pg_settings, client_ordelo, get_webhook_url
 import re
-from datetime import datetime, timezone
+import httpx
+from datetime import datetime, timezone, timedelta
 from pywa.types import ButtonUrl
 from ordelo.agent_app_handlers import get_live_map_location_url
 from utils_common.db_utils.sbase_pool_ops import insert_model_to_db
+from ordelo.agents.agent_runner import run_rider_graph
 
 
 # %% Define Dependancies and routes
@@ -131,6 +142,18 @@ async def process_location_transition(payload):
 
 
 # %% Define paths - live location on map
+"""
+Redirects to live location map for orders
+    . Depends on FastAPI, RedirectResponse, Path, HTTPException
+    . Defines live_location_map endpoint
+    . Validates order_number and handles missing or invalid input
+    . Calls get_live_map_location_url
+    . Returns HTTP 400 for invalid order_number, 404 for missing location
+    . Function:
+        . live_location_map
+"""
+
+
 @router.get(
     "/live-location-map/{order_number}",
     response_class=RedirectResponse,
@@ -140,56 +163,76 @@ async def process_location_transition(payload):
 async def live_location_map(
     order_number: str = Path(..., description="The order number to track"),
 ):
+    if not order_number or order_number.lower() == "none":
+        logger.info("Invalid order_number received")
+        raise HTTPException(status_code=400, detail="Invalid order_number")
+
     live_map_url = await get_live_map_location_url(order_number)
-    if live_map_url is None:
-        raise HTTPException(status_code=404, detail="No live location found")
+    logger.info(f"live_map_url:{live_map_url}")
+    if not live_map_url:
+        logger.info("live_map_url is None")
+        raise HTTPException(status_code=404, detail="Live location not found")
 
     return live_map_url
 
 
 # %% Define Paths - location updates and transition events
-@router.post(
-    "/pub",
-    summary="OwnTracks Location Webhook",
-    description="""
-    
-    Handles two types of events:
-    - Location events: Records the rider's current position
-    - Transition events: Records when riders enter/leave specific zones
-    """,
-    response_description="Successful processing of the location event",
-    responses={
-        200: {"description": "Location event processed successfully"},
-        500: {"description": "Error processing location event"},
-    },
-)
-async def receive_pub(
-    payload: dict = Depends(get_payload),
-):
-    """
-    Webhook to receive location events from OwnTracks
+# @router.post(
+#     "/pub",
+#     summary="OwnTracks Location Webhook",
+#     description="""
 
-    This endpoint receives location events from OwnTracks and processes them
-    according to their type. If the event is a transition, it calls
-    `process_location_transition` to update the transition times in the database.
-    If the event is a location, it calls `process_location` to insert the location
-    into the database.
+#     Handles two types of events:
+#     - Location events: Records the rider's current position
+#     - Transition events: Records when riders enter/leave specific zones
+#     """,
+#     response_description="Successful processing of the location event",
+#     responses={
+#         200: {"description": "Location event processed successfully"},
+#         500: {"description": "Error processing location event"},
+#     },
+# )
+# async def receive_pub(
+#     payload: dict = Depends(get_payload),
+# ):
+#     """
+#     Webhook to receive location events from OwnTracks
 
-    :param payload: The JSON payload from the OwnTracks location event
-    """
-    logger.info(payload)
+#     This endpoint receives location events from OwnTracks and processes them
+#     according to their type. If the event is a transition, it calls
+#     `process_location_transition` to update the transition times in the database.
+#     If the event is a location, it calls `process_location` to insert the location
+#     into the database.
 
-    if payload.get("_type") == "transition":
-        await process_location_transition(payload)
-        return
+#     :param payload: The JSON payload from the OwnTracks location event
+#     """
+#     logger.info(payload)
+#     # payload has a column tst which is epoch timestamp. Check if the location is within the last 5 minutes. If not, ignore it.
+#     tst = payload.get("tst")
+#     if tst is None:
+#         return
 
-    elif payload.get("_type") == "location":
-        location = Location(**payload)
-        await insert_model_to_db(
-            table_name="rider_location",
-            model_instance=location,
-        )
-        return
+#     # Convert epoch timestamp to datetime for comparison
+#     tst_datetime = datetime.fromtimestamp(tst, tz=timezone.utc)
+#     if tst_datetime < datetime.now(timezone.utc) - timedelta(minutes=1):
+#         logger.info(f"ignoring location event: {tst_datetime}")
+#         return
+
+#     client_ordelo.schema("pgmq_public").rpc(
+#         "send", {"queue_name": "owntracks", "message": payload}
+#     ).execute()
+
+#     if payload.get("_type") == "transition":
+#         await process_location_transition(payload)
+#         return
+
+#     elif payload.get("_type") == "location":
+#         location = Location(**payload)
+#         await insert_model_to_db(
+#             table_name="rider_location",
+#             model_instance=location,
+#         )
+#         return
 
 
 # %% listen for location events
@@ -210,64 +253,142 @@ async def notify_rider_location_event(request: Request):
     Post requests are made via db webhooks based on the updates made in `process_location_transition`
     """
     payload = await request.json()
+    # Extract the payload
+    event = payload.get("event")
+    location = payload.get("rid")
+    customer_id = payload.get("customer_id")
+    order_number = payload.get("order_number")
+
+    if event == "enter" and location == "rest":
+        # Call restaurant webhook
+        rest_ref = order_number.split("-")[0]
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                get_webhook_url(rest_ref, "rider-rest-enter")
+                + "/"
+                + order_number
+                + "/"
+                + customer_id,
+                json={},
+            )
+        logger.debug("Status code:", response.status_code)
+        logger.debug("Response JSON:", response.json())
+    elif event == "enter" and location == "cust":
+        # Call restaurant webhook
+        rest_ref = order_number.split("-")[0]
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                get_webhook_url(rest_ref, "rider-cust-enter")
+                + "/"
+                + order_number
+                + "/"
+                + customer_id,
+                json={},
+            )
+        logger.debug("Status code:", response.status_code)
+        logger.debug("Response JSON:", response.json())
+    else:
+        return {"event": "success"}
 
     # Unpack location event row
-    location_event_new = payload.get("location_event_new")
-    order_number = location_event_new.get("order_number")
-    rider_id = location_event_new.get("rider_id")
-    # recipient = location_event_new.get('recipient')
-    recipient = rider_id
+    # location_event_new = payload.get("location_event_new")
+    # order_number = location_event_new.get("order_number")
+    # rider_id = location_event_new.get("rider_id")
+    # # recipient = location_event_new.get('recipient')
+    # recipient = rider_id
 
-    response = await live_location_map(order_number=order_number)
-    live_map_url = response.get("current_location", None)
+    # response = await live_location_map(order_number=order_number)
+    # live_map_url = response.get("current_location", None)
 
-    if live_map_url is None:
-        return
-    # Unpack changed fields
-    changed_fields = payload.get("changed_fields", {})
+    # if live_map_url is None:
+    #     return
+    # # Unpack changed fields
+    # changed_fields = payload.get("changed_fields", {})
 
-    if changed_fields is not None:
-        if "res_leave_dtts" in changed_fields.keys():
-            if live_map_url is not None:
-                await _async_wa_client.send_message(
-                    to=recipient,
-                    header=f"{order_number} Update",
-                    reply_to_message_id=None,
-                    text="""
-                    Our delivery driver has left the restaurant
-                    """,
-                    buttons=ButtonUrl(title="Live Location", url=live_map_url),
-                )
-            else:
-                await _async_wa_client.send_message(
-                    to=recipient,
-                    header=f"{order_number} Update",
-                    text="Our delivery driver has left the restaurant",
-                )
+    # if changed_fields is not None:
+    #     if "res_leave_dtts" in changed_fields.keys():
+    #         if live_map_url is not None:
+    #             await _async_wa_client.send_message(
+    #                 to=recipient,
+    #                 header=f"{order_number} Update",
+    #                 reply_to_message_id=None,
+    #                 text="""
+    #                 Our delivery driver has left the restaurant
+    #                 """,
+    #                 buttons=ButtonUrl(title="Live Location", url=live_map_url),
+    #             )
+    #         else:
+    #             await _async_wa_client.send_message(
+    #                 to=recipient,
+    #                 header=f"{order_number} Update",
+    #                 text="Our delivery driver has left the restaurant",
+    #             )
 
-        elif "res_enter_dtts" in changed_fields.keys():
-            await _async_wa_client.send_message(
-                to=recipient,
-                header=f"{order_number} Update",
-                text="Our delivery driver has entered the restaurant",
-            )
+    #     elif "res_enter_dtts" in changed_fields.keys():
+    #         await _async_wa_client.send_message(
+    #             to=recipient,
+    #             header=f"{order_number} Update",
+    #             text="Our delivery driver has entered the restaurant",
+    #         )
 
-        elif "cust_enter_dtts" in changed_fields.keys():
-            await _async_wa_client.send_message(
-                to=recipient,
-                header=f"{order_number} Update",
-                text="Our delivery rider is near you",
-            )
+    #     elif "cust_enter_dtts" in changed_fields.keys():
+    #         await _async_wa_client.send_message(
+    #             to=recipient,
+    #             header=f"{order_number} Update",
+    #             text="Our delivery rider is near you",
+    #         )
 
-        elif "cust_leave_dtts" in changed_fields.keys():
-            await _async_wa_client.send_message(
-                to=recipient,
-                header=f"{order_number} Update",
-                text="Our delivery rider has left your location",
-            )
+    #     elif "cust_leave_dtts" in changed_fields.keys():
+    #         await _async_wa_client.send_message(
+    #             to=recipient,
+    #             header=f"{order_number} Update",
+    #             text="Our delivery rider has left your location",
+    #         )
 
     # location = Location(**payload)
     # logger.info(location)
+    # return
+
+
+# %% Live tracking to be enabled
+@router.post(
+    "/null-or-outdated-location",
+    summary="Notify Rider to enabled live tracking",
+    description="Routes Rider's location events, including zone transitions and status updates",
+    response_description="Successful processing of the rider location event",
+    responses={
+        200: {"description": "Location event processed successfully"},
+        500: {"description": "Error processing live tracking event"},
+    },
+)
+async def notify_rider_null_or_outdated_location(request: Request):
+    """
+    Post requests are made via db webhooks based on the updates made in `process_location_transition`
+    """
+    payloadinflight_rows = await request.json()
+    logger.info(payloadinflight_rows)
+    for row in payloadinflight_rows:
+        rider_id = row["rider_id"]
+        order_number = row["order_number"]
+        reason = row["reason"]
+        if reason == "NO_LOCATION_DATA":
+            await _async_wa_client.send_message(
+                to=rider_id,
+                # header=f"{order_number} Update",
+                text="Please enable live tracking to receive updates on your delivery.",
+            )
+        elif reason == "OUTDATED_LOCATION_DATA":
+            await _async_wa_client.send_message(
+                to=rider_id,
+                # header=f"{order_number} Update",
+                text="How is the delivery going? you seemed to have stopped.",
+            )
+
+    # asyncio.create_task(run_rider_graph(
+    #     payloadinflight_rows,
+    #     system_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {restaurant_name} to pickup the food.",
+    # )
+
     return
 
 
