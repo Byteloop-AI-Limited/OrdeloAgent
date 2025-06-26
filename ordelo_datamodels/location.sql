@@ -53,23 +53,11 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   webhook_payload json;
-  changed_fields json;
   app_url VARCHAR;
   hook_url VARCHAR;
 BEGIN
-  -- Create an object containing only the fields that have changed
-  changed_fields := json_object_agg(key, value)
-  FROM json_each(row_to_json(NEW))
-  WHERE CASE 
-    WHEN key = 'updated_at' THEN false  -- exclude updated_at from comparison
-    ELSE json_extract_path_text(row_to_json(OLD), key) IS DISTINCT FROM json_extract_path_text(row_to_json(NEW), key)
-  END;
-  
-  -- Build the webhook payload with both complete record and changed fields
-  webhook_payload := json_build_object(
-    'location_event_new', row_to_json(NEW),
-    'changed_fields', changed_fields
-  );
+  -- Build the webhook payload as just the inserted record
+  webhook_payload := row_to_json(NEW);
 
   -- Fetch app_url from config
   SELECT config_value INTO app_url
