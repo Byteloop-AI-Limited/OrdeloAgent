@@ -54,6 +54,8 @@ AS $$
 DECLARE
   webhook_payload json;
   changed_fields json;
+  app_url VARCHAR;
+  hook_url VARCHAR;
 BEGIN
   -- Create an object containing only the fields that have changed
   changed_fields := json_object_agg(key, value)
@@ -69,9 +71,24 @@ BEGIN
     'changed_fields', changed_fields
   );
 
+  -- Fetch app_url from config
+  SELECT config_value INTO app_url
+    FROM ordelo_config
+   WHERE config_key = 'ORDELO_APP_URL';
+
+  IF app_url IS NULL OR length(app_url) = 0 THEN
+    app_url := 'https://agent.ordelo.app';
+  END IF;
+
+  -- Ensure no trailing slash before appending path
+  IF right(app_url, 1) = '/' THEN
+    app_url := left(app_url, length(app_url) - 1);
+  END IF;
+  hook_url := app_url || '/location-hooks/notify-rider-location-event';
+
   -- Make the HTTP POST request and ignore the response
   PERFORM http_post(
-    'https://agent.ordelo.app/location-hooks/notify-rider-location-event', 
+    hook_url,
     webhook_payload::text,
     'application/json'
   );
@@ -81,7 +98,7 @@ $$;
 
 
 CREATE TRIGGER trigger_rider_location_event_update
-    AFTER INSERT OR UPDATE ON rider_location_event
+    AFTER INSERT ON rider_location_event
     FOR EACH ROW
     EXECUTE PROCEDURE rider_location_event_update();
 
