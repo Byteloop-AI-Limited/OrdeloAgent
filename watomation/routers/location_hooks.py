@@ -25,8 +25,9 @@ import psycopg
 import json
 import base64
 from ordelo_datamodels.location_pymodels import Location
-from config import _async_wa_client, pg_settings, client_ordelo
+from config import _async_wa_client, pg_settings, client_ordelo, get_webhook_url
 import re
+import httpx
 from datetime import datetime, timezone, timedelta
 from pywa.types import ButtonUrl
 from ordelo.agent_app_handlers import get_live_map_location_url
@@ -252,65 +253,101 @@ async def notify_rider_location_event(request: Request):
     Post requests are made via db webhooks based on the updates made in `process_location_transition`
     """
     payload = await request.json()
+    # Extract the payload
+    event = payload.get("event")
+    location = payload.get("rid")
+    customer_id = payload.get("customer_id")
+    order_number = payload.get("order_number")
+
+    if event == "enter" and location == "rest":
+        # Call restaurant webhook
+        rest_ref = order_number.split("-")[0]
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                get_webhook_url(rest_ref, "rider-rest-enter")
+                + "/"
+                + order_number
+                + "/"
+                + customer_id,
+                json={},
+            )
+        logger.debug("Status code:", response.status_code)
+        logger.debug("Response JSON:", response.json())
+    elif event == "enter" and location == "cust":
+        # Call restaurant webhook
+        rest_ref = order_number.split("-")[0]
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                get_webhook_url(rest_ref, "rider-cust-enter")
+                + "/"
+                + order_number
+                + "/"
+                + customer_id,
+                json={},
+            )
+        logger.debug("Status code:", response.status_code)
+        logger.debug("Response JSON:", response.json())
+    else:
+        return {"event": "success"}
 
     # Unpack location event row
-    location_event_new = payload.get("location_event_new")
-    order_number = location_event_new.get("order_number")
-    rider_id = location_event_new.get("rider_id")
-    # recipient = location_event_new.get('recipient')
-    recipient = rider_id
+    # location_event_new = payload.get("location_event_new")
+    # order_number = location_event_new.get("order_number")
+    # rider_id = location_event_new.get("rider_id")
+    # # recipient = location_event_new.get('recipient')
+    # recipient = rider_id
 
-    response = await live_location_map(order_number=order_number)
-    live_map_url = response.get("current_location", None)
+    # response = await live_location_map(order_number=order_number)
+    # live_map_url = response.get("current_location", None)
 
-    if live_map_url is None:
-        return
-    # Unpack changed fields
-    changed_fields = payload.get("changed_fields", {})
+    # if live_map_url is None:
+    #     return
+    # # Unpack changed fields
+    # changed_fields = payload.get("changed_fields", {})
 
-    if changed_fields is not None:
-        if "res_leave_dtts" in changed_fields.keys():
-            if live_map_url is not None:
-                await _async_wa_client.send_message(
-                    to=recipient,
-                    header=f"{order_number} Update",
-                    reply_to_message_id=None,
-                    text="""
-                    Our delivery driver has left the restaurant
-                    """,
-                    buttons=ButtonUrl(title="Live Location", url=live_map_url),
-                )
-            else:
-                await _async_wa_client.send_message(
-                    to=recipient,
-                    header=f"{order_number} Update",
-                    text="Our delivery driver has left the restaurant",
-                )
+    # if changed_fields is not None:
+    #     if "res_leave_dtts" in changed_fields.keys():
+    #         if live_map_url is not None:
+    #             await _async_wa_client.send_message(
+    #                 to=recipient,
+    #                 header=f"{order_number} Update",
+    #                 reply_to_message_id=None,
+    #                 text="""
+    #                 Our delivery driver has left the restaurant
+    #                 """,
+    #                 buttons=ButtonUrl(title="Live Location", url=live_map_url),
+    #             )
+    #         else:
+    #             await _async_wa_client.send_message(
+    #                 to=recipient,
+    #                 header=f"{order_number} Update",
+    #                 text="Our delivery driver has left the restaurant",
+    #             )
 
-        elif "res_enter_dtts" in changed_fields.keys():
-            await _async_wa_client.send_message(
-                to=recipient,
-                header=f"{order_number} Update",
-                text="Our delivery driver has entered the restaurant",
-            )
+    #     elif "res_enter_dtts" in changed_fields.keys():
+    #         await _async_wa_client.send_message(
+    #             to=recipient,
+    #             header=f"{order_number} Update",
+    #             text="Our delivery driver has entered the restaurant",
+    #         )
 
-        elif "cust_enter_dtts" in changed_fields.keys():
-            await _async_wa_client.send_message(
-                to=recipient,
-                header=f"{order_number} Update",
-                text="Our delivery rider is near you",
-            )
+    #     elif "cust_enter_dtts" in changed_fields.keys():
+    #         await _async_wa_client.send_message(
+    #             to=recipient,
+    #             header=f"{order_number} Update",
+    #             text="Our delivery rider is near you",
+    #         )
 
-        elif "cust_leave_dtts" in changed_fields.keys():
-            await _async_wa_client.send_message(
-                to=recipient,
-                header=f"{order_number} Update",
-                text="Our delivery rider has left your location",
-            )
+    #     elif "cust_leave_dtts" in changed_fields.keys():
+    #         await _async_wa_client.send_message(
+    #             to=recipient,
+    #             header=f"{order_number} Update",
+    #             text="Our delivery rider has left your location",
+    #         )
 
     # location = Location(**payload)
     # logger.info(location)
-    return
+    # return
 
 
 # %% Live tracking to be enabled

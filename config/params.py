@@ -22,6 +22,16 @@ RESTAURANT_CONFIG = {
         "https://live-track.byteloop.ai/",
         "rider-event-hooks/on-customer-cc",
     ),
+    "WREN-RIDER-REST-ENTER": RestaurantConfig(
+        "rider-event-restaurant-enter",
+        "https://live-track.byteloop.ai/",
+        "rider-event-hooks/on-restaurant-enter",
+    ),
+    "WREN-RIDER-CUST-ENTER": RestaurantConfig(
+        "rider-event-customer-enter",
+        "https://live-track.byteloop.ai/",
+        "rider-event-hooks/on-customer-enter",
+    ),
     "WREN-DELIVERY-TIMEDOUT": RestaurantConfig(
         "delivery-timedout",
         "https://live-track.byteloop.ai/",
