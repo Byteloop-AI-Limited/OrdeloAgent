@@ -129,42 +129,52 @@ app.include_router(location_hooks.router, prefix="/location-hooks")
 # app.include_router(twilio_router.router, prefix="/twilio-router")
 
 # %% DEFINE WA
-if __name__ == "__main__":
-    from dotenv import load_dotenv
+wa: WhatsApp = WhatsApp(
+    token=waba_business_settings.token,
+    server=app,
+    verify_token=waba_business_settings.verify_token,
+    phone_id=waba_business_settings.phone_id,
+    validate_updates=False,
+    continue_handling=False,
+    business_private_key=waba_business_settings.private_key,
+    business_private_key_password=waba_business_settings.private_key_password,
+)
+# if __name__ == "__main__":
+#     from dotenv import load_dotenv
 
-    project_root = project_settings.project_root
-    load_dotenv(f"{project_root}/.env")
-    logger.info("Starting OrdeloAgent locally ...")
+#     project_root = project_settings.project_root
+#     load_dotenv(f"{project_root}/.env")
+#     logger.info("Starting OrdeloAgent locally ...")
 
-    wa: WhatsApp = WhatsApp(
-        token=waba_business_settings.token,
-        server=app,
-        verify_token=waba_business_settings.verify_token,
-        phone_id=waba_business_settings.phone_id,
-        callback_url=waba_business_settings.callback_url,
-        webhook_challenge_delay=3,
-        app_id=waba_business_settings.app_id,
-        app_secret=waba_business_settings.app_secret,
-        continue_handling=False,
-        business_private_key=waba_business_settings.private_key,
-        # business_private_key=open("/home/basal/PycharmProjects/OrdeloAgent/data/certs/private.pem").read(),
-        business_private_key_password=waba_business_settings.private_key_password,
-    )
-else:
-    wa: WhatsApp = WhatsApp(
-        token=waba_business_settings.token,
-        server=app,
-        verify_token=waba_business_settings.verify_token,
-        phone_id=waba_business_settings.phone_id,
-        callback_url=waba_business_settings.callback_url,
-        webhook_challenge_delay=3,
-        app_id=waba_business_settings.app_id,
-        app_secret=waba_business_settings.app_secret,
-        continue_handling=False,
-        business_private_key=waba_business_settings.private_key,
-        # business_private_key=open("/home/basal/PycharmProjects/OrdeloAgent/data/certs/private.pem").read(),
-        business_private_key_password=waba_business_settings.private_key_password,
-    )
+#     wa: WhatsApp = WhatsApp(
+#         token=waba_business_settings.token,
+#         server=app,
+#         verify_token=waba_business_settings.verify_token,
+#         phone_id=waba_business_settings.phone_id,
+#         callback_url=waba_business_settings.callback_url,
+#         webhook_challenge_delay=3,
+#         app_id=waba_business_settings.app_id,
+#         app_secret=waba_business_settings.app_secret,
+#         continue_handling=False,
+#         business_private_key=waba_business_settings.private_key,
+#         # business_private_key=open("/home/basal/PycharmProjects/OrdeloAgent/data/certs/private.pem").read(),
+#         business_private_key_password=waba_business_settings.private_key_password,
+#     )
+# else:
+#     wa: WhatsApp = WhatsApp(
+#         token=waba_business_settings.token,
+#         server=app,
+#         verify_token=waba_business_settings.verify_token,
+#         phone_id=waba_business_settings.phone_id,
+#         callback_url=waba_business_settings.callback_url,
+#         webhook_challenge_delay=3,
+#         app_id=waba_business_settings.app_id,
+#         app_secret=waba_business_settings.app_secret,
+#         continue_handling=False,
+#         business_private_key=waba_business_settings.private_key,
+#         # business_private_key=open("/home/basal/PycharmProjects/OrdeloAgent/data/certs/private.pem").read(),
+#         business_private_key_password=waba_business_settings.private_key_password,
+#     )
 
 
 TEST_DELIVERY = filters.contains("/test", ignore_case=True)
