@@ -16,21 +16,19 @@ FastAPI WhatsApp Agent integration for Ordelo delivery system
     . wa - WhatsApp client instance with handlers for messages and flows
 """
 
+import logging
+from typing import Optional
+
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from contextlib import asynccontextmanager  # Added
-import logging
-
 import uvicorn
 
 from pywa_async import WhatsApp, filters
 from pywa_async import handlers
 from pywa.types.flows import FlowRequestActionType
-from typing import Optional
 
-from ordelo.agents.rider_agent import builder
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from config import (
@@ -38,7 +36,9 @@ from config import (
     project_settings,
     waba_business_settings,
     pg_settings,
-)  # Added pg_settings
+)
+from ordelo.agents.rider_agent import builder
+from ordelo.agent_app_handlers import debug_state
 
 from watomation.routers import (
     delivery_hooks,
@@ -54,16 +54,20 @@ from watomation.on_message_wa_handler import (
     clear_dispatch,
     send_live_map_location,
 )
-from watomation.on_callback_wa_handler import dispatch_response, rider_request_location
+from watomation.on_callback_wa_handler import (
+    dispatch_response,
+    rider_request_location,
+)
 from watomation.on_flow_request_wa_handler import (
     on_customer_address_flow,
     on_customer_address_flow_data_exchange,
     on_customer_address_flow_completion,
 )
-from watomation.on_flow_request_postcode_search import on_pc_search_init, on_ip_pc
+from watomation.on_flow_request_postcode_search import (
+    on_pc_search_init,
+    on_ip_pc,
+)
 
-
-from ordelo.agent_app_handlers import debug_state
 
 # %%
 # Configure logging settings
