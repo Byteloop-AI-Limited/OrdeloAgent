@@ -28,7 +28,8 @@ CREATE INDEX IF NOT EXISTS idx_rider_location_dtts_desc ON rider_location (dtts 
 
 -- Create location_event table
 CREATE TABLE IF NOT EXISTS rider_location_event (
-    topic VARCHAR(255) PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
+    topic VARCHAR(255),
     rider_id VARCHAR(12) NOT NULL,
     customer_id VARCHAR(12),
     order_number VARCHAR(100),
@@ -37,13 +38,6 @@ CREATE TABLE IF NOT EXISTS rider_location_event (
     dt DATE NOT NULL DEFAULT CURRENT_DATE,
     dtts TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
-
--- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_rider_location_event_rider_id ON rider_location_event(rider_id);
-CREATE INDEX IF NOT EXISTS idx_rider_location_event_order_number ON rider_location_event(order_number);
-CREATE INDEX IF NOT EXISTS idx_rider_location_event_tst ON rider_location_event(tst);
-CREATE INDEX IF NOT EXISTS idx_rider_location_event_dt ON rider_location_event(dt);
 
 
 -- # Create a trigger on an update to table rider_location_event

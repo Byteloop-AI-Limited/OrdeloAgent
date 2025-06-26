@@ -1,14 +1,15 @@
-/**
-This module processes OwnTracks messages from a queue into location tables
-    . Reads messages from pgmq queue 'owntracks'
-    . Processes location data into rider_location table
-    . Processes transition events into rider_location_event table
-    . Archives processed messages
-    . Returns the count of processed messages
-  Functions:
-    . job_process_owntracks
-*/
-
+/ *
+"""
+Processes OwnTracks messages from a queue into location tables.
+  . Reads messages from pgmq queue 'owntracks'
+  . Processes location data into rider_location table
+  . Processes transition events into rider_location_event table (always inserts new records, no upsert)
+  . Archives processed messages
+  . Returns the count of processed messages
+Functions:
+  . job_process_owntracks
+"""
+*/;
 -- job_process_owntracks.sql
 -- Batch process OwnTracks messages into rider_location and rider_location_event tables
 CREATE OR REPLACE FUNCTION public.job_process_owntracks()
@@ -78,9 +79,6 @@ BEGIN
   ), event_insert AS (
     INSERT INTO rider_location_event(topic, rider_id, customer_id, order_number, rid, event)
     SELECT * FROM transition_rows
-    ON CONFLICT (topic) DO UPDATE SET
-    rid   = EXCLUDED.rid,
-    event = EXCLUDED.event
     RETURNING 1
   ), msg_id_collect AS (
     SELECT array_agg(msg_id) AS ids FROM msgs
