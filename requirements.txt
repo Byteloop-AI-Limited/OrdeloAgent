@@ -24,10 +24,12 @@ pywa[cryptography]
 # data transforms
 supabase==2.15.3
 duckdb==1.2.0
+pandas==2.2.3
 pytz
 pyarrow==19.0.0
 gspread
 # utilities
+ipython
 jinja2
 requests
 httpx
