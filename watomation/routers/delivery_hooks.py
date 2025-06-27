@@ -84,25 +84,6 @@ async def wa_send_delivery_dispatch_request_to_rider(
         "status": "declined",
         "rider_id": recipient,
     }
-
-    # send restaurant location
-    # await _async_wa_client.send_location(
-    #     to=recipient,
-    #     latitude=delivery_detail.rest_lat,
-    #     longitude=delivery_detail.rest_lon,
-    #     name= f"{delivery_detail.rest_name} Pick Up",
-    #     address= delivery_detail.rest_address
-    # )
-
-    # send customer location
-    # await _async_wa_client.send_location(
-    #     to=recipient,
-    #     latitude=delivery_detail.customer_lat,
-    #     longitude=delivery_detail.customer_lon,
-    #     name=f"{delivery_detail.customer_name} Drop Off",
-    #     address=delivery_detail.customer_address,
-    # )
-
     pickup_time = (datetime.now() + timedelta(minutes=25)).strftime("%I:%M %p")
 
     header_text = f"{delivery_summary['distance']} miles, £{delivery_summary['rider_payout']}, @{pickup_time}"
@@ -129,9 +110,6 @@ Vehicle type - *{delivery_summary["vehicle_type"]}*
             Button(title="Accept", callback_data=json.dumps(accept_pl)),
             Button(title="Decline", callback_data=json.dumps(decline_pl)),
         ],
-    )
-    logger.debug(
-        f"dispatch request sent to rider: {recipient}, order number: {order_number}, vehicle type: {delivery_summary['vehicle_type']}"
     )
 
 
@@ -175,8 +153,8 @@ async def post_rider_event_inflight(delivery_detail: DeliveryDetail):
             get_webhook_url(rest_ref, "rider-inflight"),
             json=payload,
         )
-        logger.debug("Status code:", response.status_code)
-        logger.debug("Response JSON:", response.json())
+        logger.info("Restaurant notified of rider")
+        logger.info("Status code:", response.status_code)
 
 
 # %% post delivery timedout
@@ -197,8 +175,8 @@ async def post_delivery_timedout(delivery_summary: dict):
             get_webhook_url(rest_ref, "delivery-timedout"),
             json=delivery_summary,
         )
+    logger.info("Restaurant notified of delivery timeout")
     logger.info("Status code:", response.status_code)
-    logger.info("Response JSON:", response.json())
 
 
 # %% Define paths
@@ -246,6 +224,7 @@ async def delivery_hook_root():
     },
 )
 async def delivery_dispatch_hook(payload: dict = Depends(get_payload)):
+    # ToDo: Create background task to send the dispatches
     dispatches = payload.get("bulk_dispatch", None)
     if dispatches is None or len(dispatches) == 0:
         # When instead of insert, the job udpates the status
@@ -327,10 +306,12 @@ async def delivery_inflight_graph_init_hook(payload: dict = Depends(get_payload)
 
     # 1. Call restaurant webhook - rider-inflight-event
     if "test" not in delivery_detail.order_number.lower():
-        asyncio.create_task(post_rider_event_inflight(delivery_detail))
+        # asyncio.create_task(post_rider_event_inflight(delivery_detail))
+        await post_rider_event_inflight(delivery_detail)
 
     # 2. Create as background task as the db webhook on inflight waits and errors out
-    asyncio.create_task(init_ordelo_graph(delivery_detail))
+    # asyncio.create_task(init_ordelo_graph(delivery_detail))
+    await init_ordelo_graph(delivery_detail)
 
     logger.info(
         f"Delivery inflight graph initialized for order number: {delivery_detail.order_number}"
@@ -427,23 +408,6 @@ async def notify_missed_dispatches_hook(payload: dict = Depends(get_payload)):
         )
 
         logger.success(f"Marked dispatches as missed for order {response}")
-        # Update dispatch status to 'missed'
-        # try:
-        #     # Update all unassigned dispatches for this order to 'missed'
-        #     result = await sbase_update(
-        #         table='delivery_dispatch',
-        #         values={"status": "missed", "status_update_dtts": "CURRENT_TIMESTAMP"},
-        #         where={"order_number": order_number, "status": "unassigned"}
-        #     )
-
-        #     if result and 'affected_rows' in result:
-        #         updated_count += result['affected_rows']
-        #         logger.info(f"Updated {result['affected_rows']} dispatch records to 'missed' for order {order_number}")
-        #     else:
-        #         logger.warning(f"No dispatch records updated for order {order_number}")
-
-        # except Exception as e:
-        #     logger.error(f"Error updating dispatch status for order {order_number}: {str(e)}")
 
     return {"status": "success"}
 

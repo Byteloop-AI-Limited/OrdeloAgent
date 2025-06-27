@@ -16,22 +16,27 @@ from langchain_openai import OpenAIEmbeddings
 from supabase import create_client, Client, create_async_client, AsyncClient
 from psycopg_pool import AsyncConnectionPool
 from typing import Optional
-from . import logger
+from loguru import logger
+from aws_setting import ordelo_agent_env
+from pydantic import Field
+
+ordelo_agent_env
 
 
+# %%
 class PgSetting(BaseSettings):
-    db_uri: str
-    vec_db_uri: str
-    rest_url: str
-    rest_key: str
-    service_key: str
+    db_uri: str = Field(..., alias="sbase_ordelo_db_uri")
+    vec_db_uri: str = Field(..., alias="sbase_ordelo_vec_db_uri")
+    rest_url: str = Field(..., alias="sbase_ordelo_rest_url")
+    rest_key: str = Field(..., alias="sbase_ordelo_rest_key")
+    service_key: str = Field(..., alias="sbase_ordelo_service_key")
     collection_name: str = "elai_embed"
     _async_pool: Optional[AsyncConnectionPool] = None
 
     @property
     def connection_kwargs(self):
         return {
-            "autocommit": False,
+            "autocommit": True,
             "prepare_threshold": None,
             "connect_timeout": 10,  # Connection timeout in seconds
             "keepalives": 1,  # Enable TCP keepalives
@@ -54,7 +59,6 @@ class PgSetting(BaseSettings):
     @property
     def headers(self):
         return {
-            # "Authorization": f"Bearer {self.rest_key}",
             "apiKey": self.service_key,
             "Accept": "application/json",
             "Authorization": f"Bearer {self.rest_key}",
@@ -64,7 +68,6 @@ class PgSetting(BaseSettings):
     @property
     def service_headers(self):
         return {
-            # "Authorization": f"Bearer {self.rest_key}",
             "apiKey": self.service_key,
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -78,9 +81,7 @@ class PgSetting(BaseSettings):
     def rest_endpoint(self):
         return f"{self.rest_url}/rest/v1"
 
-    model_config = SettingsConfigDict(
-        env_prefix="SBASE_", env_file_encoding="utf-8", env_file=None, extra="ignore"
-    )
+    model_config = SettingsConfigDict(extra="allow")
 
     @property
     def client(self) -> Client:
@@ -118,29 +119,9 @@ class PgSetting(BaseSettings):
         )
 
 
-pg_settings = PgSetting()
+pg_settings = PgSetting(**ordelo_agent_env)
 client_ordelo = pg_settings.client
 
-# pg_settings.connection_kwargs
 
-
-# %% Similarity search
-# metadata_filter = {"id": {"$eq": "sweet_lassi"}}
-# results = vector_store.similarity_search_with_score(
-#     query="mutton starters",
-#     k=7,
-#     )
-# for doc, score in results:
-#     print(f"* [SIM={score:3f}] {doc.page_content} [{doc.metadata}]")
-
-
-# %% AS retriever
-
-# retriever = vector_store.as_retriever(
-#     search_type="mmr",
-#     search_kwargs={"k": 30, "fetch_k": 7, "lambda_mult": 0.5}
-# )
-# retriever.invoke("mutton starters")
-
-# %% delete collection
-# vector_store.delete_collection()
+# %%
+# client_ordelo.table("delivery_detail").select("*").execute()
