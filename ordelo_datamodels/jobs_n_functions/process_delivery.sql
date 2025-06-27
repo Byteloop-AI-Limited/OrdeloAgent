@@ -1,6 +1,7 @@
 /**
 Delivery Detail Management – Step 2 in Delivery Workflow
-
+IMP - Below had to be set at db level to avoid failures
+SET http.timeout TO '15s';
 Where This Fits in the Journey:
     - This function is the second step in the delivery agent workflow, as outlined in handwritten_design.md.
     - Step 1: init_delivery – Creates delivery_summary and calls process_delivery().
