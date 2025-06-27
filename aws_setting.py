@@ -91,3 +91,23 @@ aws secretsmanager create-secret \
   ]
 }
 """
+# %%
+""" How to upload secrets to lambda function
+1. Create env.json file
+
+jq -Rn '
+  [inputs
+    | select(. != "" and .[0:1] != "#")
+    | capture("(?<key>[^=]+)=(?<value>.*)")
+    | { (.key): (.value 
+        | sub("^[\"'"'"']";"") 
+        | sub("[\"'"'"'][,\n]*$";"")) }
+  ] | add
+' < .env > env.json
+
+2. Create or update secrets
+aws lambda update-function-configuration \
+  --function-name ordelo-agent \
+  --environment file://env.json
+
+"""
