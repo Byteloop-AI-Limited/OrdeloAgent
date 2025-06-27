@@ -455,3 +455,15 @@ async def debug_state(recipient: str, graph, pool) -> dict:
         "messages": shorten_state_messages(state.values["messages"]),
     }
     return debug_stack
+
+
+# %% Debug State by thread_id
+async def debug_state_by_thread(recipient: str, thread_id: str, graph, pool) -> dict:
+    config = {"configurable": {"thread_id": thread_id, "recipient": recipient}}
+    state = await graph.aget_state(config=config)
+
+    debug_stack = {
+        **get_state_values(state.values),
+        "messages": shorten_state_messages(state.values["messages"]),
+    }
+    return debug_stack

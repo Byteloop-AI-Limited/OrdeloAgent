@@ -37,3 +37,9 @@ When a random message to WhatsApp, send standard message if no active thread.
 To consider cases where the rider did not deliver the order at all, or did not deliver within a certain time frame.
 - Create a notification for dispatches that have been open for too long. It could be based on the pickup time and the distance. 
 - How should it be handled? Reachout to rider on whatsapp and prompt a call from restaurant. What is the handoff scenario?
+
+
+# OpenAI - self heal incase of error - really need a fix for this
+openai.BadRequestError: Error code: 400 - {'error': {'message': "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. The following tool_call_ids did not have response messages: call_uJLw6MLx47cav5Vo6gq697O1", 'type': 'invalid_request_error', 'param': 'messages.[6].role', 'code': None}}
+Link 
+openai.BadRequestError: Error code: 400 - {'error': {'message': "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. The following tool_call_ids did not have response messages: call_uJLw6MLx47cav5Vo6gq697O1", 'type': 'invalid_request_error', 'param': 'messages.[6].role', 'code': None}}

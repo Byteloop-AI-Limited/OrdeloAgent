@@ -33,6 +33,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from config import (
     waba_business_settings,
     pg_settings,
+    client_ordelo,
 )
 from ordelo.agents.rider_agent import builder
 from ordelo.agent_app_handlers import debug_state
@@ -59,7 +60,6 @@ from watomation.on_flow_request_postcode_search import (
     on_pc_search_init,
     on_ip_pc,
 )
-
 
 # %%
 # Configure logging settings
@@ -176,6 +176,22 @@ async def get_details():
         "callback_url": callback_url,
         "callback_url_on_waba": callback_url_on_waba,
     }
+
+
+# %% get threads for id
+@app.get("/threads")
+async def get_threads(recipient: Optional[str] = "447448440754"):
+    threads = (
+        client_ordelo.table("thread")
+        .select("thread_id, dtts")
+        .eq("from_number", recipient)
+        .order("dtts", desc=True)
+        .execute()
+    )
+    return threads.data
+
+
+# %%
 
 
 @app.get("/debug-state")
