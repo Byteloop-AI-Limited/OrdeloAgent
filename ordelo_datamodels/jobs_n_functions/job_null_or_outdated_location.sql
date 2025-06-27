@@ -30,7 +30,7 @@ BEGIN
     -- Get the base app URL from config
     SELECT config_value INTO ordelo_app_url FROM ordelo_config WHERE config_key = 'ORDELO_APP_URL';
     IF ordelo_app_url IS NULL OR ordelo_app_url = '' THEN
-        ordelo_app_url := 'https://agent.ordelo.app'; -- Fallback default
+        ordelo_app_url := 'https://rider-agent.ordelo.app'; -- Fallback default
     END IF;
     webhook_url := ordelo_app_url || '/location-hooks/null-or-outdated-location';
 

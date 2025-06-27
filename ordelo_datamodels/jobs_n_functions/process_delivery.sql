@@ -139,21 +139,41 @@ FOR EACH ROW WHEN (OLD.status <> 'timedout'
 
 -- delivery_summary_timedout_whook function
 
+/*
+Delivery Summary Timedout Webhook Trigger
+  . Fetches the base app URL from ordelo_config (key: ORDELO_APP_URL)
+  . Constructs the webhook URL by appending '/delivery-hooks/delivery-timedout'
+  . Constructs JSON payload from NEW record
+  . Makes HTTP POST to the constructed webhook URL
+  . Logs the response
+  . Returns NEW for trigger continuation
+Functions:
+  . delivery_summary_timedout_whook
+*/
 CREATE OR REPLACE FUNCTION public.delivery_summary_timedout_whook() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   response json;
   webhook_payload json;
+  ordelo_app_url text;
+  webhook_url text;
 BEGIN
   -- Combine the NEW record with additional data from delivery_detail; required to invoke graph
   SELECT json_build_object(
     'delivery_summary', json_build_array(row_to_json(NEW))
-) INTO webhook_payload;
+  ) INTO webhook_payload;
+
+  -- Fetch the base app URL from config, fallback to default if not present
+  SELECT config_value INTO ordelo_app_url FROM ordelo_config WHERE config_key = 'ORDELO_APP_URL';
+  IF ordelo_app_url IS NULL OR ordelo_app_url = '' THEN
+    ordelo_app_url := 'https://rider-agent.ordelo.app';
+  END IF;
+  webhook_url := ordelo_app_url || '/delivery-hooks/delivery-timedout';
 
   -- Make the HTTP POST request with the combined payload
   response := (
     SELECT content
     FROM http_post(
-      'https://agent.ordelo.app/delivery-hooks/delivery-timedout',
+      webhook_url,
       webhook_payload::text,
       'application/json'
     )
