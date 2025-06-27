@@ -24,7 +24,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
-
+from mangum import Mangum
 from pywa_async import WhatsApp, filters
 from pywa_async import handlers
 from pywa.types.flows import FlowRequestActionType
@@ -267,7 +267,8 @@ async def debug_state_path(recipient: Optional[str] = "447448440754"):
 #     logger.success(f"The user just opened a chat with us!")
 #     return
 
-
+# Wrap the FastAPI app with Mangum
+lambda_handler = Mangum(app)
 # %%
 if __name__ == "__main__":
     uvicorn.run(
