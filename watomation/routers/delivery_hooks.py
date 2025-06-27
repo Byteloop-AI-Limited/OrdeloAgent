@@ -175,8 +175,8 @@ async def post_rider_event_inflight(delivery_detail: DeliveryDetail):
             get_webhook_url(rest_ref, "rider-inflight"),
             json=payload,
         )
-        logger.debug("Status code:", response.status_code)
-        logger.debug("Response JSON:", response.json())
+        logger.info("Restaurant notified of rider")
+        logger.info("Status code:", response.status_code)
 
 
 # %% post delivery timedout
@@ -197,8 +197,8 @@ async def post_delivery_timedout(delivery_summary: dict):
             get_webhook_url(rest_ref, "delivery-timedout"),
             json=delivery_summary,
         )
+    logger.info("Restaurant notified of delivery timeout")
     logger.info("Status code:", response.status_code)
-    logger.info("Response JSON:", response.json())
 
 
 # %% Define paths
@@ -246,6 +246,7 @@ async def delivery_hook_root():
     },
 )
 async def delivery_dispatch_hook(payload: dict = Depends(get_payload)):
+    # ToDo: Create background task to send the dispatches
     dispatches = payload.get("bulk_dispatch", None)
     if dispatches is None or len(dispatches) == 0:
         # When instead of insert, the job udpates the status
@@ -427,23 +428,6 @@ async def notify_missed_dispatches_hook(payload: dict = Depends(get_payload)):
         )
 
         logger.success(f"Marked dispatches as missed for order {response}")
-        # Update dispatch status to 'missed'
-        # try:
-        #     # Update all unassigned dispatches for this order to 'missed'
-        #     result = await sbase_update(
-        #         table='delivery_dispatch',
-        #         values={"status": "missed", "status_update_dtts": "CURRENT_TIMESTAMP"},
-        #         where={"order_number": order_number, "status": "unassigned"}
-        #     )
-
-        #     if result and 'affected_rows' in result:
-        #         updated_count += result['affected_rows']
-        #         logger.info(f"Updated {result['affected_rows']} dispatch records to 'missed' for order {order_number}")
-        #     else:
-        #         logger.warning(f"No dispatch records updated for order {order_number}")
-
-        # except Exception as e:
-        #     logger.error(f"Error updating dispatch status for order {order_number}: {str(e)}")
 
     return {"status": "success"}
 
