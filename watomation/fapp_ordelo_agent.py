@@ -36,7 +36,7 @@ from config import (
     client_ordelo,
 )
 from ordelo.agents.rider_agent import builder
-from ordelo.agent_app_handlers import debug_state
+from ordelo.agent_app_handlers import debug_state, debug_state_by_thread
 
 from watomation.routers import delivery_hooks, location_hooks
 from watomation.on_message_wa_handler import (
@@ -191,7 +191,7 @@ async def get_threads(recipient: Optional[str] = "447448440754"):
     return threads.data
 
 
-# %%
+# %% Debug state
 
 
 @app.get("/debug-state")
@@ -200,6 +200,17 @@ async def debug_state_path(recipient: Optional[str] = "447448440754"):
     checkpointer = AsyncPostgresSaver(pool)
     graph = builder.compile(checkpointer=checkpointer)
     debug_stack = await debug_state(recipient, graph, pool)
+    return debug_stack
+
+
+@app.get("/debug-state-by-thread")
+async def debug_state_by_thread_path(
+    recipient: Optional[str] = "447448440754", thread_id: Optional[str] = "thread_id"
+):
+    pool = await pg_settings.get_pool()
+    checkpointer = AsyncPostgresSaver(pool)
+    graph = builder.compile(checkpointer=checkpointer)
+    debug_stack = await debug_state_by_thread(recipient, thread_id, graph, pool)
     return debug_stack
 
 
