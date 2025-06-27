@@ -1,13 +1,13 @@
 fastapi==0.115.8
 uvicorn==0.34.0
+mangum>=0.19.0
+pydantic-settings==2.7.1
+pydantic-settings-aws
 python-multipart
-jinja2
 pydantic==2.11.5
 pydantic-core
-pydantic-settings==2.7.1
 # Langchain
 langchain-core
-langchain-google-genai
 psycopg[binary]
 psycopg-pool
 langgraph-checkpoint-postgres==2.0.21
@@ -20,27 +20,21 @@ langgraph==0.4.8
 # langgraph-cli[inmem]
 psycopg==3.2.3
 psycopg-pool
-pywa==2.10.0
+pywa==2.11.0
 pywa[cryptography]
 # data transforms
 supabase==2.15.3
 duckdb==1.2.0
-pandas==2.2.3
-numpy
 pytz
 pyarrow==19.0.0
 gspread
 # utilities
+jinja2
 requests
 httpx
-pytest-asyncio
 annotated-types
 python-dotenv
 typing_extensions
 # project utils
 loguru
 msal
-ipython
-ipykernel
-pytest>=7.4.0
-pytest-asyncio>=0.21.0
