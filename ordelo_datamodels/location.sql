@@ -59,7 +59,7 @@ BEGIN
    WHERE config_key = 'ORDELO_APP_URL';
 
   IF app_url IS NULL OR length(app_url) = 0 THEN
-    app_url := 'https://agent.ordelo.app';
+    app_url := 'https://rider-agent.ordelo.app';
   END IF;
 
   -- Ensure no trailing slash before appending path

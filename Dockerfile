@@ -1,28 +1,31 @@
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.11
+# Use the official AWS Lambda Python 3.12 base image
+FROM public.ecr.aws/lambda/python:3.12
 
-# Update default packages
-RUN apt-get update
+# Install system dependencies
+# RUN microdnf install -y postgresql-libs postgresql-devel gcc
 
-RUN apt-get install -y \
-    build-essential \
-    curl
 
-# Update new packages
-RUN apt-get update
+# Set working directory and Python pathq
+ENV PYTHONPATH="${PYTHONPATH}:/var/task"
+WORKDIR /var/task
 
-## Get Rust
-#RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
-## Set Path
-#ENV PATH="/root/.cargo/bin:${PATH}"
+# Copy application code and requirements
+COPY aws_setting.py ./aws_setting.py
+COPY config ./config
+COPY ordelo_datamodels ./ordelo_datamodels
+COPY ordelo ./ordelo
+COPY utils_common ./utils_common
+COPY watomation ./watomation
+COPY requirements.txt .
 
-# Install UV package manager
-RUN pip install uv
-COPY requirements.txt /tmp/requirements.txt
-RUN uv install /tmp/requirements.txt
+# Install dependencies using uv with system flag
+# With pip
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-COPY ./start.sh /start.sh
-RUN chmod +x /start.sh
+# With uv
+# RUN pip install uv
+# RUN uv pip install --system -r requirements.txt
 
-# Copy project files
-# COPY ./app /app/
-COPY . .
+# Set the CMD to your handler
+CMD ["watomation.fapp_ordelo_agent.lambda_handler"]

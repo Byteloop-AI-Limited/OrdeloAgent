@@ -20,11 +20,10 @@ import logging
 from typing import Optional
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
-
+from mangum import Mangum
 from pywa_async import WhatsApp, filters
 from pywa_async import handlers
 from pywa.types.flows import FlowRequestActionType
@@ -32,20 +31,18 @@ from pywa.types.flows import FlowRequestActionType
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from config import (
-    logger,
-    project_settings,
     waba_business_settings,
     pg_settings,
+    client_ordelo,
 )
 from ordelo.agents.rider_agent import builder
-from ordelo.agent_app_handlers import debug_state
+from ordelo.agent_app_handlers import debug_state, debug_state_by_thread
 
 from watomation.routers import delivery_hooks, location_hooks
 from watomation.on_message_wa_handler import (
     reset_thread,
     test_delivery,
     process_wa_msg,
-    live_location,
     test_flow,
     clear_dispatch,
     send_live_map_location,
@@ -64,7 +61,6 @@ from watomation.on_flow_request_postcode_search import (
     on_ip_pc,
 )
 
-
 # %%
 # Configure logging settings
 logging.basicConfig(
@@ -76,37 +72,6 @@ POOL_MIN_SIZE = 10
 POOL_MAX_SIZE = 25
 
 # %% Define Lifespan Events
-
-
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     # Initialize app state resources
-#     (
-#         pool,
-#         pool_sync,
-#         checkpointer,
-#         thread_handler,
-#         graph,
-#         client,
-#     ) = await init_app_state()
-
-#     # Store resources in the app state
-#     app.state.pool = pool
-#     app.state.pool_sync = pool_sync
-#     app.state.client = client
-#     app.state.checkpointer = checkpointer
-#     app.state.thread_handler = thread_handler
-#     app.state.graph = graph
-#     app.state.wa = wa
-
-#     # Yield to start the application
-#     try:
-#         yield
-#     finally:
-#         # Close the pool on shutdown
-#         if pool:
-#             await pool.close()
-
 
 # Define and set the app, call import soon after
 app = FastAPI(title="OrdeloAgent")
@@ -126,7 +91,6 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
 # %% Add routers
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
 app.include_router(location_hooks.router, prefix="/location-hooks")
-# app.include_router(twilio_router.router, prefix="/twilio-router")
 
 # %% DEFINE WA
 wa: WhatsApp = WhatsApp(
@@ -139,43 +103,6 @@ wa: WhatsApp = WhatsApp(
     business_private_key=waba_business_settings.private_key,
     business_private_key_password=waba_business_settings.private_key_password,
 )
-# if __name__ == "__main__":
-#     from dotenv import load_dotenv
-
-#     project_root = project_settings.project_root
-#     load_dotenv(f"{project_root}/.env")
-#     logger.info("Starting OrdeloAgent locally ...")
-
-#     wa: WhatsApp = WhatsApp(
-#         token=waba_business_settings.token,
-#         server=app,
-#         verify_token=waba_business_settings.verify_token,
-#         phone_id=waba_business_settings.phone_id,
-#         callback_url=waba_business_settings.callback_url,
-#         webhook_challenge_delay=3,
-#         app_id=waba_business_settings.app_id,
-#         app_secret=waba_business_settings.app_secret,
-#         continue_handling=False,
-#         business_private_key=waba_business_settings.private_key,
-#         # business_private_key=open("/home/basal/PycharmProjects/OrdeloAgent/data/certs/private.pem").read(),
-#         business_private_key_password=waba_business_settings.private_key_password,
-#     )
-# else:
-#     wa: WhatsApp = WhatsApp(
-#         token=waba_business_settings.token,
-#         server=app,
-#         verify_token=waba_business_settings.verify_token,
-#         phone_id=waba_business_settings.phone_id,
-#         callback_url=waba_business_settings.callback_url,
-#         webhook_challenge_delay=3,
-#         app_id=waba_business_settings.app_id,
-#         app_secret=waba_business_settings.app_secret,
-#         continue_handling=False,
-#         business_private_key=waba_business_settings.private_key,
-#         # business_private_key=open("/home/basal/PycharmProjects/OrdeloAgent/data/certs/private.pem").read(),
-#         business_private_key_password=waba_business_settings.private_key_password,
-#     )
-
 
 TEST_DELIVERY = filters.contains("/test", ignore_case=True)
 CLEAR_DISPATCH = filters.contains("/cleardis", ignore_case=True)
@@ -251,6 +178,22 @@ async def get_details():
     }
 
 
+# %% get threads for id
+@app.get("/threads")
+async def get_threads(recipient: Optional[str] = "447448440754"):
+    threads = (
+        client_ordelo.table("thread")
+        .select("thread_id, dtts")
+        .eq("from_number", recipient)
+        .order("dtts", desc=True)
+        .execute()
+    )
+    return threads.data
+
+
+# %% Debug state
+
+
 @app.get("/debug-state")
 async def debug_state_path(recipient: Optional[str] = "447448440754"):
     pool = await pg_settings.get_pool()
@@ -260,14 +203,19 @@ async def debug_state_path(recipient: Optional[str] = "447448440754"):
     return debug_stack
 
 
-# %% On chat opened
-# @wa.on_chat_opened
-# async def chat_opened_handler(wa: WhatsApp, chat_opened: ChatOpened):
-#     # logger.success(f"The user {chat_opened.from_user.wa_id} just opened a chat with us!")
-#     logger.success(f"The user just opened a chat with us!")
-#     return
+@app.get("/debug-state-by-thread")
+async def debug_state_by_thread_path(
+    recipient: Optional[str] = "447448440754", thread_id: Optional[str] = "thread_id"
+):
+    pool = await pg_settings.get_pool()
+    checkpointer = AsyncPostgresSaver(pool)
+    graph = builder.compile(checkpointer=checkpointer)
+    debug_stack = await debug_state_by_thread(recipient, thread_id, graph, pool)
+    return debug_stack
 
 
+# Wrap the FastAPI app with Mangum
+lambda_handler = Mangum(app)
 # %%
 if __name__ == "__main__":
     uvicorn.run(
