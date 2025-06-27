@@ -36,7 +36,7 @@ class PgSetting(BaseSettings):
     @property
     def connection_kwargs(self):
         return {
-            "autocommit": False,
+            "autocommit": True,
             "prepare_threshold": None,
             "connect_timeout": 10,  # Connection timeout in seconds
             "keepalives": 1,  # Enable TCP keepalives
@@ -59,7 +59,6 @@ class PgSetting(BaseSettings):
     @property
     def headers(self):
         return {
-            # "Authorization": f"Bearer {self.rest_key}",
             "apiKey": self.service_key,
             "Accept": "application/json",
             "Authorization": f"Bearer {self.rest_key}",
@@ -69,7 +68,6 @@ class PgSetting(BaseSettings):
     @property
     def service_headers(self):
         return {
-            # "Authorization": f"Bearer {self.rest_key}",
             "apiKey": self.service_key,
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -124,27 +122,6 @@ class PgSetting(BaseSettings):
 pg_settings = PgSetting(**ordelo_agent_env)
 client_ordelo = pg_settings.client
 
-
-# %% Similarity search
-# metadata_filter = {"id": {"$eq": "sweet_lassi"}}
-# results = vector_store.similarity_search_with_score(
-#     query="mutton starters",
-#     k=7,
-#     )
-# for doc, score in results:
-#     print(f"* [SIM={score:3f}] {doc.page_content} [{doc.metadata}]")
-
-
-# %% AS retriever
-
-# retriever = vector_store.as_retriever(
-#     search_type="mmr",
-#     search_kwargs={"k": 30, "fetch_k": 7, "lambda_mult": 0.5}
-# )
-# retriever.invoke("mutton starters")
-
-# %% delete collection
-# vector_store.delete_collection()
 
 # %%
 # client_ordelo.table("delivery_detail").select("*").execute()
