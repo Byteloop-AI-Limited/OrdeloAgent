@@ -111,3 +111,7 @@ aws lambda update-function-configuration \
   --environment file://env.json
 
 """
+"""
+filter logs
+- "START RequestId" - "END RequestId" - "REPORT RequestId"
+"""
