@@ -84,25 +84,6 @@ async def wa_send_delivery_dispatch_request_to_rider(
         "status": "declined",
         "rider_id": recipient,
     }
-
-    # send restaurant location
-    # await _async_wa_client.send_location(
-    #     to=recipient,
-    #     latitude=delivery_detail.rest_lat,
-    #     longitude=delivery_detail.rest_lon,
-    #     name= f"{delivery_detail.rest_name} Pick Up",
-    #     address= delivery_detail.rest_address
-    # )
-
-    # send customer location
-    # await _async_wa_client.send_location(
-    #     to=recipient,
-    #     latitude=delivery_detail.customer_lat,
-    #     longitude=delivery_detail.customer_lon,
-    #     name=f"{delivery_detail.customer_name} Drop Off",
-    #     address=delivery_detail.customer_address,
-    # )
-
     pickup_time = (datetime.now() + timedelta(minutes=25)).strftime("%I:%M %p")
 
     header_text = f"{delivery_summary['distance']} miles, £{delivery_summary['rider_payout']}, @{pickup_time}"
@@ -129,9 +110,6 @@ Vehicle type - *{delivery_summary["vehicle_type"]}*
             Button(title="Accept", callback_data=json.dumps(accept_pl)),
             Button(title="Decline", callback_data=json.dumps(decline_pl)),
         ],
-    )
-    logger.debug(
-        f"dispatch request sent to rider: {recipient}, order number: {order_number}, vehicle type: {delivery_summary['vehicle_type']}"
     )
 
 
