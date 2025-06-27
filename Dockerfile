@@ -10,7 +10,9 @@ ENV PYTHONPATH="${PYTHONPATH}:/var/task"
 WORKDIR /var/task
 
 # Copy application code and requirements
+COPY aws_setting.py ./aws_setting.py
 COPY config ./config
+COPY ordelo_datamodels ./ordelo_datamodels
 COPY ordelo ./ordelo
 COPY utils_common ./utils_common
 COPY watomation ./watomation
