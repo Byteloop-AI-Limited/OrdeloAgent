@@ -7,37 +7,38 @@ WhatsApp Business API settings and catalog configuration for OrdeloAgent.
     . Depends on: pydantic_settings, pywa_async, pywa, duckdb, pandas, requests, loguru, base64, os
 """
 
+# %%
+
 import json
 from typing import Dict, List
-
+from loguru import logger
 import duckdb as ddb
 import pandas as pd
 import requests
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pywa_async import WhatsApp
 from pywa import WhatsApp as WhatsAppSync
+from aws_setting import ordelo_agent_env
 
-from config.logger_setting import logger
+# from config.logger_setting import logger
 import os
 
 # %%
 
 
 class WabaBusinessSettings(BaseSettings):
-    account_id: str
-    business_account_id: str
-    token: str
-    phone_id: int
-    callback_url: str
-    verify_token: str
-    app_id: str
-    app_secret: str
-    private_key_password: str
+    account_id: str = Field(..., alias="lai_waa_account_id")
+    business_account_id: str = Field(..., alias="lai_waa_business_account_id")
+    token: str = Field(..., alias="lai_waa_token")
+    phone_id: int = Field(..., alias="lai_waa_phone_id")
+    callback_url: str = Field(..., alias="lai_waa_callback_url")
+    verify_token: str = Field(..., alias="lai_waa_verify_token")
+    app_id: str = Field(..., alias="lai_waa_app_id")
+    app_secret: str = Field(..., alias="lai_waa_app_secret")
+    private_key_password: str = Field(..., alias="lai_waa_private_key_password")
 
-    model_config = SettingsConfigDict(
-        env_prefix="WAA_BUSINESS_", env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(extra="allow")
 
     def create_wa(self, app=None):
         kwargs = {
@@ -96,7 +97,7 @@ class WabaBusinessSettings(BaseSettings):
 
 
 # %%
-waba_business_settings = WabaBusinessSettings.with_env_prefix("LAI_WAA_")
+waba_business_settings = WabaBusinessSettings(**ordelo_agent_env)
 # waba_business_settings = WabaBusinessSettings.with_env_prefix("BLOOP_WAA_")
 _async_wa_client = waba_business_settings.create_wa()
 _sync_wa_client = waba_business_settings.create_wa_sync()
@@ -104,20 +105,15 @@ _sync_wa_client = waba_business_settings.create_wa_sync()
 
 # %%
 class WabaCatalogSettings(BaseSettings):
-    account_id: str
-    cat_token: str
-    cat_id: str
-    cat_link: str
-    feed_id: str
-    feed_url: str
+    account_id: str = Field(..., alias="bloop_waa_account_id")
+    cat_token: str = Field(..., alias="bloop_waa_cat_token")
+    cat_id: str = Field(..., alias="bloop_waa_cat_id")
+    cat_link: str = Field(..., alias="bloop_waa_cat_link")
+    feed_id: str = Field(..., alias="bloop_waa_feed_id")
+    feed_url: str = Field(..., alias="bloop_waa_feed_url")
     admins: List[str] = []
 
-    model_config = SettingsConfigDict(
-        env_prefix="WAA_BUSINESS_",
-        env_file_encoding="utf-8",
-        env_file=None,
-        extra="ignore",
-    )
+    model_config = SettingsConfigDict(extra="allow")
 
     @property
     def cat_headers(self) -> Dict[str, str]:
@@ -195,7 +191,7 @@ class WabaCatalogSettings(BaseSettings):
         return all_products
 
 
-waba_cat_settings = WabaCatalogSettings.with_env_prefix("BLOOP_WAA_")
+waba_cat_settings = WabaCatalogSettings(**ordelo_agent_env)
 
 
 # %%timeit
