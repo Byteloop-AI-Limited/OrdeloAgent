@@ -29,4 +29,4 @@ config = {
     "extra": {"user": "someone"},
 }
 
-logger.configure(**config)
+# logger.configure(**config)
