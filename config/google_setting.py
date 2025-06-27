@@ -6,44 +6,47 @@ Google API settings and client configuration for OrdeloAgent.
     . Depends on: pydantic_settings, gspread, google.oauth2, base64, json
 """
 
+# %%
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import gspread
 from google.oauth2.service_account import Credentials
 import json
 import base64
+from aws_setting import ordelo_agent_env
+from pydantic import Field
+
 
 class GoogleSettings(BaseSettings):
-    email: str
-    encoded_credentials: str 
-    maps_api_key: str
-
-    model_config = SettingsConfigDict(
-        env_prefix="GOOGLE_SERVICE_ACCOUNT_",
-        env_file_encoding="utf-8",
-        env_file=None,
-        extra="ignore"
+    email: str = Field(..., alias="google_service_account_email")
+    encoded_credentials: str = Field(
+        ..., alias="google_service_account_encoded_credentials"
     )
+    maps_api_key: str = Field(..., alias="google_service_account_maps_api_key")
 
-    
+    model_config = SettingsConfigDict(extra="allow")
+
     def get_client(self):
         # Define the scope of the API access
         SCOPES = [
             "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
+            "https://www.googleapis.com/auth/drive",
         ]
-        
+
         # Decode and load the credentials
-        credentials_json = json.loads(base64.b64decode(self.encoded_credentials).decode())
-        
+        credentials_json = json.loads(
+            base64.b64decode(self.encoded_credentials).decode()
+        )
+
         # Authenticate using service account
         creds = Credentials.from_service_account_info(credentials_json, scopes=SCOPES)
-        
+
         # Connect to Google Sheets
         client = gspread.authorize(creds)
-        
+
         return client
 
-google_settings = GoogleSettings()
+
+google_settings = GoogleSettings(**ordelo_agent_env)
 g_client = google_settings.get_client()
 
 # %% Usage
