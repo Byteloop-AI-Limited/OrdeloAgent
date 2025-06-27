@@ -42,6 +42,7 @@ select *
 from ordelo_config;
 
 
+select *
 from delivery_dispatch
 order by dtts desc
 limit 10;
