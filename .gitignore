@@ -170,3 +170,5 @@ cython_debug/
 .windsurfrules
 nohup.out
 .env copy
+env.json
+policy.json
