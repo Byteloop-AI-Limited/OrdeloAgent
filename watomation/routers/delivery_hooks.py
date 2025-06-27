@@ -328,10 +328,12 @@ async def delivery_inflight_graph_init_hook(payload: dict = Depends(get_payload)
 
     # 1. Call restaurant webhook - rider-inflight-event
     if "test" not in delivery_detail.order_number.lower():
-        asyncio.create_task(post_rider_event_inflight(delivery_detail))
+        # asyncio.create_task(post_rider_event_inflight(delivery_detail))
+        await post_rider_event_inflight(delivery_detail)
 
     # 2. Create as background task as the db webhook on inflight waits and errors out
-    asyncio.create_task(init_ordelo_graph(delivery_detail))
+    # asyncio.create_task(init_ordelo_graph(delivery_detail))
+    await init_ordelo_graph(delivery_detail)
 
     logger.info(
         f"Delivery inflight graph initialized for order number: {delivery_detail.order_number}"
