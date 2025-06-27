@@ -14,25 +14,26 @@ jq -Rn '
   [inputs
     | select(. != "" and .[0:1] != "#")
     | capture("(?<key>[^=]+)=(?<value>.*)")
-    | { (.key): .value }
+    | { (.key): (.value 
+        | sub("^[\"'"'"']";"") 
+        | sub("[\"'"'"'][,\n]*$";"")) }
   ] | add
-' < .env_ordelo_agent > env.json
+' < .env > env.json
+
+<!-- - update the lambda environment variables - This was not possible because of the size of the env.json file -->
+aws lambda update-function-configuration \
+  --function-name ordelo-agent \
+  --environment file://env.json
 
 
 <!-- aws secrets manager -->
-aws secretsmanager create-secret \
-  --name ordelo-agent-env \
-  --secret-string file://env.json
-
 aws secretsmanager update-secret \
   --secret-id ordelo-agent-env \
   --secret-string file://env.json
 
-{
-    "ARN": "arn:aws:secretsmanager:eu-west-2:890742579621:secret:ordelo-agent-env-JGHhEi",
-    "Name": "ordelo-agent-env",
-    "VersionId": "1930060e-8efa-4f9c-82a5-97bd2ce21a34"
-}
+aws secretsmanager create-secret \
+  --name ordelo-agent-env \
+  --secret-string file://env.json
 
 <!-- Adding policy ot iam role on aws lambda -->
 {
@@ -41,16 +42,11 @@ aws secretsmanager update-secret \
     {
       "Effect": "Allow",
       "Action": "secretsmanager:GetSecretValue",
-      "Resource": "arn:aws:secretsmanager:eu-west-2:890742579621:secret:ordelo-agent-env-JGHhEi"
+      "Resource": "arn:aws:secretsmanager:eu-west-2:89
     }
   ]
 }
 
-
-<!-- - update the lambda environment variables - This was not possible because of the size of the env.json file -->
-aws lambda update-function-configuration \
-  --function-name ordelo-agent \
-  --environment file://env.json
 
 stat -c %s env.json
 
