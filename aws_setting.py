@@ -1,17 +1,23 @@
 """
-AWS settings configuration for S3 and related AWS operations.
-  . Depends on: os, boto3, botocore.exceptions, pydantic_settings.BaseSettings, SettingsConfigDict, functools.lru_cache
+AWS settings configuration for S3, Secrets Manager, and Lambda compatibility.
+  . Depends on: os, boto3, botocore.exceptions, pydantic_settings.BaseSettings, SettingsConfigDict, functools.lru_cache, json
   . Defines AwsSettings for managing AWS credentials and config
-  . Provides a boto_client property for S3 operations using boto3
+  . Provides secrets_client property for secretsmanager using boto3
+  . Detects AWS Lambda environment and uses default credentials/session if running on Lambda
+  . Loads ordelo_agent_env from secrets manager or environment depending on context
 Functions/Classes
   . AwsSettings
-    . boto_client (property)
-  . aws_settings (instance)
+    . secrets_client (property)
+    . get_secret
+  . is_running_on_lambda
+  . get_secrets_client
+  . ordelo_agent_env (dict)
 """
 
 # %%
 
 # %%
+import os
 import boto3
 from botocore.exceptions import ClientError
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -50,9 +56,46 @@ class AwsSettings(BaseSettings):
             return None
 
 
-aws_settings = AwsSettings()
-ordelo_agent_env = json.loads(aws_settings.get_secret())
-# aws_settings.get_secret()
+def is_running_on_lambda():
+    """Detect if running inside AWS Lambda environment."""
+    return "AWS_LAMBDA_FUNCTION_NAME" in os.environ
+
+
+def get_secrets_client():
+    """Return a boto3 secretsmanager client appropriate for the environment."""
+    if is_running_on_lambda():
+        # Use default session/credentials from Lambda execution role
+        region = os.environ.get("AWS_REGION", "eu-west-2")
+        session = boto3.Session(region_name=region)
+        return session.client("secretsmanager")
+    else:
+        aws_settings = AwsSettings()
+        return aws_settings.secrets_client
+
+
+def get_ordelo_agent_env(secret_name=None):
+    """Fetch and parse the secret string for ordelo_agent_env."""
+    client = get_secrets_client()
+    # Use provided secret_name, or try to get from AwsSettings/environment
+    if secret_name:
+        use_secret_name = secret_name
+    elif not is_running_on_lambda():
+        use_secret_name = AwsSettings().secret_name
+    else:
+        use_secret_name = os.environ.get("ORDELO_AGENT_SECRET_NAME", "ordelo-agent-env")
+    try:
+        response = client.get_secret_value(SecretId=use_secret_name)
+        return json.loads(response["SecretString"])
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            print(f"Secret {use_secret_name} not found.")
+        else:
+            print(f"Error retrieving secret {use_secret_name}: {e}")
+        return None
+
+
+ordelo_agent_env = get_ordelo_agent_env("ordelo-agent-env")
+
 # %%
 """ How to upload secrets to aws secrets manager
 1. Create env.json file
