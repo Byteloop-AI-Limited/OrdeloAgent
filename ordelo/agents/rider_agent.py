@@ -595,6 +595,9 @@ rider_agent_tools = [tool(service) for service in _rider_agent_tools]
 rider_agent = create_agent_w_sys_prompt_n_tools(
     llm=llm, tools=rider_agent_tools, system_prompt=rider_agent_prompt
 )
+"""
+openai.BadRequestError: Error code: 400 - {'error': {'message': "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. The following tool_call_ids did not have response messages: call_zIziR7YymjJFeTXAx7Gez7li, call_A6ZJbvmyp12FpDxIFu4r19GG", 'type': 'invalid_request_error', 'param': 'messages.[14].role', 'code': None}}
+"""
 
 
 # %% rider_agent_node
