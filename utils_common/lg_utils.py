@@ -98,17 +98,8 @@ LLM_4o = ChatOpenAI(
 
 #  run llm invoke
 # LLM_4o.invoke("tell me a joke; return json")
-# %%
-
-client = OpenAI(api_key=llm_settings.openai_api_key)
 
 
-def generate_embedding(text):
-    response = client.embeddings.create(input=text, model="text-embedding-3-small")
-    return response.data[0].embedding
-
-
-# LLM_4o.invoke("tell me a joke; return json", response_format={"type": "json_object"})
 # %%
 def create_agent_w_sys_prompt(system_prompt, llm=LLM_4o):
     """

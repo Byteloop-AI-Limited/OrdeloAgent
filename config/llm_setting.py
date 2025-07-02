@@ -20,7 +20,6 @@ class LLMSettings(BaseSettings):
 
 
 llm_settings = LLMSettings(**ordelo_agent_env)
-llm_settings
 
 # %% Usage
 # sheet =g_client.open("elai_takeaway_menu").sheet1
