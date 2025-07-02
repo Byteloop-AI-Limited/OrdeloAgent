@@ -18,6 +18,9 @@ COPY utils_common ./utils_common
 COPY watomation ./watomation
 COPY requirements.txt .
 
+# COPY aws_setting.py requirements.txt ./
+# COPY config/ ordelo_datamodels/ ordelo/ utils_common/ watomation/ ./
+
 # Install dependencies using uv with system flag
 # With pip
 RUN pip install --upgrade pip \
