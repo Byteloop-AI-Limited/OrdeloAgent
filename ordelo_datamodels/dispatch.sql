@@ -26,6 +26,7 @@ DECLARE
   app_url varchar;
   hook_url varchar;
 BEGIN
+  -- PERFORM set_config('statement_timeout', '10000', true);
   -- Build payload by joining new_rows with delivery_detail in one query
   SELECT json_build_object(
     'bulk_dispatch', json_agg(row_to_json(t))
@@ -91,18 +92,25 @@ INSERT ON public.delivery_dispatch REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION public.delivery_dispatch_whook_statement();
 
 -- Table definition
-
-CREATE TABLE delivery_dispatch (dispatch_id SERIAL PRIMARY KEY,
-                                                   order_number VARCHAR(100) NOT NULL,
-                                                                             rider_id VARCHAR(12) NOT NULL,
-                                                                                                  rider_payout DOUBLE PRECISION NOT NULL,
-                                                                                                                                vehicle_type VARCHAR(15) NOT NULL,
-                                                                                                                                                         distance DOUBLE PRECISION NOT NULL,
-                                                                                                                                                                                   status VARCHAR(50) NOT NULL CHECK (status IN ('unassigned',
-                                                                                                                                                                                                                                 'timedout',
-                                                                                                                                                                                                                                 'declined',
-                                                                                                                                                                                                                                 'accepted',
-                                                                                                                                                                                                                                 'missed',
-                                                                                                                                                                                                                                 'assigned',
-                                                                                                                                                                                                                                 'completed')), status_update_dtts TIMESTAMP, dt DATE NOT NULL DEFAULT CURRENT_DATE,
-                                                                                                                                                                                                                                                                                                       dtts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE delivery_dispatch (
+    dispatch_id SERIAL PRIMARY KEY,
+    order_number VARCHAR(100) NOT NULL,
+    rider_id VARCHAR(12) NOT NULL,
+    rider_payout DOUBLE PRECISION NOT NULL,
+    vehicle_type VARCHAR(15) NOT NULL,
+    distance DOUBLE PRECISION NOT NULL,
+    status VARCHAR(50) NOT NULL CHECK (
+        status IN (
+            'unassigned',
+            'timedout',
+            'declined',
+            'accepted',
+            'missed',
+            'assigned',
+            'completed'
+        )
+    ),
+    status_update_dtts TIMESTAMP,
+    dt DATE NOT NULL DEFAULT CURRENT_DATE,
+    dtts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
