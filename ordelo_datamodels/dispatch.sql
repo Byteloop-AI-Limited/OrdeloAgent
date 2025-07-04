@@ -26,7 +26,7 @@ DECLARE
   app_url varchar;
   hook_url varchar;
 BEGIN
-  -- PERFORM set_config('statement_timeout', '10000', true);
+  PERFORM set_config('statement_timeout', '10000', true);
   -- Build payload by joining new_rows with delivery_detail in one query
   SELECT json_build_object(
     'bulk_dispatch', json_agg(row_to_json(t))
