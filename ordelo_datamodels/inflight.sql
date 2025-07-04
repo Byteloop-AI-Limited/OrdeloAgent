@@ -38,6 +38,7 @@ DECLARE
   app_url VARCHAR;
   hook_url VARCHAR;
 BEGIN
+  PERFORM set_config('statement_timeout', '10000', true);
   -- Combine the NEW record with additional data from delivery_detail; required to invoke graph
   SELECT json_build_object(
     'delivery_inflight', json_build_array(row_to_json(NEW)),

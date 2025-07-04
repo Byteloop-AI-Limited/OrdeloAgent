@@ -200,7 +200,7 @@ async def delivery_hook_root():
 
 @router.post(
     "/delivery-dispatch",
-    summary="Process Delivery Dispatch",
+    summary="Process Delivery Dispatch. Trigger: Insert into delivery_dispatch",
     description="""
     Processes a new delivery dispatch request and notifies the assigned rider.
     
@@ -256,7 +256,7 @@ async def delivery_dispatch_hook(
 # %% Delivery Inflight Graph Init; Fix this
 @router.post(
     "/delivery-inflight-graph-init",
-    summary="Initialize Delivery Inflight Graph",
+    summary="Initialize Delivery Inflight Graph. Trigger: Insert into delivery_inflight",
     description="""
     Processes a new delivery inflight record and initializes the delivery tracking graph.
     
