@@ -13,8 +13,3 @@ docker push 890742579621.dkr.ecr.eu-west-2.amazonaws.com/byteloop/ordelo-agent:l
 # Wait for 10 seconds to ensure ECR image is available
 echo "Waiting 10 seconds for ECR image to be available..."
 sleep 10
-
-# Deploy to AWS Lambda with the latest image
-aws lambda update-function-code \
-    --function-name ordelo-agent \
-    --image-uri 890742579621.dkr.ecr.eu-west-2.amazonaws.com/byteloop/ordelo-agent:latest

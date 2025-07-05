@@ -1,6 +1,8 @@
 fastapi==0.115.8
 uvicorn==0.34.0
+gunicorn
 mangum>=0.19.0
+boto3
 pydantic-settings==2.10.1
 python-multipart
 pydantic==2.11.5
@@ -19,7 +21,7 @@ langgraph==0.4.8
 # langgraph-cli[inmem]
 psycopg==3.2.3
 psycopg-pool
-pywa==2.11.0
+pywa==2.10.0
 pywa[cryptography]
 # data transforms
 supabase==2.15.3
@@ -35,7 +37,7 @@ requests
 httpx
 annotated-types
 python-dotenv
-typing_extensions
+typing_extensions>=4.8.0
 # project utils
 loguru
 msal
