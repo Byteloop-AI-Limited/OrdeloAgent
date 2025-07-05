@@ -12,6 +12,9 @@ RUN apt-get update \
 # Create and set working directory
 WORKDIR /app
 
+# Set PYTHONPATH to /app for all processes
+ENV PYTHONPATH=/app
+
 # Install UV package manager
 RUN pip install uv
 COPY requirements.txt /tmp/requirements.txt
@@ -19,9 +22,6 @@ RUN uv pip install --system -r /tmp/requirements.txt
 
 # Copy your application code (including start.sh) into /app
 COPY . /app
-
-# Simpler copy, try at a later stage
-# COPY start.sh gunicorn_conf.py aws_setting.py config ordelo ordelo_datamodels utils_common watomation /app/
 
 # Copy your startup script and make it executable
 RUN chmod +x /app/start.sh
