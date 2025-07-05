@@ -2,6 +2,8 @@ select *
       FROM pgmq.read('owntracks', 5, 1000);
 
 select job_process_owntracks();
+-- view definition of function - FUNCTION public.delivery_inflight_whook
+select pg_get_functiondef('delivery_inflight_whook'::regproc);
 
 select count(*) from rider_location_event;
 

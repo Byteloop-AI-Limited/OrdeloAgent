@@ -666,58 +666,6 @@ builder.add_edge("toolNode", "riderAgent")
 
 
 # %% Memory and config
-""" Test
-memory = MemorySaver()
-graph = builder.compile(checkpointer=memory)
-display_graph(graph)
-
-config = {
-    "configurable": {
-        "thread_id": 24,
-        "recipient": "447448440754"
-    }
-}
-graph.update_state(
-    config,
-    {
-            "dispatch_id": 123,
-            "order_number": 123,
-            "start_live_tracking_url": "https://google.com"
-        },
-)
-ip_msgs = {
-    "messages": [
-        SystemMessage("rider has accepted the delivery job, send the live tracking link. {{'dispatch_id':'40'}}"),
-        HumanMessage("I have accepted the delivery job.")
-    ]
-}
-
-try:
-    ai_msg = await graph.ainvoke(ip_msgs, config=config)
-except Exception as e:
-    # Handle BadRequestError and extract message index
-    if "BadRequestError" in str(type(e)) or "Invalid parameter" in str(e):
-        error_msg = str(e)
-        logger.error(f"BadRequestError during task with name 'riderAgent' and id '99eb1659-fb61-8a5f-06d1-c48ac66bbf6a': {error_msg}")
-        
-        # Extract message index from error message (e.g., messages.[4])
-        import re
-        message_index_match = re.search(r'messages\.\[(\d+)\]', error_msg)
-        if message_index_match:
-            message_index = message_index_match.group(1)
-            logger.error(f"Error occurred at message index: {message_index}")
-            print(f"Message index with error: {message_index}")
-        
-        # Re-raise the error or handle it as needed
-        raise e
-    else:
-        # Re-raise other exceptions
-        raise e
-ai_msg
-state = graph.get_state(config)
-
-"""
-
 # %%
 """ 
 from langchain_core.messages import (
