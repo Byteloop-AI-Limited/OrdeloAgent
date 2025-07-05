@@ -23,7 +23,6 @@ from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
-from mangum import Mangum
 from pywa_async import WhatsApp, filters
 from pywa_async import handlers
 from pywa.types.flows import FlowRequestActionType
@@ -214,8 +213,6 @@ async def debug_state_by_thread_path(
     return debug_stack
 
 
-# Wrap the FastAPI app with Mangum
-lambda_handler = Mangum(app)
 # %%
 if __name__ == "__main__":
     uvicorn.run(
