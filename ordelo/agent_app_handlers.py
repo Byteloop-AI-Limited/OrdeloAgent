@@ -50,7 +50,7 @@ from utils_common.lg_utils import (
     shorten_state_messages,
     get_config_for_recipient,
 )
-
+import pytz
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 
 client = pg_settings.client
@@ -346,6 +346,10 @@ async def _send_delivery_instructions(
     )
 
     delivery_summary_dtts = datetime.fromisoformat(summary["dtts"])
+
+    uk_tz = pytz.timezone("Europe/London")
+    # convert dtts to UK local time (handles BST/GMT automatically)
+    delivery_summary_dtts = delivery_summary_dtts.astimezone(uk_tz)
     pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
 
     body_text = f"""
