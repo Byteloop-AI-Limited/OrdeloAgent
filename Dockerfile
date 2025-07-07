@@ -31,6 +31,3 @@ EXPOSE 80
 
 # Let start.sh handle everything else (env-files, gunicorn conf, etc.)
 ENTRYPOINT ["/app/start.sh"]
-
-# docker build -t ordelo-local .
-# docker run --env-file .env -p 80:80 ordelo-local
