@@ -29,6 +29,7 @@ from pywa.types import Button
 from pywa_async import WhatsApp
 from datetime import datetime, timedelta
 import json
+import pytz
 from psycopg_pool import AsyncConnectionPool
 from ordelo.agents.agent_runner import init_ordelo_graph
 import asyncio
@@ -84,7 +85,10 @@ async def wa_send_delivery_dispatch_request_to_rider(
         "status": "declined",
         "rider_id": recipient,
     }
-    pickup_time = (datetime.now() + timedelta(minutes=25)).strftime("%I:%M %p")
+    pickup_time = (
+        datetime.now().astimezone(pytz.timezone("Europe/London"))
+        + timedelta(minutes=25)
+    ).strftime("%I:%M %p")
 
     header_text = f"{delivery_summary['distance']} miles, £{delivery_summary['rider_payout']}, @{pickup_time}"
     wa_text = f"""
