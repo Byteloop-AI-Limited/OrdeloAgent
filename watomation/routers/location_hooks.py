@@ -56,7 +56,7 @@ def generate_config_href(config: dict) -> str:
 # %% process location event
 
 
-async def process_location_transition(payload):
+async def process_location_transitionTBD(payload):
     """
     Process a location transition event.
 
@@ -259,17 +259,21 @@ async def notify_rider_location_event(request: Request):
     customer_id = payload.get("customer_id")
     order_number = payload.get("order_number")
 
+    delivery_summary: dict = (
+        client_ordelo.table("delivery_summary")
+        .select("*")
+        .eq("order_number", order_number)
+        .execute()
+        .data[0]
+    )
+
     if event == "enter" and location == "rest":
         # Call restaurant webhook
         rest_ref = order_number.split("-")[0]
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                get_webhook_url(rest_ref, "rider-rest-enter")
-                + "/"
-                + order_number
-                + "/"
-                + customer_id,
-                json={},
+                get_webhook_url(rest_ref, "rider-rest-enter") + "/" + order_number,
+                json={"delivery_summary": delivery_summary},
             )
         logger.debug("Status code:", response.status_code)
         logger.debug("Response JSON:", response.json())
@@ -278,12 +282,8 @@ async def notify_rider_location_event(request: Request):
         rest_ref = order_number.split("-")[0]
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                get_webhook_url(rest_ref, "rider-cust-enter")
-                + "/"
-                + order_number
-                + "/"
-                + customer_id,
-                json={},
+                get_webhook_url(rest_ref, "rider-cust-enter") + "/" + order_number,
+                json={"delivery_summary": delivery_summary},
             )
         logger.debug("Status code:", response.status_code)
         logger.debug("Response JSON:", response.json())
