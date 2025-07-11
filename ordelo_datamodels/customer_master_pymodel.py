@@ -1,0 +1,57 @@
+"""
+Pydantic model for customer_master table
+    . Defines fields and types to match the customer_master DDL
+    . Handles nullability with Optional fields
+    . Suitable for FastAPI and Langchain integration
+  Functions/Classes:
+    . CustomerMaster
+"""
+
+# %%
+import datetime
+from typing import Optional
+from pydantic import BaseModel, Field, field_validator
+
+
+class CustomerMaster(BaseModel):
+    cust_id: str = Field(..., max_length=12)  # VARCHAR(12) PRIMARY KEY
+    cust_name: str  # TEXT NOT NULL
+    cust_email: Optional[str] = None  # TEXT NULL
+    house_number: str  # TEXT NOT NULL
+    building_name: Optional[str] = None  # TEXT NULL
+    street_name: str  # TEXT NOT NULL
+    city: str  # TEXT NOT NULL
+    postcode: str  # TEXT NOT NULL
+    lat: float  # FLOAT NOT NULL
+    lon: float  # FLOAT NOT NULL
+
+    @classmethod
+    def from_customer_id(cls, cust_id: str):
+        from config import client_ordelo
+
+        resp = (
+            client_ordelo.table("customer_master")
+            .select("*")
+            .eq("cust_id", cust_id)
+            .execute()
+        )
+        data = (
+            resp["data"]
+            if isinstance(resp, dict) and "data" in resp
+            else resp.data
+            if hasattr(resp, "data")
+            else None
+        )
+        if not data or len(data) == 0:
+            raise ValueError(f"No customer found with cust_id={cust_id}")
+        row = data[0]
+        return cls(**row)
+
+    @field_validator("house_number", mode="before")
+    def set_default_house_number(cls, v):
+        """Set default house number to '999' if None is provided."""
+        return v if v is not None else "999"
+
+
+# %%
+# CustomerMaster.from_customer_id("447448440754")
