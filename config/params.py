@@ -38,36 +38,36 @@ RESTAURANT_CONFIG = {
         "rider-event-hooks/delivery-timedout",
     ),
     # Bytelooop
-    # "WREN-RIDER-INFLIGHT": RestaurantConfig(
-    #     "rider-event-inflight",
-    #     "https://live-track.bytelooop.ai/",
-    #     "rider-event-hooks/rider-inflight",
-    # ),
-    # "WREN-RIDER-REST-CC": RestaurantConfig(
-    #     "rider-event-restaurant-cc",
-    #     "https://live-track.bytelooop.ai/",
-    #     "rider-event-hooks/on-restaurant-cc",
-    # ),
-    # "WREN-RIDER-CUST-CC": RestaurantConfig(
-    #     "rider-event-customer-cc",
-    #     "https://live-track.bytelooop.ai/",
-    #     "rider-event-hooks/on-customer-cc",
-    # ),
-    # "WREN-RIDER-REST-ENTER": RestaurantConfig(
-    #     "rider-event-restaurant-enter",
-    #     "https://live-track.bytelooop.ai/",
-    #     "rider-event-hooks/on-restaurant-enter",
-    # ),
-    # "WREN-RIDER-CUST-ENTER": RestaurantConfig(
-    #     "rider-event-customer-enter",
-    #     "https://live-track.bytelooop.ai/",
-    #     "rider-event-hooks/on-customer-enter",
-    # ),
-    # "WREN-DELIVERY-TIMEDOUT": RestaurantConfig(
-    #     "delivery-timedout",
-    #     "https://live-track.bytelooop.ai/",
-    #     "rider-event-hooks/delivery-timedout",
-    # ),
+    "ELAB-RIDER-INFLIGHT": RestaurantConfig(
+        "rider-event-inflight",
+        "https://live-track.bytelooop.ai/",
+        "rider-event-hooks/rider-inflight",
+    ),
+    "ELAB-RIDER-REST-CC": RestaurantConfig(
+        "rider-event-restaurant-cc",
+        "https://live-track.bytelooop.ai/",
+        "rider-event-hooks/on-restaurant-cc",
+    ),
+    "ELAB-RIDER-CUST-CC": RestaurantConfig(
+        "rider-event-customer-cc",
+        "https://live-track.bytelooop.ai/",
+        "rider-event-hooks/on-customer-cc",
+    ),
+    "ELAB-RIDER-REST-ENTER": RestaurantConfig(
+        "rider-event-restaurant-enter",
+        "https://live-track.bytelooop.ai/",
+        "rider-event-hooks/on-restaurant-enter",
+    ),
+    "ELAB-RIDER-CUST-ENTER": RestaurantConfig(
+        "rider-event-customer-enter",
+        "https://live-track.bytelooop.ai/",
+        "rider-event-hooks/on-customer-enter",
+    ),
+    "ELAB-DELIVERY-TIMEDOUT": RestaurantConfig(
+        "delivery-timedout",
+        "https://live-track.bytelooop.ai/",
+        "rider-event-hooks/delivery-timedout",
+    ),
 }
 
 
@@ -87,4 +87,4 @@ def get_webhook_url(rest_ref: str, type: str) -> str:
 
 
 # %%
-get_webhook_url("WREN", "delivery-timedout")
+# get_webhook_url("ELAB", "delivery-timedout")
