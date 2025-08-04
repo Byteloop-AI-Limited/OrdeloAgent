@@ -1,26 +1,27 @@
 """
-Agent app handlers and utilities for Ordelo agent workflows.
-    . Depends on FastAPI, LangGraph, WhatsApp (pywa, pywa_async), PostgreSQL, httpx
-    . Handles rider dispatch responses and delivery state transitions
-    . Generates configuration and job links for agents
-    . Processes synchronous and async WhatsApp delivery instructions
-    . Provides live map location and location enablement checks
-    . Implements webhook event posting for restaurant and customer confirmation codes
-    . Includes debugging and state inspection tools
-    . Utility imports for database and graph operations
+Agent app handlers for Ordelo delivery agent workflows and WhatsApp integration.
+    . Manages rider dispatch responses and delivery state transitions via WhatsApp
+    . Generates agent configuration links and job control (start/stop) configs
+    . Handles synchronous rider response processing with database updates
+    . Provides live map location URLs and tracking enablement checks
+    . Posts webhook events for customer and restaurant confirmation codes
+    . Sends delivery instructions via WhatsApp with pickup/drop-off details
+    . Includes debugging utilities for state inspection and thread analysis
+    . Integrates with PostgreSQL for delivery detail and dispatch management
   Functions/Classes:
-    . process_dispatch_response_from_rider_sync
-    . generate_config_href
-    . create_start_job_config
-    . create_stop_job_config
-    . initial_handle_of_rider_response
-    . get_live_map_location_url
-    . is_live_location_enabled
-    . CallbackButtonData
-    . _send_delivery_instructions
-    . post_rider_event_customer_cc
-    . post_rider_event_restaurant_cc
-    . debug_state
+    . process_dispatch_response_from_rider_sync - Handle rider accept/decline responses
+    . generate_config_href - Create configuration URLs for agent setup
+    . create_start_job_config - Generate job start configuration for agents
+    . create_stop_job_config - Generate job stop configuration for agents
+    . initial_handle_of_rider_response - Async processing of rider responses
+    . get_live_map_location_url - Generate live tracking URLs for orders
+    . is_live_location_enabled - Check if live location is active for order
+    . CallbackButtonData - Pydantic model for WhatsApp callback button data
+    . _send_delivery_instructions - Send pickup/drop-off instructions via WhatsApp
+    . post_rider_event_customer_cc - Post customer confirmation code events
+    . post_rider_event_restaurant_cc - Post restaurant confirmation code events
+    . debug_state - Debug utility for inspecting agent state
+    . debug_state_by_thread - Debug utility for thread-specific state inspection
 """
 
 # %%
@@ -50,7 +51,7 @@ from utils_common.lg_utils import (
     shorten_state_messages,
     get_config_for_recipient,
 )
-
+import pytz
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 
 client = pg_settings.client
@@ -346,6 +347,10 @@ async def _send_delivery_instructions(
     )
 
     delivery_summary_dtts = datetime.fromisoformat(summary["dtts"])
+
+    uk_tz = pytz.timezone("Europe/London")
+    # convert dtts to UK local time (handles BST/GMT automatically)
+    delivery_summary_dtts = delivery_summary_dtts.astimezone(uk_tz)
     pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
 
     body_text = f"""

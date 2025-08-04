@@ -95,7 +95,6 @@ def get_ordelo_agent_env(secret_name=None):
 
 
 ordelo_agent_env = get_ordelo_agent_env("ordelo-agent-env")
-
 # %%
 """ How to upload secrets to aws secrets manager
 1. Create env.json file

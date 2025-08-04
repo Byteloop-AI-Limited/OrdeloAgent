@@ -2,7 +2,8 @@
 ## Delivery flow - Agent
 - Remove the init_ordelo_graph, work on the setup node and add get_journey_instructions
 
-## Rider Agent
+## General Refactor
+- Remove imports from utils_common.lg_utils and any common utils. May be create a utils folder.
 
 
 ## Location

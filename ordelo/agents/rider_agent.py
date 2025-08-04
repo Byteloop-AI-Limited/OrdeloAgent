@@ -23,10 +23,9 @@ LangGraph agent implementation for rider delivery workflow
 
 from config import project_settings, client_ordelo, pg_settings
 from typing import Annotated
-import uuid
 from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tools import tool
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, RemoveMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, InjectedState
 from langgraph.types import Command
@@ -56,7 +55,7 @@ from langchain_core.messages import ToolMessage
 from utils_common.thread_management import ThreadHandler
 from langgraph.graph import add_messages
 from langchain_core.messages import BaseMessage
-from typing import Annotated, Sequence
+from typing import Sequence
 from typing_extensions import TypedDict
 
 
@@ -593,11 +592,20 @@ _rider_agent_tools = [
 rider_agent_tools = [tool(service) for service in _rider_agent_tools]
 
 rider_agent = create_agent_w_sys_prompt_n_tools(
-    llm=llm, tools=rider_agent_tools, system_prompt=rider_agent_prompt
+    llm=llm,
+    tools=rider_agent_tools,
+    system_prompt=rider_agent_prompt,
+    parallel_tool_calls=False,
 )
 """
 openai.BadRequestError: Error code: 400 - {'error': {'message': "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. The following tool_call_ids did not have response messages: call_zIziR7YymjJFeTXAx7Gez7li, call_A6ZJbvmyp12FpDxIFu4r19GG", 'type': 'invalid_request_error', 'param': 'messages.[14].role', 'code': None}}
 """
+
+
+# def remove_last_msg(state):
+#     messages = state["messages"]
+#     new_messages = [RemoveMessage(id=m.id) for m in messages[:-1]]
+#     return {"messages": new_messages}
 
 
 # %% rider_agent_node
@@ -606,8 +614,18 @@ def agent_node(state: AgentState) -> Command[Literal["toolNode", "respondNode", 
     if isinstance(state["messages"][-1], AIMessage):
         return Command(goto=END)
 
-    # Else Invoke rider agent
-    ai_msg = rider_agent.invoke(state)
+    # Else Invoke rider agent; Safely handle toolcall stacking issue. Remove last message and retry.
+    try:
+        ai_msg = rider_agent.invoke(state)
+    except Exception as e:
+        if "BadRequestError" in str(type(e)) or "Invalid parameter" in str(e):
+            error_msg = str(e)
+            logger.error(error_msg)
+        return Command(
+            update={"messages": [RemoveMessage(id=state["messages"][-1].id)]},
+            goto="toolNode",
+        )
+
     if ai_msg.tool_calls:
         goto = "toolNode"
     else:
@@ -650,38 +668,48 @@ builder.add_edge(START, "riderAgent")
 builder.add_edge("toolNode", "riderAgent")
 
 
-""" Test
 # %% Memory and config
+# %%
+""" 
+from langchain_core.messages import (
+    SystemMessage,
+    HumanMessage,
+    AIMessage,
+    ToolMessage,
+    RemoveMessage,
+)
+from langgraph.checkpoint.memory import MemorySaver
+from utils_common.lg_utils import display_graph
+
 memory = MemorySaver()
 graph = builder.compile(checkpointer=memory)
-display_graph(graph)
+# display_graph(graph)
 
-config = {
-    "configurable": {
-        "thread_id": 24,
-        "recipient": "447448440754"
-    }
-}
-graph.update_state(
-    config,
-    {
-            "dispatch_id": 123,
-            "order_number": 123,
-            "start_live_tracking_url": "https://google.com"
-        },
-)
-# %%
+config = {"configurable": {"thread_id": 24, "recipient": "447448440754"}}
 ip_msgs = {
     "messages": [
-        SystemMessage("rider has accepted the delivery job, send the live tracking link. {{'dispatch_id':'40'}}"),
-        HumanMessage("I have accepted the delivery job.")
+        SystemMessage(
+            "rider has accepted the delivery job, send the live tracking link. {{'dispatch_id':'40'}}"
+        ),
+        HumanMessage("I have accepted the delivery job."),
+        AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "send_delivery_instructions",
+                    "args": {},
+                    "id": "call_mCD0cDftVp1r5zTjKHzspypY",
+                    "type": "tool_call",
+                }
+            ],
+        ),
+        ToolMessage("I have Poha accepted the delivery job.", tool_call_id="call_123"),
     ]
 }
 
-ai_msg = await graph.ainvoke(ip_msgs, config=config)
-ai_msg
-# %%
-state = graph.get_state(config)
+await graph.ainvoke(ip_msgs, config=config)
+
 
 # %%
+
 """

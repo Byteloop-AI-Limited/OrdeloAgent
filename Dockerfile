@@ -1,31 +1,33 @@
-# Use the official AWS Lambda Python 3.12 base image
-FROM public.ecr.aws/lambda/python:3.12
+# FROM tiangolo/uvicorn-gunicorn-fastapi:python3.11
+# FROM tiangolo/uvicorn-gunicorn-fastapi:python3.12
+FROM python:3.12-slim
 
-# Install system dependencies
-# RUN microdnf install -y postgresql-libs postgresql-devel gcc
+# Install system packages in one go and clean up
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      build-essential \
+      curl \
+ && rm -rf /var/lib/apt/lists/*
 
+# Create and set working directory
+WORKDIR /app
 
-# Set working directory and Python pathq
-ENV PYTHONPATH="${PYTHONPATH}:/var/task"
-WORKDIR /var/task
+# Set PYTHONPATH to /app for all processes
+ENV PYTHONPATH=/app
 
-# Copy application code and requirements
-COPY aws_setting.py ./aws_setting.py
-COPY config ./config
-COPY ordelo_datamodels ./ordelo_datamodels
-COPY ordelo ./ordelo
-COPY utils_common ./utils_common
-COPY watomation ./watomation
-COPY requirements.txt .
+# Install UV package manager
+RUN pip install uv
+COPY requirements.txt /tmp/requirements.txt
+RUN uv pip install --system -r /tmp/requirements.txt
 
-# Install dependencies using uv with system flag
-# With pip
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+# Copy your application code (including start.sh) into /app
+COPY . /app
 
-# With uv
-# RUN pip install uv
-# RUN uv pip install --system -r requirements.txt
+# Copy your startup script and make it executable
+RUN chmod +x /app/start.sh
 
-# Set the CMD to your handler
-CMD ["watomation.fapp_ordelo_agent.lambda_handler"]
+# Expose the port App Runner will bind to ($PORT, default 80)
+EXPOSE 80
+
+# Let start.sh handle everything else (env-files, gunicorn conf, etc.)
+ENTRYPOINT ["/app/start.sh"]

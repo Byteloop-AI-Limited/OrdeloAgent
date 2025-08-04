@@ -1,0 +1,36 @@
+# Python cache and bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Git
+.git/
+.gitignore
+
+# Environment files
+.env
+.env_*
+*.env
+
+# Logs
+*.log
+nohup.out
+
+# Notebooks and test cache
+notebooks/
+*.ipynb
+.pytest_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Windsurf and IDE
+.windsurf/
+.vscode/

@@ -22,13 +22,14 @@ Delivery webhook handlers for Ordelo delivery system
     . check_rider_allocation_status - Checks rider allocation status
 """
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, BackgroundTasks
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from config import logger, _async_wa_client, pg_settings
 from pywa.types import Button
 from pywa_async import WhatsApp
 from datetime import datetime, timedelta
 import json
+import pytz
 from psycopg_pool import AsyncConnectionPool
 from ordelo.agents.agent_runner import init_ordelo_graph
 import asyncio
@@ -84,7 +85,10 @@ async def wa_send_delivery_dispatch_request_to_rider(
         "status": "declined",
         "rider_id": recipient,
     }
-    pickup_time = (datetime.now() + timedelta(minutes=25)).strftime("%I:%M %p")
+    pickup_time = (
+        datetime.now().astimezone(pytz.timezone("Europe/London"))
+        + timedelta(minutes=25)
+    ).strftime("%I:%M %p")
 
     header_text = f"{delivery_summary['distance']} miles, £{delivery_summary['rider_payout']}, @{pickup_time}"
     wa_text = f"""
@@ -200,7 +204,7 @@ async def delivery_hook_root():
 
 @router.post(
     "/delivery-dispatch",
-    summary="Process Delivery Dispatch",
+    summary="Process Delivery Dispatch. Trigger: Insert into delivery_dispatch",
     description="""
     Processes a new delivery dispatch request and notifies the assigned rider.
     
@@ -223,30 +227,40 @@ async def delivery_hook_root():
         }
     },
 )
-async def delivery_dispatch_hook(payload: dict = Depends(get_payload)):
-    # ToDo: Create background task to send the dispatches
-    dispatches = payload.get("bulk_dispatch", None)
-    if dispatches is None or len(dispatches) == 0:
-        # When instead of insert, the job udpates the status
+async def delivery_dispatch_hook(
+    background_tasks: BackgroundTasks,
+    payload: dict = Depends(get_payload),
+):
+    """
+    Handles incoming delivery dispatch webhook payloads and schedules sending dispatch requests to riders as background tasks.
+        . Accepts payload with bulk_dispatch list
+        . Schedules wa_send_delivery_dispatch_request_to_rider for each dispatch using BackgroundTasks
+        . Returns immediately with status success if no dispatches
+    Functions/Classes
+        . delivery_dispatch_hook
+        . wa_send_delivery_dispatch_request_to_rider
+    Key Functions:
+        . delivery_dispatch_hook - schedules dispatch sends in background
+    """
+    dispatches = payload.get("bulk_dispatch") or []
+    if not dispatches:
         return {"status": "success"}
-    for delivery_summary in dispatches:
-        dispatch_id = delivery_summary.get("dispatch_id")
-        rider_id = delivery_summary["rider_id"]
-        await wa_send_delivery_dispatch_request_to_rider(
-            recipient=rider_id,
-            delivery_summary=delivery_summary,
-            dispatch_id=dispatch_id,
+
+    for d in dispatches:
+        background_tasks.add_task(
+            wa_send_delivery_dispatch_request_to_rider,
+            recipient=d["rider_id"],
+            delivery_summary=d,
+            dispatch_id=d["dispatch_id"],
         )
-        logger.info(
-            f"Delivery dispatch request sent to rider: {rider_id}, {delivery_summary['vehicle_type']}"
-        )
+        logger.info(f"Enqueued dispatch for rider {d['rider_id']}")
     return {"status": "success"}
 
 
 # %% Delivery Inflight Graph Init; Fix this
 @router.post(
     "/delivery-inflight-graph-init",
-    summary="Initialize Delivery Inflight Graph",
+    summary="Initialize Delivery Inflight Graph. Trigger: Insert into delivery_inflight",
     description="""
     Processes a new delivery inflight record and initializes the delivery tracking graph.
     
@@ -281,20 +295,23 @@ async def delivery_dispatch_hook(payload: dict = Depends(get_payload)):
         }
     },
 )
-async def delivery_inflight_graph_init_hook(payload: dict = Depends(get_payload)):
+async def delivery_inflight_graph_init_hook(
+    background_tasks: BackgroundTasks,
+    payload: dict = Depends(get_payload),
+):
     """
     On insert into delivery_inflight table, trigger delivery inflight graph initialization webhook.
 
     This endpoint processes a delivery inflight record by extracting
     rider ID, dispatch ID, order number, and delivery details from the request payload.
-    It then initializes the delivery tracking graph for this inflight delivery.
+    It then schedules background tasks for initializing the delivery tracking graph and calling the restaurant webhook.
 
     Args:
-        request (Request): The HTTP request object containing JSON payload.
+        background_tasks (BackgroundTasks): FastAPI background task manager
+        payload (dict): The HTTP request payload containing delivery details
 
     Returns:
-        dict: A dictionary with the status of the operation and the original
-              payload data.
+        dict: A dictionary with the status of the operation and the original payload data.
     """
     # Validate payload
     if "delivery_detail" not in payload or len(payload["delivery_detail"]) == 0:
@@ -304,17 +321,15 @@ async def delivery_inflight_graph_init_hook(payload: dict = Depends(get_payload)
     # Extract data from payload
     delivery_detail = DeliveryDetail(**payload["delivery_detail"][0])
 
-    # 1. Call restaurant webhook - rider-inflight-event
+    # 1. Call restaurant webhook - rider-inflight-event (background)
     if "test" not in delivery_detail.order_number.lower():
-        # asyncio.create_task(post_rider_event_inflight(delivery_detail))
-        await post_rider_event_inflight(delivery_detail)
+        background_tasks.add_task(post_rider_event_inflight, delivery_detail)
 
-    # 2. Create as background task as the db webhook on inflight waits and errors out
-    # asyncio.create_task(init_ordelo_graph(delivery_detail))
-    await init_ordelo_graph(delivery_detail)
+    # 2. Initialize ordelo graph as background task
+    background_tasks.add_task(init_ordelo_graph, delivery_detail)
 
     logger.info(
-        f"Delivery inflight graph initialized for order number: {delivery_detail.order_number}"
+        f"Enqueued inflight graph init for order number: {delivery_detail.order_number}"
     )
 
     return {"status": "success"}
@@ -350,22 +365,24 @@ async def delivery_inflight_graph_init_hook(payload: dict = Depends(get_payload)
         }
     },
 )
-async def notify_missed_dispatches_hook(payload: dict = Depends(get_payload)):
+async def notify_missed_dispatches_hook(
+    background_tasks: BackgroundTasks,
+    payload: dict = Depends(get_payload),
+):
     """
     Process missed dispatches notification.
 
     This endpoint receives information about dispatches that have timed out
     and updates their status to 'missed' in the database. It also logs
-    notifications that would be sent to riders.
+    notifications that would be sent to riders. Message sends are scheduled as background tasks.
 
     Args:
-        request (Request): The HTTP request object containing JSON payload.
+        background_tasks (BackgroundTasks): FastAPI background task manager
+        payload (dict): The HTTP request payload containing missed dispatches
 
     Returns:
         dict: A dictionary with the status of the operation and summary data.
     """
-    # from ordelo.sbase import sbase_update
-
     # Handle empty or missing missed_dispatches
     if "missed_dispatches" not in payload or not payload["missed_dispatches"]:
         logger.info("No missed_dispatches data found in payload, nothing to process")
@@ -386,7 +403,7 @@ async def notify_missed_dispatches_hook(payload: dict = Depends(get_payload)):
 
         dispatches_to_be_updated_as_missed = []
 
-        # Log notification for each rider
+        # Schedule notification to each rider as a background task
         for dispatch in missed_dispatch["dispatches"]:
             rider_id = dispatch["rider_id"]
             dispatch_id = dispatch["dispatch_id"]
@@ -396,8 +413,10 @@ async def notify_missed_dispatches_hook(payload: dict = Depends(get_payload)):
             Sorry, the order was picked up by another rider. Order number: *{order_number}*
             """
 
-            # send notification to rider
-            await _async_wa_client.send_message(to=rider_id, text=_text)
+            # Send notification to rider in background
+            background_tasks.add_task(
+                _async_wa_client.send_message, to=rider_id, text=_text
+            )
 
         # Mark dispatches as missed, they will not be pickup by notify_missed_dispatches sql function again
         response = (
@@ -415,18 +434,20 @@ async def notify_missed_dispatches_hook(payload: dict = Depends(get_payload)):
 # %% Notify food ready for pickup
 @router.post(
     "/notify-food-ready-for-pickup/{recipient}",
-    summary="Notify food ready for pickup",
+    summary="Notify food ready for pickup. Initiated by restaurant admin agent",
     response_description="Status of the notification operation",
 )
 async def notify_food_ready_for_pickup(
     recipient: str,
+    background_tasks: BackgroundTasks,
     payload: dict = Depends(get_payload),
 ):
     """
-    Notify food ready for pickup to a specific rider.
+    Notify food ready for pickup to a specific rider. Schedules notification as a background task.
 
     Args:
         recipient (str): The WhatsApp phone number or unique identifier of the rider.
+        background_tasks (BackgroundTasks): FastAPI background task manager
         payload (dict): The JSON payload sent in the POST request body.
 
     Returns:
@@ -434,7 +455,8 @@ async def notify_food_ready_for_pickup(
     """
     restaurant_name = payload.get("restaurant_name", None)
 
-    await run_rider_graph(
+    background_tasks.add_task(
+        run_rider_graph,
         recipient,
         system_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {restaurant_name} to pickup the food.",
     )
@@ -444,17 +466,28 @@ async def notify_food_ready_for_pickup(
 # %% delivery-timedout
 @router.post(
     "/delivery-timedout",
-    summary="Handle delivery timedout. Called by scheduled job `process_delivery`.",
+    summary="Handle delivery timedout. Called by scheduled job `process_delivery` when status of `delivery_summary` changes to 'timedout'.",
     response_description="Status of the delivery timedout operation",
 )
 async def delivery_timedout(
+    background_tasks: BackgroundTasks,
     payload: dict = Depends(get_payload),
 ):
+    """
+    Handle delivery timedout event. Schedules post_delivery_timedout as a background task.
+
+    Args:
+        background_tasks (BackgroundTasks): FastAPI background task manager
+        payload (dict): The JSON payload sent in the POST request body.
+
+    Returns:
+        dict: Status of the delivery timedout operation.
+    """
     logger.info(f"delivery_timedout received: {payload}")
     delivery_summary_lst = payload.get("delivery_summary", None)
     delivery_summary = delivery_summary_lst[0]
     if "test" not in delivery_summary["order_number"].lower():  # skip test orders
-        await post_delivery_timedout(delivery_summary)
+        background_tasks.add_task(post_delivery_timedout, delivery_summary)
     return {"status": "success"}
 
 
