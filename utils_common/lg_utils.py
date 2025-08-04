@@ -31,7 +31,7 @@ from langchain_core.messages import (
     RemoveMessage,
     filter_messages,
 )
-from config import pg_settings
+from config import pg_settings, llm_settings
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 
@@ -87,7 +87,8 @@ def agent_node(state, agent, name):
 
 # %%
 LLM_4o = ChatOpenAI(
-    model="gpt-4o-mini-2024-07-18",
+    model=llm_settings.model,
+    openai_api_key=llm_settings.openai_api_key,
     # model="o3-mini-2025-01-31",
     temperature=0,
     max_tokens=None,
@@ -96,18 +97,9 @@ LLM_4o = ChatOpenAI(
 )
 
 #  run llm invoke
-LLM_4o.invoke("tell me a joke; return json")
-# %%
-
-client = OpenAI()
+# LLM_4o.invoke("tell me a joke; return json")
 
 
-def generate_embedding(text):
-    response = client.embeddings.create(input=text, model="text-embedding-3-small")
-    return response.data[0].embedding
-
-
-# LLM_4o.invoke("tell me a joke; return json", response_format={"type": "json_object"})
 # %%
 def create_agent_w_sys_prompt(system_prompt, llm=LLM_4o):
     """

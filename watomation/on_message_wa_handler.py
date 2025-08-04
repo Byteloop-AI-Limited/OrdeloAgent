@@ -38,6 +38,7 @@ from ordelo.agent_app_handlers import get_live_map_location_url
 
 # %% Run graph on msg
 async def process_wa_msg(wa: WhatsApp, msg: Message):
+    await msg.indicate_typing()
     pool: AsyncConnectionPool = await pg_settings.get_pool()
     recipient = msg.sender
     thread_handler = ThreadHandler(pool)

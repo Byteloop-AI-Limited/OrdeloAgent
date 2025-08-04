@@ -14,6 +14,7 @@ __all__ = [
     "logger",
     "client_ordelo",
     "get_webhook_url",
+    "llm_settings",
 ]
 from .project_setting import project_settings, get_project_root
 from .waba_setting import (
@@ -29,3 +30,4 @@ from .google_setting import g_client, google_settings
 from .cat_con_setting import cat_conn
 from .pg_setting import pg_settings, client_ordelo
 from .params import get_webhook_url
+from .llm_setting import llm_settings

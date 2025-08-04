@@ -17,7 +17,7 @@ fi
 # fi
 
 # Only change for railway deployment
-DEFAULT_MODULE_NAME=watomation.app_elai_demo
+DEFAULT_MODULE_NAME=watomation.fapp_ordelo_agent
 
 
 MODULE_NAME=${MODULE_NAME:-$DEFAULT_MODULE_NAME}
