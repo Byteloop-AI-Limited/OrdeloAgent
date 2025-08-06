@@ -1,0 +1,29 @@
+#!/bin/bash
+# set the profile and login to aws
+export AWS_PROFILE=byteloop
+echo "Switched to BtyleLoop"
+
+log_info() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] $1"
+}
+log_error() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $1" >&2
+}
+
+log_info "Converting .env_elai_agent to env.json..."
+
+jq -Rn '
+  [inputs
+    | select(. != "" and .[0:1] != "#")
+    | capture("(?<key>[^=]+)=(?<value>.*)")
+    | { (.key): (.value 
+        | sub("^[\"'"'"']";"") 
+        | sub("[\"'"'"'][,\n]*$";"")) }
+  ] | add
+' < .env_ordelo_agent > env.json
+
+aws secretsmanager update-secret \
+  --region eu-west-2 \
+  --secret-id ordelo-agent-env \
+  --secret-string file://env.json
+
