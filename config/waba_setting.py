@@ -26,17 +26,22 @@ import os
 
 # %%
 
+NAMESPACE = "bloopappreview"
+# NAMESPACE = "bloop"
+
 
 class WabaBusinessSettings(BaseSettings):
-    account_id: str = Field(..., alias="lai_waa_account_id")
-    business_account_id: str = Field(..., alias="lai_waa_business_account_id")
-    token: str = Field(..., alias="lai_waa_token")
-    phone_id: int = Field(..., alias="lai_waa_phone_id")
-    callback_url: str = Field(..., alias="lai_waa_callback_url")
-    verify_token: str = Field(..., alias="lai_waa_verify_token")
-    app_id: str = Field(..., alias="lai_waa_app_id")
-    app_secret: str = Field(..., alias="lai_waa_app_secret")
-    private_key_password: str = Field(..., alias="lai_waa_private_key_password")
+    account_id: str = Field(..., alias=f"{NAMESPACE}_waa_account_id")
+    business_account_id: str = Field(..., alias=f"{NAMESPACE}_waa_business_account_id")
+    token: str = Field(..., alias=f"{NAMESPACE}_waa_token")
+    phone_id: int = Field(..., alias=f"{NAMESPACE}_waa_phone_id")
+    callback_url: str = Field(..., alias=f"{NAMESPACE}_waa_callback_url")
+    verify_token: str = Field(..., alias=f"{NAMESPACE}_waa_verify_token")
+    app_id: str = Field(..., alias=f"{NAMESPACE}_waa_app_id")
+    app_secret: str = Field(..., alias=f"{NAMESPACE}_waa_app_secret")
+    private_key_password: str = Field(
+        ..., alias=f"{NAMESPACE}_waa_private_key_password"
+    )
 
     model_config = SettingsConfigDict(extra="allow")
 
