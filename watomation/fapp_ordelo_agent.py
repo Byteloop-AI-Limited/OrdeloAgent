@@ -42,6 +42,7 @@ from watomation.on_message_wa_handler import (
     reset_thread,
     test_delivery,
     process_wa_msg,
+    process_byteloop_agent,
     test_flow,
     clear_dispatch,
     send_live_map_location,
@@ -104,6 +105,7 @@ wa: WhatsApp = WhatsApp(
     business_private_key_password=waba_business_settings.private_key_password,
 )
 
+
 TEST_DELIVERY = filters.contains("/test", ignore_case=True)
 CLEAR_DISPATCH = filters.contains("/cleardis", ignore_case=True)
 LIVE_LOCATION = filters.contains("/live", ignore_case=True)
@@ -120,6 +122,7 @@ wa.add_handlers(
     handlers.MessageHandler(callback=clear_dispatch, filters=CLEAR_DISPATCH),
     handlers.MessageHandler(callback=test_flow, filters=TEST_FLOW),
     handlers.MessageHandler(callback=send_live_map_location, filters=LIVE_LOCATION),
+    # handlers.MessageHandler(callback=process_byteloop_agent),
     handlers.MessageHandler(callback=process_wa_msg),
     handlers.CallbackButtonHandler(
         callback=dispatch_response, filters=IS_DISPATCH_RESPONSE
