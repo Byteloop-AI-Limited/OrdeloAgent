@@ -3,7 +3,7 @@ import os
 import requests
 import json
 import os
-from config import _async_wa_client
+from config import _async_wa_client as wa
 from pywa.types import (
     SectionList,
     Section,
@@ -40,13 +40,31 @@ msg = await _async_wa_client.send_message(
 # %%
 msg.id
 # %%
+from pywa.types import NewTemplate as NewTemp
+from config import _sync_wa_client as wa
+
+recipient = 447448440754
 wa.send_message(
     to=recipient,
-    text="hi",
+    text="hi, this is cool",
     reply_to_message_id=None,
-    buttons=ButtonUrl(title="Click Here", url="https://google.com"),
 )
+# %%
+
+response = wa.create_template(
+    template=NewTemp(
+        name="buy_new_iphone_x",
+        category=NewTemp.Category.MARKETING,
+        language=NewTemp.Language.ENGLISH_UK,
+        header=NewTemp.Text("The New iPhone is here!"),
+        body=NewTemp.Body("Buy now and use the code  to get  off!"),
+        footer=NewTemp.Footer("Powered by PyWa"),
+    ),
+)
+
+print(response)
 # %% Send documents
+
 from pywa import WhatsApp
 import requests
 
