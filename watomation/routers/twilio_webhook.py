@@ -4,7 +4,7 @@ Alert hooks router for OrdeloAgent FastAPI service.
     . Implements webhook pattern for database-triggered alert events
     . Handles both JSON (DB trigger) and form-encoded (Twilio SMS) webhook payloads
     . Logs payloads and supports future extension for business logic
-    . Ensures robust handling of empty, malformed, or unexpected webhook payloads
+    . Stores display phone number (if present) into TEMP_STORE['phone_num'] during WA_EMBEDDED_SIGNUP
   Functions/Classes:
     . get_payload - Extracts JSON payload from request with empty fallback
     . get_pool - Returns the async connection pool from FastAPI app state
@@ -21,17 +21,19 @@ from twilio.twiml.voice_response import VoiceResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 import os
-import requests
 from fastapi.responses import RedirectResponse, HTMLResponse
+from .twilio_webhook_utils import (
+    onboard_business_customer,
+    TEMP_STORE,
+    waba_es_app_id,
+    configuration_id,
+    graph_api_version,
+)
 
 # ---------------------------------------------------------------------------
 # Templates
 # ---------------------------------------------------------------------------
 templates = Jinja2Templates(directory=os.path.join(Path(__file__).parent, "templates"))
-app_id = "249******"
-app_secret = "6d2e******"
-configuration_id = "240******"
-graph_api_version = "v22.0"
 
 
 async def get_payload(request: Request):
@@ -63,122 +65,11 @@ async def waba_embedded_signup(request: Request):
         "waba_embedded_signup.html",
         {
             "request": request,
-            "app_id": app_id,
+            "app_id": waba_es_app_id,
             "graph_api_version": graph_api_version,
             "configuration_id": configuration_id,
         },
     )
-
-
-TEMP_STORE = {}
-
-
-async def onboard_business_customer():
-    """Onboard business customer using stored data from TEMP_STORE."""
-    try:
-        code = TEMP_STORE.get("code")
-        waba_id = TEMP_STORE.get("waba_id")
-
-        if not code:
-            logger.error("No code found in TEMP_STORE")
-            return {"status": "error", "message": "No code available"}
-
-        if not waba_id:
-            logger.error("No waba_id found in TEMP_STORE")
-            return {"status": "error", "message": "No WABA ID available"}
-
-        # Step 1: Exchange code for business_token
-        logger.info("Step 1: Exchanging code for business token")
-        token_url = "https://graph.facebook.com/v21.0/oauth/access_token"
-        token_params = {"client_id": app_id, "client_secret": app_secret, "code": code}
-
-        token_response = requests.get(token_url, params=token_params)
-        if token_response.status_code != 200:
-            logger.error(f"Failed to get access token: {token_response.text}")
-            return {"status": "error", "message": "Failed to get access token"}
-
-        token_data = token_response.json()
-        business_token = token_data.get("access_token")
-
-        if not business_token:
-            logger.error("No access token in response")
-            return {"status": "error", "message": "No access token received"}
-
-        logger.info("Successfully obtained business token")
-        TEMP_STORE["business_token"] = business_token
-
-        # Step 2: Subscribe app to WABA
-        logger.info("Step 2: Subscribing app to WABA")
-        subscribe_url = (
-            f"https://graph.facebook.com/{graph_api_version}/{waba_id}/subscribed_apps"
-        )
-        headers = {"Authorization": f"Bearer {business_token}"}
-
-        subscribe_response = requests.post(subscribe_url, headers=headers)
-        if subscribe_response.status_code not in [200, 201]:
-            logger.error(f"Failed to subscribe app to WABA: {subscribe_response.text}")
-            return {"status": "error", "message": "Failed to subscribe app to WABA"}
-
-        logger.info("Successfully subscribed app to WABA")
-
-        # Step 3: Register the customer's phone number
-        logger.info("Step 3: Registering customer's phone number")
-        phone_number_id = TEMP_STORE.get("phone_number_id")
-        if not phone_number_id:
-            logger.error("No phone_number_id found in TEMP_STORE")
-            return {"status": "error", "message": "No phone number ID available"}
-
-        register_url = (
-            f"https://graph.facebook.com/{graph_api_version}/{phone_number_id}/register"
-        )
-        register_data = {"messaging_product": "whatsapp", "pin": "141414"}
-
-        register_response = requests.post(
-            register_url, headers=headers, json=register_data
-        )
-        if register_response.status_code not in [200, 201]:
-            logger.error(f"Failed to register phone number: {register_response.text}")
-            return {"status": "error", "message": "Failed to register phone number"}
-
-        logger.info("Successfully registered phone number")
-
-        # Step 4: Send a test message
-        logger.info("Step 4: Sending test message")
-        messages_url = (
-            f"https://graph.facebook.com/{graph_api_version}/{phone_number_id}/messages"
-        )
-        message_data = {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": "447448440754",
-            "type": "text",
-            "text": {"body": "Business account successfully registered"},
-        }
-
-        message_response = requests.post(
-            messages_url, headers=headers, json=message_data
-        )
-        if message_response.status_code not in [200, 201]:
-            logger.error(f"Failed to send test message: {message_response.text}")
-            return {"status": "error", "message": "Failed to send test message"}
-
-        logger.info("Successfully sent test message")
-
-        logger.info(
-            f"Business customer onboarding completed successfully, save this !!!: {TEMP_STORE}"
-        )
-        return {
-            "status": "success",
-            "message": "Business customer onboarded successfully",
-            "data": {
-                "waba_id": waba_id,
-                "business_token": business_token[:20] + "...",  # Truncated for security
-            },
-        }
-
-    except Exception as e:
-        logger.error(f"Error in onboard_business_customer: {str(e)}")
-        return {"status": "error", "message": f"Onboarding failed: {str(e)}"}
 
 
 @router.post("/waba-embedded-signup")
@@ -211,7 +102,7 @@ async def waba_embedded_signup_callback(request: Request):
             logger.info(f"Updated TEMP_STORE with auth code: {code}")
 
             # Call onboard_business_customer function
-            onboard_result = await onboard_business_customer()
+            onboard_result = await onboard_business_customer(TEMP_STORE)
             return onboard_result
 
         else:
@@ -223,6 +114,7 @@ async def waba_embedded_signup_callback(request: Request):
         return {"status": "error", "message": f"Failed to process callback: {str(e)}"}
 
 
+# %% Twilio stuff
 @router.post("/failure-notifications")
 async def failure_notifications(
     from_number: str = Form(..., alias="From"),
