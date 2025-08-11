@@ -22,6 +22,7 @@ jq -Rn '
   ] | add
 ' < .env_ordelo_agent > env.json
 
+log_info "Updating secrets..."
 aws secretsmanager update-secret \
   --region eu-west-2 \
   --secret-id ordelo-agent-env \

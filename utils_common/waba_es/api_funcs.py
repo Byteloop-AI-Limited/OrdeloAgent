@@ -171,13 +171,18 @@ get_wabas_with_phone_numbers()
 # get_wabas_with_phone_numbers()
 
 # %% Overriding callback URL
+from pywa import WhatsApp
+from config import waba_business_settings
+
 wa = WhatsApp(
-    token=token,
-    phone_id="813532365168347",
+    token=waba_business_settings.token,
+    phone_id=waba_business_settings.phone_id,
 )
+waba_business_settings
+# %%
 
 wa.override_waba_callback_url(
-    callback_url="https://7gqcqc-ip-217-39-41-153.tunnelmole.net",
+    callback_url="https://6q5ecb-ip-217-39-41-153.tunnelmole.net",
     verify_token="123456",
     waba_id="2242211042906352",
 )
