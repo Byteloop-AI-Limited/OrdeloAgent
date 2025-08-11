@@ -26,8 +26,8 @@ from .twilio_webhook_utils import (
     onboard_business_customer,
     TEMP_STORE,
     waba_es_app_id,
-    configuration_id,
-    graph_api_version,
+    waba_es_configuration_id,
+    waba_es_graph_api_version,
 )
 
 # ---------------------------------------------------------------------------
@@ -66,8 +66,8 @@ async def waba_embedded_signup(request: Request):
         {
             "request": request,
             "app_id": waba_es_app_id,
-            "graph_api_version": graph_api_version,
-            "configuration_id": configuration_id,
+            "graph_api_version": waba_es_graph_api_version,
+            "configuration_id": waba_es_configuration_id,
         },
     )
 
