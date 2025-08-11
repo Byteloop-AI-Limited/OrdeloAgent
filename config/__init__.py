@@ -3,6 +3,7 @@ __all__ = [
     "project_settings",
     "get_project_root",
     "waba_cat_settings",
+    "waba_provider_settings",
     "waba_business_settings",
     "_async_wa_client",
     "_sync_wa_client",
@@ -19,6 +20,7 @@ __all__ = [
 from .project_setting import project_settings, get_project_root
 from .waba_setting import (
     waba_business_settings,
+    waba_provider_settings,
     waba_cat_settings,
     _async_wa_client,
     _sync_wa_client,

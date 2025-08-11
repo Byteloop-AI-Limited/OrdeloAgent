@@ -18,20 +18,22 @@ WhatsApp Business API onboarding utility functions for Twilio webhook router.
 import requests
 from loguru import logger
 from typing import Dict, Any
-from config import waba_business_settings
+from config import waba_business_settings, waba_provider_settings
 import pickle
 from config import client_ordelo
 
 
-waba_business_settings.token
+# waba_business_settings.token
 # %%
 
 # Configuration constants
-waba_es_app_id = ""
-waba_es_app_secret = ""
-waba_es_configuration_id = ""
-waba_es_graph_api_version = ""
-waba_es_pin = ""
+waba_es_app_id = waba_provider_settings.app_id
+waba_es_app_secret = waba_provider_settings.app_secret
+waba_es_configuration_id = waba_provider_settings.configuration_id
+waba_es_graph_api_version = waba_provider_settings.graph_api_version
+waba_es_pin = waba_provider_settings.pin
+waba_business_protfolio_id = waba_provider_settings.business_portfolio_id
+
 # %% UPDATE THIS FOR EVERY ONBOARDING PROCES
 TEMP_STORE = {"phone_num": "447862141096", "business_ref": "elai"}
 # %%
@@ -314,7 +316,7 @@ def get_assigned_users(waba_id: str) -> Dict[str, Any]:
         assigned_users_url = f"https://graph.facebook.com/{waba_es_graph_api_version}/{waba_id}/assigned_users"
         business_id = "1812432326161275"
         params = {"business": business_id}
-        headers = {"Authorization": f"Bearer {waba_business_settings.token}"}
+        headers = {"Authorization": f"Bearer {waba_provider_settings.token}"}
         assigned_users_response = requests.get(
             assigned_users_url, headers=headers, params=params
         )

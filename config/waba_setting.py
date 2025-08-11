@@ -26,13 +26,13 @@ import os
 
 # %%
 
-NAMESPACE = "bloopappreview"
+# NAMESPACE = "bloopappreview"
+NAMESPACE = "vango"
 # NAMESPACE = "bloop"
 
 
 class WabaBusinessSettings(BaseSettings):
     account_id: str = Field(..., alias=f"{NAMESPACE}_waa_account_id")
-    business_account_id: str = Field(..., alias=f"{NAMESPACE}_waa_business_account_id")
     token: str = Field(..., alias=f"{NAMESPACE}_waa_token")
     phone_id: int = Field(..., alias=f"{NAMESPACE}_waa_phone_id")
     callback_url: str = Field(..., alias=f"{NAMESPACE}_waa_callback_url")
@@ -102,10 +102,55 @@ class WabaBusinessSettings(BaseSettings):
 
 
 # %%
+
+# %%
 waba_business_settings = WabaBusinessSettings(**ordelo_agent_env)
 # waba_business_settings = WabaBusinessSettings.with_env_prefix("BLOOP_WAA_")
 _async_wa_client = waba_business_settings.create_wa()
 _sync_wa_client = waba_business_settings.create_wa_sync()
+
+# %%
+
+NAMESPACE = "waba_provider"
+
+
+class WabaProviderSettings(BaseSettings):
+    app_id: str = Field(..., alias=f"{NAMESPACE}_app_id")
+    app_secret: str = Field(..., alias=f"{NAMESPACE}_app_secret")
+    configuration_id: str = Field(..., alias=f"{NAMESPACE}_configuration_id")
+    graph_api_version: str = Field(..., alias=f"{NAMESPACE}_graph_api_version")
+    pin: str = Field(..., alias=f"{NAMESPACE}_pin")
+    token: str = Field(..., alias=f"{NAMESPACE}_token")
+    business_portfolio_id: str = Field(..., alias=f"{NAMESPACE}_business_protfolio_id")
+
+    model_config = SettingsConfigDict(extra="allow")
+
+    @property
+    def headers(self) -> Dict[str, str]:
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}",
+        }
+
+    @property
+    def graph_api_base_url(self) -> str:
+        return f"https://graph.facebook.com/{self.graph_api_version}"
+
+    @classmethod
+    def with_env_prefix(cls, env_prefix):
+        config = SettingsConfigDict(
+            env_prefix=env_prefix, env_file_encoding="utf-8", extra="ignore"
+        )
+        # Create a new subclass with the updated config
+        NewClass = type(
+            f"{cls.__name__}_{env_prefix}", (cls,), {"model_config": config}
+        )
+        return NewClass()
+
+
+# %%
+
+waba_provider_settings = WabaProviderSettings(**ordelo_agent_env)
 
 
 # %%
