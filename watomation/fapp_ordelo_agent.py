@@ -194,6 +194,20 @@ async def get_threads(recipient: Optional[str] = "447448440754"):
     return threads.data
 
 
+# %%
+@app.post("/echo")
+async def echo_request(request: Request):
+    body = (
+        await request.json()
+        if request.headers.get("content-type", "").startswith("application/json")
+        else await request.body()
+    )
+    # print(f"Incoming /echo request: {request.method} {request.url}")
+    # print(f"Headers: {dict(request.headers)}")
+    print(f"Body: {body}")
+    return {"received": body}
+
+
 # %% Debug state
 
 
