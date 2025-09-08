@@ -27,8 +27,8 @@ import os
 # %%
 
 # NAMESPACE = "bloopappreview"
-NAMESPACE = "vango"
-# NAMESPACE = "bloop"
+# NAMESPACE = "vango"
+NAMESPACE = "bloop"
 
 
 class WabaBusinessSettings(BaseSettings):
@@ -43,7 +43,7 @@ class WabaBusinessSettings(BaseSettings):
         ..., alias=f"{NAMESPACE}_waa_private_key_password"
     )
 
-    model_config = SettingsConfigDict(extra="allow")
+    model_config = SettingsConfigDict(extra="ignore")
 
     def create_wa(self, app=None):
         kwargs = {
@@ -108,7 +108,7 @@ waba_business_settings = WabaBusinessSettings(**ordelo_agent_env)
 # waba_business_settings = WabaBusinessSettings.with_env_prefix("BLOOP_WAA_")
 _async_wa_client = waba_business_settings.create_wa()
 _sync_wa_client = waba_business_settings.create_wa_sync()
-
+waba_business_settings
 # %%
 
 NAMESPACE = "waba_provider"
@@ -123,7 +123,7 @@ class WabaProviderSettings(BaseSettings):
     token: str = Field(..., alias=f"{NAMESPACE}_token")
     business_portfolio_id: str = Field(..., alias=f"{NAMESPACE}_business_protfolio_id")
 
-    model_config = SettingsConfigDict(extra="allow")
+    model_config = SettingsConfigDict(extra="ignore")
 
     @property
     def headers(self) -> Dict[str, str]:
@@ -151,6 +151,7 @@ class WabaProviderSettings(BaseSettings):
 # %%
 
 waba_provider_settings = WabaProviderSettings(**ordelo_agent_env)
+waba_provider_settings
 
 
 # %%
