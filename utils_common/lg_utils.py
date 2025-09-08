@@ -96,6 +96,16 @@ LLM_4o = ChatOpenAI(
     max_retries=2,
 )
 
+unused_llm = ChatOpenAI(
+    model="gpt-5-mini-2025-08-07",
+    openai_api_key=llm_settings.openai_api_key,
+    # verbosity="low",
+    reasoning_effort="medium",
+    max_tokens=None,
+    # use_responses_api=False,
+    timeout=None,
+    max_retries=2,
+)
 #  run llm invoke
 # LLM_4o.invoke("tell me a joke; return json")
 
@@ -493,39 +503,24 @@ def delete_messages(state):
         return {"messages": [RemoveMessage(id=m.id) for m in messages[:-3]]}
 
 
-# %% Display graph using mermaid
-# takeaway_graph.get_graph(xray=True).draw_mermaid()
-
-# %% Building test graph based on agent, tools- it provides a toolNode to execute tools
-# from langchain_core.runnables.base import RunnableSequence
-# from langchain_core.tools.structured import StructuredTool
-# from typing import List
+# %% agent loop test
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.messages import HumanMessage
 
 
-# def create_test_graph(agent: RunnableSequence, agent_state, tools: List[StructuredTool]):
-#   # Define node
-#   def agent_node(agent_state) -> Command[Literal["toolNode", END]]:
-#         ai_msg = takeaway_agent.invoke(state)
-
-#         if ai_msg.tool_calls:
-#             goto = "toolNode"
-#         else:
-#             goto = END
-
-#         state_fields_from_tool_calls: dict = extract_state_fields_from_tool_msgs(state)
-
-#         return Command(
-#             update={"messages": [ai_msg], **state_fields_from_tool_calls},
-#             goto=goto,
-#         )
-
-#   # Build graph
-#   builder = StateGraph(agent_state)
-#   builder.add_node("agentNode", takeaway_agent_node)
-#   builder.add_node("toolNode", ToolNode(takeaway_tools))
-#   builder.add_edge(START, "agentNode")
-#   builder.add_edge("toolNode", "agentNode")
-
-#   display_graph(takeaway_graph_test)
-
-#   return builder
+async def agent_loop_test(builder, thread_id, initial_msg: str = None):
+    memory = MemorySaver()
+    graph = builder.compile(checkpointer=memory)
+    config = {"configurable": {"thread_id": thread_id, "recipient": "447448440754"}}
+    msgs = {"messages": []}
+    while True:
+        if initial_msg is not None:
+            _ip = initial_msg
+        else:
+            _ip = input("Human Input:")
+        if _ip == "exit":
+            break
+        ip_msgs = {"messages": msgs["messages"] + [HumanMessage(_ip)]}
+        print("====================")
+        msgs = await graph.ainvoke(ip_msgs, config=config)
+        print(msgs["messages"][-1].content)
