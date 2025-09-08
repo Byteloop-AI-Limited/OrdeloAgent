@@ -20,3 +20,7 @@ CREATE TABLE ordelo_config (
 -- BEFORE UPDATE ON app_config
 -- FOR EACH ROW
 -- EXECUTE FUNCTION trigger_update_timestamp();
+
+-- update restaurant_master 
+-- set admins = '{}'::text[]
+-- where rest_ref='WREN';

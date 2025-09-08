@@ -18,5 +18,4 @@ CREATE TABLE IF NOT EXISTS waba_es (
 
 select * from waba_es;
 
-
 -- drop table waba_es;
