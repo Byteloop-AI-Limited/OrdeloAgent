@@ -10,7 +10,7 @@ log_error() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') [ERROR] $1" >&2
 }
 
-log_info "Converting .env_elai_agent to env.json..."
+log_info "Converting .env_ordelo_agent to env.json..."
 
 jq -Rn '
   [inputs
@@ -28,3 +28,9 @@ aws secretsmanager update-secret \
   --secret-id ordelo-agent-env \
   --secret-string file://env.json
 
+if [ $? -ne 0 ]; then
+  log_error "Failed to upload secret to AWS Secrets Manager."
+  exit 1
+else
+  log_info "Secret uploaded to AWS Secrets Manager successfully."
+fi
