@@ -1,5 +1,5 @@
 // https://pqsvhidiwiydgshynfib.supabase.co/functions/v1/app-runner-manager/ordelo/pause
-
+// https://pqsvhidiwiydgshynfib.supabase.co/functions/v1/app-runner-manager/elaib/resume
 
 // supabase/functions/app-runner-manager/index.ts
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
