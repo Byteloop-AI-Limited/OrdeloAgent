@@ -7,16 +7,15 @@ pydantic-settings==2.10.1
 python-multipart
 pydantic-core
 # Langchain
-langchain-core
 psycopg[binary]
-# psycopg==3.2.3
 psycopg-pool
-langgraph==0.4.8
-langgraph-checkpoint-postgres==2.0.21
+langgraph==0.6.6
+langchain-core
 langgraph-prebuilt
-langchain-postgres==0.0.14
-langchain-openai==0.3.4
-langchain-community==0.3.17
+langgraph-checkpoint-postgres==2.0.23
+langchain-postgres
+langchain-openai==0.3.32
+langchain-community
 # langgraph==0.2.70
 # langgraph-cli[inmem]
 pywa==2.11.0
@@ -29,6 +28,7 @@ pytz
 pyarrow==19.0.0
 gspread
 # utilities
+twilio
 ipython
 jinja2
 requests
