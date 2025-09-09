@@ -268,7 +268,7 @@ async def notify_rider_location_event(request: Request):
     )
 
     if event == "enter" and location == "rest":
-        # Call restaurant webhook
+        # Call restaurant webhook for restaurant enter event
         rest_ref = order_number.split("-")[0]
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -278,7 +278,7 @@ async def notify_rider_location_event(request: Request):
         logger.debug("Status code:", response.status_code)
         logger.debug("Response JSON:", response.json())
     elif event == "enter" and location == "cust":
-        # Call restaurant webhook
+        # Call restaurant webhook for customer enter event
         rest_ref = order_number.split("-")[0]
         async with httpx.AsyncClient() as client:
             response = await client.post(

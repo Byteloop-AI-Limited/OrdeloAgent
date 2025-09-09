@@ -1,3 +1,7 @@
+## Immediate
+- Why isnt the delivery summary timed out?
+- Error msg when rider accepts the job that is already assigned
+- Debug payment capture error
 
 ## Delivery flow - Agent
 - Remove the init_ordelo_graph, work on the setup node and add get_journey_instructions
