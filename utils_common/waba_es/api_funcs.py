@@ -178,7 +178,7 @@ wa = WhatsApp(
     token=waba_business_settings.token,
     phone_id=waba_business_settings.phone_id,
 )
-waba_business_settings
+
 # %%
 
 wa.override_waba_callback_url(

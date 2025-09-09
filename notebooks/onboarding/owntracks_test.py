@@ -43,12 +43,14 @@ def generate_config_href(config: dict) -> str:
     return f"owntracks:///config?inline={config_base64}"
 
 
+# recipient = "447448440754"
+recipient = "447438568101"
 # %% Start test job config
 
 job_config_str = generate_config_href(start_job_config)
 # job_config_str
 await wa.send_message(
-    to="447448440754",
+    to=recipient,
     text="This is test message. Click the button to test live tracking.",
     buttons=ButtonUrl(title="Start live tracking", url=job_config_str),
 )
@@ -58,7 +60,7 @@ await wa.send_message(
 job_config_str = generate_config_href(stop_job_config)
 
 await wa.send_message(
-    to="447448440754",
+    to=recipient,
     text="This is test message. Click the button to test live tracking.",
     buttons=ButtonUrl(title="Stop live tracking", url=job_config_str),
 )
@@ -66,6 +68,6 @@ await wa.send_message(
 # %%
 
 await wa.send_message(
-    to="447448440754",
+    to=recipient,
     text="This is test message. Click the button to test live tracking.",
 )

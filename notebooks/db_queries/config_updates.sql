@@ -26,6 +26,12 @@ where config_key = 'DISPATCH_BATCH_SIZE_BICYCLE';
 
 
 INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('ELAIB_APP_URL', 'https://elaib-agent.ordelo.app', 'URL for ordelo app') ON CONFLICT (config_key) DO
+UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description;
+
+INSERT INTO ordelo_config (config_key, config_value, description)
 VALUES ('ORDELO_APP_URL', 'https://agent.ordelo.app', 'URL for ordelo app') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
