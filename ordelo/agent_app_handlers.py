@@ -359,11 +359,9 @@ Hi {rider_name}, here are the Delivery details:
   💰 Earning - *£{dispatch["rider_payout"]}*
   🛣️ Distance - *{dispatch["distance"]} miles*
 
-🚀 Get started with the delivery by cliking the below link
+🔑 After pickup, send me the 2-digit *Restaurant* confirmation code
 
-🔑 2-digit *Restaurant* confirmation code after the delivery is completed!
-
-🔑 2-digit *Customer* confirmation code after the delivery is completed!
+🔑 After dropoff, send me the 2-digit *Customer* confirmation code
 
 👨‍💻 Please let me know if you have any questions during the delivery process.
     """
