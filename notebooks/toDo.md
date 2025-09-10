@@ -1,6 +1,6 @@
 ## Immediate
+- When rider declines an already accepted job, before collecting the food, Ask for confirmation. Upon confirmation, cleanup so dispatches are resumed. Clean up inflight, update order status to available.
 - Why isnt the delivery summary timed out?
-- Error msg when rider accepts the job that is already assigned
 - Debug payment capture error
 
 ## Delivery flow - Agent

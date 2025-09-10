@@ -1,5 +1,6 @@
 # %%
 from collections import namedtuple
+from loguru import logger
 
 
 def get_restaurant_base_url(rest_ref: str) -> str:
@@ -35,6 +36,8 @@ RestaurantConfig = namedtuple(
 )
 wren_base_url = get_restaurant_base_url("WREN")
 elab_base_url = get_restaurant_base_url("ELAB")
+logger.info(f"Wren base url: {wren_base_url}")
+logger.info(f"Elab base url: {elab_base_url}")
 
 RESTAURANT_CONFIG = {
     "WREN-RIDER-INFLIGHT": RestaurantConfig(
