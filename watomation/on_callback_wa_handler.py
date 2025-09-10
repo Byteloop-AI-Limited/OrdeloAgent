@@ -36,46 +36,58 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
     # remove command from callback data and add rider_id
     callback_data.pop("command")
     callback_data["rider_id"] = recipient
+    order_number = callback_data["order_number"]
 
     # If order is not found
     order_status = (
         client_ordelo.table("delivery_summary")
         .select("status")
-        .eq("order_number", callback_data["order_number"])
+        .eq("order_number", order_number)
         .execute()
     )
 
     if len(order_status.data) == 0:
         logger.error(
-            "No delivery detail found for order number: {}".format(
-                callback_data["order_number"]
-            )
+            "No delivery detail found for order number: {}".format(order_number)
         )
         await wa.send_message(
             to=recipient, text="Sorry, This job is no longer available"
         )
         return
 
-    # If order is rider is already inflight
-    inflight = (
+    # Check inflight status for this order_number first
+    inflight_for_order = (
         client_ordelo.table("delivery_inflight")
         .select("*")
-        .eq("rider_id", recipient)
+        .eq("order_number", order_number)
         .execute()
     )
-    if len(inflight.data) > 0:
-        logger.info(
-            "Rider is already inflight for order number: {}".format(
-                callback_data["order_number"]
+    if len(inflight_for_order.data) > 0:
+        inflight_row = inflight_for_order.data[0]
+        if inflight_row["rider_id"] == recipient:
+            # Same rider is already on this job
+            logger.info(
+                "Rider %s already inflight for order %s",
+                recipient,
+                order_number,
             )
-        )
-        inflight_row = inflight.data[0]
-        # Order number in the msg
-        await wa.send_message(
-            to=recipient,
-            text=f"Sorry, You are already on a job {inflight_row['order_number']}",
-        )
-        return
+            await wa.send_message(
+                to=recipient,
+                text=f"Sorry, You are already on a job {inflight_row['order_number']}",
+            )
+            return
+        else:
+            # Another rider already picked this job
+            logger.info(
+                "Order %s already inflight with rider %s (recipient %s)",
+                order_number,
+                inflight_row["rider_id"],
+                recipient,
+            )
+            await wa.send_message(
+                to=recipient, text="Sorry, this job was picked up by another rider."
+            )
+            return
 
     order_status = order_status.data[0]
     await initial_handle_of_rider_response(order_status, callback_data)
