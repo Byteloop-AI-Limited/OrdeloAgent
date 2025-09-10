@@ -269,7 +269,16 @@ async def send_delivery_instructions(
     ) = await _send_delivery_instructions(
         dispatch_id, live_tracking_url, recipient, rider_name
     )
-    return f"Delivery instructions sent to user. {delivery_instructions_str}. Request rider to start live location tracking by calling `send_start_live_tracking_link` tool."
+    return Command(
+        update={
+            "reply_to_msg_id": reply_to_msg_id,
+            "messages": [
+                ToolMessage(
+                    f"Delivery instructions sent to user. {delivery_instructions_str}. Request rider to start live location tracking by calling `send_start_live_tracking_link` tool."
+                ),
+            ],
+        }
+    )
 
 
 # %% DELIVERY START - send live tracking
