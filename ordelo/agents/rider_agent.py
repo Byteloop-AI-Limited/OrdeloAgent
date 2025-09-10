@@ -274,7 +274,8 @@ async def send_delivery_instructions(
             "reply_to_msg_id": reply_to_msg_id,
             "messages": [
                 ToolMessage(
-                    f"Delivery instructions sent to user. {delivery_instructions_str}. Request rider to start live location tracking by calling `send_start_live_tracking_link` tool."
+                    f"Delivery instructions sent to user. {delivery_instructions_str}. Request rider to start live location tracking by calling `send_start_live_tracking_link` tool.",
+                    tool_call_id=tool_call_id,
                 ),
             ],
         }
