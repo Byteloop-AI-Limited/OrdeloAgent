@@ -21,6 +21,8 @@ LangGraph agent implementation for rider delivery workflow
     . respond_node - Handles responses to user
 """
 
+# %%
+
 from config import project_settings, client_ordelo, pg_settings
 from typing import Annotated
 from langchain_core.runnables.config import RunnableConfig
@@ -30,13 +32,12 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, InjectedState
 from langgraph.types import Command
 from typing_extensions import Literal
-from config import _async_wa_client
+from config import _async_wa_client, llm_settings
 from pywa.types import ButtonUrl
 
 from utils_common.lg_utils import (
     create_agent_w_sys_prompt_n_tools,
     get_recipient_from_config,
-    LLM_4o as llm,
 )
 
 # from elai.agents.respond_agent import respond_node
@@ -268,7 +269,17 @@ async def send_delivery_instructions(
     ) = await _send_delivery_instructions(
         dispatch_id, live_tracking_url, recipient, rider_name
     )
-    return f"Delivery instructions sent to user. {delivery_instructions_str}. Request rider to start live location tracking by calling `send_start_live_tracking_link` tool."
+    return Command(
+        update={
+            "reply_to_msg_id": reply_to_msg_id,
+            "messages": [
+                ToolMessage(
+                    f"Delivery instructions sent to user. {delivery_instructions_str}. Request rider to start live location tracking by calling `send_start_live_tracking_link` tool.",
+                    tool_call_id=tool_call_id,
+                ),
+            ],
+        }
+    )
 
 
 # %% DELIVERY START - send live tracking
@@ -592,7 +603,7 @@ _rider_agent_tools = [
 rider_agent_tools = [tool(service) for service in _rider_agent_tools]
 
 rider_agent = create_agent_w_sys_prompt_n_tools(
-    llm=llm,
+    llm=llm_settings.llm_client,
     tools=rider_agent_tools,
     system_prompt=rider_agent_prompt,
     parallel_tool_calls=False,
@@ -668,48 +679,21 @@ builder.add_edge(START, "riderAgent")
 builder.add_edge("toolNode", "riderAgent")
 
 
-# %% Memory and config
 # %%
 """ 
-from langchain_core.messages import (
-    SystemMessage,
-    HumanMessage,
-    AIMessage,
-    ToolMessage,
-    RemoveMessage,
-)
+from utils_common.lg_utils import agent_loop_test
+await agent_loop_test(builder, thread_id=21)
+
+# %%
 from langgraph.checkpoint.memory import MemorySaver
-from utils_common.lg_utils import display_graph
+from langchain_core.messages import HumanMessage
 
 memory = MemorySaver()
 graph = builder.compile(checkpointer=memory)
-# display_graph(graph)
-
-config = {"configurable": {"thread_id": 24, "recipient": "447448440754"}}
-ip_msgs = {
-    "messages": [
-        SystemMessage(
-            "rider has accepted the delivery job, send the live tracking link. {{'dispatch_id':'40'}}"
-        ),
-        HumanMessage("I have accepted the delivery job."),
-        AIMessage(
-            content="",
-            tool_calls=[
-                {
-                    "name": "send_delivery_instructions",
-                    "args": {},
-                    "id": "call_mCD0cDftVp1r5zTjKHzspypY",
-                    "type": "tool_call",
-                }
-            ],
-        ),
-        ToolMessage("I have Poha accepted the delivery job.", tool_call_id="call_123"),
-    ]
-}
-
-await graph.ainvoke(ip_msgs, config=config)
+config = {"configurable": {"thread_id":22, "recipient": "447448440754"}}
 
 
+await graph.ainvoke({"messages": [HumanMessage("hello")]}, config=config)
 # %%
 
 """
