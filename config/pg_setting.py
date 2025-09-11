@@ -81,7 +81,7 @@ class PgSetting(BaseSettings):
     def rest_endpoint(self):
         return f"{self.rest_url}/rest/v1"
 
-    model_config = SettingsConfigDict(extra="allow")
+    model_config = SettingsConfigDict(extra="ignore")
 
     @property
     def client(self) -> Client:

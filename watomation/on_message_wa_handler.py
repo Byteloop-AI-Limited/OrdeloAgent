@@ -32,7 +32,7 @@ from pywa.types.flows import FlowActionType
 from pywa.types import FlowButton
 from utils_common.thread_management import ThreadHandler
 from psycopg_pool import AsyncConnectionPool
-from ordelo.agents.agent_runner import run_rider_graph
+from ordelo.agents.agent_runner import run_rider_graph, run_byteloop_agent
 from ordelo.agent_app_handlers import get_live_map_location_url
 
 
@@ -52,6 +52,18 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
 
     # Run the graph
     await run_rider_graph(recipient, human_msg=msg.text)
+
+
+# %% Run byteloop agent on msg
+async def process_byteloop_agent(wa: WhatsApp, msg: Message):
+    await msg.indicate_typing()
+    recipient = msg.sender
+    user_name = msg.from_user.name
+    # Run the graph
+    messages = await run_byteloop_agent(
+        recipient, user_name=user_name, human_msg=msg.text
+    )
+    await wa.send_message(to=recipient, text=messages)
 
 
 # %% Reset

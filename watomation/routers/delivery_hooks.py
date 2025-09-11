@@ -109,7 +109,7 @@ Vehicle type - *{delivery_summary["vehicle_type"]}*
         # reply_to_message_id=msg.id,
         header=header_text,
         text=wa_text,
-        footer="⚡Ordelo",
+        footer="♾️ Byteloop AI",
         buttons=[
             Button(title="Accept", callback_data=json.dumps(accept_pl)),
             Button(title="Decline", callback_data=json.dumps(decline_pl)),

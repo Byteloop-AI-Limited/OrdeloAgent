@@ -1,0 +1,86 @@
+<!-- SDK loading -->
+<script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+
+<script>
+    // SDK initialization
+    window.fbAsyncInit = function () {
+        FB.init({
+            appId: '{{ app_id }}', // Jinja variable for app ID
+            autoLogAppEvents: true,
+            xfbml: true,
+            version: '{{ graph_api_version }}' // Jinja variable for Graph API version
+        });
+    };
+
+    // Session logging message event listener
+    window.addEventListener('message', (event) => {
+        if (!event.origin.endsWith('facebook.com')) return;
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'WA_EMBEDDED_SIGNUP') {
+                console.log('message event: wa_embedded_signup ', data); // remove after testing
+                // Send POST request to backend with event data
+                sendEventDataToBackend(data);
+            }
+        } catch {
+            console.log('message event: ', event.data); // remove after testing
+            // Send POST request to backend with raw event data
+            sendEventDataToBackend({ raw_data: event.data });
+        }
+    });
+
+    // Function to send event data to backend
+    const sendEventDataToBackend = async (eventData) => {
+        try {
+            const response = await fetch('/twilio-webhook/waba-embedded-signup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(eventData)
+            });
+
+            if (response.ok) {
+                const result = await response.text();
+                console.log('Successfully sent event data to backend:', result);
+            } else {
+                console.error('Failed to send event data:', response.status, response.statusText);
+            }
+        } catch (error) {
+            console.error('Error sending event data to backend:', error);
+        }
+    };
+
+    // Response callback
+    const fbLoginCallback = (response) => {
+        if (response.authResponse) {
+            const code = response.authResponse.code;
+            console.log('response: ', code); // remove after testing
+            // Send auth response to backend
+            sendEventDataToBackend({ type: 'FB_AUTH_RESPONSE', authResponse: response.authResponse });
+        } else {
+            console.log('response: ', response); // remove after testing
+            // Send error response to backend
+            sendEventDataToBackend({ type: 'FB_AUTH_ERROR', response: response });
+        }
+    }
+
+    // Launch method and callback registration
+    const launchWhatsAppSignup = () => {
+        FB.login(fbLoginCallback, {
+            config_id: '{{ configuration_id }}', // Jinja variable for configuration ID
+            response_type: 'code',
+            override_default_response_type: true,
+            extras: {
+                setup: {},
+                featureType: '<FEATURE_TYPE>',
+                sessionInfoVersion: '3',
+            }
+        });
+    }
+</script>
+
+<!-- Launch button  -->
+<button onclick="launchWhatsAppSignup()"
+    style="background-color: #1877f2; border: 0; border-radius: 4px; color: #fff; cursor: pointer; font-family: Helvetica, Arial, sans-serif; font-size: 16px; font-weight: bold; height: 40px; padding: 0 24px;">Login
+    with Facebook</button>

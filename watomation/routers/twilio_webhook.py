@@ -4,7 +4,7 @@ Alert hooks router for OrdeloAgent FastAPI service.
     . Implements webhook pattern for database-triggered alert events
     . Handles both JSON (DB trigger) and form-encoded (Twilio SMS) webhook payloads
     . Logs payloads and supports future extension for business logic
-    . Ensures robust handling of empty, malformed, or unexpected webhook payloads
+    . Stores display phone number (if present) into TEMP_STORE['phone_num'] during WA_EMBEDDED_SIGNUP
   Functions/Classes:
     . get_payload - Extracts JSON payload from request with empty fallback
     . get_pool - Returns the async connection pool from FastAPI app state
@@ -14,9 +14,26 @@ Alert hooks router for OrdeloAgent FastAPI service.
 from fastapi import APIRouter, Request, Form, Response
 from loguru import logger
 from twilio.twiml.voice_response import VoiceResponse
+
 # ---------------------------------------------------------------------------
 # Dependencies
 # ---------------------------------------------------------------------------
+from fastapi.templating import Jinja2Templates
+from pathlib import Path
+import os
+from fastapi.responses import RedirectResponse, HTMLResponse
+from .twilio_webhook_utils import (
+    onboard_business_customer,
+    TEMP_STORE,
+    waba_es_app_id,
+    waba_es_configuration_id,
+    waba_es_graph_api_version,
+)
+
+# ---------------------------------------------------------------------------
+# Templates
+# ---------------------------------------------------------------------------
+templates = Jinja2Templates(directory=os.path.join(Path(__file__).parent, "templates"))
 
 
 async def get_payload(request: Request):
@@ -40,6 +57,64 @@ async def get_pool(request: Request):
 router = APIRouter(tags=["twilio_webhook"])
 
 
+@router.get("/waba-embedded-signup", response_class=HTMLResponse)
+async def waba_embedded_signup(request: Request):
+    """Render the removals collection form."""
+
+    return templates.TemplateResponse(
+        "waba_embedded_signup.html",
+        {
+            "request": request,
+            "app_id": waba_es_app_id,
+            "graph_api_version": waba_es_graph_api_version,
+            "configuration_id": waba_es_configuration_id,
+        },
+    )
+
+
+@router.post("/waba-embedded-signup")
+async def waba_embedded_signup_callback(request: Request):
+    """Process WhatsApp embedded signup event data from frontend."""
+    try:
+        # Get JSON data from request body
+        event_data = await request.json()
+        logger.info(f"Received event: {event_data}")
+
+        # Handle WA_EMBEDDED_SIGNUP event
+        if event_data.get("type") == "WA_EMBEDDED_SIGNUP":
+            # Extract WhatsApp business data and update TEMP_STORE
+            data = event_data.get("data", {})
+            TEMP_STORE["phone_number_id"] = data.get("phone_number_id")
+            TEMP_STORE["waba_id"] = data.get("waba_id")
+            TEMP_STORE["business_id"] = data.get("business_id")
+            TEMP_STORE["event_type"] = event_data.get("event")
+
+            logger.info(f"Updated TEMP_STORE with WA data: {TEMP_STORE}")
+            return {"status": "success", "message": "WA_EMBEDDED_SIGNUP data stored"}
+
+        # Handle FB_AUTH_RESPONSE event
+        elif event_data.get("type") == "FB_AUTH_RESPONSE":
+            # Extract code and update TEMP_STORE
+            auth_response = event_data.get("authResponse", {})
+            code = auth_response.get("code")
+            TEMP_STORE["code"] = code
+
+            logger.info(f"Updated TEMP_STORE with auth code: {code}")
+
+            # Call onboard_business_customer function
+            onboard_result = await onboard_business_customer(TEMP_STORE)
+            return onboard_result
+
+        else:
+            logger.warning(f"Unhandled event type: {event_data.get('type')}")
+            return {"status": "ignored", "message": "Event type not handled"}
+
+    except Exception as e:
+        logger.error(f"Error processing callback: {str(e)}")
+        return {"status": "error", "message": f"Failed to process callback: {str(e)}"}
+
+
+# %% Twilio stuff
 @router.post("/failure-notifications")
 async def failure_notifications(
     from_number: str = Form(..., alias="From"),
@@ -87,8 +162,8 @@ async def handle_recording(
     return {"status": "success"}
 
 
-# https://yujp6s-ip-217-39-41-153.tunnelmole.net/twilio-webhook/voice
-# https://yujp6s-ip-217-39-41-153.tunnelmole.net/twilio-webhook/failure-notifications
+# https://agent.ordelo.app/twilio-webhook/voice
+# https://agent.ordelo.app/twilio-webhook/failure-notifications
 
 
 # # Twilio credentials from env vars

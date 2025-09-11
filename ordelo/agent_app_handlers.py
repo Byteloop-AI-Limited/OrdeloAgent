@@ -152,7 +152,7 @@ async def create_start_job_config(d_detail: DeliveryDetail) -> str:
             "tst": int(datetime.now().timestamp()),
             "rid": "rest",
             "desc": "rest",
-            "rad": 20,
+            "rad": 200,
             "lat": d_detail.rest_lat,
             "lon": d_detail.rest_lon,
         },
@@ -161,7 +161,7 @@ async def create_start_job_config(d_detail: DeliveryDetail) -> str:
             "tst": int(datetime.now().timestamp()),
             "rid": "cust",
             "desc": "cust",
-            "rad": 20,
+            "rad": 200,
             "lat": d_detail.customer_lat,
             "lon": d_detail.customer_lon,
         },
@@ -359,11 +359,9 @@ Hi {rider_name}, here are the Delivery details:
   💰 Earning - *£{dispatch["rider_payout"]}*
   🛣️ Distance - *{dispatch["distance"]} miles*
 
-🚀 Get started with the delivery by cliking the below link
+🔑 After pickup, send me the 2-digit *Restaurant* confirmation code
 
-🔑 2-digit *Restaurant* confirmation code after the delivery is completed!
-
-🔑 2-digit *Customer* confirmation code after the delivery is completed!
+🔑 After dropoff, send me the 2-digit *Customer* confirmation code
 
 👨‍💻 Please let me know if you have any questions during the delivery process.
     """
