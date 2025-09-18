@@ -11,6 +11,7 @@ Alert hooks router for OrdeloAgent FastAPI service.
     . failure_notifications - Handles Twilio SMS and DB trigger notifications
 """
 
+# %%
 from fastapi import APIRouter, Request, Form, Response
 from loguru import logger
 from twilio.twiml.voice_response import VoiceResponse
@@ -22,9 +23,9 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 import os
 from fastapi.responses import RedirectResponse, HTMLResponse
-from .twilio_webhook_utils import (
-    onboard_business_customer,
+from utils_common.waba_es.onboarding_utils import (
     TEMP_STORE,
+    onboard_business_customer,
     waba_es_app_id,
     waba_es_configuration_id,
     waba_es_graph_api_version,
@@ -34,6 +35,9 @@ from .twilio_webhook_utils import (
 # Templates
 # ---------------------------------------------------------------------------
 templates = Jinja2Templates(directory=os.path.join(Path(__file__).parent, "templates"))
+
+
+# %%
 
 
 async def get_payload(request: Request):

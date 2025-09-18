@@ -22,7 +22,7 @@ import requests
 
 (
     waba_business_settings.token,
-    waba_business_settings.business_account_id,
+    # waba_business_settings.business_account_id,
     waba_provider_settings,
 )
 
@@ -48,6 +48,7 @@ wa = WhatsApp(
 # )
 # wa.get_business_phone_number()
 # wa.get_business_profile()
+waba_business_settings
 
 
 # %% Get onboarded wabas
@@ -58,7 +59,7 @@ def get_assigned_wabas() -> Dict[str, Any]:
     try:
         logger.info("Step 5: Getting assigned WABAs")
         assigned_wabas_url = f"https://graph.facebook.com/v23.0/{waba_provider_settings.business_portfolio_id}/client_whatsapp_business_accounts"
-        business_id = waba_business_settings.business_account_id
+        business_id = waba_business_settings.account_id
         params = {"business": business_id}
         headers = {"Authorization": f"Bearer {waba_provider_settings.token}"}
         assigned_wabas_response = requests.get(
@@ -170,6 +171,47 @@ get_wabas_with_phone_numbers()
 # list_phone_numbers_for_waba(waba_id="2335277966870509")
 # get_wabas_with_phone_numbers()
 
+# %% Once the emebedded signup is complete, do the number registration
+
+def register_phone_number(phone_number_id: str) -> Dict[str, Any]:
+    """Register phone number for WhatsApp messaging.
+
+    Args:
+        phone_number_id: Phone number ID to register
+
+    Returns:
+        Dict containing status and message
+    """
+    try:
+        logger.info("Step 3: Registering customer's phone number")
+        register_url = f"https://graph.facebook.com/{waba_es_graph_api_version}/{phone_number_id}/register"
+        headers = {"Authorization": f"Bearer {waba_business_settings.token}"}
+        register_data = {
+            "messaging_product": "whatsapp",
+            "pin": "141414",
+            # "certificate": cert,
+        }
+
+        register_response = requests.post(
+            register_url, headers=headers, json=register_data
+        )
+        if register_response.status_code not in [200, 201]:
+            logger.error(f"Failed to register phone number: {register_response.text}")
+            return {"status": "error", "message": "Failed to register phone number"}
+
+        logger.info("Successfully registered phone number")
+        return {"status": "success", "message": "Phone number registered"}
+
+    except Exception as e:
+        logger.error(f"Error registering phone number: {str(e)}")
+        return {"status": "error", "message": f"Phone registration failed: {str(e)}"}
+# %%
+phone_number_id = 740046752527135
+waba_es_graph_api_version = waba_provider_settings.graph_api_version
+register_phone_number(phone_number_id)
+
+
+
 # %% Overriding callback URL
 from pywa import WhatsApp
 from config import waba_business_settings
@@ -179,15 +221,12 @@ wa = WhatsApp(
     phone_id=waba_business_settings.phone_id,
 )
 
-# %%
-
 wa.override_waba_callback_url(
     callback_url="https://6q5ecb-ip-217-39-41-153.tunnelmole.net",
     verify_token="123456",
     waba_id="2242211042906352",
 )
 
-# %%
 wa.update_business_profile(
     about="Best Movers in London",
 )
