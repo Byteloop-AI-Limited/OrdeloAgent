@@ -275,8 +275,7 @@ async def notify_rider_location_event(request: Request):
                 get_webhook_url(rest_ref, "rider-rest-enter") + "/" + order_number,
                 json={"delivery_summary": delivery_summary},
             )
-        logger.debug("Status code:", response.status_code)
-        logger.debug("Response JSON:", response.json())
+        logger.debug(f"Post Rider Rest Enter: {order_number}")
     elif event == "enter" and location == "cust":
         # Call restaurant webhook for customer enter event
         rest_ref = order_number.split("-")[0]
@@ -285,8 +284,7 @@ async def notify_rider_location_event(request: Request):
                 get_webhook_url(rest_ref, "rider-cust-enter") + "/" + order_number,
                 json={"delivery_summary": delivery_summary},
             )
-        logger.debug("Status code:", response.status_code)
-        logger.debug("Response JSON:", response.json())
+        logger.debug(f"Post Rider Cust Enter: {order_number}")
     else:
         return {"event": "success"}
 
