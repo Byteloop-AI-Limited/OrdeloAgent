@@ -670,7 +670,7 @@ async def respond_node(
 
 
 # %% Construct the graph
-
+# workflow = StateGraph(state_schema=state_schema, context_schema=context_schema)
 builder = StateGraph(AgentState)
 builder.add_node("riderAgent", agent_node)
 builder.add_node("respondNode", respond_node)
