@@ -259,6 +259,7 @@ async def send_delivery_instructions(
     """
     recipient = get_recipient_from_config(config)
     dispatch_id = state.get("dispatch_id", None)
+
     # url updated in init
     live_tracking_url = state.get("start_live_tracking_url", None)
     rider_name = state.get("rider_name", None)
@@ -608,10 +609,6 @@ rider_agent = create_agent_w_sys_prompt_n_tools(
     system_prompt=rider_agent_prompt,
     parallel_tool_calls=False,
 )
-"""
-openai.BadRequestError: Error code: 400 - {'error': {'message': "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. The following tool_call_ids did not have response messages: call_zIziR7YymjJFeTXAx7Gez7li, call_A6ZJbvmyp12FpDxIFu4r19GG", 'type': 'invalid_request_error', 'param': 'messages.[14].role', 'code': None}}
-"""
-
 
 # def remove_last_msg(state):
 #     messages = state["messages"]
@@ -669,17 +666,37 @@ async def respond_node(
     return Command(goto=END, update={"messages": [last_ai_msg]})
 
 
+# %% Trying with context - This should hold all the config, like the model, db_client and even wa_client?
+
+from dataclasses import dataclass
+from typing_extensions import TypedDict
+
+
+@dataclass
+class ContextSchema(TypedDict):
+    user_name: str
+
+
 # %% Construct the graph
-# workflow = StateGraph(state_schema=state_schema, context_schema=context_schema)
-builder = StateGraph(AgentState)
+# builder = StateGraph(state_schema=AgentState, context_schema=ContextSchema)
+builder = StateGraph(state_schema=AgentState)
 builder.add_node("riderAgent", agent_node)
 builder.add_node("respondNode", respond_node)
 builder.add_node("toolNode", ToolNode(rider_agent_tools))
 builder.add_edge(START, "riderAgent")
 builder.add_edge("toolNode", "riderAgent")
 
+# %%
+from utils_common.lg_utils import display_graph
+from langgraph.checkpoint.memory import MemorySaver
+
+memory = MemorySaver()
+graph = builder.compile()
+
+display_graph(graph)
 
 # %%
+
 """ 
 from utils_common.lg_utils import agent_loop_test
 await agent_loop_test(builder, thread_id=21)
@@ -690,10 +707,14 @@ from langchain_core.messages import HumanMessage
 
 memory = MemorySaver()
 graph = builder.compile(checkpointer=memory)
-config = {"configurable": {"thread_id":22, "recipient": "447448440754"}}
+config = {"configurable": {"thread_id":21, "recipient": "447448440754"}}
 
 
-await graph.ainvoke({"messages": [HumanMessage("hello")]}, config=config)
+# await graph.ainvoke({"messages": [HumanMessage("hello")]}, config=config, context={"user_name": "John"})
+await graph.ainvoke({"messages": [HumanMessage("hello")]}, config={}, context={"user_name": "John"})
+
+# %%
+graph.get_state()
 # %%
 
 """
