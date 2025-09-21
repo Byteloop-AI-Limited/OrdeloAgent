@@ -115,6 +115,7 @@ WHEN_RESET = filters.contains("/reset", ignore_case=True)
 IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 IS_LOCATION_REQUEST = filters.contains("/riderLocationRequest", ignore_case=False)
 
+
 # %% Add WA On Msg handlers
 wa.add_handlers(
     handlers.MessageHandler(callback=reset_thread, filters=WHEN_RESET),
@@ -221,13 +222,22 @@ async def debug_state_path(recipient: Optional[str] = "447448440754"):
 
 
 @app.get("/debug-state-by-thread")
-async def debug_state_by_thread_path(
-    recipient: Optional[str] = "447448440754", thread_id: Optional[str] = "thread_id"
-):
+async def debug_state_by_thread_path(thread_id: str):
     pool = await pg_settings.get_pool()
     checkpointer = AsyncPostgresSaver(pool)
     graph = builder.compile(checkpointer=checkpointer)
-    debug_stack = await debug_state_by_thread(recipient, thread_id, graph, pool)
+
+    # Get thread using thread_id
+    thread = (
+        client_ordelo.table("thread")
+        .select("thread_id, from_number")
+        .eq("thread_id", thread_id)
+        .execute()
+        .data[0]
+    )
+    debug_stack = await debug_state_by_thread(
+        thread["from_number"], thread_id, graph, pool
+    )
     return debug_stack
 
 
