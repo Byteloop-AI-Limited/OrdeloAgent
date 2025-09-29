@@ -1,7 +1,14 @@
-"""
-Postgres thread DB operations
-    . Provides async functions to manage threads in Postgres
-    . Uses psycopg3 for async DB access
+"""Postgres thread DB operations (Legacy - uses psycopg3 directly)
+  . Provides async functions to manage threads in Postgres
+  . Uses psycopg3 for async DB access
+  . NOTE: Consider using thread_handler.py with Supabase RPC instead
+Functions/Classes:
+  . ThreadHandler - Main class for thread management
+Key Methods:
+  . create_thread - Creates a new thread
+  . get_active_thread - Gets active thread
+  . make_threads_inactive - Marks threads as inactive
+  . get_or_create_thread - Gets existing or creates new thread
 """
 # %%
 
@@ -16,7 +23,7 @@ class ThreadHandler:
     def __init__(self, pool):
         self.pool = pool
 
-    async def create_thread(self, from_number):
+    async def create_thread(self, recipient):
         try:
             async with self.pool.connection() as conn:
                 async with conn.cursor() as cur:
@@ -27,17 +34,17 @@ class ThreadHandler:
                         """
                         INSERT INTO thread (
                             thread_id, 
-                            from_number, 
+                            recipient, 
                             thread_ts, 
                             is_active
                             )
                         VALUES (%s, %s, %s, %s)
                         """,
-                        (thread_id, from_number, thread_ts, is_active),
+                        (thread_id, recipient, thread_ts, is_active),
                     )
                     return {
                         "thread_id": thread_id,
-                        "from_number": from_number,
+                        "recipient": recipient,
                         "thread_ts": thread_ts,
                         "is_active": is_active,
                     }
@@ -46,18 +53,18 @@ class ThreadHandler:
             print(f"Error in create_thread: {e}")
             raise
 
-    async def get_active_thread(self, from_number):
+    async def get_active_thread(self, recipient):
         try:
             async with self.pool.connection() as conn:
                 async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
                     await cur.execute(
                         """
                         SELECT * FROM thread
-                        WHERE from_number = %s AND is_active = TRUE
+                        WHERE recipient = %s AND is_active = TRUE
                         ORDER BY thread_ts DESC
                         LIMIT 1
                         """,
-                        (from_number,),
+                        (recipient,),
                     )
                     result = await cur.fetchone()
                     return result
@@ -66,7 +73,7 @@ class ThreadHandler:
             print(f"Error in get_active_thread: {e}")
             raise
 
-    async def make_threads_inactive(self, from_number):
+    async def make_threads_inactive(self, recipient):
         try:
             async with self.pool.connection() as conn:
                 async with conn.cursor() as cur:
@@ -74,9 +81,9 @@ class ThreadHandler:
                         """
                         UPDATE thread
                         SET is_active = FALSE
-                        WHERE from_number = %s
+                        WHERE recipient = %s
                     """,
-                        (from_number,),
+                        (recipient,),
                     )
                     affected_rows = cur.rowcount
             return {"message": f"{affected_rows} thread(s) marked as inactive."}
@@ -84,15 +91,15 @@ class ThreadHandler:
             print(f"Error in make_threads_inactive: {e}")
             raise
 
-    async def get_or_create_thread(self, from_number):
+    async def get_or_create_thread(self, recipient):
         # Try to get an active thread
-        active_thread = await self.get_active_thread(from_number)
+        active_thread = await self.get_active_thread(recipient)
         if active_thread:
             # Active thread exists, return its ID
             return active_thread["thread_id"], False
         else:
             # No active thread, create a new one
-            new_thread = await self.create_thread(from_number)
+            new_thread = await self.create_thread(recipient)
             return new_thread["thread_id"], True
 
 # %% thread usage
