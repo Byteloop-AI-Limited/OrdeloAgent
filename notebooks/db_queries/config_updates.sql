@@ -62,3 +62,14 @@ from ordelo_config;
 update restaurant_master 
 set lat = 51.359349, lon = 0.0904094
 where rest_ref='WREN';
+
+UPDATE rider_master
+SET status='inactive'
+WHERE rider_name in ('Syama');
+
+SELECT 
+DISTINCT rider_id, rider_name 
+FROM rider_master WHERE status='active' limit 10;
+
+
+select enquire_shift_availability();
