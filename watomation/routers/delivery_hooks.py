@@ -20,6 +20,7 @@ Delivery webhook handlers for Ordelo delivery system
     . notify_food_ready_for_pickup - Notifies rider about food readiness
     . delivery_timedout - Handles delivery timeout events
     . check_rider_allocation_status - Checks rider allocation status
+    . shift_availability_enquiry_hook - Processes shift availability enquiries
 """
 
 from fastapi import APIRouter, Request, Depends, BackgroundTasks
@@ -31,11 +32,12 @@ from datetime import datetime, timedelta
 import json
 import pytz
 from psycopg_pool import AsyncConnectionPool
-from ordelo.agents.agent_runner import init_ordelo_graph
 import asyncio
 from config import client_ordelo, get_webhook_url
 import httpx
+from ordelo.agents.agent_runner import init_ordelo_graph
 from ordelo.agents.agent_runner import run_rider_graph
+from ordelo.agent_app_handlers import enquire_shift_availability
 
 
 # %% Define Dependancies and routes
@@ -509,3 +511,73 @@ async def check_rider_allocation_status(
         .data[0]
     )
     return {"delivery_summary_status": delivery_summary["status"]}
+
+
+# %% Shift availability enquiry
+@router.post(
+    "/shift-availability-enquiry",
+    summary="Handle shift availability enquiry. Called by enquire_shift_availability() PostgreSQL function",
+    description="""
+    Processes shift availability enquiry requests from the database.
+    
+    This endpoint:
+    1. Receives a list of active riders from the PostgreSQL function
+    2. Logs all rider IDs and rider names for monitoring
+    3. Can be extended to perform additional operations with rider data
+    """,
+    response_description="Status of the shift availability enquiry operation",
+    responses={
+        200: {
+            "description": "Successfully processed shift availability enquiry",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "riders_processed": 5,
+                        "data": {
+                            "event_type": "shift_availability_enquiry",
+                            "riders": [
+                                {"rider_id": "123", "rider_name": "John Doe"},
+                                {"rider_id": "456", "rider_name": "Jane Smith"},
+                            ],
+                        },
+                    }
+                }
+            },
+        }
+    },
+)
+async def shift_availability_enquiry_hook(
+    payload: dict = Depends(get_payload),
+):
+    """
+    Handle shift availability enquiry webhook from PostgreSQL function.
+
+    This endpoint processes the payload containing active riders and logs
+    their information for monitoring and potential further processing.
+
+    Args:
+        payload (dict): The JSON payload containing event_type, timestamp, and riders array
+
+    Returns:
+        dict: Status of the operation and summary of processed riders
+    """
+    logger.info(f"shift_availability_enquiry_hook received: {payload}")
+
+    # Extract riders from payload
+    riders = payload.get("riders", [])
+    event_type = payload.get("event_type", "unknown")
+
+    # Log each rider's information
+    if riders:
+        logger.info(f"Processing {len(riders)} active riders for {event_type}")
+        for rider in riders:
+            await enquire_shift_availability(
+                wa=_async_wa_client,
+                recipient=rider.get("rider_id"),
+                name=rider.get("rider_name"),
+            )
+    else:
+        logger.info("No active riders found in the enquiry")
+
+    return {"status": "success", "riders_processed": len(riders), "data": payload}

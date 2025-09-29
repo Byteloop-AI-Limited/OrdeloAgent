@@ -517,7 +517,7 @@ async def verify_customer_confirmation_code(
         # End the thread
         pool = await pg_settings.get_pool()
         thread_handler = ThreadHandler(pool)
-        response = await thread_handler.make_threads_inactive(from_number=recipient)
+        response = await thread_handler.make_threads_inactive(recipient=recipient)
         logger.info(response["message"])
 
     except Exception as e:
