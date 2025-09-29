@@ -35,7 +35,11 @@ from config import (
     client_ordelo,
 )
 from ordelo.agents.rider_agent import builder
-from ordelo.agent_app_handlers import debug_state, debug_state_by_thread
+from ordelo.agent_app_handlers import (
+    debug_state,
+    debug_state_by_thread,
+    enquire_shift_availability_non_template,
+)
 
 from watomation.routers import delivery_hooks, location_hooks, twilio_webhook
 from watomation.on_message_wa_handler import (
@@ -50,6 +54,7 @@ from watomation.on_message_wa_handler import (
 from watomation.on_callback_wa_handler import (
     dispatch_response,
     rider_request_location,
+    handle_shift_availability,
 )
 from watomation.on_flow_request_wa_handler import (
     on_customer_address_flow,
@@ -110,10 +115,12 @@ TEST_DELIVERY = filters.contains("/test", ignore_case=True)
 CLEAR_DISPATCH = filters.contains("/cleardis", ignore_case=True)
 LIVE_LOCATION = filters.contains("/live", ignore_case=True)
 TEST_FLOW = filters.contains("/flow", ignore_case=True)
+SHIFT_UPDATE = filters.contains("/shift", ignore_case=True)
 
 WHEN_RESET = filters.contains("/reset", ignore_case=True)
 IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 IS_LOCATION_REQUEST = filters.contains("/riderLocationRequest", ignore_case=False)
+IS_SHIFT_AVAILABILITY = filters.contains("/shiftAvailability", ignore_case=False)
 
 
 # %% Add WA On Msg handlers
@@ -123,6 +130,9 @@ wa.add_handlers(
     handlers.MessageHandler(callback=clear_dispatch, filters=CLEAR_DISPATCH),
     handlers.MessageHandler(callback=test_flow, filters=TEST_FLOW),
     handlers.MessageHandler(callback=send_live_map_location, filters=LIVE_LOCATION),
+    handlers.MessageHandler(
+        callback=enquire_shift_availability_non_template, filters=SHIFT_UPDATE
+    ),
     # handlers.MessageHandler(callback=process_byteloop_agent),
     handlers.MessageHandler(callback=process_wa_msg),
     handlers.CallbackButtonHandler(
@@ -130,6 +140,9 @@ wa.add_handlers(
     ),
     handlers.CallbackButtonHandler(
         callback=rider_request_location, filters=IS_LOCATION_REQUEST
+    ),
+    handlers.CallbackButtonHandler(
+        callback=handle_shift_availability, filters=IS_SHIFT_AVAILABILITY
     ),
     handlers.FlowCompletionHandler(callback=on_customer_address_flow_completion),
 )

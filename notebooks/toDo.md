@@ -1,6 +1,5 @@
 ## Immediate
-- Session management - MarkFor Deletion. 
-- Move catalog to Elai.
+- Session management - Mark For Deletion (To be done)
 - When rider declines an already accepted job, before collecting the food, Ask for confirmation. Upon confirmation, cleanup so dispatches are resumed. Clean up inflight, update order status to available.
 - Debug payment capture error
 - Why isnt the delivery summary timed out?

@@ -11,6 +11,8 @@ Key Methods:
 """
 
 # %%
+import asyncio
+
 import psycopg
 
 
@@ -86,13 +88,3 @@ class ThreadHandler:
         except psycopg.Error as e:
             print(f"Error in get_or_create_thread: {e}")
             raise
-
-
-# %%
-if __name__ == "__main__":
-    from config import pg_settings
-
-    pool = await pg_settings.get_pool()
-    thread_handler = ThreadHandler(pool)
-    res = await thread_handler.get_or_create_thread("447448440754")
-    print(res)
