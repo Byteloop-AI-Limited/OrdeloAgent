@@ -444,7 +444,10 @@ async def get_config_for_recipient(recipient: str, pool) -> Dict[str, Any]:
     return config
 
 
-# %%
+# %% retain thread
+async def retain_thread(recipient: str, pool):
+    thread_handler = ThreadHandler(pool)
+    await thread_handler.retain_thread(recipient=recipient)
 
 
 def get_thread_from_config(config: RunnableConfig) -> str:
