@@ -18,7 +18,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg_pool import AsyncConnectionPool
 from config import logger, pg_settings, _async_wa_client, client_ordelo
 from utils_common.thread_management import ThreadHandler
-from utils_common.lg_utils import get_config_for_recipient
+from utils_common.lg_utils import get_config_for_recipient, retain_thread
 from ordelo.agents.rider_agent import builder
 from ordelo.agents.byteloop_agent import agent as bloop_agent
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
@@ -112,13 +112,12 @@ async def init_ordelo_graph(d_detail: DeliveryDetail):
     # Setup Graph
     pool: AsyncConnectionPool = await pg_settings.get_pool()
 
-    # Retain thread, to remove this out of the scheduled close_thread_job
-    thread_handler = ThreadHandler(pool)
-    await thread_handler.retain_thread(recipient=d_detail.rider_id)
-
     checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
     graph = builder.compile(checkpointer=checkpointer)
     config = await get_config_for_recipient(d_detail.rider_id, pool)
+
+    # Retain thread, to remove this out of the scheduled close_thread_job
+    await retain_thread(d_detail.rider_id, pool)
 
     start_live_tracking_url = await create_start_job_config(d_detail)
     # using client.table, query the rider_master table on rider_id and get the name.
