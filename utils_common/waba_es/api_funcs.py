@@ -173,6 +173,7 @@ get_wabas_with_phone_numbers()
 
 # %% Once the emebedded signup is complete, do the number registration
 
+
 def register_phone_number(phone_number_id: str) -> Dict[str, Any]:
     """Register phone number for WhatsApp messaging.
 
@@ -205,11 +206,12 @@ def register_phone_number(phone_number_id: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error registering phone number: {str(e)}")
         return {"status": "error", "message": f"Phone registration failed: {str(e)}"}
+
+
 # %%
 phone_number_id = 740046752527135
 waba_es_graph_api_version = waba_provider_settings.graph_api_version
 register_phone_number(phone_number_id)
-
 
 
 # %% Overriding callback URL

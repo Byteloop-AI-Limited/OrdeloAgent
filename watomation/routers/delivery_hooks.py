@@ -8,6 +8,7 @@ Delivery webhook handlers for Ordelo delivery system
     . Uses PostgreSQL CTEs for conditional database operations
     . Follows webhook pattern where database triggers call FastAPI endpoints
     . Handles empty payloads gracefully in endpoints
+    . Manages thread lifecycle including automatic closure for inactive threads
   Functions/Classes:
     . get_payload - Helper to parse webhook payloads
     . wa_send_delivery_dispatch_request_to_rider - Notifies riders via WhatsApp
@@ -20,6 +21,8 @@ Delivery webhook handlers for Ordelo delivery system
     . notify_food_ready_for_pickup - Notifies rider about food readiness
     . delivery_timedout - Handles delivery timeout events
     . check_rider_allocation_status - Checks rider allocation status
+    . shift_availability_enquiry_hook - Processes shift availability enquiries
+    . close_threads - Closes inactive threads and sends goodbye messages
 """
 
 from fastapi import APIRouter, Request, Depends, BackgroundTasks
@@ -31,11 +34,12 @@ from datetime import datetime, timedelta
 import json
 import pytz
 from psycopg_pool import AsyncConnectionPool
-from ordelo.agents.agent_runner import init_ordelo_graph
 import asyncio
 from config import client_ordelo, get_webhook_url
 import httpx
+from ordelo.agents.agent_runner import init_ordelo_graph
 from ordelo.agents.agent_runner import run_rider_graph
+from ordelo.agent_app_handlers import enquire_shift_availability
 
 
 # %% Define Dependancies and routes
@@ -509,3 +513,127 @@ async def check_rider_allocation_status(
         .data[0]
     )
     return {"delivery_summary_status": delivery_summary["status"]}
+
+
+@router.post(
+    "/close-threads",
+    summary="Close inactive threads. Called by job_close_thread() PostgreSQL function via Supabase cron",
+    description="""
+    Processes thread closure requests from the scheduled job_close_thread() function.
+    
+    Triggered by: Supabase cron job running every 5 minutes
+    Source Function: job_close_thread() in ordelo_datamodels/jobs_n_functions/job_close_thread.sql
+    
+    Workflow:
+    1. Receives JSON array of thread records to close
+    2. For each thread:
+       - Marks thread as inactive using ThreadHandler.make_threads_inactive()
+       - Sends goodbye message to recipient via WhatsApp
+    3. Returns success status with count of processed threads
+    
+    Payload Structure:
+    [
+        {
+            "thread_id": "uuid",
+            "recipient": "phone_number",
+            "last_access_dtts": "timestamp",
+            "is_active": boolean,
+            "minutes_since_last_access": number
+        }
+    ]
+    """,
+)
+async def close_threads(request: Request):
+    pool = await pg_settings.get_pool()
+    from utils_common.thread_management import ThreadHandler
+
+    thread_handler = ThreadHandler(pool)
+    try:
+        payload = await request.json()
+        print(f"Received close-threads payload: {payload}")
+
+        # Loop through the records and close each thread
+        if payload and isinstance(payload, list):
+            for record in payload:
+                await thread_handler.make_threads_inactive(
+                    recipient=record["recipient"]
+                )
+                logger.info(f"Thread closed: {record}")
+                await _async_wa_client.send_message(
+                    to=record["recipient"],
+                    text="Ending the converstaion, thank you and good bye 👋",
+                )
+        return {"status": "success", "processed_count": len(payload) if payload else 0}
+    except Exception as e:
+        logger.error(f"Error processing close-threads: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+# %% Shift availability enquiry
+@router.post(
+    "/shift-availability-enquiry",
+    summary="Handle shift availability enquiry. Called by enquire_shift_availability() PostgreSQL function",
+    description="""
+    Processes shift availability enquiry requests from the database.
+    
+    This endpoint:
+    1. Receives a list of active riders from the PostgreSQL function
+    2. Logs all rider IDs and rider names for monitoring
+    3. Can be extended to perform additional operations with rider data
+    """,
+    response_description="Status of the shift availability enquiry operation",
+    responses={
+        200: {
+            "description": "Successfully processed shift availability enquiry",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "riders_processed": 5,
+                        "data": {
+                            "event_type": "shift_availability_enquiry",
+                            "riders": [
+                                {"rider_id": "123", "rider_name": "John Doe"},
+                                {"rider_id": "456", "rider_name": "Jane Smith"},
+                            ],
+                        },
+                    }
+                }
+            },
+        }
+    },
+)
+async def shift_availability_enquiry_hook(
+    payload: dict = Depends(get_payload),
+):
+    """
+    Handle shift availability enquiry webhook from PostgreSQL function.
+
+    This endpoint processes the payload containing active riders and logs
+    their information for monitoring and potential further processing.
+
+    Args:
+        payload (dict): The JSON payload containing event_type, timestamp, and riders array
+
+    Returns:
+        dict: Status of the operation and summary of processed riders
+    """
+    logger.info(f"shift_availability_enquiry_hook received: {payload}")
+
+    # Extract riders from payload
+    riders = payload.get("riders", [])
+    event_type = payload.get("event_type", "unknown")
+
+    # Log each rider's information
+    if riders:
+        logger.info(f"Processing {len(riders)} active riders for {event_type}")
+        for rider in riders:
+            await enquire_shift_availability(
+                wa=_async_wa_client,
+                recipient=rider.get("rider_id"),
+                name=rider.get("rider_name"),
+            )
+    else:
+        logger.info("No active riders found in the enquiry")
+
+    return {"status": "success", "riders_processed": len(riders), "data": payload}

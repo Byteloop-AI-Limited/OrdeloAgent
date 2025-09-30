@@ -238,12 +238,22 @@ def extract_state_fields_from_tool_msgs(state):
     return result_dict.get("state_fields", {})
 
 
-def display_graph(compiled_graph: Any) -> None:
+def display_graph_old(compiled_graph: Any) -> None:
     try:
         display(Image(compiled_graph.get_graph(xray=True).draw_mermaid_png()))
     except Exception:
         # This requires some extra dependencies and is optional
         pass
+
+
+def display_graph(compiled_graph: Any) -> None:
+    import mermaid as md
+
+    mermaid_code = compiled_graph.get_graph().draw_mermaid()
+
+    # Create diagram
+    diagram = md.Mermaid(mermaid_code)
+    display(diagram)
 
 
 def call_agent_chain(state, chain, config):
@@ -434,7 +444,10 @@ async def get_config_for_recipient(recipient: str, pool) -> Dict[str, Any]:
     return config
 
 
-# %%
+# %% retain thread
+async def retain_thread(recipient: str, pool):
+    thread_handler = ThreadHandler(pool)
+    await thread_handler.retain_thread(recipient=recipient)
 
 
 def get_thread_from_config(config: RunnableConfig) -> str:

@@ -1,50 +1,50 @@
 """Provides ThreadHandler for asynchronous thread operations in Postgres
-    . Utilizes psycopg3 for async database access
-    . Defines create_thread and get_active_thread methods
+  . Utilizes psycopg3 for async database access
+  . Delegates thread operations to PostgreSQL functions
+Functions/Classes:
+  . ThreadHandler - Main class for thread management
+Key Methods:
+  . create_thread - Creates a new thread via PostgreSQL function
+  . get_active_thread - Gets active thread and updates last_access_dtts
+  . make_threads_inactive - Marks threads as inactive
+  . get_or_create_thread - Gets existing or creates new thread atomically
+  . retain_thread - Sets retain_thread flag to true for active thread
 """
 
-import uuid
+# %%
 import psycopg
+
 
 class ThreadHandler:
     def __init__(self, pool):
         self.pool = pool
 
-    async def create_thread(self, from_number):
-        try:
-            async with self.pool.connection() as conn:
-                async with conn.cursor() as cur:
-                    thread_id = str(uuid.uuid4())
-                    is_active = True
-                    await cur.execute(
-                        """
-                        INSERT INTO thread (thread_id, from_number, is_active)
-                        VALUES (%s, %s, %s)
-                        """,
-                        (thread_id, from_number, is_active),
-                    )
-                    return {
-                        "thread_id": thread_id,
-                        "from_number": from_number,
-                        "is_active": is_active,
-                    }
-        except psycopg.Error as e:
-            # Handle exceptions as needed
-            print(f"Error in create_thread: {e}")
-            raise
-
-    async def get_active_thread(self, from_number):
+    async def create_thread(self, recipient):
         try:
             async with self.pool.connection() as conn:
                 async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
                     await cur.execute(
                         """
-                        SELECT * FROM thread
-                        WHERE from_number = %s AND is_active = TRUE
-                        ORDER BY dtts DESC
-                        LIMIT 1
+                        SELECT * FROM create_thread(%s)
                         """,
-                        (from_number,),
+                        (recipient,),
+                    )
+                    result = await cur.fetchone()
+                    return result
+        except psycopg.Error as e:
+            # Handle exceptions as needed
+            print(f"Error in create_thread: {e}")
+            raise
+
+    async def get_active_thread(self, recipient):
+        try:
+            async with self.pool.connection() as conn:
+                async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                    await cur.execute(
+                        """
+                        SELECT * FROM get_active_thread(%s)
+                        """,
+                        (recipient,),
                     )
                     result = await cur.fetchone()
                     return result
@@ -53,31 +53,53 @@ class ThreadHandler:
             print(f"Error in get_active_thread: {e}")
             raise
 
-    async def make_threads_inactive(self, from_number):
+    async def make_threads_inactive(self, recipient):
         try:
             async with self.pool.connection() as conn:
                 async with conn.cursor() as cur:
                     await cur.execute(
                         """
-                        UPDATE thread
-                        SET is_active = FALSE
-                        WHERE from_number = %s
-                    """,
-                        (from_number,),
+                        SELECT make_threads_inactive(%s) as affected_rows
+                        """,
+                        (recipient,),
                     )
-                    affected_rows = cur.rowcount
+                    result = await cur.fetchone()
+                    affected_rows = result[0] if result else 0
             return {"message": f"{affected_rows} thread(s) marked as inactive."}
         except psycopg.Error as e:
             print(f"Error in make_threads_inactive: {e}")
             raise
 
-    async def get_or_create_thread(self, from_number):
-        # Try to get an active thread
-        active_thread = await self.get_active_thread(from_number)
-        if active_thread:
-            # Active thread exists, return its ID
-            return active_thread["thread_id"], False
-        else:
-            # No active thread, create a new one
-            new_thread = await self.create_thread(from_number)
-            return new_thread["thread_id"], True
+    async def get_or_create_thread(self, recipient):
+        try:
+            async with self.pool.connection() as conn:
+                async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                    await cur.execute(
+                        """
+                        SELECT * FROM get_or_create_thread(%s)
+                        """,
+                        (recipient,),
+                    )
+                    result = await cur.fetchone()
+                    if result:
+                        return result["thread_id"], result["was_created"]
+                    return None, False
+        except psycopg.Error as e:
+            print(f"Error in get_or_create_thread: {e}")
+            raise
+
+    async def retain_thread(self, recipient):
+        try:
+            async with self.pool.connection() as conn:
+                async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                    await cur.execute(
+                        """
+                        SELECT * FROM retain_thread(%s)
+                        """,
+                        (recipient,),
+                    )
+                    result = await cur.fetchone()
+                    return result
+        except psycopg.Error as e:
+            print(f"Error in retain_thread: {e}")
+            raise

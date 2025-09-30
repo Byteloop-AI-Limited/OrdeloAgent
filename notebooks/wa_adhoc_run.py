@@ -24,6 +24,39 @@ from pywa.types import Template as Temp
 recipient = 447448440754
 # recipient = "447448440754"
 
+
+# %%
+Temp
+# %%
+await wa.send_template(
+    to=recipient,
+    template=Temp(
+        name="shift_availability",
+        language=Temp.Language.ENGLISH_UK,
+        body=[
+            Temp.TextValue(value="lohith"),
+        ],
+        buttons=[
+            Temp.QuickReplyButtonData(data="accept"),
+            Temp.QuickReplyButtonData(data="decline"),
+        ],
+    ),
+)
+# %%"
+image_path = "/mnt/c/wsl_transfers/trump.jpeg"
+# read image
+with open(image_path, "rb") as f:
+    image = f.read()
+
+# %%
+type(image)
+# %%
+await _async_wa_client.send_image(
+    to=recipient,
+    image=image,
+    caption="This is an image!",
+    mime_type="image/jpeg",
+)
 # %% investigate callback data
 order_number = "test123"
 msg = await _async_wa_client.send_message(
