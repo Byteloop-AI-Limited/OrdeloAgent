@@ -259,6 +259,7 @@ async def send_delivery_instructions(
     """
     recipient = get_recipient_from_config(config)
     dispatch_id = state.get("dispatch_id", None)
+
     # url updated in init
     live_tracking_url = state.get("start_live_tracking_url", None)
     rider_name = state.get("rider_name", None)
@@ -337,8 +338,9 @@ async def verify_restaurant_confirmation_code(
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
     """
-    Verifies the 2-digit restaurant confirmation code provided by the restaurant upon pickup.
-    This function validates that the provided restaurant confirmation code is correct.
+    This tool is called `Every time` the rider provides a restaurant confirmation code.
+    Verifies the 2-digit restaurant confirmation code the rider providers.
+
     Args:
         restaurant_confirmation_code (int): 2-digit restaurant confirmation code provided by the restaurant
     Returns:
@@ -374,22 +376,26 @@ async def verify_restaurant_confirmation_code(
         .execute()
         .data[0]
     )
-    correct_restaurant_confirmation_code_str = delivery_summary[
+    correct_restaurant_confirmation_code: int = delivery_summary[
         "rest_confirmation_code"
     ]
     customer_id = delivery_summary["customer_id"]
     delivery_summary = delivery_summary["rest_confirmation_code"]
 
+    logger.info(
+        f"verify_restaurant_confirmation_code: {restaurant_confirmation_code} == {correct_restaurant_confirmation_code}"
+    )
+
     # If wrong restaurant confirmation code
     if (
-        restaurant_confirmation_code != delivery_summary
+        restaurant_confirmation_code != correct_restaurant_confirmation_code
         and restaurant_confirmation_code != 77
     ):
         return Command(
             update={
                 "messages": [
                     ToolMessage(
-                        f" ❌ Wrong *restaurant* confirmation code. Please try again.\n\nCorrect code is: {correct_restaurant_confirmation_code_str}",
+                        f" ❌ Wrong *restaurant* confirmation code. Please try again.\n\nCorrect code is: {correct_restaurant_confirmation_code}",
                         tool_call_id=tool_call_id,
                     )
                 ]
@@ -434,13 +440,11 @@ async def verify_customer_confirmation_code(
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
     """
-    Verifies the 2-digit customer confirmation code provided by the customer upon delivery.
-
-    This function validates that the provided customer confirmation code matches the one generated for
-    this delivery and marks the delivery as completed if the code is correct.
+    This tool is called `Every Single Time` the rider provides a customer confirmation code.
+    Verifies the 2-digit customer confirmation code provided by the rider upon delivery.
 
     Args:
-        customer_confirmation_code (int): 2-digit customer confirmation code provided by the customer
+        customer_confirmation_code (int): 2-digit customer confirmation code provided by the rider
 
     Returns:
         dict: A dictionary containing:
@@ -478,18 +482,21 @@ async def verify_customer_confirmation_code(
         .data[0]
     )
     customer_id = delivery_summary["customer_id"]
-    correct_confirmation_code_str = delivery_summary["cust_confirmation_code"]
+    correct_confirmation_code = delivery_summary["cust_confirmation_code"]
 
+    logger.info(
+        f"verify_customer_confirmation_code: {customer_confirmation_code} == {correct_confirmation_code}"
+    )
     # If wrong confirmation code
     if (
-        customer_confirmation_code != delivery_summary["cust_confirmation_code"]
+        customer_confirmation_code != correct_confirmation_code
         and customer_confirmation_code != 44
     ):
         return Command(
             update={
                 "messages": [
                     ToolMessage(
-                        f"❌ Wrong *customer* confirmation code. Please try again.{correct_confirmation_code_str}",
+                        f"❌ Wrong *customer* confirmation code. Please try again.{correct_confirmation_code}",
                         tool_call_id=tool_call_id,
                     )
                 ]
@@ -510,7 +517,7 @@ async def verify_customer_confirmation_code(
         # End the thread
         pool = await pg_settings.get_pool()
         thread_handler = ThreadHandler(pool)
-        response = await thread_handler.make_threads_inactive(from_number=recipient)
+        response = await thread_handler.make_threads_inactive(recipient=recipient)
         logger.info(response["message"])
 
     except Exception as e:
@@ -578,9 +585,6 @@ async def end_delivery(
     )
 
 
-# %%
-
-
 # %% Create Agent
 with open(
     f"{project_settings.project_root}/ordelo/agents/rider_agent_prompt.md", "r"
@@ -608,10 +612,6 @@ rider_agent = create_agent_w_sys_prompt_n_tools(
     system_prompt=rider_agent_prompt,
     parallel_tool_calls=False,
 )
-"""
-openai.BadRequestError: Error code: 400 - {'error': {'message': "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. The following tool_call_ids did not have response messages: call_zIziR7YymjJFeTXAx7Gez7li, call_A6ZJbvmyp12FpDxIFu4r19GG", 'type': 'invalid_request_error', 'param': 'messages.[14].role', 'code': None}}
-"""
-
 
 # def remove_last_msg(state):
 #     messages = state["messages"]
@@ -669,9 +669,20 @@ async def respond_node(
     return Command(goto=END, update={"messages": [last_ai_msg]})
 
 
+# %% Trying with context - This should hold all the config, like the model, db_client and even wa_client?
+
+from dataclasses import dataclass
+from typing_extensions import TypedDict
+
+
+@dataclass
+class ContextSchema(TypedDict):
+    user_name: str
+
+
 # %% Construct the graph
-# workflow = StateGraph(state_schema=state_schema, context_schema=context_schema)
-builder = StateGraph(AgentState)
+# builder = StateGraph(state_schema=AgentState, context_schema=ContextSchema)
+builder = StateGraph(state_schema=AgentState)
 builder.add_node("riderAgent", agent_node)
 builder.add_node("respondNode", respond_node)
 builder.add_node("toolNode", ToolNode(rider_agent_tools))
@@ -680,6 +691,16 @@ builder.add_edge("toolNode", "riderAgent")
 
 
 # %%
+from utils_common.lg_utils import display_graph
+from langgraph.checkpoint.memory import MemorySaver
+
+memory = MemorySaver()
+graph = builder.compile()
+
+display_graph(graph)
+
+# %%
+
 """ 
 from utils_common.lg_utils import agent_loop_test
 await agent_loop_test(builder, thread_id=21)
@@ -690,10 +711,14 @@ from langchain_core.messages import HumanMessage
 
 memory = MemorySaver()
 graph = builder.compile(checkpointer=memory)
-config = {"configurable": {"thread_id":22, "recipient": "447448440754"}}
+config = {"configurable": {"thread_id":21, "recipient": "447448440754"}}
 
 
-await graph.ainvoke({"messages": [HumanMessage("hello")]}, config=config)
+# await graph.ainvoke({"messages": [HumanMessage("hello")]}, config=config, context={"user_name": "John"})
+await graph.ainvoke({"messages": [HumanMessage("hello")]}, config={}, context={"user_name": "John"})
+
+# %%
+graph.get_state()
 # %%
 
 """

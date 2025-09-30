@@ -8,6 +8,7 @@ Agent app handlers for Ordelo delivery agent workflows and WhatsApp integration.
     . Sends delivery instructions via WhatsApp with pickup/drop-off details
     . Includes debugging utilities for state inspection and thread analysis
     . Integrates with PostgreSQL for delivery detail and dispatch management
+    . Supports both template-based and non-template WhatsApp message sending for shift availability
   Functions/Classes:
     . process_dispatch_response_from_rider_sync - Handle rider accept/decline responses
     . generate_config_href - Create configuration URLs for agent setup
@@ -17,6 +18,8 @@ Agent app handlers for Ordelo delivery agent workflows and WhatsApp integration.
     . get_live_map_location_url - Generate live tracking URLs for orders
     . is_live_location_enabled - Check if live location is active for order
     . CallbackButtonData - Pydantic model for WhatsApp callback button data
+    . enquire_shift_availability_non_template - Send shift availability inquiry using regular messages
+    . enquire_shift_availability - Send shift availability inquiry using WhatsApp templates
     . _send_delivery_instructions - Send pickup/drop-off instructions via WhatsApp
     . post_rider_event_customer_cc - Post customer confirmation code events
     . post_rider_event_restaurant_cc - Post restaurant confirmation code events
@@ -33,18 +36,18 @@ from psycopg_pool import ConnectionPool
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from pywa_async import WhatsApp
 from datetime import timedelta
-from config import pg_settings, _async_wa_client
-from pydantic import BaseModel
-from typing import Optional
-from pywa.types import ButtonUrl, Button
+from pywa.types import Message, Template as Temp, ButtonUrl, Button
 from config import (
-    logger,
-    _async_wa_client,
-    _sync_wa_client,
     pg_settings,
+    _async_wa_client,
+    logger,
+    _sync_wa_client,
     project_settings,
     get_webhook_url,
+    client_ordelo,
 )
+from pydantic import BaseModel
+from typing import Optional
 import httpx
 from utils_common.lg_utils import (
     get_state_values,
@@ -300,6 +303,73 @@ class CallbackButtonData(BaseModel):
     ai_msg: str
     human_msg: str
     response: Optional[str] = None
+
+
+# %% Enquire shift availability (non-template version)
+async def enquire_shift_availability_non_template(wa: WhatsApp, msg: Message):
+    recipient = msg.sender
+    shift_available_cb_data = CallbackButtonData(
+        action="/shiftAvailability",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="Yes",
+    )
+    shift_not_available_cb_data = CallbackButtonData(
+        action="/shiftAvailability",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="No",
+    )
+    msg_id = await _async_wa_client.send_message(
+        to=recipient,
+        header="🌟 Shift Availability 🌟",
+        text="Are you available for deliveries today?",
+        reply_to_message_id=None,
+        buttons=[
+            Button(
+                title="Yes", callback_data=shift_available_cb_data.model_dump_json()
+            ),
+            Button(
+                title="No",
+                callback_data=shift_not_available_cb_data.model_dump_json(),
+            ),
+        ],
+    )
+    return msg_id
+
+
+# %% Enquire shift availability (template version)
+async def enquire_shift_availability(wa: WhatsApp, recipient: str, name: str):
+    shift_available_cb_data = CallbackButtonData(
+        action="/shiftAvailability",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="Yes",
+    )
+    shift_not_available_cb_data = CallbackButtonData(
+        action="/shiftAvailability",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="No",
+    )
+    msg_id = await wa.send_template(
+        to=recipient,
+        template=Temp(
+            name="shift_availability",
+            language=Temp.Language.ENGLISH_UK,
+            body=[
+                Temp.TextValue(value=name),
+            ],
+            buttons=[
+                Temp.QuickReplyButtonData(data=shift_available_cb_data.model_dump_json()),
+                Temp.QuickReplyButtonData(data=shift_not_available_cb_data.model_dump_json()),
+            ],
+        ),
+    )
+    return msg_id
+
+
+# %%
 
 
 # %%

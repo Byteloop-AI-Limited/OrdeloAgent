@@ -109,8 +109,6 @@ class WabaBusinessSettings(BaseSettings):
 
 
 # %%
-
-# %%
 waba_business_settings = WabaBusinessSettings(**ordelo_agent_env)
 # waba_business_settings = WabaBusinessSettings.with_env_prefix("BLOOP_WAA_")
 _async_wa_client = waba_business_settings.create_wa()
@@ -122,7 +120,7 @@ waba_business_settings.phone_id, waba_business_settings.account_id
 
 # _sync_wa_client.override_waba_callback_url(
 #     callback_url="https://agent.ordelo.app/",
-#     callback_url="https://rider-agent.ordelo.app/",
+#     # callback_url="https://rider-agent.ordelo.app/",
 #     verify_token="123456",
 #     waba_id=waba_business_settings.account_id,
 # )

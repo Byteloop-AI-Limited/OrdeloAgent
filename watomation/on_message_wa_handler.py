@@ -19,21 +19,48 @@ WhatsApp message handler for Ordelo delivery system
 """
 
 # %%
-from pywa_async import WhatsApp, types
-from config import logger, _sync_wa_client, pg_settings
-from pywa.types.flows import FlowRequest, FlowResponse
-from pywa.types import Message
 import random
+from typing import Literal
+
+from psycopg_pool import AsyncConnectionPool
+from pydantic import BaseModel
+from pywa.types import FlowButton, Message
+from pywa.types.flows import FlowActionType, FlowRequest, FlowResponse
+from pywa_async import WhatsApp, types
+
+from config import _sync_wa_client, client_ordelo, llm_settings, logger, pg_settings
+from ordelo.agent_app_handlers import (
+    enquire_shift_availability_non_template,
+    get_live_map_location_url,
+)
+from ordelo.agents.agent_runner import run_byteloop_agent, run_rider_graph
+from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 
 # project modules
-from utils_common.db_utils.sbase_rest_ops import sbase_get, sbase_call_function
-from utils_common.db_utils.sbase_pool_ops import execute_sql_query
-from pywa.types.flows import FlowActionType
-from pywa.types import FlowButton
+from utils_common.db_utils.sbase_rest_ops import sbase_call_function, sbase_get
 from utils_common.thread_management import ThreadHandler
-from psycopg_pool import AsyncConnectionPool
-from ordelo.agents.agent_runner import run_rider_graph, run_byteloop_agent
-from ordelo.agent_app_handlers import get_live_map_location_url
+
+# %% Intent Classifier
+
+
+class RiderShiftIntent(BaseModel):
+    """Structured response for rider shift intent classification"""
+
+    intent: Literal["End Shift", "SomethingElse"]
+    confidence: float
+
+
+llm = llm_settings.llm_client
+
+
+def get_rider_intent(message: str) -> RiderShiftIntent:
+    prompt = f"""
+    Classify the intent of the following message from delivery rider. Determine if the rider wants to "End Shift" or if it's "SomethingElse".
+    message: {message}
+    """
+    structured_llm = llm.with_structured_output(RiderShiftIntent)
+    response = structured_llm.invoke(prompt)
+    return response
 
 
 # %% Run graph on msg
@@ -45,9 +72,25 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
 
     thread_row = await thread_handler.get_active_thread(recipient)
 
-    # exit if there is not active delivery
-    if thread_row is None:
-        await wa.send_message(to=recipient, text="You have no active delivery")
+    is_in_shift: bool = (
+        client_ordelo.table("rider_master")
+        .select("is_in_shift")
+        .eq("rider_id", recipient)
+        .execute()
+        .data[0]["is_in_shift"]
+    )
+
+    # If not on active delivery and is not in shift
+    if not is_in_shift:
+        await enquire_shift_availability_non_template(wa, msg)
+        return
+    # If not on active delivery and is in shift
+    elif thread_row is None and is_in_shift:
+        intent_response = get_rider_intent(msg.text)
+        if intent_response.intent == "End Shift":
+            await enquire_shift_availability_non_template(wa, msg)
+        else:
+            await wa.send_message(to=recipient, text="You have no active delivery")
         return
 
     # Run the graph
@@ -83,7 +126,7 @@ async def reset_thread(wa: WhatsApp, msg: Message):
             input_args={"p_dispatch_id": dispatch_id},
         )
 
-    await thread_handler.make_threads_inactive(from_number=recipient)
+    await thread_handler.make_threads_inactive(recipient=recipient)
     await wa.send_message(to=recipient, text="Starting new conversation")
 
 

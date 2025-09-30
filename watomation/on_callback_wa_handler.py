@@ -104,3 +104,33 @@ async def rider_request_location(wa: WhatsApp, msg: Message):
     await run_rider_graph(
         recipient=callback_data["recipient"], human_msg=callback_data["human_msg"]
     )
+
+
+# %%
+async def handle_shift_availability(wa: WhatsApp, msg: Message):
+    callback_data: dict = json.loads(msg.data)
+    recipient = callback_data["recipient"]
+    human_msg = callback_data["human_msg"]
+    if human_msg == "Yes":
+        await wa.send_message(
+            to=recipient, text="Great! You will receive notifications for new jobs."
+        )
+        update_shift_status = (
+            client_ordelo.table("rider_master")
+            .update({"is_in_shift": True})
+            .eq("rider_id", recipient)
+            .execute()
+        )
+        logger.info(f"Started shift status for rider {recipient}")
+    else:
+        await wa.send_message(
+            to=recipient,
+            text="Ok. You will not receive job notifications for the next 24 hrs.",
+        )
+        update_shift_status = (
+            client_ordelo.table("rider_master")
+            .update({"is_in_shift": False})
+            .eq("rider_id", recipient)
+            .execute()
+        )
+        logger.info(f"Ended shift status for rider {recipient}")
