@@ -56,6 +56,7 @@ BEGIN
         WHERE last_access_dtts IS NOT NULL
           AND CURRENT_TIMESTAMP - last_access_dtts > interval_expr
           AND retain_thread = FALSE
+          AND is_active = TRUE
     )
     SELECT json_agg(
         json_build_object(
