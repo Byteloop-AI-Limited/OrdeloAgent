@@ -8,6 +8,7 @@ Delivery webhook handlers for Ordelo delivery system
     . Uses PostgreSQL CTEs for conditional database operations
     . Follows webhook pattern where database triggers call FastAPI endpoints
     . Handles empty payloads gracefully in endpoints
+    . Manages thread lifecycle including automatic closure for inactive threads
   Functions/Classes:
     . get_payload - Helper to parse webhook payloads
     . wa_send_delivery_dispatch_request_to_rider - Notifies riders via WhatsApp
@@ -21,6 +22,7 @@ Delivery webhook handlers for Ordelo delivery system
     . delivery_timedout - Handles delivery timeout events
     . check_rider_allocation_status - Checks rider allocation status
     . shift_availability_enquiry_hook - Processes shift availability enquiries
+    . close_threads - Closes inactive threads and sends goodbye messages
 """
 
 from fastapi import APIRouter, Request, Depends, BackgroundTasks
@@ -511,6 +513,60 @@ async def check_rider_allocation_status(
         .data[0]
     )
     return {"delivery_summary_status": delivery_summary["status"]}
+
+
+@router.post(
+    "/close-threads",
+    summary="Close inactive threads. Called by job_close_thread() PostgreSQL function via Supabase cron",
+    description="""
+    Processes thread closure requests from the scheduled job_close_thread() function.
+    
+    Triggered by: Supabase cron job running every 5 minutes
+    Source Function: job_close_thread() in ordelo_datamodels/jobs_n_functions/job_close_thread.sql
+    
+    Workflow:
+    1. Receives JSON array of thread records to close
+    2. For each thread:
+       - Marks thread as inactive using ThreadHandler.make_threads_inactive()
+       - Sends goodbye message to recipient via WhatsApp
+    3. Returns success status with count of processed threads
+    
+    Payload Structure:
+    [
+        {
+            "thread_id": "uuid",
+            "recipient": "phone_number",
+            "last_access_dtts": "timestamp",
+            "is_active": boolean,
+            "minutes_since_last_access": number
+        }
+    ]
+    """,
+)
+async def close_threads(request: Request):
+    pool = await pg_settings.get_pool()
+    from utils_common.thread_management import ThreadHandler
+
+    thread_handler = ThreadHandler(pool)
+    try:
+        payload = await request.json()
+        print(f"Received close-threads payload: {payload}")
+
+        # Loop through the records and close each thread
+        if payload and isinstance(payload, list):
+            for record in payload:
+                await thread_handler.make_threads_inactive(
+                    recipient=record["recipient"]
+                )
+                logger.info(f"Thread closed: {record}")
+                await _async_wa_client.send_message(
+                    to=record["recipient"],
+                    text="Ending the converstaion, thank you and good bye 👋",
+                )
+        return {"status": "success", "processed_count": len(payload) if payload else 0}
+    except Exception as e:
+        logger.error(f"Error processing close-threads: {e}")
+        return {"status": "error", "message": str(e)}
 
 
 # %% Shift availability enquiry

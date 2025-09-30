@@ -15,6 +15,7 @@ create table public.thread (
     thread_id text,
     recipient varchar(12),
     is_active boolean,
+    retain_thread boolean default false,
     dt date default current_date,
     dtts timestamp default current_timestamp,
     last_access_dtts timestamp,
@@ -27,6 +28,7 @@ RETURNS TABLE (
     thread_id text,
     recipient varchar,
     is_active boolean,
+    retain_thread boolean,
     dt date,
     dtts timestamp,
     last_access_dtts timestamp
@@ -43,6 +45,7 @@ BEGIN
             thread.thread_id,
             thread.recipient,
             thread.is_active,
+            thread.retain_thread,
             thread.dt,
             thread.dtts,
             thread.last_access_dtts
@@ -59,6 +62,7 @@ RETURNS TABLE (
     thread_id text,
     recipient varchar,
     is_active boolean,
+    retain_thread boolean,
     dt date,
     dtts timestamp,
     last_access_dtts timestamp
@@ -77,6 +81,7 @@ BEGIN
         thread.thread_id,
         thread.recipient,
         thread.is_active,
+        thread.retain_thread,
         thread.dt,
         thread.dtts,
         thread.last_access_dtts;
@@ -104,6 +109,7 @@ RETURNS TABLE (
     thread_id text,
     recipient varchar,
     is_active boolean,
+    retain_thread boolean,
     dt date,
     dtts timestamp,
     last_access_dtts timestamp,
@@ -124,6 +130,7 @@ BEGIN
             v_active_thread.thread_id,
             v_active_thread.recipient,
             v_active_thread.is_active,
+            v_active_thread.retain_thread,
             v_active_thread.dt,
             v_active_thread.dtts,
             v_active_thread.last_access_dtts,
@@ -135,11 +142,49 @@ BEGIN
             ct.thread_id,
             ct.recipient,
             ct.is_active,
+            ct.retain_thread,
             ct.dt,
             ct.dtts,
             ct.last_access_dtts,
             TRUE as was_created
         FROM create_thread(p_recipient) ct;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to retain thread for active thread
+CREATE OR REPLACE FUNCTION retain_thread(p_recipient varchar)
+RETURNS TABLE (
+    thread_id text,
+    recipient varchar,
+    is_active boolean,
+    retain_thread boolean,
+    dt date,
+    dtts timestamp,
+    last_access_dtts timestamp
+) AS $$
+DECLARE
+    v_active_thread RECORD;
+BEGIN
+    -- Get the active thread for the recipient
+    SELECT * INTO v_active_thread
+    FROM get_active_thread(p_recipient)
+    LIMIT 1;
+    
+    -- If active thread exists, update retain_thread to true
+    IF v_active_thread.thread_id IS NOT NULL THEN
+        RETURN QUERY
+        UPDATE thread
+        SET retain_thread = TRUE
+        WHERE thread.thread_id = v_active_thread.thread_id
+        RETURNING 
+            thread.thread_id,
+            thread.recipient,
+            thread.is_active,
+            thread.retain_thread,
+            thread.dt,
+            thread.dtts,
+            thread.last_access_dtts;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
