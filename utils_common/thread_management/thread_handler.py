@@ -8,11 +8,10 @@ Key Methods:
   . get_active_thread - Gets active thread and updates last_access_dtts
   . make_threads_inactive - Marks threads as inactive
   . get_or_create_thread - Gets existing or creates new thread atomically
+  . retain_thread - Sets retain_thread flag to true for active thread
 """
 
 # %%
-import asyncio
-
 import psycopg
 
 
@@ -87,4 +86,20 @@ class ThreadHandler:
                     return None, False
         except psycopg.Error as e:
             print(f"Error in get_or_create_thread: {e}")
+            raise
+
+    async def retain_thread(self, recipient):
+        try:
+            async with self.pool.connection() as conn:
+                async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                    await cur.execute(
+                        """
+                        SELECT * FROM retain_thread(%s)
+                        """,
+                        (recipient,),
+                    )
+                    result = await cur.fetchone()
+                    return result
+        except psycopg.Error as e:
+            print(f"Error in retain_thread: {e}")
             raise

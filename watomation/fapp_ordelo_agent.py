@@ -29,11 +29,7 @@ from pywa.types.flows import FlowRequestActionType
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-from config import (
-    waba_business_settings,
-    pg_settings,
-    client_ordelo,
-)
+from config import waba_business_settings, pg_settings, client_ordelo, logger
 from ordelo.agents.rider_agent import builder
 from ordelo.agent_app_handlers import (
     debug_state,
