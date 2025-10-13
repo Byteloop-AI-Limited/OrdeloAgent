@@ -2,19 +2,28 @@
 Byteloop WhatsApp agent entrypoint.
   . Configures LangGraph agent with business instructions and tools.
   . Uses send_user_notification_on_whatsapp to deliver proactive notifications.
-  . Defines context schema for WhatsApp session data.
+  . Defines context schema for WhatsApp session data with derived helpers.
   Functions/Classes
     . prompt
     . ContextSchema
+    . ContextSchemaModel
 """
 
 # %%
-from langgraph.prebuilt import create_react_agent
-from langgraph.checkpoint.memory import InMemorySaver
-from utils_common.lg_utils import LLM_4o as llm
+from dataclasses import dataclass, field
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict
+
 from langchain_core.messages import AnyMessage
 from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.prebuilt import create_react_agent
 from langgraph.prebuilt.chat_agent_executor import AgentState
+from psycopg_pool import AsyncConnectionPool
+from pywa_async import WhatsApp
+from utils_common.lg_utils import LLM_4o as llm
+from utils_common.thread_management.thread_handler import ThreadHandler
 
 # %%
 
@@ -70,25 +79,26 @@ async def send_user_notification_on_whatsapp(
         dict: Agent to respond as instructed by the tool message.
     """
     recipient = get_recipient_from_config(config)
-    runtime = get_runtime(ContextSchema)
-    wa = runtime.context.wa_client
+    ctx = get_runtime(ContextSchema).context
+    wa = ctx.wa_client
+    print(type(ctx.pool))
     await wa.send_message(recipient, "Hello")
     return "message send to user on whatsapp"
 
 
 # %%
 
-from dataclasses import dataclass
-from typing_extensions import TypedDict
-from psycopg_pool import AsyncConnectionPool
-from pywa_async import WhatsApp
 
+class ContextSchema(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-@dataclass
-class ContextSchema:
-    user_name: str
     pool: AsyncConnectionPool
     wa_client: WhatsApp
+    thread_handler: ThreadHandler | None = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.thread_handler is None:
+            self.thread_handler = ThreadHandler(self.pool)
 
 
 # %%
@@ -108,10 +118,11 @@ graph = create_react_agent(
 from config import pg_settings, _async_wa_client
 
 config = {"configurable": {"thread_id": "4", "recipient": "447448440754"}}
-context = ContextSchema(
-    user_name="10hith", pool=pg_settings.client, wa_client=_async_wa_client
-)
-# %%
-ip_msgs = [{"role": "user", "content": "send a notification to me on whatsapp"}]
 
-await graph.ainvoke({"messages": ip_msgs}, config=config, context=context)
+# context = ContextSchema(
+#     user_name="10hith", pool=await pg_settings.get_pool(), wa_client=_async_wa_client
+# )
+# # %%
+# ip_msgs = [{"role": "user", "content": "send a notification to me on whatsapp"}]
+
+# await graph.ainvoke({"messages": ip_msgs}, config=config, context=context)

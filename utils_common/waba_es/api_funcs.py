@@ -15,13 +15,16 @@ Utilities for WhatsApp Business Account (WABA) Graph API interactions
   . get_wabas_with_phone_numbers - Returns all assigned WABAs and their phone numbers
 """
 
+# %%
 from pywa import WhatsApp
 from config import waba_business_settings, logger, waba_provider_settings
 from typing import Dict, Any, List
 import requests
 
+# %%
+
 (
-    waba_business_settings.token,
+    waba_business_settings,
     # waba_business_settings.business_account_id,
     waba_provider_settings,
 )

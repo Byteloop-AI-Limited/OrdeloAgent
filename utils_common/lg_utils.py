@@ -440,7 +440,7 @@ async def get_config_for_recipient(recipient: str, pool) -> Dict[str, Any]:
     thread_handler = ThreadHandler(pool)
     thread_id, _ = await thread_handler.get_or_create_thread(recipient)
 
-    config = {"configurable": {"thread_id": thread_id, "recipient": recipient}}
+    config = {"configurable": {"thread_id": thread_id}}
     return config
 
 

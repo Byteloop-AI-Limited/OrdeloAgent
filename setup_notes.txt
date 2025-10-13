@@ -1,0 +1,399 @@
+# Reclaim diskspace from wsl 
+https://superuser.com/questions/1606213/how-do-i-get-back-unused-disk-space-from-ubuntu-on-wsl2
+wsl --shutdown
+kill docker desktop
+
+cd C:\Users\lohith\AppData\Local\Packages\CanonicalGroupLimited.Ubuntu20.04onWindows_79rhkp1fndgsc\LocalState\
+
+On powersheel as admin 
+cd %USERPROFILE%\AppData\Local\Packages\CanonicalGroupLimited.UbuntuonWindows_79rhkp1fndgsc\LocalState\
+optimize-vhd -Path .\ext4.vhdx -Mode full
+
+Remove Unused Docker Images, Containers, and Volumes
+docker system prune -a --volumes
+
+Remove volumes not used by any containers 
+docker volume ls -qf dangling=true | while read volume; do
+  # Get the creation time of the volume (approximate last use)
+  created=$(docker volume inspect "$volume" --format '{{.CreatedAt}}')
+  # Convert the creation date to epoch time
+  created_epoch=$(date -d "$created" +%s)
+  # Get the current date in epoch time
+  now=$(date +%s)
+  # Calculate the difference in days
+  diff_days=$(( (now - created_epoch) / 86400 ))
+
+  # Remove the volume if it was created more than 90 days ago
+  if [ $diff_days -gt 90 ]; then
+    echo "Removing volume: $volume (unused for more than 3 months)"
+    docker volume rm "$volume"
+  fi
+done
+
+
+
+# To Do
+# did not work, reducing the sie of the summary tags.
+1) reduce the size of the summary tags, try to see if your can have flexbox for mobile, CLS
+2) Your content is 388 words long. Consider using at least 600 words
+3) increase the size of the pc-search results
+<a href="#" onclick="return false;"> Check this back later;
+
+
+# Images todo
+Find theme's max width, set Resolution accordingly.
+Should I need to resize the images?
+Optimize images - compression - checkout the video on compression by Astra
+Caching - server creates a copy of the page before the visitor visits page. W3totalcache, Premium wpRocket? which one do I have?
+Using a CDN?
+Image sitemap, see if rank math offers it
+Responsiveness - image src set ans image src tag for each tag
+Descriptive alt-text, captions, titles and filenames
+Right schema on the page.
+
+# remove untagged docker images
+docker rmi $(docker images -f "dangling=true" -q)
+
+# Site adsense approval
+
+# SEO tips
+# Getting topical authority
+google keyword and check people also ask section
+SEO Minion - download keyword section
+AutoComplete feature -
+Related searched - rabit hole of related
+Open competators site map - keyword ideas
+
+# Site audit
+siteliner
+ahrefs
+
+# regex on pandas and not conditions
+WP_PAGES_DF['slug'].str.contains(r'\d$')
+~area_keys_to_initialize.to_frame()['area_key'].str.contains("\'")
+king's -lynn -and -west -norfolk
+
+# Creating new p3.11 environment
+python3 -m virtualenv --python="/usr/bin/python3.11" localEnv
+
+
+# Setup of Selenium
+https://cloudbytes.dev/snippets/run-selenium-and-chrome-on-wsl2
+https://www.gregbrisebois.com/posts/chromedriver-in-wsl2/
+# /usr/bin/chromedriver
+
+docker run \
+-p 80:80 \
+-e DATA_PATH="/data/" \
+-v /home/basal/live_datasets/processed:/data/ \
+--log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
+10hith/crimeapp:latest
+
+docker run \
+ -p 80:80 \
+ -e DATA_PATH="/data/" \
+ -e DISK_CACHE="/disk_cache_dir/" \
+ -v /mnt/c/Users/lohith/Downloads/live_datasets:/data/ \
+ -v /mnt/c/Users/lohith/Downloads/disk_cache_dir:/disk_cache_dir/ \
+ crimeapp
+
+# local docker run
+docker run \
+ -p 80:80 \
+ -e DATA_PATH="/data" \
+ -e CRIME_API="http://localhost" \
+ -v /home/basal/live_datasets/processed:/data/ \
+10hith/crimeapp:latest
+
+docker run -p 80:80 \
+-e DATA_PATH="/data/" \
+-v /home/basal/live_datasets/processed:/data/ 10hith/crimeapp:latest
+
+docker run -p 80:80 -e DATA_PATH="/data/" -v /mnt/c/Users/lohith/Downloads/live_datasets:/data/ crimeapp
+
+# Getting points of interest using openstreetmap
+pyorsm
+https://pyrosm.readthedocs.io/en/latest/installation.html
+# n8n
+docker run -it --rm --name n8n -p 5678:5678 -v n8n_data:/home/node/.n8n docker.n8n.io/n8nio/n8n
+
+# tunneling tunnel mole
+# tmole 8000
+
+# Running only one service from docker compose
+docker image rm -f 10hith/crimeapp
+docker-compose -f docker-compose.yml up -d --no-deps --build crimeapp
+docker logs --follow fastapi-deploy_crimeapp_1
+docker-compose -f docker-compose.yml restart crimeapp
+curl https://app.crimesinmyarea.co.uk/crime-trend-breakdown/?area_cds=[%27E07000111%27,%20%27E07000215%27,%20%27E09000004%27,%20%27E09000028%27,%20%27E09000006%27,%20%27E09000023%27,%20%27E09000008%27,%20%27E09000011%27,%20%27E09000022%27,%20%27E07000107%27,%20%27E09000029%27,%20%27E09000030%27,%20%27E09000025%27,%20%27E09000024%27,%20%27E09000032%27,%20%27E09000002%27,%20%27E07000211%27,%20%27E09000012%27,%20%27E09000033%27,%20%27E07000208%27,%20%27E09000020%27,%20%27E09000019%27,%20%27E09000013%27,%20%27E09000021%27,%20%27E09000026%27]
+docker-compose up -d --force-recreate
+
+# Copying just the parquet file instead of db
+crimeCon.execute("COPY  ai_links TO '/home/basal/live_datasets/processed/ai_links.parquet' (FORMAT PARQUET);")
+crimeCon.execute("COPY  crime_rate TO '/home/basal/live_datasets/processed/crime_rate.parquet' (FORMAT PARQUET);")
+crimeCon.execute("COPY  crime_rate_latest_year TO '/home/basal/live_datasets/processed/crime_rate_latest_year.parquet' (FORMAT PARQUET);")
+
+fails from jupyterNoteBook, run cli; download from https://duckdb.org/docs/archive/0.8.1/installation/index.html and unzip to get the executable
+rsync recent_crime_points_gpd_AUG.parquet -ar --rsh=ssh root@178.62.77.30:/data/processed/
+# Create new db and insert data into new db. Stop server the move current to old, new to current
+create or replace table crime_rate as select * from '/data/processed/crime_rate.parquet'
+create or replace table crime_ranking as select * from '/data/processed/crime_ranking.parquet'
+create or replace table crime_rate_latest_year as select * from '/data/processed/crime_rate_latest_year.parquet';
+.open /data/processed/crimeapp.db
+
+# cros origin htmx blocked
+had to install meta tags plugin and add below
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+Meta Tag Manager
+
+
+docker-compose --no-deps build worker && docker-compose restart worker
+
+docker run -d -v redisinsight:/db -p 8001:8001 redislabs/redisinsight:latest
+
+setting up aws cli
+install awscli
+aws configure: give keyId and secretAccess
+aws s3 cp cens.db s3://10hith-cns/databaseStores/
+aws s3 cp crimeapp.db s3://10hith-cns/cens_db/du
+
+# Clean up venv
+pip freeze | xargs pip uninstall -y
+pip install -r requirements.txt
+
+Schools data:
+https://www.get-information-schools.service.gov.uk/Downloads
+
+
+
+
+ '''
+recursively copy data to remote
+rsync processed/ -ar --rsh=ssh root@178.62.77.30:/data/
+rsync recent_crime_points_gpd.parquet -ar --rsh=ssh root@178.62.77.30:/data/processed/gpd_parquets/recent_crime_points_gpd.parquet
+
+
+rsync processed/gpd_parquets/recent_crime_points_gpd.parquet -ar --rsh=ssh root@178.62.77.30:/data/processed/
+
+rsync processed/all_area_keys -ar --rsh=ssh root@178.62.77.30:/data/processed/
+rsync processed/nearby_lads -ar --rsh=ssh root@178.62.77.30:/data/processed/
+rsync processed/ -ar --rsh=ssh root@178.62.77.30:/root/fastapi-deploy/redis/
+
+rsync dynamic-sitemap-london.xml -ar --rsh=ssh root@178.62.77.30:/wordpress/wp/
+
+
+rsync processed/crime_latest_pc_lvl -ar --rsh=ssh root@178.62.77.30:/data/processed/
+recursively copy data to local
+
+Takes too long
+rsync backup_20221129.tar.gz -ar --rsh=shh root@172.22.214.229:/mnt/c/wsl_transfers
+rsync backup_20221129.tar.gz -ar --rsh=ssh root@172.22.214.228:/mnt/c/wsl_transfers
+'''
+
+
+dash bootstap cheatsheet:
+https://dashcheatsheet.pythonanywhere.com/
+
+
+crimeapp:
+ image: 10hith/crimeapp
+ ports:
+   - "80:80"
+ volumes:
+   - /mnt/c/Users/lohith/Downloads/live_datasets:/data/
+ environment:
+   - DATA_PATH=/data/
+   - API_PORT=80
+   - API_HOST=www.crimesinmyarea.co.uk
+
+
+   docker images --no-trunc
+   wordpress                            latest                                                  sha256:a3c91b2b9a23e1eaa1d6d5f492001913086f00b22c3b14f27de385e21cfa7612 
+
+   # Docker backup
+   https://hub.docker.com/r/aveltens/wordpress-backup
+
+   loarna - #bN
+# when repository errors out
+sudo hwclock --hctosys
+
+# lets encrypt expiry
+DO - go to Applications & API and create a new token
+Update that token on the docker-compose file, env = DO_AUTH_TOKEN
+restart all services
+crimeapp will taken time to get running, will need a restart
+
+
+# Accessing local storage data of iframe
+https://stackoverflow.com/questions/4026479/use-localstorage-across-subdomains#comment80507323_42946314
+
+
+# Backing up wordpress containers
+# https://hub.docker.com/r/aveltens/wordpress-backup
+1. get network
+docker network ls
+=> list zombie containers - docker ps -a
+=> Gracefully stopping a container - docker stop ----time=30 foo
+
+crimeinmyarea_default
+docker run \
+  --name wp_backup \
+  -e MYSQL_ENV_MYSQL_HOST=${WORDPRESS_DB_HOST} \
+  -e MYSQL_ENV_MYSQL_USER=${MYSQL_USER} \
+  -e MYSQL_ENV_MYSQL_DATABASE=${MYSQL_DATABASE} \
+  -e MYSQL_ENV_MYSQL_PASSWORD=${MYSQL_PASSWORD} \
+  -e MYSQL_PORT_3306_TCP_PORT="3306" \
+  -v ${WPHOSTPATH}/backup:/backups \
+  --volumes-from=crimeinmyarea-wordpress-1 \
+  --link=crimeinmyarea-db-1 \
+  --net crimeinmyarea_default \
+  -d aveltens/wordpress-backup
+
+=> Running backup on the container with a host volume will write the files
+docker exec wp_backup backup
+
+
+# Running docker backup wp_bckp
+docker run \
+  --name wp_backup \
+  -e MYSQL_ENV_MYSQL_HOST=${WORDPRESS_DB_HOST} \
+  -e MYSQL_ENV_MYSQL_USER=${MYSQL_USER} \
+  -e MYSQL_ENV_MYSQL_DATABASE=${MYSQL_DATABASE} \
+  -e MYSQL_ENV_MYSQL_PASSWORD=${MYSQL_PASSWORD} \
+  -e MYSQL_PORT_3306_TCP_PORT="3306" \
+  -v ${WPHOSTPATH}/backup:/backups \
+  --volumes-from=fastapi-deploy_blog_1 \
+  --link=fastapi-deploy_db_1 \
+  --net fastapi-deploy_default \
+  -d aveltens/wordpress-backup
+
+# Running docker backup aiwp_bckp
+docker run \
+  --name aiwp_backup \
+  -e MYSQL_ENV_MYSQL_HOST=${AIWORDPRESS_DB_HOST} \
+  -e MYSQL_ENV_MYSQL_USER=${MYSQL_USER} \
+  -e MYSQL_ENV_MYSQL_DATABASE=${MYSQL_DATABASE} \
+  -e MYSQL_ENV_MYSQL_PASSWORD=${MYSQL_PASSWORD} \
+  -e MYSQL_PORT_3306_TCP_PORT="3306" \
+  -v ${AIWPPATH}/backup:/backups \
+  --volumes-from=fastapi-deploy_aiblog_1 \
+  --link=fastapi-deploy_aidb_1 \
+  --net fastapi-deploy_default \
+  -d aveltens/wordpress-backup
+
+
+=> Run restore on wp_backup container 
+
+
+docker run \
+--name wordpress-backup \
+-v <path/to/your/backups>:/backups \
+--volumes-from=wordpress \
+--link=wordpress-db:mysql \
+-d aveltens/wordpress-backup
+
+
+
+---- SEO Stuff
+my targetted keywords
+crime statistics by postcode
+crime hotspots
+
+google tracking id:
+Option 1: Install a tracking ID through your hosting service or commerce platform
+Sign in to your website builder, web hosting service, or commerce platform and paste your tracking ID into the analytics section.
+UA-222317802-2
+
+Paste your tracking tag before the closing </head> tag on every page of your website that you want to track.
+<!-- Google tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-222317802-2">
+</script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-222317802-2');
+</script>
+
+# TODO
+
+# TODO dbIssues:
+KeyError: 'Age: Aged under 1 year' ? why this error?
+Passports_held - British Overseas Territories - always rank 1?? May be remove this?
+Household size: 0 people in household - remove this measure
+
+NewMeasures - Average household size
+Typical hosehold in llaskdjf
+Do most people own or rent in london?
+
+# TODO website
+Implement litecache
+Start creating the pages
+Create logo
+Install rankMath
+Cleanup cens.js
+
+
+# Schools data download
+https://get-information-schools.service.gov.uk/Downloads
+
+
+----------- getting chat gpt to do your stuff
+run supabase local
+supabase start
+create the fastapi server with required get and post function
+tmole to get expose the local server
+On assistant, import from url and
+
+# Creating vector store and storing it in pg_vector
+https://www.timescale.com/blog/postgresql-as-a-vector-database-create-store-and-query-openai-embeddings-with-pgvector/
+
+localhost.run
+ssh -R 80:localhost:8000 ssh.localhost.run
+https://cbba91750008d5.lhr.life
+
+openapi schema
+"servers": [
+    {
+      "url": "https://cbba91750008d5.lhr.life"
+    }
+  ],
+
+# postgres on railway
+import psycopg2
+from psycopg2 import OperationalError
+
+def create_connection(db_name, db_user, db_password, db_host, db_port):
+    connection = None
+    try:
+        connection = psycopg2.connect(
+            database=db_name,
+            user=db_user,
+            password=db_password,
+            host=db_host,
+            port=db_port,
+        )
+        print("Connection to PostgreSQL DB successful")
+    except OperationalError as e:
+        print(f"The error '{e}' occurred")
+    return connection
+
+# Replace the parameters with your database details
+connection = create_connection(
+    "railway",
+    "postgres",
+    "password",
+    "[viaduct].[proxy].rlwy.net",
+    "44527"
+)
+
+
+if connection is not None:
+    connection.close()
+
+## Integrating n8n chat.
+Create workflow on n8n, get the production webhook url
+Refer for embedding - https://www.npmjs.com/package/@n8n/chat?activeTab=readme
+Create a script on wpcode or code snippets
+Apply style customization n8n_chat_embed_asperN8N

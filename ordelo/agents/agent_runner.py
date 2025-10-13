@@ -10,6 +10,8 @@ Core agent runner for Ordelo's delivery workflow system
     . init_ordelo_graph - Initializes delivery workflow for given detail
 """
 
+# %%
+
 from typing import Any
 from datetime import datetime
 import asyncio
@@ -19,13 +21,19 @@ from psycopg_pool import AsyncConnectionPool
 from config import logger, pg_settings, _async_wa_client, client_ordelo
 from utils_common.thread_management import ThreadHandler
 from utils_common.lg_utils import get_config_for_recipient, retain_thread
-from ordelo.agents.rider_agent import builder
-from ordelo.agents.byteloop_agent import agent as bloop_agent
+from ordelo.agents.rider_agent import builder, ContextSchema
+from ordelo.agents.byteloop_agent import graph as bloop_agent
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from ordelo.agent_app_handlers import create_start_job_config
 from pywa.types import ButtonUrl
 from langgraph.checkpoint.postgres import PostgresSaver
+from supabase._sync.client import SyncClient
 
+# %%
+
+# pool: AsyncConnectionPool = await pg_settings.get_pool()
+# recipient = msg.sender
+# thread_handler = ThreadHandler(pool)
 
 # %%
 
@@ -94,14 +102,24 @@ async def run_rider_graph(
         "messages": msgs
     }
 
-    # Run the graph with pool
+    # Build ctx
     pool: AsyncConnectionPool = await pg_settings.get_pool()
     checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
+
+    context_schema = ContextSchema(
+        pool=pool,
+        wa_client=_async_wa_client,
+        recipient=recipient,
+        client_ordelo=client_ordelo,
+    )
+
+    # Run the graph with pool
     graph = builder.compile(checkpointer=checkpointer)
     config: dict[str, Any] = await get_config_for_recipient(recipient, pool)
     if state_update_dict:
         await graph.aupdate_state(config, state_update_dict, as_node="toolNode")
-    ai_msg = await graph.ainvoke(input=ip_msgs, config=config)
+    ai_msg = await graph.ainvoke(input=ip_msgs, config=config, context=context_schema)
+    # ai_msg = await graph.ainvoke(input=ip_msgs, config=config)
     ai_msg_content: str = ai_msg["messages"][-1].content
 
     return ai_msg_content
@@ -109,15 +127,23 @@ async def run_rider_graph(
 
 # %% Init Ordelo graph
 async def init_ordelo_graph(d_detail: DeliveryDetail):
-    # Setup Graph
     pool: AsyncConnectionPool = await pg_settings.get_pool()
+    recipient = d_detail.rider_id
 
+    context_schema = ContextSchema(
+        pool=pool,
+        wa_client=_async_wa_client,
+        recipient=recipient,
+        client_ordelo=client_ordelo,
+    )
+
+    # Setup Graph
     checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
     graph = builder.compile(checkpointer=checkpointer)
     config = await get_config_for_recipient(d_detail.rider_id, pool)
 
     # Retain thread, to remove this out of the scheduled close_thread_job
-    await retain_thread(d_detail.rider_id, pool)
+    # await retain_thread(d_detail.rider_id, pool)
 
     start_live_tracking_url = await create_start_job_config(d_detail)
     # using client.table, query the rider_master table on rider_id and get the name.
@@ -151,4 +177,4 @@ async def init_ordelo_graph(d_detail: DeliveryDetail):
         as_node="toolNode",
     )
     # Run Graph
-    await graph.ainvoke(input=ip_msgs, config=config)
+    await graph.ainvoke(input=ip_msgs, config=config, context=context_schema)
