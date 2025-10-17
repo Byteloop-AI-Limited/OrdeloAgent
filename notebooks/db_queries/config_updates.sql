@@ -31,7 +31,7 @@ where config_key = 'DISPATCH_BATCH_SIZE_BICYCLE';
 
 
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ELAIB_APP_URL', 'https://elaib-agent.ordelo.app', 'URL for ordelo app') ON CONFLICT (config_key) DO
+VALUES ('ELAS_APP_URL', 'https://elaib-agent.ordelo.app', 'URL for Salisbury app') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
@@ -71,5 +71,37 @@ SELECT
 DISTINCT rider_id, rider_name 
 FROM rider_master WHERE status='active' limit 10;
 
+update rider_master set town='Salisbury'
+where rider_id in ('447448440754', '447446933210')
 
 select enquire_shift_availability();
+
+
+INSERT INTO restaurant_master (
+    rest_ref,
+    rest_id,
+    rest_name,
+    rest_email,
+    admins,
+    house_number,
+    building_name,
+    street_name,
+    city,
+    postcode,
+    lat,
+    lon
+)
+VALUES (
+    'ELAS',
+    '447914844933',
+    'Elai - Salisbury',
+    NULL,
+    ARRAY['447424334783', '447914844933'],
+    'Mill Stream Approach',
+    NULL,
+    'Castle St',
+    'Salisbury',
+    'SP1 3TA',
+    51.07266352837689,
+    -1.797172687583984
+);

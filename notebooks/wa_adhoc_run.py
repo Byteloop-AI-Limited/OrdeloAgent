@@ -498,23 +498,6 @@ wa.uct(
 
 # %% wa send products based on search
 
-from pywa.types import ProductsSection
-
-wa.ucts(
-    to=recipient,
-    catalog_id=waba_cat_settings.cat_id,
-    title="Tech Products",
-    body="Check out our products!",
-    product_sections=[
-        ProductsSection(title="Mutton Starters", skus=[123]),
-        ProductsSection(
-            title="Mutton Mains",
-            skus=[123],
-        ),
-    ],
-    # footer="Powered by PyWa",
-)
-
 
 # %% #! getting product feed errors report
 

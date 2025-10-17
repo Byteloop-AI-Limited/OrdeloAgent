@@ -20,8 +20,6 @@ from loguru import logger
 from aws_setting import ordelo_agent_env
 from pydantic import Field
 
-ordelo_agent_env
-
 
 # %%
 class PgSetting(BaseSettings):

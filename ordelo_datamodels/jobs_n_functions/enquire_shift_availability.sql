@@ -65,3 +65,6 @@ EXCEPTION
     RETURN false;
 END;
 $$ LANGUAGE plpgsql;
+
+
+select enquire_shift_availability();

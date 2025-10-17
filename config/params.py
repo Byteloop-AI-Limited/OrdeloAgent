@@ -36,8 +36,10 @@ RestaurantConfig = namedtuple(
 )
 wren_base_url = get_restaurant_base_url("WREN")
 elab_base_url = get_restaurant_base_url("ELAB")
+elas_base_url = get_restaurant_base_url("ELAS")
 logger.info(f"Wren base url: {wren_base_url}")
 logger.info(f"Elab base url: {elab_base_url}")
+logger.info(f"Elas base url: {elas_base_url}")
 
 RESTAURANT_CONFIG = {
     "WREN-RIDER-INFLIGHT": RestaurantConfig(
@@ -99,6 +101,37 @@ RESTAURANT_CONFIG = {
     "ELAB-DELIVERY-TIMEDOUT": RestaurantConfig(
         "delivery-timedout",
         elab_base_url,
+        "rider-event-hooks/delivery-timedout",
+    ),
+    # Elas
+    "ELAS-RIDER-INFLIGHT": RestaurantConfig(
+        "rider-event-inflight",
+        elas_base_url,
+        "rider-event-hooks/rider-inflight",
+    ),
+    "ELAS-RIDER-REST-CC": RestaurantConfig(
+        "rider-event-restaurant-cc",
+        elas_base_url,
+        "rider-event-hooks/on-restaurant-cc",
+    ),
+    "ELAS-RIDER-CUST-CC": RestaurantConfig(
+        "rider-event-customer-cc",
+        elas_base_url,
+        "rider-event-hooks/on-customer-cc",
+    ),
+    "ELAS-RIDER-REST-ENTER": RestaurantConfig(
+        "rider-event-restaurant-enter",
+        elas_base_url,
+        "rider-event-hooks/on-restaurant-enter",
+    ),
+    "ELAS-RIDER-CUST-ENTER": RestaurantConfig(
+        "rider-event-customer-enter",
+        elas_base_url,
+        "rider-event-hooks/on-customer-enter",
+    ),
+    "ELAS-DELIVERY-TIMEDOUT": RestaurantConfig(
+        "delivery-timedout",
+        elas_base_url,
         "rider-event-hooks/delivery-timedout",
     ),
 }
