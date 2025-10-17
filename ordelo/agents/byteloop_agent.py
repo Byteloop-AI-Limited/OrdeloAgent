@@ -1,15 +1,11 @@
-"""
-Byteloop WhatsApp agent entrypoint.
-  . Configures LangGraph agent with business instructions and tools.
-  . Uses send_user_notification_on_whatsapp to deliver proactive notifications.
-  . Defines context schema for WhatsApp session data with derived helpers.
-  Functions/Classes
-    . prompt
-    . ContextSchema
-    . ContextSchemaModel
+# %%
+"""LangGraph orchestration for Byteloop's WhatsApp concierge agent.
+
+Configures the prompt, tools, and runtime context used to run a ReAct-style
+agent that can chat with customers, trigger WhatsApp notifications, and access
+shared resources such as the async Postgres pool and thread handler.
 """
 
-# %%
 from dataclasses import dataclass, field
 from typing import Any
 
