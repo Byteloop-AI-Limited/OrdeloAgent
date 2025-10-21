@@ -28,7 +28,6 @@ import os
 # %%
 
 # NAMESPACE = "bloopappreview"
-# NAMESPACE = "vango"
 NAMESPACE = "bloop"
 
 
