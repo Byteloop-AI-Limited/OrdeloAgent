@@ -115,7 +115,7 @@ _sync_wa_client = waba_business_settings.create_wa_sync()
 waba_business_settings.phone_id, waba_business_settings.account_id
 
 # %%
-_sync_wa_client.get_business_phone_number().webhook_configuration
+# _sync_wa_client.get_business_phone_number().webhook_configuration
 
 # _sync_wa_client.override_waba_callback_url(
 #     callback_url="https://agent.ordelo.app/",
@@ -282,9 +282,9 @@ def search_available_items(search_item: str) -> List[dict]:
     filtered_records = (
         con.execute(
             f"""
-        SELECT 
-            retailer_id, name, description 
-        FROM inStockProducts 
+        SELECT
+            retailer_id, name, description
+        FROM inStockProducts
         WHERE LOWER(description) LIKE '%{search_item.lower()}%'
         """
         )
@@ -363,13 +363,13 @@ def update_inventory_following_checkout(
     conn = ddb.connect()
     print("updating update_inventory_following_checkout")
     query = """
-    select 
+    select
         id as product_id,
-        prod.retailer_id, 
-        CASE 
+        prod.retailer_id,
+        CASE
             WHEN quantity_to_sell_on_facebook - cart.quantity < 0 THEN 0
             ELSE quantity_to_sell_on_facebook - cart.quantity
-        END AS quantity_to_sell_on_facebook  
+        END AS quantity_to_sell_on_facebook
     FROM product prod
     INNER JOIN cart cart
     ON prod.retailer_id = cart.sku
