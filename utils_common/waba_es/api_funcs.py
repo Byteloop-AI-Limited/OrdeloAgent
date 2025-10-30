@@ -15,13 +15,16 @@ Utilities for WhatsApp Business Account (WABA) Graph API interactions
   . get_wabas_with_phone_numbers - Returns all assigned WABAs and their phone numbers
 """
 
+# %%
 from pywa import WhatsApp
 from config import waba_business_settings, logger, waba_provider_settings
 from typing import Dict, Any, List
 import requests
 
+# %%
+
 (
-    waba_business_settings.token,
+    waba_business_settings,
     # waba_business_settings.business_account_id,
     waba_provider_settings,
 )
@@ -170,8 +173,15 @@ def list_phone_numbers_for_waba(waba_id: str) -> Dict[str, Any]:
 get_wabas_with_phone_numbers()
 # list_phone_numbers_for_waba(waba_id="2335277966870509")
 # get_wabas_with_phone_numbers()
+# %% IMPORTANT: Once the emebedded signup is complete, do the number registration. Dont forget, the token is from the business account, stored in the db
+# %%
+# get phone number id from the output of get_wabas_with_phone_numbers
+phone_number_id = 796698196867835
+waba_es_graph_api_version = waba_provider_settings.graph_api_version
+register_phone_number(phone_number_id)
 
-# %% Once the emebedded signup is complete, do the number registration
+
+# %%
 
 
 def register_phone_number(phone_number_id: str) -> Dict[str, Any]:
@@ -206,12 +216,6 @@ def register_phone_number(phone_number_id: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error registering phone number: {str(e)}")
         return {"status": "error", "message": f"Phone registration failed: {str(e)}"}
-
-
-# %%
-phone_number_id = 740046752527135
-waba_es_graph_api_version = waba_provider_settings.graph_api_version
-register_phone_number(phone_number_id)
 
 
 # %% Overriding callback URL

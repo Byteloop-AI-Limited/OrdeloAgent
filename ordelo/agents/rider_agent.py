@@ -6,6 +6,7 @@ LangGraph agent implementation for rider delivery workflow
     . Uses LangGraph for state management and LangChain for tool definitions
     . Communicates via WhatsApp async client
     . Performs data operations through Supabase REST calls
+    . Retrieves WhatsApp recipients via runnable config for tool execution
     . Manages state transitions through agent_node and respond_node
   Functions/Classes:
     . AgentState - TypedDict for agent state management
@@ -19,13 +20,16 @@ LangGraph agent implementation for rider delivery workflow
     . end_delivery - Terminates delivery and tracking
     . agent_node - Main agent processing node
     . respond_node - Handles responses to user
+    . ContextSchemaData - Dataclass mirror for runtime context
 """
 
 # %%
 
-from config import project_settings, client_ordelo, pg_settings
+from config import project_settings, pg_settings
+from dataclasses import dataclass
 from typing import Annotated
 from langchain_core.runnables.config import RunnableConfig
+from langgraph.runtime import Runtime, get_runtime
 from langchain_core.tools import tool
 from langchain_core.messages import AIMessage, RemoveMessage
 from langgraph.graph import END, START, StateGraph
@@ -56,11 +60,15 @@ from langchain_core.messages import ToolMessage
 from utils_common.thread_management import ThreadHandler
 from langgraph.graph import add_messages
 from langchain_core.messages import BaseMessage
-from typing import Sequence
+from typing import Sequence, Any
 from typing_extensions import TypedDict
+from pydantic import BaseModel, ConfigDict
+from psycopg_pool import AsyncConnectionPool
+from pywa_async import WhatsApp
+from supabase._sync.client import SyncClient
 
 
-# %%
+# %% Dynamic runtime context (state)
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     rider_name: str
@@ -73,10 +81,39 @@ class AgentState(TypedDict):
     is_customer_confirmation_code_verified: bool
 
 
+# %% Static Runtime Context
+class ContextSchema(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    pool: AsyncConnectionPool
+    wa_client: WhatsApp
+    recipient: str
+    client_ordelo: SyncClient
+    thread_handler: ThreadHandler | None = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.thread_handler is None:
+            self.thread_handler = ThreadHandler(self.pool)
+
+
+# %%
+
+
+# @dataclass
+# class ContextSchema:
+#     pool: AsyncConnectionPool
+#     wa_client: WhatsApp
+#     recipient: str
+#     thread_handler: ThreadHandler | None = None
+
+#     def __post_init__(self) -> None:
+#         if self.thread_handler is None:
+#             self.thread_handler = ThreadHandler(self.pool)
+
+
 # %%
 async def notify_food_ready_for_pickup(
     restaurant_name: str,
-    config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
@@ -92,11 +129,13 @@ async def notify_food_ready_for_pickup(
     Returns:
         dict: Command containing ToolMessage and AIMessage updates for the agent's state.
     """
-    recipient = get_recipient_from_config(config)
+    ctx = get_runtime(ContextSchema).context
+    recipient = ctx.recipient
+
     reply_to_msg_id = state.get("reply_to_msg_id", None)
     rider_name = state.get("rider_name", None)
 
-    await _async_wa_client.send_message(
+    await ctx.wa_client.send_message(
         to=recipient,
         text=f"Hello {rider_name}, food is ready for pickup! Please hurry to {restaurant_name} to collect the order.",
         reply_to_message_id=reply_to_msg_id,
@@ -118,7 +157,6 @@ async def notify_food_ready_for_pickup(
 
 # %%
 async def send_pickup_location(
-    config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
@@ -126,9 +164,13 @@ async def send_pickup_location(
     Sends the pickup (restaurant) location to the rider via WhatsApp.
     Returns a Command with ToolMessage and AIMessage.
     """
-    recipient = get_recipient_from_config(config)
+    ctx = get_runtime(ContextSchema).context
+    recipient = ctx.recipient
+    client = ctx.client_ordelo
+
     order_number = state.get("order_number", None)
     reply_to_msg_id = state.get("reply_to_msg_id", None)
+
     if not order_number:
         return Command(
             update={
@@ -140,7 +182,6 @@ async def send_pickup_location(
                 ]
             }
         )
-    client = pg_settings.client
     summary = (
         client.table("delivery_summary")
         .select("*")
@@ -149,7 +190,7 @@ async def send_pickup_location(
         .execute()
         .data[0]
     )
-    await _async_wa_client.send_location(
+    await ctx.wa_client.send_location(
         to=recipient,
         latitude=summary["rest_lat"],
         longitude=summary["rest_lon"],
@@ -171,7 +212,6 @@ async def send_pickup_location(
 
 # %%
 async def send_dropoff_location(
-    config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
@@ -179,7 +219,9 @@ async def send_dropoff_location(
     Sends the dropoff (customer) location to the rider via WhatsApp.
     Returns a Command with ToolMessage and AIMessage.
     """
-    recipient = get_recipient_from_config(config)
+    ctx = get_runtime(ContextSchema).context
+    recipient = ctx.recipient
+
     order_number = state.get("order_number", None)
     reply_to_msg_id = state.get("reply_to_msg_id", None)
     if not order_number:
@@ -193,16 +235,15 @@ async def send_dropoff_location(
                 ]
             }
         )
-    client = pg_settings.client
     summary = (
-        client.table("delivery_summary")
+        ctx.client_ordelo.table("delivery_summary")
         .select("*")
         .eq("order_number", order_number)
         .limit(1)
         .execute()
         .data[0]
     )
-    await _async_wa_client.send_location(
+    await ctx.wa_client.send_location(
         to=recipient,
         latitude=summary["customer_lat"],
         longitude=summary["customer_lon"],
@@ -244,7 +285,6 @@ async def send_dropoff_location(
 
 # %%
 async def send_delivery_instructions(
-    config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
@@ -257,10 +297,12 @@ async def send_delivery_instructions(
     Returns:
         dict: Agent to respond as instructed by the tool message.
     """
-    recipient = get_recipient_from_config(config)
-    dispatch_id = state.get("dispatch_id", None)
+    ctx = get_runtime(ContextSchema).context
+    recipient = ctx.recipient
+    client_ordelo = ctx.client_ordelo
 
     # url updated in init
+    dispatch_id = state.get("dispatch_id", None)
     live_tracking_url = state.get("start_live_tracking_url", None)
     rider_name = state.get("rider_name", None)
 
@@ -268,7 +310,12 @@ async def send_delivery_instructions(
         reply_to_msg_id,
         delivery_instructions_str,
     ) = await _send_delivery_instructions(
-        dispatch_id, live_tracking_url, recipient, rider_name
+        dispatch_id,
+        live_tracking_url,
+        recipient,
+        rider_name,
+        client_ordelo,
+        ctx.wa_client,
     )
     return Command(
         update={
@@ -287,7 +334,6 @@ async def send_delivery_instructions(
 
 
 async def send_start_live_tracking_link(
-    config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
@@ -301,14 +347,16 @@ async def send_start_live_tracking_link(
     Returns:
         dict: Agent to respond as instructed by the tool message.
     """
-    recipient = get_recipient_from_config(config)
+    ctx = get_runtime(ContextSchema).context
+    recipient = ctx.recipient
+    wa_client = ctx.wa_client
 
     start_live_tracking_url = state.get("start_live_tracking_url", None)
     reply_to_msg_id = state.get("reply_to_msg_id", None)
-    order_number = state.get("order_number", None)
+    # order_number = state.get("order_number", None)
 
     body_text = "Please turn on the live tracking by clicking the link below."
-    await _async_wa_client.send_message(
+    await wa_client.send_message(
         to=recipient,
         header="Enable Live Tracking",
         text=body_text,
@@ -333,7 +381,6 @@ async def send_start_live_tracking_link(
 # %% DELIVERY END
 async def verify_restaurant_confirmation_code(
     restaurant_confirmation_code: int,
-    config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> dict:
@@ -349,7 +396,8 @@ async def verify_restaurant_confirmation_code(
             - delivery_status: Updated status of the delivery
             - timestamp: UTC timestamp of verification attempt
     """
-
+    ctx = get_runtime(ContextSchema).context
+    client_ordelo = ctx.client_ordelo
     # Extract dispatch_id
     dispatch_id = state.get("dispatch_id", None)
     order_number = state.get("order_number", None)
@@ -452,7 +500,8 @@ async def verify_customer_confirmation_code(
             - delivery_status: Updated status of the delivery
             - timestamp: UTC timestamp of verification attempt
     """
-    recipient = get_recipient_from_config(config)
+    ctx = get_runtime(ContextSchema).context
+    recipient = ctx.recipient
 
     # Extract dispatch_id
     dispatch_id = state.get("dispatch_id", None)
@@ -475,7 +524,7 @@ async def verify_customer_confirmation_code(
         )
 
     delivery_summary: int = (
-        client_ordelo.table("delivery_summary")
+        ctx.client_ordelo.table("delivery_summary")
         .select("cust_confirmation_code", "customer_id")
         .eq("order_number", order_number)
         .execute()
@@ -561,14 +610,16 @@ async def end_delivery(
         - expiry: UTC timestamp when the URL expires
         - cleanup_params: Dict of cleanup configuration parameters
     """
-    recipient = get_recipient_from_config(config)
+    ctx = get_runtime(ContextSchema).context
+    recipient = ctx.recipient
+
     stop_job_url = await create_stop_job_config()
     reply_to_msg_id = config.get("reply_to_msg_id", None)
 
     # update delivery detail and dispatch to completed
 
     # Send the URL to the rider
-    await _async_wa_client.send_message(
+    await ctx.wa_client.send_message(
         to=recipient,
         text="Thank you, delivery is complete. Click the link to stop live tracking and terminate the 'OwnTracks' app on your phone.",
         reply_to_message_id=reply_to_msg_id,
@@ -649,40 +700,27 @@ def agent_node(state: AgentState) -> Command[Literal["toolNode", "respondNode", 
 
 
 async def respond_node(
-    state: AgentState, config: RunnableConfig
+    state: AgentState, runtime: Runtime[ContextSchema]
 ) -> Command[Literal[END]]:
     """
     Main agent node that processes user input and determines next action
     """
-    if config["configurable"]["recipient"]:
-        recipient = config["configurable"]["recipient"]
-    else:
-        # raise error
-        raise ValueError("No recipient provided")
+    ctx = runtime.context
+    wa_client = ctx.wa_client
+    recipient = ctx.recipient
 
     reply_to_msg_id = state.get("reply_to_msg_id", None)
     last_ai_msg = state["messages"][-1]
 
-    await _async_wa_client.send_message(
+    await wa_client.send_message(
         to=recipient, text=last_ai_msg.content, reply_to_message_id=reply_to_msg_id
     )
+
     return Command(goto=END, update={"messages": [last_ai_msg]})
 
 
-# %% Trying with context - This should hold all the config, like the model, db_client and even wa_client?
-
-from dataclasses import dataclass
-from typing_extensions import TypedDict
-
-
-@dataclass
-class ContextSchema(TypedDict):
-    user_name: str
-
-
 # %% Construct the graph
-# builder = StateGraph(state_schema=AgentState, context_schema=ContextSchema)
-builder = StateGraph(state_schema=AgentState)
+builder = StateGraph(state_schema=AgentState, context_schema=ContextSchema)
 builder.add_node("riderAgent", agent_node)
 builder.add_node("respondNode", respond_node)
 builder.add_node("toolNode", ToolNode(rider_agent_tools))
@@ -691,13 +729,13 @@ builder.add_edge("toolNode", "riderAgent")
 
 
 # %%
-from utils_common.lg_utils import display_graph
-from langgraph.checkpoint.memory import MemorySaver
+# from utils_common.lg_utils import display_graph
+# from langgraph.checkpoint.memory import MemorySaver
 
-memory = MemorySaver()
-graph = builder.compile()
+# memory = MemorySaver()
+# graph = builder.compile()
 
-display_graph(graph)
+# display_graph(graph)
 
 # %%
 
