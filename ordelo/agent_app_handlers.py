@@ -44,7 +44,6 @@ from config import (
     _sync_wa_client,
     project_settings,
     get_webhook_url,
-    client_ordelo,
 )
 from pydantic import BaseModel
 from typing import Optional
@@ -55,6 +54,7 @@ from utils_common.lg_utils import (
     get_config_for_recipient,
 )
 import pytz
+from supabase._sync.client import SyncClient
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 
 client = pg_settings.client
@@ -361,8 +361,12 @@ async def enquire_shift_availability(wa: WhatsApp, recipient: str, name: str):
                 Temp.TextValue(value=name),
             ],
             buttons=[
-                Temp.QuickReplyButtonData(data=shift_available_cb_data.model_dump_json()),
-                Temp.QuickReplyButtonData(data=shift_not_available_cb_data.model_dump_json()),
+                Temp.QuickReplyButtonData(
+                    data=shift_available_cb_data.model_dump_json()
+                ),
+                Temp.QuickReplyButtonData(
+                    data=shift_not_available_cb_data.model_dump_json()
+                ),
             ],
         ),
     )
@@ -376,12 +380,16 @@ async def enquire_shift_availability(wa: WhatsApp, recipient: str, name: str):
 
 
 async def _send_delivery_instructions(
-    dispatch_id: int, start_live_tracking_url: str, recipient: str, rider_name: str
+    dispatch_id: int,
+    start_live_tracking_url: str,
+    recipient: str,
+    rider_name: str,
+    client_ordelo: SyncClient,
+    wa_client: WhatsApp,
 ):
     """
     Sends delivery instructions (pickup and drop-off locations) via WhatsApp for a given dispatch_id.
     """
-    client = pg_settings.client
     pickup_cb_data = CallbackButtonData(
         action="/riderLocationRequest",
         recipient=recipient,
@@ -398,7 +406,7 @@ async def _send_delivery_instructions(
     )
 
     dispatch = (
-        client.table("delivery_dispatch")
+        client_ordelo.table("delivery_dispatch")
         .select("*")
         .eq("dispatch_id", dispatch_id)
         .limit(1)
@@ -408,7 +416,7 @@ async def _send_delivery_instructions(
     order_number = dispatch["order_number"]
 
     summary = (
-        client.table("delivery_summary")
+        client_ordelo.table("delivery_summary")
         .select("*")
         .eq("order_number", order_number)
         .limit(1)
@@ -435,7 +443,7 @@ Hi {rider_name}, here are the Delivery details:
 
 👨‍💻 Please let me know if you have any questions during the delivery process.
     """
-    reply_to_msg_id = await _async_wa_client.send_message(
+    reply_to_msg_id = await wa_client.send_message(
         to=recipient,
         header=f"🌟 {summary['order_number']} 🌟",
         text=body_text,

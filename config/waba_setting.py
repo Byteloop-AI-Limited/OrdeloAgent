@@ -28,7 +28,6 @@ import os
 # %%
 
 # NAMESPACE = "bloopappreview"
-# NAMESPACE = "vango"
 NAMESPACE = "bloop"
 
 
@@ -283,9 +282,9 @@ def search_available_items(search_item: str) -> List[dict]:
     filtered_records = (
         con.execute(
             f"""
-        SELECT 
-            retailer_id, name, description 
-        FROM inStockProducts 
+        SELECT
+            retailer_id, name, description
+        FROM inStockProducts
         WHERE LOWER(description) LIKE '%{search_item.lower()}%'
         """
         )
@@ -364,13 +363,13 @@ def update_inventory_following_checkout(
     conn = ddb.connect()
     print("updating update_inventory_following_checkout")
     query = """
-    select 
+    select
         id as product_id,
-        prod.retailer_id, 
-        CASE 
+        prod.retailer_id,
+        CASE
             WHEN quantity_to_sell_on_facebook - cart.quantity < 0 THEN 0
             ELSE quantity_to_sell_on_facebook - cart.quantity
-        END AS quantity_to_sell_on_facebook  
+        END AS quantity_to_sell_on_facebook
     FROM product prod
     INNER JOIN cart cart
     ON prod.retailer_id = cart.sku

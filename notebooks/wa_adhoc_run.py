@@ -17,7 +17,7 @@ from pywa.types import (
 from pywa import filters as fil
 from config.waba_setting import waba_business_settings, waba_cat_settings
 from pywa.types import Template as Temp
-
+from langgraph.prebuilt import create_react_agent
 # waba_phone_setting, waba_business_setting
 
 # %%
@@ -497,23 +497,6 @@ wa.uct(
 )
 
 # %% wa send products based on search
-
-from pywa.types import ProductsSection
-
-wa.ucts(
-    to=recipient,
-    catalog_id=waba_cat_settings.cat_id,
-    title="Tech Products",
-    body="Check out our products!",
-    product_sections=[
-        ProductsSection(title="Mutton Starters", skus=[123]),
-        ProductsSection(
-            title="Mutton Mains",
-            skus=[123],
-        ),
-    ],
-    # footer="Powered by PyWa",
-)
 
 
 # %% #! getting product feed errors report

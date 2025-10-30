@@ -29,7 +29,7 @@ limit 10;
 
 
 select *
-from delivery_detail
+from delivery_dispatch
 order by dtts desc
 limit 10;
 
