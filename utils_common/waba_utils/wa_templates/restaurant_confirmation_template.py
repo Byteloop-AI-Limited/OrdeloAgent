@@ -39,8 +39,9 @@ from config import _sync_wa_client as wa
 from config import logger
 
 # Reload to pick up any changes (e.g., app_id added)
-from config.waba_setting import _sync_wa_client as wa  # re-import after reload
+from config.waba_setting import _sync_wa_client as wa
 from config.waba_setting import waba_business_settings
+from utils_common.waba_utils.wa_senders import CallbackButtonData
 
 # %%
 
@@ -50,6 +51,95 @@ def create_template(template: Template):
 
 
 # %%
+
+restaurant_order_confirmation = Template(
+    name="restaurant_order_confirmation",
+    language=TemplateLanguage.ENGLISH_UK,
+    category=TemplateCategory.MARKETING,
+    parameter_format=ParamFormat.NAMED,
+    components=[
+        hdr_offer := HeaderText(
+            text="Order {{order_number_amount}}",
+            order_number_amount="12345 £25.00",
+        ),
+        bdy_offer := BodyText(
+            "Hi \nOrder Details : {{order_items}} \nPlease Accept or Decline:\n",
+            order_items="2x Butter Chicken, 2x Naan",
+        ),
+        Buttons(
+            buttons=[
+                qrb_accept := QuickReplyButton(
+                    text="Accept",
+                ),
+                qrb_decline := QuickReplyButton(
+                    text="Decline",
+                ),
+            ]
+        ),
+    ],
+)
+
+# have a create template function
+# %%
+# create_template(restaurant_order_confirmation)
+
+
+# %%
+
+
+def send_restaurant_order_confirmation(
+    recipient: str,
+    order_number: str,
+    order_amount: str,
+    order_items: str,
+    order_time: int,
+) -> Message:
+    """Send the restaurant_order_offer template."""
+    accept_button = CallbackButtonData(
+        action="/RestaurantOrder-Accept",
+        order_number=order_number,
+        order_time=order_time,
+    )
+    decline_button = CallbackButtonData(
+        action="/RestaurantOrder-Decline",
+        order_number=order_number,
+        order_time=order_time,
+    )
+    logger.info(decline_button.model_dump_json())
+    return wa.send_template(
+        to=recipient,
+        name="restaurant_order_confirmation",
+        language=TemplateLanguage.ENGLISH_UK,
+        params=[
+            HeaderText.params(order_number_amount=order_number + " " + order_amount),
+            bdy_offer.params(
+                order_items=order_items,
+            ),
+            qrb_accept.params(
+                callback_data=accept_button.model_dump_json(),
+                index=0,
+            ),
+            qrb_decline.params(
+                callback_data=decline_button.model_dump_json(),
+                index=1,
+            ),
+        ],
+    )
+
+
+# %%
+
+# response = send_restaurant_order_confirmation(
+#     recipient="447448440754",
+#     order_number="12345",
+#     order_amount="£25.00",
+#     order_items="2x Butter Chicken, 2x Naan",
+# )
+
+# %%
+# print(response.id)
+
+# %% Pickup template - works, but not used. Reference for future template.
 
 restaurant_pickup_time_confirmation = Template(
     name="restaurant_pickup_time3",
@@ -143,92 +233,3 @@ def send_restaurant_pickup_time_confirmation(
 #     pickup_two="12:30 PM",
 #     pickup_three="1:00 PM",
 # )
-
-# %%
-restaurant_order_confirmation = Template(
-    name="restaurant_order_confirmation",
-    language=TemplateLanguage.ENGLISH_UK,
-    category=TemplateCategory.MARKETING,
-    parameter_format=ParamFormat.NAMED,
-    components=[
-        hdr_offer := HeaderText(
-            text="Order {{order_number_amount}}",
-            order_number_amount="12345 £25.00",
-        ),
-        bdy_offer := BodyText(
-            "Hi \nOrder Details : {{order_items}} \n"
-            "Please Accept or Decline the order:\n",
-            order_items="2x Butter Chicken, 2x Naan",
-        ),
-        Buttons(
-            buttons=[
-                qrb_accept := QuickReplyButton(
-                    text="Accept",
-                ),
-                qrb_decline := QuickReplyButton(
-                    text="Decline",
-                ),
-            ]
-        ),
-    ],
-)
-# have a create template function
-# %%
-# create_template(restaurant_order_confirmation)
-
-# %%
-from elai.agent_wa_senders import CallbackButtonData
-
-
-def send_restaurant_order_confirmation(
-    recipient: str,
-    order_number: str,
-    order_amount: str,
-    order_items: str,
-) -> Message:
-    """Send the restaurant_order_offer template."""
-    accept_button = CallbackButtonData(
-        action="/RestaurantOrder-Accept",
-        recipient=recipient,
-        ai_msg="",
-        human_msg="",
-        response=f"{order_number}",
-    )
-    decline_button = CallbackButtonData(
-        action="/RestaurantOrder-Decline",
-        recipient=recipient,
-        ai_msg="",
-        human_msg="",
-        response=f"{order_number}",
-    )
-    return wa.send_template(
-        to=recipient,
-        name="restaurant_order_confirmation",
-        language=TemplateLanguage.ENGLISH_UK,
-        params=[
-            HeaderText.params(order_number_amount=order_number + " " + order_amount),
-            bdy_offer.params(
-                order_items=order_items,
-            ),
-            qrb_accept.params(
-                callback_data=accept_button.model_dump_json(),
-                index=0,
-            ),
-            qrb_decline.params(
-                callback_data=decline_button.model_dump_json(),
-                index=1,
-            ),
-        ],
-    )
-
-
-# %%
-
-# response = send_restaurant_order_confirmation(
-#     recipient="447448440754",
-#     order_number="12345",
-#     order_amount="£25.00",
-#     order_items="2x Butter Chicken, 2x Naan",
-# )
-# %%
-print(response)
