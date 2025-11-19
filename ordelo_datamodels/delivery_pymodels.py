@@ -47,6 +47,9 @@ class DeliverySummary(BaseModel):
     status: str
     rest_confirmation_code: int
     cust_confirmation_code: int
+    rest_confirmed_at: Optional[datetime] = None
+    rest_prep_time_minutes: Optional[int] = None
+    rest_confirmation_method: Optional[str] = None
     pickup_time: datetime
     pickup_date: date
     dt: date

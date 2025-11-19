@@ -50,6 +50,8 @@ from watomation.on_callback_wa_handler import (
     dispatch_response,
     rider_request_location,
     handle_shift_availability,
+    handle_restaurant_confirmation,
+    restaurant_order_accept_decline_handler,
 )
 from watomation.on_flow_request_wa_handler import (
     on_customer_address_flow,
@@ -116,6 +118,12 @@ WHEN_RESET = filters.contains("/reset", ignore_case=True)
 IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 IS_LOCATION_REQUEST = filters.contains("/riderLocationRequest", ignore_case=False)
 IS_SHIFT_AVAILABILITY = filters.contains("/shiftAvailability", ignore_case=False)
+IS_RESTAURANT_CONFIRMATION = filters.contains(
+    "/restaurantConfirmation", ignore_case=False
+)
+IS_RESTAURANT_ORDER_ACCEPT_DECLINE = filters.contains(
+    "/RestaurantOrder", ignore_case=False
+)
 
 
 # %% Add WA On Msg handlers
@@ -138,6 +146,13 @@ wa.add_handlers(
     ),
     handlers.CallbackButtonHandler(
         callback=handle_shift_availability, filters=IS_SHIFT_AVAILABILITY
+    ),
+    handlers.CallbackButtonHandler(
+        callback=handle_restaurant_confirmation, filters=IS_RESTAURANT_CONFIRMATION
+    ),
+    handlers.CallbackButtonHandler(
+        callback=restaurant_order_accept_decline_handler,
+        filters=IS_RESTAURANT_ORDER_ACCEPT_DECLINE,
     ),
     handlers.FlowCompletionHandler(callback=on_customer_address_flow_completion),
 )

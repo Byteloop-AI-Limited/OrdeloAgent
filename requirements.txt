@@ -18,7 +18,7 @@ langchain-openai==0.3.32
 langchain-community
 # langgraph==0.2.70
 # langgraph-cli[inmem]
-pywa==2.11.0
+pywa==3.4.0
 pywa[cryptography]
 # data transforms
 supabase==2.15.3
