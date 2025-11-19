@@ -7,9 +7,12 @@ WhatsApp callback button handler for delivery dispatch responses
     . Provides feedback to riders about dispatch status
     . Checks for existing inflight deliveries to prevent conflicts
     . Serves as entry point into the LangGraph agent workflow
+    . Processes restaurant confirmation of food preparation time
   Functions/Classes:
     . dispatch_response - Processes rider responses to delivery dispatch assignments
     . rider_request_location - Handles rider requests for location information
+    . handle_shift_availability - Handles rider shift availability responses
+    . handle_restaurant_confirmation - Processes restaurant prep time confirmation
 """
 
 # %%
@@ -22,6 +25,9 @@ import json
 from ordelo.agent_app_handlers import initial_handle_of_rider_response
 from config import pg_settings, client_ordelo
 from ordelo.agents.agent_runner import run_rider_graph
+from utils_common.waba_utils.wa_senders import CallbackButtonData
+from utils_common.waba_utils.wa_senders import restaurant_pickup_time
+from pywa.types import CallbackButton
 # %%
 
 
@@ -134,3 +140,91 @@ async def handle_shift_availability(wa: WhatsApp, msg: Message):
             .execute()
         )
         logger.info(f"Ended shift status for rider {recipient}")
+
+
+# %% Restaurant order confirmation
+async def restaurant_order_accept_decline_handler(wa: WhatsApp, msg: Message):
+    callback_data: CallbackButtonData = CallbackButtonData(**json.loads(msg.data))
+    # Callback data created in send_restaurant_order_confirmation, in utils_common.waba_utils.wa_templates.restaurant_confirmation_template
+
+    order_number = callback_data.order_number
+    order_time = callback_data.order_time
+    recipient = msg.sender
+
+    logger.info(f"Restaurant order confirmation: {order_number}")
+
+    if "Accept" in callback_data.action:
+        result = await restaurant_pickup_time(
+            recipient=recipient,
+            header="Header",
+            text="Text",
+            order_number=order_number,
+            order_time_epoch=order_time,
+            intervals_mins=[5, 10, 25],
+        )
+
+        logger.info(f"ReplyToMsgId: {result}")
+        # TODO: Implement accept logic
+        pass
+    elif "Decline" in callback_data.action:
+        logger.info("Restaurant declined the order")
+        # TODO: Implement decline logic
+        pass
+
+    return
+
+
+# %% Restaurant order confirmation
+
+
+async def handle_restaurant_confirmation(wa: WhatsApp, msg: Message):
+    """
+    Handles restaurant confirmation callback from WhatsApp buttons.
+
+    Callback data structure:
+    {
+        "command": "/restaurantConfirmation",
+        "order_number": "REST-12345",
+        "prep_time_minutes": 15
+    }
+    """
+    try:
+        sender = msg.sender
+        callback_data: CallbackButtonData = json.loads(msg.data)
+
+        order_number = callback_data.get("order_number")
+        prep_time_minutes = callback_data.get("prep_time_minutes")
+
+        logger.info(
+            f"Restaurant confirmation received: order={order_number}, prep_time={prep_time_minutes}min, sender={sender}"
+        )
+
+        # Call database function to update
+        result = client_ordelo.rpc(
+            "handle_restaurant_confirmation",
+            {"p_order_number": order_number, "p_prep_time_minutes": prep_time_minutes},
+        ).execute()
+
+        if result.data:
+            await wa.send_message(
+                to=sender,
+                text=f"✅ Confirmed! Food will be ready in {prep_time_minutes} minutes.\n\nDriver will be dispatched accordingly.",
+            )
+            logger.info(
+                f"Restaurant confirmed {prep_time_minutes}min for order {order_number}"
+            )
+        else:
+            await wa.send_message(
+                to=sender,
+                text="⚠️ This order has already been confirmed or is no longer pending.",
+            )
+            logger.warning(
+                f"Restaurant confirmation failed for order {order_number} - already confirmed or not found"
+            )
+
+    except Exception as e:
+        logger.error(f"Error handling restaurant confirmation: {e}")
+        await wa.send_message(
+            to=msg.sender,
+            text="❌ Error processing confirmation. Please contact support.",
+        )

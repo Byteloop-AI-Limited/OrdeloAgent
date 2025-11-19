@@ -41,7 +41,7 @@ class RestaurantMaster(BaseModel):
         resp = (
             client_ordelo.table("restaurant_master")
             .select("*")
-            .eq("rest_ref", rest_ref)
+            .eq("rest_ref", rest_ref.upper())
             .execute()
         )
         data = (
@@ -83,4 +83,6 @@ class RestaurantMaster(BaseModel):
 
 
 # %%
-# RestaurantMaster.from_rest_ref("ELAB").get_admins()
+RestaurantMaster.from_rest_ref("wren")
+# from config import client_ordelo
+# client_ordelo.table("restaurant_master").select("*").eq("rest_ref", "WREN").execute()

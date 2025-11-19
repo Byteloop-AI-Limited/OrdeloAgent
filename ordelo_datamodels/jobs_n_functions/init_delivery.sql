@@ -134,12 +134,12 @@ BEGIN
         v_customer_lon,
         v_customer_lat,
         v_customer_address,
-        'unassigned',
+        'restaurant_unconfirmed',
         v_rest_confirmation_code,
         v_cust_confirmation_code
     );
     -- kick off process_delivery; May be add condition on pickup_time
-    PERFORM process_delivery();
+    -- PERFORM process_delivery();
     RETURN p_order_number;
 END;
 $$ LANGUAGE plpgsql;
