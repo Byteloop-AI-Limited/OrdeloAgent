@@ -9,6 +9,8 @@ Delivery webhook handlers for Ordelo delivery system
     . Follows webhook pattern where database triggers call FastAPI endpoints
     . Handles empty payloads gracefully in endpoints
     . Manages thread lifecycle including automatic closure for inactive threads
+    . Implements restaurant confirmation touchpoint before rider dispatch
+    . Uses module-level WhatsApp client for confirmation workflow
   Functions/Classes:
     . get_payload - Helper to parse webhook payloads
     . wa_send_delivery_dispatch_request_to_rider - Notifies riders via WhatsApp
@@ -22,9 +24,11 @@ Delivery webhook handlers for Ordelo delivery system
     . delivery_timedout - Handles delivery timeout events
     . check_rider_allocation_status - Checks rider allocation status
     . shift_availability_enquiry_hook - Processes shift availability enquiries
+    . restaurant_confirmation_request_hook - Sends prep time confirmation request to restaurant
     . close_threads - Closes inactive threads and sends goodbye messages
 """
 
+# %%
 from fastapi import APIRouter, Request, Depends, BackgroundTasks
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
 from config import logger, _async_wa_client, pg_settings
@@ -40,6 +44,9 @@ import httpx
 from ordelo.agents.agent_runner import init_ordelo_graph
 from ordelo.agents.agent_runner import run_rider_graph
 from ordelo.agent_app_handlers import enquire_shift_availability
+from utils_common.waba_utils.wa_templates.restaurant_confirmation_template import (
+    send_restaurant_order_confirmation,
+)
 
 
 # %% Define Dependancies and routes
@@ -638,3 +645,87 @@ async def shift_availability_enquiry_hook(
         logger.info("No active riders found in the enquiry")
 
     return {"status": "success", "riders_processed": len(riders), "data": payload}
+
+
+# send_restaurant_order_confirmation - Should be imported from utils_common.waba_utils.templates.restaurant_confirmation_template
+@router.post("/restaurant-confirmation-request")
+async def restaurant_confirmation_request_hook(
+    payload: dict = Depends(get_payload),
+):
+    """
+    Webhook triggered when a new order is created in delivery_summary table and needs restaurant confirmation.
+    Template send to restaurant -> confirm -> get pickupTime -> update time in summary table and status to unassigned.
+    Kicks off the rider allocation process.
+
+    Triggered by: Database trigger on delivery_summary INSERT with status='restaurant_unconfirmed'
+    #Todo: Action type should be present, also total food order value
+
+    Payload structure:
+    {
+        "order_number": "REST-12345",
+        "rest_id": "rest_001",
+        "rest_name": "Restaurant Name",
+        "created_at": "2025-11-18T14:00:00Z"
+    }
+
+    Returns:
+        dict: Status of the operation and order_number
+    """
+    try:
+        order_number = payload.get("order_number")
+        rest_id = payload.get("rest_id")
+        rest_name = payload.get("rest_name")
+        order_time = payload.get("order_time")
+
+        logger.info(
+            f"Restaurant confirmation request for order {order_number}, rest_id: {rest_id}, order_time: {order_time}, {type(order_time)}"
+        )
+        # Convert order_time to epoch time
+        order_time_dt = datetime.fromisoformat(order_time)
+        order_time_epoch = int(order_time_dt.timestamp())
+
+        wa_response = send_restaurant_order_confirmation(
+            recipient="447448440754",
+            order_number=order_number,
+            order_amount="£25.00",
+            order_items="2x Butter Chicken, 2x Naan",
+            order_time=order_time_epoch,
+        )
+        logger.info(f"WhatsApp response: {wa_response}")
+        # Get restaurant contact from restaurant_master
+
+        restaurant = (
+            client.table("restaurant_master")
+            .select("admins")
+            .eq("rest_id", rest_id)
+            .single()
+            .execute()
+        )
+
+        if not restaurant.data or not restaurant.data.get("admins"):
+            logger.error(f"No admin contacts found for restaurant {rest_id}")
+            return {
+                "status": "error",
+                "message": "No restaurant contacts",
+                "order_number": order_number,
+            }
+
+        # Get first admin contact
+        admin_phone = restaurant.data["admins"][0]
+
+        logger.info(
+            f"Restaurant confirmation request sent for order {order_number} to {admin_phone}"
+        )
+        return {
+            "status": "success",
+            "order_number": order_number,
+            "sent_to": admin_phone,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in restaurant_confirmation_request_hook: {e}")
+        return {
+            "status": "error",
+            "message": str(e),
+            "order_number": payload.get("order_number"),
+        }

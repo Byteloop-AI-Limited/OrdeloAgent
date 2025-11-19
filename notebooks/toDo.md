@@ -1,7 +1,6 @@
 ## Immediate
-- Add pg_settings/client_ordelo and _async_wa_client to ctx. To avoid calling user_name over and over, retain the fetch the username in setup node or init_graph call.
+- Move food_order tables to Ordelo
 - When rider declines an already accepted job, before collecting the food, Ask for confirmation. Upon confirmation, cleanup so dispatches are resumed. Clean up inflight, update order status to available.
-- Debug payment capture error
 
 ## Delivery flow - Agent
 - Remove the init_ordelo_graph, work on the setup node and add get_journey_instructions

@@ -43,6 +43,12 @@ SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
 
 INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('ORDELO_APP_URL', 'https://agent.ordelo.app', 'URL for ordelo app') ON CONFLICT (config_key) DO
+UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description;
+
+INSERT INTO ordelo_config (config_key, config_value, description)
 VALUES ('LOCATION_ENABLE_TIME_INTERVAL', '1', 'Time interval in minutes for location enable') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
@@ -54,6 +60,11 @@ UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
 
+
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES 
+  ('RESTAURANT_CONFIRMATION_TIMEOUT', '5', 'Default minutes to wait for restaurant confirmation before defaulting to max prep time')
+ON CONFLICT (config_key) DO NOTHING;
 
 select *
 from ordelo_config;
