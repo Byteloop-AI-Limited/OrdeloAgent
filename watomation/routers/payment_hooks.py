@@ -74,23 +74,26 @@ async def payment_complete_path(request: Request, background_tasks: BackgroundTa
 # %%
 
 
-def init_delivery_task(order_number: str, recipient: str):
+def init_delivery_summary(order_number: str, recipient: str):
     """Background task to initialize delivery via RPC call."""
     try:
-        client.rpc(
+        response = client.rpc(
             "init_delivery", {"p_cust_id": recipient, "p_order_number": order_number}
         ).execute()
-        logger.info(f"init_delivery completed for order {order_number}")
+        logger.info(
+            f"init_delivery completed for order {order_number} with response {response}"
+        )
     except Exception as e:
         logger.error(f"init_delivery failed for order {order_number}: {e}")
 
 
-# @router.post("/payment-complete-test/{order_number}")
-# async def payment_complete_test_path(
-#     order_number: str,
-#     background_tasks: BackgroundTasks,
-#     recipient: str = "447448440754",
-# ):
-#     # Add RPC call to background tasks to avoid blocking and timeout
-#     background_tasks.add_task(init_delivery_task, order_number, recipient)
-#     return {"success": "success"}
+@router.post("/payment-complete-test/{order_number}")
+async def payment_complete_test_path(
+    order_number: str,
+    background_tasks: BackgroundTasks,
+    recipient: str = "447448440754",
+):
+    # ELAS-KDDV-21 i want to highlight this example in the docstring
+    # Add RPC call to background tasks to avoid blocking and timeout
+    background_tasks.add_task(init_delivery_summary, order_number, recipient)
+    return {"success": "success"}
