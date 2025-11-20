@@ -28,11 +28,13 @@ CREATE TABLE delivery_summary (
 
 -- Triggers on delivery_summary table
 -- Trigger 1: On new record with status='restaurant_unconfirmed'
-CREATE OR REPLACE TRIGGER trigger_restaurant_confirmation_request AFTER 
-INSERT ON delivery_summary FOR EACH ROW
+CREATE OR REPLACE TRIGGER trigger_restaurant_confirmation_request 
+AFTER INSERT ON public.delivery_summary 
+FOR EACH ROW 
 WHEN (NEW.status = 'restaurant_unconfirmed')
 EXECUTE FUNCTION restaurant_confirmation_whook();
 
+drop trigger trigger_restaurant_confirmation_request on delivery_summary;
 -- Trigger2: On status change to timeout
 
 CREATE OR REPLACE TRIGGER trigger_delivery_summary_timedout AFTER
@@ -46,9 +48,15 @@ FOR EACH ROW WHEN (OLD.status <> 'timedout'
 /** description: restaurant_confirmation_whook
  *  purpose: Sends a webhook request to the Ordelo app when a new order is created with status 'restaurant_unconfirmed'
  *  parameters: 
- *    - NEW: The new record being inserted
+ *    - NEW: The new delivery_summary record being inserted
  *  returns: 
  *    - TRIGGER: The trigger object
+ *  notes:
+ *    - Triggered on delivery_summary INSERT with status='restaurant_unconfirmed'
+ *    - Builds delivery_summary JSON from NEW record (all fields)
+ *    - Joins with food_order table using order_number
+ *    - Fetches order items from order_item table
+ *    - Constructs JSON matching RestaurantConfirmationPayload model (DeliverySummaryData + FoodOrder + List[OrderItem])
  */
 CREATE OR REPLACE FUNCTION restaurant_confirmation_whook()
 RETURNS TRIGGER AS $$
@@ -57,17 +65,135 @@ DECLARE
   ordelo_app_url text;
   webhook_url text;
   response json;
+  delivery_summary_json json;
+  food_order_json json;
+  order_items_json json;
+  food_order_id text;
+  p_log_to_table BOOLEAN := TRUE; -- Default to TRUE, can be controlled via config
 BEGIN
+  -- Check if logging is enabled (can be disabled via ordelo_config table)
+  BEGIN
+    SELECT COALESCE((config_value::BOOLEAN), TRUE) INTO p_log_to_table
+    FROM ordelo_config 
+    WHERE config_key = 'ENABLE_TRIGGER_DEBUG_LOG';
+  EXCEPTION
+    WHEN OTHERS THEN
+      p_log_to_table := TRUE; -- Default to TRUE if config not found
+  END;
+
+  -- Log trigger fired
+  IF p_log_to_table THEN
+    INSERT INTO debug_log (trigger_name, order_number, message)
+    VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Trigger fired, status: ' || NEW.status);
+  END IF;
+
   -- Only trigger for new restaurant_unconfirmed orders
   IF NEW.status = 'restaurant_unconfirmed' THEN
     
-    -- Build payload
+    IF p_log_to_table THEN
+      INSERT INTO debug_log (trigger_name, order_number, message)
+      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Status check passed - restaurant_unconfirmed');
+    END IF;
+    
+    -- Build delivery_summary JSON from NEW record
     SELECT json_build_object(
       'order_number', NEW.order_number,
       'rest_id', NEW.rest_id,
       'rest_name', NEW.rest_name,
-      'order_time', NEW.dtts
+      'rest_lon', NEW.rest_lon,
+      'rest_lat', NEW.rest_lat,
+      'rest_address', NEW.rest_address,
+      'town', NEW.town,
+      'customer_id', NEW.customer_id,
+      'customer_name', NEW.customer_name,
+      'customer_lon', NEW.customer_lon,
+      'customer_lat', NEW.customer_lat,
+      'customer_address', NEW.customer_address,
+      'status', NEW.status,
+      'rest_confirmation_code', NEW.rest_confirmation_code,
+      'cust_confirmation_code', NEW.cust_confirmation_code,
+      'rest_confirmed_at', NEW.rest_confirmed_at,
+      'rest_prep_time_minutes', NEW.rest_prep_time_minutes,
+      'rest_confirmation_method', NEW.rest_confirmation_method,
+      'pickup_time', NEW.pickup_time,
+      'pickup_date', NEW.pickup_date,
+      'dt', NEW.dt,
+      'dtts', NEW.dtts
+    ) INTO delivery_summary_json;
+    
+    IF p_log_to_table THEN
+      INSERT INTO debug_log (trigger_name, order_number, message)
+      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Delivery summary JSON built');
+    END IF;
+    
+    -- Fetch food_order data by order_number and build JSON
+    SELECT 
+      json_build_object(
+        'order_id', fo.order_id,
+        'order_number', fo.order_number,
+        'seq_id', fo.seq_id,
+        'recipient', fo.recipient,
+        'thread_id', fo.thread_id,
+        'action', fo.action,
+        'total_price', fo.total_price,
+        'final_order_value', fo.final_order_value,
+        'rest_cost', fo.rest_cost,
+        'service_charge', fo.service_charge,
+        'delivery_fee', fo.delivery_fee,
+        'small_order_fee', fo.small_order_fee,
+        'commission_rate', fo.commission_rate,
+        'payment_status', fo.payment_status
+      ),
+      fo.order_id
+    INTO food_order_json, food_order_id
+    FROM food_order fo
+    WHERE fo.order_number = NEW.order_number;
+    
+    -- Check if food_order was found
+    IF food_order_json IS NULL THEN
+      IF p_log_to_table THEN
+        INSERT INTO debug_log (trigger_name, order_number, message)
+        VALUES ('restaurant_confirmation_whook', NEW.order_number, 'WARNING: No food_order found for order_number');
+      END IF;
+      RAISE WARNING 'No food_order found for order_number %', NEW.order_number;
+      RETURN NEW;
+    END IF;
+    
+    IF p_log_to_table THEN
+      INSERT INTO debug_log (trigger_name, order_number, message)
+      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Food order found: ' || food_order_id);
+    END IF;
+    
+    -- Fetch order items for this order
+    SELECT json_agg(
+      json_build_object(
+        'order_id', oi.order_id,
+        'sku', oi.sku,
+        'quantity', oi.quantity,
+        'price', oi.price,
+        'product_name', oi.product_name
+      )
+    )
+    INTO order_items_json
+    FROM order_item oi
+    WHERE oi.order_id = food_order_id;
+    
+    IF p_log_to_table THEN
+      INSERT INTO debug_log (trigger_name, order_number, message)
+      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Order items fetched, count: ' || COALESCE(json_array_length(order_items_json), 0));
+    END IF;
+    
+    -- Build complete webhook payload with all three components
+    SELECT json_build_object(
+      'delivery_summary', delivery_summary_json,
+      'food_order', food_order_json,
+      'order_items', COALESCE(order_items_json, '[]'::json)
     ) INTO webhook_payload;
+    
+    IF p_log_to_table THEN
+      INSERT INTO debug_log (trigger_name, order_number, message, payload)
+      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Complete webhook payload built', webhook_payload::jsonb);
+    END IF;
     
     -- Get webhook URL from config
     SELECT config_value INTO ordelo_app_url 
@@ -80,6 +206,11 @@ BEGIN
     
     webhook_url := ordelo_app_url || '/delivery-hooks/restaurant-confirmation-request';
     
+    IF p_log_to_table THEN
+      INSERT INTO debug_log (trigger_name, order_number, message)
+      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Webhook URL: ' || webhook_url);
+    END IF;
+    
     -- Make HTTP POST
     response := (
       SELECT content
@@ -90,10 +221,28 @@ BEGIN
       )
     );
     
+    IF p_log_to_table THEN
+      INSERT INTO debug_log (trigger_name, order_number, message, payload)
+      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'HTTP response received', response::jsonb);
+    END IF;
+    
     RAISE NOTICE 'Restaurant confirmation request sent for order %: %', NEW.order_number, response;
+  ELSE
+    IF p_log_to_table THEN
+      INSERT INTO debug_log (trigger_name, order_number, message)
+      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Status check failed, current status: ' || NEW.status);
+    END IF;
   END IF;
   
   RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    IF p_log_to_table THEN
+      INSERT INTO debug_log (trigger_name, order_number, message)
+      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'ERROR: ' || SQLERRM);
+    END IF;
+    RAISE WARNING 'Error in restaurant_confirmation_whook for order %: %', NEW.order_number, SQLERRM;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
