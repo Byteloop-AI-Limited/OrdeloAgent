@@ -253,10 +253,44 @@ set STATUS='assigned' --set STATUS='completed'
 where ORDER_NUMBER='faef370445774ab6aef91b6b1904470a';
 
 select * from restaurant_master;
+
 select * from delivery_summary order by dtts desc;
+update delivery_summary set status='restaurant_unconfirmed' where order_number='ELAS-KDDV-21';
+update delivery_summary set status='restaurant_accept' where order_number='ELAS-KDDV-21';
+update delivery_summary set status='restaurant_decline' where order_number='ELAS-KDDV-21';
+
 select * from rider_location where order_number='ELAB-XBCL-21' order by dtts desc limit 100;
 
+-- Drop the old constraint
+ALTER TABLE delivery_summary 
+DROP CONSTRAINT delivery_summary_status_check;
 
+-- Add the updated constraint with new restaurant statuses
+ALTER TABLE delivery_summary 
+ADD CONSTRAINT delivery_summary_status_check 
+CHECK (status IN (
+    'restaurant_unconfirmed', 
+    'restaurant_accept', 
+    'restaurant_decline',
+    'unassigned', 
+    'timedout', 
+    'assigned', 
+    'completed'
+));
+ALTER TABLE delivery_summary 
+ADD CONSTRAINT delivery_summary_status_check 
+CHECK (status IN (
+    'restaurant_unconfirmed', 
+    'restaurant_accept', 
+    'restaurant_decline',
+    'unassigned', 
+    'timedout', 
+    'assigned', 
+    'completed'
+));
+
+-- Or simpler view
+\d delivery_summary
 SELECT * FROM pg_trigger WHERE tgname = 'trigger_restaurant_confirmation_request';
 
 SELECT restaurant_confirmation_whook();
