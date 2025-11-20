@@ -254,3 +254,10 @@ where ORDER_NUMBER='faef370445774ab6aef91b6b1904470a';
 
 
 select * from rider_location where order_number='ELAB-XBCL-21' order by dtts desc limit 100;
+
+
+SELECT * FROM pg_trigger WHERE tgname = 'trigger_restaurant_confirmation_request';
+
+SELECT restaurant_confirmation_whook();
+SHOW log_directory;
+SHOW log_filename;

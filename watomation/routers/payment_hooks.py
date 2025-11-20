@@ -85,12 +85,12 @@ def init_delivery_task(order_number: str, recipient: str):
         logger.error(f"init_delivery failed for order {order_number}: {e}")
 
 
-@router.post("/payment-complete-test/{order_number}")
-async def payment_complete_test_path(
-    order_number: str,
-    background_tasks: BackgroundTasks,
-    recipient: str = "447448440754",
-):
-    # Add RPC call to background tasks to avoid blocking and timeout
-    background_tasks.add_task(init_delivery_task, order_number, recipient)
-    return {"success": "success"}
+# @router.post("/payment-complete-test/{order_number}")
+# async def payment_complete_test_path(
+#     order_number: str,
+#     background_tasks: BackgroundTasks,
+#     recipient: str = "447448440754",
+# ):
+#     # Add RPC call to background tasks to avoid blocking and timeout
+#     background_tasks.add_task(init_delivery_task, order_number, recipient)
+#     return {"success": "success"}

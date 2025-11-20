@@ -11,7 +11,10 @@ Delivery webhook handlers for Ordelo delivery system
     . Manages thread lifecycle including automatic closure for inactive threads
     . Implements restaurant confirmation touchpoint before rider dispatch
     . Uses module-level WhatsApp client for confirmation workflow
+    . Uses DeliverySummaryData, FoodOrder and OrderItem Pydantic models for restaurant confirmation payload
   Functions/Classes:
+    . DeliverySummaryData - Pydantic model for delivery_summary table fields
+    . RestaurantConfirmationPayload - Pydantic model for restaurant confirmation webhook
     . get_payload - Helper to parse webhook payloads
     . wa_send_delivery_dispatch_request_to_rider - Notifies riders via WhatsApp
     . post_rider_event_inflight - Posts delivery summary to webhook
@@ -24,7 +27,7 @@ Delivery webhook handlers for Ordelo delivery system
     . delivery_timedout - Handles delivery timeout events
     . check_rider_allocation_status - Checks rider allocation status
     . shift_availability_enquiry_hook - Processes shift availability enquiries
-    . restaurant_confirmation_request_hook - Sends prep time confirmation request to restaurant
+    . restaurant_confirmation_request_hook - Accepts FoodOrder and List[OrderItem] for restaurant confirmation
     . close_threads - Closes inactive threads and sends goodbye messages
 """
 
@@ -47,6 +50,10 @@ from ordelo.agent_app_handlers import enquire_shift_availability
 from utils_common.waba_utils.wa_templates.restaurant_confirmation_template import (
     send_restaurant_order_confirmation,
 )
+from utils_common.order_management.food_order_pymodel import FoodOrder
+from utils_common.order_management.order_db_ops_new import OrderItem
+from pydantic import BaseModel
+from typing import List, Optional
 
 
 # %% Define Dependancies and routes
@@ -57,6 +64,42 @@ async def get_payload(request: Request):
 client = pg_settings.client
 
 router = APIRouter(tags=["delivery_hooks"])
+
+
+# %% Payload Models
+class DeliverySummaryData(BaseModel):
+    """Delivery summary fields from delivery_summary table."""
+
+    order_number: str
+    rest_id: str
+    rest_name: str
+    rest_lon: float
+    rest_lat: float
+    rest_address: str
+    town: str
+    customer_id: str
+    customer_name: str
+    customer_lon: float
+    customer_lat: float
+    customer_address: str
+    status: str
+    rest_confirmation_code: int
+    cust_confirmation_code: int
+    rest_confirmed_at: Optional[str] = None
+    rest_prep_time_minutes: Optional[int] = None
+    rest_confirmation_method: Optional[str] = None
+    pickup_time: str
+    pickup_date: str
+    dt: str
+    dtts: str
+
+
+class RestaurantConfirmationPayload(BaseModel):
+    """Payload model for restaurant confirmation webhook."""
+
+    delivery_summary: DeliverySummaryData
+    food_order: FoodOrder
+    order_items: List[OrderItem]
 
 
 # %% supporting functions
@@ -653,72 +696,83 @@ async def restaurant_confirmation_request_hook(
     payload: dict = Depends(get_payload),
 ):
     """
-    Webhook triggered when a new order is created in delivery_summary table and needs restaurant confirmation.
+    Webhook triggered when a new order is created and needs restaurant confirmation.
     Template send to restaurant -> confirm -> get pickupTime -> update time in summary table and status to unassigned.
     Kicks off the rider allocation process.
 
-    Triggered by: Database trigger on delivery_summary INSERT with status='restaurant_unconfirmed'
-    #Todo: Action type should be present, also total food order value
+    Triggered by: Database trigger on food_order INSERT with payment_status='requires_payment'
 
     Payload structure:
     {
-        "order_number": "REST-12345",
-        "rest_id": "rest_001",
-        "rest_name": "Restaurant Name",
-        "created_at": "2025-11-18T14:00:00Z"
+        "delivery_summary": DeliverySummaryData model data,
+        "food_order": FoodOrder model data,
+        "order_items": List[OrderItem] model data
     }
 
     Returns:
         dict: Status of the operation and order_number
     """
     try:
-        order_number = payload.get("order_number")
-        rest_id = payload.get("rest_id")
-        rest_name = payload.get("rest_name")
-        order_time = payload.get("order_time")
+        # Parse payload into Pydantic models
+        confirmation_payload = RestaurantConfirmationPayload(**payload)
+        delivery_summary = confirmation_payload.delivery_summary
+        food_order = confirmation_payload.food_order
+        order_items = confirmation_payload.order_items
 
         logger.info(
-            f"Restaurant confirmation request for order {order_number}, rest_id: {rest_id}, order_time: {order_time}, {type(order_time)}"
+            f"Restaurant confirmation request for order {food_order.order_number}, "
+            f"rest_id: {delivery_summary.rest_id}, rest_name: {delivery_summary.rest_name}, "
+            f"total_price: {food_order.total_price}, order_time: {delivery_summary.dtts}"
         )
-        # Convert order_time to epoch time
-        order_time_dt = datetime.fromisoformat(order_time)
+
+        # Build order items summary string
+        order_items_str = ", ".join(
+            [f"{item.quantity}x {item.product_name}" for item in order_items]
+        )
+
+        # Calculate total order amount
+        order_amount = f"£{food_order.total_price:.2f}"
+
+        # Get order time from delivery_summary.dtts and convert to epoch time
+        order_time_dt = datetime.fromisoformat(delivery_summary.dtts)
         order_time_epoch = int(order_time_dt.timestamp())
 
-        wa_response = send_restaurant_order_confirmation(
-            recipient="447448440754",
-            order_number=order_number,
-            order_amount="£25.00",
-            order_items="2x Butter Chicken, 2x Naan",
-            order_time=order_time_epoch,
-        )
-        logger.info(f"WhatsApp response: {wa_response}")
-        # Get restaurant contact from restaurant_master
-
+        # Get restaurant info from delivery_summary
         restaurant = (
             client.table("restaurant_master")
             .select("admins")
-            .eq("rest_id", rest_id)
+            .eq("rest_id", delivery_summary.rest_id)
             .single()
             .execute()
         )
 
         if not restaurant.data or not restaurant.data.get("admins"):
-            logger.error(f"No admin contacts found for restaurant {rest_id}")
+            logger.error(
+                f"No admin contacts found for restaurant {delivery_summary.rest_id}"
+            )
             return {
                 "status": "error",
                 "message": "No restaurant contacts",
-                "order_number": order_number,
+                "order_number": food_order.order_number,
             }
-
         # Get first admin contact
         admin_phone = restaurant.data["admins"][0]
 
+        wa_response = send_restaurant_order_confirmation(
+            recipient=admin_phone,
+            order_number=food_order.order_number,
+            order_amount=order_amount,
+            order_items=order_items_str,
+            order_time=order_time_epoch,
+        )
+        logger.info(f"WhatsApp response: {wa_response}")
+
         logger.info(
-            f"Restaurant confirmation request sent for order {order_number} to {admin_phone}"
+            f"Restaurant confirmation request sent for order {food_order.order_number} to {admin_phone}"
         )
         return {
             "status": "success",
-            "order_number": order_number,
+            "order_number": food_order.order_number,
             "sent_to": admin_phone,
         }
 
@@ -727,5 +781,7 @@ async def restaurant_confirmation_request_hook(
         return {
             "status": "error",
             "message": str(e),
-            "order_number": payload.get("order_number"),
+            "order_number": payload.get("food_order", {}).get(
+                "order_number", "unknown"
+            ),
         }
