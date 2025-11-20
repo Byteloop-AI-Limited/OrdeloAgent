@@ -36,7 +36,12 @@ from ordelo.agent_app_handlers import (
     enquire_shift_availability_non_template,
 )
 
-from watomation.routers import delivery_hooks, location_hooks, twilio_webhook
+from watomation.routers import (
+    delivery_hooks,
+    location_hooks,
+    twilio_webhook,
+    order_hooks,
+)
 from watomation.on_message_wa_handler import (
     reset_thread,
     test_delivery,
@@ -94,6 +99,7 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
 app.include_router(location_hooks.router, prefix="/location-hooks")
 app.include_router(twilio_webhook.router, prefix="/twilio-webhook")
+app.include_router(order_hooks.router, prefix="/order-hooks")
 
 # %% DEFINE WA
 wa: WhatsApp = WhatsApp(
