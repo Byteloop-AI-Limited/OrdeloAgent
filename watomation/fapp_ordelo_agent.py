@@ -70,6 +70,7 @@ from watomation.on_flow_request_postcode_search import (
     on_ip_pc,
 )
 
+
 # %%
 # Configure logging settings
 logging.basicConfig(

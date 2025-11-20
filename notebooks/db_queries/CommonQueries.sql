@@ -252,7 +252,8 @@ set STATUS='assigned' --set STATUS='completed'
 
 where ORDER_NUMBER='faef370445774ab6aef91b6b1904470a';
 
-
+select * from restaurant_master;
+select * from delivery_summary order by dtts desc;
 select * from rider_location where order_number='ELAB-XBCL-21' order by dtts desc limit 100;
 
 

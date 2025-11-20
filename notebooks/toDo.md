@@ -1,5 +1,6 @@
 ## Immediate
-- Move food_order tables to Ordelo
+- Issue the admin notifications as soon as the payment is complete
+- on payment successfull - update FoodOrder to status from requires_payment
 - When rider declines an already accepted job, before collecting the food, Ask for confirmation. Upon confirmation, cleanup so dispatches are resumed. Clean up inflight, update order status to available.
 
 ## Delivery flow - Agent
