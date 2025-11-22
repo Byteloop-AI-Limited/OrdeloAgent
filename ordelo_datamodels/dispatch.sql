@@ -40,6 +40,7 @@ BEGIN
       nr.rider_payout,
       nr.vehicle_type,
       nr.distance,
+      summ.pickup_time,
       summ.rest_id,
       summ.rest_name,
       summ.rest_lon,

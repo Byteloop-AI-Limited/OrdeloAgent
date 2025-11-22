@@ -84,29 +84,6 @@ from rider_location where order_number = 'WREN-DIOH-33'
 order by dtts desc
 limit 5;
 
-WITH inflight_missing_location AS (
-        SELECT
-            inflight.order_number,
-            inflight.rider_id,
-            MAX(location.dtts) as last_location_dtts,
-			MAX(location.tst) AS tst
-        FROM delivery_inflight inflight
-        LEFT JOIN rider_location location
-            ON inflight.order_number = location.order_number
-            AND inflight.rider_id = location.rider_id
-		GROUP BY inflight.order_number, inflight.rider_id
-    )
-select 
-order_number,
-rider_id,
-tst,
-current_timestamp,
-current_timestamp - last_location_dtts as time_taken
-from inflight_missing_location
-where current_timestamp - last_location_dtts > (1|| ' minutes')::interval OR last_location_dtts IS NULL;
-;
--- (interval_minutes || ' minutes')::interval
-
 select *
 from delivery_pricing_detail
 limit 100;
@@ -206,14 +183,6 @@ FROM pgmq_public.read('rider_dispatch_accepted');
 
 -- Check current status
 
-select DET.status as detail_status,
-	dispatch.status as dispatch_status,
-	DET.order_number
-FROM delivery_detail as DET
-left outer join delivery_dispatch as dispatch on DET.dispatch_id = dispatch.dispatch_id
-order by DET.dispatch_id desc;
-
-
 select status,
 	order_number,
 	current_timestamp - dtts,
@@ -232,30 +201,24 @@ select dispatch_id,
 from delivery_dispatch
 order by dtts desc;
 
-
 select *
 from delivery_inflight
 order by dtts desc;
 
 
-select job_assign_delivery();
-
-
-SELECT public.job_assign_delivery();
-
-
-select
-from delivery_dispatch
-left outer join rider_location
-update DELIVERY_DETAIL
-set STATUS='assigned' --set STATUS='completed'
-
 where ORDER_NUMBER='faef370445774ab6aef91b6b1904470a';
 
+SHOW statement_timeout;
 select * from restaurant_master;
+update restaurant_master set admins=Array['447424334783'] where rest_ref='ELAS';
 
-select * from delivery_summary order by dtts desc;
-update delivery_summary set status='restaurant_unconfirmed' where order_number='ELAS-KDDV-21';
+select init_delivery('447448440754', 'ELAS-KDDV-21');
+
+SELECT cleanup_delivery_order('ELAS-KDDV-21');
+
+select order_number, status, pickup_time from delivery_summary order by dtts desc;
+
+update delivery_summary set status='restaurant_unconfirmed', pickup_time=dtts where order_number='ELAS-KDDV-21';
 update delivery_summary set status='restaurant_accept' where order_number='ELAS-KDDV-21';
 update delivery_summary set status='restaurant_decline' where order_number='ELAS-KDDV-21';
 
