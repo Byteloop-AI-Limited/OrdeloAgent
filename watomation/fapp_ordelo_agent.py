@@ -59,6 +59,7 @@ from watomation.on_callback_wa_handler import (
     handle_shift_availability,
     handle_restaurant_confirmation,
     restaurant_order_accept_decline_handler,
+    handle_pickup_time_selection,
 )
 from watomation.on_flow_request_wa_handler import (
     on_customer_address_flow,
@@ -134,6 +135,7 @@ IS_RESTAURANT_CONFIRMATION = filters.contains(
 IS_RESTAURANT_ORDER_ACCEPT_DECLINE = filters.contains(
     "/RestaurantOrder", ignore_case=False
 )
+IS_PICKUP_TIME = filters.contains("/PickupTime", ignore_case=False)
 
 
 # %% Add WA On Msg handlers
@@ -163,6 +165,10 @@ wa.add_handlers(
     handlers.CallbackButtonHandler(
         callback=restaurant_order_accept_decline_handler,
         filters=IS_RESTAURANT_ORDER_ACCEPT_DECLINE,
+    ),
+    handlers.CallbackButtonHandler(
+        callback=handle_pickup_time_selection,
+        filters=IS_PICKUP_TIME,
     ),
     handlers.FlowCompletionHandler(callback=on_customer_address_flow_completion),
 )

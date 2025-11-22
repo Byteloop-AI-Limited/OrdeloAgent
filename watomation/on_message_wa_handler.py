@@ -7,11 +7,13 @@ WhatsApp message handler for Ordelo delivery system
     . Integrates with OrdeloAgent for delivery workflow orchestration
     . Supports command-based interactions for delivery management
     . Handles error cases and provides appropriate responses
+    . Uses asyncio.create_task for long-running RPC calls to avoid timeouts
   Functions/Classes:
     . process_wa_msg - Main entry point for WhatsApp message processing
     . live_location - Handles live location updates from riders
     . reset_thread - Resets conversation thread state
     . test_delivery - Creates test delivery for debugging
+    . init_delivery_summary - Background task for initializing delivery via RPC
     . handle_rider_command - Processes commands from delivery riders
     . clear_dispatch - Clears active dispatch assignments
     . send_live_map_location - Shares live location map with rider
@@ -19,6 +21,7 @@ WhatsApp message handler for Ordelo delivery system
 """
 
 # %%
+import asyncio
 import random
 from typing import Literal
 
@@ -28,7 +31,14 @@ from pywa.types import FlowButton, Message
 from pywa.types.flows import FlowActionType, FlowRequest, FlowResponse
 from pywa_async import WhatsApp, types
 
-from config import _sync_wa_client, client_ordelo, llm_settings, logger, pg_settings
+from config import (
+    _sync_wa_client,
+    client_ordelo,
+    llm_settings,
+    logger,
+    pg_settings,
+    client,
+)
 from ordelo.agent_app_handlers import (
     enquire_shift_availability_non_template,
     get_live_map_location_url,
@@ -137,26 +147,61 @@ async def clear_dispatch(wa: WhatsApp, msg: Message):
     client.rpc("clear_dispatch", {}).execute()
 
 
+async def init_delivery_summary(order_number: str, recipient: str):
+    """Background task to initialize delivery via RPC call."""
+    try:
+        # Run the blocking RPC call in a thread pool to avoid blocking the event loop
+        response = await asyncio.to_thread(
+            lambda: client.rpc(
+                "init_delivery",
+                {"p_cust_id": recipient, "p_order_number": order_number},
+            ).execute()
+        )
+        logger.info(
+            f"init_delivery completed for order {order_number} with response {response}"
+        )
+    except Exception as e:
+        logger.error(f"init_delivery failed for order {order_number}: {e}")
+
+
 # %% Test Delivery
 async def test_delivery(wa: WhatsApp, msg: Message):
-    pool: AsyncConnectionPool = await pg_settings.get_pool()
-    client = pg_settings.client
+    # pool: AsyncConnectionPool = await pg_settings.get_pool()
+    # client = pg_settings.client
+    logger.info(
+        "Testing delivery for user %s with order %s", msg.sender, "ELAS-KDDV-21"
+    )
     recipient = msg.sender
-    order_number = f"WREN-TEST-{random.randint(10, 99)}"
+    order_number = "ELAS-KDDV-21"
+
+    # order_number = f"WREN-TEST-{random.randint(10, 99)}"
 
     # DB operations
     # Cleanup - update dispatch complete
-    open_dispatch = (
-        client.table("delivery_dispatch")
-        .select("dispatch_id")
-        .eq("status", "assigned")
-        .execute()
-    )
-    for dispatch in open_dispatch.data:
-        await sbase_call_function(
-            function_name="dispatch_complete_func",
-            input_args={"p_dispatch_id": dispatch["dispatch_id"]},
-        )
+    client.rpc("cleanup_delivery_order", {"p_order_number": order_number}).execute()
+
+    # Now init the delivery so the process follows - run as background task to avoid timeout
+    logger.info(f"Initializing delivery for user {recipient} with order {order_number}")
+    # Schedule the RPC call as a background task
+    asyncio.create_task(init_delivery_summary(order_number, recipient))
+    logger.info(f"Init delivery scheduled as background task for order {order_number}")
+    return {"status": "success"}
+
+    # open_dispatch = (
+    #     client.table("delivery_dispatch")
+    #     .select("dispatch_id")
+    #     .eq("status", "assigned")
+    #     .execute()
+    # )
+    # for dispatch in open_dispatch.data:
+    #     client.rpc(
+    #         "dispatch_complete_func", {"p_dispatch_id": dispatch["dispatch_id"]}
+    #     ).execute()
+
+    # await sbase_call_function(
+    #     function_name="dispatch_complete_func",
+    #     input_args={"p_dispatch_id": dispatch["dispatch_id"]},
+    # )
 
     # Cleanup - delete from rider_location_event
     delete_old_location_events = (
@@ -165,27 +210,28 @@ async def test_delivery(wa: WhatsApp, msg: Message):
     await execute_sql_query(query=delete_old_location_events)
     # Cleanup complete;
 
-    # Move to inserting the order; Create reference in pricing_detail table
-    client.table("delivery_pricing_detail").insert(
-        {"order_number": order_number, "distance": 0.83}
-    ).execute()
+    # # Move to inserting the order; Create reference in pricing_detail table
+    # client.table("delivery_pricing_detail").insert(
+    #     {"order_number": order_number, "distance": 0.83}
+    # ).execute()
 
     # Update a different order to instead on inserting into delivery_option
-    example_order_to_update = (
-        client.table("delivery_option")
-        .select("order_number")
-        .like("order_number", "WREN-TEST-%")
-        .order("id", desc=True)
-        .limit(1)
-        .execute()
-        .data[0]["order_number"]
-    )
+    # example_order_to_update = (
+    #     client.table("delivery_option")
+    #     .select("order_number")
+    #     .like("order_number", "WREN-TEST-%")
+    #     .order("id", desc=True)
+    #     .limit(1)
+    #     .execute()
+    #     .data[0]["order_number"]
+    # )
 
-    client.table("delivery_option").update({"order_number": order_number}).eq(
-        "order_number", example_order_to_update
-    ).execute()
+    # client.table("delivery_option").update({"order_number": order_number}).eq(
+    #     "order_number", example_order_to_update
+    # ).execute()
 
     # Now init the delivery so the process follows
+    logger.info(f"Initializing delivery for user {recipient} with order {order_number}")
     client.rpc(
         "init_delivery", {"p_cust_id": recipient, "p_order_number": order_number}
     ).execute()
