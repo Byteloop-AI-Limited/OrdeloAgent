@@ -20,28 +20,27 @@ Functions/Classes:
 """
 
 # %%
-from typing import Any, List
+import json
+from typing import Any, Dict, List
+
 from IPython.display import Image, display
-from langchain_core.messages import ToolMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
     RemoveMessage,
+    ToolMessage,
     filter_messages,
 )
-from config import pg_settings, llm_settings
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables.config import RunnableConfig
+from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
-
 from langgraph.graph.state import CompiledStateGraph
 from openai import OpenAI
 from pydantic import BaseModel, Field
-import json
-from typing import Dict
+
+from config import llm_settings, pg_settings
 from utils_common.thread_management import ThreadHandler
-from langchain_core.runnables.config import RunnableConfig
 
 
 # %%
@@ -246,14 +245,19 @@ def display_graph_old(compiled_graph: Any) -> None:
         pass
 
 
-def display_graph(compiled_graph: Any) -> None:
-    import mermaid as md
+def display_graph(graph_or_builder: Any) -> None:
+    """Display a LangGraph diagram for either a StateGraph builder or a CompiledStateGraph."""
+    try:
+        if isinstance(graph_or_builder, StateGraph):
+            compiled_graph = graph_or_builder.compile()
+        else:
+            compiled_graph = graph_or_builder
 
-    mermaid_code = compiled_graph.get_graph().draw_mermaid()
-
-    # Create diagram
-    diagram = md.Mermaid(mermaid_code)
-    display(diagram)
+        if isinstance(compiled_graph, CompiledStateGraph):
+            display(Image(compiled_graph.get_graph(xray=True).draw_mermaid_png()))
+    except Exception:
+        # This requires some extra dependencies and is optional
+        pass
 
 
 def call_agent_chain(state, chain, config):
@@ -302,7 +306,7 @@ prompt = ChatPromptTemplate.from_messages(
         There can be cases where there will be no options at all, you just return general_ai_response.
         Follow these instruction at all time:
         1. You will **NOT Hallucinate**
-        2. Only provide options to the user if they are present in the input. 
+        2. Only provide options to the user if they are present in the input.
         3. You have to work with ONLY what you have been provided with
         4. Shorten options values, length cannot exceed 20
         examples = [
@@ -517,8 +521,8 @@ def delete_messages(state):
 
 
 # %% agent loop test
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import HumanMessage
+from langgraph.checkpoint.memory import MemorySaver
 
 
 async def agent_loop_test(builder, thread_id, initial_msg: str = None):
