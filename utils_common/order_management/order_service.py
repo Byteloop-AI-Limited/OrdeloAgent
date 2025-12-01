@@ -338,3 +338,9 @@ async def capture_payment_for_order(
             if "res" in locals():
                 logger.error(res.text)
             return None
+
+
+# %%
+
+order_dt = datetime.now().strftime("%Y-%m-%d")
+seq_number = client_ordelo.rpc("get_next_daily_seq", {"input_date": order_dt}).execute()
