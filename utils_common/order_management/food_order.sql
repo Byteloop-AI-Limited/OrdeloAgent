@@ -1,10 +1,11 @@
 CREATE SEQUENCE daily_seq START WITH 20;
-
+-- drop sequence daily_seq;
 -- Table to store the last date when the sequence was used
 CREATE TABLE IF NOT EXISTS daily_seq_last_value (
     last_value_date DATE PRIMARY KEY
 );
 
+-- drop function get_next_daily_seq;
 -- Function to get the next value from the sequence based on the current date
 CREATE OR REPLACE FUNCTION get_next_daily_seq(input_date DATE)
 RETURNS INTEGER AS $$DECLARE
@@ -16,7 +17,7 @@ BEGIN
 
     -- If the input date does not exist, reset the sequence and insert the new date
     IF NOT date_exists THEN
-        ALTER SEQUENCE daily_seq RESTART WITH 20;
+        PERFORM setval('daily_seq', 20, false);
         INSERT INTO daily_seq_last_value (last_value_date) VALUES (input_date);
     END IF;
 
