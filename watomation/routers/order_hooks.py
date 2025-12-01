@@ -2,13 +2,14 @@
 Order hook endpoints for Elai Agent
   . Provides FastAPI router for order-related webhook operations
   . Supports retrieval of minimum order value configuration
-  . Accepts restaurant coordinates directly or via rest_ref lookup
+  . Accepts restaurant coordinates directly, via postcode resolution, or rest_ref lookup
   . Delegates pricing lookup to watomation.services.order_service helpers
   . Creates new orders with order items and initiates payment capture
   . Returns payment URLs for customer checkout
 Functions/Classes:
   . CreateOrderRequest - Pydantic model for order creation requests
   . get_min_order_value - Returns minimum order value using shared service helper
+  . get_min_order_value_by_postcode - Resolves postcodes to coordinates before lookup
   . create_order - Creates order with items and captures payment
 """
 
@@ -24,6 +25,8 @@ from utils_common.order_management.order_service import (
     get_min_order_value as fetch_min_order_value,
     create_order_with_items,
 )
+from utils_common.maps_service.address_resolver import address_resolver
+from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from utils_common.payment_ms.payment import (
     generate_payment_intent,
     cancel_payment,
@@ -89,6 +92,81 @@ async def get_min_order_value(
             rest_lat=restaurant_latitude,
             rest_lon=restaurant_longitude,
             rest_ref=rest_ref,
+        )
+    except ValueError as err:
+        raise HTTPException(status_code=404, detail=str(err)) from err
+
+    return {
+        "status": "ok",
+        "min_order_value": min_order_value,
+        "source": "service" if min_order_value is not None else "pricing-service",
+    }
+
+
+@router.get(
+    "/get-min-order-value-by-postcode",
+    summary="Retrieve minimum order value using postcode/coordinate inputs",
+    description="""
+    Resolves customer postcodes into coordinates and accepts either a restaurant
+    postcode lookup or rest_ref override before calculating minimum order value.
+
+    Provide restaurant_postcode when rest_ref is unavailable.
+    """,
+)
+async def get_min_order_value_by_postcode(
+    customer_postcode: str = Query(..., description="Customer UK postcode"),
+    restaurant_postcode: Optional[str] = Query(
+        default=None,
+        description="Restaurant UK postcode used when rest_ref is absent",
+    ),
+    rest_ref: Optional[str] = Query(
+        default=None,
+        description="Restaurant reference used to resolve coordinates when postcode is absent",
+    ),
+):
+    customer_address = address_resolver.get_address_from_postcode(customer_postcode)
+    if not customer_address.latitude or not customer_address.longitude:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unable to resolve customer_postcode {customer_postcode}",
+        )
+
+    if not rest_ref and not restaurant_postcode:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "restaurant_postcode or rest_ref is required to resolve restaurant location"
+            ),
+        )
+
+    restaurant_lat: Optional[float] = None
+    restaurant_lon: Optional[float] = None
+
+    if rest_ref:
+        try:
+            rest_master = RestaurantMaster.from_rest_ref(rest_ref)
+        except ValueError as err:
+            raise HTTPException(status_code=404, detail=str(err)) from err
+        restaurant_lat = rest_master.lat
+        restaurant_lon = rest_master.lon
+    elif restaurant_postcode:
+        restaurant_address = address_resolver.get_address_from_postcode(
+            restaurant_postcode
+        )
+        if not restaurant_address.latitude or not restaurant_address.longitude:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Unable to resolve restaurant_postcode {restaurant_postcode}",
+            )
+        restaurant_lat = restaurant_address.latitude
+        restaurant_lon = restaurant_address.longitude
+
+    try:
+        min_order_value = fetch_min_order_value(
+            customer_address.latitude,
+            customer_address.longitude,
+            rest_lat=restaurant_lat,
+            rest_lon=restaurant_lon,
         )
     except ValueError as err:
         raise HTTPException(status_code=404, detail=str(err)) from err
