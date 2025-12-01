@@ -79,10 +79,19 @@ async def get_min_order_value(
         )
 
     if not has_rest_coords and not rest_ref:
+        logger.info("rest_ref is required when restaurant coordinates are not provided")
         raise HTTPException(
             status_code=400,
             detail="rest_ref is required when restaurant coordinates are not provided",
         )
+
+    if not has_rest_coords and rest_ref:
+        try:
+            rest_master = RestaurantMaster.from_rest_ref(rest_ref)
+        except ValueError as err:
+            raise HTTPException(status_code=400, detail=str(err)) from err
+        restaurant_latitude = rest_master.lat
+        restaurant_longitude = rest_master.lon
 
     try:
         # returns -1 if outside the range
@@ -93,8 +102,9 @@ async def get_min_order_value(
             rest_lon=restaurant_longitude,
             rest_ref=rest_ref,
         )
+        logger.info(f"Minimum order value for {rest_ref}: {min_order_value}")
     except ValueError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
+        raise HTTPException(status_code=400, detail=str(err)) from err
 
     return {
         "status": "ok",
@@ -127,7 +137,7 @@ async def get_min_order_value_by_postcode(
     customer_address = address_resolver.get_address_from_postcode(customer_postcode)
     if not customer_address.latitude or not customer_address.longitude:
         raise HTTPException(
-            status_code=404,
+            status_code=400,
             detail=f"Unable to resolve customer_postcode {customer_postcode}",
         )
 
@@ -146,7 +156,7 @@ async def get_min_order_value_by_postcode(
         try:
             rest_master = RestaurantMaster.from_rest_ref(rest_ref)
         except ValueError as err:
-            raise HTTPException(status_code=404, detail=str(err)) from err
+            raise HTTPException(status_code=400, detail=str(err)) from err
         restaurant_lat = rest_master.lat
         restaurant_lon = rest_master.lon
     elif restaurant_postcode:
@@ -155,7 +165,7 @@ async def get_min_order_value_by_postcode(
         )
         if not restaurant_address.latitude or not restaurant_address.longitude:
             raise HTTPException(
-                status_code=404,
+                status_code=400,
                 detail=f"Unable to resolve restaurant_postcode {restaurant_postcode}",
             )
         restaurant_lat = restaurant_address.latitude
@@ -169,7 +179,7 @@ async def get_min_order_value_by_postcode(
             rest_lon=restaurant_lon,
         )
     except ValueError as err:
-        raise HTTPException(status_code=404, detail=str(err)) from err
+        raise HTTPException(status_code=400, detail=str(err)) from err
 
     return {
         "status": "ok",
