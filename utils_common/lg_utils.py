@@ -35,7 +35,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.config import RunnableConfig
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langgraph.graph.state import CompiledStateGraph
+from langgraph.graph.state import CompiledStateGraph, StateGraph
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
