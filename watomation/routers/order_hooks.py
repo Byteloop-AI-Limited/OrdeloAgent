@@ -194,6 +194,7 @@ class CreateOrderRequest(BaseModel):
     recipient: str
     thread_id: str
     order_items: List[OrderItem]
+    notes: Optional[str] = None
 
 
 @router.post(
@@ -231,12 +232,14 @@ async def create_order(
     Returns:
         Dict with order details and payment URL
     """
+
     # Create order with items
     order_result = await create_order_with_items(
         recipient=request.recipient,
         thread_id=request.thread_id,
         order_items=request.order_items,
         rest_ref=rest_ref,
+        notes=request.notes,
     )
 
     # update final order values (below calls the update)

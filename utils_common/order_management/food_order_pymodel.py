@@ -34,6 +34,7 @@ class FoodOrder(BaseModel):
     order_number: str
     seq_id: Optional[int] = None
     recipient: str
+    notes: Optional[str] = None
     thread_id: str
     action: str
     total_price: float
@@ -246,11 +247,14 @@ class FoodOrder(BaseModel):
             "currency": "GBP",
             "action": "delivery",
             "manual_mode_capture": True,
+            "notes": self.notes,
         }
         return intent_payload
 
 
 # %%
-if __name__ == "__main__":
-    food_order = FoodOrder.from_order_id("BOJB-47")
-    print(food_order)
+
+# if __name__ == "__main__":
+#     food_order = FoodOrder.from_order_id("TDOJ-39")
+#     op = await food_order.gen_payment_intent_payload()
+#     print(op)
