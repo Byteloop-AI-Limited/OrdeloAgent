@@ -169,7 +169,11 @@ def get_min_order_value(
 
 
 async def create_order_with_items(
-    recipient: str, thread_id: str, order_items: List[OrderItem], rest_ref: str
+    recipient: str,
+    thread_id: str,
+    order_items: List[OrderItem],
+    rest_ref: str,
+    notes: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Creates a new food order with order items in the database.
@@ -212,6 +216,7 @@ async def create_order_with_items(
         "order_number": order_number,
         "seq_id": seq_number.data,
         "recipient": recipient,
+        "notes": notes,
         "thread_id": thread_id,
         "action": "delivery",
         "total_price": total_price,
