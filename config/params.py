@@ -2,7 +2,6 @@
 from collections import namedtuple
 from loguru import logger
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
-from config import project_settings
 
 REST_MASTER = RestaurantMaster.from_rest_ref("ELAS")
 # REST_MASTER = RestaurantMaster.from_rest_ref(project_settings.rest_ref)
@@ -35,6 +34,7 @@ def get_restaurant_base_url(rest_ref: str) -> str:
         raise ValueError(f"No restaurant found with rest_ref={rest_ref}")
     # Use the first row
     row = data[0]
+    logger.info(f"Restaurant base url for {rest_ref}: {row['config_value']}")
     return row["config_value"]
 
 
@@ -45,12 +45,10 @@ def get_restaurant_base_url(rest_ref: str) -> str:
 RestaurantConfig = namedtuple(
     "RestaurantConfig", ["type", "base_url", "rest_webhook_url"]
 )
+
 wren_base_url = get_restaurant_base_url("WREN")
 elab_base_url = get_restaurant_base_url("ELAB")
 elas_base_url = get_restaurant_base_url("ELAS")
-logger.info(f"Wren base url: {wren_base_url}")
-logger.info(f"Elab base url: {elab_base_url}")
-logger.info(f"Elas base url: {elas_base_url}")
 
 RESTAURANT_CONFIG = {
     "WREN-RIDER-INFLIGHT": RestaurantConfig(
@@ -83,6 +81,11 @@ RESTAURANT_CONFIG = {
         wren_base_url,
         "rider-event-hooks/delivery-timedout",
     ),
+    "WREN-ORDER-PAYMENT-COMPLETE": RestaurantConfig(
+        "order-payment-complete",
+        wren_base_url,
+        "order-event-hooks/payment-complete/",
+    ),
     # Bytelooop
     "ELAB-RIDER-INFLIGHT": RestaurantConfig(
         "rider-event-inflight",
@@ -114,6 +117,11 @@ RESTAURANT_CONFIG = {
         elab_base_url,
         "rider-event-hooks/delivery-timedout",
     ),
+    "ELAB-ORDER-PAYMENT-COMPLETE": RestaurantConfig(
+        "order-payment-complete",
+        elab_base_url,
+        "order-event-hooks/payment-complete/",
+    ),
     # Elas
     "ELAS-RIDER-INFLIGHT": RestaurantConfig(
         "rider-event-inflight",
@@ -144,6 +152,11 @@ RESTAURANT_CONFIG = {
         "delivery-timedout",
         elas_base_url,
         "rider-event-hooks/delivery-timedout",
+    ),
+    "ELAS-ORDER-PAYMENT-COMPLETE": RestaurantConfig(
+        "order-payment-complete",
+        elas_base_url,
+        "order-event-hooks/payment-complete/",
     ),
 }
 
