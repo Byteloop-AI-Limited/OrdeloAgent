@@ -73,7 +73,7 @@ class CallbackButtonData(BaseModel):
 
 
 # order_time is not str, its int and in epoch format
-async def restaurant_pickup_time(
+async def send_restaurant_pickup_time(
     recipient: str,
     header: str,
     text: str,
@@ -105,7 +105,7 @@ async def restaurant_pickup_time(
 
         # Create callback data
         callback_data = CallbackButtonData(
-            action="/pickupTime",
+            action="/PickupTime",
             pickup_time=time_str,
             order_number=order_number,
         )

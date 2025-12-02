@@ -6,9 +6,8 @@ set config_value = 'https://rider-agent.ordelo.app'
 where config_key = 'ORDELO_APP_URL';
 
 update ordelo_config
-set config_value = 'https://agent.ordelo.app'
+set config_value = 'https://rider-agent-test.ordelo.app'
 where config_key = 'ORDELO_APP_URL';
-
 
 update ordelo_config
 set config_value = 10
@@ -29,7 +28,17 @@ update ordelo_config
 set config_value = 10
 where config_key = 'DISPATCH_BATCH_SIZE_BICYCLE';
 
+-- Debugging option
+INSERT INTO ordelo_config (config_key, config_value)
+VALUES ('ENABLE_TRIGGER_DEBUG_LOG', 'true')
+ON CONFLICT (config_key) 
+DO UPDATE SET config_value = 'true';
 
+UPDATE ordelo_config 
+SET config_value = 'false'
+WHERE config_key = 'ENABLE_TRIGGER_DEBUG_LOG';
+
+select * from debug_log;
 INSERT INTO ordelo_config (config_key, config_value, description)
 VALUES ('ELAS_APP_URL', 'https://elaib-agent.ordelo.app', 'URL for Salisbury app') ON CONFLICT (config_key) DO
 UPDATE

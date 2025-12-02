@@ -8,14 +8,18 @@ WhatsApp callback button handler for delivery dispatch responses
     . Checks for existing inflight deliveries to prevent conflicts
     . Serves as entry point into the LangGraph agent workflow
     . Processes restaurant confirmation of food preparation time
+    . Uses asyncio.create_task for long-running RPC calls to avoid timeouts
   Functions/Classes:
     . dispatch_response - Processes rider responses to delivery dispatch assignments
     . rider_request_location - Handles rider requests for location information
     . handle_shift_availability - Handles rider shift availability responses
     . handle_restaurant_confirmation - Processes restaurant prep time confirmation
+    . restaurant_order_accept_decline_handler - Handles restaurant accept/decline responses
+    . _update_restaurant_order_status - Background task for updating restaurant order status
 """
 
 # %%
+import asyncio
 from pywa_async import WhatsApp
 from config import logger
 from pywa.types import Message
@@ -23,10 +27,10 @@ import json
 
 # project modules
 from ordelo.agent_app_handlers import initial_handle_of_rider_response
-from config import pg_settings, client_ordelo
+from config import pg_settings, client_ordelo, client
 from ordelo.agents.agent_runner import run_rider_graph
 from utils_common.waba_utils.wa_senders import CallbackButtonData
-from utils_common.waba_utils.wa_senders import restaurant_pickup_time
+from utils_common.waba_utils.wa_senders import send_restaurant_pickup_time
 from pywa.types import CallbackButton
 # %%
 
@@ -142,6 +146,39 @@ async def handle_shift_availability(wa: WhatsApp, msg: Message):
         logger.info(f"Ended shift status for rider {recipient}")
 
 
+# %% Handle pickup time selection. The pickup_time needs to be updated in delivery_summary table
+def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
+    callback_data: CallbackButtonData = CallbackButtonData(**json.loads(msg.data))
+    # Callback data created in send_pickup_time_selection, in utils_common.waba_utils.wa_senders
+
+    order_number = callback_data.order_number
+    pickup_time = callback_data.pickup_time
+    recipient = msg.sender
+
+    logger.info(f"Updating pickup time for order {order_number} to {pickup_time}")
+
+    # Update the pickup time in delivery_summary table, status='unassigned'
+    client_ordelo.table("delivery_summary").update(
+        {"pickup_time": pickup_time, "status": "unassigned"}
+    ).eq("order_number", order_number).eq("status", "restaurant_accept").execute()
+
+
+async def _update_restaurant_order_status(order_number: str, status: str):
+    """Background task to update restaurant order status."""
+    try:
+        await asyncio.to_thread(
+            lambda: client.table("delivery_summary")
+            .update({"status": status})
+            .eq("order_number", order_number)
+            .execute()
+        )
+        logger.info(f"Restaurant order status updated: {order_number} -> {status}")
+    except Exception as e:
+        logger.error(
+            f"Failed to update restaurant order status for {order_number}: {e}"
+        )
+
+
 # %% Restaurant order confirmation
 async def restaurant_order_accept_decline_handler(wa: WhatsApp, msg: Message):
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(msg.data))
@@ -154,22 +191,14 @@ async def restaurant_order_accept_decline_handler(wa: WhatsApp, msg: Message):
     logger.info(f"Restaurant order confirmation: {order_number}")
 
     if "Accept" in callback_data.action:
-        result = await restaurant_pickup_time(
-            recipient=recipient,
-            header="Header",
-            text="Text",
-            order_number=order_number,
-            order_time_epoch=order_time,
-            intervals_mins=[5, 10, 25],
+        asyncio.create_task(
+            _update_restaurant_order_status(order_number, "restaurant_accept")
         )
 
-        logger.info(f"ReplyToMsgId: {result}")
-        # TODO: Implement accept logic
-        pass
     elif "Decline" in callback_data.action:
-        logger.info("Restaurant declined the order")
-        # TODO: Implement decline logic
-        pass
+        asyncio.create_task(
+            _update_restaurant_order_status(order_number, "restaurant_decline")
+        )
 
     return
 
@@ -199,28 +228,36 @@ async def handle_restaurant_confirmation(wa: WhatsApp, msg: Message):
             f"Restaurant confirmation received: order={order_number}, prep_time={prep_time_minutes}min, sender={sender}"
         )
 
-        # Call database function to update
-        result = client_ordelo.rpc(
-            "handle_restaurant_confirmation",
-            {"p_order_number": order_number, "p_prep_time_minutes": prep_time_minutes},
-        ).execute()
+        # Send immediate confirmation to restaurant
+        await wa.send_message(
+            to=sender,
+            text=f"✅ Confirmed! Food will be ready in {prep_time_minutes} minutes.\n\nDriver will be dispatched accordingly.",
+        )
+        logger.info(
+            f"Restaurant confirmation received: {prep_time_minutes}min for order {order_number}"
+        )
 
-        if result.data:
-            await wa.send_message(
-                to=sender,
-                text=f"✅ Confirmed! Food will be ready in {prep_time_minutes} minutes.\n\nDriver will be dispatched accordingly.",
-            )
-            logger.info(
-                f"Restaurant confirmed {prep_time_minutes}min for order {order_number}"
-            )
-        else:
-            await wa.send_message(
-                to=sender,
-                text="⚠️ This order has already been confirmed or is no longer pending.",
-            )
-            logger.warning(
-                f"Restaurant confirmation failed for order {order_number} - already confirmed or not found"
-            )
+        # Call database function to update as background task to avoid timeout
+        async def _handle_confirmation():
+            try:
+                result = await asyncio.to_thread(
+                    lambda: client_ordelo.rpc(
+                        "handle_restaurant_confirmation",
+                        {
+                            "p_order_number": order_number,
+                            "p_prep_time_minutes": prep_time_minutes,
+                        },
+                    ).execute()
+                )
+                logger.info(
+                    f"Restaurant confirmation processed for order {order_number}: {result.data}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Background task failed for restaurant confirmation {order_number}: {e}"
+                )
+
+        asyncio.create_task(_handle_confirmation())
 
     except Exception as e:
         logger.error(f"Error handling restaurant confirmation: {e}")

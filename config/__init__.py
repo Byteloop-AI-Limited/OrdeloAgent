@@ -14,6 +14,7 @@ __all__ = [
     "pg_settings",
     "logger",
     "client_ordelo",
+    "client",
     "get_webhook_url",
     "llm_settings",
 ]
@@ -27,9 +28,11 @@ from .waba_setting import (
 )
 
 from .logger_setting import logger
-from .ms_setting import ms_settings
+
+# from .ms_setting import ms_settings
+from .microservices_setting import ms_settings
 from .google_setting import g_client, google_settings
 from .cat_con_setting import cat_conn
-from .pg_setting import pg_settings, client_ordelo
+from .pg_setting import pg_settings, client_ordelo, client_ordelo as client
 from .params import get_webhook_url
 from .llm_setting import llm_settings
