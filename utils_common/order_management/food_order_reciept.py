@@ -12,6 +12,7 @@ Order receipt generation and formatting utilities
 
 # %%
 from utils_common.order_management.food_order_pymodel import FoodOrder
+from utils_common.order_management.order_db_ops_new import OrderItem
 from config import client
 from typing import List, Tuple
 
@@ -123,7 +124,9 @@ def build_wa_order_reciept_for_cust(
 
 
 def build_wa_order_reciept_for_rest(
-    order_id: str = None, food_order: FoodOrder = None
+    order_id: str = None,
+    food_order: FoodOrder = None,
+    order_items: List[OrderItem] = None,
 ) -> Tuple[str, str]:
     """Build WhatsApp receipt text for the restaurant.
 
@@ -131,6 +134,11 @@ def build_wa_order_reciept_for_rest(
         • Omits *Service charge* and *Delivery fee* lines.
         • ``Total`` reflects the *total_price* (food value) rather than the final
           customer-facing value.
+
+    Args:
+        order_id: Order ID to fetch order details (used if food_order not provided).
+        food_order: FoodOrder Pydantic model (should be provided with order_items).
+        order_items: List of OrderItem Pydantic models (should be provided with food_order).
     """
     if not food_order:
         order = FoodOrder.from_order_id(order_id)
@@ -139,15 +147,27 @@ def build_wa_order_reciept_for_rest(
     else:
         order = food_order
 
-    order_items = _fetch_order_items(order.order_id)
-    if not order_items:
-        raise ValueError(f"No order_items found for {order.order_id}")
+    # Use provided order_items if available, otherwise fetch from DB
+    if order_items is None:
+        items_data = _fetch_order_items(order.order_id)
+        if not items_data:
+            raise ValueError(f"No order_items found for {order.order_id}")
+    else:
+        # Convert OrderItem Pydantic models to dict format for processing
+        items_data = [
+            {
+                "quantity": item.quantity,
+                "product_name": item.product_name,
+                "price": item.price,
+            }
+            for item in order_items
+        ]
 
     header = f"Order #{order.order_number} (Kitchen)"
 
     # Items
     item_lines: List[str] = []
-    for item in order_items:
+    for item in items_data:
         qty = item.get("quantity", 1)
         name = item.get("product_name", "Item")
         unit_price = item.get("price", 0)

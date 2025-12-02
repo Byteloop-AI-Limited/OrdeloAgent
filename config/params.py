@@ -1,6 +1,17 @@
 # %%
 from collections import namedtuple
 from loguru import logger
+from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
+from config import project_settings
+
+REST_MASTER = RestaurantMaster.from_rest_ref("ELAS")
+# REST_MASTER = RestaurantMaster.from_rest_ref(project_settings.rest_ref)
+logger.info(
+    f"Loading restaurant master data: {REST_MASTER.rest_ref} - Admins: {REST_MASTER.get_admins()}"
+)
+
+
+# %%
 
 
 def get_restaurant_base_url(rest_ref: str) -> str:

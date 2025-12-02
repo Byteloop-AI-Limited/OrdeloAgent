@@ -27,9 +27,33 @@ Side Effects:
 See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/
 
+DROP FUNCTION public.init_delivery;
 
 CREATE OR REPLACE FUNCTION public.init_delivery(p_cust_id VARCHAR, p_order_number VARCHAR)
-RETURNS VARCHAR AS $$
+RETURNS TABLE (
+    order_number VARCHAR,
+    rest_id VARCHAR,
+    rest_name TEXT,
+    rest_lon DOUBLE PRECISION,
+    rest_lat DOUBLE PRECISION,
+    rest_address TEXT,
+    town VARCHAR,
+    customer_id VARCHAR,
+    customer_name TEXT,
+    customer_lon DOUBLE PRECISION,
+    customer_lat DOUBLE PRECISION,
+    customer_address TEXT,
+    status VARCHAR,
+    rest_confirmation_code INTEGER,
+    cust_confirmation_code INTEGER,
+    rest_confirmed_at TIMESTAMP WITH TIME ZONE,
+    rest_prep_time_minutes INTEGER,
+    rest_confirmation_method VARCHAR,
+    pickup_time TIMESTAMP WITH TIME ZONE,
+    pickup_date DATE,
+    dt DATE,
+    dtts TIMESTAMP WITH TIME ZONE
+) AS $$
 DECLARE
     v_rest_ref VARCHAR;
     v_rest_id VARCHAR(12);
@@ -104,7 +128,8 @@ BEGIN
     v_rest_confirmation_code := floor(random() * (90 - (v_salt_number - 100) + 1) + (v_salt_number - 100))::INT;
     v_cust_confirmation_code := v_salt_number - v_rest_confirmation_code;
 
-    -- Insert summary record
+    -- Insert summary record and return the complete record
+    RETURN QUERY
     INSERT INTO delivery_summary (
         order_number,
         rest_id,
@@ -137,9 +162,10 @@ BEGIN
         'restaurant_unconfirmed',
         v_rest_confirmation_code,
         v_cust_confirmation_code
-    );
+    )
+    RETURNING *;
+    
     -- kick off process_delivery; May be add condition on pickup_time
     -- PERFORM process_delivery();
-    RETURN p_order_number;
 END;
 $$ LANGUAGE plpgsql;

@@ -36,7 +36,14 @@ from ordelo.agent_app_handlers import (
     enquire_shift_availability_non_template,
 )
 
-from watomation.routers import delivery_hooks, location_hooks, twilio_webhook
+from watomation.routers import (
+    delivery_hooks,
+    location_hooks,
+    twilio_webhook,
+    order_hooks,
+    payment_hooks,
+)
+
 from watomation.on_message_wa_handler import (
     reset_thread,
     test_delivery,
@@ -52,6 +59,7 @@ from watomation.on_callback_wa_handler import (
     handle_shift_availability,
     handle_restaurant_confirmation,
     restaurant_order_accept_decline_handler,
+    handle_pickup_time_selection,
 )
 from watomation.on_flow_request_wa_handler import (
     on_customer_address_flow,
@@ -62,6 +70,7 @@ from watomation.on_flow_request_postcode_search import (
     on_pc_search_init,
     on_ip_pc,
 )
+
 
 # %%
 # Configure logging settings
@@ -94,6 +103,8 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
 app.include_router(location_hooks.router, prefix="/location-hooks")
 app.include_router(twilio_webhook.router, prefix="/twilio-webhook")
+app.include_router(order_hooks.router, prefix="/order-hooks")
+app.include_router(payment_hooks.router, prefix="/payment-hooks")
 
 # %% DEFINE WA
 wa: WhatsApp = WhatsApp(
@@ -124,6 +135,7 @@ IS_RESTAURANT_CONFIRMATION = filters.contains(
 IS_RESTAURANT_ORDER_ACCEPT_DECLINE = filters.contains(
     "/RestaurantOrder", ignore_case=False
 )
+IS_PICKUP_TIME = filters.contains("/PickupTime", ignore_case=False)
 
 
 # %% Add WA On Msg handlers
@@ -153,6 +165,10 @@ wa.add_handlers(
     handlers.CallbackButtonHandler(
         callback=restaurant_order_accept_decline_handler,
         filters=IS_RESTAURANT_ORDER_ACCEPT_DECLINE,
+    ),
+    handlers.CallbackButtonHandler(
+        callback=handle_pickup_time_selection,
+        filters=IS_PICKUP_TIME,
     ),
     handlers.FlowCompletionHandler(callback=on_customer_address_flow_completion),
 )
