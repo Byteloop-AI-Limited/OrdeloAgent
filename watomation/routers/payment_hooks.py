@@ -26,13 +26,18 @@ router = APIRouter(tags=["payment-hooks"])
 # %% supporting functions
 async def handle_payment_complete(request_body: dict):
     """
-    Handles the update of the payment status in the graph.
+    Handles the update of the payment status in the graph and notifies the restaurant.
 
     Args:
         request_body: The request body from the payment webhook
-        graph: the graph object
-        pool: the database connection pool
+
+    Returns:
+        dict: Success status
     """
+    import httpx
+    from utils_common.order_management.food_order_pymodel import FoodOrder
+    from config.params import get_webhook_url
+
     # update payment status to `requires_payment`, `requires_capture`
     order_id = request_body["data"]["object"]["metadata"]["orderID"]
     logger.info(f"order_id:{order_id} - PaymentComplete webhook from stripe called")
@@ -44,20 +49,33 @@ async def handle_payment_complete(request_body: dict):
         .eq("order_id", order_id)
         .execute()
     )
+    logger.info(f"response:{response.data}")
 
-    recipient = response.data[0]["recipient"]
-    thread_id = response.data[0]["thread_id"]
+    ## Call the restaurant api to update the payment status
+    # Prepare the payload
+    food_order = FoodOrder(**response.data[0])
+    recipient = food_order.recipient
+    thread_id = food_order.thread_id
 
-    # logger.error(f"response:{response}")
-    # # update graph state
-    # config = {"configurable": {"thread_id": thread_id, "recipient": recipient}}
-    # await graph.aupdate_state(
-    #     config, {"is_payment_successful": True}, as_node="toolNode"
-    # )
+    ## Call the restaurant api to update the payment status
+    rest_ref = food_order.order_number.split("-")[0]
+    payment_complete_url = get_webhook_url(rest_ref, "order-payment-complete")
 
-    # await run_elai_graph_with_custom_msg(
-    #     recipient, system_msg="Verify if payment is complete"
-    # )
+    # Make async HTTP request to restaurant webhook
+    async with httpx.AsyncClient() as http_client:
+        try:
+            res = await http_client.post(
+                url=f"{payment_complete_url}{recipient}/{thread_id}",
+                json=food_order.model_dump(),
+            )
+            res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            logger.info(
+                f"Successfully notified restaurant {rest_ref} for order {order_id}"
+            )
+        except httpx.HTTPError as e:
+            logger.error(
+                f"Error during restaurant notification for order {order_id}: {e}"
+            )
 
     return {"success": "success"}
 
@@ -65,7 +83,6 @@ async def handle_payment_complete(request_body: dict):
 @router.post("/payment-complete")
 async def payment_complete_path(request: Request, background_tasks: BackgroundTasks):
     # Unpack request
-    logger.info(f"PaymentComplete webhook from stripe called")
     request_body: dict = await request.json()
     background_tasks.add_task(handle_payment_complete, request_body)
     return {"success": "success"}
