@@ -6,9 +6,8 @@ set config_value = 'https://rider-agent.ordelo.app'
 where config_key = 'ORDELO_APP_URL';
 
 update ordelo_config
-set config_value = 'https://agent.ordelo.app'
+set config_value = 'https://rider-agent-test.ordelo.app'
 where config_key = 'ORDELO_APP_URL';
-
 
 update ordelo_config
 set config_value = 10
