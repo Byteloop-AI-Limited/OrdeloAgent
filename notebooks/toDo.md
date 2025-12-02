@@ -1,4 +1,6 @@
 ## Immediate
+- Remove REST_MASTER from params.py
+
 - Reset thread uses sget functions, need to change it. 
 - Issue the admin notifications as soon as the payment is complete
 - on payment successfull - update FoodOrder to status from requires_payment
