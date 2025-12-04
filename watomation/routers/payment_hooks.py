@@ -14,6 +14,9 @@ Payment webhook handler module for Elai Agent
 # %%
 from fastapi import APIRouter, Request, BackgroundTasks
 from config import client
+from utils_common.order_management.food_order_pymodel import FoodOrder
+from config.params import get_webhook_url
+import httpx
 
 # from elai.agent_runner import run_elai_graph_with_custom_msg
 from loguru import logger
@@ -24,41 +27,23 @@ router = APIRouter(tags=["payment-hooks"])
 
 
 # %% supporting functions
-async def handle_payment_complete(request_body: dict):
+async def handle_payment_complete(food_order: FoodOrder):
     """
     Handles the update of the payment status in the graph and notifies the restaurant.
 
     Args:
-        request_body: The request body from the payment webhook
+        food_order: The food order object
 
     Returns:
         dict: Success status
     """
-    import httpx
-    from utils_common.order_management.food_order_pymodel import FoodOrder
-    from config.params import get_webhook_url
-
-    # update payment status to `requires_payment`, `requires_capture`
-    order_id = request_body["data"]["object"]["metadata"]["orderID"]
-    logger.info(f"order_id:{order_id} - PaymentComplete webhook from stripe called")
-
-    # Update the payment status
-    response = (
-        client.table("food_order")
-        .update({"payment_status": "requires_capture"})
-        .eq("order_id", order_id)
-        .execute()
-    )
-
-    ## Call the restaurant api to update the payment status
-    # Prepare the payload
-    food_order = FoodOrder(**response.data[0])
-    recipient = food_order.recipient
-    thread_id = food_order.thread_id
 
     ## Call the restaurant api to update the payment status
     rest_ref = food_order.order_number.split("-")[0]
     payment_complete_url = get_webhook_url(rest_ref, "order-payment-complete")
+    recipient = food_order.recipient
+    thread_id = food_order.thread_id
+    order_id = food_order.order_id
 
     # Make async HTTP request to restaurant webhook
     async with httpx.AsyncClient() as http_client:
@@ -76,17 +61,6 @@ async def handle_payment_complete(request_body: dict):
                 f"Error during restaurant notification for order {order_id}: {e}"
             )
 
-    # Create the delivery order;
-    init_delivery_summary(food_order.order_number, recipient)
-
-    return {"success": "success"}
-
-
-@router.post("/payment-complete")
-async def payment_complete_path(request: Request, background_tasks: BackgroundTasks):
-    # Unpack request
-    request_body: dict = await request.json()
-    background_tasks.add_task(handle_payment_complete, request_body)
     return {"success": "success"}
 
 
@@ -107,7 +81,40 @@ def init_delivery_summary(order_number: str, recipient: str):
 
 
 # %%
-# init_delivery_summary("ELAS-212121", "447448440754")
+
+
+@router.post("/payment-complete")
+async def payment_complete_path(request: Request, background_tasks: BackgroundTasks):
+    # Unpack request
+    request_body: dict = await request.json()
+
+    # update payment status to `requires_payment`, `requires_capture`
+    order_id = request_body["data"]["object"]["metadata"]["orderID"]
+    logger.info(f"order_id:{order_id} - PaymentComplete webhook from stripe called")
+
+    # Update the payment status
+    response = (
+        client.table("food_order")
+        .update({"payment_status": "requires_capture"})
+        .eq("order_id", order_id)
+        .execute()
+    )
+
+    ## Call the restaurant api to update the payment status
+    # Prepare the payload
+    food_order = FoodOrder(**response.data[0])
+
+    background_tasks.add_task(handle_payment_complete, food_order)
+
+    background_tasks.add_task(
+        init_delivery_summary, food_order.order_number, food_order.recipient
+    )
+
+    # Recipient not found.
+    recipient = request_body["data"]["object"]["metadata"]["recipient"]
+
+    return {"success": "success"}
+
 
 # %%
 
