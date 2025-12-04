@@ -49,7 +49,6 @@ async def handle_payment_complete(request_body: dict):
         .eq("order_id", order_id)
         .execute()
     )
-    logger.info(f"response:{response.data}")
 
     ## Call the restaurant api to update the payment status
     # Prepare the payload
@@ -77,6 +76,9 @@ async def handle_payment_complete(request_body: dict):
                 f"Error during restaurant notification for order {order_id}: {e}"
             )
 
+    # Create the delivery order;
+    init_delivery_summary(food_order.order_number, recipient)
+
     return {"success": "success"}
 
 
@@ -102,6 +104,12 @@ def init_delivery_summary(order_number: str, recipient: str):
         )
     except Exception as e:
         logger.error(f"init_delivery failed for order {order_number}: {e}")
+
+
+# %%
+# init_delivery_summary("ELAS-212121", "447448440754")
+
+# %%
 
 
 @router.post("/payment-complete-test/{order_number}")

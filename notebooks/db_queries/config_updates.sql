@@ -83,6 +83,12 @@ update restaurant_master
 set lat = 51.359349, lon = 0.0904094
 where rest_ref='WREN';
 
+select * from restaurant_master;
+
+update restaurant_master
+set admins=ARRAY['447919202938']
+where rest_ref='ELAS';
+
 UPDATE rider_master
 SET is_in_shift=false;
 -- WHERE rider_name in ('Syama');
@@ -125,3 +131,27 @@ VALUES (
     51.07266352837689,
     -1.797172687583984
 );
+
+
+select status, pickup_time, * from delivery_summary 
+where order_number='ELAS-OROT-32' 
+order by dtts desc;
+
+update delivery_summary
+set status='restaurant_unconfirmed'
+where order_number='ELAS-OROT-32';
+
+
+update delivery_summary
+set status='restaurant_accept'
+where order_number='ELAS-OROT-32';
+
+select * from food_order
+where order_number='ELAS-OROT-32';
+
+SELECT config_value 
+FROM ordelo_config 
+WHERE config_key = 'ORDELO_APP_URL';
+
+
+select * from restaurant_

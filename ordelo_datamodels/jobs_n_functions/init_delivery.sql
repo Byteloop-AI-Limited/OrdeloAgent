@@ -9,7 +9,7 @@ Where This Fits in the Journey:
         • Step 3+: Downstream jobs and triggers handle dispatch creation, assignment, inflight tracking, and notifications.
 
 Invocation:
-    - Called by an external service (e.g., order placement system) to initiate the delivery process.
+    - Called by an external service (payment_hooks-> handle_payment_complete) to initiate the delivery process.
 
 Purpose:
     - Initialize delivery details by creating a record in `delivery_summary`.
