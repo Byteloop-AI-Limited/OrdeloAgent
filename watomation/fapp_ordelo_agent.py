@@ -173,9 +173,6 @@ wa.add_handlers(
     handlers.FlowCompletionHandler(callback=on_customer_address_flow_completion),
 )
 
-# print_chat_opened = lambda _, msg: print(msg)
-# wa.add_handlers(handlers.ChatOpenedHandler(print_chat_opened))
-
 # %% Add WA Flow Request handlers
 wa.add_flow_request_handler(
     handlers.FlowRequestHandler(
