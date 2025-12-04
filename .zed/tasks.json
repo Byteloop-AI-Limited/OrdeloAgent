@@ -1,0 +1,9 @@
+[
+    {
+        "name": "Python: Run Cell",
+        "command": "python3",
+        "args": ["scripts/run_to_next_cell.py"],
+        "allow": ["workspace"],
+        "use_new_terminal": true
+    }
+]
