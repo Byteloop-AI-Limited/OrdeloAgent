@@ -233,6 +233,7 @@ async def create_order(
         Dict with order details and payment URL
     """
 
+    logger.debug(request)
     # Create order with items
     order_result = await create_order_with_items(
         recipient=request.recipient,

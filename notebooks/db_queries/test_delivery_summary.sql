@@ -78,3 +78,30 @@ select status, * from delivery_summary where order_number  in ('WREN-HEHM-31', '
 -- Test if init delivery calles process_delivery as part of initialization
 delete from delivery_summary where order_number='WREN-HEHM-31';
 select init_delivery('447448440754','WREN-HEHM-31');
+
+
+--  Testing restaurant confirmation
+-- Cleaning up
+select cleanup_delivery_order('ELAS-OROT-32');
+
+select * from delivery_summary where order_number='ELAS-OROT-35';
+
+select status, pickup_time, * from delivery_summary 
+where order_number='ELAS-OROT-35' 
+order by dtts desc;
+
+
+select * from food_order
+where order_number='ELAS-OROT-35';
+
+update delivery_summary
+set status='restaurant_unconfirmed'
+where order_number='ELAS-OROT-35';
+
+
+update delivery_summary
+set status='restaurant_accept'
+where order_number='ELAS-OROT-32';
+
+select * from food_order
+where order_number='ELAS-OROT-32';
