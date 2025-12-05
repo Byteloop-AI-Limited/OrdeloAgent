@@ -259,3 +259,6 @@ SELECT * FROM pg_trigger WHERE tgname = 'trigger_restaurant_confirmation_request
 SELECT restaurant_confirmation_whook();
 SHOW log_directory;
 SHOW log_filename;
+
+
+select * from delivery_summary where order_number='ELAS-ZVEO-29';
