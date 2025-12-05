@@ -32,6 +32,7 @@ CREATE TABLE public.food_order (
     order_id TEXT UNIQUE,
     seq_id INTEGER,
     recipient TEXT NOT NULL,
+    notes TEXT NULL,
     thread_id TEXT NOT NULL,
     action TEXT NOT NULL,
     total_price FLOAT NOT NULL,

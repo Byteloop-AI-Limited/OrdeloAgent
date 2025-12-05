@@ -52,6 +52,7 @@ async def generate_payment_intent(food_order: FoodOrder):
     """
     payment_uri = food_order.payment_uri
     intent_payload = await food_order.gen_payment_intent_payload()
+    logger.debug(f"Payment intent payload: {intent_payload}")
 
     async with httpx.AsyncClient() as client:
         try:
