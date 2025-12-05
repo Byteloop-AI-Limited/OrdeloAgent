@@ -129,3 +129,16 @@ async def payment_complete_test_path(
     # Add RPC call to background tasks to avoid blocking and timeout
     background_tasks.add_task(init_delivery_summary, order_number, recipient)
     return {"success": "success"}
+
+
+# %%
+@router.post("/payment-capture/{order_number}")
+async def payment_capture_path(
+    order_number: str,
+    background_tasks: BackgroundTasks,
+    recipient: str = "447448440754",
+):
+    # ELAS-KDDV-21 i want to highlight this example in the docstring
+    # Add RPC call to background tasks to avoid blocking and timeout
+    background_tasks.add_task(init_delivery_summary, order_number, recipient)
+    return {"success": "success"}
