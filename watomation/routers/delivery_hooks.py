@@ -35,7 +35,8 @@ Delivery webhook handlers for Ordelo delivery system
 # %%
 from fastapi import APIRouter, Request, Depends, BackgroundTasks
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail
-from config import logger, _async_wa_client, pg_settings
+from config import logger, _async_wa_client, pg_settings, ms_settings
+from utils_common.payment_ms.payment import get_payment_uri
 from pywa.types import Button
 from pywa_async import WhatsApp
 from datetime import datetime, timedelta
@@ -122,6 +123,50 @@ class RestaurantConfirmationPayload(BaseModel):
     restaurant_master: RestaurantMasterData
     food_order: FoodOrder
     order_items: List[OrderItem]
+
+
+# %%
+
+
+async def capture_payment(order_number, restaurant_cc: int):
+    """
+    Captures a payment for the specified order using the payment microservice.
+
+    Args:
+        order_id (str): The ID of the order for which payment should be captured.
+
+    Returns:
+        str or None: The response text from the payment service if successful, otherwise None.
+    """
+    food_order = FoodOrder.from_order_number(order_number=order_number)
+    if not food_order:
+        logger.error(f"FoodOrder not found for order_id: {order_number}")
+        return None
+
+    order_id = food_order.order_id
+    payment_uri = get_payment_uri(order_id=order_id, thread_id=food_order.thread_id)
+
+    # Call stripe
+    async with httpx.AsyncClient() as _client:
+        logger.info(
+            f"Capturing payment for order {order_id} with payment URI: {payment_uri}"
+        )
+        try:
+            capture_payload = await food_order.gen_capture_payload()
+            capture_payload["restaurant_confirmation_code"] = str(restaurant_cc)
+            logger.info(f"Capture payload: {capture_payload}")
+            res = await _client.post(
+                payment_uri,
+                json=capture_payload,
+                headers=ms_settings.stripe_headers,
+            )
+            res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            return res.text
+        except httpx.HTTPError as e:
+            logger.error(f"Error during payment capture for order {order_id}: {e}")
+            if "res" in locals():
+                logger.error(res.text)
+            return None
 
 
 # %% supporting functions
@@ -397,6 +442,7 @@ async def delivery_inflight_graph_init_hook(
 
     # Extract data from payload
     delivery_detail = DeliveryDetail(**payload["delivery_detail"][0])
+    rest_confirmation_code = payload["delivery_detail"][0]["rest_confirmation_code"]
 
     # 1. Call restaurant webhook - rider-inflight-event (background)
     if "test" not in delivery_detail.order_number.lower():
@@ -404,6 +450,11 @@ async def delivery_inflight_graph_init_hook(
 
     # 2. Initialize ordelo graph as background task
     background_tasks.add_task(init_ordelo_graph, delivery_detail)
+
+    # 3. Capture Strip Payment
+    background_tasks.add_task(
+        capture_payment, delivery_detail.order_number, rest_confirmation_code
+    )
 
     logger.info(
         f"Enqueued inflight graph init for order number: {delivery_detail.order_number}"
