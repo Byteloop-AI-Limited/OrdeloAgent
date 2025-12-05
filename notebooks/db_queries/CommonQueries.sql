@@ -261,4 +261,6 @@ SHOW log_directory;
 SHOW log_filename;
 
 
+select * from food_order where order_number='ELAS-ZVEO-43';
+
 select * from delivery_summary where order_number='ELAS-ZVEO-29';
