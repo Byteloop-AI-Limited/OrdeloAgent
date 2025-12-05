@@ -47,6 +47,44 @@ class FoodOrder(BaseModel):
     payment_status: str
 
     @classmethod
+    def from_order_number(cls, order_number: str) -> Optional["FoodOrder"]:
+        """
+        Fetches food order data from the database using the order_id
+        and returns a FoodOrder instance.
+
+        Args:
+            client: The database client (e.g., Supabase client).
+            order_id: The ID of the order to fetch.
+
+        Returns:
+            A FoodOrder instance if the order is found, otherwise None.
+        """
+        try:
+            food_order_row = (
+                client.table("food_order")
+                .select("*")
+                .eq("order_number", order_number)
+                .execute()
+                .data[0]
+            )
+            instance = cls(**food_order_row)
+            if instance.final_order_value is None:
+                updated = instance.update_final_order_value_in_db()
+                if not updated:
+                    logger.error(
+                        "FoodOrder.from_order_number: failed to update final order value for %s",
+                        order_number,
+                    )
+                    return None
+            return instance
+        except (
+            IndexError,
+            Exception,
+        ) as e:  # Catch potential errors like no data found or DB connection issues
+            logger.error(f"Error fetching order {order_number}: {e}")
+            return None
+
+    @classmethod
     def from_order_id(cls, order_id: str) -> Optional["FoodOrder"]:
         """
         Fetches food order data from the database using the order_id
@@ -190,6 +228,7 @@ class FoodOrder(BaseModel):
             "payment_mode": "capture",
             "rest_payout": self.rest_cost,
             "total_amount": self.final_order_value,
+            "notes": self.notes,
         }
 
     async def generate_order_summary_for_payment_intent(self) -> dict:
@@ -255,6 +294,7 @@ class FoodOrder(BaseModel):
 # %%
 
 # if __name__ == "__main__":
-#     food_order = FoodOrder.from_order_id("TDOJ-39")
+#     # food_order = FoodOrder.from_order_id("TDOJ-39")
+#     food_order = FoodOrder.from_order_number("ELAS-ZVEO-29")
 #     op = await food_order.gen_payment_intent_payload()
-#     print(op)
+#     print(op
