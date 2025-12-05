@@ -173,6 +173,7 @@ async def create_order_with_items(
     thread_id: str,
     order_items: List[OrderItem],
     rest_ref: str,
+    action: str,
     notes: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -218,7 +219,7 @@ async def create_order_with_items(
         "recipient": recipient,
         "notes": notes,
         "thread_id": thread_id,
-        "action": "delivery",
+        "action": action,
         "total_price": total_price,
         "payment_status": "requires_payment",
     }

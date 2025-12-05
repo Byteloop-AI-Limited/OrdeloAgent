@@ -234,12 +234,21 @@ async def create_order(
     """
 
     logger.debug(request)
+    # Temp logic; Also check if notes is not None
+    _notes = request.notes.lower() if request.notes else ""
+
+    if "takeaway" in _notes:
+        action = "takeaway"
+    else:
+        action = "delivery"
+
     # Create order with items
     order_result = await create_order_with_items(
         recipient=request.recipient,
         thread_id=request.thread_id,
         order_items=request.order_items,
         rest_ref=rest_ref,
+        action=action,
         notes=request.notes,
     )
 
