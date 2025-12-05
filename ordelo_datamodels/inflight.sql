@@ -61,6 +61,7 @@ BEGIN
           summ.customer_lon,
           summ.customer_lat,
           summ.customer_address,
+          summ.rest_confirmation_code,
           det.status,
           det.dispatch_id,
           det.rider_id
