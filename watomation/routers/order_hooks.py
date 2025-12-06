@@ -306,6 +306,10 @@ async def create_order(
         "thread_id": request.thread_id,
         "order_number": order_number,
         "payment_intent_url": payment_intent_url,
+        "service_charge": food_order.service_charge,
+        "delivery_fee": food_order.delivery_fee,
+        "small_order_fee": food_order.small_order_fee,
+        "notes": food_order.notes,
     }
 
 
