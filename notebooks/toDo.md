@@ -1,4 +1,5 @@
 ## Immediate
+- this needs to be sent in tools: http://localhost:3000/address-update?recipient=447448440754
 - Use one CallbackButtonData; 
 - Remove REST_MASTER from params.py
 

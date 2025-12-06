@@ -1,4 +1,14 @@
-# %%
+"""
+Restaurant webhook configuration utilities and lookup helpers.
+  . Loads restaurant master data and base URLs
+  . Provides RestaurantConfig mapping for webhook endpoints
+  . Helpers to fetch config and build webhook URLs
+Functions/Classes
+  . get_restaurant_base_url
+  . get_restaurant_config
+  . get_webhook_url
+"""
+
 from collections import namedtuple
 from loguru import logger
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
@@ -86,6 +96,11 @@ RESTAURANT_CONFIG = {
         wren_base_url,
         "order-event-hooks/payment-complete/",
     ),
+    "WREN-ORDER-ADDRESS-UPDATE": RestaurantConfig(
+        "address-update",
+        wren_base_url,
+        "order-event-hooks/address-update",
+    ),
     # Bytelooop
     "ELAB-RIDER-INFLIGHT": RestaurantConfig(
         "rider-event-inflight",
@@ -121,6 +136,11 @@ RESTAURANT_CONFIG = {
         "order-payment-complete",
         elab_base_url,
         "order-event-hooks/payment-complete/",
+    ),
+    "ELAB-ORDER-ADDRESS-UPDATE": RestaurantConfig(
+        "address-update",
+        elab_base_url,
+        "order-event-hooks/address-update",
     ),
     # Elas
     "ELAS-RIDER-INFLIGHT": RestaurantConfig(
@@ -158,6 +178,11 @@ RESTAURANT_CONFIG = {
         elas_base_url,
         "order-event-hooks/payment-complete/",
     ),
+    "ELAS-ORDER-ADDRESS-UPDATE": RestaurantConfig(
+        "address-update",
+        elas_base_url,
+        "order-event-hooks/address-update",
+    ),
 }
 
 
@@ -177,4 +202,4 @@ def get_webhook_url(rest_ref: str, type: str) -> str:
 
 
 # %%
-# get_webhook_url("ELAB", "delivery-timedout")
+# get_webhook_url("ELAS", "order-address-update")
