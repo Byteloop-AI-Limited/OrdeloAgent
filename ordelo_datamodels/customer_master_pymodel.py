@@ -1,14 +1,13 @@
 """
-Pydantic model for customer_master table
-    . Defines fields and types to match the customer_master DDL
-    . Handles nullability with Optional fields
-    . Suitable for FastAPI and Langchain integration
-  Functions/Classes:
-    . CustomerMaster
+Customer master data model for Pydantic validation.
+  . Defines fields/types matching the customer_master DDL
+  . Handles nullability with Optional fields and default coercions
+  . Suitable for FastAPI and Langchain integration
+Functions/Classes:
+  . CustomerMaster
 """
 
 # %%
-import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
@@ -19,7 +18,7 @@ class CustomerMaster(BaseModel):
     cust_email: Optional[str] = None  # TEXT NULL
     house_number: str  # TEXT NOT NULL
     building_name: Optional[str] = None  # TEXT NULL
-    street_name: str  # TEXT NOT NULL
+    street_name: Optional[str] = None  # TEXT NULL
     city: str  # TEXT NOT NULL
     postcode: str  # TEXT NOT NULL
     lat: float  # FLOAT NOT NULL
@@ -51,6 +50,11 @@ class CustomerMaster(BaseModel):
     def set_default_house_number(cls, v):
         """Set default house number to '999' if None is provided."""
         return v if v is not None else "999"
+
+    @field_validator("street_name", mode="before")
+    def default_empty_street(cls, v):
+        """Coerce missing street_name to empty string."""
+        return v if v is not None else ""
 
 
 # %%
