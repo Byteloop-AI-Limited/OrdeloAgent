@@ -6,11 +6,14 @@ Order hook endpoints for Elai Agent
   . Delegates pricing lookup to watomation.services.order_service helpers
   . Creates new orders with order items and initiates payment capture
   . Returns payment URLs for customer checkout
+  . Captures customer addresses and upserts into customer_master
 Functions/Classes:
   . CreateOrderRequest - Pydantic model for order creation requests
+  . CaptureAddressRequest - Pydantic model for address capture requests
   . get_min_order_value - Returns minimum order value using shared service helper
   . get_min_order_value_by_postcode - Resolves postcodes to coordinates before lookup
   . create_order - Creates order with items and captures payment
+  . capture_address - Captures customer address and upserts into customer_master
 """
 
 # %%
@@ -19,7 +22,8 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from config import logger
+from config import logger, client_ordelo
+from ordelo_datamodels.customer_master_pymodel import CustomerMaster
 from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.order_management.order_service import (
     get_min_order_value as fetch_min_order_value,
@@ -302,3 +306,72 @@ async def create_order(
         "order_number": order_number,
         "payment_intent_url": payment_intent_url,
     }
+
+
+# %%
+@router.get("/postcode-validator/{postcode}")
+async def validate_postcode(postcode: str):
+    """Validate UK postcode using address resolver.
+
+    Args:
+        request: The FastAPI request object
+
+    Returns:
+        HTML response indicating validation status
+    """
+    # Get form data and extract postcode
+    uk_address = address_resolver.get_address_from_postcode(postcode)
+
+    return uk_address
+
+
+# %%
+class CaptureAddressRequest(BaseModel):
+    """Request model for capturing customer address."""
+
+    recipient: str
+    house_number: Optional[str] = None
+    building_name: Optional[str] = None
+    street_name: str
+    locality: Optional[str] = None
+    city: str
+    county: Optional[str] = None
+    postcode: str
+    country: Optional[str] = None
+    latitude: float
+    longitude: float
+
+
+@router.post("/capture-address")
+async def capture_address(request: CaptureAddressRequest):
+    """Capture customer address and upsert into customer_master.
+
+    Args:
+        request: CaptureAddressRequest containing address details
+
+    Returns:
+        dict with success status and customer data
+    """
+    customer_master_pl = {
+        "cust_id": request.recipient,
+        "cust_name": request.recipient,  # Using recipient as name since not provided
+        "house_number": request.house_number,
+        "building_name": request.building_name,
+        "street_name": request.street_name,
+        "city": request.city,
+        "postcode": request.postcode,
+        "lat": request.latitude,
+        "lon": request.longitude,
+    }
+
+    _customer_master_row = CustomerMaster(**customer_master_pl)
+
+    response = (
+        client_ordelo.table("customer_master")
+        .upsert(_customer_master_row.model_dump())
+        .execute()
+    )
+
+    logger.info(f"Customer address captured for {request.recipient}")
+
+    return {"success": True, "data": response.data}
