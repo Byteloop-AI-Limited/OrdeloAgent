@@ -334,7 +334,7 @@ class CaptureAddressRequest(BaseModel):
     rest_ref: str
     house_number: Optional[str] = None
     building_name: Optional[str] = None
-    street_name: str
+    street_name: Optional[str] = None
     locality: Optional[str] = None
     city: str
     county: Optional[str] = None
