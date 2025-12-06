@@ -8,8 +8,10 @@ select pg_get_functiondef('delivery_inflight_whook'::regproc);
 select count(*) from rider_location_event;
 
 select *
-from rider_master
-limit 2;
+from rider_master where rider_id in ('447448440754', '447446933210')
+limit 10;
+
+delete from rider_master where rider_id in ('447448440754') and vehicle_type in ('electric_bike', 'scooter');
 
 -- on postgresql, how to find if there are any triggers defined on the table delivery_summary?
 

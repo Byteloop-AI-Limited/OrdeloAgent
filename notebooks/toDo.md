@@ -1,6 +1,5 @@
 ## Immediate
-- this needs to be sent in tools: http://localhost:3000/address-update?recipient=447448440754
-- Use one CallbackButtonData; 
+- On restaurant accept, the time confirmation should include the notes; 
 - Remove REST_MASTER from params.py
 
 - Reset thread uses sget functions, need to change it. 

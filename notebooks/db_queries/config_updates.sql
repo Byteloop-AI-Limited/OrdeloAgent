@@ -1,17 +1,20 @@
 select *
-from ordelo_config;
+from ordelo_config where config_key like '%TIME%';
 
-update ordelo_config
-set config_value = 'https://rider-agent.ordelo.app'
+update ordelo_config set config_value = 'https://elas-agg-test.ordelo.app' where config_key = 'ELAS_APP_URL';
+
+update ordelo_config set config_value = 'https://elas-agg.ordelo.app'
+where config_key = 'ELAS_APP_URL';
+
+update ordelo_config set config_value = 'https://rider-agent-test.ordelo.app'
 where config_key = 'ORDELO_APP_URL';
 
-update ordelo_config
-set config_value = 'https://rider-agent-test.ordelo.app'
+update ordelo_config set config_value = 'https://rider-agent.ordelo.app'
 where config_key = 'ORDELO_APP_URL';
 
-update ordelo_config
-set config_value = 10
-where config_key = 'DISPATCH_BATCH_SIZE_ELECTRIC_BIKE';
+
+update ordelo_config set config_value = 10
+ where config_key = 'DISPATCH_BATCH_SIZE_ELECTRIC_BIKE';
 
 
 update ordelo_config
@@ -69,6 +72,14 @@ UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
 
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('ELAS_RESTAURANT_CONFIRMATION_TIMEOUT', '0.25', 'Default minutes to wait for restaurant confirmation before defaulting to max prep time') ON CONFLICT (config_key) DO
+UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description;
+
+-- Testing the config update
+SELECT * FROM job_restaurant_confirmation_timeout('ELAS');
 
 INSERT INTO ordelo_config (config_key, config_value, description)
 VALUES 
