@@ -795,6 +795,7 @@ async def _handle_restaurant_unconfirmed(
 
     # Send restaurant order confirmation to all admins
     admin_phones = restaurant_master.admins
+    order_type = food_order.action
     for admin_phone in admin_phones:
         send_restaurant_order_confirmation(
             recipient=admin_phone,
@@ -802,6 +803,7 @@ async def _handle_restaurant_unconfirmed(
             order_amount=order_amount,
             order_items=order_items_str,
             order_time=order_time_epoch,
+            order_type=order_type,
         )
         logger.info(
             f"Restaurant confirmation request sent for order {food_order.order_number} to {admin_phone}"
