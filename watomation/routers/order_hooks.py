@@ -22,7 +22,8 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from config import logger, client_ordelo
+from config import logger, client_ordelo, get_webhook_url
+import httpx
 from ordelo_datamodels.customer_master_pymodel import CustomerMaster
 from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.order_management.order_service import (
@@ -330,6 +331,7 @@ class CaptureAddressRequest(BaseModel):
     """Request model for capturing customer address."""
 
     recipient: str
+    rest_ref: str
     house_number: Optional[str] = None
     building_name: Optional[str] = None
     street_name: str
@@ -363,7 +365,8 @@ async def capture_address(request: CaptureAddressRequest):
         "lat": request.latitude,
         "lon": request.longitude,
     }
-
+    rest_ref = request.rest_ref
+    logger.info(f"restRef is :{rest_ref}")
     _customer_master_row = CustomerMaster(**customer_master_pl)
 
     response = (
@@ -374,4 +377,13 @@ async def capture_address(request: CaptureAddressRequest):
 
     logger.info(f"Customer address captured for {request.recipient}")
 
-    return {"success": True, "data": response.data}
+    webhook_url = get_webhook_url(rest_ref, "order-address-update")
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            url=webhook_url + "/" + request.recipient,
+            json=_customer_master_row.model_dump(),
+        )
+        logger.info("Restaurant notified of rider")
+        logger.info("Status code:", response.status_code)
+
+    return {"success": True}
