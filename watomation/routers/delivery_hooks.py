@@ -55,7 +55,7 @@ from config import (
 )
 from ordelo.agent_app_handlers import enquire_shift_availability
 from ordelo.agents.agent_runner import init_ordelo_graph, run_rider_graph
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail
+from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.food_order_reciept import (
     build_wa_order_reciept_for_rest,
@@ -451,8 +451,7 @@ async def delivery_inflight_graph_init_hook(
     rest_confirmation_code = payload["delivery_detail"][0]["rest_confirmation_code"]
 
     # 1. Call restaurant webhook - rider-inflight-event (background)
-    if "test" not in delivery_detail.order_number.lower():
-        background_tasks.add_task(post_rider_event_inflight, delivery_detail)
+    background_tasks.add_task(post_rider_event_inflight, delivery_detail)
 
     # 2. Initialize ordelo graph as background task
     background_tasks.add_task(init_ordelo_graph, delivery_detail)
