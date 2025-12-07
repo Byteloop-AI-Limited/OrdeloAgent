@@ -553,9 +553,8 @@ async def verify_customer_confirmation_code(
         )
 
     # On right confirmation code
-    # Notify both customer and restaurant that the delivery is complete
-    if "test" not in order_number.lower():
-        await post_rider_event_customer_cc(order_number, customer_id)
+    # Notify customer, end to converstaion session.
+    await post_rider_event_customer_cc(order_number, customer_id)
 
     # Reset the thread, update db status, toDo - Should this go in the close thread function?
     try:

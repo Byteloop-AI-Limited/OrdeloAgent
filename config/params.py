@@ -59,6 +59,7 @@ RestaurantConfig = namedtuple(
 wren_base_url = get_restaurant_base_url("WREN")
 elab_base_url = get_restaurant_base_url("ELAB")
 elas_base_url = get_restaurant_base_url("ELAS")
+ordelo_base_url = get_restaurant_base_url("ORDELO")
 
 RESTAURANT_CONFIG = {
     "WREN-RIDER-INFLIGHT": RestaurantConfig(
