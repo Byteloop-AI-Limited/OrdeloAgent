@@ -13,6 +13,7 @@ Functions/Classes:
     . update_final_order_value
     . gen_capture_payload
     . generate_order_summary_for_payment_intent
+    . generate_order_summary_for_automatic_payment
     . payment_uri (property)
     . gen_payment_intent_payload
 """
@@ -68,7 +69,7 @@ class FoodOrder(BaseModel):
                 .data[0]
             )
             instance = cls(**food_order_row)
-            if instance.final_order_value is None:
+            if instance.final_order_value is None and instance.action == "delivery":
                 updated = instance.update_final_order_value_in_db()
                 if not updated:
                     logger.error(
@@ -106,7 +107,7 @@ class FoodOrder(BaseModel):
                 .data[0]
             )
             instance = cls(**food_order_row)
-            if instance.final_order_value is None:
+            if instance.final_order_value is None and instance.action == "delivery":
                 updated = instance.update_final_order_value_in_db()
                 if not updated:
                     logger.error(
@@ -273,6 +274,29 @@ class FoodOrder(BaseModel):
         order_summary = {"items": all_items}
         return order_summary
 
+    async def generate_order_summary_for_automatic_payment(self) -> dict:
+        """
+        Generates an order summary dictionary for automatic payment capture.
+        Only includes order items without any additional fees (no service charge,
+        delivery fee, or small order fee).
+
+        Returns:
+            dict: Order summary with only product items for automatic payment.
+        """
+        order_items = (
+            client.table("order_item")
+            .select("""
+                product_name, 
+                quantity, 
+                price
+            """)
+            .eq("order_id", self.order_id)
+            .execute()
+        )
+
+        order_summary = {"items": order_items.data}
+        return order_summary
+
     async def gen_payment_intent_payload(self) -> dict:
         """
         Generates the payload dictionary for a Stripe payment intent for this order.
@@ -296,5 +320,6 @@ class FoodOrder(BaseModel):
 # if __name__ == "__main__":
 #     # food_order = FoodOrder.from_order_id("TDOJ-39")
 #     food_order = FoodOrder.from_order_number("ELAS-ZVEO-29")
-#     op = await food_order.gen_payment_intent_payload()
-#     print(op
+#     # op = await food_order.generate_order_summary_for_automatic_payment()
+#     op = await food_order.generate_order_summary_for_payment_intent()
+#     print(op)

@@ -103,8 +103,10 @@ UPDATE rider_master
 SET is_in_shift=false;
 -- WHERE rider_name in ('Syama');
 
+delete from rider_master where id=5;
+
 SELECT 
-DISTINCT rider_id, rider_name 
+*
 FROM rider_master WHERE status='active' limit 10;
 
 update rider_master set town='Salisbury'

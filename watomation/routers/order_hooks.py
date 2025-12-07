@@ -33,7 +33,8 @@ from utils_common.order_management.order_service import (
 from utils_common.maps_service.address_resolver import address_resolver
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from utils_common.payment_ms.payment import (
-    generate_payment_intent,
+    generate_payment_intent_url,
+    generate_automatic_payment_url,
     cancel_payment,
 )
 
@@ -199,6 +200,7 @@ class CreateOrderRequest(BaseModel):
     recipient: str
     thread_id: str
     order_items: List[OrderItem]
+    order_type: str
     notes: Optional[str] = None
 
 
@@ -238,14 +240,10 @@ async def create_order(
         Dict with order details and payment URL
     """
 
-    logger.debug(request)
     # Temp logic; Also check if notes is not None
     _notes = request.notes.lower() if request.notes else ""
 
-    if "takeaway" in _notes:
-        action = "takeaway"
-    else:
-        action = "delivery"
+    action = request.order_type
 
     # Create order with items
     order_result = await create_order_with_items(
@@ -277,27 +275,13 @@ async def create_order(
     order_number = order_result["order_number"]
 
     thread_id = food_order.thread_id
-    payment_intent_url = await generate_payment_intent(food_order)
 
-    # Capture payment with static restaurant confirmation code
-    # capture_payload = await food_order.gen_capture_payload()
-    # restaurant_cc = 77
-    # payment_url = await capture_payment_for_order(
-    #     order_id=order_id,
-    #     thread_id=thread_id,
-    #     capture_payload=capture_payload,
-    #     restaurant_cc=restaurant_cc,
-    # )
-
-    # if not payment_url:
-    #     raise HTTPException(
-    #         status_code=500,
-    #         detail={
-    #             "error": "Payment capture failed",
-    #             "order_id": order_id,
-    #             "order_number": order_number,
-    #         },
-    #     )
+    if food_order.action == "delivery":
+        logger.critical("inside delivery")
+        payment_intent_url = await generate_payment_intent_url(food_order)
+    else:
+        payment_intent_url = await generate_automatic_payment_url(food_order)
+        logger.critical(payment_intent_url)
 
     return {
         "status": "success",
