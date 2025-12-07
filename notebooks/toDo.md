@@ -1,4 +1,5 @@
 ## Immediate
+- [!!!] Sending admin_order_reciept (wa_senders) on driver_inflight
 - [!!!] If rider not already on job, there should not be a dispatch sent to him
 - [!!!] Sending order reciept to restaurant admins? Where is it? Most likely when the driver accepts the job (trigger from delivery_inflight)
 
@@ -82,3 +83,10 @@ openai.BadRequestError: Error code: 400 - {'error': {'message': "An assistant me
         logger.info(
             f"Restaurant confirmation request sent for order {food_order.order_number} to {admin_phone}"
         )
+
+
+http://localhost:3000/restaurant/elas?thread_id=9d211c57-4f92-4066-9f5f-9ed4421c1b1d&minimum_order=0.0&distance=0.5&recipient=447448440754&order_type=takeaway
+
+
+opening browser for antigravity:
+ DISPLAY=:0 google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug-session --no-first-run --no-default-browser-check http://localhost:8000/space.html > /dev/null 2>&1 &
