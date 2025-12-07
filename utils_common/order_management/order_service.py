@@ -158,14 +158,9 @@ def get_min_order_value(
     }
 
     response_json = _call_pricing_service(payload)
-    if not response_json:
-        return -1
+    min_order_value = response_json.get("minimum_order_value")
 
-    for option in response_json.get("delivery_options", []):
-        if option.get("vehicle_type") == "car":
-            return option.get("minimum_order_value")
-
-    return -1
+    return float(min_order_value)
 
 
 async def create_order_with_items(
@@ -344,9 +339,3 @@ async def capture_payment_for_order(
             if "res" in locals():
                 logger.error(res.text)
             return None
-
-
-# %%
-
-order_dt = datetime.now().strftime("%Y-%m-%d")
-seq_number = client_ordelo.rpc("get_next_daily_seq", {"input_date": order_dt}).execute()
