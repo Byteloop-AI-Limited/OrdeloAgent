@@ -122,4 +122,4 @@ client_ordelo = pg_settings.client
 
 
 # %%
-# client_ordelo.table("delivery_detail").select("*").execute()
+# client_ordelo.table("restaurant_master").select("admins").eq("rest_ref", "ELAS").execute().data[0]["admins"]

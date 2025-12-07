@@ -19,6 +19,8 @@ select *
 from pg_trigger
 where tgrelid = 'delivery_summary'::regclass;
 
+select * from restaurant_master;
+select * from delivery_summary;
 
 select status,
 	rest_confirmation_code,

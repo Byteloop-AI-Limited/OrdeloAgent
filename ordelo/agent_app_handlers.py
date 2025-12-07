@@ -498,7 +498,11 @@ async def post_rider_event_customer_cc(order_number: str, customer_id: int):
             + str(customer_id),
             json={},
         )
-        logger.info("Cust-CC Webhook called for order number: {}".format(order_number))
+        logger.info(
+            "Ending session on customer agent. Cust-CC Webhook called for order number: {}".format(
+                order_number
+            )
+        )
 
 
 # %%

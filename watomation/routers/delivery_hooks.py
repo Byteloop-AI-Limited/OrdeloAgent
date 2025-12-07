@@ -620,6 +620,22 @@ async def delivery_timedout(
     logger.info(f"delivery_timedout received: {payload}")
     delivery_summary_lst = payload.get("delivery_summary", None)
     delivery_summary = delivery_summary_lst[0]
+    rest_id = delivery_summary["rest_id"]
+
+    rest_admins = (
+        client_ordelo.table("restaurant_master")
+        .select("admins")
+        .eq("rest_id", rest_id)
+        .execute()
+        .data[0]["admins"]
+    )
+
+    for admin_phone in rest_admins:
+        await _async_wa_client.send_message(
+            to=admin_phone,
+            text="No Rider Found for order number: " + delivery_summary["order_number"],
+        )
+
     if "test" not in delivery_summary["order_number"].lower():  # skip test orders
         background_tasks.add_task(post_delivery_timedout, delivery_summary)
     return {"status": "success"}
