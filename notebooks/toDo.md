@@ -1,6 +1,6 @@
 ## Immediate
 - [!!!] If rider not already on job, there should not be a dispatch sent to him
-- [!!!] Sending order reciept to restaurant admins? Where is it?
+- [!!!] Sending order reciept to restaurant admins? Where is it? Most likely when the driver accepts the job (trigger from delivery_inflight)
 
 - [!!!] Opening and closing times for restaurant
 
