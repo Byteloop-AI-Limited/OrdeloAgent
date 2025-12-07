@@ -44,7 +44,7 @@ from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
 from pywa.types import Button
 from pywa_async import WhatsApp
-
+from config.params import get_restaurant_admins
 from config import (
     _async_wa_client,
     client_ordelo,
@@ -622,13 +622,7 @@ async def delivery_timedout(
     delivery_summary = delivery_summary_lst[0]
     rest_id = delivery_summary["rest_id"]
 
-    rest_admins = (
-        client_ordelo.table("restaurant_master")
-        .select("admins")
-        .eq("rest_id", rest_id)
-        .execute()
-        .data[0]["admins"]
-    )
+    rest_admins = get_restaurant_admins(rest_id=rest_id)
 
     for admin_phone in rest_admins:
         await _async_wa_client.send_message(

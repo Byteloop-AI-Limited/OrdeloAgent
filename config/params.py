@@ -7,6 +7,7 @@ Functions/Classes
   . get_restaurant_base_url
   . get_restaurant_config
   . get_webhook_url
+  . get_restaurant_admins
 """
 
 from collections import namedtuple
@@ -200,6 +201,46 @@ def get_restaurant_config(rest_ref: str, type: str) -> RestaurantConfig:
 def get_webhook_url(rest_ref: str, type: str) -> str:
     config = get_restaurant_config(rest_ref, type)
     return config.base_url + "/" + config.rest_webhook_url
+
+
+# %%
+def get_restaurant_admins(
+    rest_ref: str | None = None, rest_id: int | None = None
+) -> list[str] | None:
+    """Get restaurant admins by rest_ref or rest_id.
+
+    Args:
+        rest_ref: Restaurant reference code (e.g., "ELAS")
+        rest_id: Restaurant ID
+
+    Returns:
+        List of admin identifiers, or None if no restaurant found
+    """
+    from config import client_ordelo
+
+    if rest_ref is None and rest_id is None:
+        raise ValueError("Either rest_ref or rest_id must be provided")
+
+    query = client_ordelo.table("restaurant_master").select("admins")
+
+    if rest_ref is not None:
+        query = query.eq("rest_ref", rest_ref.upper())
+    else:
+        query = query.eq("rest_id", rest_id)
+
+    resp = query.execute()
+    data = (
+        resp["data"]
+        if isinstance(resp, dict) and "data" in resp
+        else resp.data
+        if hasattr(resp, "data")
+        else None
+    )
+
+    if not data or len(data) == 0:
+        return None
+
+    return data[0]["admins"]
 
 
 # %%
