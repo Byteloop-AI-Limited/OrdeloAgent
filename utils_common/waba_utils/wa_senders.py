@@ -173,50 +173,61 @@ async def admin_delivery_complete_notification(
 
 
 # %% Admin notification
-# async def admin_order_reciept(
-#     delivery_summary: DeliverySummary, delivery_detail: dict, rider_master: dict
-# ):
-#     order_number = delivery_summary.order_number
-#     order_id = "-".join(order_number.split("-")[1:])
 
-#     food_order = FoodOrder.from_order_id(order_id)
-#     rest_header, rest_text = build_wa_order_reciept_for_rest(food_order=food_order)
+from utils_common.order_management.delivery_pymodels import DeliverySummary
+from utils_common.order_management.food_order_pymodel import FoodOrder
+from utils_common.order_management.food_order_reciept import (
+    build_wa_order_reciept_for_rest,
+)
 
-#     # Construct delivery instructions
-#     # convert dtts to UK local time (handles BST/GMT automatically)
-#     delivery_summary_dtts = delivery_summary.dtts.astimezone(uk_tz)
-#     pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
-#     delivery_instructions = f"""
-# Delivery Details:
-#   ⏰ Pickup Time - *@{pickup_time}*
-#   💰 Rider - *{rider_master["rider_name"]} - {delivery_detail["rider_id"]}*
-#   🛣️ Confirmation Code - *{delivery_summary.rest_confirmation_code}*
-#   🏠 Customer - *{delivery_summary.customer_address}* - *{delivery_summary.customer_id}*
-#     Live Location (once order picked up):
-#     {project_settings.ordelo_url}/location-hooks/live-location-map/{delivery_summary.order_number}
-#     """
-#     # Send notifications to restaurant and customer; ToDo - need to add callback to notifications.
-#     # temp_admins = ["447448440754"]
-#     for admin in REST_MASTER.get_admins():
-#         # for admin in temp_admins:
-#         food_ready_y = CallbackButtonData(
-#             action="/AdminCollectionReady",
-#             recipient=admin,
-#             ai_msg=rest_header,
-#             human_msg="food ready for collection",
-#             rider_id=rider_master["rider_id"],
-#             order_id=order_id,
-#         )
-#         await _async_wa_client.send_message(
-#             to=admin,
-#             header=rest_header,
-#             text=rest_text + "\n" + delivery_instructions,
-#             reply_to_message_id=None,
-#             buttons=[
-#                 Button(title="Ready", callback_data=food_ready_y.model_dump_json())
-#             ],
-#         )
-#     return
+
+async def admin_order_reciept(
+    delivery_summary: DeliverySummary, delivery_detail: dict, rider_master: dict
+):
+    order_number = delivery_summary.order_number
+    order_id = "-".join(order_number.split("-")[1:])
+
+    food_order = FoodOrder.from_order_id(order_id)
+    rest_header, rest_text = build_wa_order_reciept_for_rest(food_order=food_order)
+
+    # Construct delivery instructions
+    # convert dtts to UK local time (handles BST/GMT automatically)
+    delivery_summary_dtts = delivery_summary.dtts.astimezone(uk_tz)
+    pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
+    delivery_instructions = f"""
+Delivery Details:
+  ⏰ Pickup Time - *@{pickup_time}*
+  💰 Rider - *{rider_master["rider_name"]} - {delivery_detail["rider_id"]}*
+  🛣️ Confirmation Code - *{delivery_summary.rest_confirmation_code}*
+  🏠 Customer - *{delivery_summary.customer_address}* - *{delivery_summary.customer_id}*
+    Live Location (once order picked up):
+    {project_settings.ordelo_url}/location-hooks/live-location-map/{delivery_summary.order_number}
+    """
+    # Send notifications to restaurant and customer; ToDo - need to add callback to notifications.
+    # temp_admins = ["447448440754"]
+    for admin in REST_MASTER.get_admins():
+        # for admin in temp_admins:
+        food_ready_y = CallbackButtonData(
+            action="/AdminCollectionReady",
+            recipient=admin,
+            ai_msg=rest_header,
+            human_msg="food ready for collection",
+            rider_id=rider_master["rider_id"],
+            order_id=order_id,
+        )
+        await _async_wa_client.send_message(
+            to=admin,
+            header=rest_header,
+            text=rest_text + "\n" + delivery_instructions,
+            reply_to_message_id=None,
+            buttons=[
+                Button(title="Ready", callback_data=food_ready_y.model_dump_json())
+            ],
+        )
+    return
+
+
+# %%
 
 
 # %%

@@ -9,6 +9,7 @@ Payment microservice utilities for Stripe integration
   Functions/Classes:
     . get_payment_uri
     . generate_payment_intent
+    . generate_automatic_payment_url
     . cancel_payment
     . capture_payment
     . generate_order_summary_for_payment_intent
@@ -40,7 +41,7 @@ def get_payment_uri(order_id: str, thread_id: str) -> str:
 
 
 # %%
-async def generate_payment_intent(food_order: FoodOrder):
+async def generate_payment_intent_url(food_order: FoodOrder):
     """
     Generates a Stripe payment intent for a given order.
 
@@ -63,6 +64,40 @@ async def generate_payment_intent(food_order: FoodOrder):
             return res.json()["url"]
         except httpx.HTTPError as e:
             logger.error(f"Error during payment intent creation: {e}")
+            return None
+
+
+# %%
+async def generate_automatic_payment_url(food_order: FoodOrder):
+    """
+    Generates a Stripe payment URL for automatic capture (no additional fees).
+
+    Args:
+        food_order: A FoodOrder instance containing order details.
+
+    Returns:
+        A string representing the Stripe payment URL, or None if an error occurred.
+    """
+    payment_uri = food_order.payment_uri
+    order_summary = await food_order.generate_order_summary_for_automatic_payment()
+
+    intent_payload = {
+        "items": order_summary.get("items"),
+        "currency": "GBP",
+        "action": "collection",
+        "manual_mode_capture": False,
+        "notes": food_order.notes,
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.post(
+                payment_uri, json=intent_payload, headers=ms_settings.stripe_headers
+            )
+            res.raise_for_status()
+            return res.json()["url"]
+        except httpx.HTTPError as e:
+            logger.error(f"Error during automatic payment intent creation: {e}")
             return None
 
 
@@ -167,9 +202,12 @@ async def generate_order_summary_for_payment_intent(food_order: FoodOrder):
 
 """
 # %% generate payment intent
-generate_payment_intent
-food_order = FoodOrder.from_order_id(order_id)
-order_summary = await generate_order_summary_for_payment_intent(food_order)
+order_id="ELAS-ZVEO-29"
+# print(order_id)
+food_order = FoodOrder.from_order_number(order_id)
+order_summary = await generate_automatic_payment_url(food_order)
+order_summary
+# %%
 
 await generate_payment_intent(order_summary)
 

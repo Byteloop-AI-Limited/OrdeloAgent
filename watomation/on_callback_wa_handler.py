@@ -216,6 +216,7 @@ async def handle_restaurant_confirmation(wa: WhatsApp, msg: Message):
         "order_number": "REST-12345",
         "prep_time_minutes": 15
     }
+    Callback data created in send_restaurant_order_confirmation, in utils_common.waba_utils.wa_templates.restaurant_confirmation_template
     """
     try:
         sender = msg.sender

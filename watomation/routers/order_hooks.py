@@ -6,11 +6,14 @@ Order hook endpoints for Elai Agent
   . Delegates pricing lookup to watomation.services.order_service helpers
   . Creates new orders with order items and initiates payment capture
   . Returns payment URLs for customer checkout
+  . Captures customer addresses and upserts into customer_master
 Functions/Classes:
   . CreateOrderRequest - Pydantic model for order creation requests
+  . CaptureAddressRequest - Pydantic model for address capture requests
   . get_min_order_value - Returns minimum order value using shared service helper
   . get_min_order_value_by_postcode - Resolves postcodes to coordinates before lookup
   . create_order - Creates order with items and captures payment
+  . capture_address - Captures customer address and upserts into customer_master
 """
 
 # %%
@@ -19,7 +22,9 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from config import logger
+from config import logger, client_ordelo, get_webhook_url
+import httpx
+from ordelo_datamodels.customer_master_pymodel import CustomerMaster
 from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.order_management.order_service import (
     get_min_order_value as fetch_min_order_value,
@@ -28,7 +33,8 @@ from utils_common.order_management.order_service import (
 from utils_common.maps_service.address_resolver import address_resolver
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from utils_common.payment_ms.payment import (
-    generate_payment_intent,
+    generate_payment_intent_url,
+    generate_automatic_payment_url,
     cancel_payment,
 )
 
@@ -194,6 +200,7 @@ class CreateOrderRequest(BaseModel):
     recipient: str
     thread_id: str
     order_items: List[OrderItem]
+    order_type: str
     notes: Optional[str] = None
 
 
@@ -233,13 +240,18 @@ async def create_order(
         Dict with order details and payment URL
     """
 
-    logger.debug(request)
+    # Temp logic; Also check if notes is not None
+    _notes = request.notes.lower() if request.notes else ""
+
+    action = request.order_type
+
     # Create order with items
     order_result = await create_order_with_items(
         recipient=request.recipient,
         thread_id=request.thread_id,
         order_items=request.order_items,
         rest_ref=rest_ref,
+        action=action,
         notes=request.notes,
     )
 
@@ -263,27 +275,13 @@ async def create_order(
     order_number = order_result["order_number"]
 
     thread_id = food_order.thread_id
-    payment_intent_url = await generate_payment_intent(food_order)
 
-    # Capture payment with static restaurant confirmation code
-    # capture_payload = await food_order.gen_capture_payload()
-    # restaurant_cc = 77
-    # payment_url = await capture_payment_for_order(
-    #     order_id=order_id,
-    #     thread_id=thread_id,
-    #     capture_payload=capture_payload,
-    #     restaurant_cc=restaurant_cc,
-    # )
-
-    # if not payment_url:
-    #     raise HTTPException(
-    #         status_code=500,
-    #         detail={
-    #             "error": "Payment capture failed",
-    #             "order_id": order_id,
-    #             "order_number": order_number,
-    #         },
-    #     )
+    if food_order.action == "delivery":
+        logger.critical("inside delivery")
+        payment_intent_url = await generate_payment_intent_url(food_order)
+    else:
+        payment_intent_url = await generate_automatic_payment_url(food_order)
+        logger.critical(payment_intent_url)
 
     return {
         "status": "success",
@@ -292,4 +290,88 @@ async def create_order(
         "thread_id": request.thread_id,
         "order_number": order_number,
         "payment_intent_url": payment_intent_url,
+        "service_charge": food_order.service_charge,
+        "delivery_fee": food_order.delivery_fee,
+        "small_order_fee": food_order.small_order_fee,
+        "notes": food_order.notes,
     }
+
+
+# %%
+@router.get("/postcode-validator/{postcode}")
+async def validate_postcode(postcode: str):
+    """Validate UK postcode using address resolver.
+
+    Args:
+        request: The FastAPI request object
+
+    Returns:
+        HTML response indicating validation status
+    """
+    # Get form data and extract postcode
+    uk_address = address_resolver.get_address_from_postcode(postcode)
+
+    return uk_address
+
+
+# %%
+class CaptureAddressRequest(BaseModel):
+    """Request model for capturing customer address."""
+
+    recipient: str
+    rest_ref: str
+    house_number: Optional[str] = None
+    building_name: Optional[str] = None
+    street_name: Optional[str] = None
+    locality: Optional[str] = None
+    city: str
+    county: Optional[str] = None
+    postcode: str
+    country: Optional[str] = None
+    latitude: float
+    longitude: float
+
+
+@router.post("/capture-address")
+async def capture_address(request: CaptureAddressRequest):
+    """Capture customer address and upsert into customer_master.
+
+    Args:
+        request: CaptureAddressRequest containing address details
+
+    Returns:
+        dict with success status and customer data
+    """
+    customer_master_pl = {
+        "cust_id": request.recipient,
+        "cust_name": request.recipient,  # Using recipient as name since not provided
+        "house_number": request.house_number,
+        "building_name": request.building_name,
+        "street_name": request.street_name,
+        "city": request.city,
+        "postcode": request.postcode,
+        "lat": request.latitude,
+        "lon": request.longitude,
+    }
+    rest_ref = request.rest_ref
+    logger.info(f"restRef is :{rest_ref}")
+    _customer_master_row = CustomerMaster(**customer_master_pl)
+
+    response = (
+        client_ordelo.table("customer_master")
+        .upsert(_customer_master_row.model_dump())
+        .execute()
+    )
+
+    logger.info(f"Customer address captured for {request.recipient}")
+
+    webhook_url = get_webhook_url(rest_ref, "order-address-update")
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            url=webhook_url + "/" + request.recipient,
+            json=_customer_master_row.model_dump(),
+        )
+        logger.info("Restaurant notified of rider")
+        logger.info("Status code:", response.status_code)
+
+    return {"success": True}

@@ -84,7 +84,17 @@ select init_delivery('447448440754','WREN-HEHM-31');
 -- Cleaning up
 select cleanup_delivery_order('ELAS-OROT-32');
 
-select * from delivery_summary where order_number='ELAS-OROT-35';
+select * from delivery_summary 
+where order_number='ELAS-URXB-32';
+
+update delivery_summary
+set status='unassigned'
+where order_number='ELAS-URXB-32';
+
+
+update delivery_summary
+set status='timedout'
+where order_number='ELAS-URXB-32';
 
 select status, pickup_time, * from delivery_summary 
 where order_number='ELAS-OROT-35' 

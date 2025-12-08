@@ -38,18 +38,18 @@ BEGIN
       ds.order_number,
       ds.rest_id,
       COALESCE(
-        (SELECT config_value::INTEGER 
+        (SELECT config_value::NUMERIC 
          FROM ordelo_config 
          WHERE config_key = SPLIT_PART(ds.order_number, '-', 1) || '_RESTAURANT_CONFIRMATION_TIMEOUT'
          LIMIT 1),
-        (SELECT config_value::INTEGER 
+        (SELECT config_value::NUMERIC 
          FROM ordelo_config 
          WHERE config_key = 'RESTAURANT_CONFIRMATION_TIMEOUT'
          LIMIT 1),
         5  -- Fallback to 5 minutes if no config found
       ) AS timeout_minutes
     FROM delivery_summary ds
-    WHERE ds.status = 'restaurant_unconfirmed'
+    WHERE ds.status = 'restaurant_unconfirmed' or ds.status = 'restaurant_accept'
       AND (p_rest_ref IS NULL OR SPLIT_PART(ds.order_number, '-', 1) = p_rest_ref)
   ),
   timed_out_orders AS (
@@ -62,7 +62,7 @@ BEGIN
       pickup_time = NOW() + INTERVAL '25 minutes'
     FROM timeout_config tc
     WHERE ds.order_number = tc.order_number
-      AND ds.status = 'restaurant_unconfirmed'
+      AND (ds.status = 'restaurant_unconfirmed' OR ds.status = 'restaurant_accept')
       AND (EXTRACT(EPOCH FROM (NOW() - ds.dtts))/60) >= tc.timeout_minutes
     RETURNING 
       ds.order_number,
@@ -70,12 +70,12 @@ BEGIN
       tc.timeout_minutes,
       'Order ' || ds.order_number || ' → restaurant confirmation timed out after ' || tc.timeout_minutes || ' minutes, defaulted to 25min prep time' AS action
   )
-  SELECT to_action FROM timed_out_orders;
+  SELECT timed_out_orders.action FROM timed_out_orders;
 END;
 $$;
 
 -- Example: Process specific restaurant
--- SELECT * FROM job_restaurant_confirmation_timeout('WREN');
+SELECT * FROM job_restaurant_confirmation_timeout('ELAS');
 
 -- Example: Process all restaurants
 -- SELECT * FROM job_restaurant_confirmation_timeout();

@@ -18,7 +18,7 @@ Delivery webhook handlers for Ordelo delivery system
     . RestaurantConfirmationPayload - Pydantic model for restaurant confirmation webhook with trigger_reason
     . get_payload - Helper to parse webhook payloads
     . wa_send_delivery_dispatch_request_to_rider - Notifies riders via WhatsApp
-    . post_rider_event_inflight - Posts delivery summary to webhook
+    . post_rider_event_inflight - Posts delivery summary to webhook (accepts DeliverySummary param)
     . post_delivery_timedout - Posts delivery timeout information
     . delivery_hook_root - Root endpoint for delivery hooks
     . delivery_dispatch_hook - Processes dispatch assignments
@@ -33,31 +33,37 @@ Delivery webhook handlers for Ordelo delivery system
 """
 
 # %%
-from fastapi import APIRouter, Request, Depends, BackgroundTasks
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail
-from config import logger, _async_wa_client, pg_settings, ms_settings
-from utils_common.payment_ms.payment import get_payment_uri
+import asyncio
+import json
+from datetime import datetime, timedelta
+from typing import List, Optional
+
+import httpx
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from psycopg_pool import AsyncConnectionPool
+from pydantic import BaseModel
 from pywa.types import Button
 from pywa_async import WhatsApp
-from datetime import datetime, timedelta
-import json
-import pytz
-from psycopg_pool import AsyncConnectionPool
-import asyncio
-from config import client_ordelo, get_webhook_url
-import httpx
-from ordelo.agents.agent_runner import init_ordelo_graph
-from ordelo.agents.agent_runner import run_rider_graph
-from ordelo.agent_app_handlers import enquire_shift_availability
-from utils_common.waba_utils.wa_templates.restaurant_confirmation_template import (
-    send_restaurant_order_confirmation,
+from config.params import get_restaurant_admins
+from config import (
+    _async_wa_client,
+    client_ordelo,
+    get_webhook_url,
+    logger,
+    ms_settings,
+    pg_settings,
 )
+from ordelo.agent_app_handlers import enquire_shift_availability
+from ordelo.agents.agent_runner import init_ordelo_graph, run_rider_graph
+from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder
-from utils_common.order_management.order_db_ops_new import OrderItem
-from pydantic import BaseModel
-from typing import List, Optional
 from utils_common.order_management.food_order_reciept import (
     build_wa_order_reciept_for_rest,
+)
+from utils_common.order_management.order_db_ops_new import OrderItem
+from utils_common.payment_ms.payment import get_payment_uri
+from utils_common.waba_utils.wa_templates.restaurant_confirmation_template import (
+    send_restaurant_order_confirmation,
 )
 
 
@@ -240,25 +246,20 @@ Vehicle type - *{delivery_summary["vehicle_type"]}*
 
 
 # %% post rider event inflight
-async def post_rider_event_inflight(delivery_detail: DeliveryDetail):
+async def post_rider_event_inflight(
+    delivery_detail: DeliveryDetail, delivery_summary: DeliverySummary
+):
     """
     Posts the delivery summary for a given order_number to the rider-inflight webhook.
 
     Args:
-        order_number (str): The unique identifier for the order.
+        delivery_detail (DeliveryDetail): The delivery detail for the order.
+        delivery_summary (DeliverySummary): The delivery summary for the order.
 
     Side Effects:
         Sends an HTTP POST request to the configured rider-inflight webhook endpoint
         with the all delivery details as JSON payload and prints the response status and JSON.
     """
-    delivery_summary: dict = (
-        client_ordelo.table("delivery_summary")
-        .select("*")
-        .eq("order_number", delivery_detail.order_number)
-        .limit(1)
-        .execute()
-        .data[0]
-    )
     rider_master = (
         client_ordelo.table("rider_master")
         .select("rider_name", "rider_id")
@@ -269,8 +270,8 @@ async def post_rider_event_inflight(delivery_detail: DeliveryDetail):
         .data[0]
     )
     payload = {
-        "delivery_summary": delivery_summary,
-        "delivery_detail": delivery_detail.model_dump(),
+        "delivery_summary": delivery_summary.model_dump(mode="json"),
+        "delivery_detail": delivery_detail.model_dump(mode="json"),
         "rider_master": rider_master,
     }
     rest_ref = delivery_detail.order_number.split("-")[0]
@@ -279,8 +280,10 @@ async def post_rider_event_inflight(delivery_detail: DeliveryDetail):
             get_webhook_url(rest_ref, "rider-inflight"),
             json=payload,
         )
-        logger.info("Restaurant notified of rider")
-        logger.info("Status code:", response.status_code)
+        logger.critical(
+            f"Restaurant notified of rider for order {delivery_detail.order_number}"
+        )
+        logger.info(f"Status code: {response.status_code}, Response: {response.json()}")
 
 
 # %% post delivery timedout
@@ -439,14 +442,19 @@ async def delivery_inflight_graph_init_hook(
     if "delivery_detail" not in payload or len(payload["delivery_detail"]) == 0:
         logger.error("No delivery_detail found: from inflight hook")
         return {"status": "error", "data": payload}
+    if "delivery_summary" not in payload or payload["delivery_summary"] is None:
+        logger.error("No delivery_summary found: from inflight hook")
+        return {"status": "error", "data": payload}
 
     # Extract data from payload
     delivery_detail = DeliveryDetail(**payload["delivery_detail"][0])
+    delivery_summary = DeliverySummary(**payload["delivery_summary"])
     rest_confirmation_code = payload["delivery_detail"][0]["rest_confirmation_code"]
 
     # 1. Call restaurant webhook - rider-inflight-event (background)
-    if "test" not in delivery_detail.order_number.lower():
-        background_tasks.add_task(post_rider_event_inflight, delivery_detail)
+    background_tasks.add_task(
+        post_rider_event_inflight, delivery_detail, delivery_summary
+    )
 
     # 2. Initialize ordelo graph as background task
     background_tasks.add_task(init_ordelo_graph, delivery_detail)
@@ -614,6 +622,16 @@ async def delivery_timedout(
     logger.info(f"delivery_timedout received: {payload}")
     delivery_summary_lst = payload.get("delivery_summary", None)
     delivery_summary = delivery_summary_lst[0]
+    rest_id = delivery_summary["rest_id"]
+
+    rest_admins = get_restaurant_admins(rest_id=rest_id)
+
+    for admin_phone in rest_admins:
+        await _async_wa_client.send_message(
+            to=admin_phone,
+            text="No Rider Found for order number: " + delivery_summary["order_number"],
+        )
+
     if "test" not in delivery_summary["order_number"].lower():  # skip test orders
         background_tasks.add_task(post_delivery_timedout, delivery_summary)
     return {"status": "success"}
@@ -795,6 +813,7 @@ async def _handle_restaurant_unconfirmed(
 
     # Send restaurant order confirmation to all admins
     admin_phones = restaurant_master.admins
+    order_type = food_order.action
     for admin_phone in admin_phones:
         send_restaurant_order_confirmation(
             recipient=admin_phone,
@@ -802,6 +821,7 @@ async def _handle_restaurant_unconfirmed(
             order_amount=order_amount,
             order_items=order_items_str,
             order_time=order_time_epoch,
+            order_type=order_type,
         )
         logger.info(
             f"Restaurant confirmation request sent for order {food_order.order_number} to {admin_phone}"
