@@ -872,14 +872,15 @@ async def _handle_restaurant_accept(
     text: str = f"Order accepted! Items: {order_items_str}\n\nPlease select estimated pickup time:"
 
     # Send pickup time selection
-    await send_restaurant_pickup_time(
-        recipient=admin_phone,
-        header=header,
-        text=text,
-        order_number=food_order.order_number,
-        order_time_epoch=order_time_epoch,
-        intervals_mins=[5, 15, 25],
-    )
+    for admin in restaurant_master.admins:
+        await send_restaurant_pickup_time(
+            recipient=admin,
+            header=header,
+            text=text,
+            order_number=food_order.order_number,
+            order_time_epoch=order_time_epoch,
+            intervals_mins=[5, 15, 25],
+        )
 
     logger.info(
         f"Restaurant pickup time request sent for order {food_order.order_number} to {admin_phone}"
