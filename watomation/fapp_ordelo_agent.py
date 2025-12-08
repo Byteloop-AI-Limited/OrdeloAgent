@@ -202,6 +202,8 @@ wa.add_flow_request_handler(
 # %% debug
 @app.get("/details")
 async def get_details():
+    from config import _async_wa_client as wa
+
     business_phone_number = await wa.get_business_phone_number()
     phone_id = waba_business_settings.phone_id
     phone_num = business_phone_number.display_phone_number
@@ -209,12 +211,18 @@ async def get_details():
     callback_url_on_waba = business_phone_number.webhook_configuration["application"]
     callback_url = waba_business_settings.callback_url
 
+    # RestConfif
+    from config.params import elas_base_url, ordelo_base_url
+
     return {
+        "business_phone_number": business_phone_number,
         "phone_id": str(phone_id),
         "display_phone_num": phone_num,
         "verified_name": bus_name,
         "callback_url": callback_url,
         "callback_url_on_waba": callback_url_on_waba,
+        "elas_base_url": elas_base_url,
+        "ordelo_base_url": ordelo_base_url,
     }
 
 

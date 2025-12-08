@@ -93,6 +93,7 @@ def send_restaurant_order_confirmation(
     order_amount: str,
     order_items: str,
     order_time: int,
+    order_type: str,
 ) -> Message:
     """Send the restaurant_order_offer template."""
     accept_button = CallbackButtonData(
@@ -105,13 +106,23 @@ def send_restaurant_order_confirmation(
         order_number=order_number,
         order_time=order_time,
     )
-    logger.info(decline_button.model_dump_json())
+
+    if order_type == "delivery":
+        order_type_icon = " 🚚 "
+    elif order_type == "takeaway":
+        order_type_icon = " 🥡 "
     return wa.send_template(
         to=recipient,
         name="restaurant_order_confirmation",
         language=TemplateLanguage.ENGLISH_UK,
         params=[
-            HeaderText.params(order_number_amount=order_number + " " + order_amount),
+            HeaderText.params(
+                order_number_amount=order_number
+                + " "
+                + order_amount
+                + order_type_icon
+                + order_type.capitalize()
+            ),
             bdy_offer.params(
                 order_items=order_items,
             ),
@@ -131,9 +142,10 @@ def send_restaurant_order_confirmation(
 
 # response = send_restaurant_order_confirmation(
 #     recipient="447448440754",
-#     order_number="12345",
-#     order_amount="£25.00",
+#     order_number="ELAS-ZVEO-29",
+#     order_amount="£25.00; Takeaway",
 #     order_items="2x Butter Chicken, 2x Naan",
+#     order_time=12345,
 # )
 
 # %%

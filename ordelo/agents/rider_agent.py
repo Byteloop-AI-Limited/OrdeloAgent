@@ -37,6 +37,7 @@ from langgraph.prebuilt import ToolNode, InjectedState
 from langgraph.types import Command
 from typing_extensions import Literal
 from config import _async_wa_client, llm_settings
+from config.params import get_restaurant_admins
 from pywa.types import ButtonUrl
 
 from utils_common.lg_utils import (
@@ -553,9 +554,17 @@ async def verify_customer_confirmation_code(
         )
 
     # On right confirmation code
-    # Notify both customer and restaurant that the delivery is complete
-    if "test" not in order_number.lower():
-        await post_rider_event_customer_cc(order_number, customer_id)
+    # Notify customer, end to converstaion session.
+    await post_rider_event_customer_cc(order_number, customer_id)
+
+    # Notify the restaurant admin
+    rest_ref = order_number.split("-")[0]
+    rest_admins = get_restaurant_admins(rest_ref=rest_ref)
+    for admin in rest_admins:
+        await _async_wa_client.send_message(
+            to=admin,
+            text=f"✅ Delivery completed for {order_number}.",
+        )
 
     # Reset the thread, update db status, toDo - Should this go in the close thread function?
     try:

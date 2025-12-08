@@ -37,6 +37,7 @@ EXECUTE FUNCTION restaurant_updates_whook();
 drop trigger trigger_restaurant_updates on delivery_summary;
 
 -- Trigger2: On status change to timeout
+drop trigger trigger_delivery_summary_timedout on public.delivery_summary;
 
 CREATE OR REPLACE TRIGGER trigger_delivery_summary_timedout AFTER
 UPDATE ON public.delivery_summary

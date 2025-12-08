@@ -1,6 +1,23 @@
 ## Immediate
-- Use one CallbackButtonData; 
+- [!!!] Sending admin_order_reciept (wa_senders) on driver_inflight
+- [!!!] If rider not already on job, there should not be a dispatch sent to him
+- [!!!] Sending order reciept to restaurant admins? Where is it? Most likely when the driver accepts the job (trigger from delivery_inflight)
+
+- [!!!] Opening and closing times for restaurant
+
+
+- [] Verify if create_order is being pass with the order_type key
+- On restaurant accept, the time confirmation should include the notes; 
 - Remove REST_MASTER from params.py
+
+### 8th DEC
+- Test the rider, double book orders
+
+## Riders:
+Create the WA group for riders
+Add supporting materials and guides
+Send videos tutorials
+
 
 - Reset thread uses sget functions, need to change it. 
 - Issue the admin notifications as soon as the payment is complete
@@ -49,3 +66,27 @@ openai.BadRequestError: Error code: 400 - {'error': {'message': "An assistant me
 Link 
 Handle this error gracefully, should happen in the agent_node/agent.invoke
 openai.BadRequestError: Error code: 400 - {'error': {'message': "An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'. The following tool_call_ids did not have response messages: call_zIziR7YymjJFeTXAx7Gez7li, call_A6ZJbvmyp12FpDxIFu4r19GG", 'type': 'invalid_request_error', 'param': 'messages.[14].role', 'code': None}}
+
+
+    # Send restaurant order confirmation to all admins
+    admin_phones = restaurant_master.admins
+    order_type = food_order.action
+    for admin_phone in admin_phones:
+        send_restaurant_order_confirmation(
+            recipient=admin_phone,
+            order_number=food_order.order_number,
+            order_amount=order_amount,
+            order_items=order_items_str,
+            order_time=order_time_epoch,
+            order_type=order_type,
+        )
+        logger.info(
+            f"Restaurant confirmation request sent for order {food_order.order_number} to {admin_phone}"
+        )
+
+
+http://localhost:3000/restaurant/elas?thread_id=9d211c57-4f92-4066-9f5f-9ed4421c1b1d&minimum_order=0.0&distance=0.5&recipient=447448440754&order_type=takeaway
+
+
+opening browser for antigravity:
+ DISPLAY=:0 google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug-session --no-first-run --no-default-browser-check http://localhost:8000/space.html > /dev/null 2>&1 &
