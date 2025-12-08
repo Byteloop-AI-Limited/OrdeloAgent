@@ -39,9 +39,15 @@ DECLARE
   hook_url VARCHAR;
 BEGIN
   PERFORM set_config('statement_timeout', '10000', true);
-  -- Combine the NEW record with additional data from delivery_detail; required to invoke graph
+  -- Combine the NEW record with additional data from delivery_detail and delivery_summary; required to invoke graph
   SELECT json_build_object(
     'delivery_inflight', json_build_array(row_to_json(NEW)),
+    'delivery_summary', (
+      SELECT row_to_json(summ)
+      FROM delivery_summary summ
+      WHERE summ.order_number = NEW.order_number
+      LIMIT 1
+    ),
     'delivery_detail', (
       SELECT json_agg(row_to_json(t))
       FROM (
