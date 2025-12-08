@@ -1,4 +1,8 @@
 ## Immediate
+- Notes missing during 
+- The pickup time is not being sent person who responded; 
+- Quick Disable 
+- Multiple admins 
 - [!!!] Sending admin_order_reciept (wa_senders) on driver_inflight
 - [!!!] If rider not already on job, there should not be a dispatch sent to him
 - [!!!] Sending order reciept to restaurant admins? Where is it? Most likely when the driver accepts the job (trigger from delivery_inflight)

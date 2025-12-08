@@ -277,11 +277,9 @@ async def create_order(
     thread_id = food_order.thread_id
 
     if food_order.action == "delivery":
-        logger.critical("inside delivery")
         payment_intent_url = await generate_payment_intent_url(food_order)
     else:
         payment_intent_url = await generate_automatic_payment_url(food_order)
-        logger.critical(payment_intent_url)
 
     return {
         "status": "success",
