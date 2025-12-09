@@ -25,7 +25,12 @@ import psycopg
 import json
 import base64
 from ordelo_datamodels.location_pymodels import Location
-from config import _async_wa_client, pg_settings, client_ordelo, get_webhook_url
+from config import (
+    _async_wa_client,
+    pg_settings,
+    client_ordelo,
+    get_restaurant_webhook_url_async,
+)
 import re
 import httpx
 from datetime import datetime, timezone, timedelta
@@ -270,18 +275,24 @@ async def notify_rider_location_event(request: Request):
     if event == "enter" and location == "rest":
         # Call restaurant webhook for restaurant enter event
         rest_ref = order_number.split("-")[0]
+        webhook_url = await get_restaurant_webhook_url_async(
+            rest_ref, "rider-rest-enter"
+        )
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                get_webhook_url(rest_ref, "rider-rest-enter") + "/" + order_number,
+                f"{webhook_url}/{order_number}",
                 json={"delivery_summary": delivery_summary},
             )
         logger.debug(f"Post Rider Rest Enter: {order_number}")
     elif event == "enter" and location == "cust":
         # Call restaurant webhook for customer enter event
         rest_ref = order_number.split("-")[0]
+        webhook_url = await get_restaurant_webhook_url_async(
+            rest_ref, "rider-cust-enter"
+        )
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                get_webhook_url(rest_ref, "rider-cust-enter") + "/" + order_number,
+                f"{webhook_url}/{order_number}",
                 json={"delivery_summary": delivery_summary},
             )
         logger.debug(f"Post Rider Cust Enter: {order_number}")

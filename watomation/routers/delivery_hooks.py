@@ -48,7 +48,7 @@ from config.params import get_restaurant_admins
 from config import (
     _async_wa_client,
     client_ordelo,
-    get_webhook_url,
+    get_restaurant_webhook_url_async,
     logger,
     ms_settings,
     pg_settings,
@@ -275,9 +275,10 @@ async def post_rider_event_inflight(
         "rider_master": rider_master,
     }
     rest_ref = delivery_detail.order_number.split("-")[0]
+    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "rider-inflight")
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            get_webhook_url(rest_ref, "rider-inflight"),
+            webhook_url,
             json=payload,
         )
         logger.critical(
@@ -299,9 +300,10 @@ async def post_delivery_timedout(delivery_summary: dict):
         with the all delivery details as JSON payload and prints the response status and JSON.
     """
     rest_ref = delivery_summary["order_number"].split("-")[0]
+    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "delivery-timedout")
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            get_webhook_url(rest_ref, "delivery-timedout"),
+            webhook_url,
             json=delivery_summary,
         )
     logger.info("Restaurant notified of delivery timeout")
@@ -864,32 +866,25 @@ async def _handle_restaurant_accept(
     order_time_dt = datetime.fromisoformat(delivery_summary.dtts)
     order_time_epoch = int(order_time_dt.timestamp())
 
-    # Get admin contact
-    admin_phone = restaurant_master.admins[0]
-
     # Build header and text for pickup time message
     header = f"Order {food_order.order_number} - Pickup Time"
     text: str = f"Order accepted! Items: {order_items_str}\n\nPlease select estimated pickup time:"
 
     # Send pickup time selection
-    await send_restaurant_pickup_time(
-        recipient=admin_phone,
-        header=header,
-        text=text,
-        order_number=food_order.order_number,
-        order_time_epoch=order_time_epoch,
-        intervals_mins=[5, 15, 25],
-    )
-
-    logger.info(
-        f"Restaurant pickup time request sent for order {food_order.order_number} to {admin_phone}"
-    )
+    for admin in restaurant_master.admins:
+        await send_restaurant_pickup_time(
+            recipient=admin,
+            header=header,
+            text=text,
+            order_number=food_order.order_number,
+            order_time_epoch=order_time_epoch,
+            intervals_mins=[5, 15, 25],
+        )
 
     return {
         "status": "success",
         "action": "pickup_time_sent",
         "order_number": food_order.order_number,
-        "sent_to": admin_phone,
     }
 
 
