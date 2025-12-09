@@ -24,7 +24,7 @@ BEGIN
 
     -- Reset summary status to unassigned
     UPDATE delivery_summary
-    SET status = 'restaurant_unconfirmed'
+    SET status = 'restaurant_unconfirmed', restaurant_confirmation_status = 'restaurant_unconfirmed'
     WHERE order_number = p_order_number;
     GET DIAGNOSTICS v_summary_updated = ROW_COUNT;
 

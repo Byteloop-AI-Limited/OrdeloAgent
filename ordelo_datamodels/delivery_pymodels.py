@@ -44,14 +44,20 @@ class DeliverySummary(BaseModel):
     customer_lon: float
     customer_lat: float
     customer_address: str
+    restaurant_confirmation_status: str = "restaurant_unconfirmed"
+    restaurant_update_dtts: Optional[datetime] = None
+    restaurant_admin: Optional[str] = None
     status: str
     rest_confirmation_code: int
     cust_confirmation_code: int
-    rest_confirmed_at: Optional[datetime] = None
     rest_prep_time_minutes: Optional[int] = None
     rest_confirmation_method: Optional[str] = None
-    pickup_time: datetime
+    restaurant_msg_id: Optional[str] = None
+    rider_msg_id: Optional[str] = None
+    customer_msg_id: Optional[str] = None
+    pickup_time: Optional[datetime] = None
     pickup_date: date
+    rest_ref: Optional[str] = None  # auto-generated from order_number
     dt: date
     dtts: datetime
 
