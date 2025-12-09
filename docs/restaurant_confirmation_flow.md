@@ -18,7 +18,8 @@ New columns added:
 - `utils_common/waba_utils/wa_templates/restaurant_confirmation_template.py`: Builds the Accept/Decline template and callback payload.
 - `utils_common/waba_utils/wa_senders.py`: Sends the pickup-time buttons (5/15/25 min) via `send_restaurant_pickup_time()`.
 - `watomation/on_callback_wa_handler.py`: Handles WhatsApp button callbacks (`/RestaurantOrder-*`, `/PickupTime`, `/restaurantConfirmation`).
-- `ordelo_datamodels/jobs_n_functions/handle_restaurant_confirmation.sql`: Supabase RPC that finalises the confirmation and kicks off dispatch; timeout handled in `job_restaurant_confirmation_timeout.sql`.
+- `ordelo_datamodels/jobs_n_functions/handle_restaurant_confirmation.sql`: Supabase RPC that finalises the confirmation and kicks off dispatch.
+- `ordelo_datamodels/jobs_n_functions/process_restaurant_confirmation.sql`: Scheduled job (every 5 seconds) that times out restaurant confirmations where `pickup_time` is still NULL after the configured interval.
 
 ## Flow
 1) **Order inserted → DB trigger**  
@@ -50,19 +51,27 @@ New columns added:
    - Updates `status` to `unassigned` to prevent the job from staying blocked.
 
 8) **Timeout path** (`_handle_restaurant_timedout` in `delivery_hooks.py`)  
-   - Triggered when `restaurant_confirmation_status` is updated to `restaurant_timedout` by the timeout job.
+   - Triggered when `restaurant_confirmation_status` is updated to `restaurant_timedout` by `process_restaurant_confirmation()`.
    - Logs the timeout event for monitoring.
    - Future: Can auto-confirm with default prep time and notify restaurant admins.
 
-9) **Timeout safety net**  
-   - `job_restaurant_confirmation_timeout.sql` runs via pg_cron; any order still in `restaurant_confirmation_status='restaurant_unconfirmed'` after the configured window updates `restaurant_confirmation_status` to `restaurant_timedout`.
+9) **Timeout job** (`process_restaurant_confirmation.sql`)  
+   - Runs via pg_cron every 5 seconds.
+   - Checks for orders where:
+     - `restaurant_confirmation_status` is `restaurant_unconfirmed` or `restaurant_accept`
+     - `pickup_time` is NULL (restaurant hasn't selected prep time)
+     - Time since `dtts` exceeds the configured timeout
+   - Updates `restaurant_confirmation_status` to `restaurant_timedout` and sets `restaurant_update_dtts`.
+   - This triggers `trigger_restaurant_updates` which calls the webhook with `trigger_reason=restaurant_timedout`.
+   - Configuration: `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` or `RESTAURANT_CONFIRMATION_TIMEOUT_TIME` (default: 5 minutes).
 
 ## Status Transitions
 
 ### restaurant_confirmation_status (restaurant response tracking)
 `restaurant_unconfirmed` → (Accept) → `restaurant_accept`
 `restaurant_unconfirmed` → (Decline) → `restaurant_decline`
-`restaurant_unconfirmed` → (Timeout) → `restaurant_timedout`
+`restaurant_unconfirmed` → (Timeout via process_restaurant_confirmation) → `restaurant_timedout`
+`restaurant_accept` → (Timeout via process_restaurant_confirmation, pickup_time still NULL) → `restaurant_timedout`
 
 ### status (delivery lifecycle)
 `restaurant_unconfirmed` → (pickup time selected) → `unassigned` → dispatch to riders → `assigned` → `completed`
@@ -74,3 +83,4 @@ New columns added:
 - Template text or payload: edit `send_restaurant_order_confirmation()` in `utils_common/waba_utils/wa_templates/restaurant_confirmation_template.py`.
 - Callback filters are registered in `watomation/fapp_ordelo_agent.py` (`IS_RESTAURANT_ORDER_ACCEPT_DECLINE`, `IS_PICKUP_TIME`, `IS_RESTAURANT_CONFIRMATION`).
 - Trigger condition: `trigger_restaurant_updates` fires on `restaurant_confirmation_status` column changes in `ordelo_datamodels/summary.sql`.
+- Restaurant confirmation timeout: Configure `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` or `RESTAURANT_CONFIRMATION_TIMEOUT_TIME` in `ordelo_config` table (in minutes).

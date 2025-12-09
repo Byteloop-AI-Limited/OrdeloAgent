@@ -270,9 +270,12 @@ SHOW log_filename;
 
 select * from food_order where order_number='ELAS-ZVEO-43';
 
-select pickup_time, * from delivery_summary ;
-where order_number='ELAS-ZVEO-29';
+select pickup_time, dtts, restaurant_confirmation_status, status, * from delivery_summary;
+
+select * from delivery_detail where order_number='ELAS-ZVEO-29';
 
 
 select * from rider_master where rider_id='447448440754';
 delete from rider_master where rider_id='447448440754' and vehicle_type='bicycle';
+
+

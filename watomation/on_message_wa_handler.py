@@ -169,10 +169,10 @@ async def test_delivery(wa: WhatsApp, msg: Message):
     # pool: AsyncConnectionPool = await pg_settings.get_pool()
     # client = pg_settings.client
     logger.info(
-        "Testing delivery for user %s with order %s", msg.sender, "ELAS-WWVP-24"
+        "Testing delivery for user %s with order %s", msg.sender, "ELAS-WWVP-25"
     )
     recipient = msg.sender
-    order_number = "ELAS-WWVP-24"
+    order_number = "ELAS-WWVP-25"
 
     # order_number = f"WREN-TEST-{random.randint(10, 99)}"
 
