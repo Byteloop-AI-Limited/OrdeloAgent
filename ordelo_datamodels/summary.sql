@@ -14,7 +14,7 @@ CREATE TABLE delivery_summary (
     customer_address     TEXT NOT NULL,
     -- Restaurant confirmation status (separate from delivery lifecycle)
     restaurant_confirmation_status VARCHAR(50) NOT NULL DEFAULT 'restaurant_unconfirmed' 
-        CHECK (restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout')),
+        CHECK (restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'auto_accept','auto_decline')),
     restaurant_update_dtts TIMESTAMP WITH TIME ZONE, -- nullable, set when restaurant_confirmation_status changes
     restaurant_admin VARCHAR(12), -- nullable, stores the admin phone who confirmed the order
     -- Delivery lifecycle status
@@ -89,6 +89,7 @@ DECLARE
   trigger_reason text;
   p_log_to_table BOOLEAN := TRUE; -- Default to TRUE, can be controlled via config
 BEGIN
+  PERFORM set_config('statement_timeout', '10000', true);
   -- Check if logging is enabled (can be disabled via ordelo_config table)
   BEGIN
     SELECT COALESCE((config_value::BOOLEAN), TRUE) INTO p_log_to_table
@@ -317,6 +318,7 @@ DECLARE
   ordelo_app_url text;
   webhook_url text;
 BEGIN
+  PERFORM set_config('statement_timeout', '10000', true);
   -- Combine the NEW record with additional data from delivery_detail; required to invoke graph
   SELECT json_build_object(
     'delivery_summary', json_build_array(row_to_json(NEW))
@@ -345,3 +347,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+
+-- Set timeout for 30s
+ALTER DATABASE postgres SET statement_timeout = '300s';

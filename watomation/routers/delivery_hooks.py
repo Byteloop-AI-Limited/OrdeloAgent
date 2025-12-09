@@ -40,7 +40,7 @@ Delivery webhook handlers for Ordelo delivery system
 # %%
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import httpx
@@ -931,37 +931,55 @@ async def _handle_restaurant_decline(
 
 async def _handle_restaurant_timedout(
     delivery_summary: DeliverySummaryData,
-    food_order: FoodOrder,
+    restaurant_admins: List[str],
 ) -> dict:
     """
-    Handle restaurant_timedout trigger: log the timeout event.
+    Handle restaurant_timedout trigger: auto-accept order and notify admins.
 
     Args:
         delivery_summary: Delivery summary data
-        food_order: Food order data
+        restaurant_admins: List of admin phone numbers to notify
 
     Returns:
         dict: Status response with order_number
     """
     logger.info(
-        f"Restaurant confirmation timed out for order {food_order.order_number}, "
         f"rest_id={delivery_summary.rest_id}, rest_name={delivery_summary.rest_name}"
     )
+    # on timedout, pickup_time should be 18 mins from delivery_summary.dtts, also update status='assigned', restaurant_confirmation_status='auto_accept'
+    update_vals = {
+        "status": "unassigned",
+        "restaurant_confirmation_status": "auto_accept",
+        "pickup_time": datetime.fromisoformat(delivery_summary.dtts)
+        .astimezone(timezone.utc)
+        .isoformat(),
+    }
 
-    # TODO: Implement additional timeout handling logic as needed
-    # - Notify restaurant admins about timeout
-    # - Auto-confirm with default prep time
-    # - Update status to unassigned
+    order_number = delivery_summary.order_number
+
+    # Send auto-accept notification to all admins
+    for admin_phone in restaurant_admins:
+        await _async_wa_client.send_message(
+            to=admin_phone,
+            text=f"Order {order_number} auto-accepted due to confirmation timeout.",
+        )
+
+    result = await asyncio.to_thread(
+        lambda: client_ordelo.table("delivery_summary")
+        .update(update_vals)
+        .eq("order_number", order_number)
+        .execute()
+    )
 
     return {
         "status": "success",
         "action": "restaurant_timedout_logged",
-        "order_number": food_order.order_number,
     }
 
 
 @router.post("/restaurant-confirmation-request")
 async def restaurant_confirmation_flow(
+    background_tasks: BackgroundTasks,
     payload: dict = Depends(get_payload),
 ):
     """
@@ -982,7 +1000,7 @@ async def restaurant_confirmation_flow(
     }
 
     Returns:
-        dict: Status of the operation and order_number
+        dict: Status of the operation and order_number (handlers run in background)
     """
     try:
         # Parse payload into Pydantic models
@@ -1010,19 +1028,31 @@ async def restaurant_confirmation_flow(
                 "order_number": food_order.order_number,
             }
 
-        # Route to appropriate handler based on trigger_reason
+        # Route to appropriate handler based on trigger_reason (run as background task)
         if trigger_reason == "restaurant_unconfirmed":
-            return await _handle_restaurant_unconfirmed(
-                delivery_summary, restaurant_master, food_order, order_items
+            background_tasks.add_task(
+                _handle_restaurant_unconfirmed,
+                delivery_summary,
+                restaurant_master,
+                food_order,
+                order_items,
             )
         elif trigger_reason == "restaurant_accept":
-            return await _handle_restaurant_accept(
-                delivery_summary, restaurant_master, food_order, order_items
+            background_tasks.add_task(
+                _handle_restaurant_accept,
+                delivery_summary,
+                restaurant_master,
+                food_order,
+                order_items,
             )
         elif trigger_reason == "restaurant_decline":
-            return await _handle_restaurant_decline(delivery_summary, food_order)
+            background_tasks.add_task(
+                _handle_restaurant_decline, delivery_summary, food_order
+            )
         elif trigger_reason == "restaurant_timedout":
-            return await _handle_restaurant_timedout(delivery_summary, food_order)
+            background_tasks.add_task(
+                _handle_restaurant_timedout, delivery_summary, restaurant_master.admins
+            )
         else:
             logger.error(f"Unknown trigger_reason: {trigger_reason}")
             return {
@@ -1030,6 +1060,12 @@ async def restaurant_confirmation_flow(
                 "message": f"Unknown trigger_reason: {trigger_reason}",
                 "order_number": food_order.order_number,
             }
+
+        return {
+            "status": "accepted",
+            "message": f"Handler for {trigger_reason} scheduled",
+            "order_number": food_order.order_number,
+        }
 
     except Exception as e:
         logger.error(f"Error in restaurant_confirmation_request_hook: {e}")
