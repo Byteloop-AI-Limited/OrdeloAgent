@@ -22,7 +22,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from config import logger, client_ordelo, get_webhook_url
+from config import logger, client_ordelo, get_restaurant_webhook_url_async
 import httpx
 from ordelo_datamodels.customer_master_pymodel import CustomerMaster
 from utils_common.order_management.order_db_ops_new import OrderItem
@@ -277,11 +277,9 @@ async def create_order(
     thread_id = food_order.thread_id
 
     if food_order.action == "delivery":
-        logger.critical("inside delivery")
         payment_intent_url = await generate_payment_intent_url(food_order)
     else:
         payment_intent_url = await generate_automatic_payment_url(food_order)
-        logger.critical(payment_intent_url)
 
     return {
         "status": "success",
@@ -365,10 +363,12 @@ async def capture_address(request: CaptureAddressRequest):
 
     logger.info(f"Customer address captured for {request.recipient}")
 
-    webhook_url = get_webhook_url(rest_ref, "order-address-update")
+    webhook_url = await get_restaurant_webhook_url_async(
+        rest_ref, "order-address-update"
+    )
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            url=webhook_url + "/" + request.recipient,
+            url=f"{webhook_url}/{request.recipient}",
             json=_customer_master_row.model_dump(),
         )
         logger.info("Restaurant notified of rider")

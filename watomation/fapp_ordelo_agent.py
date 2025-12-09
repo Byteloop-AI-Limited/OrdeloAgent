@@ -9,6 +9,7 @@ FastAPI application for Ordelo WhatsApp automation service.
     . custom_404_handler - Handles 404 errors with template response
     . get_details - Returns WhatsApp business profile and callback info
     . get_threads - Lists conversation threads for a recipient
+    . get_restaurant_details - Returns restaurant config and webhook URLs
     . echo_request - Echoes inbound payloads for validation
     . debug_state_path - Gets LangGraph debug stack for a recipient
     . debug_state_by_thread_path - Gets debug stack for a specific thread
@@ -18,7 +19,7 @@ FastAPI application for Ordelo WhatsApp automation service.
 import logging
 from typing import Optional
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
@@ -28,7 +29,7 @@ from pywa.types.flows import FlowRequestActionType
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-from config import waba_business_settings, pg_settings, client_ordelo, logger
+from config import waba_business_settings, pg_settings, client_ordelo
 from ordelo.agents.rider_agent import builder
 from ordelo.agent_app_handlers import (
     debug_state,
@@ -48,7 +49,6 @@ from watomation.on_message_wa_handler import (
     reset_thread,
     test_delivery,
     process_wa_msg,
-    process_byteloop_agent,
     test_flow,
     clear_dispatch,
     send_live_map_location,
@@ -57,7 +57,7 @@ from watomation.on_callback_wa_handler import (
     dispatch_response,
     rider_request_location,
     handle_shift_availability,
-    handle_restaurant_confirmation,
+    # handle_restaurant_confirmation,
     restaurant_order_accept_decline_handler,
     handle_pickup_time_selection,
 )
@@ -160,9 +160,6 @@ wa.add_handlers(
         callback=handle_shift_availability, filters=IS_SHIFT_AVAILABILITY
     ),
     handlers.CallbackButtonHandler(
-        callback=handle_restaurant_confirmation, filters=IS_RESTAURANT_CONFIRMATION
-    ),
-    handlers.CallbackButtonHandler(
         callback=restaurant_order_accept_decline_handler,
         filters=IS_RESTAURANT_ORDER_ACCEPT_DECLINE,
     ),
@@ -203,6 +200,7 @@ wa.add_flow_request_handler(
 @app.get("/details")
 async def get_details():
     from config import _async_wa_client as wa
+    from config.params import get_restaurant_base_url_async
 
     business_phone_number = await wa.get_business_phone_number()
     phone_id = waba_business_settings.phone_id
@@ -211,8 +209,9 @@ async def get_details():
     callback_url_on_waba = business_phone_number.webhook_configuration["application"]
     callback_url = waba_business_settings.callback_url
 
-    # RestConfif
-    from config.params import elas_base_url, ordelo_base_url
+    # Fetch base URLs dynamically
+    elas_base_url = await get_restaurant_base_url_async("ELAS")
+    ordelo_base_url = await get_restaurant_base_url_async("ORDELO")
 
     return {
         "business_phone_number": business_phone_number,
@@ -223,6 +222,44 @@ async def get_details():
         "callback_url_on_waba": callback_url_on_waba,
         "elas_base_url": elas_base_url,
         "ordelo_base_url": ordelo_base_url,
+    }
+
+
+@app.get("/restaurant-details/{rest_ref}")
+async def get_restaurant_details(rest_ref: str):
+    from config.params import (
+        WEBHOOK_PATHS,
+        get_restaurant_base_url_async,
+        get_restaurant_admins,
+        get_restaurant_webhook_url_async,
+    )
+
+    rest_ref = rest_ref.upper()
+    try:
+        base_url = await get_restaurant_base_url_async(rest_ref)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    webhook_urls = {}
+    for webhook_type in WEBHOOK_PATHS.keys():
+        try:
+            webhook_urls[webhook_type] = await get_restaurant_webhook_url_async(
+                rest_ref, webhook_type
+            )
+        except ValueError:
+            continue  # Skip if webhook type not configured for this restaurant
+
+    if not webhook_urls:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No webhook config found for rest_ref={rest_ref}",
+        )
+
+    return {
+        "rest_ref": rest_ref,
+        "base_url": base_url,
+        "webhook_urls": webhook_urls,
+        "admins": get_restaurant_admins(rest_ref=rest_ref),
     }
 
 

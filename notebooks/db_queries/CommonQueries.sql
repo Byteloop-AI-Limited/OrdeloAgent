@@ -7,9 +7,6 @@ select pg_get_functiondef('delivery_inflight_whook'::regproc);
 
 select count(*) from rider_location_event;
 
-select *
-from rider_master where rider_id in ('447448440754', '447446933210')
-limit 10;
 
 delete from rider_master where rider_id in ('447448440754') and vehicle_type in ('electric_bike', 'scooter');
 
@@ -21,6 +18,8 @@ where tgrelid = 'delivery_summary'::regclass;
 
 select * from restaurant_master;
 select * from delivery_summary;
+
+select * from ordelo_config;
 
 select status,
 	rest_confirmation_code,
@@ -78,6 +77,10 @@ where order_number like 'WREN-TEST-%'
 order by id desc;
 
 --
+
+select * from restaurant_master where rest_ref='ELAS';
+update restaurant_master
+set admins=Array['447448440754','447901518136','447914844933', '447446933210'] where rest_ref='ELAS';
 
 select *
 from delivery_option
