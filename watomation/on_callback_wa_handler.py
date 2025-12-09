@@ -30,6 +30,7 @@ from ordelo.agent_app_handlers import initial_handle_of_rider_response
 from config import client_ordelo
 from ordelo.agents.agent_runner import run_rider_graph
 from utils_common.waba_utils.wa_senders import CallbackButtonData
+from datetime import datetime, timezone
 
 # from utils_common.waba_utils.wa_senders import send_restaurant_pickup_time
 from pywa.types import CallbackButton
@@ -161,11 +162,17 @@ async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
     )
 
     try:
+        update_vals = {
+            "pickup_time": pickup_time,
+            "status": "unassigned",
+            "restaurant_admin": recipient,
+            "restaurant_update_dtts": datetime.now(timezone.utc).isoformat(),
+        }
         result = await asyncio.to_thread(
             lambda: client_ordelo.table("delivery_summary")
-            .update({"pickup_time": pickup_time, "status": "unassigned"})
+            .update(update_vals)
             .eq("order_number", order_number)
-            .eq("status", "restaurant_accept")
+            .eq("restaurant_confirmation_status", "restaurant_accept")
             .execute()
         )
         if result.data:
@@ -190,9 +197,14 @@ async def _update_restaurant_order_status(order_number: str, status: str, msg: M
     try:
         result = await asyncio.to_thread(
             lambda: client_ordelo.table("delivery_summary")
-            .update({"status": status})
+            .update(
+                {
+                    "restaurant_confirmation_status": status,
+                    "restaurant_admin": msg.sender,
+                }
+            )
             .eq("order_number", order_number)
-            .eq("status", "restaurant_unconfirmed")
+            .eq("restaurant_confirmation_status", "restaurant_unconfirmed")
             .execute()
         )
         if result.data:

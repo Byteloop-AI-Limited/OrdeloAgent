@@ -12,8 +12,9 @@ Delivery webhook handlers for Ordelo delivery system
     . Implements restaurant confirmation touchpoint before rider dispatch
     . Uses module-level WhatsApp client for confirmation workflow
     . Uses DeliverySummaryData, RestaurantMasterData, FoodOrder and OrderItem Pydantic models for restaurant confirmation payload
+    . Trigger fires on restaurant_confirmation_status changes (not status)
   Functions/Classes:
-    . DeliverySummaryData - Pydantic model for delivery_summary table fields
+    . DeliverySummaryData - Pydantic model for delivery_summary table fields (includes restaurant_confirmation_status, restaurant_msg_id, rider_msg_id, customer_msg_id)
     . RestaurantMasterData - Pydantic model for restaurant_master table fields
     . RestaurantConfirmationPayload - Pydantic model for restaurant confirmation webhook with trigger_reason
     . get_payload - Helper to parse webhook payloads
@@ -28,7 +29,11 @@ Delivery webhook handlers for Ordelo delivery system
     . delivery_timedout - Handles delivery timeout events
     . check_rider_allocation_status - Checks rider allocation status
     . shift_availability_enquiry_hook - Processes shift availability enquiries
-    . restaurant_confirmation_request_hook - Accepts FoodOrder and List[OrderItem] for restaurant confirmation
+    . restaurant_confirmation_flow - Handles restaurant confirmation workflow (unconfirmed, accept, decline, timedout)
+    . _handle_restaurant_unconfirmed - Sends order confirmation request to restaurant
+    . _handle_restaurant_accept - Sends pickup time selection to restaurant
+    . _handle_restaurant_decline - Updates status to unassigned on decline
+    . _handle_restaurant_timedout - Logs restaurant confirmation timeout event
     . close_threads - Closes inactive threads and sends goodbye messages
 """
 
@@ -93,14 +98,20 @@ class DeliverySummaryData(BaseModel):
     customer_lon: float
     customer_lat: float
     customer_address: str
+    restaurant_confirmation_status: str
+    restaurant_update_dtts: Optional[str] = None
+    restaurant_admin: Optional[str] = None
     status: str
     rest_confirmation_code: int
     cust_confirmation_code: int
-    rest_confirmed_at: Optional[str] = None
     rest_prep_time_minutes: Optional[int] = None
     rest_confirmation_method: Optional[str] = None
-    pickup_time: str
+    restaurant_msg_id: Optional[str] = None
+    rider_msg_id: Optional[str] = None
+    customer_msg_id: Optional[str] = None
+    pickup_time: Optional[str] = None
     pickup_date: str
+    rest_ref: Optional[str] = None
     dt: str
     dtts: str
 
@@ -918,21 +929,52 @@ async def _handle_restaurant_decline(
     }
 
 
+async def _handle_restaurant_timedout(
+    delivery_summary: DeliverySummaryData,
+    food_order: FoodOrder,
+) -> dict:
+    """
+    Handle restaurant_timedout trigger: log the timeout event.
+
+    Args:
+        delivery_summary: Delivery summary data
+        food_order: Food order data
+
+    Returns:
+        dict: Status response with order_number
+    """
+    logger.info(
+        f"Restaurant confirmation timed out for order {food_order.order_number}, "
+        f"rest_id={delivery_summary.rest_id}, rest_name={delivery_summary.rest_name}"
+    )
+
+    # TODO: Implement additional timeout handling logic as needed
+    # - Notify restaurant admins about timeout
+    # - Auto-confirm with default prep time
+    # - Update status to unassigned
+
+    return {
+        "status": "success",
+        "action": "restaurant_timedout_logged",
+        "order_number": food_order.order_number,
+    }
+
+
 @router.post("/restaurant-confirmation-request")
 async def restaurant_confirmation_flow(
     payload: dict = Depends(get_payload),
 ):
     """
     Webhook triggered for restaurant confirmation workflow events.
-    Handles: restaurant_unconfirmed (new order), restaurant_accept, restaurant_decline.
+    Handles: restaurant_unconfirmed (new order), restaurant_accept, restaurant_decline, restaurant_timedout.
 
     Triggered by:
-    - Database trigger on delivery_summary INSERT with status='restaurant_unconfirmed'
-    - Database trigger on delivery_summary UPDATE to status='restaurant_accept' or 'restaurant_decline'
+    - Database trigger on delivery_summary INSERT with restaurant_confirmation_status='restaurant_unconfirmed'
+    - Database trigger on delivery_summary UPDATE to restaurant_confirmation_status='restaurant_accept', 'restaurant_decline', or 'restaurant_timedout'
 
     Payload structure:
     {
-        "trigger_reason": "restaurant_unconfirmed" | "restaurant_accept" | "restaurant_decline",
+        "trigger_reason": "restaurant_unconfirmed" | "restaurant_accept" | "restaurant_decline" | "restaurant_timedout",
         "delivery_summary": DeliverySummaryData model data,
         "restaurant_master": RestaurantMasterData model data,
         "food_order": FoodOrder model data,
@@ -979,6 +1021,8 @@ async def restaurant_confirmation_flow(
             )
         elif trigger_reason == "restaurant_decline":
             return await _handle_restaurant_decline(delivery_summary, food_order)
+        elif trigger_reason == "restaurant_timedout":
+            return await _handle_restaurant_timedout(delivery_summary, food_order)
         else:
             logger.error(f"Unknown trigger_reason: {trigger_reason}")
             return {

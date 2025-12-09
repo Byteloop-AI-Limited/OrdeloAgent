@@ -270,27 +270,9 @@ SHOW log_filename;
 
 select * from food_order where order_number='ELAS-ZVEO-43';
 
-select * from delivery_summary where order_number='ELAS-ZVEO-29';
+select pickup_time, * from delivery_summary ;
+where order_number='ELAS-ZVEO-29';
 
 
-select * from delivery_inflight order by dtts desc;
-
-
-WITH ridersToExclude AS (
-    SELECT DISTINCT dDispatch.rider_id, dDispatch.vehicle_type
-    FROM delivery_dispatch dDispatch
-    WHERE dDispatch.order_number = 'ELAS-NLPY-51' 
-    UNION 
-    SELECT DISTINCT inflight.rider_id, 'inflight'
-    FROM delivery_inflight inflight
-)
-SELECT 
-    allRiders.rider_id,
-    allRiders.priority
-FROM rider_master allRiders 
-WHERE 
-LOWER(allRiders.town)=LOWER('salisbury')
-AND allRiders.vehicle_type = 'car'
-AND allRiders.is_in_shift
-AND NOT EXISTS 
-(SELECT 1 FROM ridersToExclude WHERE ridersToExclude.rider_id = allRiders.rider_id);
+select * from rider_master where rider_id='447448440754';
+delete from rider_master where rider_id='447448440754' and vehicle_type='bicycle';

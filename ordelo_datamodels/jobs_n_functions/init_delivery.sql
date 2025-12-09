@@ -43,14 +43,20 @@ RETURNS TABLE (
     customer_lon DOUBLE PRECISION,
     customer_lat DOUBLE PRECISION,
     customer_address TEXT,
+    restaurant_confirmation_status VARCHAR,
+    restaurant_update_dtts TIMESTAMP WITH TIME ZONE,
+    restaurant_admin VARCHAR,
     status VARCHAR,
     rest_confirmation_code INTEGER,
     cust_confirmation_code INTEGER,
-    rest_confirmed_at TIMESTAMP WITH TIME ZONE,
     rest_prep_time_minutes INTEGER,
     rest_confirmation_method VARCHAR,
+    restaurant_msg_id VARCHAR,
+    rider_msg_id VARCHAR,
+    customer_msg_id VARCHAR,
     pickup_time TIMESTAMP WITH TIME ZONE,
     pickup_date DATE,
+    rest_ref VARCHAR,
     dt DATE,
     dtts TIMESTAMP WITH TIME ZONE
 ) AS $$
@@ -129,6 +135,7 @@ BEGIN
     v_cust_confirmation_code := v_salt_number - v_rest_confirmation_code;
 
     -- Insert summary record and return the complete record
+    -- Both restaurant_confirmation_status and status start as 'restaurant_unconfirmed'
     RETURN QUERY
     INSERT INTO delivery_summary (
         order_number,
@@ -143,6 +150,7 @@ BEGIN
         customer_lon,
         customer_lat,
         customer_address,
+        restaurant_confirmation_status,
         status,
         rest_confirmation_code,
         cust_confirmation_code
@@ -159,6 +167,7 @@ BEGIN
         v_customer_lon,
         v_customer_lat,
         v_customer_address,
+        'restaurant_unconfirmed',
         'restaurant_unconfirmed',
         v_rest_confirmation_code,
         v_cust_confirmation_code
