@@ -866,9 +866,6 @@ async def _handle_restaurant_accept(
     order_time_dt = datetime.fromisoformat(delivery_summary.dtts)
     order_time_epoch = int(order_time_dt.timestamp())
 
-    # Get admin contact
-    admin_phone = restaurant_master.admins[0]
-
     # Build header and text for pickup time message
     header = f"Order {food_order.order_number} - Pickup Time"
     text: str = f"Order accepted! Items: {order_items_str}\n\nPlease select estimated pickup time:"
@@ -884,15 +881,10 @@ async def _handle_restaurant_accept(
             intervals_mins=[5, 15, 25],
         )
 
-    logger.info(
-        f"Restaurant pickup time request sent for order {food_order.order_number} to {admin_phone}"
-    )
-
     return {
         "status": "success",
         "action": "pickup_time_sent",
         "order_number": food_order.order_number,
-        "sent_to": admin_phone,
     }
 
 

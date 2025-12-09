@@ -29,7 +29,7 @@ from pywa.types.flows import FlowRequestActionType
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-from config import waba_business_settings, pg_settings, client_ordelo, logger
+from config import waba_business_settings, pg_settings, client_ordelo
 from ordelo.agents.rider_agent import builder
 from ordelo.agent_app_handlers import (
     debug_state,
@@ -49,7 +49,6 @@ from watomation.on_message_wa_handler import (
     reset_thread,
     test_delivery,
     process_wa_msg,
-    process_byteloop_agent,
     test_flow,
     clear_dispatch,
     send_live_map_location,
@@ -58,7 +57,7 @@ from watomation.on_callback_wa_handler import (
     dispatch_response,
     rider_request_location,
     handle_shift_availability,
-    handle_restaurant_confirmation,
+    # handle_restaurant_confirmation,
     restaurant_order_accept_decline_handler,
     handle_pickup_time_selection,
 )
@@ -159,9 +158,6 @@ wa.add_handlers(
     ),
     handlers.CallbackButtonHandler(
         callback=handle_shift_availability, filters=IS_SHIFT_AVAILABILITY
-    ),
-    handlers.CallbackButtonHandler(
-        callback=handle_restaurant_confirmation, filters=IS_RESTAURANT_CONFIRMATION
     ),
     handlers.CallbackButtonHandler(
         callback=restaurant_order_accept_decline_handler,
