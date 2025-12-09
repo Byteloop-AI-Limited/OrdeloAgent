@@ -15,7 +15,7 @@ Payment webhook handler module for Elai Agent
 from fastapi import APIRouter, Request, BackgroundTasks
 from config import client
 from utils_common.order_management.food_order_pymodel import FoodOrder
-from config.params import get_webhook_url
+from config.params import get_restaurant_webhook_url_async
 import httpx
 
 # from elai.agent_runner import run_elai_graph_with_custom_msg
@@ -40,7 +40,9 @@ async def handle_payment_complete(food_order: FoodOrder):
 
     ## Call the restaurant api to update the payment status
     rest_ref = food_order.order_number.split("-")[0]
-    payment_complete_url = get_webhook_url(rest_ref, "order-payment-complete")
+    payment_complete_url = await get_restaurant_webhook_url_async(
+        rest_ref, "order-payment-complete"
+    )
     recipient = food_order.recipient
     thread_id = food_order.thread_id
     order_id = food_order.order_id

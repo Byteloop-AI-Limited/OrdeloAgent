@@ -43,7 +43,7 @@ from config import (
     logger,
     _sync_wa_client,
     project_settings,
-    get_webhook_url,
+    get_restaurant_webhook_url_async,
 )
 from pydantic import BaseModel
 from typing import Optional
@@ -489,13 +489,10 @@ async def post_rider_event_customer_cc(order_number: str, customer_id: int):
         and prints the response status and JSON.
     """
     rest_ref = order_number.split("-")[0]
+    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "rider-cust-cc")
     async with httpx.AsyncClient() as client:
         await client.post(
-            get_webhook_url(rest_ref, "rider-cust-cc")
-            + "/"
-            + order_number
-            + "/"
-            + str(customer_id),
+            f"{webhook_url}/{order_number}/{customer_id}",
             json={},
         )
         logger.info(
@@ -519,13 +516,10 @@ async def post_rider_event_restaurant_cc(order_number: str, customer_id: int):
         and logs the call.
     """
     rest_ref = order_number.split("-")[0]
+    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "rider-rest-cc")
     async with httpx.AsyncClient() as client:
         await client.post(
-            get_webhook_url(rest_ref, "rider-rest-cc")
-            + "/"
-            + order_number
-            + "/"
-            + str(customer_id),
+            f"{webhook_url}/{order_number}/{customer_id}",
             json={},
         )
         logger.info("Rest-CC Webhook called for order number: {}".format(order_number))

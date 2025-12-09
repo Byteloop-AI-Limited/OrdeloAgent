@@ -1,37 +1,57 @@
 """
 Restaurant webhook configuration utilities and lookup helpers.
-  . Loads restaurant master data and base URLs
-  . Provides RestaurantConfig mapping for webhook endpoints
-  . Helpers to fetch config and build webhook URLs
+  . Provides async webhook URL construction with dynamic DB lookup
+  . WEBHOOK_PATHS maps webhook types to their path suffixes
+  . get_restaurant_webhook_url_async fetches base URL from DB on every call (no caching)
+  . get_restaurant_admins fetches admin list from restaurant_master
 Functions/Classes
-  . get_restaurant_base_url
-  . get_restaurant_config
-  . get_webhook_url
-  . get_restaurant_admins
+  . WEBHOOK_PATHS - Static mapping of webhook type to path suffix
+  . get_restaurant_base_url_async - Async DB lookup for restaurant base URL
+  . get_restaurant_webhook_url_async - Constructs full webhook URL dynamically
+  . get_restaurant_admins - Fetches restaurant admin phone numbers
 """
 
-from collections import namedtuple
 from loguru import logger
-from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
-
-REST_MASTER = RestaurantMaster.from_rest_ref("ELAS")
-# REST_MASTER = RestaurantMaster.from_rest_ref(project_settings.rest_ref)
-logger.info(
-    f"Loading restaurant master data: {REST_MASTER.rest_ref} - Admins: {REST_MASTER.get_admins()}"
-)
 
 
-# %%
+# %% Webhook path mapping - type to path suffix (no base URLs)
+WEBHOOK_PATHS = {
+    "rider-inflight": "rider-event-hooks/rider-inflight",
+    "rider-rest-cc": "rider-event-hooks/on-restaurant-cc",
+    "rider-cust-cc": "rider-event-hooks/on-customer-cc",
+    "rider-rest-enter": "rider-event-hooks/on-restaurant-enter",
+    "rider-cust-enter": "rider-event-hooks/on-customer-enter",
+    "delivery-timedout": "rider-event-hooks/delivery-timedout",
+    "order-payment-complete": "order-event-hooks/payment-complete/",
+    "order-address-update": "order-event-hooks/address-update",
+}
 
 
-def get_restaurant_base_url(rest_ref: str) -> str:
+# %% get_restaurant_base_url_async
+async def get_restaurant_base_url_async(rest_ref: str) -> str:
+    """
+    Fetch restaurant base URL from database.
+
+    Queries ordelo_config table for {REST_REF}_APP_URL config key.
+    No caching - fetches fresh from DB on every call.
+
+    Args:
+        rest_ref: Restaurant reference code (e.g., "ELAS", "WREN")
+
+    Returns:
+        Base URL string (e.g., "https://api.restaurant.com")
+
+    Raises:
+        ValueError: If no config found for the given rest_ref
+    """
     from config import client_ordelo
 
-    rest_ref = rest_ref.upper() + "_APP_URL"
+    config_key = rest_ref.upper() + "_APP_URL"
     resp = (
         client_ordelo.table("ordelo_config")
-        .select("*")
-        .eq("config_key", rest_ref)
+        .select("config_value")
+        .eq("config_key", config_key)
+        .limit(1)
         .execute()
     )
     data = (
@@ -42,165 +62,54 @@ def get_restaurant_base_url(rest_ref: str) -> str:
         else None
     )
     if not data or len(data) == 0:
-        raise ValueError(f"No restaurant found with rest_ref={rest_ref}")
-    # Use the first row
-    row = data[0]
-    logger.info(f"Restaurant base url for {rest_ref}: {row['config_value']}")
-    return row["config_value"]
+        raise ValueError(f"No config found for {config_key} in ordelo_config")
+
+    base_url = data[0]["config_value"]
+    logger.debug(f"Fetched base URL for {rest_ref}: {base_url}")
+    return base_url
 
 
-# %%
+# %% get_restaurant_webhook_url_async
+async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> str:
+    """
+    Construct full webhook URL by fetching base URL from DB and appending path.
 
+    This function performs a database lookup on every call (no caching).
+    Use this for all outbound webhook calls to restaurant systems.
 
-# Define config for restaurant and webhooks. Config will be  a namedtuple called RestaurantConfig, with fields REST_REF, TYPE, REST_WEBHOOK_URL
-RestaurantConfig = namedtuple(
-    "RestaurantConfig", ["type", "base_url", "rest_webhook_url"]
-)
+    Args:
+        rest_ref: Restaurant reference code (e.g., "ELAS", "WREN", "ELAB")
+        webhook_type: Type of webhook, must be one of:
+            - "rider-inflight" - Rider assigned to delivery
+            - "rider-rest-cc" - Restaurant confirmation code verified
+            - "rider-cust-cc" - Customer confirmation code verified
+            - "rider-rest-enter" - Rider entered restaurant zone
+            - "rider-cust-enter" - Rider entered customer zone
+            - "delivery-timedout" - Delivery timed out
+            - "order-payment-complete" - Payment completed
+            - "order-address-update" - Customer address updated
 
-wren_base_url = get_restaurant_base_url("WREN")
-elab_base_url = get_restaurant_base_url("ELAB")
-elas_base_url = get_restaurant_base_url("ELAS")
-ordelo_base_url = get_restaurant_base_url("ORDELO")
+    Returns:
+        Full webhook URL (e.g., "https://api.restaurant.com/rider-event-hooks/rider-inflight")
 
-RESTAURANT_CONFIG = {
-    "WREN-RIDER-INFLIGHT": RestaurantConfig(
-        "rider-event-inflight",
-        wren_base_url,
-        "rider-event-hooks/rider-inflight",
-    ),
-    "WREN-RIDER-REST-CC": RestaurantConfig(
-        "rider-event-restaurant-cc",
-        wren_base_url,
-        "rider-event-hooks/on-restaurant-cc",
-    ),
-    "WREN-RIDER-CUST-CC": RestaurantConfig(
-        "rider-event-customer-cc",
-        wren_base_url,
-        "rider-event-hooks/on-customer-cc",
-    ),
-    "WREN-RIDER-REST-ENTER": RestaurantConfig(
-        "rider-event-restaurant-enter",
-        wren_base_url,
-        "rider-event-hooks/on-restaurant-enter",
-    ),
-    "WREN-RIDER-CUST-ENTER": RestaurantConfig(
-        "rider-event-customer-enter",
-        wren_base_url,
-        "rider-event-hooks/on-customer-enter",
-    ),
-    "WREN-DELIVERY-TIMEDOUT": RestaurantConfig(
-        "delivery-timedout",
-        wren_base_url,
-        "rider-event-hooks/delivery-timedout",
-    ),
-    "WREN-ORDER-PAYMENT-COMPLETE": RestaurantConfig(
-        "order-payment-complete",
-        wren_base_url,
-        "order-event-hooks/payment-complete/",
-    ),
-    "WREN-ORDER-ADDRESS-UPDATE": RestaurantConfig(
-        "address-update",
-        wren_base_url,
-        "order-event-hooks/address-update",
-    ),
-    # Bytelooop
-    "ELAB-RIDER-INFLIGHT": RestaurantConfig(
-        "rider-event-inflight",
-        elab_base_url,
-        "rider-event-hooks/rider-inflight",
-    ),
-    "ELAB-RIDER-REST-CC": RestaurantConfig(
-        "rider-event-restaurant-cc",
-        elab_base_url,
-        "rider-event-hooks/on-restaurant-cc",
-    ),
-    "ELAB-RIDER-CUST-CC": RestaurantConfig(
-        "rider-event-customer-cc",
-        elab_base_url,
-        "rider-event-hooks/on-customer-cc",
-    ),
-    "ELAB-RIDER-REST-ENTER": RestaurantConfig(
-        "rider-event-restaurant-enter",
-        elab_base_url,
-        "rider-event-hooks/on-restaurant-enter",
-    ),
-    "ELAB-RIDER-CUST-ENTER": RestaurantConfig(
-        "rider-event-customer-enter",
-        elab_base_url,
-        "rider-event-hooks/on-customer-enter",
-    ),
-    "ELAB-DELIVERY-TIMEDOUT": RestaurantConfig(
-        "delivery-timedout",
-        elab_base_url,
-        "rider-event-hooks/delivery-timedout",
-    ),
-    "ELAB-ORDER-PAYMENT-COMPLETE": RestaurantConfig(
-        "order-payment-complete",
-        elab_base_url,
-        "order-event-hooks/payment-complete/",
-    ),
-    "ELAB-ORDER-ADDRESS-UPDATE": RestaurantConfig(
-        "address-update",
-        elab_base_url,
-        "order-event-hooks/address-update",
-    ),
-    # Elas
-    "ELAS-RIDER-INFLIGHT": RestaurantConfig(
-        "rider-event-inflight",
-        elas_base_url,
-        "rider-event-hooks/rider-inflight",
-    ),
-    "ELAS-RIDER-REST-CC": RestaurantConfig(
-        "rider-event-restaurant-cc",
-        elas_base_url,
-        "rider-event-hooks/on-restaurant-cc",
-    ),
-    "ELAS-RIDER-CUST-CC": RestaurantConfig(
-        "rider-event-customer-cc",
-        elas_base_url,
-        "rider-event-hooks/on-customer-cc",
-    ),
-    "ELAS-RIDER-REST-ENTER": RestaurantConfig(
-        "rider-event-restaurant-enter",
-        elas_base_url,
-        "rider-event-hooks/on-restaurant-enter",
-    ),
-    "ELAS-RIDER-CUST-ENTER": RestaurantConfig(
-        "rider-event-customer-enter",
-        elas_base_url,
-        "rider-event-hooks/on-customer-enter",
-    ),
-    "ELAS-DELIVERY-TIMEDOUT": RestaurantConfig(
-        "delivery-timedout",
-        elas_base_url,
-        "rider-event-hooks/delivery-timedout",
-    ),
-    "ELAS-ORDER-PAYMENT-COMPLETE": RestaurantConfig(
-        "order-payment-complete",
-        elas_base_url,
-        "order-event-hooks/payment-complete/",
-    ),
-    "ELAS-ORDER-ADDRESS-UPDATE": RestaurantConfig(
-        "address-update",
-        elas_base_url,
-        "order-event-hooks/address-update",
-    ),
-}
+    Raises:
+        ValueError: If webhook_type is not recognized or rest_ref config not found
 
+    Example:
+        url = await get_restaurant_webhook_url_async("ELAS", "rider-inflight")
+        # Returns: "https://elas-api.example.com/rider-event-hooks/rider-inflight"
+    """
+    path = WEBHOOK_PATHS.get(webhook_type.lower())
+    if not path:
+        valid_types = ", ".join(WEBHOOK_PATHS.keys())
+        raise ValueError(
+            f"Unknown webhook type: '{webhook_type}'. Valid types: {valid_types}"
+        )
 
-# %%
-def get_restaurant_config(rest_ref: str, type: str) -> RestaurantConfig:
-    key = f"{rest_ref.upper()}-{type.upper()}"
-    config = RESTAURANT_CONFIG.get(key, None)
-    if config is None:
-        raise ValueError(f"Config for {key} not found")
-    return config
-
-
-# %% get_webhook_url
-def get_webhook_url(rest_ref: str, type: str) -> str:
-    config = get_restaurant_config(rest_ref, type)
-    return config.base_url + "/" + config.rest_webhook_url
+    base_url = await get_restaurant_base_url_async(rest_ref)
+    full_url = f"{base_url}/{path}"
+    logger.debug(f"Constructed webhook URL: {full_url}")
+    return full_url
 
 
 # %%
@@ -244,4 +153,5 @@ def get_restaurant_admins(
 
 
 # %%
-# get_webhook_url("ELAS", "order-address-update")
+# Example usage:
+# url = await get_restaurant_webhook_url_async("ELAS", "order-address-update")

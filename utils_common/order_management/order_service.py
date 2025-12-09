@@ -27,15 +27,13 @@ import uuid
 import httpx
 from config import client_ordelo, logger, ms_settings
 
-from config.params import REST_MASTER
 from utils_common.order_management.order_db_ops_new import (
     OrderItem,
     create_order_reference,
-    create_order_items_from_order,
 )
-from utils_common.order_management.food_order_pymodel import FoodOrder
+
+# from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.payment_ms.payment import get_payment_uri
-from pywa.types import Order
 
 
 # %%
@@ -62,7 +60,7 @@ def _call_pricing_service(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 def _resolve_restaurant_coordinates(
     rest_lat: Optional[float], rest_lon: Optional[float], rest_ref: Optional[str]
 ) -> Tuple[float, float]:
-    """Return restaurant coordinates using explicit values, rest_ref lookup, or defaults."""
+    """Return restaurant coordinates using explicit values or rest_ref lookup."""
     if rest_lat is not None and rest_lon is not None:
         return rest_lat, rest_lon
 
@@ -87,7 +85,9 @@ def _resolve_restaurant_coordinates(
 
         return float(lat), float(lon)
 
-    return REST_MASTER.lat, REST_MASTER.lon
+    raise ValueError(
+        "rest_ref is required when restaurant coordinates are not provided"
+    )
 
 
 def get_min_order_value_for_location(

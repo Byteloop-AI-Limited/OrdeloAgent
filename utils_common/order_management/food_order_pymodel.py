@@ -9,6 +9,7 @@ FoodOrder pydantic model for food_order table
   . Provides a payment_uri property to generate payment URL for Stripe
 Functions/Classes:
   . FoodOrder
+    . get_final_order_value
     . from_order_id
     . update_final_order_value
     . gen_capture_payload
@@ -20,9 +21,10 @@ Functions/Classes:
 
 # %%
 from typing import Optional
-from utils_common.pricing_ms import get_final_order_value
+import requests
 from pydantic import BaseModel
 from config import client, client_ordelo, logger, ms_settings
+from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 
 
 # %%
@@ -46,6 +48,49 @@ class FoodOrder(BaseModel):
     small_order_fee: Optional[float] = None
     commission_rate: Optional[float] = None
     payment_status: str
+
+    @staticmethod
+    def get_final_order_value(
+        order_number: str, cust_lat: float, cust_lon: float, total_food_value: float
+    ):
+        """
+        Calculates final order value by calling the pricing microservice.
+
+        Args:
+            order_number: The order number.
+            cust_lat: Customer latitude.
+            cust_lon: Customer longitude.
+            total_food_value: Total food value before fees.
+
+        Returns:
+            dict: Pricing option for car delivery, or tuple (status_code, text) on error.
+        """
+        rest_ref = order_number.split("-")[0]
+        rest_master = RestaurantMaster.from_rest_ref(rest_ref)
+
+        payload = {
+            "order_number": order_number,
+            "total_food_value": total_food_value,
+            "restaurant_latitude": rest_master.lat,
+            "restaurant_longitude": rest_master.lon,
+            "customer_latitude": cust_lat,
+            "customer_longitude": cust_lon,
+        }
+        url = ms_settings.pricing_url
+        headers = {"Content-Type": "application/json"}
+
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code != 200:
+            return response.status_code, response.text
+        response_json = response.json()
+
+        option = {}
+        for option in response_json["delivery_options"]:
+            if option["vehicle_type"] == "car":
+                option = option
+                break
+
+        return option
 
     @classmethod
     def from_order_number(cls, order_number: str) -> Optional["FoodOrder"]:
@@ -162,7 +207,7 @@ class FoodOrder(BaseModel):
                 return False
 
             # 2. Calculate pricing #ToDo - check if the pricingPl returns a msg (str) with min_order_value
-            pricing_pl: dict = get_final_order_value(
+            pricing_pl: dict = self.get_final_order_value(
                 order_number=self.order_number,
                 cust_lat=customer_master_row["lat"],
                 cust_lon=customer_master_row["lon"],
@@ -322,4 +367,4 @@ class FoodOrder(BaseModel):
 #     food_order = FoodOrder.from_order_number("ELAS-ZVEO-29")
 #     # op = await food_order.generate_order_summary_for_automatic_payment()
 #     op = await food_order.generate_order_summary_for_payment_intent()
-#     print(op)
+#     print(op, food_order)
