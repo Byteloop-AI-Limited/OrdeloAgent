@@ -48,7 +48,7 @@ from config.params import get_restaurant_admins
 from config import (
     _async_wa_client,
     client_ordelo,
-    get_webhook_url,
+    get_restaurant_webhook_url_async,
     logger,
     ms_settings,
     pg_settings,
@@ -275,9 +275,10 @@ async def post_rider_event_inflight(
         "rider_master": rider_master,
     }
     rest_ref = delivery_detail.order_number.split("-")[0]
+    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "rider-inflight")
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            get_webhook_url(rest_ref, "rider-inflight"),
+            webhook_url,
             json=payload,
         )
         logger.critical(
@@ -299,9 +300,10 @@ async def post_delivery_timedout(delivery_summary: dict):
         with the all delivery details as JSON payload and prints the response status and JSON.
     """
     rest_ref = delivery_summary["order_number"].split("-")[0]
+    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "delivery-timedout")
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            get_webhook_url(rest_ref, "delivery-timedout"),
+            webhook_url,
             json=delivery_summary,
         )
     logger.info("Restaurant notified of delivery timeout")

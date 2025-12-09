@@ -26,7 +26,8 @@ from pywa.types import Order, Product
 
 # Local imports
 from config import client, project_settings, logger
-from config.params import REST_MASTER
+
+# from config.params import REST_MASTER
 from utils_common.params import filter_dict
 
 # %%
@@ -130,7 +131,8 @@ async def insert_wa_order(recipient: str, thread_id: str, wa_order: Order):
     # create order reference for given recipient and date
     order_reference = create_order_reference(recipient, order_dt)
     order_id = f"{order_reference}-{seq_number.data}"
-    order_number = f"{REST_MASTER.rest_ref}-{order_reference}-{seq_number.data}"
+    # order_number = f"{REST_MASTER.rest_ref}-{order_reference}-{seq_number.data}"
+    order_number = "Dummy"
     insert_payload = {
         "order_id": order_id,
         "order_number": order_number,

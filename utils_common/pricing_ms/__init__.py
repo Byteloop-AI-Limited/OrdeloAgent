@@ -6,8 +6,5 @@ Pricing microservice utilities for order calculations
   . Handles delivery fee calculations
 """
 
-[
-    "get_min_order_value",
-    "get_final_order_value"
-]
-from .pricing_logic import get_min_order_value, get_final_order_value
+["get_min_order_value", "get_final_order_value"]
+# from .pricing_logic import get_min_order_value, get_final_order_value

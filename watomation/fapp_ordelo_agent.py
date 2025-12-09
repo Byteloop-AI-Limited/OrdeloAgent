@@ -204,6 +204,7 @@ wa.add_flow_request_handler(
 @app.get("/details")
 async def get_details():
     from config import _async_wa_client as wa
+    from config.params import get_restaurant_base_url_async
 
     business_phone_number = await wa.get_business_phone_number()
     phone_id = waba_business_settings.phone_id
@@ -212,8 +213,9 @@ async def get_details():
     callback_url_on_waba = business_phone_number.webhook_configuration["application"]
     callback_url = waba_business_settings.callback_url
 
-    # RestConfif
-    from config.params import elas_base_url, ordelo_base_url
+    # Fetch base URLs dynamically
+    elas_base_url = await get_restaurant_base_url_async("ELAS")
+    ordelo_base_url = await get_restaurant_base_url_async("ORDELO")
 
     return {
         "business_phone_number": business_phone_number,
@@ -230,28 +232,30 @@ async def get_details():
 @app.get("/restaurant-details/{rest_ref}")
 async def get_restaurant_details(rest_ref: str):
     from config.params import (
-        RESTAURANT_CONFIG,
-        get_restaurant_base_url,
+        WEBHOOK_PATHS,
+        get_restaurant_base_url_async,
         get_restaurant_admins,
-        get_webhook_url,
+        get_restaurant_webhook_url_async,
     )
 
     rest_ref = rest_ref.upper()
     try:
-        base_url = get_restaurant_base_url(rest_ref)
+        base_url = await get_restaurant_base_url_async(rest_ref)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
     webhook_urls = {}
-    for key, config in RESTAURANT_CONFIG.items():
-        if not key.startswith(f"{rest_ref}-"):
-            continue
-        type_segment = key.split(f"{rest_ref}-", 1)[1]
-        webhook_urls[config.type] = get_webhook_url(rest_ref, type_segment)
+    for webhook_type in WEBHOOK_PATHS.keys():
+        try:
+            webhook_urls[webhook_type] = await get_restaurant_webhook_url_async(
+                rest_ref, webhook_type
+            )
+        except ValueError:
+            continue  # Skip if webhook type not configured for this restaurant
 
     if not webhook_urls:
         raise HTTPException(
-            status_code=404,
+            status_code=400,
             detail=f"No webhook config found for rest_ref={rest_ref}",
         )
 
