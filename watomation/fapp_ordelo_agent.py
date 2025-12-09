@@ -9,6 +9,7 @@ FastAPI application for Ordelo WhatsApp automation service.
     . custom_404_handler - Handles 404 errors with template response
     . get_details - Returns WhatsApp business profile and callback info
     . get_threads - Lists conversation threads for a recipient
+    . get_restaurant_details - Returns restaurant config and webhook URLs
     . echo_request - Echoes inbound payloads for validation
     . debug_state_path - Gets LangGraph debug stack for a recipient
     . debug_state_by_thread_path - Gets debug stack for a specific thread
@@ -18,7 +19,7 @@ FastAPI application for Ordelo WhatsApp automation service.
 import logging
 from typing import Optional
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
@@ -223,6 +224,42 @@ async def get_details():
         "callback_url_on_waba": callback_url_on_waba,
         "elas_base_url": elas_base_url,
         "ordelo_base_url": ordelo_base_url,
+    }
+
+
+@app.get("/restaurant-details/{rest_ref}")
+async def get_restaurant_details(rest_ref: str):
+    from config.params import (
+        RESTAURANT_CONFIG,
+        get_restaurant_base_url,
+        get_restaurant_admins,
+        get_webhook_url,
+    )
+
+    rest_ref = rest_ref.upper()
+    try:
+        base_url = get_restaurant_base_url(rest_ref)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    webhook_urls = {}
+    for key, config in RESTAURANT_CONFIG.items():
+        if not key.startswith(f"{rest_ref}-"):
+            continue
+        type_segment = key.split(f"{rest_ref}-", 1)[1]
+        webhook_urls[config.type] = get_webhook_url(rest_ref, type_segment)
+
+    if not webhook_urls:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No webhook config found for rest_ref={rest_ref}",
+        )
+
+    return {
+        "rest_ref": rest_ref,
+        "base_url": base_url,
+        "webhook_urls": webhook_urls,
+        "admins": get_restaurant_admins(rest_ref=rest_ref),
     }
 
 
