@@ -919,7 +919,7 @@ async def _handle_restaurant_decline(
 
 
 @router.post("/restaurant-confirmation-request")
-async def restaurant_confirmation_request_hook(
+async def restaurant_confirmation_flow(
     payload: dict = Depends(get_payload),
 ):
     """
