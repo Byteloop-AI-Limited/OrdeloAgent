@@ -54,9 +54,9 @@ BEGIN
     WHERE ds.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept')
       AND ds.pickup_time IS NULL
       AND (EXTRACT(EPOCH FROM (NOW() - ds.dtts)) / 60) > COALESCE(
-          (SELECT config_value::int FROM ordelo_config 
+          (SELECT config_value::numeric FROM ordelo_config 
            WHERE config_key = ds.rest_ref || '_RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1),
-          (SELECT config_value::int FROM ordelo_config 
+          (SELECT config_value::numeric FROM ordelo_config 
            WHERE config_key = 'RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1),
           5  -- fallback to 5 minutes if no config found
       )
