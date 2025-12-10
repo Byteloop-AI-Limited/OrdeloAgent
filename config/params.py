@@ -2,16 +2,20 @@
 Restaurant webhook configuration utilities and lookup helpers.
   . Provides async webhook URL construction with dynamic DB lookup
   . WEBHOOK_PATHS maps webhook types to their path suffixes
-  . get_restaurant_webhook_url_async fetches base URL from DB on every call (no caching)
+  . get_restaurant_webhook_url_async fetches base URL from DB (now cached)
   . get_restaurant_admins fetches admin list from restaurant_master
 Functions/Classes
   . WEBHOOK_PATHS - Static mapping of webhook type to path suffix
-  . get_restaurant_base_url_async - Async DB lookup for restaurant base URL
+  . get_restaurant_base_url_async - Async DB lookup for restaurant base URL (cached)
   . get_restaurant_webhook_url_async - Constructs full webhook URL dynamically
   . get_restaurant_admins - Fetches restaurant admin phone numbers
 """
 
+import time
 from loguru import logger
+
+_BASE_URL_CACHE_TTL_SECS = 5 * 60  # 5 minutes
+_BASE_URL_CACHE: dict[str, tuple[str, float]] = {}
 
 
 # %% Webhook path mapping - type to path suffix (no base URLs)
@@ -31,10 +35,10 @@ WEBHOOK_PATHS = {
 # %% get_restaurant_base_url_async
 async def get_restaurant_base_url_async(rest_ref: str) -> str:
     """
-    Fetch restaurant base URL from database.
+    Fetch restaurant base URL from database with in-memory caching.
 
     Queries ordelo_config table for {REST_REF}_APP_URL config key.
-    No caching - fetches fresh from DB on every call.
+    Results are cached for 5 minutes to avoid repeated DB lookups.
 
     Args:
         rest_ref: Restaurant reference code (e.g., "ELAS", "WREN")
@@ -47,7 +51,19 @@ async def get_restaurant_base_url_async(rest_ref: str) -> str:
     """
     from config import client_ordelo
 
-    config_key = rest_ref.upper() + "_APP_URL"
+    rest_ref_upper = rest_ref.upper()
+    cache_key = rest_ref_upper
+    now = time.monotonic()
+
+    cached = _BASE_URL_CACHE.get(cache_key)
+    if cached:
+        cached_value, expires_at = cached
+        if expires_at > now:
+            logger.debug(f"Using cached base URL for {rest_ref_upper}: {cached_value}")
+            return cached_value
+        _BASE_URL_CACHE.pop(cache_key, None)
+
+    config_key = rest_ref_upper + "_APP_URL"
     resp = (
         client_ordelo.table("ordelo_config")
         .select("config_value")
@@ -66,7 +82,8 @@ async def get_restaurant_base_url_async(rest_ref: str) -> str:
         raise ValueError(f"No config found for {config_key} in ordelo_config")
 
     base_url = data[0]["config_value"]
-    logger.debug(f"Fetched base URL for {rest_ref}: {base_url}")
+    _BASE_URL_CACHE[cache_key] = (base_url, now + _BASE_URL_CACHE_TTL_SECS)
+    logger.debug(f"Fetched base URL for {rest_ref_upper}: {base_url}")
     return base_url
 
 

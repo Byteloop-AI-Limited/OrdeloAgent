@@ -221,17 +221,15 @@ Delivery Details:
     for admin in rest_admins:
         food_ready_y = CallbackButtonData(
             action="/AdminCollectionReady",
-            recipient=admin,
-            ai_msg=rest_header,
-            human_msg="food ready for collection",
             rider_id=rider_master["rider_id"],
+            restaurant_name="Elai Salisbury",
             order_id=order_id,
         )
         await _async_wa_client.send_message(
             to=admin,
             header=rest_header,
             text=rest_text + "\n" + delivery_instructions,
-            reply_to_message_id=None,
+            reply_to_message_id=delivery_summary.restaurant_msg_id,
             buttons=[
                 Button(title="Ready", callback_data=food_ready_y.model_dump_json())
             ],

@@ -948,13 +948,15 @@ async def _handle_restaurant_timedout(
     logger.info(
         f"rest_id={delivery_summary.rest_id}, rest_name={delivery_summary.rest_name}"
     )
-    # on timedout, pickup_time should be 18 mins from delivery_summary.dtts, also update status='assigned', restaurant_confirmation_status='auto_accept'
+    # on timedout, pickup_time should be 30 mins from delivery_summary.dtts, also update status='assigned', restaurant_confirmation_status='auto_accept'
     update_vals = {
         "status": "unassigned",
         "restaurant_confirmation_status": "auto_accept",
-        "pickup_time": datetime.fromisoformat(delivery_summary.dtts)
-        .astimezone(timezone.utc)
-        .isoformat(),
+        "pickup_time": (
+            datetime.fromisoformat(delivery_summary.dtts)
+            .astimezone(timezone.utc)
+            + timedelta(minutes=30)
+        ).isoformat(),
     }
 
     order_number = delivery_summary.order_number

@@ -28,7 +28,7 @@ BEGIN
     status = 'restaurant_unconfirmed', 
     restaurant_confirmation_status = 'restaurant_unconfirmed',
     pickup_time = NULL,
-    dtts = current_timestamp - interval '2 minutes'
+    dtts = current_timestamp
     WHERE order_number = p_order_number;
     GET DIAGNOSTICS v_summary_updated = ROW_COUNT;
 
