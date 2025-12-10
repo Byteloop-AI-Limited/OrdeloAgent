@@ -259,8 +259,7 @@ CHECK (status IN (
     'completed'
 ));
 
--- Or simpler view
-\d delivery_summary
+-- Or simpler viewdelivery_summary
 SELECT * FROM pg_trigger WHERE tgname = 'trigger_restaurant_confirmation_request';
 
 SELECT restaurant_confirmation_whook();
