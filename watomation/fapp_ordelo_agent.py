@@ -57,7 +57,7 @@ from watomation.on_callback_wa_handler import (
     dispatch_response,
     rider_request_location,
     handle_shift_availability,
-    # handle_restaurant_confirmation,
+    admin_collection_ready,
     restaurant_order_accept_decline_handler,
     handle_pickup_time_selection,
 )
@@ -150,6 +150,10 @@ wa.add_handlers(
     ),
     # handlers.MessageHandler(callback=process_byteloop_agent),
     handlers.MessageHandler(callback=process_wa_msg),
+    handlers.CallbackButtonHandler(
+        callback=admin_collection_ready,
+        filters=filters.contains("/AdminCollectionReady"),
+    ),
     handlers.CallbackButtonHandler(
         callback=dispatch_response, filters=IS_DISPATCH_RESPONSE
     ),

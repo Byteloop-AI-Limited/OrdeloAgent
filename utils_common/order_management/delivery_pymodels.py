@@ -56,13 +56,22 @@ class DeliverySummary(BaseModel):
     customer_lon: float
     customer_lat: float
     customer_address: str
+    restaurant_confirmation_status: str
+    restaurant_update_dtts: Optional[str] = None
+    restaurant_admin: Optional[str] = None
     status: str
     rest_confirmation_code: int
     cust_confirmation_code: int
-    pickup_time: datetime
-    pickup_date: date
-    dt: date
-    dtts: datetime
+    rest_prep_time_minutes: Optional[int] = None
+    rest_confirmation_method: Optional[str] = None
+    restaurant_msg_id: Optional[str] = None
+    rider_msg_id: Optional[str] = None
+    customer_msg_id: Optional[str] = None
+    pickup_time: Optional[str] = None
+    pickup_date: str
+    rest_ref: Optional[str] = None
+    dt: str
+    dtts: str
 
 
 class DeliveryDispatch(BaseModel):

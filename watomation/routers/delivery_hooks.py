@@ -70,6 +70,10 @@ from utils_common.payment_ms.payment import get_payment_uri
 from utils_common.waba_utils.wa_templates.restaurant_confirmation_template import (
     send_restaurant_order_confirmation,
 )
+from utils_common.waba_utils.wa_senders import (
+    send_restaurant_pickup_time,
+    admin_order_reciept,
+)
 
 
 # %% Define Dependancies and routes
@@ -271,19 +275,10 @@ async def post_rider_event_inflight(
         Sends an HTTP POST request to the configured rider-inflight webhook endpoint
         with the all delivery details as JSON payload and prints the response status and JSON.
     """
-    rider_master = (
-        client_ordelo.table("rider_master")
-        .select("rider_name", "rider_id")
-        .eq("rider_id", delivery_detail.rider_id)
-        .eq("vehicle_type", delivery_detail.vehicle_type)
-        .limit(1)
-        .execute()
-        .data[0]
-    )
+
     payload = {
         "delivery_summary": delivery_summary.model_dump(mode="json"),
         "delivery_detail": delivery_detail.model_dump(mode="json"),
-        "rider_master": rider_master,
     }
     rest_ref = delivery_detail.order_number.split("-")[0]
     webhook_url = await get_restaurant_webhook_url_async(rest_ref, "rider-inflight")
@@ -463,22 +458,30 @@ async def delivery_inflight_graph_init_hook(
     delivery_detail = DeliveryDetail(**payload["delivery_detail"][0])
     delivery_summary = DeliverySummary(**payload["delivery_summary"])
     rest_confirmation_code = payload["delivery_detail"][0]["rest_confirmation_code"]
+    rider_master = payload.get("rider_master")
 
     # 1. Call restaurant webhook - rider-inflight-event (background)
+    logger.info("step1: call restaurant webhook - rider-inflight-event")
     background_tasks.add_task(
         post_rider_event_inflight, delivery_detail, delivery_summary
     )
 
     # 2. Initialize ordelo graph as background task
+    logger.info("step2: init ordelo graph")
     background_tasks.add_task(init_ordelo_graph, delivery_detail)
 
-    # 3. Capture Strip Payment
+    # 3. Capture Stripe Payment
+    logger.info("step3: capture stripe payment")
     background_tasks.add_task(
         capture_payment, delivery_detail.order_number, rest_confirmation_code
     )
 
-    logger.info(
-        f"Enqueued inflight graph init for order number: {delivery_detail.order_number}"
+    # 4. Admin notification
+    background_tasks.add_task(
+        admin_order_reciept,
+        delivery_summary=delivery_summary,
+        delivery_detail=delivery_detail,
+        rider_master=rider_master,
     )
 
     return {"status": "success"}
@@ -866,7 +869,6 @@ async def _handle_restaurant_accept(
     Returns:
         dict: Status response with order_number and recipient
     """
-    from utils_common.waba_utils.wa_senders import send_restaurant_pickup_time
 
     # Build order items summary string
     order_items_str = ", ".join(
