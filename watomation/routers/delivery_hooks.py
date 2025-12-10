@@ -12,8 +12,9 @@ Delivery webhook handlers for Ordelo delivery system
     . Implements restaurant confirmation touchpoint before rider dispatch
     . Uses module-level WhatsApp client for confirmation workflow
     . Uses DeliverySummaryData, RestaurantMasterData, FoodOrder and OrderItem Pydantic models for restaurant confirmation payload
+    . Trigger fires on restaurant_confirmation_status changes (not status)
   Functions/Classes:
-    . DeliverySummaryData - Pydantic model for delivery_summary table fields
+    . DeliverySummaryData - Pydantic model for delivery_summary table fields (includes restaurant_confirmation_status, restaurant_msg_id, rider_msg_id, customer_msg_id)
     . RestaurantMasterData - Pydantic model for restaurant_master table fields
     . RestaurantConfirmationPayload - Pydantic model for restaurant confirmation webhook with trigger_reason
     . get_payload - Helper to parse webhook payloads
@@ -28,14 +29,18 @@ Delivery webhook handlers for Ordelo delivery system
     . delivery_timedout - Handles delivery timeout events
     . check_rider_allocation_status - Checks rider allocation status
     . shift_availability_enquiry_hook - Processes shift availability enquiries
-    . restaurant_confirmation_request_hook - Accepts FoodOrder and List[OrderItem] for restaurant confirmation
+    . restaurant_confirmation_flow - Handles restaurant confirmation workflow (unconfirmed, accept, decline, timedout)
+    . _handle_restaurant_unconfirmed - Sends order confirmation request to restaurant
+    . _handle_restaurant_accept - Sends pickup time selection to restaurant
+    . _handle_restaurant_decline - Updates status to unassigned on decline
+    . _handle_restaurant_timedout - Logs restaurant confirmation timeout event
     . close_threads - Closes inactive threads and sends goodbye messages
 """
 
 # %%
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import httpx
@@ -93,14 +98,20 @@ class DeliverySummaryData(BaseModel):
     customer_lon: float
     customer_lat: float
     customer_address: str
+    restaurant_confirmation_status: str
+    restaurant_update_dtts: Optional[str] = None
+    restaurant_admin: Optional[str] = None
     status: str
     rest_confirmation_code: int
     cust_confirmation_code: int
-    rest_confirmed_at: Optional[str] = None
     rest_prep_time_minutes: Optional[int] = None
     rest_confirmation_method: Optional[str] = None
-    pickup_time: str
+    restaurant_msg_id: Optional[str] = None
+    rider_msg_id: Optional[str] = None
+    customer_msg_id: Optional[str] = None
+    pickup_time: Optional[str] = None
     pickup_date: str
+    rest_ref: Optional[str] = None
     dt: str
     dtts: str
 
@@ -918,21 +929,70 @@ async def _handle_restaurant_decline(
     }
 
 
+async def _handle_restaurant_timedout(
+    delivery_summary: DeliverySummaryData,
+    restaurant_admins: List[str],
+) -> dict:
+    """
+    Handle restaurant_timedout trigger: auto-accept order and notify admins.
+
+    Args:
+        delivery_summary: Delivery summary data
+        restaurant_admins: List of admin phone numbers to notify
+
+    Returns:
+        dict: Status response with order_number
+    """
+    logger.info(
+        f"rest_id={delivery_summary.rest_id}, rest_name={delivery_summary.rest_name}"
+    )
+    # on timedout, pickup_time should be 18 mins from delivery_summary.dtts, also update status='assigned', restaurant_confirmation_status='auto_accept'
+    update_vals = {
+        "status": "unassigned",
+        "restaurant_confirmation_status": "auto_accept",
+        "pickup_time": datetime.fromisoformat(delivery_summary.dtts)
+        .astimezone(timezone.utc)
+        .isoformat(),
+    }
+
+    order_number = delivery_summary.order_number
+
+    # Send auto-accept notification to all admins
+    for admin_phone in restaurant_admins:
+        await _async_wa_client.send_message(
+            to=admin_phone,
+            text=f"Order {order_number} auto-accepted due to confirmation timeout.",
+        )
+
+    result = await asyncio.to_thread(
+        lambda: client_ordelo.table("delivery_summary")
+        .update(update_vals)
+        .eq("order_number", order_number)
+        .execute()
+    )
+
+    return {
+        "status": "success",
+        "action": "restaurant_timedout_logged",
+    }
+
+
 @router.post("/restaurant-confirmation-request")
-async def restaurant_confirmation_request_hook(
+async def restaurant_confirmation_flow(
+    background_tasks: BackgroundTasks,
     payload: dict = Depends(get_payload),
 ):
     """
     Webhook triggered for restaurant confirmation workflow events.
-    Handles: restaurant_unconfirmed (new order), restaurant_accept, restaurant_decline.
+    Handles: restaurant_unconfirmed (new order), restaurant_accept, restaurant_decline, restaurant_timedout.
 
     Triggered by:
-    - Database trigger on delivery_summary INSERT with status='restaurant_unconfirmed'
-    - Database trigger on delivery_summary UPDATE to status='restaurant_accept' or 'restaurant_decline'
+    - Database trigger on delivery_summary INSERT with restaurant_confirmation_status='restaurant_unconfirmed'
+    - Database trigger on delivery_summary UPDATE to restaurant_confirmation_status='restaurant_accept', 'restaurant_decline', or 'restaurant_timedout'
 
     Payload structure:
     {
-        "trigger_reason": "restaurant_unconfirmed" | "restaurant_accept" | "restaurant_decline",
+        "trigger_reason": "restaurant_unconfirmed" | "restaurant_accept" | "restaurant_decline" | "restaurant_timedout",
         "delivery_summary": DeliverySummaryData model data,
         "restaurant_master": RestaurantMasterData model data,
         "food_order": FoodOrder model data,
@@ -940,7 +1000,7 @@ async def restaurant_confirmation_request_hook(
     }
 
     Returns:
-        dict: Status of the operation and order_number
+        dict: Status of the operation and order_number (handlers run in background)
     """
     try:
         # Parse payload into Pydantic models
@@ -968,17 +1028,31 @@ async def restaurant_confirmation_request_hook(
                 "order_number": food_order.order_number,
             }
 
-        # Route to appropriate handler based on trigger_reason
+        # Route to appropriate handler based on trigger_reason (run as background task)
         if trigger_reason == "restaurant_unconfirmed":
-            return await _handle_restaurant_unconfirmed(
-                delivery_summary, restaurant_master, food_order, order_items
+            background_tasks.add_task(
+                _handle_restaurant_unconfirmed,
+                delivery_summary,
+                restaurant_master,
+                food_order,
+                order_items,
             )
         elif trigger_reason == "restaurant_accept":
-            return await _handle_restaurant_accept(
-                delivery_summary, restaurant_master, food_order, order_items
+            background_tasks.add_task(
+                _handle_restaurant_accept,
+                delivery_summary,
+                restaurant_master,
+                food_order,
+                order_items,
             )
         elif trigger_reason == "restaurant_decline":
-            return await _handle_restaurant_decline(delivery_summary, food_order)
+            background_tasks.add_task(
+                _handle_restaurant_decline, delivery_summary, food_order
+            )
+        elif trigger_reason == "restaurant_timedout":
+            background_tasks.add_task(
+                _handle_restaurant_timedout, delivery_summary, restaurant_master.admins
+            )
         else:
             logger.error(f"Unknown trigger_reason: {trigger_reason}")
             return {
@@ -986,6 +1060,12 @@ async def restaurant_confirmation_request_hook(
                 "message": f"Unknown trigger_reason: {trigger_reason}",
                 "order_number": food_order.order_number,
             }
+
+        return {
+            "status": "accepted",
+            "message": f"Handler for {trigger_reason} scheduled",
+            "order_number": food_order.order_number,
+        }
 
     except Exception as e:
         logger.error(f"Error in restaurant_confirmation_request_hook: {e}")

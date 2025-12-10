@@ -14,6 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from langchain_postgres.vectorstores import PGVector
 from langchain_openai import OpenAIEmbeddings
 from supabase import create_client, Client, create_async_client, AsyncClient
+from supabase.client import ClientOptions
 from psycopg_pool import AsyncConnectionPool
 from typing import Optional
 from loguru import logger
@@ -119,7 +120,19 @@ class PgSetting(BaseSettings):
 
 pg_settings = PgSetting(**ordelo_agent_env)
 client_ordelo = pg_settings.client
+client_elas = create_client(
+    pg_settings.rest_url,
+    pg_settings.rest_key,
+    options=ClientOptions(
+        schema="elas",
+    ),
+)
 
 
 # %%
 # client_ordelo.table("restaurant_master").select("admins").eq("rest_ref", "ELAS").execute().data[0]["admins"]
+# client_elas.table("thread").select("*").execute().data
+
+# client_ordelo.schema(
+#     "elas"
+# ).table("thread").select("*").execute().data

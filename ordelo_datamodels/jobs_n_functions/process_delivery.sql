@@ -37,6 +37,7 @@ BEGIN
     SELECT
       summ.order_number,
       summ.customer_id,
+      summ.rest_ref,
       det.vehicle_type   AS detail_vehicle_type,
       det.status         AS detail_vehicle_status,
       dopt.rank          AS available_vehicle_rank,
@@ -59,9 +60,9 @@ BEGIN
   )
   , timedout_orders AS (
     -- which orders have *all* vehicles timed-out?
-    SELECT order_number
+    SELECT order_number, rest_ref
       FROM deliverySnapShot
-     GROUP BY order_number
+     GROUP BY order_number, rest_ref
     HAVING MAX(available_vehicle_rank)
          = SUM( (detail_vehicle_status = 'vehicle_type_timedout')::int )
   )
@@ -70,10 +71,10 @@ BEGIN
     UPDATE delivery_summary ds
        SET status = 'timedout'
       FROM timedout_orders t,
-           (SELECT config_value::int AS timeout_minutes FROM ordelo_config WHERE config_key = 'DELIVERY_TIMEOUT_TIME') cfg
+           LATERAL (SELECT COALESCE(config_value::int, 5) AS timeout_minutes FROM ordelo_config WHERE config_key = t.rest_ref || '_DELIVERY_TIMEOUT_TIME') cfg
      WHERE ds.order_number = t.order_number
        AND ds.status       = 'unassigned'
-       AND (EXTRACT(EPOCH FROM (NOW() - ds.dtts))/60) > cfg.timeout_minutes
+       AND (EXTRACT(EPOCH FROM (NOW() - ds.dtts))/60) > COALESCE(cfg.timeout_minutes, 5)
     RETURNING
       'Order ' || ds.order_number || ' → status set to timeout'
         AS action

@@ -18,7 +18,7 @@ Parameters:
 
 Dependencies:
     - Reads from: delivery_summary
-    - Writes to: delivery_summary (status, rest_confirmed_at, rest_prep_time_minutes, rest_confirmation_method, pickup_time)
+    - Writes to: delivery_summary (status, restaurant_confirmation_status, restaurant_update_dtts, rest_prep_time_minutes, rest_confirmation_method, pickup_time)
     - Calls: process_delivery()
 
 Returns:
@@ -42,12 +42,13 @@ BEGIN
   UPDATE delivery_summary
   SET 
     status = 'unassigned',
-    rest_confirmed_at = NOW(),
+    restaurant_confirmation_status = 'restaurant_accept',
+    restaurant_update_dtts = NOW(),
     rest_prep_time_minutes = p_prep_time_minutes,
     rest_confirmation_method = 'manual',
     pickup_time = NOW() + (p_prep_time_minutes || ' minutes')::INTERVAL
   WHERE order_number = p_order_number
-    AND status = 'restaurant_unconfirmed'
+    AND restaurant_confirmation_status = 'restaurant_unconfirmed'
   RETURNING TRUE INTO v_updated;
   
   IF v_updated THEN

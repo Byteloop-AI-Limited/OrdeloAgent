@@ -145,7 +145,9 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 - Supabase RPC/functions (key ones referenced):
   - `dispatch_accept_func`, `dispatch_complete_func`, `process_delivery` (scheduled), `clear_dispatch` (testing), `init_delivery` (testing).
 - LangGraph state checkpointing:
-  - Postgres checkpointer (configured per‑message): `AsyncPostgresSaver` compiled into the rider graph. Thread context is mapped via `ThreadHandler` using the rider’s WhatsApp number.
+  - Postgres checkpointer (configured per‑message): `AsyncPostgresSaver` compiled into the rider graph. Thread context is mapped via `ThreadHandler` using the rider's WhatsApp number.
+
+> **📖 For detailed delivery workflow documentation including all triggers, webhooks, and status transitions, see [`docs/delivery_process.md`](docs/delivery_process.md)**
 
 
 ## Configuration and Secrets
