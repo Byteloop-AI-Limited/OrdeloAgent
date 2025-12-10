@@ -267,6 +267,9 @@ SHOW log_directory;
 SHOW log_filename;
 
 
+select * from thread;
+
+
 select * from food_order where order_number='ELAS-ZVEO-43';
 
 select pickup_time, dtts, restaurant_confirmation_status, status, * from delivery_summary;
