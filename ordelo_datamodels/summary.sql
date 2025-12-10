@@ -1,4 +1,4 @@
-
+-- drop table delivery_summary;
 CREATE TABLE delivery_summary (
     order_number     VARCHAR(100),
     rest_id          VARCHAR(12) NOT NULL, -- restaurant id
@@ -12,14 +12,24 @@ CREATE TABLE delivery_summary (
     customer_lon         DOUBLE PRECISION NOT NULL,
     customer_lat         DOUBLE PRECISION NOT NULL,
     customer_address     TEXT NOT NULL,
-    status          VARCHAR(50) NOT NULL CHECK (status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'unassigned', 'timedout', 'assigned', 'completed')),
+    -- Restaurant confirmation status (separate from delivery lifecycle)
+    restaurant_confirmation_status VARCHAR(50) NOT NULL DEFAULT 'restaurant_unconfirmed' 
+        CHECK (restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'auto_accept','auto_decline')),
+    restaurant_update_dtts TIMESTAMP WITH TIME ZONE, -- nullable, set when restaurant_confirmation_status changes
+    restaurant_admin VARCHAR(12), -- nullable, stores the admin phone who confirmed the order
+    -- Delivery lifecycle status
+    status          VARCHAR(50) NOT NULL CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed')),
     rest_confirmation_code INTEGER NOT NULL,
     cust_confirmation_code INTEGER NOT NULL,
-    rest_confirmed_at TIMESTAMP WITH TIME ZONE,
     rest_prep_time_minutes INTEGER,
     rest_confirmation_method VARCHAR(20),
-    pickup_time      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP + INTERVAL '30 minutes',
+    -- WhatsApp message IDs for tracking communications
+    restaurant_msg_id VARCHAR(255), -- nullable, stores WA message ID for restaurant communications
+    rider_msg_id VARCHAR(255), -- nullable, stores WA message ID for rider communications
+    customer_msg_id VARCHAR(255), -- nullable, stores WA message ID for customer communications
+    pickup_time      TIMESTAMP WITH TIME ZONE,
     pickup_date      DATE NOT NULL DEFAULT CURRENT_DATE,
+    rest_ref         VARCHAR(20) GENERATED ALWAYS AS (SPLIT_PART(order_number, '-', 1)) STORED, -- derived from order_number
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     dtts             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (order_number)
@@ -27,14 +37,14 @@ CREATE TABLE delivery_summary (
 -- drop table delivery_summary;
 
 -- Triggers on delivery_summary table
--- Trigger 1: On new record with status='restaurant_unconfirmed' OR status update to 'restaurant_accept'/'restaurant_decline'
+-- Trigger 1: On new record OR restaurant_confirmation_status update to 'restaurant_accept'/'restaurant_decline'/'restaurant_timedout'
 CREATE OR REPLACE TRIGGER trigger_restaurant_updates 
-AFTER INSERT OR UPDATE ON public.delivery_summary 
+AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON public.delivery_summary 
 FOR EACH ROW 
-WHEN (NEW.status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline'))
+WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout'))
 EXECUTE FUNCTION restaurant_updates_whook();
 
-drop trigger trigger_restaurant_updates on delivery_summary;
+-- drop trigger trigger_restaurant_updates on delivery_summary;
 
 -- Trigger2: On status change to timeout
 drop trigger trigger_delivery_summary_timedout on public.delivery_summary;
@@ -55,13 +65,13 @@ FOR EACH ROW WHEN (OLD.status <> 'timedout'
  *  returns: 
  *    - TRIGGER: The trigger object
  *  notes:
- *    - Triggered on delivery_summary INSERT with status='restaurant_unconfirmed'
- *    - Triggered on delivery_summary UPDATE to status='restaurant_accept' or 'restaurant_decline'
+ *    - Triggered on delivery_summary INSERT with restaurant_confirmation_status='restaurant_unconfirmed'
+ *    - Triggered on delivery_summary UPDATE to restaurant_confirmation_status='restaurant_accept', 'restaurant_decline', or 'restaurant_timedout'
  *    - Builds delivery_summary JSON from NEW record (all fields)
  *    - Fetches restaurant_master data and includes in payload
  *    - Joins with food_order table using order_number
  *    - Fetches order items from order_item table
- *    - Includes trigger_reason field indicating the status that triggered the webhook
+ *    - Includes trigger_reason field indicating the restaurant_confirmation_status that triggered the webhook
  *    - Constructs JSON matching RestaurantConfirmationPayload model (DeliverySummaryData + RestaurantMaster + FoodOrder + List[OrderItem])
  */
 CREATE OR REPLACE FUNCTION restaurant_updates_whook()
@@ -79,6 +89,7 @@ DECLARE
   trigger_reason text;
   p_log_to_table BOOLEAN := TRUE; -- Default to TRUE, can be controlled via config
 BEGIN
+  PERFORM set_config('statement_timeout', '10000', true);
   -- Check if logging is enabled (can be disabled via ordelo_config table)
   BEGIN
     SELECT COALESCE((config_value::BOOLEAN), TRUE) INTO p_log_to_table
@@ -89,8 +100,8 @@ BEGIN
       p_log_to_table := TRUE; -- Default to TRUE if config not found
   END;
 
-  -- Determine trigger reason
-  trigger_reason := NEW.status;
+  -- Determine trigger reason from restaurant_confirmation_status
+  trigger_reason := NEW.restaurant_confirmation_status;
   
   -- Log trigger fired
   IF p_log_to_table THEN
@@ -98,15 +109,15 @@ BEGIN
     VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Trigger fired, trigger_reason: ' || trigger_reason || ', TG_OP: ' || TG_OP);
   END IF;
 
-  -- Process for restaurant_unconfirmed, restaurant_accept, or restaurant_decline
-  IF NEW.status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline') THEN
+  -- Process for restaurant_unconfirmed, restaurant_accept, restaurant_decline, or restaurant_timedout
+  IF NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout') THEN
     
     IF p_log_to_table THEN
       INSERT INTO debug_log (trigger_name, order_number, message)
-      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Status check passed - ' || NEW.status);
+      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'restaurant_confirmation_status check passed - ' || NEW.restaurant_confirmation_status);
     END IF;
     
-    -- Build delivery_summary JSON from NEW record
+    -- Build delivery_summary JSON from NEW record (includes new columns)
     SELECT json_build_object(
       'order_number', NEW.order_number,
       'rest_id', NEW.rest_id,
@@ -120,14 +131,20 @@ BEGIN
       'customer_lon', NEW.customer_lon,
       'customer_lat', NEW.customer_lat,
       'customer_address', NEW.customer_address,
+      'restaurant_confirmation_status', NEW.restaurant_confirmation_status,
+      'restaurant_update_dtts', NEW.restaurant_update_dtts,
+      'restaurant_admin', NEW.restaurant_admin,
       'status', NEW.status,
       'rest_confirmation_code', NEW.rest_confirmation_code,
       'cust_confirmation_code', NEW.cust_confirmation_code,
-      'rest_confirmed_at', NEW.rest_confirmed_at,
       'rest_prep_time_minutes', NEW.rest_prep_time_minutes,
       'rest_confirmation_method', NEW.rest_confirmation_method,
+      'restaurant_msg_id', NEW.restaurant_msg_id,
+      'rider_msg_id', NEW.rider_msg_id,
+      'customer_msg_id', NEW.customer_msg_id,
       'pickup_time', NEW.pickup_time,
       'pickup_date', NEW.pickup_date,
+      'rest_ref', NEW.rest_ref,
       'dt', NEW.dt,
       'dtts', NEW.dtts
     ) INTO delivery_summary_json;
@@ -266,7 +283,7 @@ BEGIN
   ELSE
     IF p_log_to_table THEN
       INSERT INTO debug_log (trigger_name, order_number, message)
-      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Status check failed, current status: ' || NEW.status);
+      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'restaurant_confirmation_status check failed, current: ' || NEW.restaurant_confirmation_status);
     END IF;
   END IF;
   
@@ -301,6 +318,7 @@ DECLARE
   ordelo_app_url text;
   webhook_url text;
 BEGIN
+  PERFORM set_config('statement_timeout', '10000', true);
   -- Combine the NEW record with additional data from delivery_detail; required to invoke graph
   SELECT json_build_object(
     'delivery_summary', json_build_array(row_to_json(NEW))
@@ -329,3 +347,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+
+-- Set timeout for 30s
+ALTER DATABASE postgres SET statement_timeout = '300s';

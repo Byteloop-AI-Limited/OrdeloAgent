@@ -18,7 +18,7 @@ Configuration:
 
 Dependencies:
     - Reads from: delivery_summary, ordelo_config
-    - Writes to: delivery_summary (status, rest_confirmed_at, rest_prep_time_minutes, rest_confirmation_method, pickup_time)
+    - Writes to: delivery_summary (status, restaurant_confirmation_status, restaurant_update_dtts, rest_prep_time_minutes, rest_confirmation_method, pickup_time)
 
 Side Effects:
     - Updates delivery_summary status to 'unassigned'
@@ -56,7 +56,8 @@ BEGIN
     UPDATE delivery_summary ds
     SET 
       status = 'unassigned',
-      rest_confirmed_at = NOW(),
+      restaurant_confirmation_status = 'restaurant_timedout',
+      restaurant_update_dtts = NOW(),
       rest_prep_time_minutes = 25,  -- Default to max time
       rest_confirmation_method = 'timeout',
       pickup_time = NOW() + INTERVAL '25 minutes'

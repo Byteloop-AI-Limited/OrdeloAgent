@@ -22,7 +22,36 @@ WITH deliverySnapShot AS (
      AND det.vehicle_type   = dopt.vehicle_type
     where summ.status        = 'unassigned'
   )
-select * from deliverySnapShot;
+, to_insert AS (
+    -- which un‐assigned orders where all existing details are timed-out
+    SELECT
+      order_number,
+      customer_id,
+      available_vehicle_type,
+      town,
+      rider_payout,
+      distance
+      FROM deliverySnapShot ds_outer
+     WHERE ds_outer.next_vehicle_rank = 1
+       AND ds_outer.detail_vehicle_status IS NULL
+       AND NOT EXISTS (
+         SELECT 1
+           FROM deliverySnapShot ds2
+          WHERE ds2.order_number = ds_outer.order_number
+            AND ds2.detail_vehicle_status IS NOT NULL
+            AND ds2.detail_vehicle_status <> 'vehicle_type_timedout'
+       )
+  )
+select * from to_insert;
+
+select pickup_time, dtts, restaurant_confirmation_status, status, * from delivery_summary where order_number='ELAS-WWVP-26' ;
+select * from delivery_option where order_number='ELAS-WWVP-26';
+select * from delivery_detail where order_number='ELAS-WWVP-26';
+select * from delivery_dispatch where order_number='ELAS-WWVP-26';
+select * from delivery_inflight where order_number='ELAS-WWVP-26';
+
+
+
 -- Best approach to testing, let the init_delivery and process_delivery run with 15 sec intervals.
 -- Check summary
 select status,* from delivery_summary 

@@ -37,6 +37,38 @@ VALUES ('ENABLE_TRIGGER_DEBUG_LOG', 'true')
 ON CONFLICT (config_key) 
 DO UPDATE SET config_value = 'true';
 
+INSERT INTO ordelo_config (config_key, config_value)
+VALUES ('TERMINATE_STALE_ACTIVE_THREADS', '5')
+ON CONFLICT (config_key) 
+DO UPDATE SET config_value = '5';
+
+
+select * from ordelo_config where config_key like '%TIME%';
+
+-- Debugging option
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('ELAS_DELIVERY_TIMEOUT_TIME', '5', 'Timeout in minutes for delivery_summary status transition to timedout')
+ON CONFLICT (config_key) 
+DO UPDATE SET config_value = '5';
+
+UPDATE ordelo_config 
+SET config_value = '5'
+WHERE config_key = 'ELAS_DELIVERY_TIMEOUT_TIME';
+
+UPDATE ordelo_config 
+SET config_value = '3'
+WHERE config_key = 'ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME';
+
+
+
+-- Debugging option
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME', '1', 'Timeout in minutes for delivery_summary status transition to timedout')
+ON CONFLICT (config_key) 
+DO UPDATE SET config_value = '1';
+
+
+
 UPDATE ordelo_config 
 SET config_value = 'false'
 WHERE config_key = 'ENABLE_TRIGGER_DEBUG_LOG';
