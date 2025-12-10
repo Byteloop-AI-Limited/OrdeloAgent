@@ -1,10 +1,9 @@
 ## Immediate
-- Notes missing during 
-- The pickup time is not being sent person who responded; 
-- Quick Disable - Create a new route, attach wa instance and have an endpoint to switch between enabled and disabled
-- Conversation reset happening even when the retain_thread is set.
+- [!!!] Conversation reset happening even when the retain_thread is set.
+- [!!!] DropOff Location not working; Its searching for `447448440754 - Drop Off`
 - [!!!] Postcode is just sp1 for sp11pb; Check if lat and lon are correct however. Would the rider get the correct address when asked for in the agent?
-- [!!!] Sending admin_order_reciept (wa_senders) on driver_inflight
+- [!!!] Sending admin_order_ready for collection - Rider name not appearing correctly
+-- No Restaurant_name in the callback data
 - [!!!] If rider not already on job, there should not be a dispatch sent to him
 - [!!!] Sending order reciept to restaurant admins? Where is it? Most likely when the driver accepts the job (trigger from delivery_inflight)
 - admin_order_receipt (graph_init_hook) can make use of live location as a ButtonURL

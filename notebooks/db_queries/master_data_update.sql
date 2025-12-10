@@ -6,7 +6,7 @@ select * from restaurant_master;
 select * from restaurant_master where rest_ref = 'ELAS';
 
 update restaurant_master
-set admins = array['447901518136', '447914844933', '447446933210']
+set admins = array[ '447446933210', '447919202938']
 where rest_ref = 'ELAS';
 
 update restaurant_master
