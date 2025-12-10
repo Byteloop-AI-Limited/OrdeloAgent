@@ -1,0 +1,633 @@
+# Ordelo Delivery Process
+
+**Version:** 3.0  
+**Last Updated:** 2025-12-10
+
+This document provides a comprehensive reference for the Ordelo delivery workflow, covering the complete journey from order creation through delivery completion, including all database triggers, scheduled jobs, and webhook integrations.
+
+---
+
+## Table of Contents
+
+1. [High-Level Overview](#high-level-overview)
+2. [Database Tables](#database-tables)
+3. [Workflow Phases](#workflow-phases)
+   - [Phase 1: Order Creation](#phase-1-order-creation-init_delivery)
+   - [Phase 2: Restaurant Confirmation](#phase-2-restaurant-confirmation)
+   - [Phase 3: Dispatch Creation](#phase-3-dispatch-creation-process_delivery--job_create_dispatch)
+   - [Phase 4: Rider Assignment](#phase-4-rider-assignment-job_assign_dispatch)
+   - [Phase 5: Delivery Execution](#phase-5-delivery-execution-inflight)
+   - [Phase 6: Completion](#phase-6-completion-dispatch_complete_func)
+4. [Triggers and Webhooks](#triggers-and-webhooks)
+5. [Scheduled Jobs (pg_cron)](#scheduled-jobs-pg_cron)
+6. [Status Transitions](#status-transitions)
+7. [Configuration Keys](#configuration-keys)
+8. [Workflow Diagram](#workflow-diagram)
+9. [SQL Files Reference](#sql-files-reference)
+
+---
+
+## High-Level Overview
+
+The Ordelo delivery workflow orchestrates food delivery from order placement to completion using:
+
+- **PostgreSQL Functions & Triggers**: Core business logic executed at the database level
+- **pg_cron Scheduled Jobs**: Periodic tasks for dispatch creation, assignment, and timeout handling
+- **FastAPI Webhooks**: HTTP endpoints called by database triggers for complex operations
+- **WhatsApp Integration**: Rider and restaurant notifications via WhatsApp Business API
+- **LangGraph Agent**: AI-powered rider assistance during delivery execution
+
+### Key Phases
+
+```
+Order Created → Restaurant Confirms → Dispatch to Riders → Rider Accepts → 
+Rider Assigned → Delivery Inflight → Delivery Completed
+```
+
+---
+
+## Database Tables
+
+| Table | Purpose |
+|-------|---------|
+| `delivery_summary` | Master record for each order with restaurant/customer details, status, and confirmation codes |
+| `delivery_detail` | Per-vehicle-type delivery attempt records |
+| `delivery_dispatch` | Individual dispatch offers sent to riders |
+| `delivery_inflight` | Active deliveries currently being executed |
+| `rider_location` | Live GPS tracking data from riders |
+| `rider_location_event` | Zone transition events (approaching restaurant/customer) |
+
+### delivery_summary Status Values
+
+| Status | Description |
+|--------|-------------|
+| `restaurant_unconfirmed` | Waiting for restaurant to confirm order |
+| `unassigned` | Ready for rider dispatch |
+| `assigned` | Rider has been assigned |
+| `timedout` | All dispatch attempts failed |
+| `completed` | Delivery successfully completed |
+
+### restaurant_confirmation_status Values
+
+| Status | Description |
+|--------|-------------|
+| `restaurant_unconfirmed` | Initial state, awaiting restaurant response |
+| `restaurant_accept` | Restaurant accepted, awaiting pickup time selection |
+| `restaurant_decline` | Restaurant declined the order |
+| `restaurant_timedout` | No response within timeout period |
+| `auto_accept` | System auto-accepted after timeout |
+
+### delivery_detail Status Values
+
+| Status | Description |
+|--------|-------------|
+| `unassigned` | Awaiting rider dispatch |
+| `vehicle_type_timedout` | Current vehicle type exhausted, trying next |
+| `assigned` | Rider assigned to this delivery |
+| `completed` | Delivery completed |
+
+### delivery_dispatch Status Values
+
+| Status | Description |
+|--------|-------------|
+| `unassigned` | Dispatch sent, awaiting rider response |
+| `accepted` | Rider accepted the job |
+| `declined` | Rider declined the job |
+| `timedout` | No response within 30 seconds |
+| `missed` | Job was taken by another rider |
+| `assigned` | Rider is assigned and active |
+| `completed` | Delivery completed |
+
+---
+
+## Workflow Phases
+
+### Phase 1: Order Creation (`init_delivery`)
+
+**File:** `ordelo_datamodels/jobs_n_functions/init_delivery.sql`
+
+**Invocation:** Called by external payment service after successful payment
+
+**Function:** `init_delivery(p_cust_id VARCHAR, p_order_number VARCHAR)`
+
+**Purpose:**
+- Creates `delivery_summary` record with restaurant and customer details
+- Generates confirmation codes for restaurant and customer verification
+- Sets initial status to `restaurant_unconfirmed`
+
+**Dependencies:**
+- Reads: `customer_master`, `restaurant_master`, `ordelo_config`
+- Writes: `delivery_summary`
+
+**Side Effects:**
+- Triggers `trigger_restaurant_updates` → `restaurant_updates_whook()` → POST `/delivery-hooks/restaurant-confirmation-request`
+
+---
+
+### Phase 2: Restaurant Confirmation
+
+This phase ensures restaurants confirm orders and provide estimated prep time before riders are dispatched.
+
+#### 2a. Confirmation Request Trigger
+
+**File:** `ordelo_datamodels/summary.sql`
+
+**Trigger:** `trigger_restaurant_updates`
+```sql
+AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON delivery_summary
+WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout'))
+```
+
+**Function:** `restaurant_updates_whook()`
+
+**Webhook:** POST `/delivery-hooks/restaurant-confirmation-request`
+
+**Payload:**
+```json
+{
+  "trigger_reason": "restaurant_unconfirmed|restaurant_accept|restaurant_decline|restaurant_timedout",
+  "delivery_summary": { ... },
+  "restaurant_master": { ... },
+  "food_order": { ... },
+  "order_items": [ ... ]
+}
+```
+
+#### 2b. Webhook Handler
+
+**File:** `watomation/routers/delivery_hooks.py`
+
+**Endpoint:** `POST /delivery-hooks/restaurant-confirmation-request`
+
+**Handlers by trigger_reason:**
+
+| Trigger Reason | Handler | Action |
+|----------------|---------|--------|
+| `restaurant_unconfirmed` | `_handle_restaurant_unconfirmed()` | Sends Accept/Decline buttons to restaurant admins |
+| `restaurant_accept` | `_handle_restaurant_accept()` | Sends pickup time selection (5/15/25 min) |
+| `restaurant_decline` | `_handle_restaurant_decline()` | Updates status to `unassigned` |
+| `restaurant_timedout` | `_handle_restaurant_timedout()` | Auto-accepts with default prep time |
+
+#### 2c. WhatsApp Callback Handlers
+
+**File:** `watomation/on_callback_wa_handler.py`
+
+| Callback | Handler | Action |
+|----------|---------|--------|
+| `/RestaurantOrder-Accept` | `restaurant_order_accept_decline_handler()` | Updates `restaurant_confirmation_status` to `restaurant_accept` |
+| `/RestaurantOrder-Decline` | `restaurant_order_accept_decline_handler()` | Updates `restaurant_confirmation_status` to `restaurant_decline` |
+| `/PickupTime` | `handle_pickup_time_selection()` | Sets `pickup_time` and updates `status` to `unassigned` |
+
+#### 2d. Confirmation Timeout Job
+
+**File:** `ordelo_datamodels/jobs_n_functions/process_restaurant_confirmation.sql`
+
+**Function:** `process_restaurant_confirmation()`
+
+**Schedule:** Every 5 seconds via pg_cron
+
+**Purpose:** Times out orders where restaurant hasn't selected pickup time
+
+**Logic:**
+- Finds orders with `restaurant_confirmation_status` IN (`restaurant_unconfirmed`, `restaurant_accept`) AND `pickup_time` IS NULL
+- Checks if time since `dtts` exceeds configured timeout
+- Updates `restaurant_confirmation_status` to `restaurant_timedout`
+- Triggers webhook for auto-acceptance handling
+
+**Configuration:**
+- `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` (restaurant-specific)
+- `RESTAURANT_CONFIRMATION_TIMEOUT_TIME` (global default: 5 minutes)
+
+---
+
+### Phase 3: Dispatch Creation (`process_delivery` + `job_create_dispatch`)
+
+#### 3a. Delivery Detail Management
+
+**File:** `ordelo_datamodels/jobs_n_functions/process_delivery.sql`
+
+**Function:** `process_delivery()`
+
+**Schedule:** Every 5 seconds via pg_cron (job: `manage_delivery_detail`)
+
+**Purpose:**
+- Creates `delivery_detail` records for each vehicle type based on `delivery_option`
+- Manages vehicle type iteration when current type times out
+- Marks orders as `timedout` when all vehicle types exhausted
+
+**Logic:**
+1. For each `unassigned` order in `delivery_summary`
+2. Determine next vehicle type by rank from `delivery_option`
+3. Insert `delivery_detail` if none exists for that vehicle type
+4. If all vehicle types timed out and grace period elapsed → mark `delivery_summary.status = 'timedout'`
+
+**Configuration:**
+- `{rest_ref}_DELIVERY_TIMEOUT_TIME` (minutes before marking order as timedout)
+
+#### 3b. Dispatch Creation
+
+**File:** `ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql`
+
+**Function:** `job_create_dispatch()`
+
+**Schedule:** Every 5 seconds via pg_cron
+
+**Purpose:**
+- Finds available riders for unassigned delivery details
+- Creates dispatch records in batches
+- Updates detail status when no riders available
+
+**Logic:**
+1. For each `unassigned` `delivery_detail`
+2. Call `get_available_riders(order_number, town, vehicle_type)` to find eligible riders
+3. Insert into `delivery_dispatch` up to `DISPATCH_BATCH_SIZE_{VEHICLE_TYPE}` riders
+4. If no riders available → update `delivery_detail.status = 'vehicle_type_timedout'`
+
+**Helper Function:** `get_available_riders(p_order_number, p_town, p_vehicle_type)`
+- Returns riders in the specified town with matching vehicle type
+- Excludes riders already dispatched for this order
+- Excludes riders currently inflight on other deliveries
+- Orders by priority
+
+**Configuration:**
+- `DISPATCH_BATCH_SIZE_{VEHICLE_TYPE}` (e.g., `DISPATCH_BATCH_SIZE_BICYCLE`)
+
+#### 3c. Dispatch Webhook Trigger
+
+**File:** `ordelo_datamodels/dispatch.sql`
+
+**Trigger:** `trigger_delivery_dispatch_whook`
+```sql
+AFTER INSERT ON delivery_dispatch
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT
+```
+
+**Function:** `delivery_dispatch_whook_statement()`
+
+**Webhook:** POST `/delivery-hooks/delivery-dispatch`
+
+**Payload:**
+```json
+{
+  "bulk_dispatch": [
+    {
+      "dispatch_id": 123,
+      "order_number": "WREN-001",
+      "rider_id": "447...",
+      "rider_payout": 5.50,
+      "vehicle_type": "bicycle",
+      "distance": 2.3,
+      "pickup_time": "2025-12-10T14:30:00Z",
+      "rest_name": "Restaurant Name",
+      "rest_address": "...",
+      "customer_name": "...",
+      "customer_address": "..."
+    }
+  ]
+}
+```
+
+**Handler:** `delivery_dispatch_hook()` in `delivery_hooks.py`
+- Sends WhatsApp message to each rider with Accept/Decline buttons
+- Includes order details, payout, distance, pickup time
+
+---
+
+### Phase 4: Rider Assignment (`job_assign_dispatch`)
+
+#### 4a. Rider Acceptance
+
+**File:** `watomation/on_callback_wa_handler.py`
+
+**Callback:** `/dispatchResponse`
+
+**Handler:** `dispatch_response()`
+
+**Action:**
+- Validates dispatch is still available
+- Updates `delivery_dispatch.status` to `accepted` or `declined`
+- Sends confirmation message to rider
+
+#### 4b. Dispatch Assignment Job
+
+**File:** `ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql`
+
+**Function:** `job_assign_dispatch()`
+
+**Schedule:** Every 5 seconds via pg_cron
+
+**Purpose:** Assigns first accepted dispatch to the delivery
+
+**Logic:**
+1. For each `delivery_detail` with `status` IN (`unassigned`, `vehicle_type_timedout`)
+2. Call `assign_accepted_dispatch(order_number)`
+
+**Helper Function:** `assign_accepted_dispatch(p_order_number)`
+
+**Logic:**
+1. Find `delivery_dispatch` with `status = 'accepted'` and not already inflight
+2. Rank by `dispatch_id`, select first
+3. Update `delivery_dispatch.status = 'assigned'`
+4. Update `delivery_detail.status = 'assigned'`, set `dispatch_id`, `rider_id`
+5. Update `delivery_summary.status = 'assigned'`
+6. Insert into `delivery_inflight`
+
+---
+
+### Phase 5: Delivery Execution (Inflight)
+
+#### 5a. Inflight Trigger
+
+**File:** `ordelo_datamodels/inflight.sql`
+
+**Trigger:** `trigger_delivery_inflight_whook`
+```sql
+AFTER INSERT ON delivery_inflight
+FOR EACH ROW
+```
+
+**Function:** `delivery_inflight_whook()`
+
+**Webhook:** POST `/delivery-hooks/delivery-inflight-graph-init`
+
+**Payload:**
+```json
+{
+  "delivery_inflight": [ { "dispatch_id": ..., "order_number": ..., "rider_id": ..., "customer_id": ... } ],
+  "delivery_summary": { ... },
+  "delivery_detail": [ { ... } ]
+}
+```
+
+**Side Effects:**
+1. Calls `notify_missed_dispatches()` to inform other riders who accepted
+
+#### 5b. Graph Initialization Handler
+
+**File:** `watomation/routers/delivery_hooks.py`
+
+**Endpoint:** POST `/delivery-hooks/delivery-inflight-graph-init`
+
+**Handler:** `delivery_inflight_graph_init_hook()`
+
+**Actions (Background Tasks):**
+1. `post_rider_event_inflight()` - Notifies restaurant webhook of rider assignment
+2. `init_ordelo_graph()` - Initializes LangGraph rider agent
+3. `capture_payment()` - Captures Stripe payment
+
+#### 5c. Missed Dispatches Notification
+
+**File:** `ordelo_datamodels/inflight.sql`
+
+**Function:** `notify_missed_dispatches()`
+
+**Webhook:** POST `/delivery-hooks/notify-missed-dispatches`
+
+**Purpose:** Notifies riders who accepted but weren't assigned that the job was taken
+
+**Handler:** `notify_missed_dispatches_hook()` in `delivery_hooks.py`
+- Sends WhatsApp message to each missed rider
+- Updates `delivery_dispatch.status = 'missed'`
+
+#### 5d. Rider Agent Flow
+
+**File:** `ordelo/agents/rider_agent.py`
+
+The LangGraph agent assists the rider through:
+1. Sends delivery instructions (pickup/dropoff addresses)
+2. Provides "Start Live Tracking" link (OwnTracks config)
+3. Verifies restaurant confirmation code
+4. Notifies when food is ready for pickup
+5. Verifies customer confirmation code
+6. Sends "Stop Live Tracking" link
+
+#### 5e. Live Location Tracking
+
+**File:** `ordelo_datamodels/jobs_n_functions/job_null_or_outdated_location.sql`
+
+**Function:** `job_null_or_outdated_location()`
+
+**Schedule:** Periodic via pg_cron
+
+**Purpose:** Identifies inflight deliveries with missing or stale location data
+
+**Webhook:** POST `/location-hooks/null-or-outdated-location`
+
+**Configuration:**
+- `LOCATION_ENABLE_TIME_INTERVAL` (minutes before location is considered outdated)
+
+---
+
+### Phase 6: Completion (`dispatch_complete_func`)
+
+**File:** `ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql`
+
+**Function:** `dispatch_complete_func(p_dispatch_id BIGINT)`
+
+**Invocation:** Called by rider agent after customer confirmation code verification
+
+**Purpose:**
+- Marks delivery as completed across all tables
+- Cleans up inflight record
+
+**Logic:**
+1. Update `delivery_dispatch.status = 'completed'`
+2. Update `delivery_detail.status = 'completed'`
+3. Update `delivery_summary.status = 'completed'`
+4. Delete from `delivery_inflight`
+
+---
+
+## Triggers and Webhooks
+
+| Trigger | Table | Condition | Function | Webhook |
+|---------|-------|-----------|----------|---------|
+| `trigger_restaurant_updates` | `delivery_summary` | INSERT or UPDATE of `restaurant_confirmation_status` | `restaurant_updates_whook()` | `/delivery-hooks/restaurant-confirmation-request` |
+| `trigger_delivery_summary_timedout` | `delivery_summary` | UPDATE `status` to `timedout` | `delivery_summary_timedout_whook()` | `/delivery-hooks/delivery-timedout` |
+| `trigger_delivery_dispatch_whook` | `delivery_dispatch` | INSERT (statement-level) | `delivery_dispatch_whook_statement()` | `/delivery-hooks/delivery-dispatch` |
+| `trigger_delivery_inflight_whook` | `delivery_inflight` | INSERT | `delivery_inflight_whook()` | `/delivery-hooks/delivery-inflight-graph-init` |
+
+---
+
+## Scheduled Jobs (pg_cron)
+
+| Job Name | Function | Schedule | Purpose |
+|----------|----------|----------|---------|
+| `manage_delivery_detail` | `process_delivery()` | Every 5s | Create delivery details, handle vehicle type timeouts |
+| `create_dispatch_for_unassigned_orders` | `job_create_dispatch()` | Every 5s | Create dispatch records for available riders |
+| `assign_delivery_for_accepted_jobs` | `job_assign_dispatch()` | Every 5s | Assign accepted dispatches to deliveries |
+| `process_restaurant_confirmation` | `process_restaurant_confirmation()` | Every 5s | Timeout unconfirmed restaurant orders |
+| `job_close_thread` | `job_close_thread()` | Every 5 min | Close inactive rider chat threads |
+| `job_null_or_outdated_location` | `job_null_or_outdated_location()` | Periodic | Alert on missing live tracking |
+| `job_terminate_stale_active_threads` | `job_terminate_stale_active_threads()` | Periodic | Cleanup stale threads |
+
+---
+
+## Status Transitions
+
+### Complete Order Journey
+
+```
+1. init_delivery()
+   └── delivery_summary.status = 'restaurant_unconfirmed'
+       delivery_summary.restaurant_confirmation_status = 'restaurant_unconfirmed'
+       └── [Trigger: restaurant_updates_whook → WhatsApp to restaurant]
+
+2. Restaurant Response
+   ├── Accept → restaurant_confirmation_status = 'restaurant_accept'
+   │   └── [Trigger: WhatsApp pickup time selection]
+   │       └── Pickup time selected → status = 'unassigned'
+   ├── Decline → restaurant_confirmation_status = 'restaurant_decline'
+   │   └── status = 'unassigned' (proceeds without confirmation)
+   └── Timeout → restaurant_confirmation_status = 'restaurant_timedout'
+       └── status = 'unassigned', auto-accept with default prep time
+
+3. process_delivery()
+   └── Creates delivery_detail with status = 'unassigned'
+
+4. job_create_dispatch()
+   └── Creates delivery_dispatch with status = 'unassigned'
+       └── [Trigger: WhatsApp to riders]
+
+5. Rider Response
+   ├── Accept → delivery_dispatch.status = 'accepted'
+   ├── Decline → delivery_dispatch.status = 'declined'
+   └── No response (30s) → delivery_dispatch.status = 'timedout'
+
+6. job_assign_dispatch() → assign_accepted_dispatch()
+   └── delivery_dispatch.status = 'assigned'
+       delivery_detail.status = 'assigned'
+       delivery_summary.status = 'assigned'
+       └── Insert delivery_inflight
+           └── [Trigger: Graph init, restaurant webhook, missed dispatch notifications]
+
+7. dispatch_complete_func()
+   └── delivery_dispatch.status = 'completed'
+       delivery_detail.status = 'completed'
+       delivery_summary.status = 'completed'
+       └── Delete delivery_inflight
+```
+
+---
+
+## Configuration Keys
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `ORDELO_APP_URL` | `https://rider-agent.ordelo.app` | Base URL for webhook calls |
+| `CONFIRMATION_CODE_SALT` | - | Salt for generating confirmation codes |
+| `RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | 5 | Minutes before restaurant confirmation times out |
+| `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | - | Restaurant-specific timeout override |
+| `DELIVERY_TIMEOUT_TIME` | 5 | Minutes before delivery times out (all vehicles exhausted) |
+| `{rest_ref}_DELIVERY_TIMEOUT_TIME` | - | Restaurant-specific delivery timeout |
+| `DISPATCH_BATCH_SIZE_{VEHICLE_TYPE}` | 1 | Number of riders to dispatch per batch |
+| `LOCATION_ENABLE_TIME_INTERVAL` | 1 | Minutes before location is considered outdated |
+| `THREAD_INACTIVE_TIME_INTERVAL` | 5 | Minutes of inactivity before thread closure |
+
+---
+
+## Workflow Diagram
+
+```mermaid
+flowchart TD
+    subgraph Phase1[Phase 1: Order Creation]
+        A[External Service] -->|init_delivery| B[delivery_summary]
+        B -->|status=restaurant_unconfirmed| C[trigger_restaurant_updates]
+    end
+
+    subgraph Phase2[Phase 2: Restaurant Confirmation]
+        C -->|webhook| D[/restaurant-confirmation-request]
+        D -->|WhatsApp| E[Restaurant Admin]
+        E -->|Accept| F[restaurant_accept]
+        E -->|Decline| G[restaurant_decline]
+        F -->|WhatsApp| H[Pickup Time Selection]
+        H -->|Selected| I[status=unassigned]
+        G --> I
+        J[process_restaurant_confirmation] -->|timeout| K[restaurant_timedout]
+        K --> I
+    end
+
+    subgraph Phase3[Phase 3: Dispatch Creation]
+        I --> L[process_delivery]
+        L -->|insert| M[delivery_detail]
+        M --> N[job_create_dispatch]
+        N -->|insert| O[delivery_dispatch]
+        O -->|trigger| P[/delivery-dispatch]
+        P -->|WhatsApp| Q[Riders]
+    end
+
+    subgraph Phase4[Phase 4: Rider Assignment]
+        Q -->|Accept/Decline| R[dispatch_response]
+        R -->|status=accepted| S[job_assign_dispatch]
+        S -->|assign_accepted_dispatch| T[delivery_inflight]
+    end
+
+    subgraph Phase5[Phase 5: Delivery Execution]
+        T -->|trigger| U[/delivery-inflight-graph-init]
+        U --> V[init_ordelo_graph]
+        U --> W[post_rider_event_inflight]
+        U --> X[capture_payment]
+        T --> Y[notify_missed_dispatches]
+        V --> Z[Rider Agent Flow]
+    end
+
+    subgraph Phase6[Phase 6: Completion]
+        Z -->|customer CC verified| AA[dispatch_complete_func]
+        AA -->|status=completed| AB[Delivery Complete]
+    end
+```
+
+---
+
+## SQL Files Reference
+
+### Core Tables
+| File | Description |
+|------|-------------|
+| `summary.sql` | `delivery_summary` table, `restaurant_updates_whook()`, `delivery_summary_timedout_whook()` triggers |
+| `detail.sql` | `delivery_detail` table definition |
+| `dispatch.sql` | `delivery_dispatch` table, `delivery_dispatch_whook_statement()` trigger |
+| `inflight.sql` | `delivery_inflight` table, `delivery_inflight_whook()` trigger, `notify_missed_dispatches()` |
+
+### Jobs and Functions
+| File | Description |
+|------|-------------|
+| `init_delivery.sql` | Entry point function for new orders |
+| `process_delivery.sql` | Manages delivery_detail records and vehicle type iteration |
+| `job_create_dispatch.sql` | Creates dispatch records, `get_available_riders()` helper |
+| `job_assign_dispatch.sql` | Assigns accepted dispatches, `assign_accepted_dispatch()` helper |
+| `dispatch_complete_func.sql` | Marks delivery as completed |
+| `process_restaurant_confirmation.sql` | Times out unconfirmed restaurant orders |
+| `job_restaurant_confirmation_timeout.sql` | Alternative timeout handler with auto-accept |
+| `job_null_or_outdated_location.sql` | Alerts on missing live tracking |
+| `job_close_thread.sql` | Closes inactive rider chat threads |
+| `job_terminate_stale_active_threads.sql` | Cleanup stale threads via webhook |
+| `cleanupDeliveryOrder.sql` | Testing utility to delete order records |
+
+### Supporting Files
+| File | Description |
+|------|-------------|
+| `ordelo_config.sql` | Configuration key-value store |
+| `masterdata.sql` | `restaurant_master`, `customer_master`, `rider_master` tables |
+| `location.sql` | `rider_location`, `rider_location_event` tables |
+| `delivery_option.sql` | Vehicle type options per order |
+
+---
+
+## FastAPI Webhook Endpoints
+
+| Endpoint | Method | Trigger Source | Handler |
+|----------|--------|----------------|---------|
+| `/delivery-hooks/restaurant-confirmation-request` | POST | `restaurant_updates_whook()` | `restaurant_confirmation_flow()` |
+| `/delivery-hooks/delivery-dispatch` | POST | `delivery_dispatch_whook_statement()` | `delivery_dispatch_hook()` |
+| `/delivery-hooks/delivery-inflight-graph-init` | POST | `delivery_inflight_whook()` | `delivery_inflight_graph_init_hook()` |
+| `/delivery-hooks/notify-missed-dispatches` | POST | `notify_missed_dispatches()` | `notify_missed_dispatches_hook()` |
+| `/delivery-hooks/delivery-timedout` | POST | `delivery_summary_timedout_whook()` | `delivery_timedout()` |
+| `/delivery-hooks/close-threads` | POST | `job_close_thread()` | `close_threads()` |
+| `/delivery-hooks/notify-food-ready-for-pickup/{recipient}` | POST | Restaurant admin agent | `notify_food_ready_for_pickup()` |
+| `/location-hooks/null-or-outdated-location` | POST | `job_null_or_outdated_location()` | Location hooks router |
+
+---
+
+*End of Delivery Process Documentation*
