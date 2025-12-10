@@ -24,6 +24,7 @@ WEBHOOK_PATHS = {
     "delivery-timedout": "rider-event-hooks/delivery-timedout",
     "order-payment-complete": "order-event-hooks/payment-complete/",
     "order-address-update": "order-event-hooks/address-update",
+    "terminate-stale-active-threads": "thread-hooks/terminate-stale-active-threads",
 }
 
 

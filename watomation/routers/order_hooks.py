@@ -7,6 +7,7 @@ Order hook endpoints for Elai Agent
   . Creates new orders with order items and initiates payment capture
   . Returns payment URLs for customer checkout
   . Captures customer addresses and upserts into customer_master
+  . Triggers restaurant webhooks for stale thread termination
 Functions/Classes:
   . CreateOrderRequest - Pydantic model for order creation requests
   . CaptureAddressRequest - Pydantic model for address capture requests
@@ -14,6 +15,7 @@ Functions/Classes:
   . get_min_order_value_by_postcode - Resolves postcodes to coordinates before lookup
   . create_order - Creates order with items and captures payment
   . capture_address - Captures customer address and upserts into customer_master
+  . terminate_stale_active_threads - Triggers restaurant webhook for stale thread cleanup
 """
 
 # %%
@@ -375,3 +377,31 @@ async def capture_address(request: CaptureAddressRequest):
         logger.info("Status code:", response.status_code)
 
     return {"success": True}
+
+
+@router.post(
+    "/terminate-stale-active-threads",
+    summary="Trigger restaurant webhook to terminate stale active threads",
+    description="""
+    Triggered by a database job to notify the restaurant system to clean up stale threads.
+    Issues a POST request to the restaurant's terminate-stale-active-threads webhook.
+    """,
+)
+async def terminate_stale_active_threads():
+    """Trigger restaurant webhook for stale thread termination.
+
+    Returns:
+        dict with success status and notification result
+    """
+    rest_ref = "ELAS"
+    webhook_url = await get_restaurant_webhook_url_async(
+        rest_ref, "terminate-stale-active-threads"
+    )
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url=webhook_url)
+        logger.info(
+            f"Restaurant notified for stale thread termination: {response.text}"
+        )
+
+    return {"success": True, "status_code": response.status_code}
