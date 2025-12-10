@@ -39,7 +39,7 @@ DECLARE
   hook_url VARCHAR;
 BEGIN
   PERFORM set_config('statement_timeout', '10000', true);
-  -- Combine the NEW record with additional data from delivery_detail and delivery_summary; required to invoke graph
+  -- Combine the NEW record with additional data from delivery_detail, delivery_summary, and rider_master; required to invoke graph
   SELECT json_build_object(
     'delivery_inflight', json_build_array(row_to_json(NEW)),
     'delivery_summary', (
@@ -78,6 +78,15 @@ BEGIN
           AND det.dispatch_id = NEW.dispatch_id
         LIMIT 1
       ) t
+    ),
+    'rider_master', (
+      SELECT row_to_json(rm)
+      FROM (
+        SELECT rider_name, rider_id
+        FROM rider_master
+        WHERE rider_id = NEW.rider_id
+        LIMIT 1
+      ) rm
     )
   ) INTO webhook_payload;
 
