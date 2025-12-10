@@ -37,6 +37,12 @@ VALUES ('ENABLE_TRIGGER_DEBUG_LOG', 'true')
 ON CONFLICT (config_key) 
 DO UPDATE SET config_value = 'true';
 
+INSERT INTO ordelo_config (config_key, config_value)
+VALUES ('TERMINATE_STALE_ACTIVE_THREADS', '5')
+ON CONFLICT (config_key) 
+DO UPDATE SET config_value = '5';
+
+
 select * from ordelo_config where config_key like '%TIME%';
 
 -- Debugging option
