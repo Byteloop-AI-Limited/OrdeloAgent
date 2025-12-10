@@ -31,6 +31,8 @@ from config import client_ordelo
 from ordelo.agents.agent_runner import run_rider_graph
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 from datetime import datetime, timezone
+from config.params import get_restaurant_base_url_async
+import httpx
 
 # from utils_common.waba_utils.wa_senders import send_restaurant_pickup_time
 from pywa.types import CallbackButton
@@ -242,4 +244,28 @@ async def restaurant_order_accept_decline_handler(wa: WhatsApp, msg: Message):
             _update_restaurant_order_status(order_number, "restaurant_decline", msg)
         )
 
+    return
+
+
+# %%
+async def admin_collection_ready(
+    msg: WhatsApp, callback: CallbackButton[CallbackButtonData]
+):
+    # Callback data created in admin_order_reciept in delivery_inflight_graph_init_hook(delivery_hooks.py)
+    # ordelo_base_url = await get_restaurant_base_url_async(rest_ref="ORDELO")
+    callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
+
+    await run_rider_graph(
+        recipient=callback_data.rider_id,
+        human_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {callback_data.restaurant_name} to pickup the food.",
+    )
+
+    # async with httpx.AsyncClient() as client:
+    #     await client.post(
+    #         f"{ordelo_base_url}/delivery-hooks/notify-food-ready-for-pickup/{callback_data.rider_id}",
+    #         json={
+    #             "restaurant_name": "Elai Salisbury",
+    #             "order_number": callback_data.order_id,
+    #         },
+    #     )
     return

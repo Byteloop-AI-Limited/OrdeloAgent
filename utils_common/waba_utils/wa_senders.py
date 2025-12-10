@@ -31,6 +31,7 @@ from config import (
     waba_business_settings,
     waba_cat_settings,
 )
+from config.params import get_restaurant_admins, get_restaurant_base_url_async
 from pywa.types import FlowButton, Button, Template as Temp, ProductsSection
 from pywa.types.flows import FlowActionType
 from pydantic import BaseModel
@@ -46,6 +47,15 @@ from typing import Optional, List
 from datetime import timedelta
 import pytz
 import asyncio
+from utils_common.order_management.delivery_pymodels import (
+    DeliverySummary,
+    DeliveryDetail,
+)
+from utils_common.order_management.food_order_pymodel import FoodOrder
+from utils_common.order_management.food_order_reciept import (
+    build_wa_order_reciept_for_rest,
+)
+
 
 # from config.params import REST_MASTER
 REST_MASTER = "dummy"
@@ -174,15 +184,11 @@ async def admin_delivery_complete_notification(
 
 # %% Admin notification
 
-from utils_common.order_management.delivery_pymodels import DeliverySummary
-from utils_common.order_management.food_order_pymodel import FoodOrder
-from utils_common.order_management.food_order_reciept import (
-    build_wa_order_reciept_for_rest,
-)
-
 
 async def admin_order_reciept(
-    delivery_summary: DeliverySummary, delivery_detail: dict, rider_master: dict
+    delivery_summary: DeliverySummary,
+    delivery_detail: DeliveryDetail,
+    rider_master: dict,
 ):
     order_number = delivery_summary.order_number
     order_id = "-".join(order_number.split("-")[1:])
@@ -192,21 +198,27 @@ async def admin_order_reciept(
 
     # Construct delivery instructions
     # convert dtts to UK local time (handles BST/GMT automatically)
-    delivery_summary_dtts = delivery_summary.dtts.astimezone(uk_tz)
-    pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
+    # delivery_summary_dtts = delivery_summary.dtts.astimezone(uk_tz)
+    # pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
+    ordelo_base_url = await get_restaurant_base_url_async(rest_ref="ORDELO")
+    rest_ref = delivery_summary.rest_ref
+    pickup_time = delivery_summary.pickup_time.strftime("%I:%M %p")
+
     delivery_instructions = f"""
 Delivery Details:
   ⏰ Pickup Time - *@{pickup_time}*
-  💰 Rider - *{rider_master["rider_name"]} - {delivery_detail["rider_id"]}*
+  💰 Rider - *{rider_master["rider_name"]} - {delivery_detail.rider_id}*
   🛣️ Confirmation Code - *{delivery_summary.rest_confirmation_code}*
   🏠 Customer - *{delivery_summary.customer_address}* - *{delivery_summary.customer_id}*
     Live Location (once order picked up):
-    {project_settings.ordelo_url}/location-hooks/live-location-map/{delivery_summary.order_number}
+    {ordelo_base_url}/location-hooks/live-location-map/{delivery_summary.order_number}
     """
     # Send notifications to restaurant and customer; ToDo - need to add callback to notifications.
     # temp_admins = ["447448440754"]
-    for admin in REST_MASTER.get_admins():
-        # for admin in temp_admins:
+
+    # get restaurant admins
+    rest_admins = get_restaurant_admins(rest_ref=rest_ref)
+    for admin in rest_admins:
         food_ready_y = CallbackButtonData(
             action="/AdminCollectionReady",
             recipient=admin,
