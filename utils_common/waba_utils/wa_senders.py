@@ -187,7 +187,6 @@ async def admin_delivery_complete_notification(
 
 async def admin_order_reciept(
     delivery_summary: DeliverySummary,
-    delivery_detail: DeliveryDetail,
     rider_master: dict,
 ):
     order_number = delivery_summary.order_number
@@ -207,7 +206,7 @@ async def admin_order_reciept(
     delivery_instructions = f"""
 Delivery Details:
   ⏰ Pickup Time - *@{pickup_time}*
-  💰 Rider - *{rider_master["rider_name"]} - {delivery_detail.rider_id}*
+  💰 Rider - *{rider_master["rider_name"]} - {rider_master["rider_id"]}*
   🛣️ Confirmation Code - *{delivery_summary.rest_confirmation_code}*
   🏠 Customer - *{delivery_summary.customer_address}* - *{delivery_summary.customer_id}*
     Live Location (once order picked up):

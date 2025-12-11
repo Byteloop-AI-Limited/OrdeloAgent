@@ -23,7 +23,7 @@ from utils_common.thread_management import ThreadHandler
 from utils_common.lg_utils import get_config_for_recipient, retain_thread
 from ordelo.agents.rider_agent import builder, ContextSchema
 from ordelo.agents.byteloop_agent import graph as bloop_agent
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail
+from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliverySummary
 from ordelo.agent_app_handlers import create_start_job_config
 from pywa.types import ButtonUrl
 from langgraph.checkpoint.postgres import PostgresSaver
@@ -126,34 +126,29 @@ async def run_rider_graph(
 
 
 # %% Init Ordelo graph
-async def init_ordelo_graph(d_detail: DeliveryDetail):
+async def init_ordelo_graph(
+    delivery_summary: DeliverySummary, rider_id: str, rider_name: str, dispatch_id: int
+):
     pool: AsyncConnectionPool = await pg_settings.get_pool()
-    recipient = d_detail.rider_id
+    # recipient = d_detail.rider_id
 
     context_schema = ContextSchema(
         pool=pool,
         wa_client=_async_wa_client,
-        recipient=recipient,
+        recipient=rider_id,
         client_ordelo=client_ordelo,
     )
 
     # Setup Graph
     checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
     graph = builder.compile(checkpointer=checkpointer)
-    config = await get_config_for_recipient(d_detail.rider_id, pool)
+    config = await get_config_for_recipient(rider_id, pool)
 
     # Retain thread, to remove this out of the scheduled close_thread_job
     # await retain_thread(d_detail.rider_id, pool)
 
-    start_live_tracking_url = await create_start_job_config(d_detail)
-    # using client.table, query the rider_master table on rider_id and get the name.
-    rider_name = (
-        client_ordelo.table("rider_master")
-        .select("rider_name")
-        .eq("rider_id", d_detail.rider_id)
-        .execute()
-        .data[0]["rider_name"]
-    )
+    start_live_tracking_url = await create_start_job_config(delivery_summary, rider_id)
+
     # update graph state
     # Setup context
     ip_msgs = {
@@ -168,8 +163,8 @@ async def init_ordelo_graph(d_detail: DeliveryDetail):
     await graph.aupdate_state(
         config,
         {
-            "dispatch_id": d_detail.dispatch_id,
-            "order_number": d_detail.order_number,
+            "dispatch_id": dispatch_id,
+            "order_number": delivery_summary.order_number,
             "start_live_tracking_url": start_live_tracking_url,
             "delivery_start_dtts": delivery_start_dtts,
             "rider_name": rider_name,
