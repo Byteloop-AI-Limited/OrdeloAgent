@@ -25,7 +25,11 @@ from utils_common.lg_utils import (
     get_state_values,
     shorten_state_messages,
 )
-from ordelo.agents.agent_runner import run_rider_agent, debug_state_values, debug_state
+from ordelo.agents.agent_runner import (
+    run_rider_agent_w_custom_msg,
+    debug_state_values,
+    debug_state,
+)
 # %% Define Dependencies and routes
 
 router = APIRouter(tags=["thread-hooks"])

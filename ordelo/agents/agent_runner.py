@@ -42,46 +42,46 @@ from utils_common.lg_utils import (
 # %%
 
 
-async def run_byteloop_agent(
-    recipient: str,
-    user_name: str,
-    human_msg: str = None,
-    ai_msg: str = None,
-    system_msg: str = None,
-    state_update_dict: dict = None,
-):
-    """Runs the rider graph and returns the AI's response."""
-    print(f"recipient: {recipient} message: {human_msg}")
+# async def run_byteloop_agent(
+#     recipient: str,
+#     user_name: str,
+#     human_msg: str = None,
+#     ai_msg: str = None,
+#     system_msg: str = None,
+#     state_update_dict: dict = None,
+# ):
+#     """Runs the rider graph and returns the AI's response."""
+#     print(f"recipient: {recipient} message: {human_msg}")
 
-    # whichever msg is not None, for a list of msgs.
-    msgs: list[SystemMessage | AIMessage | HumanMessage] = []
-    if system_msg:
-        msgs.append(SystemMessage(system_msg))
-    if ai_msg:
-        msgs.append(AIMessage(ai_msg))
-    if human_msg:
-        msgs.append(HumanMessage(human_msg))
+#     # whichever msg is not None, for a list of msgs.
+#     msgs: list[SystemMessage | AIMessage | HumanMessage] = []
+#     if system_msg:
+#         msgs.append(SystemMessage(system_msg))
+#     if ai_msg:
+#         msgs.append(AIMessage(ai_msg))
+#     if human_msg:
+#         msgs.append(HumanMessage(human_msg))
 
-    ip_msgs: dict[str, list[SystemMessage | AIMessage | HumanMessage]] = {
-        "messages": msgs
-    }
+#     ip_msgs: dict[str, list[SystemMessage | AIMessage | HumanMessage]] = {
+#         "messages": msgs
+#     }
 
-    # Run the graph with pool
-    config: dict[str, Any] = {
-        "configurable": {"thread_id": "1", "user_name": user_name}
-    }
-    if state_update_dict:
-        await bloop_agent.aupdate_state(config, state_update_dict, as_node="toolNode")
-    ai_msg = await bloop_agent.ainvoke(input=ip_msgs, config=config)
-    ai_msg_content: str = ai_msg["messages"][-1].content
+#     # Run the graph with pool
+#     config: dict[str, Any] = {
+#         "configurable": {"thread_id": "1", "user_name": user_name}
+#     }
+#     if state_update_dict:
+#         await bloop_agent.aupdate_state(config, state_update_dict, as_node="toolNode")
+#     ai_msg = await bloop_agent.ainvoke(input=ip_msgs, config=config)
+#     ai_msg_content: str = ai_msg["messages"][-1].content
 
-    return ai_msg_content
+#     return ai_msg_content
 
 
 # %%
 
 
-async def run_rider_graph(
+async def run_rider_agent_w_custom_msg(
     recipient: str,
     human_msg: str = None,
     ai_msg: str = None,

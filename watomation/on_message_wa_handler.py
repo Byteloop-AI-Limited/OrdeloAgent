@@ -43,7 +43,7 @@ from ordelo.agent_app_handlers import (
     enquire_shift_availability_non_template,
     get_live_map_location_url,
 )
-from ordelo.agents.agent_runner import run_byteloop_agent, run_rider_graph
+from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 
 # project modules
@@ -104,19 +104,7 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
         return
 
     # Run the graph
-    await run_rider_graph(recipient, human_msg=msg.text)
-
-
-# %% Run byteloop agent on msg
-async def process_byteloop_agent(wa: WhatsApp, msg: Message):
-    await msg.indicate_typing()
-    recipient = msg.sender
-    user_name = msg.from_user.name
-    # Run the graph
-    messages = await run_byteloop_agent(
-        recipient, user_name=user_name, human_msg=msg.text
-    )
-    await wa.send_message(to=recipient, text=messages)
+    await run_rider_agent_w_custom_msg(recipient, human_msg=msg.text)
 
 
 # %% Reset
