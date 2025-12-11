@@ -53,6 +53,8 @@ from watomation.on_message_wa_handler import (
     test_flow,
     clear_dispatch,
     send_live_map_location,
+    send_closed_message,
+    OUT_OF_HOURS_FILTER,
     WHEN_RESET,
     TEST_DELIVERY,
     CLEAR_DISPATCH,
@@ -136,6 +138,7 @@ SHIFT_UPDATE = filters.contains("/shift", ignore_case=True)
 
 # %% Add WA On Msg handlers
 wa.add_handlers(
+    # handlers.MessageHandler(callback=send_closed_message, filters=OUT_OF_HOURS_FILTER),
     handlers.MessageHandler(callback=reset_thread, filters=WHEN_RESET),
     handlers.MessageHandler(callback=test_delivery, filters=TEST_DELIVERY),
     handlers.MessageHandler(callback=clear_dispatch, filters=CLEAR_DISPATCH),
