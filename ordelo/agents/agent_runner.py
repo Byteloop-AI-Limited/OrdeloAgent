@@ -12,7 +12,7 @@ Core agent runner for Ordelo's delivery workflow system
 
 # %%
 
-from typing import Any
+from typing import Any, Optional
 from datetime import datetime
 import asyncio
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -28,7 +28,11 @@ from ordelo.agent_app_handlers import create_start_job_config
 from pywa.types import ButtonUrl
 from langgraph.checkpoint.postgres import PostgresSaver
 from supabase._sync.client import SyncClient
-
+from utils_common.lg_utils import (
+    get_config_for_recipient,
+    get_state_values,
+    shorten_state_messages,
+)
 # %%
 
 # pool: AsyncConnectionPool = await pg_settings.get_pool()
@@ -115,7 +119,7 @@ async def run_rider_graph(
 
     # Run the graph with pool
     graph = builder.compile(checkpointer=checkpointer)
-    config: dict[str, Any] = await get_config_for_recipient(recipient, pool)
+    config, is_new_thread = await get_config_for_recipient(recipient, pool)
     if state_update_dict:
         await graph.aupdate_state(config, state_update_dict, as_node="toolNode")
     ai_msg = await graph.ainvoke(input=ip_msgs, config=config, context=context_schema)
@@ -142,10 +146,7 @@ async def init_ordelo_graph(
     # Setup Graph
     checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
     graph = builder.compile(checkpointer=checkpointer)
-    config = await get_config_for_recipient(rider_id, pool)
-
-    # Retain thread, to remove this out of the scheduled close_thread_job
-    # await retain_thread(d_detail.rider_id, pool)
+    config, _ = await get_config_for_recipient(rider_id, pool)
 
     start_live_tracking_url = await create_start_job_config(delivery_summary, rider_id)
 
@@ -173,3 +174,72 @@ async def init_ordelo_graph(
     )
     # Run Graph
     await graph.ainvoke(input=ip_msgs, config=config, context=context_schema)
+
+
+# %%
+# %% Debug State
+async def debug_state(recipient: str, full_state: bool = False) -> dict:
+    pool = await pg_settings.get_pool()
+    checkpointer = AsyncPostgresSaver(pool)
+    graph = builder.compile(checkpointer=checkpointer)
+
+    config, _ = await get_config_for_recipient(recipient, pool)
+    state = await graph.aget_state(config=config)
+
+    if full_state:
+        debug_stack = {
+            **get_state_values(state.values),
+            "messages": shorten_state_messages(state.values["messages"]),
+        }
+    else:
+        debug_stack = {
+            **get_state_values(state.values),
+            "messages": shorten_state_messages(state.values["messages"]),
+        }
+    return debug_stack
+
+
+# %% Debug State
+async def debug_state_values(
+    recipient: Optional[str] = None, config: Optional[dict] = None
+) -> dict:
+    pool = await pg_settings.get_pool()
+    checkpointer = AsyncPostgresSaver(pool)
+    graph = builder.compile(checkpointer=checkpointer)
+
+    if config is None:
+        config, _ = await get_config_for_recipient(recipient, pool)
+    state = await graph.aget_state(config=config)
+
+    state_values = get_state_values(state.values)
+    return state_values
+
+
+# %%
+async def job_end_stale_conversations(
+    thread_handler=None,
+    stale_minutes: int = 5,
+):
+    from config import pg_settings
+    from utils_common.thread_management.thread_handler import ThreadHandler
+
+    if thread_handler is None:
+        pool: AsyncConnectionPool = await pg_settings.get_pool()
+        thread_handler = ThreadHandler(pool)
+
+    # Fetch stale active threads
+    op = await thread_handler.get_stale_active_threads(stale_minutes)
+
+    for row in op:
+        config = {
+            "configurable": {
+                "thread_id": row["thread_id"],
+                "recipient": row["recipient"],
+            }
+        }
+        logger.info(f"Closing stale thread: {row}")
+        # await run_elai_graph_with_custom_msg(
+        #     recipient=row["recipient"],
+        #     human_msg="get me out of here",
+        #     config=config,
+        # )

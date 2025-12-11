@@ -427,11 +427,11 @@ async def _send_delivery_instructions(
 
     uk_tz = pytz.timezone("Europe/London")
     # convert dtts to UK local time (handles BST/GMT automatically)
-    pickup_time = summary["pickup_time"]
-    pickup_time = pickup_time.astimezone(uk_tz)
+    pickup_time: str = summary["pickup_time"]
+    pickup_dt_raw = datetime.fromisoformat(pickup_time)
+    pickup_dt_raw = pickup_dt_raw.astimezone(uk_tz)
     # Format pickup time for human-readable display
-    pickup_dt = datetime.fromisoformat(pickup_time)
-    pickup_display = pickup_dt.strftime("%-I:%M %p")
+    pickup_display = pickup_dt_raw.strftime("%-I:%M %p")
 
     body_text = f"""
 Hi {rider_name}, here are the Delivery details:
@@ -528,7 +528,7 @@ async def post_rider_event_restaurant_cc(order_number: str, customer_id: int):
 
 # %% Debug State
 async def debug_state(recipient: str, graph, pool) -> dict:
-    config = await get_config_for_recipient(recipient, pool)
+    config, is_new_thread = await get_config_for_recipient(recipient, pool)
     state = await graph.aget_state(config=config)
 
     debug_stack = {
