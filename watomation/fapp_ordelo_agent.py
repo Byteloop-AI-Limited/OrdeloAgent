@@ -43,6 +43,7 @@ from watomation.routers import (
     twilio_webhook,
     order_hooks,
     payment_hooks,
+    thread_hooks,
 )
 
 from watomation.on_message_wa_handler import (
@@ -102,6 +103,7 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
 # %% Add routers
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
 app.include_router(location_hooks.router, prefix="/location-hooks")
+app.include_router(thread_hooks.router, prefix="/thread-hooks")
 app.include_router(twilio_webhook.router, prefix="/twilio-webhook")
 app.include_router(order_hooks.router, prefix="/order-hooks")
 app.include_router(payment_hooks.router, prefix="/payment-hooks")
