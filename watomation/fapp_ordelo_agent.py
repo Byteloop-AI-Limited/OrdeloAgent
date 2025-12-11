@@ -266,6 +266,25 @@ async def get_restaurant_details(rest_ref: str):
     }
 
 
+# %% Reset base URL cache (diagnostic)
+@app.post("/restaurant-base-url-cache/reset")
+async def reset_restaurant_base_url_cache_endpoint(
+    rest_ref: Optional[str] = None,
+):
+    """Reset the in-memory restaurant base URL cache.
+
+    If rest_ref is provided, clears only that restaurant's cached base URL.
+    If not, clears the entire cache.
+    """
+    from config.params import reset_restaurant_base_url_cache
+
+    removed_entries = reset_restaurant_base_url_cache(rest_ref)
+    return {
+        "scope": rest_ref.upper() if rest_ref else "ALL",
+        "removed_entries": removed_entries,
+    }
+
+
 # %% get threads for id
 @app.get("/threads")
 async def get_threads(recipient: Optional[str] = "447448440754"):

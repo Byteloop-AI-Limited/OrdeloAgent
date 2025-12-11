@@ -95,7 +95,7 @@ SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
 
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ORDELO_APP_URL', 'https://agent.ordelo.app', 'URL for ordelo app') ON CONFLICT (config_key) DO
+VALUES ('ORDELO_AGG_APP_URL', 'https://restaurant.ordelo.app', 'URL for ordelo restaurant dashboard') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
