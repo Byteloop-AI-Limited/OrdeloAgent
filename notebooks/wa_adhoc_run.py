@@ -2,7 +2,6 @@
 import os
 import requests
 import json
-import os
 from config import _async_wa_client as wa
 from pywa.types import (
     SectionList,
