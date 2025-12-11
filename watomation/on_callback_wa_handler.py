@@ -28,7 +28,7 @@ import json
 # project modules
 from ordelo.agent_app_handlers import initial_handle_of_rider_response
 from config import client_ordelo
-from ordelo.agents.agent_runner import run_rider_graph
+from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 from datetime import datetime, timezone
 from config.params import get_restaurant_base_url_async
@@ -115,7 +115,7 @@ async def rider_request_location(wa: WhatsApp, msg: Message):
     # Callback created in _send_delivery_instructions, in agent_app_handlers
     callback_data: dict = json.loads(msg.data)
     logger.info(f"callbackdata: {callback_data}")
-    await run_rider_graph(
+    await run_rider_agent_w_custom_msg(
         recipient=callback_data["recipient"], human_msg=callback_data["human_msg"]
     )
 
@@ -255,7 +255,7 @@ async def admin_collection_ready(
     # ordelo_base_url = await get_restaurant_base_url_async(rest_ref="ORDELO")
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
 
-    await run_rider_graph(
+    await run_rider_agent_w_custom_msg(
         recipient=callback_data.rider_id,
         human_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {callback_data.restaurant_name} to pickup the food.",
     )

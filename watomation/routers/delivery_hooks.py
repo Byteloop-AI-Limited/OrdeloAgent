@@ -59,7 +59,7 @@ from config import (
     pg_settings,
 )
 from ordelo.agent_app_handlers import enquire_shift_availability
-from ordelo.agents.agent_runner import init_ordelo_graph, run_rider_graph
+from ordelo.agents.agent_runner import init_ordelo_graph, run_rider_agent_w_custom_msg
 from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.food_order_reciept import (
@@ -610,7 +610,7 @@ async def notify_food_ready_for_pickup(
     restaurant_name = payload.get("restaurant_name", None)
 
     background_tasks.add_task(
-        run_rider_graph,
+        run_rider_agent_w_custom_msg,
         recipient,
         system_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {restaurant_name} to pickup the food.",
     )

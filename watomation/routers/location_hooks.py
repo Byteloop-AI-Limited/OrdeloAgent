@@ -37,7 +37,7 @@ from datetime import datetime, timezone, timedelta
 from pywa.types import ButtonUrl
 from ordelo.agent_app_handlers import get_live_map_location_url
 from utils_common.db_utils.sbase_pool_ops import insert_model_to_db
-from ordelo.agents.agent_runner import run_rider_graph
+from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 
 
 # %% Define Dependancies and routes
