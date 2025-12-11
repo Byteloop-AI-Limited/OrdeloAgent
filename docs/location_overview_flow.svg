@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="340" viewBox="0 0 1100 340" role="img" aria-label="OwnTracks location processing flow">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f4b99"/>
+    </marker>
+    <style>
+      text{font-family:Arial,sans-serif;font-size:13px;fill:#0b1f33;}
+      rect{fill:#e9f1ff;stroke:#1f4b99;stroke-width:1.4;}
+      .small{font-size:12px;}
+      .arrow{stroke:#1f4b99;stroke-width:1.6;fill:none;marker-end:url(#arrow);}
+    </style>
+  </defs>
+
+  <!-- Nodes -->
+  <rect x="30" y="120" width="140" height="60" rx="6" ry="6"/>
+  <text x="100" y="146" text-anchor="middle">OwnTracks</text>
+  <text x="100" y="164" text-anchor="middle" class="small">mobile app</text>
+
+  <rect x="200" y="120" width="180" height="60" rx="6" ry="6"/>
+  <text x="290" y="146" text-anchor="middle">PGMQ queue</text>
+  <text x="290" y="164" text-anchor="middle" class="small">'owntracks'</text>
+
+  <rect x="420" y="120" width="200" height="60" rx="6" ry="6"/>
+  <text x="520" y="146" text-anchor="middle">job_process_owntracks()</text>
+  <text x="520" y="164" text-anchor="middle" class="small">batch worker</text>
+
+  <rect x="660" y="40" width="180" height="60" rx="6" ry="6"/>
+  <text x="750" y="66" text-anchor="middle">rider_location</text>
+  <text x="750" y="84" text-anchor="middle" class="small">location rows</text>
+
+  <rect x="660" y="200" width="180" height="60" rx="6" ry="6"/>
+  <text x="750" y="226" text-anchor="middle">rider_location_event</text>
+  <text x="750" y="244" text-anchor="middle" class="small">transition rows</text>
+
+  <rect x="880" y="200" width="200" height="60" rx="6" ry="6"/>
+  <text x="980" y="226" text-anchor="middle">rider_location_event_update</text>
+  <text x="980" y="244" text-anchor="middle" class="small">trigger http_post</text>
+
+  <rect x="880" y="40" width="200" height="60" rx="6" ry="6"/>
+  <text x="980" y="66" text-anchor="middle">/location-hooks/notify-rider-location-event</text>
+  <text x="980" y="84" text-anchor="middle" class="small">FastAPI</text>
+
+  <rect x="880" y="280" width="200" height="50" rx="6" ry="6"/>
+  <text x="980" y="306" text-anchor="middle">Restaurant webhook</text>
+  <text x="980" y="322" text-anchor="middle" class="small">rider-rest-enter | rider-cust-enter</text>
+
+  <!-- Arrows -->
+  <line class="arrow" x1="170" y1="150" x2="200" y2="150"/>
+  <text x="185" y="136" text-anchor="middle" class="small">publish</text>
+  <text x="185" y="152" text-anchor="middle" class="small">location/transition</text>
+
+  <line class="arrow" x1="380" y1="150" x2="420" y2="150"/>
+  <text x="400" y="136" text-anchor="middle" class="small">read batch</text>
+
+  <line class="arrow" x1="520" y1="120" x2="520" y2="100"/>
+  <line class="arrow" x1="520" y1="100" x2="660" y2="70"/>
+  <text x="600" y="86" text-anchor="middle" class="small">INSERT location</text>
+
+  <line class="arrow" x1="520" y1="180" x2="520" y2="210"/>
+  <line class="arrow" x1="520" y1="210" x2="660" y2="230"/>
+  <text x="600" y="206" text-anchor="middle" class="small">INSERT transition</text>
+
+  <line class="arrow" x1="840" y1="230" x2="880" y2="230"/>
+  <text x="860" y="216" text-anchor="middle" class="small">AFTER INSERT</text>
+
+  <line class="arrow" x1="940" y1="200" x2="940" y2="100"/>
+  <text x="956" y="150" text-anchor="start" class="small">http_post</text>
+
+  <line class="arrow" x1="980" y1="100" x2="980" y2="280"/>
+  <text x="996" y="190" text-anchor="start" class="small">POST delivery</text>
+  <text x="996" y="206" text-anchor="start" class="small">summary</text>
+</svg>
