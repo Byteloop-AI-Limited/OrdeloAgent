@@ -20,7 +20,7 @@ WhatsApp callback button handler for delivery dispatch responses
 
 # %%
 import asyncio
-from pywa_async import WhatsApp
+from pywa_async import WhatsApp, filters
 from config import logger
 from pywa.types import Message
 import json
@@ -37,6 +37,9 @@ import httpx
 # from utils_common.waba_utils.wa_senders import send_restaurant_pickup_time
 from pywa.types import CallbackButton
 # %%
+
+
+IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 
 
 async def dispatch_response(wa: WhatsApp, msg: Message):
@@ -108,6 +111,9 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
 
 
 # %%
+IS_LOCATION_REQUEST = filters.contains("/riderLocationRequest", ignore_case=False)
+
+
 async def rider_request_location(wa: WhatsApp, msg: Message):
     """
     Rider's request for location. This is a blocking operation. Entry point into the graph.
@@ -121,6 +127,9 @@ async def rider_request_location(wa: WhatsApp, msg: Message):
 
 
 # %%
+IS_SHIFT_AVAILABILITY = filters.contains("/shiftAvailability", ignore_case=False)
+
+
 async def handle_shift_availability(wa: WhatsApp, msg: Message):
     callback_data: dict = json.loads(msg.data)
     recipient = callback_data["recipient"]
@@ -150,7 +159,68 @@ async def handle_shift_availability(wa: WhatsApp, msg: Message):
         logger.info(f"Ended shift status for rider {recipient}")
 
 
+async def _update_restaurant_order_status(order_number: str, status: str, msg: Message):
+    """Background task to update restaurant order status."""
+    try:
+        result = await asyncio.to_thread(
+            lambda: client_ordelo.table("delivery_summary")
+            .update(
+                {
+                    "restaurant_confirmation_status": status,
+                    "restaurant_admin": msg.sender,
+                }
+            )
+            .eq("order_number", order_number)
+            .eq("restaurant_confirmation_status", "restaurant_unconfirmed")
+            .execute()
+        )
+        if result.data:
+            logger.info(f"Restaurant order status updated: {order_number} -> {status}")
+        else:
+            await msg.reply(text="Order Already Accepted")
+            logger.info(
+                "Skipped restaurant order status update for %s; current status is not restaurant_unconfirmed",
+                order_number,
+            )
+    except Exception as e:
+        logger.error(
+            f"Failed to update restaurant order status for {order_number}: {e}"
+        )
+
+
+# %% Restaurant order confirmation
+IS_RESTAURANT_ORDER_ACCEPT_DECLINE = filters.contains(
+    "/RestaurantOrder", ignore_case=False
+)
+
+
+async def restaurant_order_accept_decline_handler(wa: WhatsApp, msg: Message):
+    callback_data: CallbackButtonData = CallbackButtonData(**json.loads(msg.data))
+    # Callback data created in send_restaurant_order_confirmation, in utils_common.waba_utils.wa_templates.restaurant_confirmation_template
+
+    order_number = callback_data.order_number
+    order_time = callback_data.order_time
+    recipient = msg.sender
+
+    logger.info(f"Restaurant order confirmation: {order_number}")
+
+    if "Accept" in callback_data.action:
+        asyncio.create_task(
+            _update_restaurant_order_status(order_number, "restaurant_accept", msg)
+        )
+
+    elif "Decline" in callback_data.action:
+        asyncio.create_task(
+            _update_restaurant_order_status(order_number, "restaurant_decline", msg)
+        )
+
+    return
+
+
 # %% Handle pickup time selection. The pickup_time needs to be updated in delivery_summary table
+IS_PICKUP_TIME = filters.contains("/PickupTime", ignore_case=False)
+
+
 async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(msg.data))
     # Callback data created in send_pickup_time_selection, in utils_common.waba_utils.wa_senders
@@ -192,59 +262,6 @@ async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
             )
     except Exception as e:
         logger.error(f"Failed to update pickup time for order {order_number}: {e}")
-
-
-async def _update_restaurant_order_status(order_number: str, status: str, msg: Message):
-    """Background task to update restaurant order status."""
-    try:
-        result = await asyncio.to_thread(
-            lambda: client_ordelo.table("delivery_summary")
-            .update(
-                {
-                    "restaurant_confirmation_status": status,
-                    "restaurant_admin": msg.sender,
-                }
-            )
-            .eq("order_number", order_number)
-            .eq("restaurant_confirmation_status", "restaurant_unconfirmed")
-            .execute()
-        )
-        if result.data:
-            logger.info(f"Restaurant order status updated: {order_number} -> {status}")
-        else:
-            await msg.reply(text="Order Already Accepted")
-            logger.info(
-                "Skipped restaurant order status update for %s; current status is not restaurant_unconfirmed",
-                order_number,
-            )
-    except Exception as e:
-        logger.error(
-            f"Failed to update restaurant order status for {order_number}: {e}"
-        )
-
-
-# %% Restaurant order confirmation
-async def restaurant_order_accept_decline_handler(wa: WhatsApp, msg: Message):
-    callback_data: CallbackButtonData = CallbackButtonData(**json.loads(msg.data))
-    # Callback data created in send_restaurant_order_confirmation, in utils_common.waba_utils.wa_templates.restaurant_confirmation_template
-
-    order_number = callback_data.order_number
-    order_time = callback_data.order_time
-    recipient = msg.sender
-
-    logger.info(f"Restaurant order confirmation: {order_number}")
-
-    if "Accept" in callback_data.action:
-        asyncio.create_task(
-            _update_restaurant_order_status(order_number, "restaurant_accept", msg)
-        )
-
-    elif "Decline" in callback_data.action:
-        asyncio.create_task(
-            _update_restaurant_order_status(order_number, "restaurant_decline", msg)
-        )
-
-    return
 
 
 # %%

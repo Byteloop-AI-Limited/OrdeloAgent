@@ -53,6 +53,11 @@ from watomation.on_message_wa_handler import (
     test_flow,
     clear_dispatch,
     send_live_map_location,
+    WHEN_RESET,
+    TEST_DELIVERY,
+    CLEAR_DISPATCH,
+    LIVE_LOCATION,
+    TEST_FLOW,
 )
 from watomation.on_callback_wa_handler import (
     dispatch_response,
@@ -61,6 +66,11 @@ from watomation.on_callback_wa_handler import (
     admin_collection_ready,
     restaurant_order_accept_decline_handler,
     handle_pickup_time_selection,
+    IS_DISPATCH_RESPONSE,
+    IS_LOCATION_REQUEST,
+    IS_SHIFT_AVAILABILITY,
+    IS_RESTAURANT_ORDER_ACCEPT_DECLINE,
+    IS_PICKUP_TIME,
 )
 from watomation.on_flow_request_wa_handler import (
     on_customer_address_flow,
@@ -121,20 +131,7 @@ wa: WhatsApp = WhatsApp(
     # handlers_modules=[on_message_wa_handler, on_flow_request_wa_handler]
 )
 
-TEST_DELIVERY = filters.contains("/test", ignore_case=True)
-CLEAR_DISPATCH = filters.contains("/cleardis", ignore_case=True)
-LIVE_LOCATION = filters.contains("/live", ignore_case=True)
-TEST_FLOW = filters.contains("/flow", ignore_case=True)
 SHIFT_UPDATE = filters.contains("/shift", ignore_case=True)
-
-WHEN_RESET = filters.contains("/reset", ignore_case=True)
-IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
-IS_LOCATION_REQUEST = filters.contains("/riderLocationRequest", ignore_case=False)
-IS_SHIFT_AVAILABILITY = filters.contains("/shiftAvailability", ignore_case=False)
-IS_RESTAURANT_ORDER_ACCEPT_DECLINE = filters.contains(
-    "/RestaurantOrder", ignore_case=False
-)
-IS_PICKUP_TIME = filters.contains("/PickupTime", ignore_case=False)
 
 
 # %% Add WA On Msg handlers
