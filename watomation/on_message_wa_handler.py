@@ -75,7 +75,6 @@ def get_rider_intent(message: str) -> RiderShiftIntent:
 
 # %% Run graph on msg
 async def process_wa_msg(wa: WhatsApp, msg: Message):
-    logger.critical(msg)
     await msg.indicate_typing()
     pool: AsyncConnectionPool = await pg_settings.get_pool()
     recipient = msg.sender
