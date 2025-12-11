@@ -118,6 +118,7 @@ wa: WhatsApp = WhatsApp(
     continue_handling=False,
     business_private_key=waba_business_settings.private_key,
     business_private_key_password=waba_business_settings.private_key_password,
+    # handlers_modules=[on_message_wa_handler, on_flow_request_wa_handler]
 )
 
 
@@ -131,9 +132,9 @@ WHEN_RESET = filters.contains("/reset", ignore_case=True)
 IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 IS_LOCATION_REQUEST = filters.contains("/riderLocationRequest", ignore_case=False)
 IS_SHIFT_AVAILABILITY = filters.contains("/shiftAvailability", ignore_case=False)
-IS_RESTAURANT_CONFIRMATION = filters.contains(
-    "/restaurantConfirmation", ignore_case=False
-)
+# IS_RESTAURANT_CONFIRMATION = filters.contains(
+#     "/restaurantConfirmation", ignore_case=False
+# )
 IS_RESTAURANT_ORDER_ACCEPT_DECLINE = filters.contains(
     "/RestaurantOrder", ignore_case=False
 )
