@@ -7,6 +7,7 @@ select * from restaurant_master where rest_ref = 'ELAS';
 -- ELAS 51.0726635283769	-1.79717268758398
 -- WREN 51.3601711280004	0.0907554051501591
 update restaurant_master set lat = 51.0726635283769, lon = -1.79717268758398 where rest_ref = 'ELAS';
+update restaurant_master set lat = 51.3601711280004, lon = 0.0907554051501591 where rest_ref = 'ELAS';
 
 select * from delivery_summary where rest_ref = 'ELAS' order by dtts desc limit 5;
 update restaurant_master

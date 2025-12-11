@@ -1,11 +1,8 @@
 ## Immediate
 
-- [!!!] DropOff Location not working; Its searching for `447448440754 - Drop Off`
 - [!!!] Postcode is just sp1 for sp11pb; Check if lat and lon are correct however. Would the rider get the correct address when asked for in the agent?
 - [!!!] Sending admin_order_ready for collection - Rider name not appearing correctly
 -- No Restaurant_name in the callback data
-- [!!!] If rider not already on job, there should not be a dispatch sent to him
-- [!!!] Sending order reciept to restaurant admins? Where is it? Most likely when the driver accepts the job (trigger from delivery_inflight)
 - admin_order_receipt (graph_init_hook) can make use of live location as a ButtonURL
 - [!!!] Opening and closing times for restaurant
 
@@ -16,6 +13,7 @@
 
 ### 8th DEC
 - Test the rider, double book orders
+Message(id='wamid.HBgMNDQ3NDQ4NDQwNzU0FQIAEhgWM0VCMDZDRkY5OTU1RTU0QkJGMjQ1NgA=', timestamp=datetime.datetime(2025, 12, 11, 17, 33, 25, tzinfo=datetime.timezone.utc), metadata=Metadata(display_phone_number='447823713944', phone_number_id='434523189754637'), from_user=User(wa_id='447448440754', name='10hith', identity_key_hash=None), waba_id='490733454126658', type=MessageType.TEXT, reply_to_message=None, forwarded=False, forwarded_many_times=False, text='hi', image=None, video=None, sticker=None, document=None, audio=None, caption=None, reaction=None, location=None, contacts=None, order=None, referral=None, error=None)
 
 ## Riders:
 Create the WA group for riders
