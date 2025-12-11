@@ -33,9 +33,8 @@ import json
 from datetime import datetime
 import psycopg
 from psycopg_pool import ConnectionPool
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail
+from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from pywa_async import WhatsApp
-from datetime import timedelta
 from pywa.types import Message, Template as Temp, ButtonUrl, Button
 from config import (
     pg_settings,
@@ -60,7 +59,7 @@ from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 client = pg_settings.client
 
 
-# %% Supporting Funcs
+# %% Supporting Funcs - Is this used anywhere? (seems unused - likely deprecated)
 def process_dispatch_response_from_rider_sync(
     pool_sync: ConnectionPool,
     rider_id: str,
@@ -148,7 +147,9 @@ def generate_config_href(config: dict) -> str:
 
 
 # %% Start Job Config
-async def create_start_job_config(d_detail: DeliveryDetail) -> str:
+async def create_start_job_config(
+    delivery_summary: DeliverySummary, rider_id: str
+) -> str:
     waypoints = [
         {
             "_type": "waypoint",
@@ -156,8 +157,8 @@ async def create_start_job_config(d_detail: DeliveryDetail) -> str:
             "rid": "rest",
             "desc": "rest",
             "rad": 200,
-            "lat": d_detail.rest_lat,
-            "lon": d_detail.rest_lon,
+            "lat": delivery_summary.rest_lat,
+            "lon": delivery_summary.rest_lon,
         },
         {
             "_type": "waypoint",
@@ -165,8 +166,8 @@ async def create_start_job_config(d_detail: DeliveryDetail) -> str:
             "rid": "cust",
             "desc": "cust",
             "rad": 200,
-            "lat": d_detail.customer_lat,
-            "lon": d_detail.customer_lon,
+            "lat": delivery_summary.customer_lat,
+            "lon": delivery_summary.customer_lon,
         },
     ]
 
@@ -180,8 +181,8 @@ async def create_start_job_config(d_detail: DeliveryDetail) -> str:
         "monitoring": 2,
         "locatorDisplacement": 10,
         "locatorInterval": 30,
-        "username": d_detail.rider_id,
-        "deviceId": f"{d_detail.rider_id}-{d_detail.order_number}",
+        "username": rider_id,
+        "deviceId": f"{rider_id}-{delivery_summary.order_number}",
         "password": "",
         "waypoints": waypoints,
     }
@@ -424,17 +425,17 @@ async def _send_delivery_instructions(
         .data[0]
     )
 
-    delivery_summary_dtts = datetime.fromisoformat(summary["dtts"])
-
     uk_tz = pytz.timezone("Europe/London")
     # convert dtts to UK local time (handles BST/GMT automatically)
-    delivery_summary_dtts = delivery_summary_dtts.astimezone(uk_tz)
-    # pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
     pickup_time = summary["pickup_time"]
+    pickup_time = pickup_time.astimezone(uk_tz)
+    # Format pickup time for human-readable display
+    pickup_dt = datetime.fromisoformat(pickup_time)
+    pickup_display = pickup_dt.strftime("%-I:%M %p")
 
     body_text = f"""
 Hi {rider_name}, here are the Delivery details:
-  ⏰ Pickup Time - *@{pickup_time}*
+  ⏰ Pickup Time - *@{pickup_display}*
   💰 Earning - *£{dispatch["rider_payout"]}*
   🛣️ Distance - *{dispatch["distance"]} miles*
 

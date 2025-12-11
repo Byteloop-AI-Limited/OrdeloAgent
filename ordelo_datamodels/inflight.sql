@@ -48,37 +48,6 @@ BEGIN
       WHERE summ.order_number = NEW.order_number
       LIMIT 1
     ),
-    'delivery_detail', (
-      SELECT json_agg(row_to_json(t))
-      FROM (
-        SELECT
-          det.order_number,
-          det.vehicle_type,
-          det.rider_payout,
-          det.distance,
-          summ.rest_id,
-          summ.rest_name,
-          summ.rest_lon,
-          summ.rest_lat,
-          summ.rest_address,
-          summ.town,
-          summ.customer_id,
-          summ.customer_name,
-          summ.customer_lon,
-          summ.customer_lat,
-          summ.customer_address,
-          summ.rest_confirmation_code,
-          det.status,
-          det.dispatch_id,
-          det.rider_id
-        FROM delivery_detail det
-        INNER JOIN delivery_summary summ
-          ON det.order_number = summ.order_number
-        WHERE det.order_number = NEW.order_number
-          AND det.dispatch_id = NEW.dispatch_id
-        LIMIT 1
-      ) t
-    ),
     'rider_master', (
       SELECT row_to_json(rm)
       FROM (
