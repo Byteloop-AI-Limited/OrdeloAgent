@@ -12,24 +12,19 @@ Core agent runner for Ordelo's delivery workflow system
 
 # %%
 
-from typing import Any, Optional
+from typing import Optional
 from datetime import datetime
-import asyncio
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg_pool import AsyncConnectionPool
 from config import logger, pg_settings, _async_wa_client, client_ordelo
-from utils_common.thread_management import ThreadHandler
-from utils_common.lg_utils import get_config_for_recipient, retain_thread
+from utils_common.lg_utils import get_config_for_recipient
 from ordelo.agents.rider_agent import builder, ContextSchema
-from ordelo.agents.byteloop_agent import graph as bloop_agent
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliverySummary
+
+# from ordelo.agents.byteloop_agent import graph as bloop_agent
+from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from ordelo.agent_app_handlers import create_start_job_config
-from pywa.types import ButtonUrl
-from langgraph.checkpoint.postgres import PostgresSaver
-from supabase._sync.client import SyncClient
 from utils_common.lg_utils import (
-    get_config_for_recipient,
     get_state_values,
     shorten_state_messages,
 )
@@ -40,42 +35,6 @@ from utils_common.lg_utils import (
 # thread_handler = ThreadHandler(pool)
 
 # %%
-
-
-# async def run_byteloop_agent(
-#     recipient: str,
-#     user_name: str,
-#     human_msg: str = None,
-#     ai_msg: str = None,
-#     system_msg: str = None,
-#     state_update_dict: dict = None,
-# ):
-#     """Runs the rider graph and returns the AI's response."""
-#     print(f"recipient: {recipient} message: {human_msg}")
-
-#     # whichever msg is not None, for a list of msgs.
-#     msgs: list[SystemMessage | AIMessage | HumanMessage] = []
-#     if system_msg:
-#         msgs.append(SystemMessage(system_msg))
-#     if ai_msg:
-#         msgs.append(AIMessage(ai_msg))
-#     if human_msg:
-#         msgs.append(HumanMessage(human_msg))
-
-#     ip_msgs: dict[str, list[SystemMessage | AIMessage | HumanMessage]] = {
-#         "messages": msgs
-#     }
-
-#     # Run the graph with pool
-#     config: dict[str, Any] = {
-#         "configurable": {"thread_id": "1", "user_name": user_name}
-#     }
-#     if state_update_dict:
-#         await bloop_agent.aupdate_state(config, state_update_dict, as_node="toolNode")
-#     ai_msg = await bloop_agent.ainvoke(input=ip_msgs, config=config)
-#     ai_msg_content: str = ai_msg["messages"][-1].content
-
-#     return ai_msg_content
 
 
 # %%
@@ -123,7 +82,6 @@ async def run_rider_agent_w_custom_msg(
     if state_update_dict:
         await graph.aupdate_state(config, state_update_dict, as_node="toolNode")
     ai_msg = await graph.ainvoke(input=ip_msgs, config=config, context=context_schema)
-    # ai_msg = await graph.ainvoke(input=ip_msgs, config=config)
     ai_msg_content: str = ai_msg["messages"][-1].content
 
     return ai_msg_content
