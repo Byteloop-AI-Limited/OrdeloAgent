@@ -1,3 +1,6 @@
+-- Deprecated - To Be Deleted
+-- This query processes rider acceptance messages from the queue
+-- and dispatches them to the appropriate dispatch function
 WITH accepted_msgs AS (
   SELECT 
   *,
