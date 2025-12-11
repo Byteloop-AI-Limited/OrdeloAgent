@@ -8,6 +8,7 @@ select * from restaurant_master where rest_ref = 'ELAS';
 -- WREN 51.3601711280004	0.0907554051501591
 update restaurant_master set lat = 51.3601711280004, lon = 0.0907554051501591 where rest_ref = 'ELAS';
 
+select * from delivery_summary where rest_ref = 'ELAS' order by dtts desc limit 5;
 update restaurant_master
 -- set admins = array[ '447446933210', '447919202938']
 set admins = array['447919202938']
