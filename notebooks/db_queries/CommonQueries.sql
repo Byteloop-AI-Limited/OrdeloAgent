@@ -268,13 +268,25 @@ SHOW log_filename;
 
 
 select * from thread;
+select * from delivery_summary order by dtts desc limit 10;
+select * from delivery_detail order by dtts desc limit 10;
+-- ELAS-WWVP-26
+-- Testing fro wren
+UPDATE food_order SET order_number = 'WREN-WWVP-26' WHERE order_number = 'ELAS-WWVP-26';
+UPDATE order_item SET order_id = 'WWVP-26' WHERE order_id = 'WWVP-26';
 
+INSERT INTO delivery_pricing_detail (order_number, distance, message)
+SELECT 'WREN-WWVP-26', distance, message
+FROM delivery_pricing_detail
+WHERE order_number = 'ELAS-WWVP-26';
 
-select * from food_order where order_number='ELAS-ZVEO-43';
+UPDATE delivery_option SET order_number = 'WREN-WWVP-26' WHERE order_number = 'ELAS-WWVP-26';
+
+select * from delivery_option where order_number='ELAS-WWVP-26';
 
 select pickup_time, dtts, restaurant_confirmation_status, status, * from delivery_summary;
 
-select * from delivery_detail where order_number='ELAS-ZVEO-29';
+select * from delivery_detail where order_number='ELAS-WWVP-26';
 
 
 select * from rider_master where rider_id='447448440754';
