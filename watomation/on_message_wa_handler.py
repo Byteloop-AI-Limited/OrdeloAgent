@@ -22,8 +22,9 @@ WhatsApp message handler for Ordelo delivery system
 
 # %%
 import asyncio
-import random
+from datetime import datetime, timezone
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
@@ -72,6 +73,52 @@ def get_rider_intent(message: str) -> RiderShiftIntent:
     structured_llm = llm.with_structured_output(RiderShiftIntent)
     response = structured_llm.invoke(prompt)
     return response
+
+
+# %% After-hours guard
+_UK_TZ = ZoneInfo("Europe/London")
+
+
+def _message_time_uk(msg: Message) -> datetime | None:
+    ts = getattr(msg, "timestamp", None) or getattr(msg, "timestamp_ms", None)
+    if ts is None:
+        return None
+
+    # If we already have a datetime, convert directly.
+    if isinstance(ts, datetime):
+        dt_utc = ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+        return dt_utc.astimezone(_UK_TZ)
+
+    # Otherwise coerce to float timestamp.
+    try:
+        ts_val = float(ts)
+    except (TypeError, ValueError):
+        return None
+
+    if ts_val > 1_000_000_000_000:  # likely milliseconds
+        ts_val = ts_val / 1000
+    try:
+        utc_time = datetime.fromtimestamp(ts_val, tz=timezone.utc)
+    except (OSError, ValueError):
+        return None
+    return utc_time.astimezone(_UK_TZ)
+
+
+def is_outside_service_hours(_: WhatsApp, msg: Message) -> bool:
+    msg_time = _message_time_uk(msg)
+    if msg_time is None:
+        return False
+    return not (9 <= msg_time.hour < 23)
+
+
+OUT_OF_HOURS_FILTER = filters.new(is_outside_service_hours)
+
+
+async def send_closed_message(wa: WhatsApp, msg: Message):
+    await wa.send_message(
+        to=msg.sender,
+        text="Thank you for your message. We are currently closed. Try again during our service hours (11am-9pm).",
+    )
 
 
 # %% Run graph on msg
