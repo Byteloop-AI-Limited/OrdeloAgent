@@ -1,7 +1,4 @@
 ## Immediate
-- [!!!] issue sending admin_order_reciept - graph api errors out. May be the format of the length of the text. Test this by tiggerring the endpoint, by inserting a new row into delivery_inflight table; Insert should be present in job_assign_dispatch.
-
-- [!!!] Conversation reset happening even when the retain_thread is set. Should not be the case anymore, this was specific to test.
 
 - [!!!] DropOff Location not working; Its searching for `447448440754 - Drop Off`
 - [!!!] Postcode is just sp1 for sp11pb; Check if lat and lon are correct however. Would the rider get the correct address when asked for in the agent?

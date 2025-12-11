@@ -248,7 +248,7 @@ async def send_dropoff_location(
         to=recipient,
         latitude=summary["customer_lat"],
         longitude=summary["customer_lon"],
-        name=f"{summary['customer_name']} - Drop Off",
+        # name=f"{summary['customer_name']} - Drop Off",
         address=summary["customer_address"],
         reply_to_message_id=reply_to_msg_id,
     )

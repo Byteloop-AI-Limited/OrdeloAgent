@@ -230,7 +230,10 @@ Delivery Details:
             text=rest_text + "\n" + delivery_instructions,
             reply_to_message_id=delivery_summary.restaurant_msg_id,
             buttons=[
-                Button(title="Ready", callback_data=food_ready_y.model_dump_json())
+                Button(
+                    title="Ready - Notify Rider",
+                    callback_data=food_ready_y.model_dump_json(),
+                )
             ],
         )
     return
