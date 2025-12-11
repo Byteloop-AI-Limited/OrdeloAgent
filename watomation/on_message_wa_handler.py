@@ -29,7 +29,7 @@ from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
 from pywa.types import FlowButton, Message
 from pywa.types.flows import FlowActionType, FlowRequest, FlowResponse
-from pywa_async import WhatsApp, types
+from pywa_async import WhatsApp, filters, types
 
 from config import (
     _sync_wa_client,
@@ -45,6 +45,7 @@ from ordelo.agent_app_handlers import (
 )
 from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
+from config.params import get_restaurant_base_url_async
 
 # project modules
 from utils_common.db_utils.sbase_rest_ops import sbase_call_function, sbase_get
@@ -107,34 +108,6 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
     await run_rider_agent_w_custom_msg(recipient, human_msg=msg.text)
 
 
-# %% Reset
-async def reset_thread(wa: WhatsApp, msg: Message):
-    pool: AsyncConnectionPool = await pg_settings.get_pool()
-    thread_handler = ThreadHandler(pool)
-    logger.info("=============== reset the thread ===============")
-    recipient = msg.from_user.wa_id
-
-    _inflight = await sbase_get("delivery_inflight", rider_id=recipient)
-
-    # Exit if there is no active dispatch
-    if len(_inflight) != 0:
-        dispatch_id = _inflight[0]["dispatch_id"]
-        await sbase_call_function(
-            function_name="dispatch_complete_func",
-            input_args={"p_dispatch_id": dispatch_id},
-        )
-
-    await thread_handler.make_threads_inactive(recipient=recipient)
-    await wa.send_message(to=recipient, text="Starting new conversation")
-
-
-# %% Clear Dispatch
-async def clear_dispatch(wa: WhatsApp, msg: Message):
-    recipient = msg.from_user.wa_id
-    client = pg_settings.client
-    client.rpc("clear_dispatch", {}).execute()
-
-
 async def init_delivery_summary(order_number: str, recipient: str):
     """Background task to initialize delivery via RPC call."""
     try:
@@ -153,6 +126,9 @@ async def init_delivery_summary(order_number: str, recipient: str):
 
 
 # %% Test Delivery
+TEST_DELIVERY = filters.contains("/test", ignore_case=True)
+
+
 async def test_delivery(wa: WhatsApp, msg: Message):
     # pool: AsyncConnectionPool = await pg_settings.get_pool()
     # client = pg_settings.client
@@ -225,7 +201,20 @@ async def test_delivery(wa: WhatsApp, msg: Message):
     ).execute()
 
 
-# %%
+# %% Clear Dispatch
+CLEAR_DISPATCH = filters.contains("/cleardis", ignore_case=True)
+
+
+async def clear_dispatch(wa: WhatsApp, msg: Message):
+    recipient = msg.from_user.wa_id
+    client = pg_settings.client
+    client.rpc("clear_dispatch", {}).execute()
+
+
+# %% Live map location
+LIVE_LOCATION = filters.contains("/live", ignore_case=True)
+
+
 async def send_live_map_location(wa: WhatsApp, msg: Message):
     recipient = msg.sender
     _inflight = await sbase_get(table_name="delivery_inflight", rider_id=recipient)
@@ -237,15 +226,20 @@ async def send_live_map_location(wa: WhatsApp, msg: Message):
         return
 
     order_number = _inflight[0]["order_number"]
+    rest_ref = order_number.split("-")[0]
+    restaurant_base_url = await get_restaurant_base_url_async(rest_ref)
     live_map_url = await get_live_map_location_url(order_number)
     if live_map_url is None:
         await wa.send_message(to=recipient, text="Live map location not available")
         return
-    url = f"https://agent.ordelo.app/location-hooks/live-location-map/{order_number}"
+    url = f"{restaurant_base_url}/location-hooks/live-location-map/{order_number}"
     await wa.send_message(to=recipient, text=url)
 
 
 # %% Test flow
+TEST_FLOW = filters.contains("/flow", ignore_case=True)
+
+
 async def test_flow(wa: WhatsApp, msg: Message):
     recipient = msg.sender
     _sync_wa_client.send_message(
@@ -265,6 +259,30 @@ async def test_flow(wa: WhatsApp, msg: Message):
             },
         ),
     )
+
+
+# %% Reset
+WHEN_RESET = filters.contains("/reset", ignore_case=True)
+
+
+async def reset_thread(wa: WhatsApp, msg: Message):
+    pool: AsyncConnectionPool = await pg_settings.get_pool()
+    thread_handler = ThreadHandler(pool)
+    logger.info("=============== reset the thread ===============")
+    recipient = msg.from_user.wa_id
+
+    _inflight = await sbase_get("delivery_inflight", rider_id=recipient)
+
+    # Exit if there is no active dispatch
+    if len(_inflight) != 0:
+        dispatch_id = _inflight[0]["dispatch_id"]
+        await sbase_call_function(
+            function_name="dispatch_complete_func",
+            input_args={"p_dispatch_id": dispatch_id},
+        )
+
+    await thread_handler.make_threads_inactive(recipient=recipient)
+    await wa.send_message(to=recipient, text="Starting new conversation")
 
 
 # %% live_location
