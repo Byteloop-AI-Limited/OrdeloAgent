@@ -121,7 +121,6 @@ wa: WhatsApp = WhatsApp(
     # handlers_modules=[on_message_wa_handler, on_flow_request_wa_handler]
 )
 
-
 TEST_DELIVERY = filters.contains("/test", ignore_case=True)
 CLEAR_DISPATCH = filters.contains("/cleardis", ignore_case=True)
 LIVE_LOCATION = filters.contains("/live", ignore_case=True)
@@ -132,9 +131,6 @@ WHEN_RESET = filters.contains("/reset", ignore_case=True)
 IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 IS_LOCATION_REQUEST = filters.contains("/riderLocationRequest", ignore_case=False)
 IS_SHIFT_AVAILABILITY = filters.contains("/shiftAvailability", ignore_case=False)
-# IS_RESTAURANT_CONFIRMATION = filters.contains(
-#     "/restaurantConfirmation", ignore_case=False
-# )
 IS_RESTAURANT_ORDER_ACCEPT_DECLINE = filters.contains(
     "/RestaurantOrder", ignore_case=False
 )
