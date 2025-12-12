@@ -231,7 +231,7 @@ async def initial_handle_of_rider_response(
 
     # now handle the accept, eagerly handle unassigned
     if order_status["status"] == "unassigned":
-        # Update dispatch status, will be done for all accepted dispatches
+        # Update dispatch status, will be done for all accepted dispatches; Selecting one out of many accepted dispatches is done by db job_assign_dispatch() function, scheduled every 5 seconds
         client.table("delivery_dispatch").update({"status": "accepted"}).eq(
             "dispatch_id", callback_data["dispatch_id"]
         ).execute()
