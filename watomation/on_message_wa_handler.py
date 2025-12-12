@@ -49,7 +49,7 @@ from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 from config.params import get_restaurant_base_url_async
 
 # project modules
-from utils_common.db_utils.sbase_rest_ops import sbase_call_function, sbase_get
+# from utils_common.db_utils.sbase_rest_ops import sbase_get
 from utils_common.thread_management import ThreadHandler
 
 # %% Intent Classifier
@@ -264,7 +264,15 @@ LIVE_LOCATION = filters.contains("/live", ignore_case=True)
 
 async def send_live_map_location(wa: WhatsApp, msg: Message):
     recipient = msg.sender
-    _inflight = await sbase_get(table_name="delivery_inflight", rider_id=recipient)
+    # Change mode
+    # _inflight = await sbase_get(table_name="delivery_inflight", rider_id=recipient)
+    _inflight = (
+        client_ordelo.table("delivery_inflight")
+        .select("*")
+        .eq("rider_id", recipient)
+        .execute()
+        .data
+    )
 
     if len(_inflight) == 0:
         await wa.send_message(
@@ -318,15 +326,25 @@ async def reset_thread(wa: WhatsApp, msg: Message):
     logger.info("=============== reset the thread ===============")
     recipient = msg.from_user.wa_id
 
-    _inflight = await sbase_get("delivery_inflight", rider_id=recipient)
+    # _inflight = await sbase_get("delivery_inflight", rider_id=recipient)
+    _inflight = (
+        client_ordelo.table("delivery_inflight")
+        .select("*")
+        .eq("rider_id", recipient)
+        .execute()
+        .data
+    )
 
     # Exit if there is no active dispatch
     if len(_inflight) != 0:
         dispatch_id = _inflight[0]["dispatch_id"]
-        await sbase_call_function(
-            function_name="dispatch_complete_func",
-            input_args={"p_dispatch_id": dispatch_id},
-        )
+        # await sbase_call_function(
+        #     function_name="dispatch_complete_func",
+        #     input_args={"p_dispatch_id": dispatch_id},
+        # )
+        client_ordelo.rpc(
+            "dispatch_complete_func", {"p_dispatch_id": dispatch_id}
+        ).execute()
 
     await thread_handler.make_threads_inactive(recipient=recipient)
     await wa.send_message(to=recipient, text="Starting new conversation")
@@ -339,7 +357,14 @@ async def live_location(wa: WhatsApp, msg: Message):
     recipient = msg.sender
     logger.info("liv_location requested ...")
 
-    _inflight = await sbase_get(table_name="delivery_inflight", rider_id=recipient)
+    # _inflight = await sbase_get(table_name="delivery_inflight", rider_id=recipient)
+    _inflight = (
+        client_ordelo.table("delivery_inflight")
+        .select("*")
+        .eq("rider_id", recipient)
+        .execute()
+        .data
+    )
 
     if len(_inflight) == 0:
         await wa.send_message(

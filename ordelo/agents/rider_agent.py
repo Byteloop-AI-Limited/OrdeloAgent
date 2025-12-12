@@ -49,7 +49,7 @@ from pywa.types import ButtonUrl
 from utils_common.lg_utils import create_agent_w_sys_prompt_n_tools
 
 # from elai.agents.respond_agent import respond_node
-from config import logger
+from config import logger, client_ordelo
 from ordelo.agent_app_handlers import (
     create_stop_job_config,
     post_rider_event_restaurant_cc,
@@ -57,7 +57,7 @@ from ordelo.agent_app_handlers import (
     _send_delivery_instructions,
     is_live_location_enabled,
 )
-from utils_common.db_utils.sbase_rest_ops import sbase_call_function
+# from utils_common.db_utils.sbase_rest_ops import sbase_call_function
 
 from langchain_core.tools.base import InjectedToolCallId
 from langchain_core.messages import ToolMessage
@@ -439,7 +439,6 @@ async def verify_restaurant_confirmation_code(
         "rest_confirmation_code"
     ]
     customer_id = delivery_summary["customer_id"]
-    delivery_summary = delivery_summary["rest_confirmation_code"]
 
     logger.info(
         f"verify_restaurant_confirmation_code: {restaurant_confirmation_code} == {correct_restaurant_confirmation_code}"
@@ -539,10 +538,13 @@ async def cancel_delivery_before_pickup(
         )
 
     try:
-        response = await sbase_call_function(
-            function_name="dispatch_cancel_before_pickup",
-            input_args={"p_dispatch_id": dispatch_id},
-        )
+        # response = await sbase_call_function(
+        #     function_name="dispatch_cancel_before_pickup",
+        #     input_args={"p_dispatch_id": dispatch_id},
+        # )
+        response = client_ordelo.rpc(
+            "dispatch_cancel_before_pickup", {"p_dispatch_id": dispatch_id}
+        ).execute()
 
         # await ctx.wa_client.send_message(
         #     to=recipient,
@@ -735,10 +737,14 @@ async def verify_customer_confirmation_code(
 
     # Reset the thread, update db status, toDo - Should this go in the close thread function?
     try:
-        _response = await sbase_call_function(
-            function_name="dispatch_complete_func",
-            input_args={"p_dispatch_id": dispatch_id},
-        )
+        # _response = await sbase_call_function(
+        #     function_name="dispatch_complete_func",
+        #     input_args={"p_dispatch_id": dispatch_id},
+        # )
+        response = client_ordelo.rpc(
+            "dispatch_complete_func", {"p_dispatch_id": dispatch_id}
+        ).execute()
+
         # End the thread
         pool = await pg_settings.get_pool()
         thread_handler = ThreadHandler(pool)
@@ -856,10 +862,7 @@ async def terminate_delivery_job(
 
     await ctx.wa_client.send_message(
         to=recipient,
-        text=(
-            "This delivery job is now closed. "
-            "Click the link below to stop live tracking."
-        ),
+        text=("Delivery job completed ✅Click the link below to stop live tracking."),
         reply_to_message_id=reply_to_msg_id,
         buttons=ButtonUrl(title="Stop live tracking", url=stop_job_url),
     )
