@@ -21,7 +21,7 @@ LangGraph agent implementation for rider delivery workflow
     . capture_reason_for_cancel_before_pickup - Stores cancel reason
     . verify_restaurant_confirmation_code - Validates restaurant code
     . verify_customer_confirmation_code - Validates customer code
-    . send_end_live_tracking_link - Stops live tracking (alias)
+    . terminate_delivery_job - Stops live tracking and closes thread (alias)
     . end_delivery - Terminates delivery and tracking
     . agent_node - Main agent processing node
     . respond_node - Handles responses to user
@@ -31,13 +31,14 @@ LangGraph agent implementation for rider delivery workflow
 # %%
 
 from datetime import datetime, timezone
+from uuid import uuid4
 from config import project_settings, pg_settings
 from dataclasses import dataclass
 from typing import Annotated
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.runtime import Runtime, get_runtime
 from langchain_core.tools import tool
-from langchain_core.messages import AIMessage, RemoveMessage
+from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, InjectedState
 from langgraph.types import Command
@@ -500,6 +501,7 @@ async def verify_restaurant_confirmation_code(
 
 # %%
 
+
 async def cancel_delivery_before_pickup(
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
@@ -538,29 +540,33 @@ async def cancel_delivery_before_pickup(
             function_name="dispatch_cancel_before_pickup",
             input_args={"p_dispatch_id": dispatch_id},
         )
-        logger.info("dispatch_cancel_before_pickup response: %s", response)
 
-        await ctx.wa_client.send_message(
-            to=recipient,
-            text=(
-                f"Ok, I’ve cancelled this job before pickup. "
-                f"Order {order_number} will be re-dispatched to another rider.\n\n"
-                "Please tell me the reason you’re cancelling this pickup."
-            ),
-        )
+        # await ctx.wa_client.send_message(
+        #     to=recipient,
+        #     text=(
+        #         f"Ok, I’ve cancelled this job before pickup. "
+        #         f"Order {order_number} will be re-dispatched to another rider.\n\n"
+        #         "Please tell me the reason you’re cancelling this pickup."
+        #     ),
+        # )
 
         return Command(
             update={
                 "awaiting_cancel_reason": True,
                 "messages": [
+                    # ToolMessage(
+                    #     "Asked rider for cancel reason. When they reply, call "
+                    #     "`capture_reason_for_cancel_before_pickup(reason_for_decline=...)`.",
+                    #     tool_call_id=tool_call_id,
+                    # ),
                     ToolMessage(
-                        "Asked rider for cancel reason. When they reply, call "
-                        "`capture_reason_for_cancel_before_pickup(reason_for_decline=...)`.",
+                        "Ok 'user_name', No worries. I have cancelled this job for you.\n\n"
+                        "Please tell me the reason you’re cancelling this pickup.",
                         tool_call_id=tool_call_id,
                     ),
-                    AIMessage(
-                        "/dontRespond: Cancellation confirmed and reason requested."
-                    ),
+                    # AIMessage(
+                    #     "/dontRespond: Cancellation confirmed and reason requested."
+                    # ),
                 ],
             }
         )
@@ -573,6 +579,7 @@ async def cancel_delivery_before_pickup(
 
 
 # %%
+
 
 async def capture_reason_for_cancel_before_pickup(
     reason_for_decline: str,
@@ -588,7 +595,7 @@ async def capture_reason_for_cancel_before_pickup(
 
     Side Effects:
         - Updates delivery_dispatch.reason_for_decline for the current dispatch.
-        - Instructs the agent to call send_end_live_tracking_link.
+        - Instructs the agent to call terminate_delivery_job.
     """
     ctx = get_runtime(ContextSchema).context
     recipient = ctx.recipient
@@ -601,7 +608,7 @@ async def capture_reason_for_cancel_before_pickup(
             update={
                 "messages": [
                     ToolMessage(
-                        "No active dispatch found to attach a cancel reason.",
+                        "No active dispatch found to attach a cancel reason. Call tool `terminate_delivery_job` to close the delivery job.",
                         tool_call_id=tool_call_id,
                     )
                 ]
@@ -616,25 +623,13 @@ async def capture_reason_for_cancel_before_pickup(
             }
         ).eq("dispatch_id", dispatch_id).execute()
 
-        stop_job_url = await create_stop_job_config()
-        reply_to_msg_id = state.get("reply_to_msg_id", None)
-        await ctx.wa_client.send_message(
-            to=recipient,
-            text="Thanks for letting us know. Click the link below to stop live tracking.",
-            reply_to_message_id=reply_to_msg_id,
-            buttons=ButtonUrl(title="Stop live tracking", url=stop_job_url),
-        )
-
         return Command(
             update={
                 "awaiting_cancel_reason": False,
                 "messages": [
                     ToolMessage(
-                        "Cancel reason recorded and stop tracking link sent.",
+                        "Cancel reason recorded. Call tool `terminate_delivery_job` to close the delivery job.",
                         tool_call_id=tool_call_id,
-                    ),
-                    AIMessage(
-                        "/dontRespond: Cancel reason recorded and stop tracking link sent."
                     ),
                 ],
             }
@@ -648,6 +643,7 @@ async def capture_reason_for_cancel_before_pickup(
 
 
 # %%
+
 
 async def verify_customer_confirmation_code(
     customer_confirmation_code: int,
@@ -756,7 +752,7 @@ async def verify_customer_confirmation_code(
             "is_customer_confirmation_code_verified": True,
             "messages": [
                 ToolMessage(
-                    "✅ Customer confirmation code accepted. Delivery completed. Send end live tracking link (tool: `send_end_live_tracking_link`).",
+                    "✅ Customer confirmation code accepted. Delivery completed. Stop live tracking and close the job (tool: `terminate_delivery_job`).",
                     tool_call_id=tool_call_id,
                 )
             ],
@@ -815,16 +811,65 @@ async def end_delivery(
 # %% Stop live tracking (alias)
 
 
-async def send_end_live_tracking_link(
-    config: RunnableConfig, tool_call_id: Annotated[str, InjectedToolCallId]
+async def terminate_delivery_job(
+    config: RunnableConfig,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    reason_for_decline: str | None = None,
 ) -> dict:
     """
-    Alias for end_delivery().
+    Closes the current delivery job and stops live tracking.
 
-    The system prompt historically refers to `send_end_live_tracking_link`.
-    This tool forwards to end_delivery to send the stop-tracking URL.
+    If the agent is currently waiting for a cancel reason (pre-pickup),
+    the provided `reason_for_decline` will be persisted before closing the job.
     """
-    return await end_delivery(config=config, tool_call_id=tool_call_id)
+    ctx = get_runtime(ContextSchema).context
+    recipient = ctx.recipient
+
+    dispatch_id = state.get("dispatch_id")
+    awaiting_cancel_reason = bool(state.get("awaiting_cancel_reason"))
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
+
+    if awaiting_cancel_reason and reason_for_decline and dispatch_id is not None:
+        try:
+            ctx.client_ordelo.table("delivery_dispatch").update(
+                {
+                    "reason_for_decline": reason_for_decline,
+                    "status_update_dtts": datetime.now(timezone.utc).isoformat(),
+                }
+            ).eq("dispatch_id", dispatch_id).execute()
+        except Exception as e:
+            logger.error(f"Failed to record cancel reason: {str(e)}")
+
+    # End the thread
+    pool = await pg_settings.get_pool()
+    thread_handler = ThreadHandler(pool)
+    await thread_handler.make_threads_inactive(recipient=recipient)
+
+    stop_job_url = await create_stop_job_config()
+
+    await ctx.wa_client.send_message(
+        to=recipient,
+        text=(
+            "This delivery job is now closed. "
+            "Click the link below to stop live tracking."
+        ),
+        reply_to_message_id=reply_to_msg_id,
+        buttons=ButtonUrl(title="Stop live tracking", url=stop_job_url),
+    )
+
+    return Command(
+        update={
+            "awaiting_cancel_reason": False,
+            "messages": [
+                ToolMessage(
+                    "Delivery job closed and stop-tracking link sent.",
+                    tool_call_id=tool_call_id,
+                ),
+                AIMessage("/dontRespond: Delivery job closed."),
+            ],
+        }
+    )
 
 
 # %% Create Agent
@@ -842,11 +887,9 @@ _rider_agent_tools = [
     send_pickup_location,
     send_dropoff_location,
     cancel_delivery_before_pickup,
-    capture_reason_for_cancel_before_pickup,
     verify_restaurant_confirmation_code,
     verify_customer_confirmation_code,
-    send_end_live_tracking_link,
-    end_delivery,
+    terminate_delivery_job,
 ]
 
 rider_agent_tools = [tool(service) for service in _rider_agent_tools]
@@ -866,6 +909,26 @@ rider_agent = create_agent_w_sys_prompt_n_tools(
 
 # %% rider_agent_node
 def agent_node(state: AgentState) -> Command[Literal["toolNode", "respondNode", END]]:
+    if state.get("awaiting_cancel_reason") and isinstance(state["messages"][-1], ToolMessage):
+        ai_msg = AIMessage(content=state["messages"][-1].content)
+        return Command(update={"messages": [ai_msg]}, goto="respondNode")
+
+    if state.get("awaiting_cancel_reason") and isinstance(
+        state["messages"][-1], HumanMessage
+    ):
+        tool_call_id = f"terminate_delivery_job_{uuid4().hex}"
+        ai_msg = AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "terminate_delivery_job",
+                    "args": {"reason_for_decline": state['messages'][-1].content},
+                    "id": tool_call_id,
+                }
+            ],
+        )
+        return Command(update={"messages": [ai_msg]}, goto="toolNode")
+
     # If tool message replied to user already, end the turn
     if isinstance(state["messages"][-1], AIMessage):
         return Command(goto=END)
