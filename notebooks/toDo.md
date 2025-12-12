@@ -1,15 +1,8 @@
 ## Immediate
+- [!!!] on rider decline, the process should reset - status should go back to unassigned, cleanup inflight, dispatch and detail tables; View how to do this by querying the database first.
 
 - [!!!] Postcode is just sp1 for sp11pb; Check if lat and lon are correct however. Would the rider get the correct address when asked for in the agent?
-- [!!!] Sending admin_order_ready for collection - Rider name not appearing correctly
--- No Restaurant_name in the callback data
-- admin_order_receipt (graph_init_hook) can make use of live location as a ButtonURL
-- [!!!] Opening and closing times for restaurant
-
-
-- [] Verify if create_order is being pass with the order_type key
-- On restaurant accept, the time confirmation should include the notes; 
-- Remove REST_MASTER from params.py
+- admin_order_receipt (graph_init_hook) can make use of live location as a ButtonURL Not possible to mix interactive with buttonURL
 
 ### 8th DEC
 - Test the rider, double book orders

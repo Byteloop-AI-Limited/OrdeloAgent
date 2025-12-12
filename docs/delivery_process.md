@@ -96,6 +96,7 @@ Rider Assigned → Delivery Inflight → Delivery Completed
 | `timedout` | No response within 30 seconds |
 | `missed` | Job was taken by another rider |
 | `assigned` | Rider is assigned and active |
+| `pickedup` | Food pickup confirmed (restaurant code verified) |
 | `completed` | Delivery completed |
 
 ---

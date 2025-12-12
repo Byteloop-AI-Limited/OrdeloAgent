@@ -25,14 +25,15 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 
 2) Agents (LangGraph/LangChain)
 - Rider Agent orchestration:
-  - Graph + Tools: `ordelo/agents/rider_agent.py` — defines tools (send instructions, start live tracking, verify codes, end delivery), agent nodes, and graph wiring.
-    - Send instructions: `ordelo/agents/rider_agent.py:245` (`send_delivery_instructions`)
-    - Start live tracking link: `ordelo/agents/rider_agent.py:277`
-    - Verify restaurant CC: `ordelo/agents/rider_agent.py:322`
-    - Verify customer CC: `ordelo/agents/rider_agent.py:419`
-    - End delivery: `ordelo/agents/rider_agent.py:560`
-    - Main node: `ordelo/agents/rider_agent.py:612` (`agent_node`)
-    - Respond node: `ordelo/agents/rider_agent.py:640`
+  - Graph + Tools: `ordelo/agents/rider_agent.py` — tools and graph for the inflight rider journey.
+    - `send_delivery_instructions` — initial pickup/dropoff instructions.
+    - `send_start_live_tracking_link` — OwnTracks start/config link.
+    - `verify_restaurant_confirmation_code` — confirms pickup and marks `delivery_dispatch.status='pickedup'`.
+    - `verify_customer_confirmation_code` — completes delivery and calls `dispatch_complete_func`.
+    - `cancel_delivery_before_pickup` — rolls back an assigned dispatch pre‑pickup and reopens dispatching.
+    - `capture_reason_for_cancel_before_pickup` — stores cancel reason on the dispatch row and sends stop‑tracking link.
+    - `send_end_live_tracking_link` — alias of `end_delivery` (stop‑tracking URL).
+    - Graph control nodes: `agent_node`, `respond_node`, `ToolNode`.
   - Runner helpers: `ordelo/agents/agent_runner.py` —
     - Invoke graph per message: `:71` (`run_rider_graph`)
     - Initialize graph for accepted job: `:109` (`init_ordelo_graph`)
@@ -99,7 +100,18 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 1) Dispatch → Rider (Accept/Decline)
 - DB trigger calls webhook: `POST /delivery-hooks/delivery-dispatch` with a list of dispatch payloads.
 - `delivery_hooks.wa_send_delivery_dispatch_request_to_rider` builds “Accept/Decline” buttons with JSON callback payloads. Rider receives a WhatsApp message.
-- Rider taps a button → WhatsApp Callback → `on_callback_wa_handler.dispatch_response`. This validates state, updates status promptly via `initial_handle_of_rider_response`, and exits early for stale/timed‑out jobs.
+- Rider taps a button → WhatsApp Callback → `watomation/on_callback_wa_handler.dispatch_response`.
+  - Validates the order still exists in `delivery_summary`.
+  - If the order is already inflight:
+    - Same rider + **Decline for the same `dispatch_id`** → treat as **pre‑pickup cancellation** and allow through.
+    - All other taps are blocked with “already on job / taken by another rider”.
+  - For non‑inflight orders, forwards to `ordelo/agent_app_handlers.initial_handle_of_rider_response`.
+
+`initial_handle_of_rider_response` performs lightweight DB transitions:
+  - Accept on `delivery_summary.status='unassigned'` → `delivery_dispatch.status='accepted'`.
+  - Decline:
+    - If the decline targets a dispatch already `status='assigned'`, the handler triggers the cancel path by running the rider graph with system message `call tool cancel_delivery_before_pickup`.
+    - Otherwise it marks the dispatch `status='declined'`.
 
 2) Becoming Inflight and Initializing the Agent
 - When a rider is assigned (DB transitions to inflight), a DB trigger calls `POST /delivery-hooks/delivery-inflight-graph-init` with `delivery_detail`.
@@ -114,6 +126,9 @@ This document maps the codebase structure and explains how agents, webhooks, mes
   - Send instructions (pickup/drop + meta), and offer “Pickup/Dropoff Location” buttons which round‑trip back to agent via callback.
   - Send “Start live tracking” link (OwnTracks config). Send “Stop live tracking” at the end.
   - Verify restaurant and customer confirmation codes; on success the customer/restaurant webhooks fire and DB status is updated (`dispatch_complete_func`).
+  - Pre‑pickup cancellation:
+    - `cancel_delivery_before_pickup` calls `dispatch_cancel_before_pickup`, reopens dispatching, and asks the rider for a reason.
+    - `capture_reason_for_cancel_before_pickup` writes `reason_for_decline` and sends a stop‑tracking link.
 - On each incoming rider message, the WA handler `process_wa_msg` locates the active thread for that rider and runs `run_rider_graph(recipient, human_msg=...)`.
 - The agent responds either directly (respond node → WhatsApp) or by executing tools (ToolNode), which themselves perform WhatsApp sends and DB operations.
 
@@ -143,7 +158,10 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 - Postgres/Supabase tables (most used):
   - `delivery_detail` (per‑order detail), `delivery_summary` (joined status view), `delivery_dispatch` (rider offers), `delivery_inflight` (active jobs), `rider_location`, `rider_location_event`, `thread` (agent chat context).
 - Supabase RPC/functions (key ones referenced):
-  - `dispatch_accept_func`, `dispatch_complete_func`, `process_delivery` (scheduled), `clear_dispatch` (testing), `init_delivery` (testing).
+  - `dispatch_accept_func`, `dispatch_complete_func`, `dispatch_cancel_before_pickup` (pre‑pickup rollback), `process_delivery` (scheduled), `clear_dispatch` (testing), `init_delivery` (testing).
+- Dispatch lifecycle data is stored per rider offer in `delivery_dispatch`:
+  - Status progression includes `assigned` → `pickedup` → `completed`.
+  - `reason_for_decline` (nullable) records explicit decline/cancel reasons per `dispatch_id`.
 - LangGraph state checkpointing:
   - Postgres checkpointer (configured per‑message): `AsyncPostgresSaver` compiled into the rider graph. Thread context is mapped via `ThreadHandler` using the rider's WhatsApp number.
 
@@ -176,6 +194,13 @@ This document maps the codebase structure and explains how agents, webhooks, mes
   3. If state keys are new, extend `AgentState` TypedDict accordingly.
   4. If it needs DB access, use `pg_settings.client` (Supabase) or `get_pool()` (psycopg_pool).
 
+  **Tool Authoring Checklist**
+  - If the tool sends any WhatsApp message itself, return `ToolMessage(...)` then `AIMessage("/dontRespond: ...")` to suppress `respond_node`.
+  - Add the tool to `_rider_agent_tools` and document it in `ordelo/agents/rider_agent_prompt.md`.
+  - Use/extend `AgentState` for any new state fields.
+  - Keep DB writes idempotent where possible (dispatch/inflight webhooks may re‑fire).
+  - Update the module docstring in the file you edit.
+
 - Add a new webhook:
   - Create a route in `watomation/routers/...` and include router in `fapp_ordelo_agent.py`.
   - If it’s DB‑triggered, have the DB function call your FastAPI endpoint with the necessary payload.
@@ -190,6 +215,7 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 - Send delivery instructions: `ordelo/agents/rider_agent.py:245`
 - Send start live tracking link: `ordelo/agents/rider_agent.py:277`
 - Verify restaurant/customer confirmation codes: `ordelo/agents/rider_agent.py:322`, `:419`
+- Pre‑pickup cancel + reason capture: `ordelo/agents/rider_agent.py` tools `cancel_delivery_before_pickup` and `capture_reason_for_cancel_before_pickup`
 - Mark job complete and stop tracking: `ordelo/agents/rider_agent.py:560`
 - Generate OwnTracks config link: `ordelo/agent_app_handlers.py:148`
 - Live map URL (server URL to maps page): `watomation/routers/location_hooks.py:74`
@@ -204,6 +230,7 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 
 - State and threads: The system relies on a `thread` table keyed by WhatsApp number; always ensure a thread exists before invoking the rider graph.
 - Tool responses: Tool functions generally both send WA messages and return `Command` state updates; the agent node decides whether to call tools or respond.
+- **/dontRespond convention:** If a tool already sends a WhatsApp message (via `wa_client.send_message` / `send_location` / templates), the tool’s returned `Command` must include a `ToolMessage(...)` followed by an `AIMessage("/dontRespond: ...")`. This suppresses `respond_node` from echoing a second, near‑duplicate text to the rider.
 - Edge side effects: Some helper modules in `utils_common/waba_es` run example calls on import; avoid importing them in production flows unless needed.
 - README mismatch: The top‑level `README.md` describes a generic main/services layout that doesn’t reflect this repo’s structure. Prefer this `agents.md` for accurate navigation.
 
@@ -243,4 +270,3 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 
 ---
 If you want, I can add sequence diagrams (Mermaid) or short runnable examples per endpoint/tool to further accelerate onboarding.
-
