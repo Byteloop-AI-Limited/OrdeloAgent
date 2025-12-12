@@ -400,8 +400,8 @@ async def terminate_stale_active_threads():
 
     async with httpx.AsyncClient() as client:
         response = await client.post(url=webhook_url)
-        logger.info(
-            f"Restaurant notified for stale thread termination: {response.text}"
-        )
+        # logger.info(
+        #     f"Restaurant notified for stale thread termination: {response.text}"
+        # )
 
     return {"success": True, "status_code": response.status_code}

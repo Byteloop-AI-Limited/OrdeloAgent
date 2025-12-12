@@ -22,14 +22,15 @@ WhatsApp message handler for Ordelo delivery system
 
 # %%
 import asyncio
-import random
+from datetime import datetime, timezone
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
 from pywa.types import FlowButton, Message
 from pywa.types.flows import FlowActionType, FlowRequest, FlowResponse
-from pywa_async import WhatsApp, types
+from pywa_async import WhatsApp, filters, types
 
 from config import (
     _sync_wa_client,
@@ -43,8 +44,9 @@ from ordelo.agent_app_handlers import (
     enquire_shift_availability_non_template,
     get_live_map_location_url,
 )
-from ordelo.agents.agent_runner import run_byteloop_agent, run_rider_graph
+from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
+from config.params import get_restaurant_base_url_async
 
 # project modules
 from utils_common.db_utils.sbase_rest_ops import sbase_call_function, sbase_get
@@ -71,6 +73,52 @@ def get_rider_intent(message: str) -> RiderShiftIntent:
     structured_llm = llm.with_structured_output(RiderShiftIntent)
     response = structured_llm.invoke(prompt)
     return response
+
+
+# %% After-hours guard
+_UK_TZ = ZoneInfo("Europe/London")
+
+
+def _message_time_uk(msg: Message) -> datetime | None:
+    ts = getattr(msg, "timestamp", None) or getattr(msg, "timestamp_ms", None)
+    if ts is None:
+        return None
+
+    # If we already have a datetime, convert directly.
+    if isinstance(ts, datetime):
+        dt_utc = ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+        return dt_utc.astimezone(_UK_TZ)
+
+    # Otherwise coerce to float timestamp.
+    try:
+        ts_val = float(ts)
+    except (TypeError, ValueError):
+        return None
+
+    if ts_val > 1_000_000_000_000:  # likely milliseconds
+        ts_val = ts_val / 1000
+    try:
+        utc_time = datetime.fromtimestamp(ts_val, tz=timezone.utc)
+    except (OSError, ValueError):
+        return None
+    return utc_time.astimezone(_UK_TZ)
+
+
+def is_outside_service_hours(_: WhatsApp, msg: Message) -> bool:
+    msg_time = _message_time_uk(msg)
+    if msg_time is None:
+        return False
+    return not (9 <= msg_time.hour < 23)
+
+
+OUT_OF_HOURS_FILTER = filters.new(is_outside_service_hours)
+
+
+async def send_closed_message(wa: WhatsApp, msg: Message):
+    await wa.send_message(
+        to=msg.sender,
+        text="Thank you for your message. We are currently closed. Try again during our service hours (11am-9pm).",
+    )
 
 
 # %% Run graph on msg
@@ -104,47 +152,7 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
         return
 
     # Run the graph
-    await run_rider_graph(recipient, human_msg=msg.text)
-
-
-# %% Run byteloop agent on msg
-async def process_byteloop_agent(wa: WhatsApp, msg: Message):
-    await msg.indicate_typing()
-    recipient = msg.sender
-    user_name = msg.from_user.name
-    # Run the graph
-    messages = await run_byteloop_agent(
-        recipient, user_name=user_name, human_msg=msg.text
-    )
-    await wa.send_message(to=recipient, text=messages)
-
-
-# %% Reset
-async def reset_thread(wa: WhatsApp, msg: Message):
-    pool: AsyncConnectionPool = await pg_settings.get_pool()
-    thread_handler = ThreadHandler(pool)
-    logger.info("=============== reset the thread ===============")
-    recipient = msg.from_user.wa_id
-
-    _inflight = await sbase_get("delivery_inflight", rider_id=recipient)
-
-    # Exit if there is no active dispatch
-    if len(_inflight) != 0:
-        dispatch_id = _inflight[0]["dispatch_id"]
-        await sbase_call_function(
-            function_name="dispatch_complete_func",
-            input_args={"p_dispatch_id": dispatch_id},
-        )
-
-    await thread_handler.make_threads_inactive(recipient=recipient)
-    await wa.send_message(to=recipient, text="Starting new conversation")
-
-
-# %% Clear Dispatch
-async def clear_dispatch(wa: WhatsApp, msg: Message):
-    recipient = msg.from_user.wa_id
-    client = pg_settings.client
-    client.rpc("clear_dispatch", {}).execute()
+    await run_rider_agent_w_custom_msg(recipient, human_msg=msg.text)
 
 
 async def init_delivery_summary(order_number: str, recipient: str):
@@ -165,6 +173,9 @@ async def init_delivery_summary(order_number: str, recipient: str):
 
 
 # %% Test Delivery
+TEST_DELIVERY = filters.contains("/test", ignore_case=True)
+
+
 async def test_delivery(wa: WhatsApp, msg: Message):
     # pool: AsyncConnectionPool = await pg_settings.get_pool()
     # client = pg_settings.client
@@ -237,7 +248,20 @@ async def test_delivery(wa: WhatsApp, msg: Message):
     ).execute()
 
 
-# %%
+# %% Clear Dispatch
+CLEAR_DISPATCH = filters.contains("/cleardis", ignore_case=True)
+
+
+async def clear_dispatch(wa: WhatsApp, msg: Message):
+    recipient = msg.from_user.wa_id
+    client = pg_settings.client
+    client.rpc("clear_dispatch", {}).execute()
+
+
+# %% Live map location
+LIVE_LOCATION = filters.contains("/live", ignore_case=True)
+
+
 async def send_live_map_location(wa: WhatsApp, msg: Message):
     recipient = msg.sender
     _inflight = await sbase_get(table_name="delivery_inflight", rider_id=recipient)
@@ -249,15 +273,20 @@ async def send_live_map_location(wa: WhatsApp, msg: Message):
         return
 
     order_number = _inflight[0]["order_number"]
+    rest_ref = order_number.split("-")[0]
+    restaurant_base_url = await get_restaurant_base_url_async(rest_ref)
     live_map_url = await get_live_map_location_url(order_number)
     if live_map_url is None:
         await wa.send_message(to=recipient, text="Live map location not available")
         return
-    url = f"https://agent.ordelo.app/location-hooks/live-location-map/{order_number}"
+    url = f"{restaurant_base_url}/location-hooks/live-location-map/{order_number}"
     await wa.send_message(to=recipient, text=url)
 
 
 # %% Test flow
+TEST_FLOW = filters.contains("/flow", ignore_case=True)
+
+
 async def test_flow(wa: WhatsApp, msg: Message):
     recipient = msg.sender
     _sync_wa_client.send_message(
@@ -277,6 +306,30 @@ async def test_flow(wa: WhatsApp, msg: Message):
             },
         ),
     )
+
+
+# %% Reset
+WHEN_RESET = filters.contains("/reset", ignore_case=True)
+
+
+async def reset_thread(wa: WhatsApp, msg: Message):
+    pool: AsyncConnectionPool = await pg_settings.get_pool()
+    thread_handler = ThreadHandler(pool)
+    logger.info("=============== reset the thread ===============")
+    recipient = msg.from_user.wa_id
+
+    _inflight = await sbase_get("delivery_inflight", rider_id=recipient)
+
+    # Exit if there is no active dispatch
+    if len(_inflight) != 0:
+        dispatch_id = _inflight[0]["dispatch_id"]
+        await sbase_call_function(
+            function_name="dispatch_complete_func",
+            input_args={"p_dispatch_id": dispatch_id},
+        )
+
+    await thread_handler.make_threads_inactive(recipient=recipient)
+    await wa.send_message(to=recipient, text="Starting new conversation")
 
 
 # %% live_location

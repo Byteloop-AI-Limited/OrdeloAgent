@@ -3,6 +3,8 @@ LangGraph agent implementation for rider delivery workflow
     . Implements rider agent nodes and tools using LangGraph and LangChain
     . Manages delivery workflow from instructions to completion
     . Handles live tracking, confirmation codes, and delivery status
+    . Marks dispatch as picked up on restaurant code verification
+    . Supports rider cancellation before pickup to resume dispatching
     . Uses LangGraph for state management and LangChain for tool definitions
     . Communicates via WhatsApp async client
     . Performs data operations through Supabase REST calls
@@ -15,8 +17,11 @@ LangGraph agent implementation for rider delivery workflow
     . send_dropoff_location - Sends customer location to rider
     . send_delivery_instructions - Provides delivery instructions
     . send_start_live_tracking_link - Initiates live tracking
+    . cancel_delivery_before_pickup - Cancels assigned job pre‑pickup
+    . capture_reason_for_cancel_before_pickup - Stores cancel reason
     . verify_restaurant_confirmation_code - Validates restaurant code
     . verify_customer_confirmation_code - Validates customer code
+    . send_end_live_tracking_link - Stops live tracking (alias)
     . end_delivery - Terminates delivery and tracking
     . agent_node - Main agent processing node
     . respond_node - Handles responses to user
@@ -25,6 +30,7 @@ LangGraph agent implementation for rider delivery workflow
 
 # %%
 
+from datetime import datetime, timezone
 from config import project_settings, pg_settings
 from dataclasses import dataclass
 from typing import Annotated
@@ -80,6 +86,7 @@ class AgentState(TypedDict):
     delivery_start_dtts: str
     is_restaurant_confirmation_code_verified: bool
     is_customer_confirmation_code_verified: bool
+    awaiting_cancel_reason: bool
 
 
 # %% Static Runtime Context
@@ -248,7 +255,7 @@ async def send_dropoff_location(
         to=recipient,
         latitude=summary["customer_lat"],
         longitude=summary["customer_lon"],
-        name=f"{summary['customer_name']} - Drop Off",
+        # name=f"{summary['customer_name']} - Drop Off",
         address=summary["customer_address"],
         reply_to_message_id=reply_to_msg_id,
     )
@@ -464,6 +471,18 @@ async def verify_restaurant_confirmation_code(
     if "test" not in order_number.lower():
         await post_rider_event_restaurant_cc(order_number, customer_id)
 
+    # Persist pickup in DB so cancellation can be gated
+    try:
+        client_ordelo.table("delivery_dispatch").update(
+            {
+                "status": "pickedup",
+                "status_update_dtts": datetime.now(timezone.utc).isoformat(),
+            }
+        ).eq("dispatch_id", dispatch_id).execute()
+        logger.info("Marked dispatch %s as pickedup", dispatch_id)
+    except Exception as e:
+        logger.error("Failed to mark dispatch %s as pickedup: %s", dispatch_id, e)
+
     # Add get_journey_instructions to the agent
     return Command(
         update={
@@ -481,6 +500,154 @@ async def verify_restaurant_confirmation_code(
 
 # %%
 
+async def cancel_delivery_before_pickup(
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> dict:
+    """
+    Cancels an assigned delivery before pickup and reopens dispatching.
+
+    This tool is intended for cases where a rider cannot complete pickup.
+    Cancellation is only allowed while delivery_dispatch.status = 'assigned'
+    (i.e., before verify_restaurant_confirmation_code marks it as 'pickedup').
+
+    Side Effects:
+        - Calls dispatch_cancel_before_pickup(p_dispatch_id) RPC to reopen dispatching.
+        - Prompts the rider for a cancellation reason.
+    """
+    ctx = get_runtime(ContextSchema).context
+    recipient = ctx.recipient
+
+    dispatch_id = state.get("dispatch_id")
+    order_number = state.get("order_number")
+
+    if dispatch_id is None or order_number is None:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "No active dispatch found to cancel.",
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+
+    try:
+        response = await sbase_call_function(
+            function_name="dispatch_cancel_before_pickup",
+            input_args={"p_dispatch_id": dispatch_id},
+        )
+        logger.info("dispatch_cancel_before_pickup response: %s", response)
+
+        await ctx.wa_client.send_message(
+            to=recipient,
+            text=(
+                f"Ok, I’ve cancelled this job before pickup. "
+                f"Order {order_number} will be re-dispatched to another rider.\n\n"
+                "Please tell me the reason you’re cancelling this pickup."
+            ),
+        )
+
+        return Command(
+            update={
+                "awaiting_cancel_reason": True,
+                "messages": [
+                    ToolMessage(
+                        "Asked rider for cancel reason. When they reply, call "
+                        "`capture_reason_for_cancel_before_pickup(reason_for_decline=...)`.",
+                        tool_call_id=tool_call_id,
+                    ),
+                    AIMessage(
+                        "/dontRespond: Cancellation confirmed and reason requested."
+                    ),
+                ],
+            }
+        )
+    except Exception as e:
+        error_message = f"Failed to cancel job: {str(e)}"
+        logger.error(error_message)
+        return Command(
+            update={"messages": [ToolMessage(error_message, tool_call_id=tool_call_id)]}
+        )
+
+
+# %%
+
+async def capture_reason_for_cancel_before_pickup(
+    reason_for_decline: str,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> dict:
+    """
+    Captures the rider's reason for cancelling before pickup.
+
+    This tool should be called after `cancel_delivery_before_pickup` has reopened the order.
+    It persists the reason on the delivery_dispatch row for audit/ops, then
+    hands off to stop live tracking.
+
+    Side Effects:
+        - Updates delivery_dispatch.reason_for_decline for the current dispatch.
+        - Instructs the agent to call send_end_live_tracking_link.
+    """
+    ctx = get_runtime(ContextSchema).context
+    recipient = ctx.recipient
+
+    dispatch_id = state.get("dispatch_id")
+    order_number = state.get("order_number")
+
+    if dispatch_id is None or order_number is None:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "No active dispatch found to attach a cancel reason.",
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+
+    try:
+        ctx.client_ordelo.table("delivery_dispatch").update(
+            {
+                "reason_for_decline": reason_for_decline,
+                "status_update_dtts": datetime.now(timezone.utc).isoformat(),
+            }
+        ).eq("dispatch_id", dispatch_id).execute()
+
+        stop_job_url = await create_stop_job_config()
+        reply_to_msg_id = state.get("reply_to_msg_id", None)
+        await ctx.wa_client.send_message(
+            to=recipient,
+            text="Thanks for letting us know. Click the link below to stop live tracking.",
+            reply_to_message_id=reply_to_msg_id,
+            buttons=ButtonUrl(title="Stop live tracking", url=stop_job_url),
+        )
+
+        return Command(
+            update={
+                "awaiting_cancel_reason": False,
+                "messages": [
+                    ToolMessage(
+                        "Cancel reason recorded and stop tracking link sent.",
+                        tool_call_id=tool_call_id,
+                    ),
+                    AIMessage(
+                        "/dontRespond: Cancel reason recorded and stop tracking link sent."
+                    ),
+                ],
+            }
+        )
+    except Exception as e:
+        error_message = f"Failed to record cancel reason: {str(e)}"
+        logger.error(error_message)
+        return Command(
+            update={"messages": [ToolMessage(error_message, tool_call_id=tool_call_id)]}
+        )
+
+
+# %%
 
 async def verify_customer_confirmation_code(
     customer_confirmation_code: int,
@@ -645,6 +812,21 @@ async def end_delivery(
     )
 
 
+# %% Stop live tracking (alias)
+
+
+async def send_end_live_tracking_link(
+    config: RunnableConfig, tool_call_id: Annotated[str, InjectedToolCallId]
+) -> dict:
+    """
+    Alias for end_delivery().
+
+    The system prompt historically refers to `send_end_live_tracking_link`.
+    This tool forwards to end_delivery to send the stop-tracking URL.
+    """
+    return await end_delivery(config=config, tool_call_id=tool_call_id)
+
+
 # %% Create Agent
 with open(
     f"{project_settings.project_root}/ordelo/agents/rider_agent_prompt.md", "r"
@@ -659,8 +841,11 @@ _rider_agent_tools = [
     notify_food_ready_for_pickup,
     send_pickup_location,
     send_dropoff_location,
+    cancel_delivery_before_pickup,
+    capture_reason_for_cancel_before_pickup,
     verify_restaurant_confirmation_code,
     verify_customer_confirmation_code,
+    send_end_live_tracking_link,
     end_delivery,
 ]
 

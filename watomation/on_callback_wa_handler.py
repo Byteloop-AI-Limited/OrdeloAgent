@@ -6,6 +6,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . Handles cases where jobs are no longer available
     . Provides feedback to riders about dispatch status
     . Checks for existing inflight deliveries to prevent conflicts
+    . Allows assigned rider to decline the same inflight job pre‑pickup, forwarding to cancel flow
     . Serves as entry point into the LangGraph agent workflow
     . Processes restaurant confirmation of food preparation time
     . Uses asyncio.create_task for long-running RPC calls to avoid timeouts
@@ -20,7 +21,7 @@ WhatsApp callback button handler for delivery dispatch responses
 
 # %%
 import asyncio
-from pywa_async import WhatsApp
+from pywa_async import WhatsApp, filters
 from config import logger
 from pywa.types import Message
 import json
@@ -28,7 +29,7 @@ import json
 # project modules
 from ordelo.agent_app_handlers import initial_handle_of_rider_response
 from config import client_ordelo
-from ordelo.agents.agent_runner import run_rider_graph
+from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 from datetime import datetime, timezone
 from config.params import get_restaurant_base_url_async
@@ -37,6 +38,9 @@ import httpx
 # from utils_common.waba_utils.wa_senders import send_restaurant_pickup_time
 from pywa.types import CallbackButton
 # %%
+
+
+IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 
 
 async def dispatch_response(wa: WhatsApp, msg: Message):
@@ -79,17 +83,32 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
     if len(inflight_for_order.data) > 0:
         inflight_row = inflight_for_order.data[0]
         if inflight_row["rider_id"] == recipient:
-            # Same rider is already on this job
+            inflight_dispatch_id = inflight_row.get("dispatch_id")
+            callback_dispatch_id = callback_data.get("dispatch_id")
+            is_decline_for_same_dispatch = (
+                callback_data.get("status") == "declined"
+                and inflight_dispatch_id is not None
+                and callback_dispatch_id == inflight_dispatch_id
+            )
+
+            if not is_decline_for_same_dispatch:
+                # Same rider is already on this job; ignore stale accept/decline taps
+                logger.info(
+                    "Rider %s already inflight for order %s",
+                    recipient,
+                    order_number,
+                )
+                await wa.send_message(
+                    to=recipient,
+                    text=f"Sorry, You are already on a job {inflight_row['order_number']}",
+                )
+                return
+
+            # Assigned rider declining their own inflight dispatch:
+            # fall through to initial_handle_of_rider_response() to trigger cancel flow.
             logger.info(
-                "Rider %s already inflight for order %s",
-                recipient,
-                order_number,
+                f"Rider {recipient} declining inflight dispatch {inflight_dispatch_id} for order {order_number}; routing to cancel logic"
             )
-            await wa.send_message(
-                to=recipient,
-                text=f"Sorry, You are already on a job {inflight_row['order_number']}",
-            )
-            return
         else:
             # Another rider already picked this job
             logger.info(
@@ -108,6 +127,9 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
 
 
 # %%
+IS_LOCATION_REQUEST = filters.contains("/riderLocationRequest", ignore_case=False)
+
+
 async def rider_request_location(wa: WhatsApp, msg: Message):
     """
     Rider's request for location. This is a blocking operation. Entry point into the graph.
@@ -115,12 +137,15 @@ async def rider_request_location(wa: WhatsApp, msg: Message):
     # Callback created in _send_delivery_instructions, in agent_app_handlers
     callback_data: dict = json.loads(msg.data)
     logger.info(f"callbackdata: {callback_data}")
-    await run_rider_graph(
+    await run_rider_agent_w_custom_msg(
         recipient=callback_data["recipient"], human_msg=callback_data["human_msg"]
     )
 
 
 # %%
+IS_SHIFT_AVAILABILITY = filters.contains("/shiftAvailability", ignore_case=False)
+
+
 async def handle_shift_availability(wa: WhatsApp, msg: Message):
     callback_data: dict = json.loads(msg.data)
     recipient = callback_data["recipient"]
@@ -150,7 +175,68 @@ async def handle_shift_availability(wa: WhatsApp, msg: Message):
         logger.info(f"Ended shift status for rider {recipient}")
 
 
+async def _update_restaurant_order_status(order_number: str, status: str, msg: Message):
+    """Background task to update restaurant order status."""
+    try:
+        result = await asyncio.to_thread(
+            lambda: client_ordelo.table("delivery_summary")
+            .update(
+                {
+                    "restaurant_confirmation_status": status,
+                    "restaurant_admin": msg.sender,
+                }
+            )
+            .eq("order_number", order_number)
+            .eq("restaurant_confirmation_status", "restaurant_unconfirmed")
+            .execute()
+        )
+        if result.data:
+            logger.info(f"Restaurant order status updated: {order_number} -> {status}")
+        else:
+            await msg.reply(text="Order Already Accepted")
+            logger.info(
+                "Skipped restaurant order status update for %s; current status is not restaurant_unconfirmed",
+                order_number,
+            )
+    except Exception as e:
+        logger.error(
+            f"Failed to update restaurant order status for {order_number}: {e}"
+        )
+
+
+# %% Restaurant order confirmation
+IS_RESTAURANT_ORDER_ACCEPT_DECLINE = filters.contains(
+    "/RestaurantOrder", ignore_case=False
+)
+
+
+async def restaurant_order_accept_decline_handler(wa: WhatsApp, msg: Message):
+    callback_data: CallbackButtonData = CallbackButtonData(**json.loads(msg.data))
+    # Callback data created in send_restaurant_order_confirmation, in utils_common.waba_utils.wa_templates.restaurant_confirmation_template
+
+    order_number = callback_data.order_number
+    order_time = callback_data.order_time
+    recipient = msg.sender
+
+    logger.info(f"Restaurant order confirmation: {order_number}")
+
+    if "Accept" in callback_data.action:
+        asyncio.create_task(
+            _update_restaurant_order_status(order_number, "restaurant_accept", msg)
+        )
+
+    elif "Decline" in callback_data.action:
+        asyncio.create_task(
+            _update_restaurant_order_status(order_number, "restaurant_decline", msg)
+        )
+
+    return
+
+
 # %% Handle pickup time selection. The pickup_time needs to be updated in delivery_summary table
+IS_PICKUP_TIME = filters.contains("/PickupTime", ignore_case=False)
+
+
 async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(msg.data))
     # Callback data created in send_pickup_time_selection, in utils_common.waba_utils.wa_senders
@@ -194,59 +280,6 @@ async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
         logger.error(f"Failed to update pickup time for order {order_number}: {e}")
 
 
-async def _update_restaurant_order_status(order_number: str, status: str, msg: Message):
-    """Background task to update restaurant order status."""
-    try:
-        result = await asyncio.to_thread(
-            lambda: client_ordelo.table("delivery_summary")
-            .update(
-                {
-                    "restaurant_confirmation_status": status,
-                    "restaurant_admin": msg.sender,
-                }
-            )
-            .eq("order_number", order_number)
-            .eq("restaurant_confirmation_status", "restaurant_unconfirmed")
-            .execute()
-        )
-        if result.data:
-            logger.info(f"Restaurant order status updated: {order_number} -> {status}")
-        else:
-            await msg.reply(text="Order Already Accepted")
-            logger.info(
-                "Skipped restaurant order status update for %s; current status is not restaurant_unconfirmed",
-                order_number,
-            )
-    except Exception as e:
-        logger.error(
-            f"Failed to update restaurant order status for {order_number}: {e}"
-        )
-
-
-# %% Restaurant order confirmation
-async def restaurant_order_accept_decline_handler(wa: WhatsApp, msg: Message):
-    callback_data: CallbackButtonData = CallbackButtonData(**json.loads(msg.data))
-    # Callback data created in send_restaurant_order_confirmation, in utils_common.waba_utils.wa_templates.restaurant_confirmation_template
-
-    order_number = callback_data.order_number
-    order_time = callback_data.order_time
-    recipient = msg.sender
-
-    logger.info(f"Restaurant order confirmation: {order_number}")
-
-    if "Accept" in callback_data.action:
-        asyncio.create_task(
-            _update_restaurant_order_status(order_number, "restaurant_accept", msg)
-        )
-
-    elif "Decline" in callback_data.action:
-        asyncio.create_task(
-            _update_restaurant_order_status(order_number, "restaurant_decline", msg)
-        )
-
-    return
-
-
 # %%
 async def admin_collection_ready(
     msg: WhatsApp, callback: CallbackButton[CallbackButtonData]
@@ -255,7 +288,7 @@ async def admin_collection_ready(
     # ordelo_base_url = await get_restaurant_base_url_async(rest_ref="ORDELO")
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
 
-    await run_rider_graph(
+    await run_rider_agent_w_custom_msg(
         recipient=callback_data.rider_id,
         human_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {callback_data.restaurant_name} to pickup the food.",
     )

@@ -1,10 +1,12 @@
 select *
-from ordelo_config where config_key like '%TIME%';
+from ordelo_config where config_key like '%_RESTAURANT_CONFIRMATION_TIMEOUT_TIME%';
 
 update ordelo_config set config_value = 'https://elas-agg-test.ordelo.app' 
 where config_key = 'ELAS_APP_URL';
 update ordelo_config set config_value = 'https://rider-agent-test.ordelo.app'
 where config_key = 'ORDELO_APP_URL';
+update ordelo_config set config_value = 'https://elas-agg-test.ordelo.app' 
+where config_key = 'WREN_APP_URL';
  
 update ordelo_config set config_value = 'https://elas-agg.ordelo.app' 
 where config_key = 'ELAS_APP_URL';
@@ -56,16 +58,22 @@ SET config_value = '5'
 WHERE config_key = 'ELAS_DELIVERY_TIMEOUT_TIME';
 
 UPDATE ordelo_config 
-SET config_value = '3'
+SET config_value = '30'
 WHERE config_key = 'ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME';
 
+delete from ordelo_config where config_key = 'ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME';
 
+select * from ordelo_config where config_key = 'ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME';
+
+SELECT (EXTRACT(EPOCH FROM (NOW() - date(now()-interval '3 seconds'))) / 60) > COALESCE(
+          (SELECT config_value::numeric FROM ordelo_config 
+           WHERE config_key = 'ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1), (SELECT config_value::numeric FROM ordelo_config WHERE config_key = 'RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1), 5);
 
 -- Debugging option
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME', '1', 'Timeout in minutes for delivery_summary status transition to timedout')
+VALUES ('ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME', '.5', 'Timeout in minutes for delivery_summary status transition to timedout')
 ON CONFLICT (config_key) 
-DO UPDATE SET config_value = '1';
+DO UPDATE SET config_value = '.5';
 
 
 
@@ -87,7 +95,7 @@ SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
 
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ORDELO_APP_URL', 'https://agent.ordelo.app', 'URL for ordelo app') ON CONFLICT (config_key) DO
+VALUES ('ORDELO_AGG_APP_URL', 'https://restaurant.ordelo.app', 'URL for ordelo restaurant dashboard') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
