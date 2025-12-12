@@ -442,10 +442,10 @@ async def get_config_for_recipient(recipient: str, pool) -> Dict[str, Any]:
         A dictionary containing configuration information, including the thread ID and recipient.
     """
     thread_handler = ThreadHandler(pool)
-    thread_id, _ = await thread_handler.get_or_create_thread(recipient)
+    thread_id, is_new_thread = await thread_handler.get_or_create_thread(recipient)
 
     config = {"configurable": {"thread_id": thread_id}}
-    return config
+    return config, is_new_thread
 
 
 # %% retain thread
@@ -502,7 +502,7 @@ async def get_last_msg_ts(builder, recipient=None, thread_id=None):
     graph = builder.compile(checkpointer=checkpointer)
 
     if recipient is not None:
-        config = await get_config_for_recipient(recipient, pool)
+        config, is_new_thread = await get_config_for_recipient(recipient, pool)
     elif thread_id is not None:
         config = {"configurable": {"thread_id": thread_id}}
     else:

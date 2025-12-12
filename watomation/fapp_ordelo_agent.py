@@ -43,6 +43,7 @@ from watomation.routers import (
     twilio_webhook,
     order_hooks,
     payment_hooks,
+    thread_hooks,
 )
 
 from watomation.on_message_wa_handler import (
@@ -52,6 +53,13 @@ from watomation.on_message_wa_handler import (
     test_flow,
     clear_dispatch,
     send_live_map_location,
+    send_closed_message,
+    OUT_OF_HOURS_FILTER,
+    WHEN_RESET,
+    TEST_DELIVERY,
+    CLEAR_DISPATCH,
+    LIVE_LOCATION,
+    TEST_FLOW,
 )
 from watomation.on_callback_wa_handler import (
     dispatch_response,
@@ -60,6 +68,11 @@ from watomation.on_callback_wa_handler import (
     admin_collection_ready,
     restaurant_order_accept_decline_handler,
     handle_pickup_time_selection,
+    IS_DISPATCH_RESPONSE,
+    IS_LOCATION_REQUEST,
+    IS_SHIFT_AVAILABILITY,
+    IS_RESTAURANT_ORDER_ACCEPT_DECLINE,
+    IS_PICKUP_TIME,
 )
 from watomation.on_flow_request_wa_handler import (
     on_customer_address_flow,
@@ -102,6 +115,7 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
 # %% Add routers
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
 app.include_router(location_hooks.router, prefix="/location-hooks")
+app.include_router(thread_hooks.router, prefix="/thread-hooks")
 app.include_router(twilio_webhook.router, prefix="/twilio-webhook")
 app.include_router(order_hooks.router, prefix="/order-hooks")
 app.include_router(payment_hooks.router, prefix="/payment-hooks")
@@ -116,30 +130,15 @@ wa: WhatsApp = WhatsApp(
     continue_handling=False,
     business_private_key=waba_business_settings.private_key,
     business_private_key_password=waba_business_settings.private_key_password,
+    # handlers_modules=[on_message_wa_handler, on_flow_request_wa_handler]
 )
 
-
-TEST_DELIVERY = filters.contains("/test", ignore_case=True)
-CLEAR_DISPATCH = filters.contains("/cleardis", ignore_case=True)
-LIVE_LOCATION = filters.contains("/live", ignore_case=True)
-TEST_FLOW = filters.contains("/flow", ignore_case=True)
 SHIFT_UPDATE = filters.contains("/shift", ignore_case=True)
-
-WHEN_RESET = filters.contains("/reset", ignore_case=True)
-IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
-IS_LOCATION_REQUEST = filters.contains("/riderLocationRequest", ignore_case=False)
-IS_SHIFT_AVAILABILITY = filters.contains("/shiftAvailability", ignore_case=False)
-IS_RESTAURANT_CONFIRMATION = filters.contains(
-    "/restaurantConfirmation", ignore_case=False
-)
-IS_RESTAURANT_ORDER_ACCEPT_DECLINE = filters.contains(
-    "/RestaurantOrder", ignore_case=False
-)
-IS_PICKUP_TIME = filters.contains("/PickupTime", ignore_case=False)
 
 
 # %% Add WA On Msg handlers
 wa.add_handlers(
+    # handlers.MessageHandler(callback=send_closed_message, filters=OUT_OF_HOURS_FILTER),
     handlers.MessageHandler(callback=reset_thread, filters=WHEN_RESET),
     handlers.MessageHandler(callback=test_delivery, filters=TEST_DELIVERY),
     handlers.MessageHandler(callback=clear_dispatch, filters=CLEAR_DISPATCH),
@@ -264,6 +263,25 @@ async def get_restaurant_details(rest_ref: str):
         "base_url": base_url,
         "webhook_urls": webhook_urls,
         "admins": get_restaurant_admins(rest_ref=rest_ref),
+    }
+
+
+# %% Reset base URL cache (diagnostic)
+@app.post("/restaurant-base-url-cache/reset")
+async def reset_restaurant_base_url_cache_endpoint(
+    rest_ref: Optional[str] = None,
+):
+    """Reset the in-memory restaurant base URL cache.
+
+    If rest_ref is provided, clears only that restaurant's cached base URL.
+    If not, clears the entire cache.
+    """
+    from config.params import reset_restaurant_base_url_cache
+
+    removed_entries = reset_restaurant_base_url_cache(rest_ref)
+    return {
+        "scope": rest_ref.upper() if rest_ref else "ALL",
+        "removed_entries": removed_entries,
     }
 
 

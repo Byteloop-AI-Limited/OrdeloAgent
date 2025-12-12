@@ -39,6 +39,14 @@ CREATE TABLE IF NOT EXISTS rider_location_event (
     dtts TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TRIGGER trigger_rider_location_event_update
+    AFTER INSERT ON rider_location_event
+    FOR EACH ROW
+    EXECUTE PROCEDURE rider_location_event_update();
+
+-- cleanup
+-- drop trigger if exists trigger_rider_location_event_update on rider_location_event;
+-- drop function if exists rider_location_event_update();
 
 -- # Create a trigger on an update to table rider_location_event
 CREATE OR REPLACE FUNCTION public.rider_location_event_update()
@@ -78,12 +86,3 @@ BEGIN
 END;
 $$;
 
-
-CREATE TRIGGER trigger_rider_location_event_update
-    AFTER INSERT ON rider_location_event
-    FOR EACH ROW
-    EXECUTE PROCEDURE rider_location_event_update();
-
--- cleanup
-drop trigger if exists trigger_rider_location_event_update on rider_location_event;
-drop function if exists rider_location_event_update();

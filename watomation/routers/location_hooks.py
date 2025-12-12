@@ -18,7 +18,7 @@ Location hooks router for OrdeloAgent FastAPI service.
 """
 
 # %%
-from fastapi import APIRouter, Request, Depends, Path, HTTPException
+from fastapi import APIRouter, Request, Depends, Path, HTTPException, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from loguru import logger
 import psycopg
@@ -33,11 +33,10 @@ from config import (
 )
 import re
 import httpx
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pywa.types import ButtonUrl
 from ordelo.agent_app_handlers import get_live_map_location_url
-from utils_common.db_utils.sbase_pool_ops import insert_model_to_db
-from ordelo.agents.agent_runner import run_rider_graph
+from config.params import get_restaurant_admins
 
 
 # %% Define Dependancies and routes
@@ -53,9 +52,6 @@ def generate_config_href(config: dict) -> str:
     config_json = json.dumps(config)
     config_base64 = base64.b64encode(config_json.encode()).decode()
     return f"owntracks:///config?inline={config_base64}"
-
-
-# %% Define functions
 
 
 # %% process location event
@@ -253,7 +249,9 @@ async def live_location_map(
         500: {"description": "Error processing location event"},
     },
 )
-async def notify_rider_location_event(request: Request):
+async def notify_rider_location_event(
+    request: Request, background_tasks: BackgroundTasks
+):
     """
     Post requests are made via db webhooks based on the updates made in `process_location_transition`
     """
@@ -272,19 +270,19 @@ async def notify_rider_location_event(request: Request):
         .data[0]
     )
 
-    if event == "enter" and location == "rest":
+    if location == "rest" and event == "enter":
         # Call restaurant webhook for restaurant enter event
-        rest_ref = order_number.split("-")[0]
-        webhook_url = await get_restaurant_webhook_url_async(
-            rest_ref, "rider-rest-enter"
-        )
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{webhook_url}/{order_number}",
-                json={"delivery_summary": delivery_summary},
+        rest_ref = delivery_summary.get("rest_ref")
+        cust_confirmation_code = delivery_summary.get("cust_confirmation_code")
+        rest_admins = get_restaurant_admins(rest_ref=rest_ref)
+
+        for admin_phone in rest_admins:
+            await _async_wa_client.send_message(
+                to=admin_phone,
+                text=f"Rider is nearby for order {delivery_summary['order_number']}, please have the food ready. 2 Digit Code: *{cust_confirmation_code}*",
             )
-        logger.debug(f"Post Rider Rest Enter: {order_number}")
-    elif event == "enter" and location == "cust":
+
+    elif location == "cust" and event == "enter":
         # Call restaurant webhook for customer enter event
         rest_ref = order_number.split("-")[0]
         webhook_url = await get_restaurant_webhook_url_async(

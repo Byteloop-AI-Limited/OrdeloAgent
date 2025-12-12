@@ -87,6 +87,33 @@ async def get_restaurant_base_url_async(rest_ref: str) -> str:
     return base_url
 
 
+# %% reset_restaurant_base_url_cache
+def reset_restaurant_base_url_cache(rest_ref: str | None = None) -> int:
+    """Reset the in-memory base URL cache used by get_restaurant_base_url_async.
+
+    Args:
+        rest_ref: Optional restaurant reference. If provided, clears only that
+            entry (case-insensitive). If None, clears the entire cache.
+
+    Returns:
+        Number of cache entries removed.
+    """
+    if rest_ref is None:
+        removed = len(_BASE_URL_CACHE)
+        _BASE_URL_CACHE.clear()
+        logger.debug(f"Cleared base URL cache ({removed} entries)")
+        return removed
+
+    cache_key = rest_ref.upper()
+    existed = cache_key in _BASE_URL_CACHE
+    _BASE_URL_CACHE.pop(cache_key, None)
+    if existed:
+        logger.debug(f"Cleared base URL cache for {cache_key}")
+        return 1
+    logger.debug(f"No base URL cache entry for {cache_key} to clear")
+    return 0
+
+
 # %% get_restaurant_webhook_url_async
 async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> str:
     """
