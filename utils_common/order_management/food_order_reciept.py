@@ -163,7 +163,7 @@ def build_wa_order_reciept_for_rest(
             for item in order_items
         ]
 
-    header = f"Order #{order.order_number} (Kitchen)"
+    header = f"Order #{order.order_id} (Kitchen)"
 
     # Items
     item_lines: List[str] = []
