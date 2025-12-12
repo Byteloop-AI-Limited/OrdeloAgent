@@ -31,8 +31,7 @@ This document maps the codebase structure and explains how agents, webhooks, mes
     - `verify_restaurant_confirmation_code` — confirms pickup and marks `delivery_dispatch.status='pickedup'`.
     - `verify_customer_confirmation_code` — completes delivery and calls `dispatch_complete_func`.
     - `cancel_delivery_before_pickup` — rolls back an assigned dispatch pre‑pickup and reopens dispatching.
-    - `capture_reason_for_cancel_before_pickup` — stores cancel reason on the dispatch row and sends stop‑tracking link.
-    - `send_end_live_tracking_link` — alias of `end_delivery` (stop‑tracking URL).
+    - `terminate_delivery_job` — closes the delivery job/thread and sends stop‑tracking link.
     - Graph control nodes: `agent_node`, `respond_node`, `ToolNode`.
   - Runner helpers: `ordelo/agents/agent_runner.py` —
     - Invoke graph per message: `:71` (`run_rider_graph`)
