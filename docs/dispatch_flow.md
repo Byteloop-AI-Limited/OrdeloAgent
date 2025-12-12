@@ -182,7 +182,7 @@ Still inside `delivery_inflight_whook()` (`ordelo_datamodels/inflight.sql`):
 
 `delivery_dispatch.status` follows:
 
-`unassigned` → (`accepted` | `declined` | `timedout`) → `assigned` → `completed`
+`unassigned` → (`accepted` | `declined` | `timedout`) → `assigned` → `pickedup` → `completed`
 
 Additional terminal side‑path:
 
@@ -197,6 +197,30 @@ Additional terminal side‑path:
 ## Notes / Race Conditions
 
 - Multiple riders can accept; **only the first accepted dispatch is assigned**. Others are transitioned to `missed` after inflight insert.
+- If the assigned rider cancels before pickup, the system reverts to `unassigned` and re‑dispatches.
+- **Current behavior (no re‑offers):** `get_available_riders()` excludes any rider who already has a `delivery_dispatch` row for the order, regardless of status. This prevents repeated offers on every cron tick while a `delivery_detail` remains `unassigned`.
 - Acceptance is ignored if the order has already moved to `completed`/`timedout` (rider gets a “no longer available” message).
 - The dispatch webhook is **statement‑level**, so a batch insert results in a single API call.
 
+---
+
+## Re‑Offer Approach (Not Enabled)
+
+Re‑offering the same order to riders is useful after pre‑pickup cancellation or long timeouts, but **must be explicit** to avoid infinite re‑dispatching.
+
+The naive change (exclude only `status='declined'` riders) makes *all* previous offers eligible again. Since `job_create_dispatch()` runs every ~5s and `delivery_detail.status` stays `unassigned` until assignment, that would recreate dispatch rows and send WhatsApp offers on every tick.
+
+If we want re‑offers in the future, use one of these safe patterns:
+
+1. **Explicit redispatch window**
+   - Keep current exclusion by default.
+   - On a resume event (e.g., `dispatch_cancel_before_pickup`), **clear or expire** old dispatch rows for that order (except explicit `declined`), then set `delivery_summary.status='unassigned'`.
+   - Next cron tick creates a *fresh* batch once, not repeatedly.
+
+2. **Dispatch attempt state**
+   - Add a `delivery_detail.status='dispatched'` (or a `last_dispatch_dtts` + attempt counter).
+   - `job_create_dispatch()` moves details from `unassigned` → `dispatched` after inserting a batch.
+   - A separate timeout/resume job moves `dispatched` → `unassigned` when it’s time to re‑offer.
+   - `get_available_riders()` can then exclude only `declined` riders *within that attempt*.
+
+Either approach allows re‑offers while keeping dispatch creation bounded and predictable.
