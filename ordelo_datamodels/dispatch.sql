@@ -86,12 +86,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Statement-level trigger on batch insert
-
-CREATE TRIGGER trigger_delivery_dispatch_whook AFTER
-INSERT ON public.delivery_dispatch REFERENCING NEW TABLE AS new_rows
-FOR EACH STATEMENT EXECUTE FUNCTION public.delivery_dispatch_whook_statement();
-
+drop table delivery_dispatch; -- Dont forget to recreate the trigger
 -- Table definition
 CREATE TABLE delivery_dispatch (
     dispatch_id SERIAL PRIMARY KEY,
@@ -108,10 +103,18 @@ CREATE TABLE delivery_dispatch (
             'accepted',
             'missed',
             'assigned',
+            'pickedup',
             'completed'
         )
     ),
-    status_update_dtts TIMESTAMP,
-    dt DATE NOT NULL DEFAULT CURRENT_DATE,
-    dtts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+	    status_update_dtts TIMESTAMP,
+	    reason_for_decline TEXT,
+	    dt DATE NOT NULL DEFAULT CURRENT_DATE,
+	    dtts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+-- Statement-level trigger on batch insert
+
+CREATE TRIGGER trigger_delivery_dispatch_whook AFTER
+INSERT ON public.delivery_dispatch REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION public.delivery_dispatch_whook_statement();
