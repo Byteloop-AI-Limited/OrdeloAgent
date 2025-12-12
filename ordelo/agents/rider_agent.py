@@ -33,11 +33,10 @@ LangGraph agent implementation for rider delivery workflow
 from datetime import datetime, timezone
 from uuid import uuid4
 from config import project_settings, pg_settings
-from dataclasses import dataclass
 from typing import Annotated
-from langchain_core.runnables.config import RunnableConfig
-from langgraph.runtime import Runtime, get_runtime
+from langgraph.runtime import Runtime
 from langchain_core.tools import tool
+from langchain.tools import ToolRuntime
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, InjectedState
@@ -47,10 +46,7 @@ from config import _async_wa_client, llm_settings
 from config.params import get_restaurant_admins
 from pywa.types import ButtonUrl
 
-from utils_common.lg_utils import (
-    create_agent_w_sys_prompt_n_tools,
-    get_recipient_from_config,
-)
+from utils_common.lg_utils import create_agent_w_sys_prompt_n_tools
 
 # from elai.agents.respond_agent import respond_node
 from config import logger
@@ -125,6 +121,7 @@ async def notify_food_ready_for_pickup(
     restaurant_name: str,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
 ) -> dict:
     """
     Notifies the rider via WhatsApp that food is ready for pickup at the restaurant.
@@ -138,7 +135,7 @@ async def notify_food_ready_for_pickup(
     Returns:
         dict: Command containing ToolMessage and AIMessage updates for the agent's state.
     """
-    ctx = get_runtime(ContextSchema).context
+    ctx = runtime.context
     recipient = ctx.recipient
 
     reply_to_msg_id = state.get("reply_to_msg_id", None)
@@ -168,12 +165,13 @@ async def notify_food_ready_for_pickup(
 async def send_pickup_location(
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
 ) -> dict:
     """
     Sends the pickup (restaurant) location to the rider via WhatsApp.
     Returns a Command with ToolMessage and AIMessage.
     """
-    ctx = get_runtime(ContextSchema).context
+    ctx = runtime.context
     recipient = ctx.recipient
     client = ctx.client_ordelo
 
@@ -223,12 +221,13 @@ async def send_pickup_location(
 async def send_dropoff_location(
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
 ) -> dict:
     """
     Sends the dropoff (customer) location to the rider via WhatsApp.
     Returns a Command with ToolMessage and AIMessage.
     """
-    ctx = get_runtime(ContextSchema).context
+    ctx = runtime.context
     recipient = ctx.recipient
 
     order_number = state.get("order_number", None)
@@ -296,6 +295,7 @@ async def send_dropoff_location(
 async def send_delivery_instructions(
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
 ) -> dict:
     """
     This tool provides the delivery instructions to the rider.
@@ -306,7 +306,7 @@ async def send_delivery_instructions(
     Returns:
         dict: Agent to respond as instructed by the tool message.
     """
-    ctx = get_runtime(ContextSchema).context
+    ctx = runtime.context
     recipient = ctx.recipient
     client_ordelo = ctx.client_ordelo
 
@@ -345,6 +345,7 @@ async def send_delivery_instructions(
 async def send_start_live_tracking_link(
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
 ) -> dict:
     """
     Sends a URL for initiating live tracking on the rider's device.
@@ -356,7 +357,7 @@ async def send_start_live_tracking_link(
     Returns:
         dict: Agent to respond as instructed by the tool message.
     """
-    ctx = get_runtime(ContextSchema).context
+    ctx = runtime.context
     recipient = ctx.recipient
     wa_client = ctx.wa_client
 
@@ -392,6 +393,7 @@ async def verify_restaurant_confirmation_code(
     restaurant_confirmation_code: int,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
 ) -> dict:
     """
     This tool is called `Every time` the rider provides a restaurant confirmation code.
@@ -405,7 +407,7 @@ async def verify_restaurant_confirmation_code(
             - delivery_status: Updated status of the delivery
             - timestamp: UTC timestamp of verification attempt
     """
-    ctx = get_runtime(ContextSchema).context
+    ctx = runtime.context
     client_ordelo = ctx.client_ordelo
     # Extract dispatch_id
     dispatch_id = state.get("dispatch_id", None)
@@ -505,6 +507,7 @@ async def verify_restaurant_confirmation_code(
 async def cancel_delivery_before_pickup(
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
 ) -> dict:
     """
     Cancels an assigned delivery before pickup and reopens dispatching.
@@ -517,7 +520,7 @@ async def cancel_delivery_before_pickup(
         - Calls dispatch_cancel_before_pickup(p_dispatch_id) RPC to reopen dispatching.
         - Prompts the rider for a cancellation reason.
     """
-    ctx = get_runtime(ContextSchema).context
+    ctx = runtime.context
     recipient = ctx.recipient
 
     dispatch_id = state.get("dispatch_id")
@@ -585,6 +588,7 @@ async def capture_reason_for_cancel_before_pickup(
     reason_for_decline: str,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
 ) -> dict:
     """
     Captures the rider's reason for cancelling before pickup.
@@ -597,7 +601,7 @@ async def capture_reason_for_cancel_before_pickup(
         - Updates delivery_dispatch.reason_for_decline for the current dispatch.
         - Instructs the agent to call terminate_delivery_job.
     """
-    ctx = get_runtime(ContextSchema).context
+    ctx = runtime.context
     recipient = ctx.recipient
 
     dispatch_id = state.get("dispatch_id")
@@ -647,9 +651,9 @@ async def capture_reason_for_cancel_before_pickup(
 
 async def verify_customer_confirmation_code(
     customer_confirmation_code: int,
-    config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
 ) -> dict:
     """
     This tool is called `Every Single Time` the rider provides a customer confirmation code.
@@ -664,7 +668,7 @@ async def verify_customer_confirmation_code(
             - delivery_status: Updated status of the delivery
             - timestamp: UTC timestamp of verification attempt
     """
-    ctx = get_runtime(ContextSchema).context
+    ctx = runtime.context
     recipient = ctx.recipient
 
     # Extract dispatch_id
@@ -764,7 +768,9 @@ async def verify_customer_confirmation_code(
 
 
 async def end_delivery(
-    config: RunnableConfig, tool_call_id: Annotated[str, InjectedToolCallId]
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
 ) -> dict:
     """
     Ends the delivery by sending a URL that stops live tracking on the driver's device.
@@ -782,11 +788,11 @@ async def end_delivery(
         - expiry: UTC timestamp when the URL expires
         - cleanup_params: Dict of cleanup configuration parameters
     """
-    ctx = get_runtime(ContextSchema).context
+    ctx = runtime.context
     recipient = ctx.recipient
 
     stop_job_url = await create_stop_job_config()
-    reply_to_msg_id = config.get("reply_to_msg_id", None)
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
 
     # update delivery detail and dispatch to completed
 
@@ -812,9 +818,9 @@ async def end_delivery(
 
 
 async def terminate_delivery_job(
-    config: RunnableConfig,
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
     reason_for_decline: str | None = None,
 ) -> dict:
     """
@@ -823,7 +829,7 @@ async def terminate_delivery_job(
     If the agent is currently waiting for a cancel reason (pre-pickup),
     the provided `reason_for_decline` will be persisted before closing the job.
     """
-    ctx = get_runtime(ContextSchema).context
+    ctx = runtime.context
     recipient = ctx.recipient
 
     dispatch_id = state.get("dispatch_id")
@@ -887,6 +893,7 @@ _rider_agent_tools = [
     send_pickup_location,
     send_dropoff_location,
     cancel_delivery_before_pickup,
+    capture_reason_for_cancel_before_pickup,
     verify_restaurant_confirmation_code,
     verify_customer_confirmation_code,
     terminate_delivery_job,
@@ -909,7 +916,9 @@ rider_agent = create_agent_w_sys_prompt_n_tools(
 
 # %% rider_agent_node
 def agent_node(state: AgentState) -> Command[Literal["toolNode", "respondNode", END]]:
-    if state.get("awaiting_cancel_reason") and isinstance(state["messages"][-1], ToolMessage):
+    if state.get("awaiting_cancel_reason") and isinstance(
+        state["messages"][-1], ToolMessage
+    ):
         ai_msg = AIMessage(content=state["messages"][-1].content)
         return Command(update={"messages": [ai_msg]}, goto="respondNode")
 
@@ -922,7 +931,7 @@ def agent_node(state: AgentState) -> Command[Literal["toolNode", "respondNode", 
             tool_calls=[
                 {
                     "name": "terminate_delivery_job",
-                    "args": {"reason_for_decline": state['messages'][-1].content},
+                    "args": {"reason_for_decline": state["messages"][-1].content},
                     "id": tool_call_id,
                 }
             ],
