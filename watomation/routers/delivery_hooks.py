@@ -40,12 +40,11 @@ Delivery webhook handlers for Ordelo delivery system
 # %%
 import asyncio
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import List, Optional
 import pytz
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
 from pywa.types import Button
 from pywa_async import WhatsApp
@@ -60,11 +59,8 @@ from config import (
 )
 from ordelo.agent_app_handlers import enquire_shift_availability
 from ordelo.agents.agent_runner import init_ordelo_graph, run_rider_agent_w_custom_msg
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliverySummary
+from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder
-from utils_common.order_management.food_order_reciept import (
-    build_wa_order_reciept_for_rest,
-)
 from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.payment_ms.payment import get_payment_uri
 from utils_common.waba_utils.wa_templates.restaurant_confirmation_template import (

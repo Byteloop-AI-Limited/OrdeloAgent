@@ -1,5 +1,5 @@
 ## Immediate
-- [!!!] on rider decline, the process should reset - status should go back to unassigned, cleanup inflight, dispatch and detail tables; View how to do this by querying the database first.
+- [!!!] One restConfirmation, ackonwledge and then ask to start live tracking
 
 - [!!!] Postcode is just sp1 for sp11pb; Check if lat and lon are correct however. Would the rider get the correct address when asked for in the agent?
 - admin_order_receipt (graph_init_hook) can make use of live location as a ButtonURL Not possible to mix interactive with buttonURL
