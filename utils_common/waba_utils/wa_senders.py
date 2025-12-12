@@ -27,8 +27,6 @@ WhatsApp messaging utilities for order management and address confirmation flows
 # %%
 from config import (
     _async_wa_client,
-    project_settings,
-    waba_business_settings,
     waba_cat_settings,
 )
 from config.params import get_restaurant_admins, get_restaurant_base_url_async
@@ -49,7 +47,6 @@ import pytz
 import asyncio
 from utils_common.order_management.delivery_pymodels import (
     DeliverySummary,
-    DeliveryDetail,
 )
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.food_order_reciept import (
