@@ -6,6 +6,8 @@ Agent app handlers for Ordelo delivery agent workflows and WhatsApp integration.
     . Provides live map location URLs and tracking enablement checks
     . Posts webhook events for customer and restaurant confirmation codes
     . Sends delivery instructions via WhatsApp with pickup/drop-off details
+    . Detects assigned-dispatch declines as pre‑pickup cancellations and resumes dispatching
+    . Invokes rider graph to run cancel_delivery_before_pickup tool when needed
     . Includes debugging utilities for state inspection and thread analysis
     . Integrates with PostgreSQL for delivery detail and dispatch management
     . Supports both template-based and non-template WhatsApp message sending for shift availability
@@ -224,8 +226,38 @@ async def initial_handle_of_rider_response(
 
     # handle declined so the rest does not have tobe in an else block
     if callback_data["status"] == "declined":
-        client.table("delivery_dispatch").update({"status": "declined"}).eq(
-            "dispatch_id", callback_data["dispatch_id"]
+        dispatch_id = callback_data["dispatch_id"]
+        rider_id = callback_data.get("rider_id")
+        order_number = callback_data.get("order_number")
+
+        # If this decline targets an already assigned dispatch, treat as cancel-before-pickup.
+        assigned_touch = (
+            client.table("delivery_dispatch")
+            .update({"status_update_dtts": datetime.now().isoformat()})
+            .eq("dispatch_id", dispatch_id)
+            .eq("status", "assigned")
+            .execute()
+        )
+
+        if assigned_touch.data:
+            logger.info(
+                f"Assigned dispatch {dispatch_id} declined by rider {rider_id}; triggering cancel flow"
+            )
+            # Local import to avoid circular dependency (agent_runner imports this module)
+            from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
+
+            await run_rider_agent_w_custom_msg(
+                recipient=rider_id,
+                system_msg="call `tool cancel_delivery_before_pickup`",
+                human_msg=f"I need to cancel order {order_number} before pickup.",
+            )
+            return
+
+        # Normal decline of an unassigned/accepted offer
+        client.table("delivery_dispatch").update(
+            {"status": "declined", "status_update_dtts": datetime.now().isoformat()}
+        ).eq("dispatch_id", dispatch_id).in_(
+            "status", ["unassigned", "accepted"]
         ).execute()
         return
 

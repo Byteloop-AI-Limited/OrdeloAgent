@@ -6,6 +6,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . Handles cases where jobs are no longer available
     . Provides feedback to riders about dispatch status
     . Checks for existing inflight deliveries to prevent conflicts
+    . Allows assigned rider to decline the same inflight job pre‑pickup, forwarding to cancel flow
     . Serves as entry point into the LangGraph agent workflow
     . Processes restaurant confirmation of food preparation time
     . Uses asyncio.create_task for long-running RPC calls to avoid timeouts
@@ -82,17 +83,32 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
     if len(inflight_for_order.data) > 0:
         inflight_row = inflight_for_order.data[0]
         if inflight_row["rider_id"] == recipient:
-            # Same rider is already on this job
+            inflight_dispatch_id = inflight_row.get("dispatch_id")
+            callback_dispatch_id = callback_data.get("dispatch_id")
+            is_decline_for_same_dispatch = (
+                callback_data.get("status") == "declined"
+                and inflight_dispatch_id is not None
+                and callback_dispatch_id == inflight_dispatch_id
+            )
+
+            if not is_decline_for_same_dispatch:
+                # Same rider is already on this job; ignore stale accept/decline taps
+                logger.info(
+                    "Rider %s already inflight for order %s",
+                    recipient,
+                    order_number,
+                )
+                await wa.send_message(
+                    to=recipient,
+                    text=f"Sorry, You are already on a job {inflight_row['order_number']}",
+                )
+                return
+
+            # Assigned rider declining their own inflight dispatch:
+            # fall through to initial_handle_of_rider_response() to trigger cancel flow.
             logger.info(
-                "Rider %s already inflight for order %s",
-                recipient,
-                order_number,
+                f"Rider {recipient} declining inflight dispatch {inflight_dispatch_id} for order {order_number}; routing to cancel logic"
             )
-            await wa.send_message(
-                to=recipient,
-                text=f"Sorry, You are already on a job {inflight_row['order_number']}",
-            )
-            return
         else:
             # Another rider already picked this job
             logger.info(
