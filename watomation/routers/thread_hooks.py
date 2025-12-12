@@ -92,7 +92,7 @@ async def terminate_stale_active_threads(
             logger.info(f"Thread {thread['thread_id']} will be retained")
         else:
             background_tasks.add_task(
-                run_rider_agent,
+                run_rider_agent_w_custom_msg,
                 recipient=thread["recipient"],
                 config=config,
                 system_msg="Call tool `terminate_conversation` with reason - Ending the conversation due to inactivity.",
