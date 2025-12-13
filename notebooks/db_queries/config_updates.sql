@@ -4,7 +4,8 @@ from ordelo_config where config_key like '%_RESTAURANT_CONFIRMATION_TIMEOUT_TIME
 update ordelo_config set config_value = 'https://elas-agg-test.ordelo.app' where config_key = 'ELAS_APP_URL';
 update ordelo_config set config_value = 'https://rider-agent-test.ordelo.app' where config_key = 'ORDELO_APP_URL';
 update ordelo_config set config_value = 'https://elas-agg-test.ordelo.app' where config_key = 'WREN_APP_URL';
- 
+update ordelo_config set config_value = 'https://restaurant-test.ordelo.app' where config_key = 'RESTAURANT_MENU_APP_URL'; 
+
 update ordelo_config set config_value = 'https://elas-agg.ordelo.app' 
 where config_key = 'ELAS_APP_URL';
 update ordelo_config set config_value = 'https://rider-agent.ordelo.app'
@@ -12,7 +13,7 @@ where config_key = 'ORDELO_APP_URL';
 
 select * from ordelo_config where config_key like 'ELAS_MENU_URL';
 
-delete from ordelo_config where config_key='ELAS_MENU_URL';
+delete from ordelo_config where config_key='ELAS_MENU_APP_URL';
 
 update ordelo_config set config_value = 10
  where config_key = 'DISPATCH_BATCH_SIZE_ELECTRIC_BIKE';
@@ -34,7 +35,7 @@ where config_key = 'DISPATCH_BATCH_SIZE_BICYCLE';
 
 -- Debugging option
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ELAS_MENU_APP_URL', 'https://restaurant.ordelo.app', 'URL for Restaurant-frontend, Elai Salisbury menu')
+VALUES ('RESTAURANT_MENU_APP_URL', 'https://restaurant.ordelo.app', 'URL for Restaurant-frontend, Elai Salisbury menu')
 ON CONFLICT (config_key) 
 DO UPDATE SET config_value = 'https://restaurant.ordelo.app';
 
@@ -44,7 +45,7 @@ ON CONFLICT (config_key)
 DO UPDATE SET config_value = '5';
 
 
-select * from ordelo_config where config_key like '%TIME%';
+select * from ordelo_config where config_key like '%URL%';
 
 -- Debugging option
 INSERT INTO ordelo_config (config_key, config_value, description)
@@ -74,9 +75,9 @@ VALUES ('ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME', '.5', 'Timeout in minutes f
 ON CONFLICT (config_key) 
 DO UPDATE SET config_value = '.5';
 
+select * from rider_registrations;
 
-
-UPDATE ordelo_config 
+UPDATE ordelo_config
 SET config_value = 'false'
 WHERE config_key = 'ENABLE_TRIGGER_DEBUG_LOG';
 
@@ -94,7 +95,7 @@ SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
 
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ORDELO_AGG_APP_URL', 'https://restaurant.ordelo.app', 'URL for ordelo restaurant dashboard') ON CONFLICT (config_key) DO
+VALUES ('ORDELO_MENU_APP_URL', 'https://restaurant.ordelo.app', 'URL for ordelo restaurant dashboard') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
