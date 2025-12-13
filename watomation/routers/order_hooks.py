@@ -212,7 +212,7 @@ class CreateOrderRequest(BaseModel):
     summary="Create a new order with payment capture",
     description="""
     Creates a new food order with the provided order items and initiates payment capture.
-    Returns the payment URL for the customer to complete the payment.
+    Returns the payment intent URL for the customer to complete the payment.
     {
     "recipient": "447448440754",
     "thread_id": "1239876lkjsd",
