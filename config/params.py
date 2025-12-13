@@ -29,6 +29,7 @@ WEBHOOK_PATHS = {
     "order-payment-complete": "order-event-hooks/payment-complete/",
     "order-address-update": "order-event-hooks/address-update",
     "terminate-stale-active-threads": "thread-hooks/terminate-stale-active-threads",
+    "get-active-thread": "thread-hooks/get-active-thread",
 }
 
 
