@@ -22,25 +22,26 @@ Functions/Classes:
 
 from typing import List, Optional
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from config import logger, client_ordelo, get_restaurant_webhook_url_async
-import httpx
+
+from config import client_ordelo, get_restaurant_webhook_url_async, logger
 from ordelo_datamodels.customer_master_pymodel import CustomerMaster
+from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
+from utils_common.maps_service.address_resolver import address_resolver
+from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.order_management.order_service import (
-    get_min_order_value as fetch_min_order_value,
     create_order_with_items,
 )
-from utils_common.maps_service.address_resolver import address_resolver
-from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
-from utils_common.payment_ms.payment import (
-    generate_payment_intent_url,
-    generate_automatic_payment_url,
-    cancel_payment,
+from utils_common.order_management.order_service import (
+    get_min_order_value as fetch_min_order_value,
 )
-
-from utils_common.order_management.food_order_pymodel import FoodOrder
+from utils_common.payment_ms.payment import (
+    generate_automatic_payment_url,
+    generate_payment_intent_url,
+)
 
 router = APIRouter(tags=["order-hooks"])
 
