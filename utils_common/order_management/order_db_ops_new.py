@@ -25,7 +25,7 @@ from pydantic import BaseModel
 from pywa.types import Order, Product
 
 # Local imports
-from config import client, project_settings, logger
+from config import client_ordelo, project_settings, logger
 
 # from config.params import REST_MASTER
 from utils_common.params import filter_dict
@@ -115,7 +115,7 @@ async def insert_order_items(order_id: str, wa_order: Order):
     )
 
     response = (
-        client.table("order_item")
+        client_ordelo.table("order_item")
         .insert([x.model_dump() for x in order_items])
         .execute()
     )
@@ -127,7 +127,9 @@ async def insert_wa_order(recipient: str, thread_id: str, wa_order: Order):
     order_dt: str = datetime.now().strftime("%Y-%m-%d")
     # Build the insert payload
     # get next sequence number
-    seq_number = client.rpc("get_next_daily_seq", {"input_date": order_dt}).execute()
+    seq_number = client_ordelo.rpc(
+        "get_next_daily_seq", {"input_date": order_dt}
+    ).execute()
     # create order reference for given recipient and date
     order_reference = create_order_reference(recipient, order_dt)
     order_id = f"{order_reference}-{seq_number.data}"
@@ -147,7 +149,7 @@ async def insert_wa_order(recipient: str, thread_id: str, wa_order: Order):
     # Insert into FoodOrder
     try:
         food_order_response = (
-            client.table("food_order").insert(insert_payload).execute()
+            client_ordelo.table("food_order").insert(insert_payload).execute()
         )
         if not food_order_response.data:
             # Handle case where insert might appear successful but returns no data
@@ -172,7 +174,7 @@ async def insert_wa_order(recipient: str, thread_id: str, wa_order: Order):
             wa_order, order_id
         )
         order_items_response = (
-            client.table("order_item")
+            client_ordelo.table("order_item")
             .insert([x.model_dump() for x in order_items])
             .execute()
         )
@@ -183,7 +185,9 @@ async def insert_wa_order(recipient: str, thread_id: str, wa_order: Order):
             )
             # Attempt to delete the potentially orphaned food_order
             try:
-                client.table("food_order").delete().eq("order_id", order_id).execute()
+                client_ordelo.table("food_order").delete().eq(
+                    "order_id", order_id
+                ).execute()
                 logger.error(
                     f"Rollback attempted: Deleted food_order {order_id} due to order_item insert issue (no data)."
                 )
@@ -203,7 +207,9 @@ async def insert_wa_order(recipient: str, thread_id: str, wa_order: Order):
         )
         # Attempt to delete the potentially orphaned food_order
         try:
-            client.table("food_order").delete().eq("order_id", order_id).execute()
+            client_ordelo.table("food_order").delete().eq(
+                "order_id", order_id
+            ).execute()
             logger.error(
                 f"Rollback attempted: Deleted food_order {order_id} due to order_item insert failure."
             )
@@ -226,7 +232,7 @@ async def insert_wa_order(recipient: str, thread_id: str, wa_order: Order):
 
 async def create_order_summary(order_id: str) -> Dict:
     response = (
-        client.table("order_item")
+        client_ordelo.table("order_item")
         .select("""
             product_name, 
             quantity, 
