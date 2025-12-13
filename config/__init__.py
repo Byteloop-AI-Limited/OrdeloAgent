@@ -14,7 +14,7 @@ __all__ = [
     "pg_settings",
     "logger",
     "client_ordelo",
-    "client",
+    "client_ordelo",
     "get_restaurant_webhook_url_async",
     "llm_settings",
 ]
@@ -33,6 +33,6 @@ from .logger_setting import logger
 from .microservices_setting import ms_settings
 from .google_setting import g_client, google_settings
 from .cat_con_setting import cat_conn
-from .pg_setting import pg_settings, client_ordelo, client_ordelo as client
+from .pg_setting import pg_settings, client_ordelo, client_ordelo as client_ordelo
 from .params import get_restaurant_webhook_url_async
 from .llm_setting import llm_settings

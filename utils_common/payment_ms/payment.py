@@ -17,7 +17,7 @@ Payment microservice utilities for Stripe integration
 
 # %%
 import httpx
-from config import ms_settings, logger, client
+from config import ms_settings, logger, client_ordelo
 from utils_common.order_management.food_order_pymodel import FoodOrder
 
 stripe_url = ms_settings.stripe_url
@@ -165,7 +165,7 @@ async def capture_payment(order_id: str, thread_id: str):
 
 async def generate_order_summary_for_payment_intent(food_order: FoodOrder):
     order_items = (
-        client.table("order_item")
+        client_ordelo.table("order_item")
         .select("""
             product_name, 
             quantity, 

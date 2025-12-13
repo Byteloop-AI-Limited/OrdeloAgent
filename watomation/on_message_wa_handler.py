@@ -38,7 +38,7 @@ from config import (
     llm_settings,
     logger,
     pg_settings,
-    client,
+    client_ordelo,
 )
 from ordelo.agent_app_handlers import (
     enquire_shift_availability_non_template,
@@ -160,7 +160,7 @@ async def init_delivery_summary(order_number: str, recipient: str):
     try:
         # Run the blocking RPC call in a thread pool to avoid blocking the event loop
         response = await asyncio.to_thread(
-            lambda: client.rpc(
+            lambda: client_ordelo.rpc(
                 "init_delivery",
                 {"p_cust_id": recipient, "p_order_number": order_number},
             ).execute()
@@ -189,7 +189,9 @@ async def test_delivery(wa: WhatsApp, msg: Message):
 
     # DB operations
     # Cleanup - update dispatch complete
-    client.rpc("cleanup_delivery_order", {"p_order_number": order_number}).execute()
+    client_ordelo.rpc(
+        "cleanup_delivery_order", {"p_order_number": order_number}
+    ).execute()
 
     # Now init the delivery so the process follows - run as background task to avoid timeout
     logger.info(f"Initializing delivery for user {recipient} with order {order_number}")
@@ -243,7 +245,7 @@ async def test_delivery(wa: WhatsApp, msg: Message):
 
     # Now init the delivery so the process follows
     logger.info(f"Initializing delivery for user {recipient} with order {order_number}")
-    client.rpc(
+    client_ordelo.rpc(
         "init_delivery", {"p_cust_id": recipient, "p_order_number": order_number}
     ).execute()
 
