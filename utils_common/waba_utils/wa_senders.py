@@ -31,6 +31,9 @@ from config import (
 )
 from config.params import get_restaurant_admins, get_restaurant_base_url_async
 from pywa.types import FlowButton, Button, Template as Temp, ProductsSection
+from pywa.types import Message, Template as Temp, ButtonUrl, Button
+from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText
+
 from pywa.types.flows import FlowActionType
 from pydantic import BaseModel
 import uuid
@@ -449,3 +452,66 @@ async def send_product_sections(
         body=body,
         product_sections=product_sections[:30],
     )
+
+
+# %% Enquire shift availability (non-template version)
+async def enquire_shift_availability_non_template(wa: WhatsApp, msg: Message):
+    recipient = msg.sender
+    shift_available_cb_data = CallbackButtonData(
+        action="/shiftAvailability",
+        recipient=recipient,
+        human_msg="Yes",
+    )
+    shift_not_available_cb_data = CallbackButtonData(
+        action="/shiftAvailability",
+        recipient=recipient,
+        human_msg="No",
+    )
+    msg_id = await _async_wa_client.send_message(
+        to=recipient,
+        header="🌟 Shift Availability 🌟",
+        text="Are you available for deliveries today?",
+        reply_to_message_id=None,
+        buttons=[
+            Button(
+                title="Yes", callback_data=shift_available_cb_data.model_dump_json()
+            ),
+            Button(
+                title="No",
+                callback_data=shift_not_available_cb_data.model_dump_json(),
+            ),
+        ],
+    )
+    return msg_id
+
+
+# %% Enquire shift availability (template version)
+async def enquire_shift_availability(wa: WhatsApp, recipient: str, name: str):
+    shift_available_cb_data = CallbackButtonData(
+        action="/shiftAvailability",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="Yes",
+    )
+    shift_not_available_cb_data = CallbackButtonData(
+        action="/shiftAvailability",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="No",
+    )
+    msg_id = await wa.send_template(
+        to=recipient,
+        name="shift_availability",
+        language=TemplateLanguage.ENGLISH_UK,
+        params=[
+            BodyText.params(text=name),
+            QuickReplyButton.params(
+                callback_data=shift_available_cb_data.model_dump_json(), index=0
+            ),
+            QuickReplyButton.params(
+                callback_data=shift_not_available_cb_data.model_dump_json(), index=1
+            ),
+        ],
+    )
+
+    return msg_id

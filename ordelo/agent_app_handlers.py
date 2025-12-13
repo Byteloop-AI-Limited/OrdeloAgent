@@ -38,6 +38,7 @@ from psycopg_pool import ConnectionPool
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from pywa_async import WhatsApp
 from pywa.types import Message, Template as Temp, ButtonUrl, Button
+from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText
 from config import (
     pg_settings,
     _async_wa_client,
@@ -57,6 +58,7 @@ from utils_common.lg_utils import (
 import pytz
 from supabase._sync.client import SyncClient
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
+from utils_common.waba_utils.wa_senders import CallbackButtonData
 
 client = pg_settings.client
 
@@ -328,47 +330,7 @@ def is_live_location_enabled(order_number):
     return len(rows) > 0
 
 
-# %% Callback model
-class CallbackButtonData(BaseModel):
-    model_config = {"frozen": True}
-    action: str
-    recipient: str
-    ai_msg: str
-    human_msg: str
-    response: Optional[str] = None
-
-
 # %% Enquire shift availability (non-template version)
-async def enquire_shift_availability_non_template(wa: WhatsApp, msg: Message):
-    recipient = msg.sender
-    shift_available_cb_data = CallbackButtonData(
-        action="/shiftAvailability",
-        recipient=recipient,
-        ai_msg="",
-        human_msg="Yes",
-    )
-    shift_not_available_cb_data = CallbackButtonData(
-        action="/shiftAvailability",
-        recipient=recipient,
-        ai_msg="",
-        human_msg="No",
-    )
-    msg_id = await _async_wa_client.send_message(
-        to=recipient,
-        header="🌟 Shift Availability 🌟",
-        text="Are you available for deliveries today?",
-        reply_to_message_id=None,
-        buttons=[
-            Button(
-                title="Yes", callback_data=shift_available_cb_data.model_dump_json()
-            ),
-            Button(
-                title="No",
-                callback_data=shift_not_available_cb_data.model_dump_json(),
-            ),
-        ],
-    )
-    return msg_id
 
 
 # %% Enquire shift availability (template version)
@@ -387,22 +349,38 @@ async def enquire_shift_availability(wa: WhatsApp, recipient: str, name: str):
     )
     msg_id = await wa.send_template(
         to=recipient,
-        template=Temp(
-            name="shift_availability",
-            language=Temp.Language.ENGLISH_UK,
-            body=[
-                Temp.TextValue(value=name),
-            ],
-            buttons=[
-                Temp.QuickReplyButtonData(
-                    data=shift_available_cb_data.model_dump_json()
-                ),
-                Temp.QuickReplyButtonData(
-                    data=shift_not_available_cb_data.model_dump_json()
-                ),
-            ],
-        ),
+        name="shift_availability",
+        language=TemplateLanguage.ENGLISH_UK,
+        params=[
+            BodyText.params(text=name),
+            QuickReplyButton.params(
+                callback_data=shift_available_cb_data.model_dump_json(), index=0
+            ),
+            QuickReplyButton.params(
+                callback_data=shift_not_available_cb_data.model_dump_json(), index=1
+            ),
+        ],
     )
+
+    # msg_id = await wa.send_template(
+    #     to=recipient,
+    #     template=Temp(
+    #         name="shift_availability",
+    #         language=Temp.Language.ENGLISH_UK,
+    #         body=[
+    #             Temp.TextValue(value=name),
+    #         ],
+    #         buttons=[
+    #             Temp.QuickReplyButtonData(
+    #                 data=shift_available_cb_data.model_dump_json()
+    #             ),
+    #             Temp.QuickReplyButtonData(
+    #                 data=shift_not_available_cb_data.model_dump_json()
+    #             ),
+    #         ],
+    #     ),
+    # )
+
     return msg_id
 
 

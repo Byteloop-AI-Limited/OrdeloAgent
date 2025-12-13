@@ -34,9 +34,8 @@ from ordelo.agents.rider_agent import builder
 from ordelo.agent_app_handlers import (
     debug_state,
     debug_state_by_thread,
-    enquire_shift_availability_non_template,
 )
-
+from utils_common.waba_utils.wa_senders import enquire_shift_availability_non_template
 from watomation.routers import (
     delivery_hooks,
     location_hooks,

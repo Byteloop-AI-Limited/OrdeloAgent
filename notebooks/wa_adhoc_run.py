@@ -16,7 +16,7 @@ from pywa.types import (
 from pywa import filters as fil
 from config.waba_setting import waba_business_settings, waba_cat_settings
 from pywa.types import Template as Temp
-from langgraph.prebuilt import create_react_agent
+from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText
 # waba_phone_setting, waba_business_setting
 
 # %%
@@ -25,7 +25,16 @@ recipient = 447448440754
 
 
 # %%
-Temp
+msg_id = await wa.send_template(
+    to=recipient,
+    name="shift_availability",
+    language=TemplateLanguage.ENGLISH_UK,
+    params=[
+        BodyText.params(text="lohith"),
+        QuickReplyButton.params(callback_data="accept", index=0),
+        QuickReplyButton.params(callback_data="accept", index=1),
+    ],
+)
 # %%
 await wa.send_template(
     to=recipient,
