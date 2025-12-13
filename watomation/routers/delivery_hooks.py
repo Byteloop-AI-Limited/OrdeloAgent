@@ -57,7 +57,9 @@ from config import (
     ms_settings,
     pg_settings,
 )
-from ordelo.agent_app_handlers import enquire_shift_availability
+
+# from ordelo.agent_app_handlers import enquire_shift_availability
+from utils_common.waba_utils.wa_senders import enquire_shift_availability
 from ordelo.agents.agent_runner import init_ordelo_graph, run_rider_agent_w_custom_msg
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder

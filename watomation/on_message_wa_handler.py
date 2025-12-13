@@ -41,9 +41,10 @@ from config import (
     client_ordelo,
 )
 from ordelo.agent_app_handlers import (
-    enquire_shift_availability_non_template,
+    # enquire_shift_availability_non_template,
     get_live_map_location_url,
 )
+from utils_common.waba_utils.wa_senders import enquire_shift_availability_non_template
 from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 from config.params import get_restaurant_base_url_async
