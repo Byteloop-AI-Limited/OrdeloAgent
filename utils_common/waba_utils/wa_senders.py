@@ -22,6 +22,7 @@ WhatsApp messaging utilities for order management and address confirmation flows
     . send_order_reciept_wa - Sends customer receipt
     . send_delayed_text - Sends text with delay
     . send_product_sections - Sends product sections from catalog
+    . enquire_admin_availability - Sends admin availability template with callback
 """
 
 # %%
@@ -499,7 +500,7 @@ async def enquire_shift_availability(wa: WhatsApp, recipient: str, name: str):
         ai_msg="",
         human_msg="No",
     )
-    msg_id = await wa.send_template(
+    msg_id = await _async_wa_client.send_template(
         to=recipient,
         name="shift_availability",
         language=TemplateLanguage.ENGLISH_UK,
@@ -515,3 +516,28 @@ async def enquire_shift_availability(wa: WhatsApp, recipient: str, name: str):
     )
 
     return msg_id
+
+
+# %% Enquire admin availability (template version)
+async def enquire_admin_availability(recipient: str):
+    admin_availability_cb_data = CallbackButtonData(
+        action="/adminAvailability",
+        recipient=recipient,
+    )
+    msg_id = await _async_wa_client.send_template(
+        to=recipient,
+        name="alert_order_notification_resolve",
+        language=TemplateLanguage.ENGLISH_UK,
+        params=[
+            BodyText.params(text="There"),
+            QuickReplyButton.params(
+                callback_data=admin_availability_cb_data.model_dump_json(), index=0
+            ),
+        ],
+    )
+
+    return msg_id
+
+
+# %%
+# await enquire_admin_availability("447446933210")
