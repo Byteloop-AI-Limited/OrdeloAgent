@@ -539,5 +539,51 @@ async def enquire_admin_availability(recipient: str):
     return msg_id
 
 
+# %% This is the non-templated version
+async def send_restaurant_order_confirmation(
+    recipient: str,
+    order_number: str,
+    order_amount: str,
+    order_items: str,
+    order_time: int,
+    order_type: str,
+) -> Message:
+    """Send the restaurant order confirmation as an interactive message."""
+    accept_button = CallbackButtonData(
+        action="/RestaurantOrder-Accept",
+        order_number=order_number,
+        order_time=order_time,
+    )
+    decline_button = CallbackButtonData(
+        action="/RestaurantOrder-Decline",
+        order_number=order_number,
+        order_time=order_time,
+    )
+
+    if order_type == "delivery":
+        order_type_icon = " 🚚 "
+    elif order_type == "takeaway":
+        order_type_icon = " 🥡 "
+    else:
+        order_type_icon = " "
+
+    return await _async_wa_client.send_message(
+        to=recipient,
+        header=(
+            order_number
+            + " "
+            + order_amount
+            + order_type_icon
+            + order_type.capitalize()
+        ),
+        text=order_items,
+        reply_to_message_id=None,
+        buttons=[
+            Button(title="Accept", callback_data=accept_button.model_dump_json()),
+            Button(title="Decline", callback_data=decline_button.model_dump_json()),
+        ],
+    )
+
+
 # %%
 # await enquire_admin_availability("447446933210")

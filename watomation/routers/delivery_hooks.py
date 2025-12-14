@@ -69,10 +69,12 @@ from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.payment_ms.payment import get_payment_uri
-from utils_common.waba_utils.wa_templates.restaurant_confirmation_template import (
-    send_restaurant_order_confirmation,
-)
+
+# from utils_common.waba_utils.wa_templates.restaurant_confirmation_template import (
+#     send_restaurant_order_confirmation_templated,
+# )
 from utils_common.waba_utils.wa_senders import (
+    send_restaurant_order_confirmation,
     send_restaurant_pickup_time,
     admin_order_reciept,
 )
@@ -928,7 +930,7 @@ async def _handle_restaurant_unconfirmed(
     admin_phones = restaurant_master.admins
     order_type = food_order.action
     for admin_phone in admin_phones:
-        send_restaurant_order_confirmation(
+        await send_restaurant_order_confirmation(
             recipient=admin_phone,
             order_number=food_order.order_number,
             order_amount=order_amount,
