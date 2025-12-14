@@ -147,6 +147,7 @@ IS_SHIFT_AVAILABILITY = filters.contains("/shiftAvailability", ignore_case=False
 
 
 async def handle_shift_availability(wa: WhatsApp, msg: Message):
+    # Callback created in enquire_shift_availability, in wa_senders.py
     callback_data: dict = json.loads(msg.data)
     recipient = callback_data["recipient"]
     human_msg = callback_data["human_msg"]
