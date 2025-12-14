@@ -95,20 +95,21 @@ msg_id = await wa.send_template(
         QuickReplyButton.params(callback_data="accept", index=1),
     ],
 )
-# %%
-await wa.send_template(
+# %% enquire admin availability
+admin_availability_cb_data = CallbackButtonData(
+    action="/adminAvailability",
+    recipient=recipient,
+)
+msg_id = await wa.send_template(
     to=recipient,
-    template=Temp(
-        name="shift_availability",
-        language=Temp.Language.ENGLISH_UK,
-        body=[
-            Temp.TextValue(value="lohith"),
-        ],
-        buttons=[
-            Temp.QuickReplyButtonData(data="accept"),
-            Temp.QuickReplyButtonData(data="decline"),
-        ],
-    ),
+    name="alert_order_notification_resolve",
+    language=TemplateLanguage.ENGLISH_UK,
+    params=[
+        BodyText.params(text="There"),
+        QuickReplyButton.params(
+            callback_data=admin_availability_cb_data.model_dump_json(), index=0
+        ),
+    ],
 )
 # %%"
 image_path = "/mnt/c/wsl_transfers/trump.jpeg"

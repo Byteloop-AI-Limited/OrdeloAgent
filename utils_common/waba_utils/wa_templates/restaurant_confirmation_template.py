@@ -87,6 +87,7 @@ restaurant_order_confirmation = Template(
 # %%
 
 
+# this can be replaced by send_restaurant_order_confirmation in wa_adhoc_run.py
 def send_restaurant_order_confirmation(
     recipient: str,
     order_number: str,
