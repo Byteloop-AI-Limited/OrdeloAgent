@@ -29,6 +29,7 @@ Delivery webhook handlers for Ordelo delivery system
     . delivery_timedout - Handles delivery timeout events
     . check_rider_allocation_status - Checks rider allocation status
     . shift_availability_enquiry_hook - Processes shift availability enquiries
+    . admin_availability_enquiry_hook - Processes admin availability enquiries for restaurants
     . restaurant_confirmation_flow - Handles restaurant confirmation workflow (unconfirmed, accept, decline, timedout)
     . _handle_restaurant_unconfirmed - Sends order confirmation request to restaurant
     . _handle_restaurant_accept - Sends pickup time selection to restaurant
@@ -59,7 +60,10 @@ from config import (
 )
 
 # from ordelo.agent_app_handlers import enquire_shift_availability
-from utils_common.waba_utils.wa_senders import enquire_shift_availability
+from utils_common.waba_utils.wa_senders import (
+    enquire_shift_availability,
+    enquire_admin_availability,
+)
 from ordelo.agents.agent_runner import init_ordelo_graph, run_rider_agent_w_custom_msg
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder
@@ -763,38 +767,131 @@ async def close_threads(request: Request):
 )
 async def shift_availability_enquiry_hook(
     payload: dict = Depends(get_payload),
+    background_tasks: BackgroundTasks = None,
 ):
     """
     Handle shift availability enquiry webhook from PostgreSQL function.
 
     This endpoint processes the payload containing active riders and logs
     their information for monitoring and potential further processing.
+    Uses background tasks to avoid DB timeout.
 
     Args:
         payload (dict): The JSON payload containing event_type, timestamp, and riders array
+        background_tasks: FastAPI BackgroundTasks for async processing
 
     Returns:
-        dict: Status of the operation and summary of processed riders
+        dict: Status of the operation and count of riders to be processed
     """
     logger.info(f"shift_availability_enquiry_hook received: {payload}")
 
-    # Extract riders from payload
     riders = payload.get("riders", [])
     event_type = payload.get("event_type", "unknown")
 
-    # Log each rider's information
     if riders:
-        logger.info(f"Processing {len(riders)} active riders for {event_type}")
-        for rider in riders:
+        logger.info(f"Scheduling {len(riders)} riders for {event_type} processing")
+        background_tasks.add_task(_process_shift_availability, riders)
+    else:
+        logger.info("No active riders found in the enquiry")
+
+    return {"status": "success", "riders_scheduled": len(riders)}
+
+
+async def _process_shift_availability(riders: list):
+    """Background task to process shift availability for riders."""
+    for rider in riders:
+        try:
             await enquire_shift_availability(
                 wa=_async_wa_client,
                 recipient=rider.get("rider_id"),
                 name=rider.get("rider_name"),
             )
-    else:
-        logger.info("No active riders found in the enquiry")
+        except Exception as e:
+            logger.error(f"Error processing shift availability for {rider}: {e}")
 
-    return {"status": "success", "riders_processed": len(riders), "data": payload}
+
+# %% Admin availability enquiry
+@router.post(
+    "/admin-availability-enquiry",
+    summary="Handle admin availability enquiry. Called by enquire_admin_availability() PostgreSQL function",
+    description="""
+    Processes admin availability enquiry requests from the database.
+    
+    This endpoint:
+    1. Receives a dict of restaurant admins from the PostgreSQL function
+    2. For each restaurant, sends admin availability enquiry to each admin
+    3. Logs processing status for monitoring
+    """,
+    response_description="Status of the admin availability enquiry operation",
+    responses={
+        200: {
+            "description": "Successfully processed admin availability enquiry",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "admins_processed": 5,
+                        "data": {
+                            "event_type": "admin_availability_enquiry",
+                            "restaurant_admins": {
+                                "ELAS": ["447123456789", "447987654321"],
+                                "ORDELO": ["447111222333"],
+                            },
+                        },
+                    }
+                }
+            },
+        }
+    },
+)
+async def admin_availability_enquiry_hook(
+    payload: dict = Depends(get_payload),
+    background_tasks: BackgroundTasks = None,
+):
+    """
+    Handle admin availability enquiry webhook from PostgreSQL function.
+
+    This endpoint processes the payload containing restaurant admins and sends
+    availability enquiry to each admin.
+    Uses background tasks to avoid DB timeout.
+
+    Args:
+        payload (dict): The JSON payload containing event_type, timestamp, and restaurant_admins dict
+        background_tasks: FastAPI BackgroundTasks for async processing
+
+    Returns:
+        dict: Status of the operation and count of admins to be processed
+    """
+    logger.info(f"admin_availability_enquiry_hook received: {payload}")
+
+    restaurant_admins = payload.get("restaurant_admins", {})
+    event_type = payload.get("event_type", "unknown")
+
+    total_admins = sum(len(admins) for admins in restaurant_admins.values())
+
+    if restaurant_admins:
+        logger.info(
+            f"Scheduling {len(restaurant_admins)} restaurants ({total_admins} admins) for {event_type} processing"
+        )
+        background_tasks.add_task(_process_admin_availability, restaurant_admins)
+    else:
+        logger.info("No restaurant admins found in the enquiry")
+
+    return {"status": "success", "admins_scheduled": total_admins}
+
+
+async def _process_admin_availability(restaurant_admins: dict):
+    """Background task to process admin availability for restaurants."""
+    for rest_ref, admins in restaurant_admins.items():
+        logger.info(f"Processing {len(admins)} admins for restaurant {rest_ref}")
+        for admin in admins:
+            try:
+                await enquire_admin_availability(recipient=admin)
+            except Exception as e:
+                logger.error(f"Error processing admin availability for {admin}: {e}")
+
+
+# %%
 
 
 async def _handle_restaurant_unconfirmed(
