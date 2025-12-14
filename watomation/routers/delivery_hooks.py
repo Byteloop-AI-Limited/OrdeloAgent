@@ -2,6 +2,7 @@
 Delivery webhook handlers for Ordelo delivery system
     . Processes delivery-related webhook events from database triggers
     . Manages delivery dispatch assignments and inflight tracking
+    . Cancels payments for timed out deliveries via the payment microservice
     . Implements function chaining pattern for complex workflows
     . Handles missed dispatch notifications and rider communications
     . Provides FastAPI endpoints for delivery operations
@@ -18,6 +19,7 @@ Delivery webhook handlers for Ordelo delivery system
     . RestaurantMasterData - Pydantic model for restaurant_master table fields
     . RestaurantConfirmationPayload - Pydantic model for restaurant confirmation webhook with trigger_reason
     . get_payload - Helper to parse webhook payloads
+    . cancel_payment - Cancels payment for an order via payment microservice
     . wa_send_delivery_dispatch_request_to_rider - Notifies riders via WhatsApp
     . post_rider_event_inflight - Posts delivery summary to webhook (accepts DeliverySummary param)
     . post_delivery_timedout - Posts delivery timeout information
@@ -189,6 +191,47 @@ async def capture_payment(order_number, restaurant_cc: int):
             return res.text
         except httpx.HTTPError as e:
             logger.error(f"Error during payment capture for order {order_id}: {e}")
+            if "res" in locals():
+                logger.error(res.text)
+            return None
+
+
+# %%
+async def cancel_payment(order_number):
+    """
+    Cancels a payment for the specified order using the payment microservice.
+
+    Args:
+        order_id (str): The ID of the order for which payment should be captured.
+
+    Returns:
+        str or None: The response text from the payment service if successful, otherwise None.
+    """
+    food_order = FoodOrder.from_order_number(order_number=order_number)
+    if not food_order:
+        logger.error(f"FoodOrder not found for order_id: {order_number}")
+        return None
+
+    order_id = food_order.order_id
+    payment_uri = get_payment_uri(order_id=order_id, thread_id=food_order.thread_id)
+    cancel_payload = {"action": "delivery", "payment_mode": "cancel"}
+
+    # Call stripe
+    async with httpx.AsyncClient() as _client:
+        logger.info(
+            f"Canceling payment for order {order_id} with payment URI: {payment_uri}"
+        )
+
+        try:
+            res = await _client.post(
+                payment_uri,
+                json=cancel_payload,
+                headers=ms_settings.stripe_headers,
+            )
+            res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            return res.text
+        except httpx.HTTPError as e:
+            logger.error(f"Error during payment cancellation for order {order_id}: {e}")
             if "res" in locals():
                 logger.error(res.text)
             return None
@@ -646,6 +689,16 @@ async def delivery_timedout(
     delivery_summary = delivery_summary_lst[0]
     rest_id = delivery_summary["rest_id"]
 
+    # 1. Cancel payment
+    try:
+        await cancel_payment(order_number=delivery_summary["order_number"])
+    except Exception:
+        logger.exception(
+            "Payment cancellation failed during delivery_timedout",
+            extra={"order_number": delivery_summary.get("order_number")},
+        )
+
+    # 2. Notify restaurant admins
     rest_admins = get_restaurant_admins(rest_id=rest_id)
 
     for admin_phone in rest_admins:
