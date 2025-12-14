@@ -1,7 +1,7 @@
 # Ordelo Delivery Process
 
 **Version:** 3.0  
-**Last Updated:** 2025-12-10
+**Last Updated:** 2025-12-14
 
 This document provides a comprehensive reference for the Ordelo delivery workflow, covering the complete journey from order creation through delivery completion, including all database triggers, scheduled jobs, and webhook integrations.
 
@@ -463,6 +463,39 @@ The LangGraph agent assists the rider through:
 | `job_null_or_outdated_location` | `job_null_or_outdated_location()` | Periodic | Alert on missing live tracking |
 | `job_terminate_stale_active_threads` | `job_terminate_stale_active_threads()` | Periodic | Cleanup stale threads |
 
+ Availability enquiry jobs (non-critical workflow support):
+ 
+ - **Shift availability enquiry (riders)**
+   - Function: `enquire_shift_availability()`
+   - Schedule: Daily via pg_cron (job name is environment-specific)
+   - Webhook: `POST /delivery-hooks/shift-availability-enquiry`
+   - Payload (simplified):
+     ```json
+     {
+       "event_type": "shift_availability_enquiry",
+       "timestamp": 1734212345,
+       "riders": [{"rider_id": "447...", "rider_name": "..."}]
+     }
+     ```
+ 
+ - **Admin availability enquiry (restaurant admins)**
+   - Function: `enquire_admin_availability(p_rest_ref_list VARCHAR[] DEFAULT NULL)`
+   - Schedule: Daily via pg_cron (job name is environment-specific)
+   - Webhook: `POST /delivery-hooks/admin-availability-enquiry`
+   - Payload (simplified):
+     ```json
+     {
+       "event_type": "admin_availability_enquiry",
+       "timestamp": 1734212345,
+       "restaurant_admins": {
+         "ELAS": ["447...", "447..."],
+         "ORDELO": ["447..."]
+       }
+     }
+     ```
+ 
+ **Timeout note:** These jobs are invoked from the DB and must return quickly. The corresponding FastAPI endpoints acknowledge success immediately and perform WhatsApp fan-out in background tasks.
+
 ---
 
 ## Status Transitions
@@ -600,6 +633,8 @@ flowchart TD
 | `job_assign_dispatch.sql` | Assigns accepted dispatches, `assign_accepted_dispatch()` helper |
 | `dispatch_complete_func.sql` | Marks delivery as completed |
 | `process_restaurant_confirmation.sql` | Times out unconfirmed restaurant orders |
+| `enquire_shift_availability.sql` | Scheduled rider shift availability enquiry (DB → webhook → WhatsApp template) |
+| `enquire_admin_availability.sql` | Scheduled restaurant admin availability enquiry (DB → webhook → WhatsApp template) |
 | `job_restaurant_confirmation_timeout.sql` | Alternative timeout handler with auto-accept |
 | `job_null_or_outdated_location.sql` | Alerts on missing live tracking |
 | `job_close_thread.sql` | Closes inactive rider chat threads |
@@ -625,6 +660,8 @@ flowchart TD
 | `/delivery-hooks/delivery-inflight-graph-init` | POST | `delivery_inflight_whook()` | `delivery_inflight_graph_init_hook()` |
 | `/delivery-hooks/notify-missed-dispatches` | POST | `notify_missed_dispatches()` | `notify_missed_dispatches_hook()` |
 | `/delivery-hooks/delivery-timedout` | POST | `delivery_summary_timedout_whook()` | `delivery_timedout()` |
+| `/delivery-hooks/shift-availability-enquiry` | POST | `enquire_shift_availability()` | `shift_availability_enquiry_hook()` |
+| `/delivery-hooks/admin-availability-enquiry` | POST | `enquire_admin_availability(p_rest_ref_list)` | `admin_availability_enquiry_hook()` |
 | `/delivery-hooks/close-threads` | POST | `job_close_thread()` | `close_threads()` |
 | `/delivery-hooks/notify-food-ready-for-pickup/{recipient}` | POST | Restaurant admin agent | `notify_food_ready_for_pickup()` |
 | `/location-hooks/null-or-outdated-location` | POST | `job_null_or_outdated_location()` | Location hooks router |

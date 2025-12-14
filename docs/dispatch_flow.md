@@ -1,7 +1,7 @@
 # Ordelo Dispatch Flow
 
 **Version:** 1.0  
-**Last Updated:** 2025-12-12
+**Last Updated:** 2025-12-14
 
 This document focuses on the **dispatch portion** of the Ordelo delivery workflow: from dispatch creation, through rider accept/decline, to inflight initialization and missed‑dispatch notifications.
 
@@ -13,6 +13,7 @@ For the full end‑to‑end delivery journey, see `docs/delivery_process.md` (Ph
 
 - **PostgreSQL jobs/functions**
   - Dispatch creation and assignment jobs create and finalize dispatches.
+  - Separate scheduled “availability enquiry” jobs also exist (rider shift + restaurant admin enquiries); see `docs/delivery_process.md` for details.
 - **PostgreSQL triggers**
   - Fire webhooks when `delivery_dispatch` and `delivery_inflight` change.
 - **FastAPI delivery hooks**
