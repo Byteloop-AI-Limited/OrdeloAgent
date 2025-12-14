@@ -164,6 +164,24 @@ async def handle_shift_availability(wa: WhatsApp, msg: Message):
         )
         logger.info(f"Started shift status for rider {recipient}")
     else:
+        # Check if rider is currently on a job
+        inflight_check = (
+            client_ordelo.table("delivery_inflight")
+            .select("order_number")
+            .eq("rider_id", recipient)
+            .execute()
+        )
+        if len(inflight_check.data) > 0:
+            order_number = inflight_check.data[0]["order_number"]
+            await wa.send_message(
+                to=recipient,
+                text=f"You are currently on a job for order {order_number}. Please complete the job first.",
+            )
+            logger.info(
+                f"Rider {recipient} tried to end shift but is on job {order_number}"
+            )
+            return
+
         await wa.send_message(
             to=recipient,
             text="Ok. You will not receive job notifications for the next 24 hrs.",
