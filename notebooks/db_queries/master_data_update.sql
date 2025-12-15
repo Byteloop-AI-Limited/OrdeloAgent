@@ -1,5 +1,10 @@
 -- Master data maintenance for restaurant_master, rider_master, and customer_master.
 -- Consolidated from CommonQueries.sql and config_updates.sql.
+select * from customer_master;
+delete from customer_master where cust_id='447446933210';
+select * from rider_master;
+
+select * from delivery_inflight;
 
 -- Restaurant master checks and updates
 select * from restaurant_master where rest_ref='WREN';
@@ -10,6 +15,9 @@ update restaurant_master set lat = 51.0726635283769, lon = -1.79717268758398
  where rest_ref = 'ELAS';
 update restaurant_master set lat = 51.3601711280004, lon = 0.0907554051501591
  where rest_ref = 'ELAS';
+
+delete from rider_master where rider_id='447446933210' and vehicle_type!='bicycle';
+select * from rider_master;
 
 select * from delivery_summary where rest_ref = 'ELAS' order by dtts desc limit 5;
 update restaurant_master

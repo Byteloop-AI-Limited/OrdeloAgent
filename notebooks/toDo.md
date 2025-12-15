@@ -1,3 +1,18 @@
+## GoLive checklist:
+WABA change on both elai and ordelo
+Config updates for 
+
+    update ordelo_config set config_value = 'https://elas-agg.ordelo.app' where config_key = 'ELAS_APP_URL';
+    update ordelo_config set config_value = 'https://rider-agent.ordelo.app' where config_key = 'ORDELO_APP_URL';
+    update ordelo_config set config_value = 'https://restaurant.ordelo.app' where config_key = 'RESTAURANT_MENU_APP_URL'; 
+Hi There, On decline from rider;
+
+
+Change the lat and lon for ELAS;
+Update ELAS adming in restaurant master
+Update 
+
+- 
 ## Immediate
 - [!!!] One restConfirmation, ackonwledge and then ask to start live tracking
 - May be use this build_wa_order_reciept_for_rest as the first msg to admin
