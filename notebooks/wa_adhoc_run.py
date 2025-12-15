@@ -1,3 +1,10 @@
+"""WhatsApp ad-hoc runner notebook.
+  . Dependencies based on imports: pywa, requests, config.waba_setting, utils_common.waba_utils.wa_senders
+  . Provides scratch utilities to send test WhatsApp messages/templates
+Functions/Clases
+  . send_restaurant_order_confirmation
+"""
+
 # %%
 import os
 import requests
@@ -16,30 +23,93 @@ from pywa.types import (
 from pywa import filters as fil
 from config.waba_setting import waba_business_settings, waba_cat_settings
 from pywa.types import Template as Temp
-from langgraph.prebuilt import create_react_agent
+from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText
+from utils_common.waba_utils.wa_senders import CallbackButtonData
 # waba_phone_setting, waba_business_setting
 
 # %%
 recipient = 447448440754
+
+
+# %%
+
+# %%
+
+
 # recipient = "447448440754"
+async def send_restaurant_order_confirmation(
+    recipient: str,
+    order_number: str,
+    order_amount: str,
+    order_items: str,
+    order_time: int,
+    order_type: str,
+) -> Message:
+    """Send the restaurant order confirmation as an interactive message."""
+    accept_button = CallbackButtonData(
+        action="/RestaurantOrder-Accept",
+        order_number=order_number,
+        order_time=order_time,
+    )
+    decline_button = CallbackButtonData(
+        action="/RestaurantOrder-Decline",
+        order_number=order_number,
+        order_time=order_time,
+    )
 
+    if order_type == "delivery":
+        order_type_icon = " 🚚 "
+    elif order_type == "takeaway":
+        order_type_icon = " 🥡 "
+    else:
+        order_type_icon = " "
 
-# %%
-Temp
-# %%
-await wa.send_template(
-    to=recipient,
-    template=Temp(
-        name="shift_availability",
-        language=Temp.Language.ENGLISH_UK,
-        body=[
-            Temp.TextValue(value="lohith"),
-        ],
+    return await wa.send_message(
+        to=recipient,
+        header=(
+            order_number
+            + " "
+            + order_amount
+            + order_type_icon
+            + order_type.capitalize()
+        ),
+        text=order_items,
+        reply_to_message_id=None,
         buttons=[
-            Temp.QuickReplyButtonData(data="accept"),
-            Temp.QuickReplyButtonData(data="decline"),
+            Button(title="Accept", callback_data=accept_button.model_dump_json()),
+            Button(title="Decline", callback_data=decline_button.model_dump_json()),
         ],
-    ),
+    )
+
+
+# %% Call function with dummy values
+await send_restaurant_order_confirmation(recipient, "123", "10", "10", "10", "delivery")
+# %%
+msg_id = await wa.send_template(
+    to=recipient,
+    name="shift_availability",
+    language=TemplateLanguage.ENGLISH_UK,
+    params=[
+        BodyText.params(text="lohith"),
+        QuickReplyButton.params(callback_data="accept", index=0),
+        QuickReplyButton.params(callback_data="accept", index=1),
+    ],
+)
+# %% enquire admin availability
+admin_availability_cb_data = CallbackButtonData(
+    action="/adminAvailability",
+    recipient=recipient,
+)
+msg_id = await wa.send_template(
+    to=recipient,
+    name="alert_order_notification_resolve",
+    language=TemplateLanguage.ENGLISH_UK,
+    params=[
+        BodyText.params(text="There"),
+        QuickReplyButton.params(
+            callback_data=admin_availability_cb_data.model_dump_json(), index=0
+        ),
+    ],
 )
 # %%"
 image_path = "/mnt/c/wsl_transfers/trump.jpeg"

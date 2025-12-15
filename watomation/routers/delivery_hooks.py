@@ -2,6 +2,7 @@
 Delivery webhook handlers for Ordelo delivery system
     . Processes delivery-related webhook events from database triggers
     . Manages delivery dispatch assignments and inflight tracking
+    . Cancels payments for timed out deliveries via the payment microservice
     . Implements function chaining pattern for complex workflows
     . Handles missed dispatch notifications and rider communications
     . Provides FastAPI endpoints for delivery operations
@@ -18,6 +19,7 @@ Delivery webhook handlers for Ordelo delivery system
     . RestaurantMasterData - Pydantic model for restaurant_master table fields
     . RestaurantConfirmationPayload - Pydantic model for restaurant confirmation webhook with trigger_reason
     . get_payload - Helper to parse webhook payloads
+    . cancel_payment - Cancels payment for an order via payment microservice
     . wa_send_delivery_dispatch_request_to_rider - Notifies riders via WhatsApp
     . post_rider_event_inflight - Posts delivery summary to webhook (accepts DeliverySummary param)
     . post_delivery_timedout - Posts delivery timeout information
@@ -29,6 +31,7 @@ Delivery webhook handlers for Ordelo delivery system
     . delivery_timedout - Handles delivery timeout events
     . check_rider_allocation_status - Checks rider allocation status
     . shift_availability_enquiry_hook - Processes shift availability enquiries
+    . admin_availability_enquiry_hook - Processes admin availability enquiries for restaurants
     . restaurant_confirmation_flow - Handles restaurant confirmation workflow (unconfirmed, accept, decline, timedout)
     . _handle_restaurant_unconfirmed - Sends order confirmation request to restaurant
     . _handle_restaurant_accept - Sends pickup time selection to restaurant
@@ -40,12 +43,11 @@ Delivery webhook handlers for Ordelo delivery system
 # %%
 import asyncio
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import List, Optional
 import pytz
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
 from pywa.types import Button
 from pywa_async import WhatsApp
@@ -58,19 +60,23 @@ from config import (
     ms_settings,
     pg_settings,
 )
-from ordelo.agent_app_handlers import enquire_shift_availability
-from ordelo.agents.agent_runner import init_ordelo_graph, run_rider_agent_w_custom_msg
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliverySummary
-from utils_common.order_management.food_order_pymodel import FoodOrder
-from utils_common.order_management.food_order_reciept import (
-    build_wa_order_reciept_for_rest,
+
+# from ordelo.agent_app_handlers import enquire_shift_availability
+from utils_common.waba_utils.wa_senders import (
+    enquire_shift_availability,
+    enquire_admin_availability,
 )
+from ordelo.agents.agent_runner import init_ordelo_graph, run_rider_agent_w_custom_msg
+from ordelo_datamodels.delivery_pymodels import DeliverySummary
+from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.payment_ms.payment import get_payment_uri
-from utils_common.waba_utils.wa_templates.restaurant_confirmation_template import (
-    send_restaurant_order_confirmation,
-)
+
+# from utils_common.waba_utils.wa_templates.restaurant_confirmation_template import (
+#     send_restaurant_order_confirmation_templated,
+# )
 from utils_common.waba_utils.wa_senders import (
+    send_restaurant_order_confirmation,
     send_restaurant_pickup_time,
     admin_order_reciept,
 )
@@ -185,6 +191,47 @@ async def capture_payment(order_number, restaurant_cc: int):
             return res.text
         except httpx.HTTPError as e:
             logger.error(f"Error during payment capture for order {order_id}: {e}")
+            if "res" in locals():
+                logger.error(res.text)
+            return None
+
+
+# %%
+async def cancel_payment(order_number):
+    """
+    Cancels a payment for the specified order using the payment microservice.
+
+    Args:
+        order_id (str): The ID of the order for which payment should be captured.
+
+    Returns:
+        str or None: The response text from the payment service if successful, otherwise None.
+    """
+    food_order = FoodOrder.from_order_number(order_number=order_number)
+    if not food_order:
+        logger.error(f"FoodOrder not found for order_id: {order_number}")
+        return None
+
+    order_id = food_order.order_id
+    payment_uri = get_payment_uri(order_id=order_id, thread_id=food_order.thread_id)
+    cancel_payload = {"action": "delivery", "payment_mode": "cancel"}
+
+    # Call stripe
+    async with httpx.AsyncClient() as _client:
+        logger.info(
+            f"Canceling payment for order {order_id} with payment URI: {payment_uri}"
+        )
+
+        try:
+            res = await _client.post(
+                payment_uri,
+                json=cancel_payload,
+                headers=ms_settings.stripe_headers,
+            )
+            res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            return res.text
+        except httpx.HTTPError as e:
+            logger.error(f"Error during payment cancellation for order {order_id}: {e}")
             if "res" in locals():
                 logger.error(res.text)
             return None
@@ -642,6 +689,16 @@ async def delivery_timedout(
     delivery_summary = delivery_summary_lst[0]
     rest_id = delivery_summary["rest_id"]
 
+    # 1. Cancel payment
+    try:
+        await cancel_payment(order_number=delivery_summary["order_number"])
+    except Exception:
+        logger.exception(
+            "Payment cancellation failed during delivery_timedout",
+            extra={"order_number": delivery_summary.get("order_number")},
+        )
+
+    # 2. Notify restaurant admins
     rest_admins = get_restaurant_admins(rest_id=rest_id)
 
     for admin_phone in rest_admins:
@@ -765,38 +822,131 @@ async def close_threads(request: Request):
 )
 async def shift_availability_enquiry_hook(
     payload: dict = Depends(get_payload),
+    background_tasks: BackgroundTasks = None,
 ):
     """
     Handle shift availability enquiry webhook from PostgreSQL function.
 
     This endpoint processes the payload containing active riders and logs
     their information for monitoring and potential further processing.
+    Uses background tasks to avoid DB timeout.
 
     Args:
         payload (dict): The JSON payload containing event_type, timestamp, and riders array
+        background_tasks: FastAPI BackgroundTasks for async processing
 
     Returns:
-        dict: Status of the operation and summary of processed riders
+        dict: Status of the operation and count of riders to be processed
     """
     logger.info(f"shift_availability_enquiry_hook received: {payload}")
 
-    # Extract riders from payload
     riders = payload.get("riders", [])
     event_type = payload.get("event_type", "unknown")
 
-    # Log each rider's information
     if riders:
-        logger.info(f"Processing {len(riders)} active riders for {event_type}")
-        for rider in riders:
+        logger.info(f"Scheduling {len(riders)} riders for {event_type} processing")
+        background_tasks.add_task(_process_shift_availability, riders)
+    else:
+        logger.info("No active riders found in the enquiry")
+
+    return {"status": "success", "riders_scheduled": len(riders)}
+
+
+async def _process_shift_availability(riders: list):
+    """Background task to process shift availability for riders."""
+    for rider in riders:
+        try:
             await enquire_shift_availability(
                 wa=_async_wa_client,
                 recipient=rider.get("rider_id"),
                 name=rider.get("rider_name"),
             )
-    else:
-        logger.info("No active riders found in the enquiry")
+        except Exception as e:
+            logger.error(f"Error processing shift availability for {rider}: {e}")
 
-    return {"status": "success", "riders_processed": len(riders), "data": payload}
+
+# %% Admin availability enquiry
+@router.post(
+    "/admin-availability-enquiry",
+    summary="Handle admin availability enquiry. Called by enquire_admin_availability() PostgreSQL function",
+    description="""
+    Processes admin availability enquiry requests from the database.
+    
+    This endpoint:
+    1. Receives a dict of restaurant admins from the PostgreSQL function
+    2. For each restaurant, sends admin availability enquiry to each admin
+    3. Logs processing status for monitoring
+    """,
+    response_description="Status of the admin availability enquiry operation",
+    responses={
+        200: {
+            "description": "Successfully processed admin availability enquiry",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "admins_processed": 5,
+                        "data": {
+                            "event_type": "admin_availability_enquiry",
+                            "restaurant_admins": {
+                                "ELAS": ["447123456789", "447987654321"],
+                                "ORDELO": ["447111222333"],
+                            },
+                        },
+                    }
+                }
+            },
+        }
+    },
+)
+async def admin_availability_enquiry_hook(
+    payload: dict = Depends(get_payload),
+    background_tasks: BackgroundTasks = None,
+):
+    """
+    Handle admin availability enquiry webhook from PostgreSQL function.
+
+    This endpoint processes the payload containing restaurant admins and sends
+    availability enquiry to each admin.
+    Uses background tasks to avoid DB timeout.
+
+    Args:
+        payload (dict): The JSON payload containing event_type, timestamp, and restaurant_admins dict
+        background_tasks: FastAPI BackgroundTasks for async processing
+
+    Returns:
+        dict: Status of the operation and count of admins to be processed
+    """
+    logger.info(f"admin_availability_enquiry_hook received: {payload}")
+
+    restaurant_admins = payload.get("restaurant_admins", {})
+    event_type = payload.get("event_type", "unknown")
+
+    total_admins = sum(len(admins) for admins in restaurant_admins.values())
+
+    if restaurant_admins:
+        logger.info(
+            f"Scheduling {len(restaurant_admins)} restaurants ({total_admins} admins) for {event_type} processing"
+        )
+        background_tasks.add_task(_process_admin_availability, restaurant_admins)
+    else:
+        logger.info("No restaurant admins found in the enquiry")
+
+    return {"status": "success", "admins_scheduled": total_admins}
+
+
+async def _process_admin_availability(restaurant_admins: dict):
+    """Background task to process admin availability for restaurants."""
+    for rest_ref, admins in restaurant_admins.items():
+        logger.info(f"Processing {len(admins)} admins for restaurant {rest_ref}")
+        for admin in admins:
+            try:
+                await enquire_admin_availability(recipient=admin)
+            except Exception as e:
+                logger.error(f"Error processing admin availability for {admin}: {e}")
+
+
+# %%
 
 
 async def _handle_restaurant_unconfirmed(
@@ -833,7 +983,7 @@ async def _handle_restaurant_unconfirmed(
     admin_phones = restaurant_master.admins
     order_type = food_order.action
     for admin_phone in admin_phones:
-        send_restaurant_order_confirmation(
+        await send_restaurant_order_confirmation(
             recipient=admin_phone,
             order_number=food_order.order_number,
             order_amount=order_amount,

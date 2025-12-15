@@ -11,8 +11,8 @@ Manages PostgreSQL and Supabase settings for the OrdeloAgent application.
 # %%
 # Move over to https://python.langchain.com/docs/integrations/vectorstores/supabase/#similarity-search-with-score
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from langchain_postgres.vectorstores import PGVector
-from langchain_openai import OpenAIEmbeddings
+
+# from langchain_postgres.vectorstores import PGVector
 from supabase import create_client, Client, create_async_client, AsyncClient
 from supabase.client import ClientOptions
 from psycopg_pool import AsyncConnectionPool
@@ -108,14 +108,14 @@ class PgSetting(BaseSettings):
     def async_client(self) -> AsyncClient:
         return create_async_client(self.rest_url, self.rest_key)
 
-    @property
-    def vector_store(self):
-        return PGVector(
-            embeddings=OpenAIEmbeddings(model="text-embedding-3-large"),
-            collection_name=self.collection_name,
-            connection=self.vec_db_uri,
-            use_jsonb=True,
-        )
+    # @property
+    # def vector_store(self):
+    #     return PGVector(
+    #         embeddings=OpenAIEmbeddings(model="text-embedding-3-large"),
+    #         collection_name=self.collection_name,
+    #         connection=self.vec_db_uri,
+    #         use_jsonb=True,
+    #     )
 
 
 pg_settings = PgSetting(**ordelo_agent_env)

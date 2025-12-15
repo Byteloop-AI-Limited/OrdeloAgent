@@ -22,17 +22,19 @@ WhatsApp messaging utilities for order management and address confirmation flows
     . send_order_reciept_wa - Sends customer receipt
     . send_delayed_text - Sends text with delay
     . send_product_sections - Sends product sections from catalog
+    . enquire_admin_availability - Sends admin availability template with callback
 """
 
 # %%
 from config import (
     _async_wa_client,
-    project_settings,
-    waba_business_settings,
     waba_cat_settings,
 )
 from config.params import get_restaurant_admins, get_restaurant_base_url_async
 from pywa.types import FlowButton, Button, Template as Temp, ProductsSection
+from pywa.types import Message, Template as Temp, ButtonUrl, Button
+from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText
+
 from pywa.types.flows import FlowActionType
 from pydantic import BaseModel
 import uuid
@@ -49,7 +51,6 @@ import pytz
 import asyncio
 from utils_common.order_management.delivery_pymodels import (
     DeliverySummary,
-    DeliveryDetail,
 )
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.food_order_reciept import (
@@ -452,3 +453,137 @@ async def send_product_sections(
         body=body,
         product_sections=product_sections[:30],
     )
+
+
+# %% Enquire shift availability (non-template version)
+async def enquire_shift_availability_non_template(wa: WhatsApp, msg: Message):
+    recipient = msg.sender
+    shift_available_cb_data = CallbackButtonData(
+        action="/shiftAvailability",
+        recipient=recipient,
+        human_msg="Yes",
+    )
+    shift_not_available_cb_data = CallbackButtonData(
+        action="/shiftAvailability",
+        recipient=recipient,
+        human_msg="No",
+    )
+    msg_id = await _async_wa_client.send_message(
+        to=recipient,
+        header="🌟 Shift Availability 🌟",
+        text="Are you available for deliveries today?",
+        reply_to_message_id=None,
+        buttons=[
+            Button(
+                title="Yes", callback_data=shift_available_cb_data.model_dump_json()
+            ),
+            Button(
+                title="No",
+                callback_data=shift_not_available_cb_data.model_dump_json(),
+            ),
+        ],
+    )
+    return msg_id
+
+
+# %% Enquire shift availability (template version)
+async def enquire_shift_availability(wa: WhatsApp, recipient: str, name: str):
+    shift_available_cb_data = CallbackButtonData(
+        action="/shiftAvailability",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="Yes",
+    )
+    shift_not_available_cb_data = CallbackButtonData(
+        action="/shiftAvailability",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="No",
+    )
+    msg_id = await _async_wa_client.send_template(
+        to=recipient,
+        name="shift_availability",
+        language=TemplateLanguage.ENGLISH_UK,
+        params=[
+            BodyText.params(text=name),
+            QuickReplyButton.params(
+                callback_data=shift_available_cb_data.model_dump_json(), index=0
+            ),
+            QuickReplyButton.params(
+                callback_data=shift_not_available_cb_data.model_dump_json(), index=1
+            ),
+        ],
+    )
+
+    return msg_id
+
+
+# %% Enquire admin availability (template version)
+async def enquire_admin_availability(recipient: str):
+    admin_availability_cb_data = CallbackButtonData(
+        action="/adminAvailability",
+        recipient=recipient,
+    )
+    msg_id = await _async_wa_client.send_template(
+        to=recipient,
+        name="alert_order_notification_resolve",
+        language=TemplateLanguage.ENGLISH_UK,
+        params=[
+            BodyText.params(text="There"),
+            QuickReplyButton.params(
+                callback_data=admin_availability_cb_data.model_dump_json(), index=0
+            ),
+        ],
+    )
+
+    return msg_id
+
+
+# %% This is the non-templated version
+async def send_restaurant_order_confirmation(
+    recipient: str,
+    order_number: str,
+    order_amount: str,
+    order_items: str,
+    order_time: int,
+    order_type: str,
+) -> Message:
+    """Send the restaurant order confirmation as an interactive message."""
+    accept_button = CallbackButtonData(
+        action="/RestaurantOrder-Accept",
+        order_number=order_number,
+        order_time=order_time,
+    )
+    decline_button = CallbackButtonData(
+        action="/RestaurantOrder-Decline",
+        order_number=order_number,
+        order_time=order_time,
+    )
+
+    if order_type == "delivery":
+        order_type_icon = " 🚚 "
+    elif order_type == "takeaway":
+        order_type_icon = " 🥡 "
+    else:
+        order_type_icon = " "
+
+    return await _async_wa_client.send_message(
+        to=recipient,
+        header=(
+            order_number
+            + " "
+            + order_amount
+            + order_type_icon
+            + order_type.capitalize()
+        ),
+        text=order_items,
+        reply_to_message_id=None,
+        buttons=[
+            Button(title="Accept", callback_data=accept_button.model_dump_json()),
+            Button(title="Decline", callback_data=decline_button.model_dump_json()),
+        ],
+    )
+
+
+# %%
+# await enquire_admin_availability("447446933210")

@@ -13,7 +13,7 @@ Order receipt generation and formatting utilities
 # %%
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
-from config import client
+from config import client_ordelo
 from typing import List, Tuple
 
 
@@ -29,7 +29,7 @@ def _fetch_order_items(order_id: str) -> List[dict]:
     """
     try:
         response = (
-            client.table("order_item")
+            client_ordelo.table("order_item")
             .select("product_name, quantity, price")
             .eq("order_id", order_id)
             .execute()
@@ -163,7 +163,7 @@ def build_wa_order_reciept_for_rest(
             for item in order_items
         ]
 
-    header = f"Order #{order.order_number} (Kitchen)"
+    header = f"Order #{order.order_id} (Kitchen)"
 
     # Items
     item_lines: List[str] = []

@@ -14,6 +14,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . dispatch_response - Processes rider responses to delivery dispatch assignments
     . rider_request_location - Handles rider requests for location information
     . handle_shift_availability - Handles rider shift availability responses
+    . handle_admin_availability - Handles admin availability responses for order notifications
     . handle_restaurant_confirmation - Processes restaurant prep time confirmation
     . restaurant_order_accept_decline_handler - Handles restaurant accept/decline responses
     . _update_restaurant_order_status - Background task for updating restaurant order status
@@ -147,6 +148,7 @@ IS_SHIFT_AVAILABILITY = filters.contains("/shiftAvailability", ignore_case=False
 
 
 async def handle_shift_availability(wa: WhatsApp, msg: Message):
+    # Callback created in enquire_shift_availability, in wa_senders.py
     callback_data: dict = json.loads(msg.data)
     recipient = callback_data["recipient"]
     human_msg = callback_data["human_msg"]
@@ -162,6 +164,24 @@ async def handle_shift_availability(wa: WhatsApp, msg: Message):
         )
         logger.info(f"Started shift status for rider {recipient}")
     else:
+        # Check if rider is currently on a job
+        inflight_check = (
+            client_ordelo.table("delivery_inflight")
+            .select("order_number")
+            .eq("rider_id", recipient)
+            .execute()
+        )
+        if len(inflight_check.data) > 0:
+            order_number = inflight_check.data[0]["order_number"]
+            await wa.send_message(
+                to=recipient,
+                text=f"You are currently on a job for order {order_number}. Please complete the job first.",
+            )
+            logger.info(
+                f"Rider {recipient} tried to end shift but is on job {order_number}"
+            )
+            return
+
         await wa.send_message(
             to=recipient,
             text="Ok. You will not receive job notifications for the next 24 hrs.",
@@ -173,6 +193,20 @@ async def handle_shift_availability(wa: WhatsApp, msg: Message):
             .execute()
         )
         logger.info(f"Ended shift status for rider {recipient}")
+
+
+# %%
+IS_ADMIN_AVAILABILITY = filters.contains("/adminAvailability", ignore_case=False)
+
+
+async def handle_admin_availability(wa: WhatsApp, msg: Message):
+    # Callback created in enquire_admin_availability, in wa_senders.py
+    callback_data: dict = json.loads(msg.data)
+    recipient = callback_data["recipient"]
+    await msg.reply(
+        text="Great! You will receive notification for new orders for the next 24 hrs!"
+    )
+    logger.info(f"Admin availability confirmed for {recipient}")
 
 
 async def _update_restaurant_order_status(order_number: str, status: str, msg: Message):
