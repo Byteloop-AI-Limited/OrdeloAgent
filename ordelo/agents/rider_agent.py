@@ -521,6 +521,7 @@ async def cancel_delivery_before_pickup(
     """
     ctx = runtime.context
     recipient = ctx.recipient
+    rider_name = ctx.rider_name
 
     dispatch_id = state.get("dispatch_id")
     order_number = state.get("order_number")
@@ -546,15 +547,6 @@ async def cancel_delivery_before_pickup(
             "dispatch_cancel_before_pickup", {"p_dispatch_id": dispatch_id}
         ).execute()
 
-        # await ctx.wa_client.send_message(
-        #     to=recipient,
-        #     text=(
-        #         f"Ok, I’ve cancelled this job before pickup. "
-        #         f"Order {order_number} will be re-dispatched to another rider.\n\n"
-        #         "Please tell me the reason you’re cancelling this pickup."
-        #     ),
-        # )
-
         return Command(
             update={
                 "awaiting_cancel_reason": True,
@@ -565,13 +557,10 @@ async def cancel_delivery_before_pickup(
                     #     tool_call_id=tool_call_id,
                     # ),
                     ToolMessage(
-                        "Ok 'user_name', No worries. I have cancelled this job for you.\n\n"
+                        f"Ok {rider_name}, No worries. I have cancelled this job for you.\n\n"
                         "Please tell me the reason you’re cancelling this pickup.",
                         tool_call_id=tool_call_id,
                     ),
-                    # AIMessage(
-                    #     "/dontRespond: Cancellation confirmed and reason requested."
-                    # ),
                 ],
             }
         )
