@@ -34,9 +34,8 @@ from ordelo.agents.rider_agent import builder
 from ordelo.agent_app_handlers import (
     debug_state,
     debug_state_by_thread,
-    enquire_shift_availability_non_template,
 )
-
+from utils_common.waba_utils.wa_senders import enquire_shift_availability_non_template
 from watomation.routers import (
     delivery_hooks,
     location_hooks,
@@ -65,12 +64,14 @@ from watomation.on_callback_wa_handler import (
     dispatch_response,
     rider_request_location,
     handle_shift_availability,
+    handle_admin_availability,
     admin_collection_ready,
     restaurant_order_accept_decline_handler,
     handle_pickup_time_selection,
     IS_DISPATCH_RESPONSE,
     IS_LOCATION_REQUEST,
     IS_SHIFT_AVAILABILITY,
+    IS_ADMIN_AVAILABILITY,
     IS_RESTAURANT_ORDER_ACCEPT_DECLINE,
     IS_PICKUP_TIME,
 )
@@ -161,6 +162,9 @@ wa.add_handlers(
     ),
     handlers.CallbackButtonHandler(
         callback=handle_shift_availability, filters=IS_SHIFT_AVAILABILITY
+    ),
+    handlers.CallbackButtonHandler(
+        callback=handle_admin_availability, filters=IS_ADMIN_AVAILABILITY
     ),
     handlers.CallbackButtonHandler(
         callback=restaurant_order_accept_decline_handler,

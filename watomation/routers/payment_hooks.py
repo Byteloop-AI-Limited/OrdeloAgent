@@ -13,7 +13,7 @@ Payment webhook handler module for Elai Agent
 
 # %%
 from fastapi import APIRouter, Request, BackgroundTasks
-from config import client
+from config import client_ordelo
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from config.params import get_restaurant_webhook_url_async
 import httpx
@@ -72,7 +72,7 @@ async def handle_payment_complete(food_order: FoodOrder):
 def init_delivery_summary(order_number: str, recipient: str):
     """Background task to initialize delivery via RPC call."""
     try:
-        response = client.rpc(
+        response = client_ordelo.rpc(
             "init_delivery", {"p_cust_id": recipient, "p_order_number": order_number}
         ).execute()
         logger.info(
@@ -96,7 +96,7 @@ async def payment_complete_path(request: Request, background_tasks: BackgroundTa
 
     # Update the payment status
     response = (
-        client.table("food_order")
+        client_ordelo.table("food_order")
         .update({"payment_status": "requires_capture"})
         .eq("order_id", order_id)
         .execute()

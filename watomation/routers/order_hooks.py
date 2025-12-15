@@ -7,6 +7,7 @@ Order hook endpoints for Elai Agent
   . Creates new orders with order items and initiates payment capture
   . Returns payment URLs for customer checkout
   . Captures customer addresses and upserts into customer_master
+  . Proxies thread lookup requests to restaurant systems
   . Triggers restaurant webhooks for stale thread termination
 Functions/Classes:
   . CreateOrderRequest - Pydantic model for order creation requests
@@ -15,6 +16,7 @@ Functions/Classes:
   . get_min_order_value_by_postcode - Resolves postcodes to coordinates before lookup
   . create_order - Creates order with items and captures payment
   . capture_address - Captures customer address and upserts into customer_master
+  . get_active_thread - Proxies restaurant active thread retrieval
   . terminate_stale_active_threads - Triggers restaurant webhook for stale thread cleanup
 """
 
@@ -22,25 +24,26 @@ Functions/Classes:
 
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
-from config import logger, client_ordelo, get_restaurant_webhook_url_async
 import httpx
+from fastapi import APIRouter, HTTPException, Query, Response
+from pydantic import BaseModel
+
+from config import client_ordelo, get_restaurant_webhook_url_async, logger
 from ordelo_datamodels.customer_master_pymodel import CustomerMaster
+from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
+from utils_common.maps_service.address_resolver import address_resolver
+from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.order_management.order_service import (
-    get_min_order_value as fetch_min_order_value,
     create_order_with_items,
 )
-from utils_common.maps_service.address_resolver import address_resolver
-from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
-from utils_common.payment_ms.payment import (
-    generate_payment_intent_url,
-    generate_automatic_payment_url,
-    cancel_payment,
+from utils_common.order_management.order_service import (
+    get_min_order_value as fetch_min_order_value,
 )
-
-from utils_common.order_management.food_order_pymodel import FoodOrder
+from utils_common.payment_ms.payment import (
+    generate_automatic_payment_url,
+    generate_payment_intent_url,
+)
 
 router = APIRouter(tags=["order-hooks"])
 
@@ -211,7 +214,7 @@ class CreateOrderRequest(BaseModel):
     summary="Create a new order with payment capture",
     description="""
     Creates a new food order with the provided order items and initiates payment capture.
-    Returns the payment URL for the customer to complete the payment.
+    Returns the payment intent URL for the customer to complete the payment.
     {
     "recipient": "447448440754",
     "thread_id": "1239876lkjsd",
@@ -405,3 +408,33 @@ async def terminate_stale_active_threads():
         # )
 
     return {"success": True, "status_code": response.status_code}
+
+
+@router.get(
+    "/get-active-thread/{rest_ref}/{recipient}",
+    summary="Get active thread for recipient",
+    description="""
+    Proxies the request to the restaurant's get-active-thread webhook.
+    """,
+)
+async def get_active_thread(rest_ref: str, recipient: str):
+    """Proxy request to restaurant webhook for active thread retrieval.
+
+    Returns:
+        Upstream response content/status from the restaurant system.
+    """
+
+    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "get-active-thread")
+    target_url = f"{webhook_url}/{rest_ref}/{recipient}"
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url=target_url)
+        except httpx.HTTPError as err:
+            raise HTTPException(status_code=502, detail=str(err)) from err
+
+    return Response(
+        content=response.content,
+        status_code=response.status_code,
+        media_type=response.headers.get("content-type"),
+    )

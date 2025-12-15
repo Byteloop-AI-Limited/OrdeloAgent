@@ -6,19 +6,14 @@ pydantic==2.11.5
 pydantic-settings==2.10.1
 python-multipart
 pydantic-core
-# Langchain
 psycopg[binary]
 psycopg-pool
-langgraph==0.6.6
-langchain-core
-langgraph-prebuilt
-langgraph-checkpoint-postgres==2.0.23
-langchain-postgres
-langchain-openai==0.3.32
-langchain-community
-# langgraph==0.2.70
-# langgraph-cli[inmem]
-pywa==3.4.0
+# Langchain
+langchain==1.1.3
+langchain-openai==1.1.2
+langgraph==1.0.4
+langgraph-checkpoint-postgres==3.0.2
+pywa==3.6.1
 pywa[cryptography]
 # data transforms
 supabase==2.15.3

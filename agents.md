@@ -31,8 +31,7 @@ This document maps the codebase structure and explains how agents, webhooks, mes
     - `verify_restaurant_confirmation_code` — confirms pickup and marks `delivery_dispatch.status='pickedup'`.
     - `verify_customer_confirmation_code` — completes delivery and calls `dispatch_complete_func`.
     - `cancel_delivery_before_pickup` — rolls back an assigned dispatch pre‑pickup and reopens dispatching.
-    - `capture_reason_for_cancel_before_pickup` — stores cancel reason on the dispatch row and sends stop‑tracking link.
-    - `send_end_live_tracking_link` — alias of `end_delivery` (stop‑tracking URL).
+    - `terminate_delivery_job` — closes the delivery job/thread and sends stop‑tracking link.
     - Graph control nodes: `agent_node`, `respond_node`, `ToolNode`.
   - Runner helpers: `ordelo/agents/agent_runner.py` —
     - Invoke graph per message: `:71` (`run_rider_graph`)
@@ -56,6 +55,9 @@ This document maps the codebase structure and explains how agents, webhooks, mes
   - Missed dispatches notify + flag: `notify_missed_dispatches_hook`
   - Food ready notify via tool call: `notify_food_ready_for_pickup`
   - Delivery timed out notify: `delivery_timedout`
+  - Availability enquiries (DB scheduled jobs → webhook → WA fan-out):
+    - `shift_availability_enquiry_hook`
+    - `admin_availability_enquiry_hook`
 - Location hooks: `watomation/routers/location_hooks.py`
   - Live map redirect (Google Maps or map page): `live_location_map`
   - Rider zone events to restaurant webhooks: `notify_rider_location_event`
@@ -141,6 +143,20 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 5) Ending the Job
 - After successful customer confirmation code verification, the agent calls DB function `dispatch_complete_func` and marks WA thread inactive. A “Stop live tracking” link is sent.
 - `/reset` command exists to force thread reset; `/cleardis` calls a Supabase RPC to clear dispatch for testing.
+
+6) Scheduled Availability Enquiries (DB → API → WhatsApp)
+- Two non-critical “availability enquiry” flows are run via scheduled Postgres functions (typically via pg_cron) that call FastAPI endpoints.
+- Shift enquiry (riders):
+  - SQL function: `ordelo_datamodels/jobs_n_functions/enquire_shift_availability.sql` (`enquire_shift_availability()`)
+  - Webhook endpoint: `POST /delivery-hooks/shift-availability-enquiry`
+  - Handler: `watomation/routers/delivery_hooks.shift_availability_enquiry_hook`
+  - Action: sends the `shift_availability` template with Yes/No quick replies.
+- Admin enquiry (restaurant admins):
+  - SQL function: `ordelo_datamodels/jobs_n_functions/enquire_admin_availability.sql` (`enquire_admin_availability(p_rest_ref_list VARCHAR[] DEFAULT NULL)`)
+  - Webhook endpoint: `POST /delivery-hooks/admin-availability-enquiry`
+  - Handler: `watomation/routers/delivery_hooks.admin_availability_enquiry_hook`
+  - Action: sends the `alert_order_notification_resolve` template with a single quick reply.
+- **Timeout behavior:** these endpoints respond success immediately and perform WhatsApp fan-out using FastAPI `BackgroundTasks` to avoid database-trigger HTTP timeouts.
 
 
 ## WhatsApp Handlers and Commands

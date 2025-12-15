@@ -23,7 +23,7 @@ Functions/Classes:
 from typing import Optional
 import requests
 from pydantic import BaseModel
-from config import client, client_ordelo, logger, ms_settings
+from config import client_ordelo, logger, ms_settings
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 
 
@@ -107,7 +107,7 @@ class FoodOrder(BaseModel):
         """
         try:
             food_order_row = (
-                client.table("food_order")
+                client_ordelo.table("food_order")
                 .select("*")
                 .eq("order_number", order_number)
                 .execute()
@@ -145,7 +145,7 @@ class FoodOrder(BaseModel):
         """
         try:
             food_order_row = (
-                client.table("food_order")
+                client_ordelo.table("food_order")
                 .select("*")
                 .eq("order_id", order_id)
                 .execute()
@@ -234,7 +234,7 @@ class FoodOrder(BaseModel):
 
             # 4. Update database
             update_response = (
-                client.table("food_order")
+                client_ordelo.table("food_order")
                 .update(food_order_update)
                 .eq("order_id", self.order_id)
                 .execute()
@@ -285,7 +285,7 @@ class FoodOrder(BaseModel):
             dict: Order summary with all items for payment intent.
         """
         order_items = (
-            client.table("order_item")
+            client_ordelo.table("order_item")
             .select("""
                 product_name, 
                 quantity, 
@@ -329,7 +329,7 @@ class FoodOrder(BaseModel):
             dict: Order summary with only product items for automatic payment.
         """
         order_items = (
-            client.table("order_item")
+            client_ordelo.table("order_item")
             .select("""
                 product_name, 
                 quantity, 
