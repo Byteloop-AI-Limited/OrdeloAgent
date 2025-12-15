@@ -28,10 +28,20 @@ from utils_common.waba_utils.wa_senders import CallbackButtonData
 # waba_phone_setting, waba_business_setting
 
 # %%
-recipient = 447448440754
+recipient = 447909510536
 
 
 # %%
+from utils_common.waba_utils.wa_senders import (
+    enquire_shift_availability,
+    enquire_admin_availability,
+)
+
+# await enquire_shift_availability(
+#                 wa=wa,
+#                 recipient=recipient,
+#                 name="Nikhil",
+#             )
 
 # %%
 
