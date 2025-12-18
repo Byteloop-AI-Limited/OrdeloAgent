@@ -1,8 +1,10 @@
 """
-Initialize Postgres checkpoint database
-    . Sets up the checkpointer using Langgraph's PostgresSaver
-    . Reads DB URI from configuration
-    . Creates necessary tables for checkpointing
+Database initialization script for LangGraph checkpointer
+  . Sets up PostgreSQL schema for conversation state storage
+  . Initializes LangGraph PostgresSaver checkpointer
+  . One-time setup script for database tables
+  Functions/Classes:
+    . checkpointer (setup execution)
 """
 
 # %% initialize the checkpointer for the first time
