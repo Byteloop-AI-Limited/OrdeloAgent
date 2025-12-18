@@ -21,7 +21,7 @@ def get_project_root():
 
 class ProjectSetting(BaseSettings):
     salt: str = Field(..., alias="project_settings_salt")
-    base_url: str = Field(..., alias="project_settings_base_url")
+    rest_ref: str = Field(..., alias="project_settings_rest_ref")
 
     @property
     def project_root(self) -> str:
@@ -33,3 +33,6 @@ class ProjectSetting(BaseSettings):
 
 
 project_settings = ProjectSetting(**ordelo_agent_env)
+
+# %%
+project_settings

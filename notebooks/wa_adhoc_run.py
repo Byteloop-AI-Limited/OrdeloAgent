@@ -28,8 +28,31 @@ from utils_common.waba_utils.wa_senders import CallbackButtonData
 # waba_phone_setting, waba_business_setting
 
 # %%
-recipient = 447909510536
+# recipient = 447909510536
+recipient = 447448440754
 
+
+# %%
+
+from config import client_ordelo
+
+order_number = "WREN-AEHO-21"
+summary = (
+    client_ordelo.table("delivery_summary")
+    .select("*")
+    .eq("order_number", order_number)
+    .limit(1)
+    .execute()
+    .data[0]
+)
+await wa.send_location(
+    to=recipient,
+    latitude=summary["customer_lat"],
+    longitude=summary["customer_lon"],
+    name=" ",
+    address=summary["customer_address"],
+    # reply_to_message_id=reply_to_msg_id,
+)
 
 # %%
 from utils_common.waba_utils.wa_senders import (
@@ -39,8 +62,8 @@ from utils_common.waba_utils.wa_senders import (
 
 # await enquire_shift_availability(
 #                 wa=wa,
-#                 recipient=recipient,
-#                 name="Nikhil",
+#                 recipient='447478348141',
+#                 name="Abubakar",
 #             )
 
 # %%

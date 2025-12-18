@@ -6,7 +6,7 @@ import requests
 
 # %% Test params
 
-url = f"{project_settings.base_url}/location-hooks/pub"
+url = f"DummyValue/location-hooks/pub"
 topic = "owntracks/447448440754/447448440754-e153845d621d497ea780a9ce5647d822/event"
 
 # %% Rest enter
