@@ -1,70 +1,39 @@
-WITH deliverySnapShot AS (
-    SELECT
-      summ.order_number,
-      summ.customer_id,
-      det.vehicle_type   AS detail_vehicle_type,
-      det.status         AS detail_vehicle_status,
-      dopt.rank          AS available_vehicle_rank,
-      dopt.vehicle_type  AS available_vehicle_type,
-      summ.town,
-      dopt.driver_payout,
-      (dopt.breakdown::JSON ->> 'distance_miles')::DOUBLE precision as distance,
-      rank() OVER (
-        PARTITION BY summ.order_number
-        ORDER BY det.status   ASC NULLS FIRST,
-                 dopt.rank     ASC
-      )                    AS next_vehicle_rank
-    FROM delivery_summary summ
-    inner JOIN delivery_option  dopt
-      ON dopt.order_number = summ.order_number
-    LEFT JOIN delivery_detail det
-      ON det.order_number   = summ.order_number
-     AND det.vehicle_type   = dopt.vehicle_type
-    where summ.status        = 'unassigned'
-  )
-, to_insert AS (
-    -- which un‐assigned orders where all existing details are timed-out
-    SELECT
-      order_number,
-      customer_id,
-      available_vehicle_type,
-      town,
-      rider_payout,
-      distance
-      FROM deliverySnapShot ds_outer
-     WHERE ds_outer.next_vehicle_rank = 1
-       AND ds_outer.detail_vehicle_status IS NULL
-       AND NOT EXISTS (
-         SELECT 1
-           FROM deliverySnapShot ds2
-          WHERE ds2.order_number = ds_outer.order_number
-            AND ds2.detail_vehicle_status IS NOT NULL
-            AND ds2.detail_vehicle_status <> 'vehicle_type_timedout'
-       )
-  )
-select * from to_insert;
+select pickup_time, dtts, restaurant_confirmation_status, status, * from delivery_summary where order_number='WREN-AEHO-21' ;
+select * from delivery_option where order_number='WREN-AEHO-21';
+select * from delivery_summary where order_number='WREN-AEHO-21';
+select * from delivery_detail where order_number='WREN-AEHO-21';
+select * from delivery_dispatch where order_number='WREN-AEHO-21';
+select * from delivery_inflight where order_number='WREN-AEHO-21';
+-- select * from delivery_inflight;
+select * from food_order where order_number='WREN-AEHO-21';
+select * from order_item where order_id='AEHO-21';
 
-select pickup_time, dtts, restaurant_confirmation_status, status, * from delivery_summary where order_number='ELAS-WWVP-26' ;
-select * from delivery_option where order_number='ELAS-WWVP-26';
-select * from delivery_detail where order_number='ELAS-WWVP-26';
-select * from delivery_dispatch where order_number='ELAS-WWVP-26';
-select * from delivery_inflight where order_number='ELAS-WWVP-26';
+update delivery_summary 
+set status='unassigned'
+where order_number like 'WREN-AEHO-21';
 
-
+select status, restaurant_confirmation_status, * from delivery_summary 
+where order_number like 'WREN-%';
 
 -- Best approach to testing, let the init_delivery and process_delivery run with 15 sec intervals.
 -- Check summary
 select status,* from delivery_summary 
-where order_number in ('WREN-HEHM-31', 'WREN-YKZT-20', 'WREN-YKZT-21') order by dtts desc;
+where order_number in ('WREN-AEHO-21') order by dtts desc;
 -- Check detail
-select status,* from delivery_detail where order_number in ('WREN-HEHM-31'
-, 'WREN-YKZT-20', 'WREN-YKZT-21') order by order_number, dtts desc;
+select status,* from delivery_detail where order_number in ('WREN-AEHO-21') order by order_number, dtts desc;
 -- Check dispatch
 select status,* from delivery_dispatch
-where order_number in ('WREN-HEHM-31', 'WREN-YKZT-20', 'WREN-YKZT-21') order by order_number, dtts desc;
+where order_number in ('WREN-AEHO-21') order by order_number, dtts desc;
 -- Check inflight
 select * from delivery_inflight
-where order_number in ('WREN-HEHM-31', 'WREN-YKZT-20', 'WREN-YKZT-21') order by dtts desc;
+where order_number in ('WREN-AEHO-21') order by dtts desc;
+
+-- cleanup for testing
+delete from delivery_dispatch where order_number in ('WREN-AEHO-21');
+delete from delivery_detail where order_number in ('WREN-AEHO-21');
+delete from delivery_inflight where order_number in ('WREN-AEHO-21');
+--update delivery_summary set status = 'unassigned' where order_number  in ('WREN-HEHM-31', 'WREN-YKZT-20', 'WREN-YKZT-21');
+update delivery_summary set status = 'unassigned' where order_number  in ('WREN-AEHO-21');
 
 select process_delivery();
 select job_create_dispatch();
@@ -72,15 +41,8 @@ select job_create_dispatch();
 select job_assign_dispatch();
 
 select dispatch_complete_func(213);
--- cleanup for testing
-delete from delivery_dispatch where order_number in ('WREN-HEHM-31', 'WREN-YKZT-20', 'WREN-YKZT-21');
-delete from delivery_detail where order_number in ('WREN-HEHM-31', 'WREN-YKZT-20', 'WREN-YKZT-21');
-delete from delivery_inflight where order_number in ('WREN-HEHM-31', 'WREN-YKZT-20', 'WREN-YKZT-21');
---update delivery_summary set status = 'unassigned' where order_number  in ('WREN-HEHM-31', 'WREN-YKZT-20', 'WREN-YKZT-21');
-update delivery_summary set status = 'unassigned' where order_number  in ('WREN-HEHM-31');
 
 delete from delivery_dispatch where order_number='WREN-YKZT-20' and vehicle_type='car';
-
 delete from delivery_detail where order_number='WREN-YKZT-20' and vehicle_type='car';
 
 
