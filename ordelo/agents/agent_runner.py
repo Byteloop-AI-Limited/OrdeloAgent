@@ -6,8 +6,12 @@ Core agent runner for Ordelo's delivery workflow system
     . Manages delivery job state through PostgreSQL persistence
     . Coordinates with rider_agent for workflow execution
   Functions/Classes:
-    . run_rider_graph - Executes rider graph and returns AI response
+    . run_rider_agent_w_custom_msg - Executes rider graph with custom messages and returns AI response
     . init_ordelo_graph - Initializes delivery workflow for given detail
+    . debug_state - Returns shortened graph state for debugging
+    . debug_state_values - Returns state values for debugging
+    . job_end_stale_conversations - Closes stale active threads
+    . run_rider_agent_repl - Async console REPL for local testing
 """
 
 # %%
@@ -201,3 +205,86 @@ async def job_end_stale_conversations(
         #     human_msg="get me out of here",
         #     config=config,
         # )
+
+
+# %% Async REPL for local testing
+async def run_rider_agent_repl(recipient: str) -> None:
+    """Interactive loop: send console input to the rider graph until 'exit'."""
+    while True:
+        user_input = input("Human Input: ")
+        if user_input == "exit":
+            break
+
+        print("====================")
+        ai_response = await run_rider_agent_w_custom_msg(
+            recipient=recipient,
+            human_msg=user_input,
+        )
+        print(ai_response)
+
+
+# %% This doesnt work.
+# await run_rider_agent_repl('447448440754')
+
+
+# %% get state values
+# await debug_state_values('447448440754')
+
+# %%
+"""
+from config import client_ordelo
+from ordelo_datamodels.delivery_pymodels import DeliverySummary
+
+order_number = "ELAS-OOLX-24"
+
+res = client_ordelo.table("delivery_summary").select("*").eq("order_number", order_number).execute()
+
+delivery_summary = DeliverySummary(**res.data[0])
+rider_id='447448440754'
+rider_name='Rider Name'
+dispatch_id=76
+    
+# %%
+
+pool: AsyncConnectionPool = await pg_settings.get_pool()
+# recipient = d_detail.rider_id
+
+context_schema = ContextSchema(
+    pool=pool,
+    wa_client=_async_wa_client,
+    recipient=rider_id,
+    client_ordelo=client_ordelo,
+)
+
+# Setup Graph
+checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
+graph = builder.compile(checkpointer=checkpointer)
+config, _ = await get_config_for_recipient(rider_id, pool)
+
+start_live_tracking_url = "dummy_url"
+
+# update graph state
+# Setup context
+ip_msgs = {
+    "messages": [
+        SystemMessage(
+            f"Rider {rider_name} has accepted the delivery job, call `send_delivery_instructions` tool to send the delivery instructions"
+        ),
+        HumanMessage("I have accepted the delivery job."),
+    ]
+}
+delivery_start_dtts = datetime.now().isoformat()
+await graph.aupdate_state(
+    config,
+    {
+        "dispatch_id": dispatch_id,
+        "order_number": delivery_summary.order_number,
+        "start_live_tracking_url": start_live_tracking_url,
+        "delivery_start_dtts": delivery_start_dtts,
+        "rider_name": rider_name,
+    },
+    as_node="toolNode",
+)
+# Run Graph
+await graph.ainvoke(input=ip_msgs, config=config, context=context_schema)
+"""
