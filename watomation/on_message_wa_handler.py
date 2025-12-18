@@ -181,10 +181,10 @@ async def test_delivery(wa: WhatsApp, msg: Message):
     # pool: AsyncConnectionPool = await pg_settings.get_pool()
     # client = pg_settings.client
     logger.info(
-        "Testing delivery for user %s with order %s", msg.sender, "ELAS-WWVP-25"
+        "Testing delivery for user %s with order %s", msg.sender, "WREN-AEHO-21"
     )
     recipient = msg.sender
-    order_number = "ELAS-WWVP-25"
+    order_number = "WREN-AEHO-21"
 
     # order_number = f"WREN-TEST-{random.randint(10, 99)}"
 
@@ -196,8 +196,13 @@ async def test_delivery(wa: WhatsApp, msg: Message):
 
     # Now init the delivery so the process follows - run as background task to avoid timeout
     logger.info(f"Initializing delivery for user {recipient} with order {order_number}")
-    # Schedule the RPC call as a background task
+
+    # Create an entry in delivery_summary and update status to unassigned (bypass the restaurant confirmation)
     asyncio.create_task(init_delivery_summary(order_number, recipient))
+    client_ordelo.table("delivery_summary").update({"status": "unassigned"}).eq(
+        "order_number", order_number
+    ).execute()
+
     logger.info(f"Init delivery scheduled as background task for order {order_number}")
     return {"status": "success"}
 
