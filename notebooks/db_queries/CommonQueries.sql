@@ -1,4 +1,4 @@
-select * from thread where is_active;
+select * from thread order by dtts desc;
 
 select *
       FROM pgmq.read('owntracks', 5, 1000);
