@@ -842,6 +842,14 @@ async def shift_availability_enquiry_hook(
 
     riders = payload.get("riders", [])
     event_type = payload.get("event_type", "unknown")
+    rider_ids = [rider.get("rider_id") for rider in riders]
+
+    update_shift_status = (
+        client_ordelo.table("rider_master")
+        .update({"is_in_shift": False, "shift_response_dtts": "now()"})
+        .in_("rider_id", rider_ids)
+        .execute()
+    )
 
     if riders:
         logger.info(f"Scheduling {len(riders)} riders for {event_type} processing")
