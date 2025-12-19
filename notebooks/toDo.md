@@ -1,3 +1,8 @@
+## PostGoLive
+- debug fails
+
+
+
 ## GoLive checklist:
 WABA change on both elai and ordelo
 Config updates for 
@@ -15,8 +20,6 @@ Update
 - 
 ## Immediate
 - [!!!] One restConfirmation, ackonwledge and then ask to start live tracking
-- May be use this build_wa_order_reciept_for_rest as the first msg to admin
-- [!!!] Postcode is just sp1 for sp11pb; Check if lat and lon are correct however. Would the rider get the correct address when asked for in the agent?
 - admin_order_receipt (graph_init_hook) can make use of live location as a ButtonURL Not possible to mix interactive with buttonURL
 
 ### 8th DEC

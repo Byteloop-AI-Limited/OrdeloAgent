@@ -22,7 +22,7 @@ BEGIN
     WHERE order_number = p_order_number;
     GET DIAGNOSTICS v_detail_deleted = ROW_COUNT;
 
-    -- Reset summary status to unassigned
+    -- Reset summary status to unassigned; Bypass rest confirmation
     UPDATE delivery_summary
     SET 
     status = 'restaurant_unconfirmed', 
@@ -31,6 +31,16 @@ BEGIN
     dtts = current_timestamp
     WHERE order_number = p_order_number;
     GET DIAGNOSTICS v_summary_updated = ROW_COUNT;
+    
+    -- Reset summary status to unassigned; Bypass rest confirmation
+    -- UPDATE delivery_summary
+    -- SET 
+    -- status = 'unassigned', 
+    -- restaurant_confirmation_status = 'auto_accept',
+    -- pickup_time = current_timestamp + interval '10 minutes',
+    -- dtts = current_timestamp
+    -- WHERE order_number = p_order_number;
+    -- GET DIAGNOSTICS v_summary_updated = ROW_COUNT;
 
     RETURN format(
         'Order %s reset (inflight deleted=%s, dispatch deleted=%s, detail deleted=%s, summary updated=%s)',

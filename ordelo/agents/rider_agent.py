@@ -255,8 +255,13 @@ async def send_dropoff_location(
         to=recipient,
         latitude=summary["customer_lat"],
         longitude=summary["customer_lon"],
-        # name=f"{summary['customer_name']} - Drop Off",
+        name=" ",
         address=summary["customer_address"],
+        reply_to_message_id=reply_to_msg_id,
+    )
+    await ctx.wa_client.send_message(
+        to=recipient,
+        text="Dropoff:\n" + summary["customer_address"],
         reply_to_message_id=reply_to_msg_id,
     )
     return Command(
@@ -999,7 +1004,7 @@ builder.add_edge("toolNode", "riderAgent")
 
 """ 
 from utils_common.lg_utils import agent_loop_test
-await agent_loop_test(builder, thread_id=21)
+await agent_loop_test(builder, thread_id=1)
 
 # %%
 from langgraph.checkpoint.memory import MemorySaver

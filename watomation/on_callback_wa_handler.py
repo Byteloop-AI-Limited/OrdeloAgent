@@ -51,6 +51,7 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
     # get app state resources
     recipient = msg.sender
 
+    # Callback created in @delivery_hooks (/delivery-dispatch) -> wa_send_delivery_dispatch_request ->
     callback_data: dict = json.loads(msg.data)
     # remove command from callback data and add rider_id
     callback_data.pop("command")
@@ -158,7 +159,7 @@ async def handle_shift_availability(wa: WhatsApp, msg: Message):
         )
         update_shift_status = (
             client_ordelo.table("rider_master")
-            .update({"is_in_shift": True})
+            .update({"is_in_shift": True, "shift_response_dtts": "now()"})
             .eq("rider_id", recipient)
             .execute()
         )

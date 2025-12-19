@@ -1,3 +1,5 @@
+select * from thread order by dtts desc;
+
 select *
       FROM pgmq.read('owntracks', 5, 1000);
 
@@ -77,6 +79,7 @@ where order_number like 'WREN-TEST-%'
 order by id desc;
 
 --
+select * from delivery_dispatch order by dtts desc limit 10;
 
 select * from restaurant_master where rest_ref='ELAS';
 update restaurant_master
@@ -267,8 +270,15 @@ SHOW log_directory;
 SHOW log_filename;
 
 
-select * from thread;
+select * from thread order by dtts desc limit 10;
 select * from delivery_summary order by dtts desc limit 10;
+
+select * from delivery_detail where order_number='ELAS-ZSLI-22';
+select * from delivery_inflight where order_number='ELAS-ZSLI-22';
+select * from delivery_option where order_number='ELAS-ZSLI-22';
+select * from delivery_dispatch where order_number='ELAS-ZSLI-22';
+
+ELAS-ZSLI-22
 select * from delivery_detail order by dtts desc limit 10;
 -- ELAS-WWVP-26
 -- Testing fro wren

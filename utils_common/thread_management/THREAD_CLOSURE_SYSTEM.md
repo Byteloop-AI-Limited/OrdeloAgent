@@ -2,60 +2,30 @@
 
 ## Overview
 
-The Ordelo system implements an automated thread closure mechanism that identifies and closes inactive WhatsApp conversation threads that haven't been accessed recently and are not marked for retention.
+Elai implements an automated thread termination mechanism that identifies stale *active* WhatsApp conversation threads and ends them by prompting the Delivery LangGraph to call the `terminate_conversation` tool.
 
 ## System Components
 
-### 1. Database Function: `job_close_thread()`
+### 1. Scheduled thread termination entrypoint (FastAPI)
 
-**Location**: `ordelo_datamodels/jobs_n_functions/job_close_thread.sql`
+**Endpoint**: `POST /thread-hooks/terminate-stale-active-threads`
 
-**Scheduled Execution**:
-- Runs every 5 minutes via Supabase cron job
-- Cron expression: `*/5 * * * *`
+**Location**: `watomation/routers/thread_hooks.py`
 
-**Configuration**:
-- `THREAD_INACTIVE_TIME_INTERVAL` - Minutes of inactivity before thread closure (default: 5)
-- `ORDELO_APP_URL` - Base URL for webhook calls (default: https://rider-agent.ordelo.app)
+**How it works**:
+1. Fetches stale active threads directly from Postgres via `ThreadHandler.get_stale_active_threads(stale_minutes=5)`.
+2. For each stale thread:
+   - Builds a LangGraph config:
+     - `configurable.thread_id = <thread.thread_id>`
+     - `configurable.recipient = <thread.recipient>`
+   - Reads the current persisted graph state via `debug_state_values(config=config)`.
+   - If `state_values.retain_thread == True`, the thread is **not** terminated.
+   - Otherwise, schedules a background task to run the Delivery graph with a system instruction:
+     - `system_msg="Call tool `terminate_conversation` with reason - Ending the conversation due to inactivity."`
+3. Returns the stale thread records found (for logging/inspection).
 
-**Logic Flow**:
-1. Queries thread table for inactive threads
-2. Filters: `last_access_dtts` older than interval AND `retain_thread = false`
-3. Aggregates matching records as JSON array with thread_id, recipient, last_access_dtts, is_active, minutes_since_last_access
-4. Makes HTTP POST to `/delivery-hooks/close-threads` webhook endpoint
-5. Returns boolean indicating if threads were found and notified
-
-**Webhook Integration**:
-- Endpoint: `POST /delivery-hooks/close-threads`
-- Payload: JSON array of thread records
-- Triggers thread closure and goodbye message to recipients
-
-### 2. FastAPI Endpoint: `/delivery-hooks/close-threads`
-
-**Location**: `watomation/routers/delivery_hooks.py`
-
-**Triggered by**: Supabase cron job running every 5 minutes
-**Source Function**: `job_close_thread()` in `ordelo_datamodels/jobs_n_functions/job_close_thread.sql`
-
-**Workflow**:
-1. Receives JSON array of thread records to close
-2. For each thread:
-   - Marks thread as inactive using `ThreadHandler.make_threads_inactive()`
-   - Sends goodbye message to recipient via WhatsApp
-3. Returns success status with count of processed threads
-
-**Payload Structure**:
-```json
-[
-    {
-        "thread_id": "uuid",
-        "recipient": "phone_number",
-        "last_access_dtts": "timestamp",
-        "is_active": boolean,
-        "minutes_since_last_access": number
-    }
-]
-```
+**Important note**:
+This endpoint does **not** accept an external payload of threads to close. It is responsible for querying the DB and deciding which threads to terminate.
 
 ## Thread Management Components
 
@@ -69,6 +39,11 @@ The Ordelo system implements an automated thread closure mechanism that identifi
 - `dt` (date) - Creation date
 - `dtts` (timestamp) - Creation timestamp
 - `last_access_dtts` (timestamp) - Last access timestamp
+
+**Primary invariants**:
+- A “session” in LangGraph is identified by `configurable.thread_id` (and typically also includes `configurable.recipient`).
+- `last_access_dtts` is updated by `get_active_thread(agent, recipient)` when an active thread is fetched.
+- Stale thread detection is purely DB-driven via `last_access_dtts` and `retain_thread`.
 
 ### Thread Handler Class
 
@@ -87,33 +62,56 @@ The Ordelo system implements an automated thread closure mechanism that identifi
 - `get_or_create_thread()` - Gets existing or creates new thread atomically
 - `retain_thread()` - Sets retain_thread flag for active thread
 - `make_threads_inactive()` - Marks threads as inactive
+- `get_stale_active_threads(stale_minutes)` - Returns active, non-retained threads whose `last_access_dtts` is older than the threshold
+
+**Location**: `utils_common/thread_management/thread_mgmnt.sql`
 
 ## Workflow Integration
 
-1. **Thread Creation**: New threads created with `is_active = true`, `retain_thread = false`
-2. **Thread Access**: `get_active_thread()` updates `last_access_dtts` on access
-3. **Thread Retention**: `retain_thread()` sets `retain_thread = true` to prevent closure
-4. **Scheduled Cleanup**: Cron job runs every 5 minutes calling `job_close_thread()`
-5. **Thread Closure**: Inactive threads processed via webhook, marked inactive, and recipients notified
+1. **Thread Creation / Retrieval**
+   - Most runtime entrypoints call `get_config_for_recipient(recipient)` (`utils_common/lg_utils.py`).
+   - This uses `ThreadHandler.get_or_create_thread(recipient)` and returns:
+     - `config = {"configurable": {"thread_id": <thread_id>, "recipient": <recipient>}}`
+
+2. **LangGraph persistence (“session” management)**
+   - `elai/agent_runner.py` compiles the Delivery graph with `AsyncPostgresSaver(pool)`.
+   - The checkpointer persists graph state keyed by `configurable.thread_id`.
+
+3. **Retention**
+   - A thread can be protected from automated termination by setting `retain_thread` in persisted graph state (key: `retain_thread`).
+   - The termination job reads graph state via `debug_state_values(config=...)` and skips termination when `retain_thread` is true.
+
+4. **Termination**
+   - Termination is performed by the Delivery agent tool `terminate_conversation` (`elai/agents/delivery.py`).
+   - That tool:
+     - Calls `ThreadHandler.make_threads_inactive(recipient)` (DB update)
+     - Sends a final WhatsApp message (“Thank you and good bye!”)
+
+5. **DB-level stale detection**
+   - `ThreadHandler.get_stale_active_threads(stale_minutes)` calls the SQL function `get_stale_active_threads(agent, stale_minutes)`.
+   - The SQL function only returns threads where:
+     - `is_active = TRUE`
+     - `retain_thread IS NOT TRUE`
+     - `last_access_dtts < now() - interval(stale_minutes)`
 
 ## Configuration Management
 
-**Config Keys**:
-- `THREAD_INACTIVE_TIME_INTERVAL`: Minutes before thread considered inactive
-- `ORDELO_APP_URL`: Base URL for webhook endpoints
+**Stale threshold**:
+- Current code uses a fixed `stale_minutes=5` in `thread_hooks.py`.
+- If you want this configurable, introduce an env/config key and plumb it into the endpoint.
 
-**Usage Example**:
+**Usage Example (SQL)**:
 ```sql
 -- Set thread retention for active thread
-SELECT * FROM retain_thread('447448440754');
+SELECT * FROM elas.retain_thread('ELAS', '447448440754');
 
--- Run manual thread cleanup
-SELECT job_close_thread();
+-- Inspect stale threads (5 minutes)
+SELECT * FROM elas.get_stale_active_threads('ELAS', 5);
 ```
 
 ## Error Handling
 
-- Empty payloads handled gracefully in webhook endpoints
-- Function returns boolean indicating success/failure
-- Logging implemented for debugging and monitoring
-- Fallback values for missing configuration
+- Termination is performed in background tasks per-thread; failures will surface in app logs.
+- Session corruption (OpenAI tool-call mismatch) is handled in `elai/agent_runner.py` by:
+  - attempting a repair (remove the trailing AI tool-call message)
+  - otherwise terminating the session by marking threads inactive.
