@@ -12,8 +12,9 @@ https://rider-agent.ordelo.app/docs#/default/reset_restaurant_base_url_cache_end
 
 update ordelo_config set config_value = 'https://elas-agg.ordelo.app' where config_key = 'ELAS_APP_URL';
 update ordelo_config set config_value = 'https://rider-agent.ordelo.app' where config_key = 'ORDELO_APP_URL';
-update ordelo_config set config_value = 'https://elas-agg.ordelo.app' where config_key = 'WREN_APP_URL';
 update ordelo_config set config_value = 'https://restaurant.ordelo.app' where config_key = 'RESTAURANT_MENU_APP_URL'; 
+
+update ordelo_config set config_value = 'https://elas-agg.ordelo.app' where config_key = 'WREN_APP_URL';
 
 select * from ordelo_config where config_key like 'ELAS_MENU_URL';
 
