@@ -1,8 +1,5 @@
 ## PostGoLive
-- [!!!] The dropoff pin is missing address;
 - debug fails
-- 
-- admin_order_receipt (graph_init_hook) can make use of live location as a ButtonURL Not possible to mix interactive with buttonURL
 
 
 

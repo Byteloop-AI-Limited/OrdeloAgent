@@ -1,12 +1,16 @@
 select pickup_time, dtts, restaurant_confirmation_status, status, * from delivery_summary where order_number='WREN-AEHO-21' ;
+order_number='WREN-AEHO-21';
+-- order_number='ELAS-OOLX-24';
 select * from delivery_option where order_number='WREN-AEHO-21';
 select * from delivery_summary where order_number='WREN-AEHO-21';
 select * from delivery_detail where order_number='WREN-AEHO-21';
 select * from delivery_dispatch where order_number='WREN-AEHO-21';
-select * from delivery_inflight where order_number='WREN-AEHO-21';
+select * from delivery_inflight;
 -- select * from delivery_inflight;
 select * from food_order where order_number='WREN-AEHO-21';
 select * from order_item where order_id='AEHO-21';
+
+delete from delivery_detail where order_number='WREN-AEHO-21';
 
 update delivery_summary 
 set status='unassigned'

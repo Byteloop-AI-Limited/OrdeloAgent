@@ -20,7 +20,7 @@ BEGIN
     SELECT DISTINCT rider_id, rider_name 
     FROM rider_master 
     WHERE status = 'active' 
-    LIMIT 10
+    LIMIT 20
   ) active_riders;
 
   -- Construct the webhook payload

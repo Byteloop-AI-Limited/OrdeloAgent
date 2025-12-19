@@ -3,7 +3,7 @@
 select * from rider_registrations;
 select * from rider_master order by is_in_shift desc;
 -- update rider_master set is_in_shift=false;
--- update rider_master set is_in_shift=true where town='Orpington';
+update rider_master set is_in_shift=true, town ='Salisbury' where rider_name='10hith';
 
 select phone as rider_id,  from rider_registrations;
 
