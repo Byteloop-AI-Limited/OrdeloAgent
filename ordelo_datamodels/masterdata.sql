@@ -14,6 +14,8 @@ CREATE TABLE rider_master (
     priority    INT NOT NULL DEFAULT 1,
     dtts        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE rider_master ADD COLUMN shift_response_dtts TIMESTAMP;
+
 
 CREATE TABLE restaurant_master (
     rest_ref    VARCHAR(4) PRIMARY KEY,

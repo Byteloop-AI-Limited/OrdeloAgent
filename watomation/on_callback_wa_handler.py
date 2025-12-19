@@ -159,7 +159,7 @@ async def handle_shift_availability(wa: WhatsApp, msg: Message):
         )
         update_shift_status = (
             client_ordelo.table("rider_master")
-            .update({"is_in_shift": True})
+            .update({"is_in_shift": True, "shift_response_dtts": "now()"})
             .eq("rider_id", recipient)
             .execute()
         )
