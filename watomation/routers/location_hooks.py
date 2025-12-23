@@ -273,13 +273,14 @@ async def notify_rider_location_event(
     if location == "rest" and event == "enter":
         # Call restaurant webhook for restaurant enter event
         rest_ref = delivery_summary.get("rest_ref")
-        cust_confirmation_code = delivery_summary.get("cust_confirmation_code")
+        # cust_confirmation_code = delivery_summary.get("cust_confirmation_code")
+        rest_confirmation_code = delivery_summary.get("rest_confirmation_code")
         rest_admins = get_restaurant_admins(rest_ref=rest_ref)
 
         for admin_phone in rest_admins:
             await _async_wa_client.send_message(
                 to=admin_phone,
-                text=f"Rider is nearby for order {delivery_summary['order_number']}, please have the food ready. 2 Digit Code: *{cust_confirmation_code}*",
+                text=f"Rider is nearby for order {delivery_summary['order_number']}, please have the food ready. 2 Digit Code: *{rest_confirmation_code}*",
             )
 
     elif location == "cust" and event == "enter":

@@ -1,5 +1,6 @@
-## PostGoLive
-- debug fails
+## weekend-19
+- notify_rider_location_event - Change to rest_confirmation_code; Also, add filter to check if the current time is within 10 minutes of the pickup time. Also, check
+- run_rider_agent_w_custom_msg - check if the rider has collected the food and is inflight before sending this message
 
 
 

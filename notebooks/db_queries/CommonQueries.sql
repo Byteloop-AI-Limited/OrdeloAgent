@@ -10,7 +10,7 @@ select pg_get_functiondef('delivery_inflight_whook'::regproc);
 select count(*) from rider_location_event;
 
 
-delete from rider_master where rider_id in ('447448440754') and vehicle_type in ('electric_bike', 'scooter');
+-- delete from rider_master where rider_id in ('447448440754') and vehicle_type in ('electric_bike', 'scooter');
 
 -- on postgresql, how to find if there are any triggers defined on the table delivery_summary?
 
@@ -19,8 +19,13 @@ from pg_trigger
 where tgrelid = 'delivery_summary'::regclass;
 
 select * from restaurant_master;
-select * from delivery_summary;
+select * from delivery_summary order by dtts desc limit 10;
 
+select * from delivery_dispatch 
+inner join rider_master on rider_master.rider_id = delivery_dispatch.rider_id
+where order_number='ELAS-RDRU-20';
+
+select * from delivery_option where order_number='ELAS-RDRU-20';
 select * from ordelo_config;
 
 select status,
