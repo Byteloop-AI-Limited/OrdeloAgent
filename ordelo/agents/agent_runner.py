@@ -177,6 +177,40 @@ async def debug_state_values(
     return state_values
 
 
+# %% Debug by thread
+
+
+async def debug_thread(thread_id: str, full_state: bool = False) -> dict:
+    """Debug state by thread_id - fetches recipient from thread table."""
+    from config import client_ordelo
+
+    result = (
+        client_ordelo.table("thread")
+        .select("thread_id", "recipient")
+        .eq("thread_id", thread_id)
+        .execute()
+    )
+
+    if not result.data:
+        raise ValueError(f"Thread not found: {thread_id}")
+    recipient = result.data[0]["recipient"]
+    config = {"configurable": {"thread_id": thread_id, "recipient": recipient}}
+    # Get graph and then state
+    pool = await pg_settings.get_pool()
+    checkpointer = AsyncPostgresSaver(pool)
+    graph = builder.compile(checkpointer=checkpointer)
+    state = await graph.aget_state(config=config)
+
+    if full_state:
+        debug_stack = state.values
+    else:
+        debug_stack = {
+            **get_state_values(state.values),
+            "messages": shorten_state_messages(state.values["messages"]),
+        }
+    return debug_stack
+
+
 # %%
 async def job_end_stale_conversations(
     thread_handler=None,
@@ -228,8 +262,8 @@ async def run_rider_agent_repl(recipient: str) -> None:
 
 
 # %% get state values
-# await debug_state_values('447448440754')
-
+# await debug_state('447469849539')
+# await debug_thread('ORDELO-5d670219-83f0-4fc9-9692-67e4c360f965')
 # %%
 """
 from config import client_ordelo
