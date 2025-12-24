@@ -29,6 +29,7 @@ from ordelo.agents.agent_runner import (
     run_rider_agent_w_custom_msg,
     debug_state_values,
     debug_state,
+    debug_thread,
 )
 # %% Define Dependencies and routes
 
@@ -110,6 +111,12 @@ async def debug_state_values_path(recipient: Optional[str] = "447448440754"):
 @router.get("/debug-state")
 async def debug_state_path(recipient: Optional[str] = "447448440754"):
     debug_stack = await debug_state(recipient)
+    return debug_stack
+
+
+@router.get("/debug-thread")
+async def debug_thread_path(thread_id: str):
+    debug_stack = await debug_thread(thread_id)
     return debug_stack
 
 
