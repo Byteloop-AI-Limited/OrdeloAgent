@@ -14,7 +14,7 @@ from pywa.types import (
     ButtonUrl,
 )
 from pywa import filters as fil
-from config.waba_setting import waba_business_settings, waba_cat_settings
+from config.waba_setting import waba_business_settings
 from pywa.types import Template as Temp
 from config import logger
 from pywa.types.templates import CarouselCard
