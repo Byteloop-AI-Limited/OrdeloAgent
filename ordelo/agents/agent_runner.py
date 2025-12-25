@@ -263,7 +263,7 @@ async def run_rider_agent_repl(recipient: str) -> None:
 
 # %% get state values
 # await debug_state('447469849539')
-# await debug_thread('ORDELO-5d670219-83f0-4fc9-9692-67e4c360f965')
+# await debug_thread('ORDELO-ee723178-5eb3-4d6b-a171-1f7c2d1e80e2')
 # %%
 """
 from config import client_ordelo

@@ -1,4 +1,5 @@
 select * from thread order by dtts desc;
+select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
 
 select *
       FROM pgmq.read('owntracks', 5, 1000);
@@ -23,9 +24,9 @@ select * from delivery_summary order by dtts desc limit 10;
 
 select * from delivery_dispatch 
 inner join rider_master on rider_master.rider_id = delivery_dispatch.rider_id
-where order_number='ELAS-RDRU-20';
+where order_number='ELAS-ZXUV-21';
 
-select * from delivery_option where order_number='ELAS-RDRU-20';
+select * from delivery_option where order_number='ELAS-ZXUV-21';
 select * from ordelo_config;
 
 select status,

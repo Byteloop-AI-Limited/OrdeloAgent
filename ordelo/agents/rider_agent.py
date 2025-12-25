@@ -31,45 +31,52 @@ LangGraph agent implementation for rider delivery workflow
 # %%
 
 from datetime import datetime, timezone
+from typing import Annotated, Any, Sequence
 from uuid import uuid4
-from config import project_settings, pg_settings
-from typing import Annotated
-from langgraph.runtime import Runtime
-from langchain_core.tools import tool
+
 from langchain.tools import ToolRuntime
-from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
-from langgraph.graph import END, START, StateGraph
-from langgraph.prebuilt import ToolNode, InjectedState
-from langgraph.types import Command
-from typing_extensions import Literal
-from config import _async_wa_client, llm_settings
-from config.params import get_restaurant_admins
-from pywa.types import ButtonUrl
-
-from utils_common.lg_utils import create_agent_w_sys_prompt_n_tools
-
-# from elai.agents.respond_agent import respond_node
-from config import logger, client_ordelo
-from ordelo.agent_app_handlers import (
-    create_stop_job_config,
-    post_rider_event_restaurant_cc,
-    post_rider_event_customer_cc,
-    _send_delivery_instructions,
-    is_live_location_enabled,
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    RemoveMessage,
+    ToolMessage,
 )
-# from utils_common.db_utils.sbase_rest_ops import sbase_call_function
+from langchain_core.tools import tool
 
+# from utils_common.db_utils.sbase_rest_ops import sbase_call_function
 from langchain_core.tools.base import InjectedToolCallId
-from langchain_core.messages import ToolMessage
-from utils_common.thread_management import ThreadHandler
-from langgraph.graph import add_messages
-from langchain_core.messages import BaseMessage
-from typing import Sequence, Any
-from typing_extensions import TypedDict
-from pydantic import BaseModel, ConfigDict
+from langgraph.graph import END, START, StateGraph, add_messages
+from langgraph.prebuilt import InjectedState, ToolNode
+from langgraph.runtime import Runtime
+from langgraph.types import Command
 from psycopg_pool import AsyncConnectionPool
+from pydantic import BaseModel, ConfigDict
+from pywa.types import ButtonUrl
 from pywa_async import WhatsApp
 from supabase._sync.client import SyncClient
+from typing_extensions import Literal, TypedDict
+
+# from elai.agents.respond_agent import respond_node
+from config import (
+    _async_wa_client,
+    client_ordelo,
+    llm_settings,
+    logger,
+    pg_settings,
+    project_settings,
+)
+from config.params import get_restaurant_admins
+from config import wa_logger
+from ordelo.agent_app_handlers import (
+    _send_delivery_instructions,
+    create_stop_job_config,
+    is_live_location_enabled,
+    post_rider_event_customer_cc,
+    post_rider_event_restaurant_cc,
+)
+from utils_common.lg_utils import create_agent_w_sys_prompt_n_tools
+from utils_common.thread_management import ThreadHandler
 
 
 # %% Dynamic runtime context (state)
@@ -475,11 +482,13 @@ async def verify_restaurant_confirmation_code(
         )
 
     # Notify the customer that food has been picked up from the restaurat
-    if "test" not in order_number.lower():
-        await post_rider_event_restaurant_cc(order_number, customer_id)
+    # if "test" not in order_number.lower():
+    await post_rider_event_restaurant_cc(order_number, customer_id)
 
     # Persist pickup in DB so cancellation can be gated
     try:
+        # notify overwatch
+        await wa_logger.info(f"{order_number} picked up from the restaurant.")
         client_ordelo.table("delivery_dispatch").update(
             {
                 "status": "pickedup",
@@ -1002,7 +1011,7 @@ builder.add_edge("toolNode", "riderAgent")
 
 # %%
 
-""" 
+"""
 from utils_common.lg_utils import agent_loop_test
 await agent_loop_test(builder, thread_id=1)
 
