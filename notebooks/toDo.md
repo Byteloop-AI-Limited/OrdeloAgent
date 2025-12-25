@@ -1,8 +1,27 @@
 ## weekend-19
-- notify_rider_location_event - Change to rest_confirmation_code; Also, add filter to check if the current time is within 10 minutes of the pickup time. Also, check
+- Add overwatch_list; 
+  - This list will be used when no riders pickup the food.
+  - When the rider pickedup the food from restaurant
+  - Should have a header and a footer
+  - Can this be a decorator? or monkey patch logger object?
+- In rider_agent, why is the pickup status on dispatch not being updated? This change and riderPickup overwatch notification should be in sync.
+- Add debug_thread to thread_hooks
+- Remove the live tracking flow or mention of it. 
+- Does this mean rider agent should have request_location tool?
 - run_rider_agent_w_custom_msg - check if the rider has collected the food and is inflight before sending this message
 
-
+ await debug_thread('ORDELO-ee723178-5eb3-4d6b-a171-1f7c2d1e80e2')
+  {'ToolMessage': {'content': 'Order number not found in state.',
+    'additional_kwargs': {}}},
+  {'AIMessage': {'content': '', 'additional_kwargs': {'refusal': None}}},
+  {'HumanMessage': {'content': 'call `tool notify_food_ready_for_pickup`. Rider should hurry to Elai Salisbury to pickup the food.',
+    'additional_kwargs': {}}},
+  {'AIMessage': {'content': '/dontRespond: Link to enable the live location tracking is sent to you.',
+    'additional_kwargs': {}}},
+  {'ToolMessage': {'content': 'Link to enable the live location tracking is sent to you.',
+    'additional_kwargs': {}}},
+  {'AIMessage': {'content': 'Thank you, Abubakar. The restaurant confirmation code has been verified successfully. Please proceed to deliver the order to the customer.\n\nI will resend the live tracking link to ensure your tracking is active.',
+    'additional_kwargs': {'refusal': None}}},
 
 ## GoLive checklist:
 WABA change on both elai and ordelo

@@ -57,6 +57,7 @@ from config import (
     client_ordelo,
     get_restaurant_webhook_url_async,
     logger,
+    wa_logger,
     ms_settings,
     pg_settings,
 )
@@ -307,6 +308,11 @@ Vehicle type - *{delivery_summary["vehicle_type"]}*
     )
 
 
+# %% notify overwatch
+async def notify_overwatch(log_msg: str):
+    await wa_logger.info(log_msg)
+
+
 # %% post rider event inflight
 async def post_rider_event_inflight(delivery_summary: DeliverySummary):
     """
@@ -502,25 +508,27 @@ async def delivery_inflight_graph_init_hook(
     rest_confirmation_code = delivery_summary.rest_confirmation_code
     rider_master = payload.get("rider_master")
 
-    # Call restaurant webhook - rider-inflight-event (background)
-    logger.info("step1: call restaurant webhook - rider-inflight-event")
+    # 1. Capture Stripe Payment
+    background_tasks.add_task(
+        capture_payment, delivery_summary.order_number, rest_confirmation_code
+    )
+
+    # 2. Call restaurant webhook - rider-inflight-event (background)
+    logger.info("step2: call restaurant webhook - rider-inflight-event")
     background_tasks.add_task(
         post_rider_event_inflight, delivery_summary=delivery_summary
     )
 
-    #  Admin notification
+    # 3. Admin notification
+    logger.info("step3: admin notification")
     background_tasks.add_task(
         admin_order_reciept,
         delivery_summary=delivery_summary,
         rider_master=rider_master,
     )
 
-    # Capture Stripe Payment
-    background_tasks.add_task(
-        capture_payment, delivery_summary.order_number, rest_confirmation_code
-    )
-
-    # Initialize ordelo graph as background task
+    # 4. Initialize ordelo graph as background task
+    logger.info("step4: initialize ordelo graph")
     rider_name = (
         rider_master.get("rider_name", "Unknown") if rider_master else "Unknown"
     )
@@ -531,6 +539,13 @@ async def delivery_inflight_graph_init_hook(
         rider_id=rider_id,
         rider_name=rider_name,
         dispatch_id=dispatch_id,
+    )
+
+    # 5. Notify overwatch
+    logger.info("step5: notify overwatch")
+    background_tasks.add_task(
+        notify_overwatch,
+        log_msg=f"{delivery_summary.order_number} is in flight for rider {rider_name}",
     )
 
     return {"status": "success"}
