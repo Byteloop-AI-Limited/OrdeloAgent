@@ -21,7 +21,8 @@ from pywa.types import (
 )
 
 from pywa import filters as fil
-from config.waba_setting import waba_business_settings, waba_cat_settings
+from config.waba_setting import waba_business_settings
+from config.waba_cat_setting import waba_cat_settings
 from pywa.types import Template as Temp
 from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText
 from utils_common.waba_utils.wa_senders import CallbackButtonData
@@ -31,6 +32,13 @@ from utils_common.waba_utils.wa_senders import CallbackButtonData
 # recipient = 447909510536
 recipient = 447448440754
 
+# %%
+await wa.send_message(
+    to=recipient,
+    header="hi",
+    text="hi, this is cool",
+    reply_to_message_id=None,
+)
 
 # %%
 
