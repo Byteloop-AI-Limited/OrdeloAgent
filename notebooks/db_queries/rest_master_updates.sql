@@ -19,7 +19,7 @@ where rest_ref='ELAS';
 update restaurant_master 
 set admins=Array['447919202938'],
     rest_stale_active_threads_minutes=10,
-    restaurant_start_time=12,
+    restaurant_start_time=11,
     restaurant_end_time=21.30
 where rest_ref='ELAS';
 

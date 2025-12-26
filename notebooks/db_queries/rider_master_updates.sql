@@ -11,7 +11,7 @@ where town='Salisbury';
 update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='bicycle' where rider_name='Lohith';
 
 -- Prod setup
-update rider_master set is_in_shift=False, town ='Salisbury' where town='dummy';
+update rider_master set is_in_shift=False, town ='Salisbury', shift_response_dtts=now() where town='dummy';
 
 -- delete from rider_master where rider_name='Muhibur';
 select phone as rider_id,  from rider_registrations;
