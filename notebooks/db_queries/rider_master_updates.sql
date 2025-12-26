@@ -1,14 +1,18 @@
 -- Master data maintenance for restaurant_master, rider_master, and customer_master.
 -- Consolidated from CommonQueries.sql and config_updates.sql.
 select * from rider_registrations;
-select * from rider_master where rider_name in ('Lohith', 'Rahul') order by is_in_shift desc, shift_response_dtts desc;
+select * from rider_master order by is_in_shift desc, shift_response_dtts desc;
 
+-- Test Setup
 update rider_master set 
-is_in_shift=false, shift_response_dtts=now(), town='Orpington'
-;
+is_in_shift=false, shift_response_dtts=now(), town='dummy'
+where town='Salisbury';
 
 update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='bicycle' where rider_name='Lohith';
-update rider_master set is_in_shift=true, town ='Salisbury' where rider_name='Lohith';
+
+-- Prod setup
+update rider_master set is_in_shift=False, town ='Salisbury' where town='dummy';
+
 -- delete from rider_master where rider_name='Muhibur';
 select phone as rider_id,  from rider_registrations;
 -- select 18+119.67;
