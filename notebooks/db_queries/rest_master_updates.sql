@@ -1,19 +1,27 @@
 select admins, * from restaurant_master where rest_ref='ELAS';
 
-select * from restaurant_master where rest_ref='WREN';
+select * from restaurant_master where rest_ref='ELAS';
 
 select init_delivery('447448440754', 'WREN-AEHO-21');
 select * from thread;
 
 update restaurant_master set city='Orpington' where rest_ref='WREN';
 
-update restaurant_master set admins=Array['447448440754', '447446933210','447901518136','447914844933', '447917912646'] where rest_ref='ELAS';
+-- Production Setup - ELAS
+update restaurant_master 
+set admins=Array['447448440754', '447446933210','447901518136','447914844933', '447917912646'],
+    rest_stale_active_threads_minutes=10,
+    restaurant_start_time=12,
+    restaurant_end_time=21.30
+where rest_ref='ELAS';
 
-update restaurant_master set admins=Array['447919202938'] where rest_ref='ELAS';
-
-
-update restaurant_master
-set admins=Array['447919202938'] where rest_ref='WREN';
+-- Test Setup - ELAS
+update restaurant_master 
+set admins=Array['447919202938'],
+    rest_stale_active_threads_minutes=10,
+    restaurant_start_time=12,
+    restaurant_end_time=21.30
+where rest_ref='ELAS';
 
 select * from restaurant_master where rest_ref='ELAS';
 
