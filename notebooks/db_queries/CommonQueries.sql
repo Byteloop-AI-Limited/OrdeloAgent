@@ -1,6 +1,11 @@
 select * from thread order by dtts desc;
 select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
 
+
+select * from customer_master;
+
+delete from customer_master where cust_id='447438360474';
+select * from customer_master order by dtts desc limit 10;
 select *
       FROM pgmq.read('owntracks', 5, 1000);
 
@@ -26,8 +31,14 @@ select * from delivery_dispatch
 inner join rider_master on rider_master.rider_id = delivery_dispatch.rider_id
 where order_number='ELAS-ZXUV-21';
 
-select * from delivery_option where order_number='ELAS-ZXUV-21';
-select * from ordelo_config;
+select * from delivery_summary where order_number='ELAS-ZXUV-21'; -- rest_ref, rest_confirmation_code, cust_confirmation_code, status, dtts as order_created_time, customer_id, customer_name, restaurant_confirmation_status, restaurant_update_dtts, pickup_time as scheduled_pickup_time
+select * from delivery_detail order by dtts desc; -- vehicle_type, rider_id, rider_payout, distance, status_update_dtts (order_pickup time);
+select * from delivery_dispatch where status='completed' and rider_id!='447448440754' order by status_update_dtts desc; -- vehicle_type, rider_id, rider_payout, distance, status_update_dtts (actual_pickup_time);
+
+select final_order_value - total_customer_charge as food_value, * from delivery_option where order_number='ELAS-MSPI-21' and vehicle_type='car';
+select total_price-rest_cost as rest_savings, * from food_order where order_number='ELAS-HCTZ-20' limit 10;
+select * from food_order where order_number='ELAS-OKKS-20' limit 10;
+select 47.4-55.8;
 
 select status,
 	rest_confirmation_code,

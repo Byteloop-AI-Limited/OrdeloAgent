@@ -5,7 +5,9 @@ select * from rider_master order by is_in_shift desc, shift_response_dtts desc;
 
 -- Test Setup
 update rider_master set 
-is_in_shift=false, shift_response_dtts=now(), town='dummy'
+is_in_shift=false
+, shift_response_dtts=now()
+-- , town='dummy'
 where town='Salisbury';
 
 update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='bicycle' where rider_name='Lohith';
@@ -30,5 +32,7 @@ VALUES
   ('447927803163', 'Muhibur',     'scooter', 'Salisbury', 'active', FALSE, 1)
 ;
 
-update rider_master set rider_id='447305473427' where rider_id='447305473426'; 
+update rider_master set status='inactive' where rider_name in ('Lohith', 'Suraj', 'Jamie', 'Ganesh');
+update rider_master set status='active' where rider_name in ('Lohith');
+
 -- delete from rider_master where rider_id = '447429702917';

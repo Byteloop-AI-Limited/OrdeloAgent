@@ -8,15 +8,17 @@ with riderMaster AS (
     select SUBSTRING(phone, 2, LENGTH(phone)) as rider_id, bank_account_name, sort_code, bank_account from rider_registrations
 )
 select 
-r.rider_id, 
-r.rider_name, 
-r.vehicle_type, 
+-- r.rider_id, 
+-- r.rider_name, 
+-- r.vehicle_type, 
 rr.bank_account_name, 
 rr.sort_code, 
 rr.bank_account, 
 d.order_number, 
 d.rider_payout,
-dOption.breakdown 
+d.rider_payout + 2 as adjusted_payout,
+d.dtts
+-- dOption.breakdown 
 from delivery_dispatch d
 join riderMaster r on d.rider_id = r.rider_id
 join riderRegistration rr on r.rider_id = rr.rider_id
