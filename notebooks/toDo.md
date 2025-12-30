@@ -1,4 +1,5 @@
 ## weekend-19
+- refactor get_payment_uri in payment.py (moves the payment service completely to FoodOrder py model)
 - Add overwatch_list; 
   - This list will be used when no riders pickup the food.
   - When the rider pickedup the food from restaurant

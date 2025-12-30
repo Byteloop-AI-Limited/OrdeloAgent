@@ -92,7 +92,7 @@ limit 10;
 
 select *
 from delivery_option
-where order_number like 'WREN-TEST-%'
+where order_number like 'ELAS-YOJE-20'
 order by id desc;
 
 --
