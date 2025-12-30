@@ -1,4 +1,4 @@
-select * from ordelo_config where config_key like 'ORDELO_APP_URL';
+select * from ordelo_config where config_key like 'ELAS_APP_URL';
 select * from ordelo_config where config_key like '%TIMEOUT%';
 
 update ordelo_config set config_value = 'https://elas-agg-test.ordelo.app' where config_key = 'ELAS_APP_URL';

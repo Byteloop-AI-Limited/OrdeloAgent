@@ -18,6 +18,7 @@ update rider_master set town ='Salisbury' where town='dummy';
 -- Test setup
 update rider_master set town ='Salisbury' where town='dummy';
 update rider_master set town='Salisbury' where rider_name in ('Lohith');
+update rider_master set town='Salisbury' where rider_name in ('Rahul');
 
 -- delete from rider_master where rider_name='Muhibur';
 select phone as rider_id,  from rider_registrations;
