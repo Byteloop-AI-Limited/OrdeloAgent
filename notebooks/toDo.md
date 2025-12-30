@@ -23,6 +23,13 @@
   {'AIMessage': {'content': 'Thank you, Abubakar. The restaurant confirmation code has been verified successfully. Please proceed to deliver the order to the customer.\n\nI will resend the live tracking link to ensure your tracking is active.',
     'additional_kwargs': {'refusal': None}}},
 
+### Chat with riders.
+If resistance on 150,
+  1. Mention the savings that they make on deliveries.
+  2. AI Powered, their own channel, customer base, marketing msgs, on whatsapp - most effetive for reaching, brand presence
+  3. Just Delivery in Orpington and takeout - takeout for other locations (customized solution) + Only onboarding costs
+  4. Commitment - 100 gbp to get started with onboarding and implementation.
+
 ## GoLive checklist:
 WABA change on both elai and ordelo
 Config updates for 

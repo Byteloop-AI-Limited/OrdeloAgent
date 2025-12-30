@@ -280,12 +280,14 @@ async def reset_restaurant_base_url_cache_endpoint(
     If rest_ref is provided, clears only that restaurant's cached base URL.
     If not, clears the entire cache.
     """
-    from config.params import reset_restaurant_base_url_cache
+    from config.params import reset_overwatch_list_cache, reset_restaurant_base_url_cache
 
     removed_entries = reset_restaurant_base_url_cache(rest_ref)
+    removed_overwatch = reset_overwatch_list_cache()
     return {
         "scope": rest_ref.upper() if rest_ref else "ALL",
         "removed_entries": removed_entries,
+        "removed_overwatch_list_entries": removed_overwatch,
     }
 
 

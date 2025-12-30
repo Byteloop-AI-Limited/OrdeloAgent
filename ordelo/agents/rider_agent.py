@@ -66,8 +66,7 @@ from config import (
     pg_settings,
     project_settings,
 )
-from config.params import get_restaurant_admins
-from config import wa_logger
+from config.params import get_restaurant_admins, get_wa_logger
 from ordelo.agent_app_handlers import (
     _send_delivery_instructions,
     create_stop_job_config,
@@ -488,6 +487,7 @@ async def verify_restaurant_confirmation_code(
     # Persist pickup in DB so cancellation can be gated
     try:
         # notify overwatch
+        wa_logger = await get_wa_logger()
         await wa_logger.info(f"{order_number} picked up from the restaurant.")
         client_ordelo.table("delivery_dispatch").update(
             {
