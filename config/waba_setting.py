@@ -121,7 +121,7 @@ waba_business_settings.phone_id, waba_business_settings.account_id
 # %%
 
 # business_phone_number = _sync_wa_client.get_business_phone_number()
-# business_phone_number.verified_name, business_phone_number.webhook_configuration
+# business_phone_number.verified_name, business_phone_number.webhook_configuration['whatsapp_business_account'] # Should output ('Byteloop Ai', 'https://rider-agent.ordelo.app/)
 
 # _sync_wa_client.override_waba_callback_url(
 #     callback_url="https://rider-agent.ordelo.app/",
@@ -254,7 +254,6 @@ class WALogger:
 
 
 # %%
-wa_logger = WALogger(wa=_async_wa_client, overwatch_list=["447448440754"])
 
 # await wa_logger.debug("All looking good here")
 # await wa_logger.critical("Database connection failed")

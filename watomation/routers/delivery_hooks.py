@@ -51,13 +51,12 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
 from pywa.types import Button
 from pywa_async import WhatsApp
-from config.params import get_restaurant_admins
+from config.params import get_restaurant_admins, get_wa_logger
 from config import (
     _async_wa_client,
     client_ordelo,
     get_restaurant_webhook_url_async,
     logger,
-    wa_logger,
     ms_settings,
     pg_settings,
 )
@@ -310,6 +309,7 @@ Vehicle type - *{delivery_summary["vehicle_type"]}*
 
 # %% notify overwatch
 async def notify_overwatch(log_msg: str):
+    wa_logger = await get_wa_logger()
     await wa_logger.info(log_msg)
 
 

@@ -13,7 +13,7 @@ __all__ = [
     "google_settings",
     "pg_settings",
     "logger",
-    "wa_logger",
+    "WALogger",
     "client_ordelo",
     "get_restaurant_webhook_url_async",
     "get_restaurant_admins",
@@ -30,7 +30,7 @@ from .waba_setting import (
 from .waba_cat_setting import waba_cat_settings
 
 from .logger_setting import logger
-from .waba_setting import wa_logger
+from .waba_setting import WALogger
 
 # from .ms_setting import ms_settings
 from .microservices_setting import ms_settings
