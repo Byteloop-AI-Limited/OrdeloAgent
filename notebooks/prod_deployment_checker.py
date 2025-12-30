@@ -46,6 +46,7 @@ WABA_CALLBACK_URLS = {
 RIDER_TARGET_TOWN = "Salisbury"
 RIDER_DUMMY_TOWN = "dummy"
 RIDER_EXCLUDED_NAME = "Lohith"
+CACHE_RESET_REFS = ("elas", "ordelo")
 
 
 def _normalize_admins(value: Any) -> List[str]:
@@ -223,6 +224,26 @@ def apply_waba_webhook(mode: str) -> None:
     )
 
 
+def reset_restaurant_base_url_cache() -> None:
+    import requests
+
+    base_url = "https://rider-agent.ordelo.app"
+    for rest_ref in CACHE_RESET_REFS:
+        url = f"{base_url}/restaurant-base-url-cache/reset"
+        try:
+            response = requests.post(
+                url,
+                params={"rest_ref": rest_ref},
+                headers={"accept": "application/json"},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            print(f"Cache reset failed for {rest_ref}: {exc}")
+        else:
+            print(f"Cache reset OK for {rest_ref}")
+
+
 def run_check(mode: str, skip_waba: bool) -> bool:
     ok = True
 
@@ -254,6 +275,7 @@ def run_apply(mode: str, skip_waba: bool) -> None:
     apply_ordelo_app_url(mode)
     if not skip_waba:
         apply_waba_webhook(mode)
+    reset_restaurant_base_url_cache()
 
 
 def parse_args() -> argparse.Namespace:
