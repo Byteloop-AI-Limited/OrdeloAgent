@@ -442,9 +442,12 @@ async def delivery_dispatch_hook(
                     delivery_summary=d,
                     dispatch_id=d["dispatch_id"],
                 )
-                logger.info(
+                logger.debug(
                     f"Overwatch dispatch for rider {d['rider_id']} for customer {d['customer_id']}"
                 )
+            logger.debug(
+                f"Skipping dispatch for rider {d['rider_id']} for customer {d['customer_id']}"
+            )
             continue
         background_tasks.add_task(
             wa_send_delivery_dispatch_request_to_rider,
