@@ -417,6 +417,7 @@ async def delivery_dispatch_hook(
     Handles incoming delivery dispatch webhook payloads and schedules sending dispatch requests to riders as background tasks.
         . Accepts payload with bulk_dispatch list
         . Schedules wa_send_delivery_dispatch_request_to_rider for each dispatch using BackgroundTasks
+        . Skips dispatches for overwatch customers unless rider_id == customer_id
         . Returns immediately with status success if no dispatches
     Functions/Classes
         . delivery_dispatch_hook
@@ -424,11 +425,27 @@ async def delivery_dispatch_hook(
     Key Functions:
         . delivery_dispatch_hook - schedules dispatch sends in background
     """
+    from config.params import get_overwatch_list
+
     dispatches = payload.get("bulk_dispatch") or []
     if not dispatches:
         return {"status": "success"}
 
     for d in dispatches:
+        overwatch_list = get_overwatch_list()
+        # Overwatch customers: block dispatches to other riders; allow only when rider == customer.
+        if d["customer_id"] in overwatch_list:
+            if d["rider_id"] == d["customer_id"]:
+                background_tasks.add_task(
+                    wa_send_delivery_dispatch_request_to_rider,
+                    recipient=d["rider_id"],
+                    delivery_summary=d,
+                    dispatch_id=d["dispatch_id"],
+                )
+                logger.info(
+                    f"Overwatch dispatch for rider {d['rider_id']} for customer {d['customer_id']}"
+                )
+            continue
         background_tasks.add_task(
             wa_send_delivery_dispatch_request_to_rider,
             recipient=d["rider_id"],
