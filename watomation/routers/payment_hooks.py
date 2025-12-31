@@ -112,9 +112,6 @@ async def payment_complete_path(request: Request, background_tasks: BackgroundTa
         init_delivery_summary, food_order.order_number, food_order.recipient
     )
 
-    # Recipient not found.
-    recipient = request_body["data"]["object"]["metadata"]["recipient"]
-
     return {"success": "success"}
 
 
