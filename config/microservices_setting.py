@@ -14,7 +14,9 @@ Microservices settings and configuration for external service integrations
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Dict
 from pydantic import Field
-from utils.aws_setting import env_ssm
+
+# from utils.aws_setting import env_ssm
+from aws_setting import ordelo_agent_env
 
 
 # %%
@@ -22,6 +24,7 @@ from utils.aws_setting import env_ssm
 
 class MicroServicesSettings(BaseSettings):
     stripe_url: str = Field(..., alias="ms_stripe_url")
+    stripe_url_test: str = Field(..., alias="ms_stripe_url_test")
     stripe_token: str = Field(..., alias="ms_stripe_token")
     pricing_url: str = Field(..., alias="ms_pricing_url")
 
@@ -35,4 +38,8 @@ class MicroServicesSettings(BaseSettings):
         }
 
 
-ms_settings = MicroServicesSettings(**env_ssm)
+# ms_settings = MicroServicesSettings(**env_ssm)
+ms_settings = MicroServicesSettings(**ordelo_agent_env)
+
+# %%
+ms_settings.stripe_url_test
