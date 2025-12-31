@@ -1,4 +1,4 @@
-select * from ordelo_config where config_key like 'ELAS_APP_URL';
+select * from ordelo_config where config_key like '%_APP_URL';
 select * from ordelo_config where config_key like 'RESTAURANT_MENU%';
 select * from ordelo_config where config_key like '%TIMEOUT%';
 

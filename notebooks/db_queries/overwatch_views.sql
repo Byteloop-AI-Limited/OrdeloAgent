@@ -206,6 +206,6 @@ WHERE dd.rider_id != '447448440754'
   AND dd.status = 'completed'
 ORDER BY s.order_created_time DESC;
 $$;
-select * from overwatch_view();
+select * from overwatch_view() limit 3;
 with a as (select food_value - rest_cost as rest_savings from overwatch_view()) select sum(rest_savings) from a;
 select food_value-rest_cost as rest_savings from overwatch_view();
