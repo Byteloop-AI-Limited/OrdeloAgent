@@ -24,6 +24,7 @@ from typing import Optional
 import requests
 from pydantic import BaseModel
 from config import client_ordelo, logger, ms_settings
+from config.params import get_overwatch_list
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 
 
@@ -176,6 +177,16 @@ class FoodOrder(BaseModel):
         Returns:
             str: The constructed payment URL for this order.
         """
+        overwatch_list = get_overwatch_list()
+        # ie if the person ordering food is in the overwatch list, use test URL
+        if self.recipient in overwatch_list:
+            logger.debug(
+                f"Overwatch customer {self.recipient} using test payment URL for order {self.order_number}"
+            )
+            return f"{ms_settings.stripe_url_test}/threads/{self.thread_id}/orders/{self.order_id}/payment-url"
+        logger.debug(
+            f"Non-overwatch customer {self.recipient} using production payment URL for order {self.order_number}"
+        )
         return f"{ms_settings.stripe_url}/threads/{self.thread_id}/orders/{self.order_id}/payment-url"
 
     def update_final_order_value_in_db(self) -> bool:
