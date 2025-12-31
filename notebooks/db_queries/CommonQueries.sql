@@ -95,6 +95,7 @@ from delivery_option
 where order_number like 'ELAS-YOJE-20'
 order by id desc;
 
+select * from food_order order by order_dtts desc;
 --
 select * from delivery_dispatch order by dtts desc limit 10;
 

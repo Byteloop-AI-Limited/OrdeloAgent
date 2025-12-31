@@ -215,7 +215,6 @@ async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> 
 
     base_url = await get_restaurant_base_url_async(rest_ref)
     full_url = f"{base_url}/{path}"
-    logger.debug(f"Constructed webhook URL: {full_url}")
     return full_url
 
 

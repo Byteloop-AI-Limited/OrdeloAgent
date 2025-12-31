@@ -130,4 +130,4 @@ http://localhost:3000/restaurant/elas?thread_id=9d211c57-4f92-4066-9f5f-9ed4421c
 
 
 opening browser for antigravity:
- DISPLAY=:0 google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug-session --no-first-run --no-default-browser-check http://localhost:8000/space.html > /dev/null 2>&1 &
+DISPLAY=:0 google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug-session --no-first-run --no-default-browser-check {{URL}} > /dev/null 2>&1 &
