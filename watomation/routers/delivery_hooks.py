@@ -70,11 +70,7 @@ from ordelo.agents.agent_runner import init_ordelo_graph, run_rider_agent_w_cust
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
-from utils_common.payment_ms.payment import get_payment_uri
 
-# from utils_common.waba_utils.wa_templates.restaurant_confirmation_template import (
-#     send_restaurant_order_confirmation_templated,
-# )
 from utils_common.waba_utils.wa_senders import (
     send_restaurant_order_confirmation,
     send_restaurant_pickup_time,
@@ -171,7 +167,7 @@ async def capture_payment(order_number, restaurant_cc: int):
         return None
 
     order_id = food_order.order_id
-    payment_uri = get_payment_uri(order_id=order_id, thread_id=food_order.thread_id)
+    payment_uri = food_order.payment_uri
 
     # Call stripe
     async with httpx.AsyncClient() as _client:
@@ -213,7 +209,7 @@ async def cancel_payment(order_number):
         return None
 
     order_id = food_order.order_id
-    payment_uri = get_payment_uri(order_id=order_id, thread_id=food_order.thread_id)
+    payment_uri = food_order.payment_uri
     cancel_payload = {"action": "delivery", "payment_mode": "cancel"}
 
     # Call stripe
