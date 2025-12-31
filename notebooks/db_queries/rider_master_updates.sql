@@ -1,9 +1,9 @@
 -- Master data maintenance for restaurant_master, rider_master, and customer_master.
 -- Consolidated from CommonQueries.sql and config_updates.sql.
 select * from rider_registrations;
-select * from rider_master order by is_in_shift desc, shift_response_dtts desc;
+select * from rider_master order by is_in_shift desc, shift_response_dtts desc, status asc;
 
--- Test Setup
+-- Run before 11 am
 update rider_master set 
 is_in_shift=false
 , shift_response_dtts=now()
