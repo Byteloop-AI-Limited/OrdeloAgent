@@ -1,6 +1,6 @@
 select admins, * from restaurant_master where rest_ref='ELAS';
 
-select * from restaurant_master where rest_ref='ELAS';
+select admins,* from restaurant_master where rest_ref='ELAS';
 
 select init_delivery('447448440754', 'WREN-AEHO-21');
 select * from thread;

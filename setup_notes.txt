@@ -397,3 +397,7 @@ Create workflow on n8n, get the production webhook url
 Refer for embedding - https://www.npmjs.com/package/@n8n/chat?activeTab=readme
 Create a script on wpcode or code snippets
 Apply style customization n8n_chat_embed_asperN8N
+
+
+# When jupter misbehaves
+pip install --upgrade --force-reinstall ipykernel jupyter_client
