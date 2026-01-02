@@ -34,6 +34,16 @@ CREATE TABLE restaurant_master (
     dtts        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
+ALTER TABLE restaurant_master
+  ADD COLUMN rest_stale_active_threads_minutes INT NOT NULL DEFAULT 10,
+  ADD COLUMN restaurant_start_time FLOAT NOT NULL DEFAULT 12,
+  ADD COLUMN restaurant_end_time FLOAT NOT NULL DEFAULT 21.30;
+
+ALTER TABLE restaurant_master
+  ALTER COLUMN rest_stale_active_threads_minutes
+  TYPE INT
+  USING rest_stale_active_threads_minutes::INT;
+
 CREATE TABLE customer_master (
     cust_id   VARCHAR(12) PRIMARY KEY,
     cust_name     TEXT NOT NULL,

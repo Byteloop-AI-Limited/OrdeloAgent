@@ -211,24 +211,27 @@ async def get_details():
 
     business_phone_number = await wa.get_business_phone_number()
     phone_id = waba_business_settings.phone_id
+    verified_named = business_phone_number.verified_name
     phone_num = business_phone_number.display_phone_number
-    bus_name = business_phone_number.verified_name
-    callback_url_on_waba = business_phone_number.webhook_configuration["application"]
+    webhook_configuration = business_phone_number.webhook_configuration[
+        "whatsapp_business_account"
+    ]
     callback_url = waba_business_settings.callback_url
 
     # Fetch base URLs dynamically
     elas_base_url = await get_restaurant_base_url_async("ELAS")
     ordelo_base_url = await get_restaurant_base_url_async("ORDELO")
+    restaurant_menu_url = await get_restaurant_base_url_async("RESTAURANT_MENU")
 
     return {
-        "business_phone_number": business_phone_number,
+        "verified_name": verified_named,
         "phone_id": str(phone_id),
         "display_phone_num": phone_num,
-        "verified_name": bus_name,
         "callback_url": callback_url,
-        "callback_url_on_waba": callback_url_on_waba,
+        "webhook_configuration": webhook_configuration,
         "elas_base_url": elas_base_url,
         "ordelo_base_url": ordelo_base_url,
+        "restaurant_menu_url": restaurant_menu_url,
     }
 
 
@@ -280,12 +283,17 @@ async def reset_restaurant_base_url_cache_endpoint(
     If rest_ref is provided, clears only that restaurant's cached base URL.
     If not, clears the entire cache.
     """
-    from config.params import reset_restaurant_base_url_cache
+    from config.params import (
+        reset_overwatch_list_cache,
+        reset_restaurant_base_url_cache,
+    )
 
     removed_entries = reset_restaurant_base_url_cache(rest_ref)
+    removed_overwatch = reset_overwatch_list_cache()
     return {
         "scope": rest_ref.upper() if rest_ref else "ALL",
         "removed_entries": removed_entries,
+        "removed_overwatch_list_entries": removed_overwatch,
     }
 
 

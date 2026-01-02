@@ -16,6 +16,8 @@ from loguru import logger
 
 _BASE_URL_CACHE_TTL_SECS = 5 * 60  # 5 minutes
 _BASE_URL_CACHE: dict[str, tuple[str, float]] = {}
+_OVERWATCH_LIST_CACHE_TTL_SECS = 5 * 60  # 5 minutes
+_OVERWATCH_LIST_CACHE: tuple[list[str], float] | None = None
 
 
 # %% Webhook path mapping - type to path suffix (no base URLs)
@@ -115,6 +117,65 @@ def reset_restaurant_base_url_cache(rest_ref: str | None = None) -> int:
     return 0
 
 
+# %% get_overwatch_list
+def get_overwatch_list() -> list[str]:
+    """Get overwatch list from ordelo_config with in-memory caching."""
+    from config import client_ordelo
+
+    global _OVERWATCH_LIST_CACHE
+    now = time.monotonic()
+    if _OVERWATCH_LIST_CACHE:
+        cached_value, expires_at = _OVERWATCH_LIST_CACHE
+        if expires_at > now:
+            logger.debug("Using cached overwatch list")
+            return cached_value
+        _OVERWATCH_LIST_CACHE = None
+
+    resp = (
+        client_ordelo.table("ordelo_config")
+        .select("config_value")
+        .eq("config_key", "overwatch_list")
+        .limit(1)
+        .execute()
+    )
+    data = (
+        resp["data"]
+        if isinstance(resp, dict) and "data" in resp
+        else resp.data
+        if hasattr(resp, "data")
+        else None
+    )
+    if not data or len(data) == 0:
+        raise ValueError("No config found for overwatch_list in ordelo_config")
+
+    raw_value = data[0]["config_value"] or ""
+    parsed = [item.strip() for item in raw_value.split(",") if item.strip()]
+    _OVERWATCH_LIST_CACHE = (parsed, now + _OVERWATCH_LIST_CACHE_TTL_SECS)
+    logger.debug(f"Fetched overwatch list: {parsed}")
+    return parsed
+
+
+# %% reset_overwatch_list_cache
+def reset_overwatch_list_cache() -> int:
+    """Reset the in-memory overwatch list cache used by get_overwatch_list."""
+    global _OVERWATCH_LIST_CACHE
+    existed = _OVERWATCH_LIST_CACHE is not None
+    _OVERWATCH_LIST_CACHE = None
+    if existed:
+        logger.debug("Cleared overwatch list cache")
+        return 1
+    logger.debug("No overwatch list cache entry to clear")
+    return 0
+
+
+# %% get_wa_logger
+async def get_wa_logger():
+    from config import _async_wa_client, WALogger
+
+    overwatch_list = get_overwatch_list()
+    return WALogger(wa=_async_wa_client, overwatch_list=overwatch_list)
+
+
 # %% get_restaurant_webhook_url_async
 async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> str:
     """
@@ -154,7 +215,6 @@ async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> 
 
     base_url = await get_restaurant_base_url_async(rest_ref)
     full_url = f"{base_url}/{path}"
-    logger.debug(f"Constructed webhook URL: {full_url}")
     return full_url
 
 
@@ -197,6 +257,8 @@ def get_restaurant_admins(
 
     return data[0]["admins"]
 
+
+# %%
 
 # %%
 # Example usage:

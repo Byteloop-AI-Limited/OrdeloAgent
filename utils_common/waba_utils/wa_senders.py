@@ -29,21 +29,23 @@ WhatsApp messaging utilities for order management and address confirmation flows
 from config import (
     _async_wa_client,
     waba_cat_settings,
+    get_restaurant_admins,
+    get_restaurant_base_url_async,
 )
-from config.params import get_restaurant_admins, get_restaurant_base_url_async
-from pywa.types import FlowButton, Button, Template as Temp, ProductsSection
-from pywa.types import Message, Template as Temp, ButtonUrl, Button
 from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText
-
-from pywa.types.flows import FlowActionType
+from pywa.types import (
+    FlowButton,
+    Button,
+    Template as Temp,
+    ProductsSection,
+    Message,
+    Template,
+    ButtonUrl,
+    FlowActionType,
+)
 from pydantic import BaseModel
 import uuid
 
-# from utils_common.order_management.food_order_pymodel import FoodOrder
-# from utils_common.order_management.delivery_pymodels import DeliverySummary
-# from utils_common.order_management.food_order_reciept import (
-#     build_wa_order_reciept_for_rest,
-# )
 from pywa_async import WhatsApp
 from typing import Optional, List
 from datetime import timedelta

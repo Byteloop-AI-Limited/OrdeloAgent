@@ -51,7 +51,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
 from pywa.types import Button
 from pywa_async import WhatsApp
-from config.params import get_restaurant_admins
+from config.params import get_restaurant_admins, get_wa_logger
 from config import (
     _async_wa_client,
     client_ordelo,
@@ -70,11 +70,7 @@ from ordelo.agents.agent_runner import init_ordelo_graph, run_rider_agent_w_cust
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
-from utils_common.payment_ms.payment import get_payment_uri
 
-# from utils_common.waba_utils.wa_templates.restaurant_confirmation_template import (
-#     send_restaurant_order_confirmation_templated,
-# )
 from utils_common.waba_utils.wa_senders import (
     send_restaurant_order_confirmation,
     send_restaurant_pickup_time,
@@ -171,7 +167,7 @@ async def capture_payment(order_number, restaurant_cc: int):
         return None
 
     order_id = food_order.order_id
-    payment_uri = get_payment_uri(order_id=order_id, thread_id=food_order.thread_id)
+    payment_uri = food_order.payment_uri
 
     # Call stripe
     async with httpx.AsyncClient() as _client:
@@ -213,7 +209,7 @@ async def cancel_payment(order_number):
         return None
 
     order_id = food_order.order_id
-    payment_uri = get_payment_uri(order_id=order_id, thread_id=food_order.thread_id)
+    payment_uri = food_order.payment_uri
     cancel_payload = {"action": "delivery", "payment_mode": "cancel"}
 
     # Call stripe
@@ -305,6 +301,12 @@ Vehicle type - *{delivery_summary["vehicle_type"]}*
             Button(title="Decline", callback_data=json.dumps(decline_pl)),
         ],
     )
+
+
+# %% notify overwatch
+async def notify_overwatch(log_msg: str):
+    wa_logger = await get_wa_logger()
+    await wa_logger.info(log_msg)
 
 
 # %% post rider event inflight
@@ -411,6 +413,7 @@ async def delivery_dispatch_hook(
     Handles incoming delivery dispatch webhook payloads and schedules sending dispatch requests to riders as background tasks.
         . Accepts payload with bulk_dispatch list
         . Schedules wa_send_delivery_dispatch_request_to_rider for each dispatch using BackgroundTasks
+        . Skips dispatches for overwatch customers unless rider_id == customer_id
         . Returns immediately with status success if no dispatches
     Functions/Classes
         . delivery_dispatch_hook
@@ -418,11 +421,30 @@ async def delivery_dispatch_hook(
     Key Functions:
         . delivery_dispatch_hook - schedules dispatch sends in background
     """
+    from config.params import get_overwatch_list
+
     dispatches = payload.get("bulk_dispatch") or []
     if not dispatches:
         return {"status": "success"}
 
     for d in dispatches:
+        overwatch_list = get_overwatch_list()
+        # Overwatch customers: block dispatches to other riders; allow only when rider == customer.
+        if d["customer_id"] in overwatch_list:
+            if d["rider_id"] == d["customer_id"]:
+                background_tasks.add_task(
+                    wa_send_delivery_dispatch_request_to_rider,
+                    recipient=d["rider_id"],
+                    delivery_summary=d,
+                    dispatch_id=d["dispatch_id"],
+                )
+                logger.debug(
+                    f"Overwatch dispatch for rider {d['rider_id']} for customer {d['customer_id']}"
+                )
+            logger.debug(
+                f"Skipping dispatch for rider {d['rider_id']} for customer {d['customer_id']}"
+            )
+            continue
         background_tasks.add_task(
             wa_send_delivery_dispatch_request_to_rider,
             recipient=d["rider_id"],
@@ -502,25 +524,27 @@ async def delivery_inflight_graph_init_hook(
     rest_confirmation_code = delivery_summary.rest_confirmation_code
     rider_master = payload.get("rider_master")
 
-    # Call restaurant webhook - rider-inflight-event (background)
-    logger.info("step1: call restaurant webhook - rider-inflight-event")
+    # 1. Capture Stripe Payment
+    background_tasks.add_task(
+        capture_payment, delivery_summary.order_number, rest_confirmation_code
+    )
+
+    # 2. Call restaurant webhook - rider-inflight-event (background)
+    logger.info("step2: call restaurant webhook - rider-inflight-event")
     background_tasks.add_task(
         post_rider_event_inflight, delivery_summary=delivery_summary
     )
 
-    #  Admin notification
+    # 3. Admin notification
+    logger.info("step3: admin notification")
     background_tasks.add_task(
         admin_order_reciept,
         delivery_summary=delivery_summary,
         rider_master=rider_master,
     )
 
-    # Capture Stripe Payment
-    background_tasks.add_task(
-        capture_payment, delivery_summary.order_number, rest_confirmation_code
-    )
-
-    # Initialize ordelo graph as background task
+    # 4. Initialize ordelo graph as background task
+    logger.info("step4: initialize ordelo graph")
     rider_name = (
         rider_master.get("rider_name", "Unknown") if rider_master else "Unknown"
     )
@@ -531,6 +555,13 @@ async def delivery_inflight_graph_init_hook(
         rider_id=rider_id,
         rider_name=rider_name,
         dispatch_id=dispatch_id,
+    )
+
+    # 5. Notify overwatch
+    logger.info("step5: notify overwatch")
+    background_tasks.add_task(
+        notify_overwatch,
+        log_msg=f"{delivery_summary.order_number} is in flight for rider {rider_name}",
     )
 
     return {"status": "success"}

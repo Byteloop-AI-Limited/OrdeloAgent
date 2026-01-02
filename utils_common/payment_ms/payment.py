@@ -17,27 +17,8 @@ Payment microservice utilities for Stripe integration
 
 # %%
 import httpx
-from config import ms_settings, logger, client_ordelo
+from config import ms_settings, logger
 from utils_common.order_management.food_order_pymodel import FoodOrder
-
-stripe_url = ms_settings.stripe_url
-
-# %%
-
-
-# %%
-def get_payment_uri(order_id: str, thread_id: str) -> str:
-    """
-    Generates the payment URL for a given order based on thread_id and order_id.
-
-    Args:
-        thread_id: The ID of the WA thread
-        order_id: orderId
-
-    Returns:
-        The constructed payment URL
-    """
-    return f"{stripe_url}/threads/{thread_id}/orders/{order_id}/payment-url"
 
 
 # %%
@@ -53,7 +34,6 @@ async def generate_payment_intent_url(food_order: FoodOrder):
     """
     payment_uri = food_order.payment_uri
     intent_payload = await food_order.gen_payment_intent_payload()
-    logger.debug(f"Payment intent payload: {intent_payload}")
 
     async with httpx.AsyncClient() as client:
         try:
@@ -101,114 +81,4 @@ async def generate_automatic_payment_url(food_order: FoodOrder):
             return None
 
 
-# %% Create similar function for cancel payment intent and capture payment intent called cancel_payment and capture_payment
-
-
-async def cancel_payment(order_id: str, thread_id: str):
-    """
-    Cancels a Stripe payment intent for a given order.
-
-    Args:
-        order_id: The ID of the order.
-        thread_id: The ID of the WA thread associated with the order.
-
-    Returns:
-        The response JSON from the cancellation endpoint or None if an error occurred.
-    """
-    payment_uri = get_payment_uri(order_id=order_id, thread_id=thread_id)
-    cancel_payload = {"action": "delivery", "payment_mode": "cancel"}
-    async with httpx.AsyncClient() as client:
-        try:
-            res = await client.post(
-                payment_uri, json=cancel_payload, headers=ms_settings.stripe_headers
-            )
-            res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
-            return res.text == ""
-        except httpx.HTTPError as e:
-            logger.error(f"Error during payment cancellation for order {order_id}: {e}")
-            return False
-
-
-# %%
-async def capture_payment(order_id: str, thread_id: str):
-    """
-    Captures a Stripe payment intent for a given order.
-
-    Args:
-        order_id: The ID of the order.
-        thread_id: The ID of the WA thread associated with the order.
-
-    Returns:
-        The response JSON from the capture endpoint or None if an error occurred.
-    """
-    payment_uri = get_payment_uri(order_id=order_id, thread_id=thread_id)
-    capture_payload = {
-        "action": "delivery",
-        "payment_mode": "capture",
-        "total_amount": 14.97,
-    }
-
-    async with httpx.AsyncClient() as client:
-        try:
-            res = await client.post(
-                payment_uri, json=capture_payload, headers=ms_settings.stripe_headers
-            )
-            res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
-            return res.text == ""
-        except httpx.HTTPError as e:
-            logger.error(f"Error during payment capture for order {order_id}: {e}")
-            return False
-
-
-# %%
-
-
-async def generate_order_summary_for_payment_intent(food_order: FoodOrder):
-    order_items = (
-        client_ordelo.table("order_item")
-        .select("""
-            product_name, 
-            quantity, 
-            price
-        """)
-        .eq("order_id", food_order.order_id)
-        .execute()
-    )
-
-    fee_items = [
-        {
-            "product_name": "Service Charge",
-            "quantity": 1,
-            "price": food_order.service_charge,
-        },
-        {
-            "product_name": "Delivery Fee",
-            "quantity": 1,
-            "price": food_order.delivery_fee,
-        },
-        {
-            "product_name": "Small Order Fee",
-            "quantity": 1,
-            "price": food_order.small_order_fee,
-        },
-    ]
-
-    # Filter out fees with a price of 0
-    fee_items = [item for item in fee_items if item["price"] > 0]
-    all_items = order_items.data + fee_items
-    order_summary = {"items": all_items}
-    return order_summary
-
-
-"""
-# %% generate payment intent
-order_id="ELAS-ZVEO-29"
-# print(order_id)
-food_order = FoodOrder.from_order_number(order_id)
-order_summary = await generate_automatic_payment_url(food_order)
-order_summary
-# %%
-
-await generate_payment_intent(order_summary)
-
-"""
+# # %% Create similar function for cancel payment intent and capture payment intent called cancel_payment and capture_payment

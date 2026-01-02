@@ -1,4 +1,5 @@
-select * from ordelo_config where config_key like 'ORDELO_APP_URL';
+select * from ordelo_config where config_key like '%_APP_URL';
+select * from ordelo_config where config_key like 'RESTAURANT_MENU%';
 select * from ordelo_config where config_key like '%TIMEOUT%';
 
 update ordelo_config set config_value = 'https://elas-agg-test.ordelo.app' where config_key = 'ELAS_APP_URL';
@@ -12,8 +13,9 @@ https://rider-agent.ordelo.app/docs#/default/reset_restaurant_base_url_cache_end
 
 update ordelo_config set config_value = 'https://elas-agg.ordelo.app' where config_key = 'ELAS_APP_URL';
 update ordelo_config set config_value = 'https://rider-agent.ordelo.app' where config_key = 'ORDELO_APP_URL';
-update ordelo_config set config_value = 'https://elas-agg.ordelo.app' where config_key = 'WREN_APP_URL';
 update ordelo_config set config_value = 'https://restaurant.ordelo.app' where config_key = 'RESTAURANT_MENU_APP_URL'; 
+
+update ordelo_config set config_value = 'https://elas-agg.ordelo.app' where config_key = 'WREN_APP_URL';
 
 select * from ordelo_config where config_key like 'ELAS_MENU_URL';
 
@@ -39,9 +41,9 @@ where config_key = 'DISPATCH_BATCH_SIZE_BICYCLE';
 
 -- Debugging option
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('RESTAURANT_MENU_APP_URL', 'https://restaurant.ordelo.app', 'URL for Restaurant-frontend, Elai Salisbury menu')
+VALUES ('overwatch_list', '447448440754,447424334783', 'list of numbers to alert')
 ON CONFLICT (config_key) 
-DO UPDATE SET config_value = 'https://restaurant.ordelo.app';
+DO UPDATE SET config_value = '447448440754,447424334783';
 
 INSERT INTO ordelo_config (config_key, config_value)
 VALUES ('TERMINATE_STALE_ACTIVE_THREADS', '5')

@@ -32,8 +32,7 @@ from utils_common.order_management.order_db_ops_new import (
     create_order_reference,
 )
 
-# from utils_common.order_management.food_order_pymodel import FoodOrder
-from utils_common.payment_ms.payment import get_payment_uri
+from utils_common.order_management.food_order_pymodel import FoodOrder
 
 
 # %%
@@ -319,12 +318,12 @@ async def capture_payment_for_order(
     Returns:
         Payment URL string if successful, otherwise None
     """
-    # food_order = FoodOrder.from_order_id(order_id=order_id)
+    food_order = FoodOrder.from_order_id(order_id=order_id)
     # if not food_order:
     #     logger.error(f"FoodOrder not found for order_id: {order_id}")
     #     return None
 
-    payment_uri = get_payment_uri(order_id=order_id, thread_id=thread_id)
+    payment_uri = food_order.payment_uri
 
     # Call stripe
     async with httpx.AsyncClient() as _client:
