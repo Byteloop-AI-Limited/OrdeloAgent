@@ -1,7 +1,35 @@
-## PostGoLive
-- debug fails
+## weekend-19
+- refactor get_payment_uri in payment.py (moves the payment service completely to FoodOrder py model)
+- Add overwatch_list; 
+  - This list will be used when no riders pickup the food.
+  - When the rider pickedup the food from restaurant
+  - Should have a header and a footer
+  - Can this be a decorator? or monkey patch logger object?
+- In rider_agent, why is the pickup status on dispatch not being updated? This change and riderPickup overwatch notification should be in sync.
+- Add debug_thread to thread_hooks
+- Remove the live tracking flow or mention of it. 
+- Does this mean rider agent should have request_location tool?
+- run_rider_agent_w_custom_msg - check if the rider has collected the food and is inflight before sending this message
 
+ await debug_thread('ORDELO-ee723178-5eb3-4d6b-a171-1f7c2d1e80e2')
+  {'ToolMessage': {'content': 'Order number not found in state.',
+    'additional_kwargs': {}}},
+  {'AIMessage': {'content': '', 'additional_kwargs': {'refusal': None}}},
+  {'HumanMessage': {'content': 'call `tool notify_food_ready_for_pickup`. Rider should hurry to Elai Salisbury to pickup the food.',
+    'additional_kwargs': {}}},
+  {'AIMessage': {'content': '/dontRespond: Link to enable the live location tracking is sent to you.',
+    'additional_kwargs': {}}},
+  {'ToolMessage': {'content': 'Link to enable the live location tracking is sent to you.',
+    'additional_kwargs': {}}},
+  {'AIMessage': {'content': 'Thank you, Abubakar. The restaurant confirmation code has been verified successfully. Please proceed to deliver the order to the customer.\n\nI will resend the live tracking link to ensure your tracking is active.',
+    'additional_kwargs': {'refusal': None}}},
 
+### Chat with riders.
+If resistance on 150,
+  1. Mention the savings that they make on deliveries.
+  2. AI Powered, their own channel, customer base, marketing msgs, on whatsapp - most effetive for reaching, brand presence
+  3. Just Delivery in Orpington and takeout - takeout for other locations (customized solution) + Only onboarding costs
+  4. Commitment - 100 gbp to get started with onboarding and implementation.
 
 ## GoLive checklist:
 WABA change on both elai and ordelo
@@ -102,4 +130,4 @@ http://localhost:3000/restaurant/elas?thread_id=9d211c57-4f92-4066-9f5f-9ed4421c
 
 
 opening browser for antigravity:
- DISPLAY=:0 google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug-session --no-first-run --no-default-browser-check http://localhost:8000/space.html > /dev/null 2>&1 &
+DISPLAY=:0 google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug-session --no-first-run --no-default-browser-check {{URL}} > /dev/null 2>&1 &

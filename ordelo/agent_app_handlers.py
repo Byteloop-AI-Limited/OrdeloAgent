@@ -293,6 +293,7 @@ async def initial_handle_of_rider_response(
 
 
 # %% Live map location
+# ToDo: use client_ordelo, not execute_sql_query
 async def get_live_map_location_url(order_number: str):
     query = """
     SELECT 
