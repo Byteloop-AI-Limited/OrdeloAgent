@@ -16,9 +16,8 @@ update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='bicyc
 update rider_master set town ='Salisbury' where town='dummy';
 
 -- Test setup
-update rider_master set town ='Salisbury' where town='dummy';
-update rider_master set town='Salisbury' where rider_name in ('Lohith');
-update rider_master set town='Salisbury' where rider_name in ('Rahul');
+update rider_master set town ='dummy' where town='Salisbury';
+update rider_master set town='Salisbury' where rider_name in ('Lohith', 'Rahul', 'Bloop');
 
 -- delete from rider_master where rider_name='Muhibur';
 select phone as rider_id,  from rider_registrations;
@@ -34,7 +33,8 @@ VALUES
   -- ('447909510536', 'Nikhil',     'car', 'Salisbury', 'active', FALSE, 1),
   -- ('447448440754', '10hith',     'scooter', 'Orpington', 'active', FALSE, 1)
   -- ('447393103339', 'Ain',     'car', 'Salisbury', 'active', FALSE, 1),
-  ('447927803163', 'Muhibur',     'scooter', 'Salisbury', 'active', FALSE, 1)
+  -- ('447927803163', 'Muhibur',     'scooter', 'Salisbury', 'active', FALSE, 1)
+ ('447919202938', 'Bloop',     'scooter', 'Salisbury', 'active', FALSE, 1)
 ;
 
 update rider_master set status='inactive' where rider_name in ('Lohith', 'Suraj', 'Jamie', 'Ganesh');
