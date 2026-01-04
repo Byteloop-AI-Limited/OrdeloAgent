@@ -15,10 +15,10 @@ source run_setup.sh
 ```
 
 This script will:
-1. Create a `.venv` directory (if it doesn't exist)
-2. Activate the virtual environment
-3. Upgrade pip to the latest version
-4. Install all dependencies from `requirements.txt`
+1. Verify `uv` is installed and available
+2. Create a `.venv` directory using `uv venv` (if it doesn't exist)
+3. Activate the virtual environment
+4. Install all dependencies from `requirements.txt` using `uv pip`
 5. Set `PYTHONPATH` to the project root (`/home/user/OrdeloAgent`)
 6. Verify AWS environment variables are configured
 
@@ -27,20 +27,22 @@ This script will:
 If you prefer to set up the environment manually:
 
 ```bash
-# Create the virtual environment
-python3 -m venv .venv
+# Create the virtual environment with uv
+uv venv .venv
 
 # Activate it
 source .venv/bin/activate
 
-# Upgrade pip
-python -m pip install --upgrade pip
-
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies using uv
+uv pip install -r requirements.txt
 
 # Set PYTHONPATH
 export PYTHONPATH="/home/user/OrdeloAgent"
+```
+
+**Note:** `uv` must be installed. If not available, install it with:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### Activating Existing Virtual Environment
@@ -56,6 +58,9 @@ source .venv/bin/activate
 After running the setup, verify everything is configured correctly:
 
 ```bash
+# Check uv is installed
+uv --version
+
 # Check virtual environment is activated
 echo $VIRTUAL_ENV
 # Expected: /home/user/OrdeloAgent/.venv
@@ -69,7 +74,7 @@ echo $PYTHONPATH
 # Expected: /home/user/OrdeloAgent
 
 # Verify dependencies are installed
-pip list
+uv pip list
 ```
 
 ### Requirements
@@ -93,10 +98,21 @@ INSTALL_DEV=1 source run_setup.sh
 
 ## Notes for Claude Code Sessions
 
+- **UV Package Manager:** This project uses `uv` for faster and more reliable package management instead of `pip`
 - The virtual environment activation doesn't persist across separate tool invocations in Claude Code
 - When running Python commands, prefix them with `source .venv/bin/activate &&` to ensure the venv is active
 - The `run_setup.sh` script is idempotent and can be run multiple times safely
 - The script prefers `.venv` over `venv` directory naming convention
+- `uv` is typically pre-installed in cloud environments; if not, the setup script will fail with installation instructions
+
+## Why UV?
+
+`uv` is a modern Python package manager written in Rust that provides:
+- **10-100x faster** installation than pip
+- Better dependency resolution
+- Built-in virtual environment management
+- Compatible with pip and requirements.txt
+- Drop-in replacement for pip commands
 
 ## Created
 
