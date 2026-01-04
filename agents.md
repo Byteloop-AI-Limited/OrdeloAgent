@@ -202,6 +202,80 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 - DB checkpointer tables: run once if needed via `utils_common/thread_management/initialize_db.py` (creates LangGraph checkpoints schema).
 
 
+## Deployment Checking (Sandbox/Development Environments)
+
+When running production deployment checks from sandbox containers (e.g., Claude Code environments) or development setups with proxy configurations, SSL/TLS certificate verification may fail for external APIs (Supabase, WhatsApp Business API).
+
+### The Problem
+
+- **Proxy interference**: Sandbox environments often use HTTP proxies that intercept SSL/TLS connections, causing `CERTIFICATE_VERIFY_FAILED` errors
+- **Certificate chain issues**: Proxy-injected certificates may not be trusted by Python's SSL verification
+- **DNS resolution**: Some services require the proxy for DNS but the proxy breaks SSL handshakes
+
+### The Solution
+
+Use the provided deployment checker scripts with SSL verification disabled:
+
+```bash
+# Full deployment check (database + configuration checks)
+python run_full_deployment_check.py
+
+# Individual checks
+python test_prod_deployment.py      # Database checks only
+python test_waba_check.py            # WABA webhook check only
+```
+
+### How It Works
+
+The workaround scripts (`run_full_deployment_check.py`, `test_prod_deployment.py`) disable SSL verification for Supabase connections:
+
+```python
+import httpx
+from supabase import create_client
+from supabase.lib.client_options import ClientOptions
+
+# Create httpx client with SSL verification disabled
+httpx_client = httpx.Client(verify=False)
+
+# Create Supabase client
+client_ordelo = create_client(rest_url, rest_key, options=options)
+client_ordelo.postgrest.session = httpx_client
+```
+
+Additionally, they configure the `NO_PROXY` environment variable to bypass the proxy for AWS and Supabase:
+
+```bash
+export NO_PROXY="$NO_PROXY,*.amazonaws.com,*.supabase.co,*.supabase.com"
+```
+
+### Important Notes
+
+- **Development only**: These scripts are for testing/validation in sandbox environments. Production deployments should use proper SSL verification.
+- **WABA limitations**: WhatsApp Business API checks may fail in sandbox due to Meta's strict SSL requirements. Verify WABA configuration from production environment or local machine with direct internet access.
+- **Original checker**: For production environments with proper network access, use the standard checker: `python -m notebooks.prod_deployment_checker --mode prod`
+
+### Production Deployment Checker (Standard)
+
+The original deployment checker (`notebooks/prod_deployment_checker.py`) validates:
+
+1. **Restaurant Master** - Admin phone numbers, operating hours, stale thread timeout
+2. **Rider Master** - Rider locations (production vs test mode)
+3. **Ordelo App URL** - Application URL configuration
+4. **WABA Webhook** - WhatsApp Business Account callback URL
+
+Usage in production (AWS Lambda, EC2, or local with direct internet):
+```bash
+# Check production configuration
+python -m notebooks.prod_deployment_checker --mode prod
+
+# Check and apply production settings
+python -m notebooks.prod_deployment_checker --mode prod --apply
+
+# Skip WABA webhook check
+python -m notebooks.prod_deployment_checker --mode prod --skip-waba
+```
+
+
 ## Extending the System
 
 - Add a new tool for the Rider Agent:
