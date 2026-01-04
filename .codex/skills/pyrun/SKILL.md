@@ -10,14 +10,20 @@ Use this skill to run short, purpose-built Python snippets in the repo to answer
 ## Workflow
 
 1) Identify the minimal imports and objects needed for the query.
-2) Assume the environment is already set up. Only if a run fails due to missing env/venv/PYTHONPATH, then define the helper aliases and execute `setPyPath && envAct && envLoad` from the repo root:
+2) Assume the environment is already set up via `run_setup.sh`. Just activate the venv:
 
 ```sh
-alias setPyPath='export PYTHONPATH=$(pwd)'
-alias envLoad='export $(cat .env | xargs)'
-alias envAct='if [ -d "venv" ]; then source venv/bin/activate; elif [ -d ".venv" ]; then source .venv/bin/activate; else echo "No virtual env found"; fi'
-setPyPath && envAct && envLoad
+source venv/bin/activate  # PYTHONPATH is automatically set
 ```
+
+If venv doesn't exist or fails, run the setup script first:
+
+```sh
+./run_setup.sh
+```
+
+**Note:** AWS_SETTINGS_* environment variables must be set (handled by cloud environment). The setup script validates these are present.
+
 3) Write a tiny script using a `python - <<'PY'` heredoc; run from the repo root.
 4) If the code needs network (e.g., AWS Secrets Manager, Supabase, external APIs), rerun with `sandbox_permissions: require_escalated`.
 5) Print only the required fields; avoid dumping secrets.

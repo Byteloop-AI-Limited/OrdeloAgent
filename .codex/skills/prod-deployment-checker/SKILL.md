@@ -17,47 +17,38 @@ Use this skill to verify the deployment checklist and switch between test/prod m
 
 ## Setup and Execution
 
-Before running the script, you need to:
+### Using run_setup.sh (Recommended)
 
-1) Set the `PYTHONPATH` environment variable to the repo root:
-   ```bash
-   export PYTHONPATH=/home/basal/PycharmProjects/OrdeloAgent
-   ```
+The project provides `run_setup.sh` which handles venv activation and PYTHONPATH setup:
 
-2) Load AWS credentials from `.env` file. The following AWS settings are required:
-   ```bash
-   export AWS_SETTINGS_KEY_ID=<value from .env>
-   export AWS_SETTINGS_ACCESS_KEY=<value from .env>
-   export AWS_SETTINGS_REGION=eu-west-2
-   export AWS_SETTINGS_SECRET_NAME=ordelo-agent-env
-   ```
+```bash
+./run_setup.sh  # First time setup (requires AWS_SETTINGS_* env vars)
+source venv/bin/activate  # Subsequent runs - PYTHONPATH is auto-set
+```
 
-   Or use the alias from `.bashrc`:
-   ```bash
-   envLoad
-   ```
+**Note:** AWS_SETTINGS_* environment variables must be set by the cloud environment:
+- `AWS_SETTINGS_KEY_ID`
+- `AWS_SETTINGS_ACCESS_KEY`
+- `AWS_SETTINGS_REGION`
+- `AWS_SETTINGS_SECRET_NAME`
 
-3) Then run the script with the appropriate mode and flags:
-   ```bash
-   # Check only (prod mode)
-   python notebooks/prod_deployment_checker.py --mode prod
+### Running the Script
 
-   # Apply updates (prod mode)
-   python notebooks/prod_deployment_checker.py --mode prod --apply
+```bash
+# Check only (prod mode)
+python notebooks/prod_deployment_checker.py --mode prod
 
-   # Skip WABA webhook check
-   python notebooks/prod_deployment_checker.py --mode prod --skip-waba
-   ```
+# Apply updates (prod mode)
+python notebooks/prod_deployment_checker.py --mode prod --apply
+
+# Skip WABA webhook check
+python notebooks/prod_deployment_checker.py --mode prod --skip-waba
+```
 
 ### Full Command Example
 
 ```bash
-export PYTHONPATH=/home/basal/PycharmProjects/OrdeloAgent && \
-export AWS_SETTINGS_KEY_ID=AKIA46ZDFEGSQBTFDUEI && \
-export AWS_SETTINGS_ACCESS_KEY=F9aExa0fvlsTg4Jf1Y8TU8OgHRNgevxm8jrtlV1N && \
-export AWS_SETTINGS_REGION=eu-west-2 && \
-export AWS_SETTINGS_SECRET_NAME=ordelo-agent-env && \
-python notebooks/prod_deployment_checker.py --mode prod
+source venv/bin/activate && python notebooks/prod_deployment_checker.py --mode prod
 ```
 
 ## Checklist script notes
