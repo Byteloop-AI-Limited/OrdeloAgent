@@ -1,16 +1,11 @@
 ## weekend-19
 - refactor get_payment_uri in payment.py (moves the payment service completely to FoodOrder py model)
-- Add overwatch_list; 
-  - This list will be used when no riders pickup the food.
-  - When the rider pickedup the food from restaurant
-  - Should have a header and a footer
-  - Can this be a decorator? or monkey patch logger object?
-- In rider_agent, why is the pickup status on dispatch not being updated? This change and riderPickup overwatch notification should be in sync.
-- Add debug_thread to thread_hooks
-- Remove the live tracking flow or mention of it. 
-- Does this mean rider agent should have request_location tool?
+- Remove the live tracking flow or mention of it. - Removed in elai agent, verification required.
+- Does this mean rider agent should have request_location tool? - Should this be a sperate functionality of its own?
+
 - run_rider_agent_w_custom_msg - check if the rider has collected the food and is inflight before sending this message
 
+### Investigate this trace:
  await debug_thread('ORDELO-ee723178-5eb3-4d6b-a171-1f7c2d1e80e2')
   {'ToolMessage': {'content': 'Order number not found in state.',
     'additional_kwargs': {}}},
