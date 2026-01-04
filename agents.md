@@ -194,9 +194,72 @@ This document maps the codebase structure and explains how agents, webhooks, mes
   - `config/llm_setting.py` — LLM model and OpenAI key.
 
 
+## Environment Setup
+
+### Quick Setup (Recommended)
+
+Use the automated setup script to create and configure the Python virtual environment:
+
+```bash
+source run_setup.sh
+```
+
+**What it does:**
+1. Verifies `uv` is installed (modern package manager, 10-100x faster than pip)
+2. Creates `.venv` using `uv venv`
+3. Activates the virtual environment
+4. Installs all dependencies from `requirements.txt` using `uv pip`
+5. Sets `PYTHONPATH` to the project root
+6. Verifies AWS environment variables are configured
+
+### Manual Setup
+
+```bash
+# Create virtual environment with uv
+uv venv .venv
+
+# Activate it
+source .venv/bin/activate
+
+# Install dependencies
+uv pip install -r requirements.txt
+
+# Set PYTHONPATH
+export PYTHONPATH="$(pwd)"
+```
+
+**Note:** If `uv` is not installed, install it with:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Environment Requirements
+
+**AWS Secrets (required):**
+- `AWS_SETTINGS_KEY_ID`
+- `AWS_SETTINGS_ACCESS_KEY`
+- `AWS_SETTINGS_REGION`
+- `AWS_SETTINGS_SECRET_NAME`
+
+These are used by `aws_setting.py` to fetch secrets from AWS Systems Manager (SSM). They should be available in cloud sessions by default.
+
+**Optional development dependencies:**
+```bash
+INSTALL_DEV=1 source run_setup.sh
+```
+
+### Cloud Session Notes
+
+- This project uses **`uv`** for package management (faster, better dependency resolution than pip)
+- Virtual environment activation doesn't persist across tool invocations in Claude Code
+- The `run_setup.sh` script is idempotent and safe to run multiple times
+- Prefers `.venv` over `venv` directory naming
+
+> **📖 For detailed cloud session setup instructions, see [`.claude/CLOUD_SESSION_SETUP.md`](.claude/CLOUD_SESSION_SETUP.md)**
+
 ## Running Locally
 
-- Install deps: `pip install -r requirements.txt`
+- Setup environment: `source run_setup.sh` (see Environment Setup above)
 - Run the app: `uvicorn watomation.fapp_ordelo_agent:app --reload --port 3100`
 - WhatsApp webhook endpoint is provided by pywa_async (configured with your Business token/phone); ensure Meta configuration points to your accessible URL.
 - DB checkpointer tables: run once if needed via `utils_common/thread_management/initialize_db.py` (creates LangGraph checkpoints schema).
