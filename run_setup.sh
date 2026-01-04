@@ -6,6 +6,13 @@ cd "$ROOT_DIR"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
+# Check uv is available
+if ! command -v uv >/dev/null 2>&1; then
+  echo "ERROR: uv not found on PATH." >&2
+  echo "Install uv with: curl -LsSf https://astral.sh/uv/install.sh | sh" >&2
+  exit 1
+fi
+
 # Check Python is available
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
   echo "ERROR: $PYTHON_BIN not found on PATH." >&2
@@ -35,25 +42,23 @@ else
     echo "INFO: Removing broken $VENV_DIR..."
     rm -rf "$VENV_DIR"
   fi
-  echo "INFO: Creating new virtual environment in $VENV_DIR..."
-  "$PYTHON_BIN" -m venv "$VENV_DIR"
+  echo "INFO: Creating new virtual environment in $VENV_DIR with uv..."
+  uv venv "$VENV_DIR" --python "$PYTHON_BIN"
 fi
 
 # envAct: Activate virtual environment
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 
-# Upgrade pip and install dependencies
-python -m pip install --upgrade pip --quiet
-
+# Install dependencies using uv
 if [ -f "requirements.txt" ]; then
-  echo "INFO: Installing requirements.txt..."
-  python -m pip install -r requirements.txt --quiet
+  echo "INFO: Installing requirements.txt with uv..."
+  uv pip install -r requirements.txt --quiet
 fi
 
 if [ -f "requirements-dev.txt" ] && [ "${INSTALL_DEV:-}" = "1" ]; then
-  echo "INFO: Installing requirements-dev.txt (INSTALL_DEV=1)..."
-  python -m pip install -r requirements-dev.txt --quiet
+  echo "INFO: Installing requirements-dev.txt with uv (INSTALL_DEV=1)..."
+  uv pip install -r requirements-dev.txt --quiet
 else
   echo "INFO: Skipping requirements-dev.txt (set INSTALL_DEV=1 to install)."
 fi
