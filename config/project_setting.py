@@ -3,7 +3,7 @@ Project-level configuration for OrdeloAgent.
     . Defines ProjectSetting for base settings (salt, base_url)
     . Provides get_project_root for dynamic project path resolution
     . Loads environment variables and logging
-    . Depends on: os, pydantic_settings, dotenv, loguru
+    . Depends on: os, pydantic_settings, loguru
 """
 
 # %%
