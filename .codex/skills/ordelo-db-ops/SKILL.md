@@ -17,6 +17,15 @@ Use Ordelo’s Supabase/Postgres clients to read or change DB state, and use Ord
 - Raw SQL helpers (async pool): `utils_common/db_utils/sbase_pool_ops.py`
 - REST helper wrappers (optional): `utils_common/db_utils/sbase_rest_ops.py`
 
+## Environment Setup
+
+Ensure the environment is set up via `run_setup.sh`:
+
+```bash
+./run_setup.sh  # First time (requires AWS_SETTINGS_* env vars)
+source venv/bin/activate  # Subsequent runs - PYTHONPATH is auto-set
+```
+
 ## Quick Start (Supabase client)
 
 The Supabase client used across this repo is created from `pg_settings.client` and often aliased as `client_ordelo`:
