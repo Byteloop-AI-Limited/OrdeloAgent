@@ -51,9 +51,11 @@ if [ -f "requirements.txt" ]; then
   python -m pip install -r requirements.txt --quiet
 fi
 
-if [ -f "requirements-dev.txt" ]; then
-  echo "INFO: Installing requirements-dev.txt..."
+if [ -f "requirements-dev.txt" ] && [ "${INSTALL_DEV:-}" = "1" ]; then
+  echo "INFO: Installing requirements-dev.txt (INSTALL_DEV=1)..."
   python -m pip install -r requirements-dev.txt --quiet
+else
+  echo "INFO: Skipping requirements-dev.txt (set INSTALL_DEV=1 to install)."
 fi
 
 # setPyPath: Set Python path to project root and persist in venv activate
