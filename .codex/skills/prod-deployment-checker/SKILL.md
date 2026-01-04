@@ -23,7 +23,7 @@ The project provides `run_setup.sh` which handles venv activation and PYTHONPATH
 
 ```bash
 ./run_setup.sh  # First time setup (requires AWS_SETTINGS_* env vars)
-source venv/bin/activate  # Subsequent runs - PYTHONPATH is auto-set
+source .venv/bin/activate  # Subsequent runs - PYTHONPATH is auto-set
 ```
 
 **Note:** AWS_SETTINGS_* environment variables must be set by the cloud environment:
@@ -48,7 +48,7 @@ python notebooks/prod_deployment_checker.py --mode prod --skip-waba
 ### Full Command Example
 
 ```bash
-source venv/bin/activate && python notebooks/prod_deployment_checker.py --mode prod
+source .venv/bin/activate && python notebooks/prod_deployment_checker.py --mode prod
 ```
 
 ## Checklist script notes
