@@ -15,6 +15,51 @@ Use this skill to verify the deployment checklist and switch between test/prod m
    - Apply updates: `python notebooks/prod_deployment_checker.py --mode <mode> --apply`
 3) Review the step outputs and resolve any mismatches.
 
+## Setup and Execution
+
+Before running the script, you need to:
+
+1) Set the `PYTHONPATH` environment variable to the repo root:
+   ```bash
+   export PYTHONPATH=/home/basal/PycharmProjects/OrdeloAgent
+   ```
+
+2) Load AWS credentials from `.env` file. The following AWS settings are required:
+   ```bash
+   export AWS_SETTINGS_KEY_ID=<value from .env>
+   export AWS_SETTINGS_ACCESS_KEY=<value from .env>
+   export AWS_SETTINGS_REGION=eu-west-2
+   export AWS_SETTINGS_SECRET_NAME=ordelo-agent-env
+   ```
+
+   Or use the alias from `.bashrc`:
+   ```bash
+   envLoad
+   ```
+
+3) Then run the script with the appropriate mode and flags:
+   ```bash
+   # Check only (prod mode)
+   python notebooks/prod_deployment_checker.py --mode prod
+
+   # Apply updates (prod mode)
+   python notebooks/prod_deployment_checker.py --mode prod --apply
+
+   # Skip WABA webhook check
+   python notebooks/prod_deployment_checker.py --mode prod --skip-waba
+   ```
+
+### Full Command Example
+
+```bash
+export PYTHONPATH=/home/basal/PycharmProjects/OrdeloAgent && \
+export AWS_SETTINGS_KEY_ID=<AWS_ACCESS_KEY_ID> && \
+export AWS_SETTINGS_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY> && \
+export AWS_SETTINGS_REGION=eu-west-2 && \
+export AWS_SETTINGS_SECRET_NAME=ordelo-agent-env && \
+python notebooks/prod_deployment_checker.py --mode prod
+```
+
 ## Checklist script notes
 
 - DB updates use `client_ordelo` from `config/pg_setting.py`.
