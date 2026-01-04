@@ -13,10 +13,10 @@ Use this skill to run short, purpose-built Python snippets in the repo to answer
 2) Assume the environment is already set up via `run_setup.sh`. Just activate the venv:
 
 ```sh
-source venv/bin/activate  # PYTHONPATH is automatically set
+source .venv/bin/activate  # PYTHONPATH is automatically set
 ```
 
-If venv doesn't exist or fails, run the setup script first:
+If .venv doesn't exist or fails, run the setup script first:
 
 ```sh
 ./run_setup.sh
