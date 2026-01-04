@@ -304,6 +304,29 @@ INSTALL_DEV=1 source run_setup.sh
 - Active thread lookup/creation: `utils_common/thread_management/thread_handler.py`
 - Supabase REST call helpers: `utils_common/db_utils/sbase_rest_ops.py`
 
+## Pyrun Notes
+
+Use pyrun for ad-hoc Python snippets. The skill assumes the environment is already set up.
+If your pyrun attempt fails with an import error or missing module, run the setup script
+and try again:
+
+```bash
+source run_setup.sh
+```
+
+Example (WABA webhook configuration via `config/waba_setting.py`):
+
+```bash
+python - <<'PY'
+from config import waba_setting
+
+business_phone_number = waba_setting._sync_wa_client.get_business_phone_number()
+print(business_phone_number.webhook_configuration)
+PY
+```
+
+Note: Ensure AWS secrets are loaded so `ordelo_agent_env` can populate settings.
+
 
 ## Notable Details and Caveats
 
