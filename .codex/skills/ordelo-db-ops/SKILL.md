@@ -23,7 +23,7 @@ Ensure the environment is set up via `run_setup.sh`:
 
 ```bash
 ./run_setup.sh  # First time (requires AWS_SETTINGS_* env vars)
-source venv/bin/activate  # Subsequent runs - PYTHONPATH is auto-set
+source .venv/bin/activate  # Subsequent runs - PYTHONPATH is auto-set
 ```
 
 ## Quick Start (Supabase client)
