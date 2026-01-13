@@ -24,8 +24,7 @@ is_venv_functional() {
   local venv_path="$1"
   [ -d "$venv_path" ] && \
   [ -f "$venv_path/bin/python" ] && \
-  [ -f "$venv_path/bin/activate" ] && \
-  "$venv_path/bin/python" -c "import pip" 2>/dev/null
+  [ -f "$venv_path/bin/activate" ]
 }
 
 # Determine venv directory - prefer .venv, fallback to venv
@@ -50,23 +49,20 @@ fi
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 
-# Install dependencies using uv
-if [ -f "requirements.txt" ]; then
-  echo "INFO: Installing requirements.txt with uv..."
-  uv pip install -r requirements.txt --quiet
-fi
-
-if [ -f "requirements-dev.txt" ] && [ "${INSTALL_DEV:-}" = "1" ]; then
-  echo "INFO: Installing requirements-dev.txt with uv (INSTALL_DEV=1)..."
-  uv pip install -r requirements-dev.txt --quiet
+# Install dependencies using uv sync with pyproject.toml
+echo "INFO: Syncing dependencies from pyproject.toml..."
+if [ "${INSTALL_DEV:-}" = "1" ]; then
+  echo "INFO: Including local dependency group (INSTALL_DEV=1)..."
+  uv sync --group local
 else
-  echo "INFO: Skipping requirements-dev.txt (set INSTALL_DEV=1 to install)."
+  echo "INFO: Installing production dependencies only (set INSTALL_DEV=1 for local group)."
+  uv sync --no-group local
 fi
 
 # setPyPath: Set Python path to project root and persist in venv activate
 export PYTHONPATH="$ROOT_DIR"
 
-# Add PYTHONPATH to venv activate script if not already present
+# Add PYTHONPATH and envLoad to venv activate script if not already present
 ACTIVATE_SCRIPT="$VENV_DIR/bin/activate"
 if ! grep -q "PYTHONPATH=" "$ACTIVATE_SCRIPT" 2>/dev/null; then
   echo "" >> "$ACTIVATE_SCRIPT"
@@ -76,7 +72,35 @@ if ! grep -q "PYTHONPATH=" "$ACTIVATE_SCRIPT" 2>/dev/null; then
 else
   echo "INFO: PYTHONPATH already in $ACTIVATE_SCRIPT"
 fi
+
+# Add envLoad to activate script
+if ! grep -q "envLoad" "$ACTIVATE_SCRIPT" 2>/dev/null; then
+  cat >> "$ACTIVATE_SCRIPT" << 'ENVLOAD'
+
+# envLoad: Load .env file from project root
+if [ -f "$PYTHONPATH/.env" ]; then
+  set -a
+  source "$PYTHONPATH/.env"
+  set +a
+fi
+ENVLOAD
+  echo "INFO: envLoad added to $ACTIVATE_SCRIPT"
+else
+  echo "INFO: envLoad already in $ACTIVATE_SCRIPT"
+fi
 echo "INFO: PYTHONPATH set to $ROOT_DIR"
+
+# envLoad: Load environment variables from .env file if present
+if [ -f "$ROOT_DIR/.env" ]; then
+  echo "INFO: Loading environment variables from .env..."
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT_DIR/.env"
+  set +a
+  echo "INFO: Environment variables loaded from .env"
+else
+  echo "INFO: No .env file found, skipping envLoad."
+fi
 
 # Check for required AWS_SETTINGS_* variables (used by aws_setting.py)
 REQUIRED_VARS=(
