@@ -175,3 +175,4 @@ env.json
 policy.json
 env_with_key.json
 temp_store.pkl
+.claude/hook_log.txt

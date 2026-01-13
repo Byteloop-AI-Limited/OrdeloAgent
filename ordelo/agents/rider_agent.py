@@ -54,7 +54,7 @@ from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel, ConfigDict
 from pywa.types import ButtonUrl
 from pywa_async import WhatsApp
-from supabase._sync.client import SyncClient
+from supabase._sync.client import Client
 from typing_extensions import Literal, TypedDict
 
 # from elai.agents.respond_agent import respond_node
@@ -99,7 +99,7 @@ class ContextSchema(BaseModel):
     pool: AsyncConnectionPool
     wa_client: WhatsApp
     recipient: str
-    client_ordelo: SyncClient
+    client_ordelo: Client
     thread_handler: ThreadHandler | None = None
 
     def model_post_init(self, __context: Any) -> None:
