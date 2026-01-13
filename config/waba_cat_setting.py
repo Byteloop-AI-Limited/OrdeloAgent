@@ -18,7 +18,7 @@ WhatsApp catalog settings and product/inventory helpers for OrdeloAgent.
 import json
 from typing import Dict, List
 
-import duckdb as ddb
+# import duckdb as ddb
 import pandas as pd
 import requests
 from loguru import logger
@@ -122,7 +122,8 @@ def search_available_items(search_item: str) -> List[dict]:
         list: A list of dictionaries containing retailer_id, name, and description
         of products that are in stock and match the search criteria.
     """
-    con = ddb.connect()
+    # con = ddb.connect()
+    con = "dummy"
     in_stock_products = waba_cat_settings.fetch_products(
         filter_condition={"availability": {"eq": "in stock"}}
     )
@@ -207,7 +208,8 @@ def update_inventory_following_checkout(
     :return: A string indicating the result of the operation. Will return "success"
              if the updates are processed.
     """
-    conn = ddb.connect()
+    # conn = ddb.connect()
+    conn = "dummy"
     print("updating update_inventory_following_checkout")
     query = """
     select

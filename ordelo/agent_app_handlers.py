@@ -56,7 +56,7 @@ from utils_common.lg_utils import (
     get_config_for_recipient,
 )
 import pytz
-from supabase._sync.client import SyncClient
+from supabase._sync.client import Client
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 
@@ -396,7 +396,7 @@ async def _send_delivery_instructions(
     start_live_tracking_url: str,
     recipient: str,
     rider_name: str,
-    client_ordelo: SyncClient,
+    client_ordelo: Client,
     wa_client: WhatsApp,
 ):
     """
