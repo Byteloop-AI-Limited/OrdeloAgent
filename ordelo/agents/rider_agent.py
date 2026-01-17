@@ -54,10 +54,7 @@ from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel, ConfigDict
 from pywa.types import ButtonUrl
 from pywa_async import WhatsApp
-from supabase._sync.client import Client
-from typing_extensions import Literal, TypedDict
-
-# from elai.agents.respond_agent import respond_node
+from typing_extensions import TypedDict
 from config import (
     _async_wa_client,
     client_ordelo,
