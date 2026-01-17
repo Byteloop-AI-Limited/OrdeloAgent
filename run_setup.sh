@@ -52,11 +52,11 @@ source "$VENV_DIR/bin/activate"
 # Install dependencies using uv sync with pyproject.toml
 echo "INFO: Syncing dependencies from pyproject.toml..."
 if [ "${INSTALL_DEV:-}" = "1" ]; then
-  echo "INFO: Including local dependency group (INSTALL_DEV=1)..."
-  uv sync --group local
+  echo "INFO: Including dev dependency group (INSTALL_DEV=1)..."
+  uv sync --group dev
 else
-  echo "INFO: Installing production dependencies only (set INSTALL_DEV=1 for local group)."
-  uv sync --no-group local
+  echo "INFO: Installing production dependencies only (set INSTALL_DEV=1 for dev group)."
+  uv sync --no-group dev
 fi
 
 # setPyPath: Set Python path to project root and persist in venv activate
