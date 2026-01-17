@@ -21,16 +21,17 @@ _OVERWATCH_LIST_CACHE: tuple[list[str], float] | None = None
 
 
 # %% Webhook path mapping - type to path template with {rest_ref} placeholder
+# Note: {rest_ref} comes AFTER the router prefix since routers are mounted with prefix in FastAPI
 WEBHOOK_PATHS = {
-    "rider-inflight": "{rest_ref}/rider-event-hooks/rider-inflight",
-    "rider-rest-cc": "{rest_ref}/rider-event-hooks/on-restaurant-cc",
-    "rider-cust-cc": "{rest_ref}/rider-event-hooks/on-customer-cc",
-    "rider-rest-enter": "{rest_ref}/rider-event-hooks/on-restaurant-enter",
-    "rider-cust-enter": "{rest_ref}/rider-event-hooks/on-customer-enter",
-    "delivery-timedout": "{rest_ref}/rider-event-hooks/delivery-timedout",
-    "order-payment-complete": "{rest_ref}/order-event-hooks/payment-complete/",
-    "order-address-update": "{rest_ref}/order-event-hooks/address-update",
-    "terminate-stale-active-threads": "{rest_ref}/thread-hooks/terminate-stale-active-threads",
+    "rider-inflight": "rider-event-hooks/{rest_ref}/rider-inflight",
+    "rider-rest-cc": "rider-event-hooks/{rest_ref}/on-restaurant-cc",
+    "rider-cust-cc": "rider-event-hooks/{rest_ref}/on-customer-cc",
+    "rider-rest-enter": "rider-event-hooks/{rest_ref}/on-restaurant-enter",
+    "rider-cust-enter": "rider-event-hooks/{rest_ref}/on-customer-enter",
+    "delivery-timedout": "rider-event-hooks/{rest_ref}/delivery-timedout",
+    "order-payment-complete": "order-event-hooks/{rest_ref}/payment-complete/",
+    "order-address-update": "order-event-hooks/{rest_ref}/address-update",
+    "terminate-stale-active-threads": "thread-hooks/{rest_ref}/terminate-stale-active-threads",
     "get-active-thread": "thread-hooks/get-active-thread",  # Already has rest_ref in existing path
 }
 
