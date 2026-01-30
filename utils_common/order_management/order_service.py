@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
+from config.params import get_wa_logger
 
 import requests
 import uuid
@@ -319,9 +320,6 @@ async def capture_payment_for_order(
         Payment URL string if successful, otherwise None
     """
     food_order = FoodOrder.from_order_id(order_id=order_id)
-    # if not food_order:
-    #     logger.error(f"FoodOrder not found for order_id: {order_id}")
-    #     return None
 
     payment_uri = food_order.payment_uri
 
@@ -340,6 +338,9 @@ async def capture_payment_for_order(
                 headers=ms_settings.stripe_headers,
             )
             res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            await get_wa_logger().info(
+                f"Payment captured for order {order_id}, Print job assumed to be completed."
+            )
             return res.text
         except httpx.HTTPError as e:
             logger.error(f"Error during payment capture for order {order_id}: {e}")

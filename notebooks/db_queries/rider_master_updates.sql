@@ -1,14 +1,18 @@
 -- Master data maintenance for restaurant_master, rider_master, and customer_master.
 -- Consolidated from CommonQueries.sql and config_updates.sql.
 select * from rider_registrations;
+
 select * from rider_master order by is_in_shift desc, shift_response_dtts desc, status asc;
+
+select admins,* from restaurant_master where rest_ref='ELAS';
+select * from ordelo_config where config_key like '%_APP_URL';
 
 -- Run before 11 am
 update rider_master set 
 is_in_shift=false
-, shift_response_dtts=now()
+, shift_response_dtts=now();
 -- , town='dummy'
-where town='Salisbury';
+-- where town='Salisbury';
 
 update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='bicycle' where rider_name='Lohith';
 
@@ -17,7 +21,7 @@ update rider_master set town ='Salisbury' where town='dummy';
 
 -- Test setup
 update rider_master set town ='dummy' where town='Salisbury';
-update rider_master set town='Salisbury' where rider_name in ('Lohith', 'Rahul', 'Bloop');
+update rider_master set town='Salisbury', is_in_shift=true where rider_name in ('Lohith', 'Rahul', 'Bloop');
 
 -- delete from rider_master where rider_name='Muhibur';
 select phone as rider_id,  from rider_registrations;
