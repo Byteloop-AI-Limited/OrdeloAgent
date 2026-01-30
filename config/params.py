@@ -1,13 +1,13 @@
 """
 Restaurant webhook configuration utilities and lookup helpers.
   . Provides async webhook URL construction with dynamic DB lookup
-  . WEBHOOK_PATHS maps webhook types to their path suffixes
+  . WEBHOOK_PATHS maps webhook types to their path templates (with {rest_ref} placeholder)
   . get_restaurant_webhook_url_async fetches base URL from DB (now cached)
   . get_restaurant_admins fetches admin list from restaurant_master
 Functions/Classes
-  . WEBHOOK_PATHS - Static mapping of webhook type to path suffix
+  . WEBHOOK_PATHS - Static mapping of webhook type to path template with {rest_ref}
   . get_restaurant_base_url_async - Async DB lookup for restaurant base URL (cached)
-  . get_restaurant_webhook_url_async - Constructs full webhook URL dynamically
+  . get_restaurant_webhook_url_async - Constructs full webhook URL dynamically, substituting rest_ref
   . get_restaurant_admins - Fetches restaurant admin phone numbers
 """
 
@@ -20,18 +20,19 @@ _OVERWATCH_LIST_CACHE_TTL_SECS = 5 * 60  # 5 minutes
 _OVERWATCH_LIST_CACHE: tuple[list[str], float] | None = None
 
 
-# %% Webhook path mapping - type to path suffix (no base URLs)
+# %% Webhook path mapping - type to path template with {rest_ref} placeholder
+# Note: {rest_ref} comes AFTER the router prefix since routers are mounted with prefix in FastAPI
 WEBHOOK_PATHS = {
-    "rider-inflight": "rider-event-hooks/rider-inflight",
-    "rider-rest-cc": "rider-event-hooks/on-restaurant-cc",
-    "rider-cust-cc": "rider-event-hooks/on-customer-cc",
-    "rider-rest-enter": "rider-event-hooks/on-restaurant-enter",
-    "rider-cust-enter": "rider-event-hooks/on-customer-enter",
-    "delivery-timedout": "rider-event-hooks/delivery-timedout",
-    "order-payment-complete": "order-event-hooks/payment-complete/",
-    "order-address-update": "order-event-hooks/address-update",
-    "terminate-stale-active-threads": "thread-hooks/terminate-stale-active-threads",
-    "get-active-thread": "thread-hooks/get-active-thread",
+    "rider-inflight": "rider-event-hooks/{rest_ref}/rider-inflight",
+    "rider-rest-cc": "rider-event-hooks/{rest_ref}/on-restaurant-cc",
+    "rider-cust-cc": "rider-event-hooks/{rest_ref}/on-customer-cc",
+    "rider-rest-enter": "rider-event-hooks/{rest_ref}/on-restaurant-enter",
+    "rider-cust-enter": "rider-event-hooks/{rest_ref}/on-customer-enter",
+    "delivery-timedout": "rider-event-hooks/{rest_ref}/delivery-timedout",
+    "order-payment-complete": "order-event-hooks/{rest_ref}/payment-complete/",
+    "order-address-update": "order-event-hooks/{rest_ref}/address-update",
+    "terminate-stale-active-threads": "thread-hooks/{rest_ref}/terminate-stale-active-threads",
+    "get-active-thread": "thread-hooks/get-active-thread",  # Already has rest_ref in existing path
 }
 
 
@@ -206,12 +207,15 @@ async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> 
         url = await get_restaurant_webhook_url_async("ELAS", "rider-inflight")
         # Returns: "https://elas-api.example.com/rider-event-hooks/rider-inflight"
     """
-    path = WEBHOOK_PATHS.get(webhook_type.lower())
-    if not path:
+    path_template = WEBHOOK_PATHS.get(webhook_type.lower())
+    if not path_template:
         valid_types = ", ".join(WEBHOOK_PATHS.keys())
         raise ValueError(
             f"Unknown webhook type: '{webhook_type}'. Valid types: {valid_types}"
         )
+
+    # Substitute rest_ref into path template
+    path = path_template.format(rest_ref=rest_ref.upper())
 
     base_url = await get_restaurant_base_url_async(rest_ref)
     full_url = f"{base_url}/{path}"
