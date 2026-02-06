@@ -27,6 +27,11 @@ CREATE TABLE delivery_summary (
     restaurant_msg_id VARCHAR(255), -- nullable, stores WA message ID for restaurant communications
     rider_msg_id VARCHAR(255), -- nullable, stores WA message ID for rider communications
     customer_msg_id VARCHAR(255), -- nullable, stores WA message ID for customer communications
+    -- Scheduled pickup time selected by restaurant admins via `/PickupTime` callback.
+    -- Downstream:
+    -- 1) Included in webhook payload from restaurant_updates_whook()
+    -- 2) Included later in rider dispatch payload/message
+    -- 3) If NULL past timeout, process_restaurant_confirmation() moves flow to restaurant_timedout
     pickup_time      TIMESTAMP WITH TIME ZONE,
     pickup_date      DATE NOT NULL DEFAULT CURRENT_DATE,
     rest_ref         VARCHAR(20) GENERATED ALWAYS AS (SPLIT_PART(order_number, '-', 1)) STORED, -- derived from order_number
@@ -38,6 +43,10 @@ CREATE TABLE delivery_summary (
 
 -- Triggers on delivery_summary table
 -- Trigger 1: On new record OR restaurant_confirmation_status update to 'restaurant_accept'/'restaurant_decline'/'restaurant_timedout'
+-- This is the entry point for the restaurant-confirmation webhook chain:
+-- delivery_summary change -> trigger_restaurant_updates -> restaurant_updates_whook()
+-- -> POST /delivery-hooks/restaurant-confirmation-request -> restaurant_confirmation_flow()
+-- -> _handle_restaurant_accept() when trigger_reason='restaurant_accept' (pickup-time options are sent)
 CREATE OR REPLACE TRIGGER trigger_restaurant_updates 
 AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON public.delivery_summary 
 FOR EACH ROW 
@@ -67,6 +76,9 @@ FOR EACH ROW WHEN (OLD.status <> 'timedout'
  *  notes:
  *    - Triggered on delivery_summary INSERT with restaurant_confirmation_status='restaurant_unconfirmed'
  *    - Triggered on delivery_summary UPDATE to restaurant_confirmation_status='restaurant_accept', 'restaurant_decline', or 'restaurant_timedout'
+ *    - For trigger_reason='restaurant_accept', API handler _handle_restaurant_accept() sends pickup-time buttons
+ *      and the selected value is written back to delivery_summary.pickup_time via /PickupTime callback
+ *    - For trigger_reason='restaurant_timedout', API handler _handle_restaurant_timedout() auto-sets pickup_time (+30 mins)
  *    - Builds delivery_summary JSON from NEW record (all fields)
  *    - Fetches restaurant_master data and includes in payload
  *    - Joins with food_order table using order_number
