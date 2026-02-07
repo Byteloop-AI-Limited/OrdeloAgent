@@ -210,11 +210,22 @@ async def handle_admin_availability(wa: WhatsApp, msg: Message):
     logger.info(f"Admin availability confirmed for {recipient}")
 
 
-async def _update_restaurant_order_status(order_number: str, status: str, msg: Message):
+def _format_pickup_time_display(pickup_time_iso: str) -> str:
+    pickup_dt = datetime.fromisoformat(pickup_time_iso.replace("Z", "+00:00"))
+    return pickup_dt.strftime("%-I:%M %p")
+
+
+async def _update_restaurant_order_status(
+    order_number: str,
+    status: str,
+    msg: Message,
+    order_type: str = "delivery",
+):
     """Background task to update restaurant order status."""
     try:
+        target_table = "takeaway_summary" if order_type == "takeaway" else "delivery_summary"
         result = await asyncio.to_thread(
-            lambda: client_ordelo.table("delivery_summary")
+            lambda: client_ordelo.table(target_table)
             .update(
                 {
                     "restaurant_confirmation_status": status,
@@ -226,16 +237,19 @@ async def _update_restaurant_order_status(order_number: str, status: str, msg: M
             .execute()
         )
         if result.data:
-            logger.info(f"Restaurant order status updated: {order_number} -> {status}")
+            logger.info(
+                f"Restaurant order status updated ({order_type}): {order_number} -> {status}"
+            )
         else:
             await msg.reply(text="Order Already Accepted")
             logger.info(
-                "Skipped restaurant order status update for %s; current status is not restaurant_unconfirmed",
+                "Skipped restaurant order status update for %s (%s); current status is not restaurant_unconfirmed",
                 order_number,
+                order_type,
             )
     except Exception as e:
         logger.error(
-            f"Failed to update restaurant order status for {order_number}: {e}"
+            f"Failed to update restaurant order status for {order_number} ({order_type}): {e}"
         )
 
 
@@ -252,17 +266,22 @@ async def restaurant_order_accept_decline_handler(wa: WhatsApp, msg: Message):
     order_number = callback_data.order_number
     order_time = callback_data.order_time
     recipient = msg.sender
+    order_type = getattr(callback_data, "order_type", "delivery")
 
-    logger.info(f"Restaurant order confirmation: {order_number}")
+    logger.info(f"Restaurant order confirmation ({order_type}): {order_number}")
 
     if "Accept" in callback_data.action:
         asyncio.create_task(
-            _update_restaurant_order_status(order_number, "restaurant_accept", msg)
+            _update_restaurant_order_status(
+                order_number, "restaurant_accept", msg, order_type=order_type
+            )
         )
 
     elif "Decline" in callback_data.action:
         asyncio.create_task(
-            _update_restaurant_order_status(order_number, "restaurant_decline", msg)
+            _update_restaurant_order_status(
+                order_number, "restaurant_decline", msg, order_type=order_type
+            )
         )
 
     return
@@ -279,40 +298,74 @@ async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
     order_number = callback_data.order_number
     pickup_time = callback_data.pickup_time
     recipient = msg.sender
+    order_type = getattr(callback_data, "order_type", "delivery")
+    target_table = "takeaway_summary" if order_type == "takeaway" else "delivery_summary"
+    target_status = "pickup_confirmed" if order_type == "takeaway" else "unassigned"
 
     logger.info(
-        f"Updating pickup time for order {order_number} to {pickup_time} (status -> unassigned)",
+        f"Updating pickup time for {order_type} order {order_number} to {pickup_time} (status -> {target_status})",
     )
 
     try:
         update_vals = {
             "pickup_time": pickup_time,
-            "status": "unassigned",
+            "status": target_status,
             "restaurant_admin": recipient,
             "restaurant_update_dtts": datetime.now(timezone.utc).isoformat(),
         }
         result = await asyncio.to_thread(
-            lambda: client_ordelo.table("delivery_summary")
+            lambda: client_ordelo.table(target_table)
             .update(update_vals)
             .eq("order_number", order_number)
             .eq("restaurant_confirmation_status", "restaurant_accept")
             .execute()
         )
         if result.data:
+            if order_type == "takeaway":
+                summary_rows = await asyncio.to_thread(
+                    lambda: client_ordelo.table("takeaway_summary")
+                    .select(
+                        "order_number,customer_id,rest_name,rest_address,pickup_time"
+                    )
+                    .eq("order_number", order_number)
+                    .limit(1)
+                    .execute()
+                    .data
+                )
+                if summary_rows:
+                    row = summary_rows[0]
+                    pickup_display = _format_pickup_time_display(
+                        row.get("pickup_time") or pickup_time
+                    )
+                    await wa.send_message(
+                        to=row["customer_id"],
+                        text=(
+                            f"Your order {row['order_number']} is confirmed!\n\n"
+                            f"Pickup time: {pickup_display}\n"
+                            f"Restaurant: {row['rest_name']}\n"
+                            f"Address: {row['rest_address']}"
+                        ),
+                    )
+
             await msg.reply(text="Pickup time updated")
             logger.info(
-                "Pickup time updated for order %s to %s (status -> unassigned)",
+                "Pickup time updated for %s order %s to %s (status -> %s)",
+                order_type,
                 order_number,
                 pickup_time,
+                target_status,
             )
         else:
             await msg.reply(text="Pickup time already updated")
             logger.info(
-                "Skipped pickup time update for %s; status is not restaurant_accept",
+                "Skipped pickup time update for %s (%s); status is not restaurant_accept",
                 order_number,
+                order_type,
             )
     except Exception as e:
-        logger.error(f"Failed to update pickup time for order {order_number}: {e}")
+        logger.error(
+            f"Failed to update pickup time for order {order_number} ({order_type}): {e}"
+        )
 
 
 # %%

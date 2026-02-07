@@ -50,7 +50,7 @@ async def generate_payment_intent_url(food_order: FoodOrder):
 # %%
 async def generate_automatic_payment_url(food_order: FoodOrder):
     """
-    Generates a Stripe payment URL for automatic capture (no additional fees).
+    Generates a Stripe payment URL for automatic capture (No manual_mode, instant capture on stripe for takeaways.).
 
     Args:
         food_order: A FoodOrder instance containing order details.
