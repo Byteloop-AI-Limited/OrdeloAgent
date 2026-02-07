@@ -2,6 +2,8 @@ select * from thread order by dtts desc;
 select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
 
 
+select * from delivery_option where order_number='ELAS-LORN-24';
+
 select * from customer_master;
 
 delete from customer_master where cust_id='447438360474';

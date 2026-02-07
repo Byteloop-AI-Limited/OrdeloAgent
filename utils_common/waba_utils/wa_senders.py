@@ -93,6 +93,7 @@ async def send_restaurant_pickup_time(
     order_number: str,
     order_time_epoch: int,
     intervals_mins: List[int] = None,
+    order_type: str = "delivery",
 ):
     # Parse order_time string to datetime
     from datetime import datetime
@@ -121,6 +122,7 @@ async def send_restaurant_pickup_time(
             action="/PickupTime",
             pickup_time=time_str,
             order_number=order_number,
+            order_type=order_type,
         )
 
         # Add button
@@ -555,11 +557,13 @@ async def send_restaurant_order_confirmation(
         action="/RestaurantOrder-Accept",
         order_number=order_number,
         order_time=order_time,
+        order_type=order_type,
     )
     decline_button = CallbackButtonData(
         action="/RestaurantOrder-Decline",
         order_number=order_number,
         order_time=order_time,
+        order_type=order_type,
     )
 
     if order_type == "delivery":
@@ -582,7 +586,7 @@ async def send_restaurant_order_confirmation(
         reply_to_message_id=None,
         buttons=[
             Button(title="Accept", callback_data=accept_button.model_dump_json()),
-            Button(title="Decline", callback_data=decline_button.model_dump_json()),
+            # Button(title="Decline", callback_data=decline_button.model_dump_json()),
         ],
     )
 
