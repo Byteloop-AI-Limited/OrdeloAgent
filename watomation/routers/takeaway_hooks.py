@@ -1,0 +1,360 @@
+"""
+Takeaway webhook handlers for restaurant confirmation flow.
+"""
+
+import asyncio
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional
+
+import pytz
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from pydantic import BaseModel
+
+from config import _async_wa_client, client_ordelo, logger
+from utils_common.order_management.food_order_pymodel import FoodOrder
+from utils_common.order_management.order_db_ops_new import OrderItem
+from utils_common.waba_utils.wa_senders import (
+    send_restaurant_order_confirmation,
+    send_restaurant_pickup_time,
+)
+from watomation.routers.delivery_hooks import cancel_payment
+
+
+async def get_payload(request: Request):
+    return await request.json()
+
+
+router = APIRouter(tags=["takeaway_hooks"])
+
+
+class TakeawaySummaryData(BaseModel):
+    """takeaway_summary fields from takeaway trigger payload."""
+
+    order_number: str
+    rest_id: str
+    rest_name: str
+    rest_address: str
+    town: str
+    customer_id: str
+    customer_name: str
+    restaurant_confirmation_status: str
+    restaurant_update_dtts: Optional[str] = None
+    restaurant_admin: Optional[str] = None
+    status: str
+    rest_confirmation_code: int
+    rest_prep_time_minutes: Optional[int] = None
+    rest_confirmation_method: Optional[str] = None
+    restaurant_msg_id: Optional[str] = None
+    customer_msg_id: Optional[str] = None
+    pickup_time: Optional[str] = None
+    pickup_date: str
+    rest_ref: Optional[str] = None
+    dt: str
+    dtts: str
+
+
+class RestaurantMasterData(BaseModel):
+    """Restaurant master fields from restaurant_master table."""
+
+    rest_id: str
+    rest_ref: str
+    rest_name: str
+    admins: List[str]
+    lon: float
+    lat: float
+    house_number: Optional[str] = None
+    building_name: Optional[str] = None
+    street_name: Optional[str] = None
+    city: Optional[str] = None
+    postcode: Optional[str] = None
+
+
+class TakeawayConfirmationPayload(BaseModel):
+    """Payload model for takeaway confirmation webhook."""
+
+    trigger_reason: str
+    takeaway_summary: TakeawaySummaryData
+    restaurant_master: RestaurantMasterData
+    food_order: FoodOrder
+    order_items: List[OrderItem]
+
+
+def _format_pickup_time_display(pickup_time_iso: str) -> str:
+    pickup_dt = datetime.fromisoformat(pickup_time_iso.replace("Z", "+00:00"))
+    uk_tz = pytz.timezone("Europe/London")
+    return pickup_dt.astimezone(uk_tz).strftime("%-I:%M %p")
+
+
+async def _send_customer_pickup_confirmation(
+    customer_id: str,
+    order_number: str,
+    pickup_time_iso: str,
+    rest_name: str,
+    rest_address: str,
+):
+    pickup_display = _format_pickup_time_display(pickup_time_iso)
+    text = (
+        f"Your order {order_number} is confirmed!\n\n"
+        f"Pickup time: {pickup_display}\n"
+        f"Restaurant: {rest_name}\n"
+        f"Address: {rest_address}"
+    )
+    await _async_wa_client.send_message(to=customer_id, text=text)
+
+
+def init_takeaway_summary(order_number: str, recipient: str):
+    """Background task to initialize takeaway_summary via RPC call."""
+    try:
+        response = client_ordelo.rpc(
+            "init_takeaway", {"p_cust_id": recipient, "p_order_number": order_number}
+        ).execute()
+        logger.info(f"init_takeaway completed for order {order_number} with response {response}")
+    except Exception as e:
+        logger.error(f"init_takeaway failed for order {order_number}: {e}")
+
+
+async def _handle_restaurant_unconfirmed(
+    takeaway_summary: TakeawaySummaryData,
+    restaurant_master: RestaurantMasterData,
+    food_order: FoodOrder,
+    order_items: List[OrderItem],
+) -> dict:
+    order_items_str = ", ".join(
+        [f"{item.quantity}x {item.product_name}" for item in order_items]
+    )
+    order_amount = f"£{food_order.total_price:.2f}"
+
+    order_time_dt = datetime.fromisoformat(takeaway_summary.dtts.replace("Z", "+00:00"))
+    order_time_epoch = int(order_time_dt.timestamp())
+
+    for admin_phone in restaurant_master.admins:
+        await send_restaurant_order_confirmation(
+            recipient=admin_phone,
+            order_number=food_order.order_number,
+            order_amount=order_amount,
+            order_items=order_items_str,
+            order_time=order_time_epoch,
+            order_type="takeaway",
+        )
+
+    return {
+        "status": "success",
+        "action": "confirmation_sent",
+        "order_number": food_order.order_number,
+    }
+
+
+async def _handle_restaurant_accept(
+    takeaway_summary: TakeawaySummaryData,
+    restaurant_master: RestaurantMasterData,
+    food_order: FoodOrder,
+    order_items: List[OrderItem],
+) -> dict:
+    order_items_str = ", ".join(
+        [f"{item.quantity}x {item.product_name}" for item in order_items]
+    )
+    order_time_dt = datetime.fromisoformat(takeaway_summary.dtts.replace("Z", "+00:00"))
+    order_time_epoch = int(order_time_dt.timestamp())
+
+    header = f"Order {food_order.order_number} - Pickup Time"
+    text = f"Order accepted! Items: {order_items_str}\n\nPlease select estimated pickup time:"
+
+    for admin in restaurant_master.admins:
+        await send_restaurant_pickup_time(
+            recipient=admin,
+            header=header,
+            text=text,
+            order_number=food_order.order_number,
+            order_time_epoch=order_time_epoch,
+            intervals_mins=[5, 15, 25],
+            order_type="takeaway",
+        )
+
+    return {
+        "status": "success",
+        "action": "pickup_time_sent",
+        "order_number": food_order.order_number,
+    }
+
+
+async def _handle_restaurant_decline(
+    takeaway_summary: TakeawaySummaryData,
+    food_order: FoodOrder,
+) -> dict:
+    await asyncio.to_thread(
+        lambda: client_ordelo.table("takeaway_summary")
+        .update(
+            {
+                "status": "declined",
+                "restaurant_update_dtts": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        .eq("order_number", food_order.order_number)
+        .execute()
+    )
+
+    if food_order.payment_status != "pay_at_rest":
+        try:
+            await cancel_payment(order_number=food_order.order_number)
+        except Exception:
+            logger.exception(
+                "Payment cancellation failed during takeaway decline",
+                extra={"order_number": food_order.order_number},
+            )
+        customer_text = (
+            f"Sorry, your order {food_order.order_number} could not be accepted by {takeaway_summary.rest_name}.\n"
+            "Your payment has been cancelled."
+        )
+    else:
+        customer_text = (
+            f"Sorry, your order {food_order.order_number} could not be accepted by {takeaway_summary.rest_name}."
+        )
+
+    await _async_wa_client.send_message(to=takeaway_summary.customer_id, text=customer_text)
+
+    return {
+        "status": "success",
+        "action": "declined",
+        "order_number": food_order.order_number,
+    }
+
+
+async def _handle_restaurant_timedout(
+    takeaway_summary: TakeawaySummaryData,
+    restaurant_admins: List[str],
+) -> dict:
+    uk_tz = pytz.timezone("Europe/London")
+    order_time = datetime.fromisoformat(takeaway_summary.dtts.replace("Z", "+00:00"))
+    order_time = order_time.astimezone(uk_tz)
+    new_pickup_time = (order_time + timedelta(minutes=30)).isoformat()
+    pickup_display = _format_pickup_time_display(new_pickup_time)
+
+    await asyncio.to_thread(
+        lambda: client_ordelo.table("takeaway_summary")
+        .update(
+            {
+                "status": "pickup_confirmed",
+                "restaurant_confirmation_status": "auto_accept",
+                "pickup_time": new_pickup_time,
+                "restaurant_update_dtts": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        .eq("order_number", takeaway_summary.order_number)
+        .execute()
+    )
+
+    for admin_phone in restaurant_admins:
+        await _async_wa_client.send_message(
+            to=admin_phone,
+            text=(
+                f"Order {takeaway_summary.order_number} auto-accepted due to confirmation timeout. "
+                f"Pickup time set to {pickup_display} (30 mins from order time)."
+            ),
+        )
+
+    await _send_customer_pickup_confirmation(
+        customer_id=takeaway_summary.customer_id,
+        order_number=takeaway_summary.order_number,
+        pickup_time_iso=new_pickup_time,
+        rest_name=takeaway_summary.rest_name,
+        rest_address=takeaway_summary.rest_address,
+    )
+
+    return {
+        "status": "success",
+        "action": "auto_accept",
+        "order_number": takeaway_summary.order_number,
+    }
+
+
+@router.post("/restaurant-confirmation-request")
+async def restaurant_confirmation_flow(
+    background_tasks: BackgroundTasks,
+    payload: dict = Depends(get_payload),
+):
+    """Webhook triggered for takeaway restaurant confirmation workflow events."""
+    try:
+        confirmation_payload = TakeawayConfirmationPayload(**payload)
+        trigger_reason = confirmation_payload.trigger_reason
+        takeaway_summary = confirmation_payload.takeaway_summary
+        restaurant_master = confirmation_payload.restaurant_master
+        food_order = confirmation_payload.food_order
+        order_items = confirmation_payload.order_items
+
+        logger.info(
+            f"Takeaway confirmation webhook triggered: trigger_reason={trigger_reason}, "
+            f"order={food_order.order_number}, rest_id={takeaway_summary.rest_id}, "
+            f"rest_name={takeaway_summary.rest_name}, total_price={food_order.total_price}"
+        )
+
+        if trigger_reason in {"restaurant_unconfirmed", "restaurant_accept"}:
+            if not restaurant_master.admins:
+                return {
+                    "status": "error",
+                    "message": "No restaurant contacts",
+                    "order_number": food_order.order_number,
+                }
+
+        if trigger_reason == "restaurant_unconfirmed":
+            background_tasks.add_task(
+                _handle_restaurant_unconfirmed,
+                takeaway_summary,
+                restaurant_master,
+                food_order,
+                order_items,
+            )
+        elif trigger_reason == "restaurant_accept":
+            background_tasks.add_task(
+                _handle_restaurant_accept,
+                takeaway_summary,
+                restaurant_master,
+                food_order,
+                order_items,
+            )
+        elif trigger_reason == "restaurant_decline":
+            background_tasks.add_task(
+                _handle_restaurant_decline,
+                takeaway_summary,
+                food_order,
+            )
+        elif trigger_reason == "restaurant_timedout":
+            background_tasks.add_task(
+                _handle_restaurant_timedout,
+                takeaway_summary,
+                restaurant_master.admins,
+            )
+        else:
+            return {
+                "status": "error",
+                "message": f"Unknown trigger_reason: {trigger_reason}",
+                "order_number": food_order.order_number,
+            }
+
+        return {
+            "status": "accepted",
+            "message": f"Handler for {trigger_reason} scheduled",
+            "order_number": food_order.order_number,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in takeaway restaurant confirmation hook: {e}")
+        return {
+            "status": "error",
+            "message": str(e),
+            "order_number": payload.get("food_order", {}).get("order_number", "unknown"),
+        }
+
+
+@router.post("/init-takeaway-order")
+async def init_takeaway_order(
+    background_tasks: BackgroundTasks,
+    payload: dict = Depends(get_payload),
+):
+    """Direct entrypoint for pay-at-restaurant takeaway orders."""
+    order_number = payload["order_number"]
+    customer_id = payload.get("customer_id") or payload.get("recipient")
+    if not customer_id:
+        return {"status": "error", "message": "customer_id is required"}
+
+    background_tasks.add_task(init_takeaway_summary, order_number, customer_id)
+    return {"status": "accepted", "order_number": order_number}
