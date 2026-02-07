@@ -1,5 +1,5 @@
-## weekend-19
-- refactor get_payment_uri in payment.py (moves the payment service completely to FoodOrder py model)
+## Testing Takeaway
+- Your order is confirmed! - This should be a msg to customer, FROM rest agent, not ordelo
 - Remove the live tracking flow or mention of it. - Removed in elai agent, verification required.
 - Does this mean rider agent should have request_location tool? - Should this be a sperate functionality of its own?
 

@@ -5,7 +5,7 @@ select admins,* from restaurant_master where rest_ref='ELAS';
 select init_delivery('447448440754', 'WREN-AEHO-21');
 select * from thread;
 
-update restaurant_master set city='Orpington' where rest_ref='WREN';
+-- update restaurant_master set city='Orpington' where rest_ref='WREN';
 
 -- Production Setup - ELAS
 update restaurant_master 
