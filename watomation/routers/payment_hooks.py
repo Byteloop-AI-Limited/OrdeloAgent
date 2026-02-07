@@ -17,6 +17,7 @@ from config import client_ordelo
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from config.params import get_restaurant_webhook_url_async
 import httpx
+from watomation.routers.takeaway_hooks import init_takeaway_summary
 
 # from elai.agent_runner import run_elai_graph_with_custom_msg
 from loguru import logger
@@ -108,9 +109,18 @@ async def payment_complete_path(request: Request, background_tasks: BackgroundTa
 
     background_tasks.add_task(handle_payment_complete, food_order)
 
-    background_tasks.add_task(
-        init_delivery_summary, food_order.order_number, food_order.recipient
-    )
+    if food_order.action == "delivery":
+        background_tasks.add_task(
+            init_delivery_summary, food_order.order_number, food_order.recipient
+        )
+    elif food_order.action == "takeaway":
+        background_tasks.add_task(
+            init_takeaway_summary, food_order.order_number, food_order.recipient
+        )
+    else:
+        logger.warning(
+            f"Unknown food_order.action={food_order.action} for order={food_order.order_number}; summary init skipped"
+        )
 
     return {"success": "success"}
 
@@ -123,21 +133,29 @@ async def payment_complete_test_path(
     order_number: str,
     background_tasks: BackgroundTasks,
     recipient: str = "447448440754",
+    action: str = "delivery",
 ):
     # ELAS-KDDV-21 i want to highlight this example in the docstring
     # Add RPC call to background tasks to avoid blocking and timeout
-    background_tasks.add_task(init_delivery_summary, order_number, recipient)
+    if action == "takeaway":
+        background_tasks.add_task(init_takeaway_summary, order_number, recipient)
+    else:
+        background_tasks.add_task(init_delivery_summary, order_number, recipient)
     return {"success": "success"}
 
 
 # %%
-@router.post("/payment-capture/{order_number}")
-async def payment_capture_path(
-    order_number: str,
-    background_tasks: BackgroundTasks,
-    recipient: str = "447448440754",
-):
-    # ELAS-KDDV-21 i want to highlight this example in the docstring
-    # Add RPC call to background tasks to avoid blocking and timeout
-    background_tasks.add_task(init_delivery_summary, order_number, recipient)
-    return {"success": "success"}
+# @router.post("/payment-capture/{order_number}")
+# async def payment_capture_path(
+#     order_number: str,
+#     background_tasks: BackgroundTasks,
+#     recipient: str = "447448440754",
+#     action: str = "delivery",
+# ):
+#     # ELAS-KDDV-21 i want to highlight this example in the docstring
+#     # Add RPC call to background tasks to avoid blocking and timeout
+#     if action == "takeaway":
+#         background_tasks.add_task(init_takeaway_summary, order_number, recipient)
+#     else:
+#         background_tasks.add_task(init_delivery_summary, order_number, recipient)
+#     return {"success": "success"}

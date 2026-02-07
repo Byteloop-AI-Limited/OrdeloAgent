@@ -45,8 +45,8 @@ RETURNS TABLE(action TEXT)
 LANGUAGE plpgsql AS $$
 BEGIN
   RETURN QUERY
-  WITH timedout_confirmations AS (
-    -- Update orders where restaurant hasn't completed confirmation in time
+  WITH delivery_timedout_confirmations AS (
+    -- Update delivery orders where restaurant hasn't completed confirmation in time
     UPDATE delivery_summary ds
     SET 
       restaurant_confirmation_status = 'restaurant_timedout',
@@ -64,9 +64,32 @@ BEGIN
       ds.order_number,
       ds.rest_ref,
       ds.restaurant_confirmation_status,
-      'Order ' || ds.order_number || ' (' || ds.rest_ref || ') → restaurant_confirmation_status set to restaurant_timedout' AS action
+      'Delivery order ' || ds.order_number || ' (' || ds.rest_ref || ') → restaurant_confirmation_status set to restaurant_timedout' AS action
+  ),
+  takeaway_timedout_confirmations AS (
+    -- Update takeaway orders where restaurant hasn't completed confirmation in time
+    UPDATE takeaway_summary ts
+    SET
+      restaurant_confirmation_status = 'restaurant_timedout',
+      restaurant_update_dtts = NOW()
+    WHERE ts.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept')
+      AND ts.pickup_time IS NULL
+      AND (EXTRACT(EPOCH FROM (NOW() - ts.dtts)) / 60) > COALESCE(
+          (SELECT config_value::numeric FROM ordelo_config
+           WHERE config_key = ts.rest_ref || '_RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1),
+          (SELECT config_value::numeric FROM ordelo_config
+           WHERE config_key = 'RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1),
+          5  -- fallback to 5 minutes if no config found
+      )
+    RETURNING
+      ts.order_number,
+      ts.rest_ref,
+      ts.restaurant_confirmation_status,
+      'Takeaway order ' || ts.order_number || ' (' || ts.rest_ref || ') → restaurant_confirmation_status set to restaurant_timedout' AS action
   )
-  SELECT tc.action FROM timedout_confirmations tc;
+  SELECT dc.action FROM delivery_timedout_confirmations dc
+  UNION ALL
+  SELECT tc.action FROM takeaway_timedout_confirmations tc;
 END;
 $$;
 

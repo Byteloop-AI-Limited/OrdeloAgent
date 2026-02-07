@@ -39,6 +39,7 @@ from utils_common.waba_utils.wa_senders import enquire_shift_availability_non_te
 from watomation.routers import (
     delivery_hooks,
     location_hooks,
+    takeaway_hooks,
     twilio_webhook,
     order_hooks,
     payment_hooks,
@@ -116,6 +117,7 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
 # %% Add routers
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
 app.include_router(location_hooks.router, prefix="/location-hooks")
+app.include_router(takeaway_hooks.router, prefix="/takeaway-hooks")
 app.include_router(thread_hooks.router, prefix="/thread-hooks")
 app.include_router(twilio_webhook.router, prefix="/twilio-webhook")
 app.include_router(order_hooks.router, prefix="/order-hooks")
