@@ -51,10 +51,18 @@ Runtime flow for `pickup_time` in `delivery_summary` and `takeaway_summary`.
 
 - `pickup_time` is included in rider dispatch payload/message flow (see `docs/dispatch_flow.md`).
 - SQL payload wiring for restaurant webhook includes `pickup_time` in `ordelo_datamodels/summary.sql` (`restaurant_updates_whook()` JSON build).
+- Once inflight, the admin receives an order receipt (`admin_order_reciept()` in `wa_senders.py`) with a "Ready - Notify Rider" button (`/AdminCollectionReady`). Tapping it invokes `admin_collection_ready()` in `on_callback_wa_handler.py`, which calls `run_rider_agent_w_custom_msg()` to trigger `notify_food_ready_for_pickup` on the rider agent. See `docs/callback_handlers.md` for details.
 
 ---
 
 ## B. Takeaway Orders (`takeaway_summary`)
+
+### Init paths
+
+A `takeaway_summary` row is created by `init_takeaway_summary()`, which is called from two entry points:
+
+- `POST /takeaway-hooks/init-takeaway-order` -- direct entrypoint for pay-at-restaurant takeaway orders (`watomation/routers/takeaway_hooks.py`).
+- `POST /payment-hooks/pay-at-restaurant/{rest_ref}` -- called by the restaurant frontend checkout page; sets `food_order.payment_status = 'pay_at_rest'` then calls `init_takeaway_summary()` as a background task (`watomation/routers/payment_hooks.py`).
 
 ### Trigger chain (DB → API handler)
 
