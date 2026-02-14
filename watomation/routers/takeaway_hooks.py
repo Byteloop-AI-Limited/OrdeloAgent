@@ -1,5 +1,26 @@
 """
-Takeaway webhook handlers for restaurant confirmation flow.
+Takeaway webhook handlers for restaurant confirmation and pickup time events.
+    . Processes takeaway restaurant confirmation workflow events via DB trigger webhooks
+    . Handles restaurant_unconfirmed, restaurant_accept, restaurant_decline, restaurant_timedout
+    . Notifies external restaurant service when pickup_time is set (NULL → non-NULL)
+    . Initializes takeaway_summary via RPC for pay-at-restaurant orders
+    . Uses BackgroundTasks to avoid DB trigger HTTP timeouts
+  Functions/Classes:
+    . TakeawaySummaryData - Pydantic model for takeaway_summary table fields
+    . RestaurantMasterData - Pydantic model for restaurant_master table fields
+    . TakeawayConfirmationPayload - Payload model for restaurant confirmation webhook
+    . TakeawayPickupTimePayload - Payload model for pickup time webhook
+    . _format_pickup_time_display - Formats pickup time for human-readable display
+    . _send_customer_pickup_confirmation - Sends pickup confirmation to customer via WhatsApp
+    . init_takeaway_summary - Background task to initialize takeaway_summary via RPC
+    . _handle_restaurant_unconfirmed - Sends order confirmation request to restaurant admins
+    . _handle_restaurant_accept - Sends pickup time selection to restaurant admins
+    . _handle_restaurant_decline - Handles restaurant decline with payment cancellation
+    . _handle_restaurant_timedout - Auto-accepts order and sets default pickup time
+    . restaurant_confirmation_flow - Webhook endpoint for restaurant confirmation events
+    . _handle_pickup_time_set - Background task to POST pickup time event to restaurant service
+    . pickup_time_updated_hook - Webhook endpoint for pickup_time set events
+    . init_takeaway_order - Direct entrypoint for pay-at-restaurant takeaway orders
 """
 
 import asyncio
@@ -9,8 +30,14 @@ from typing import List, Optional
 import pytz
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
+import httpx
 
-from config import _async_wa_client, client_ordelo, logger
+from config import (
+    _async_wa_client,
+    client_ordelo,
+    get_restaurant_webhook_url_async,
+    logger,
+)
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.waba_utils.wa_senders import (
@@ -108,7 +135,9 @@ def init_takeaway_summary(order_number: str, recipient: str):
         response = client_ordelo.rpc(
             "init_takeaway", {"p_cust_id": recipient, "p_order_number": order_number}
         ).execute()
-        logger.info(f"init_takeaway completed for order {order_number} with response {response}")
+        logger.info(
+            f"init_takeaway completed for order {order_number} with response {response}"
+        )
     except Exception as e:
         logger.error(f"init_takeaway failed for order {order_number}: {e}")
 
@@ -182,15 +211,17 @@ async def _handle_restaurant_decline(
     food_order: FoodOrder,
 ) -> dict:
     await asyncio.to_thread(
-        lambda: client_ordelo.table("takeaway_summary")
-        .update(
-            {
-                "status": "declined",
-                "restaurant_update_dtts": datetime.now(timezone.utc).isoformat(),
-            }
+        lambda: (
+            client_ordelo.table("takeaway_summary")
+            .update(
+                {
+                    "status": "declined",
+                    "restaurant_update_dtts": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            .eq("order_number", food_order.order_number)
+            .execute()
         )
-        .eq("order_number", food_order.order_number)
-        .execute()
     )
 
     if food_order.payment_status != "pay_at_rest":
@@ -206,11 +237,11 @@ async def _handle_restaurant_decline(
             "Your payment has been cancelled."
         )
     else:
-        customer_text = (
-            f"Sorry, your order {food_order.order_number} could not be accepted by {takeaway_summary.rest_name}."
-        )
+        customer_text = f"Sorry, your order {food_order.order_number} could not be accepted by {takeaway_summary.rest_name}."
 
-    await _async_wa_client.send_message(to=takeaway_summary.customer_id, text=customer_text)
+    await _async_wa_client.send_message(
+        to=takeaway_summary.customer_id, text=customer_text
+    )
 
     return {
         "status": "success",
@@ -230,17 +261,19 @@ async def _handle_restaurant_timedout(
     pickup_display = _format_pickup_time_display(new_pickup_time)
 
     await asyncio.to_thread(
-        lambda: client_ordelo.table("takeaway_summary")
-        .update(
-            {
-                "status": "pickup_confirmed",
-                "restaurant_confirmation_status": "auto_accept",
-                "pickup_time": new_pickup_time,
-                "restaurant_update_dtts": datetime.now(timezone.utc).isoformat(),
-            }
+        lambda: (
+            client_ordelo.table("takeaway_summary")
+            .update(
+                {
+                    "status": "pickup_confirmed",
+                    "restaurant_confirmation_status": "auto_accept",
+                    "pickup_time": new_pickup_time,
+                    "restaurant_update_dtts": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            .eq("order_number", takeaway_summary.order_number)
+            .execute()
         )
-        .eq("order_number", takeaway_summary.order_number)
-        .execute()
     )
 
     for admin_phone in restaurant_admins:
@@ -341,10 +374,106 @@ async def restaurant_confirmation_flow(
         return {
             "status": "error",
             "message": str(e),
-            "order_number": payload.get("food_order", {}).get("order_number", "unknown"),
+            "order_number": payload.get("food_order", {}).get(
+                "order_number", "unknown"
+            ),
         }
 
 
+class TakeawayPickupTimePayload(BaseModel):
+    """Payload model for takeaway pickup time webhook."""
+
+    takeaway_summary: TakeawaySummaryData
+    restaurant_master: RestaurantMasterData
+
+
+async def _handle_pickup_time_set(
+    takeaway_summary: TakeawaySummaryData,
+    restaurant_master: RestaurantMasterData,
+) -> dict:
+    """Background task to notify restaurant service when pickup_time is set.
+
+    Args:
+        takeaway_summary: Takeaway summary data with pickup_time populated
+        restaurant_master: Restaurant master data for URL resolution
+
+    Returns:
+        dict: Status response
+    """
+    rest_ref = takeaway_summary.rest_ref or takeaway_summary.order_number.split("-")[0]
+    try:
+        webhook_url = await get_restaurant_webhook_url_async(
+            rest_ref, "order-pickup-time-updated"
+        )
+        payload = {
+            "takeaway_summary": takeaway_summary.model_dump(),
+            "restaurant_master": restaurant_master.model_dump(),
+        }
+        async with httpx.AsyncClient(follow_redirects=True) as http_client:
+            res = await http_client.post(webhook_url, json=payload)
+            res.raise_for_status()
+            logger.info(
+                f"Pickup time notification sent for order {takeaway_summary.order_number} to {webhook_url}"
+            )
+    except Exception as e:
+        logger.error(
+            f"Failed to notify pickup time for order {takeaway_summary.order_number}: {e}"
+        )
+
+    return {
+        "status": "success",
+        "action": "pickup_time_notified",
+        "order_number": takeaway_summary.order_number,
+    }
+
+
+# Review if restaurant_master record is needed?
+@router.post("/pickup-time-updated")
+async def pickup_time_updated_hook(
+    background_tasks: BackgroundTasks,
+    payload: dict = Depends(get_payload),
+):
+    """Webhook triggered when takeaway_summary.pickup_time is set (NULL → non-NULL).
+
+    Triggered by: trigger_takeaway_pickup_time_set on takeaway_summary
+    Source Function: takeaway_pickup_time_whook() in ordelo_datamodels/takeaway_summary.sql
+    """
+    try:
+        pickup_payload = TakeawayPickupTimePayload(**payload)
+        takeaway_summary = pickup_payload.takeaway_summary
+        restaurant_master = pickup_payload.restaurant_master
+
+        logger.info(
+            f"Takeaway pickup time webhook triggered: order={takeaway_summary.order_number}, "
+            f"pickup_time={takeaway_summary.pickup_time}, rest_id={takeaway_summary.rest_id}"
+        )
+
+        # TODO: 1. Notify restaurant service, send kitchen reciept and the printout (call payment service with additional field)
+        # TODO: 2. Notify customer, send pickup time confirmation; Should this call
+        background_tasks.add_task(
+            _handle_pickup_time_set,
+            takeaway_summary,
+            restaurant_master,
+        )
+
+        return {
+            "status": "accepted",
+            "message": "pickup_time_set handler scheduled",
+            "order_number": takeaway_summary.order_number,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in pickup_time_updated_hook: {e}")
+        return {
+            "status": "error",
+            "message": str(e),
+            "order_number": payload.get("takeaway_summary", {}).get(
+                "order_number", "unknown"
+            ),
+        }
+
+
+# Where is this called?
 @router.post("/init-takeaway-order")
 async def init_takeaway_order(
     background_tasks: BackgroundTasks,
