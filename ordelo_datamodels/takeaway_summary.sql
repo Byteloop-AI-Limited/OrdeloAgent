@@ -271,3 +271,162 @@ WHEN (
   )
 )
 EXECUTE FUNCTION takeaway_restaurant_updates_whook();
+
+
+/** description: takeaway_pickup_time_whook
+ *  purpose: Sends a webhook when pickup_time is set (NULL → non-NULL) on takeaway_summary
+ *  parameters:
+ *    - NEW: The updated takeaway_summary record
+ *    - OLD: The previous takeaway_summary record
+ *  returns:
+ *    - TRIGGER: The trigger object
+ *  notes:
+ *    - Fires only on UPDATE when OLD.pickup_time IS NULL AND NEW.pickup_time IS NOT NULL
+ *    - Builds a lightweight payload with takeaway_summary + restaurant_master
+ *    - POSTs to /takeaway-hooks/pickup-time-updated
+ */
+CREATE OR REPLACE FUNCTION takeaway_pickup_time_whook()
+RETURNS TRIGGER AS $$
+DECLARE
+  webhook_payload json;
+  ordelo_app_url text;
+  webhook_url text;
+  response json;
+  takeaway_summary_json json;
+  restaurant_master_json json;
+  p_log_to_table BOOLEAN := TRUE;
+BEGIN
+  PERFORM set_config('statement_timeout', '10000', true);
+
+  BEGIN
+    SELECT COALESCE((config_value::BOOLEAN), TRUE)
+      INTO p_log_to_table
+    FROM ordelo_config
+    WHERE config_key = 'ENABLE_TRIGGER_DEBUG_LOG';
+  EXCEPTION
+    WHEN OTHERS THEN
+      p_log_to_table := TRUE;
+  END;
+
+  IF p_log_to_table THEN
+    INSERT INTO debug_log (trigger_name, order_number, message)
+    VALUES (
+      'takeaway_pickup_time_whook',
+      NEW.order_number,
+      'Trigger fired: pickup_time set from NULL to ' || NEW.pickup_time::text
+    );
+  END IF;
+
+  -- Build takeaway_summary JSON from NEW record
+  SELECT json_build_object(
+    'order_number', NEW.order_number,
+    'rest_id', NEW.rest_id,
+    'rest_name', NEW.rest_name,
+    'rest_address', NEW.rest_address,
+    'town', NEW.town,
+    'customer_id', NEW.customer_id,
+    'customer_name', NEW.customer_name,
+    'restaurant_confirmation_status', NEW.restaurant_confirmation_status,
+    'restaurant_update_dtts', NEW.restaurant_update_dtts,
+    'restaurant_admin', NEW.restaurant_admin,
+    'status', NEW.status,
+    'rest_confirmation_code', NEW.rest_confirmation_code,
+    'rest_prep_time_minutes', NEW.rest_prep_time_minutes,
+    'rest_confirmation_method', NEW.rest_confirmation_method,
+    'restaurant_msg_id', NEW.restaurant_msg_id,
+    'customer_msg_id', NEW.customer_msg_id,
+    'pickup_time', NEW.pickup_time,
+    'pickup_date', NEW.pickup_date,
+    'rest_ref', NEW.rest_ref,
+    'dt', NEW.dt,
+    'dtts', NEW.dtts
+  )
+  INTO takeaway_summary_json;
+
+  -- Fetch restaurant_master data by rest_id
+  SELECT json_build_object(
+    'rest_id', rm.rest_id,
+    'rest_ref', rm.rest_ref,
+    'rest_name', rm.rest_name,
+    'admins', rm.admins,
+    'lon', rm.lon,
+    'lat', rm.lat,
+    'house_number', rm.house_number,
+    'building_name', rm.building_name,
+    'street_name', rm.street_name,
+    'city', rm.city,
+    'postcode', rm.postcode
+  )
+  INTO restaurant_master_json
+  FROM restaurant_master rm
+  WHERE rm.rest_id = NEW.rest_id;
+
+  -- Build complete webhook payload
+  SELECT json_build_object(
+    'takeaway_summary', takeaway_summary_json,
+    'restaurant_master', restaurant_master_json
+  )
+  INTO webhook_payload;
+
+  -- Get webhook URL from config
+  SELECT config_value
+    INTO ordelo_app_url
+  FROM ordelo_config
+  WHERE config_key = 'ORDELO_APP_URL';
+
+  IF ordelo_app_url IS NULL OR ordelo_app_url = '' THEN
+    ordelo_app_url := 'https://rider-agent.ordelo.app';
+  END IF;
+
+  webhook_url := ordelo_app_url || '/takeaway-hooks/pickup-time-updated';
+
+  IF p_log_to_table THEN
+    INSERT INTO debug_log (trigger_name, order_number, message, payload)
+    VALUES (
+      'takeaway_pickup_time_whook',
+      NEW.order_number,
+      'Posting webhook to ' || webhook_url,
+      webhook_payload::jsonb
+    );
+  END IF;
+
+  response := (
+    SELECT content
+    FROM http_post(
+      webhook_url,
+      webhook_payload::text,
+      'application/json'
+    )
+  );
+
+  IF p_log_to_table THEN
+    INSERT INTO debug_log (trigger_name, order_number, message, payload)
+    VALUES (
+      'takeaway_pickup_time_whook',
+      NEW.order_number,
+      'HTTP response received',
+      response::jsonb
+    );
+  END IF;
+
+  RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    IF p_log_to_table THEN
+      INSERT INTO debug_log (trigger_name, order_number, message)
+      VALUES (
+        'takeaway_pickup_time_whook',
+        NEW.order_number,
+        'ERROR: ' || SQLERRM
+      );
+    END IF;
+    RAISE WARNING 'Error in takeaway_pickup_time_whook for order %: %', NEW.order_number, SQLERRM;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER trigger_takeaway_pickup_time_set
+AFTER UPDATE OF pickup_time ON public.takeaway_summary
+FOR EACH ROW
+WHEN (OLD.pickup_time IS NULL AND NEW.pickup_time IS NOT NULL)
+EXECUTE FUNCTION takeaway_pickup_time_whook();
