@@ -310,5 +310,9 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-# python notebooks/prod_deployment_checker.py --mode test
-# python notebooks/prod_deployment_checker.py --mode test --apply
+
+"""
+python notebooks/prod_deployment_checker.py --mode test
+python notebooks/prod_deployment_checker.py --mode prod
+
+"""

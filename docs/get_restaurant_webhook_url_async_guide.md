@@ -2,7 +2,7 @@
 
 ## Overview
 
-`get_restaurant_webhook_url_async` is an async function that constructs full webhook URLs by dynamically fetching the restaurant's base URL from the database on every call. This ensures webhook URLs always reflect the current configuration without requiring application restarts.
+`get_restaurant_webhook_url_async` is an async function that constructs full webhook URLs by fetching the restaurant's base URL from the database with a 5-minute TTL in-memory cache. This ensures webhook URLs reflect the current configuration without requiring application restarts, while avoiding repeated DB lookups for the same restaurant.
 
 ## Location
 
@@ -29,18 +29,21 @@ async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> 
 
 | Type | Path | Description |
 |------|------|-------------|
-| `rider-inflight` | `rider-event-hooks/rider-inflight` | Rider assigned to delivery |
-| `rider-rest-cc` | `rider-event-hooks/on-restaurant-cc` | Restaurant confirmation code verified |
-| `rider-cust-cc` | `rider-event-hooks/on-customer-cc` | Customer confirmation code verified |
-| `rider-rest-enter` | `rider-event-hooks/on-restaurant-enter` | Rider entered restaurant zone |
-| `rider-cust-enter` | `rider-event-hooks/on-customer-enter` | Rider entered customer zone |
-| `delivery-timedout` | `rider-event-hooks/delivery-timedout` | Delivery timed out |
-| `order-payment-complete` | `order-event-hooks/payment-complete/` | Payment completed |
-| `order-address-update` | `order-event-hooks/address-update` | Customer address updated |
+| `rider-inflight` | `rider-event-hooks/{rest_ref}/rider-inflight` | Rider assigned to delivery |
+| `rider-rest-cc` | `rider-event-hooks/{rest_ref}/on-restaurant-cc` | Restaurant confirmation code verified |
+| `rider-cust-cc` | `rider-event-hooks/{rest_ref}/on-customer-cc` | Customer confirmation code verified |
+| `rider-rest-enter` | `rider-event-hooks/{rest_ref}/on-restaurant-enter` | Rider entered restaurant zone |
+| `rider-cust-enter` | `rider-event-hooks/{rest_ref}/on-customer-enter` | Rider entered customer zone |
+| `delivery-timedout` | `rider-event-hooks/{rest_ref}/delivery-timedout` | Delivery timed out |
+| `order-payment-complete` | `order-event-hooks/{rest_ref}/payment-complete/` | Payment completed |
+| `order-pickup-time-updated` | `order-event-hooks/{rest_ref}/takeaway-pickup-time-updated/` | Pickup time updated |
+| `order-address-update` | `order-event-hooks/{rest_ref}/address-update` | Customer address updated |
+| `terminate-stale-active-threads` | `thread-hooks/{rest_ref}/terminate-stale-active-threads` | Terminate stale active threads |
+| `get-active-thread` | `thread-hooks/get-active-thread` | Get active thread |
 
 ### Returns
 
-- `str`: Full webhook URL (e.g., `"https://api.restaurant.com/rider-event-hooks/rider-inflight"`)
+- `str`: Full webhook URL (e.g., `"https://api.restaurant.com/rider-event-hooks/ELAS/rider-inflight"`)
 
 ### Raises
 
@@ -123,17 +126,42 @@ base_url = await get_restaurant_base_url_async("ELAS")
 
 ### `WEBHOOK_PATHS`
 
-Static dictionary mapping webhook types to their path suffixes:
+Static dictionary mapping webhook types to their path templates (with `{rest_ref}` placeholder):
 
 ```python
 from config.params import WEBHOOK_PATHS
 
 print(WEBHOOK_PATHS)
 # {
-#     "rider-inflight": "rider-event-hooks/rider-inflight",
-#     "rider-rest-cc": "rider-event-hooks/on-restaurant-cc",
+#     "rider-inflight": "rider-event-hooks/{rest_ref}/rider-inflight",
+#     "rider-rest-cc": "rider-event-hooks/{rest_ref}/on-restaurant-cc",
 #     ...
 # }
+```
+
+### `reset_restaurant_base_url_cache`
+
+Clears the in-memory base URL cache. Pass a `rest_ref` to clear a single entry, or call with no arguments to clear all entries. Returns the number of entries removed.
+
+```python
+from config.params import reset_restaurant_base_url_cache
+
+# Clear one restaurant
+reset_restaurant_base_url_cache("ELAS")  # returns 1 if entry existed, 0 otherwise
+
+# Clear all
+reset_restaurant_base_url_cache()  # returns number of entries removed
+```
+
+### `get_restaurant_admins`
+
+Fetches admin phone numbers for a restaurant from `restaurant_master`. Accepts either `rest_ref` or `rest_id`.
+
+```python
+from config.params import get_restaurant_admins
+
+admins = get_restaurant_admins(rest_ref="ELAS")
+# Returns: ["44...", "44..."] or None if no restaurant found
 ```
 
 ## Migration Notes
@@ -143,7 +171,7 @@ This function replaces the deprecated `get_webhook_url` (sync) function. Key dif
 | Old (Deprecated) | New |
 |------------------|-----|
 | `get_webhook_url(rest_ref, type)` | `await get_restaurant_webhook_url_async(rest_ref, webhook_type)` |
-| Cached base URLs at startup | Fresh DB lookup every call |
+| Cached base URLs at startup | 5-minute TTL cached DB lookup |
 | Required `RESTAURANT_CONFIG` dict | Uses `WEBHOOK_PATHS` + DB lookup |
 | Sync function | Async function |
 
@@ -159,9 +187,9 @@ url = await get_restaurant_webhook_url_async(rest_ref, "rider-inflight")
 
 ## Performance Considerations
 
-- **No caching**: Each call queries the database
-- **Use case**: Ideal when configuration changes need immediate effect
-- **Trade-off**: Slightly higher latency per call vs. cached approach
+- **5-minute TTL cache**: Base URL lookups are cached in-memory per restaurant for 5 minutes (`_BASE_URL_CACHE_TTL_SECS = 300`). Subsequent calls for the same `rest_ref` within the TTL window return the cached value without a DB query.
+- **Cache invalidation**: Call `reset_restaurant_base_url_cache(rest_ref)` to clear a single restaurant's cached URL, or `reset_restaurant_base_url_cache()` with no arguments to clear all entries. This is useful after updating `ordelo_config` values.
+- **Path substitution**: `WEBHOOK_PATHS` templates contain `{rest_ref}` placeholders that are substituted at call time via `str.format()`, so paths are always constructed with the correct restaurant reference.
 
 ## Files Using This Function
 
