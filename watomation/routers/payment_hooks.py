@@ -6,17 +6,24 @@ Payment webhook handler module for Elai Agent
     . Triggers graph updates to notify agent of payment verification
     . Implements FastAPI router endpoints for payment webhooks
     . Retrieves app state resources for database access
+    . Accepts pay-at-restaurant requests and logs order data
   Functions/Classes:
+    . PayAtRest - Pydantic model for pay-at-restaurant requests
     . handle_payment_complete - Processes payment completion and updates order status
     . payment_complete_path - FastAPI route handling payment completion webhooks
+    . pay_at_restaurant - Logs pay-at-restaurant order data
 """
 
 # %%
-from fastapi import APIRouter, Request, BackgroundTasks
+from typing import List, Optional
+
+from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
+from pydantic import BaseModel
 from config import client_ordelo
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from config.params import get_restaurant_webhook_url_async
 import httpx
+from utils_common.order_management.order_db_ops_new import OrderItem
 from watomation.routers.takeaway_hooks import init_takeaway_summary
 
 # from elai.agent_runner import run_elai_graph_with_custom_msg
@@ -39,7 +46,7 @@ async def handle_payment_complete(food_order: FoodOrder):
         dict: Success status
     """
 
-    ## Call the restaurant api to update the payment status
+    # Call the restaurant api to update the payment status
     rest_ref = food_order.order_number.split("-")[0]
     payment_complete_url = await get_restaurant_webhook_url_async(
         rest_ref, "order-payment-complete"
@@ -88,6 +95,9 @@ def init_delivery_summary(order_number: str, recipient: str):
 
 @router.post("/payment-complete")
 async def payment_complete_path(request: Request, background_tasks: BackgroundTasks):
+    """
+    This is called by stripe success webhook
+    """
     # Unpack request
     request_body: dict = await request.json()
 
@@ -103,7 +113,7 @@ async def payment_complete_path(request: Request, background_tasks: BackgroundTa
         .execute()
     )
 
-    ## Call the restaurant api to update the payment status
+    # Call the restaurant api to update the payment status
     # Prepare the payload
     food_order = FoodOrder(**response.data[0])
 
@@ -142,6 +152,70 @@ async def payment_complete_test_path(
     else:
         background_tasks.add_task(init_delivery_summary, order_number, recipient)
     return {"success": "success"}
+
+
+# %%
+
+
+class PayAtRest(BaseModel):
+    """Request model for pay-at-restaurant orders."""
+
+    recipient: str
+    thread_id: str
+    order_id: str
+    order_items: List[OrderItem]
+    order_type: str
+    notes: Optional[str] = None
+
+
+@router.post(
+    "/pay-at-restaurant/{rest_ref}",
+    summary="Log a pay-at-restaurant order",
+    description="""
+    Accepts a pay-at-restaurant order payload and logs the data.
+    """,
+)
+async def pay_at_restaurant(
+    rest_ref: str,
+    request: PayAtRest,
+    background_tasks: BackgroundTasks,
+):
+    """
+    This is called by checkout page on the restaurant frontend.
+
+    Args:
+        rest_ref: Restaurant reference code
+        request: PayAtRest request with recipient, thread_id, order_number, and order_items
+
+    Returns:
+        Dict with success status
+    """
+    order_id = request.order_id
+    order_type = request.order_type
+    if order_type != "takeaway":
+        raise HTTPException(status_code=400, detail="Invalid action")
+
+    # Update the payment status
+    response = (
+        client_ordelo.table("food_order")
+        .update({"payment_status": "pay_at_rest"})
+        .eq("order_number", order_id)
+        .execute()
+    )
+
+    # Call the restaurant api to update the payment status
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Food order not found")
+    food_order = FoodOrder(**response.data[0])
+
+    # Call the restaurant agent to acknowledge the payment; Should I have a handle_pay_at_restaurant ?; Create according webhook
+    background_tasks.add_task(handle_payment_complete, food_order)
+
+    # Initialize the takeaway process with restaurant, to obtain a pickup_time
+    order_number = food_order.order_number
+    background_tasks.add_task(init_takeaway_summary, order_number, food_order.recipient)
+
+    return {"status": "success", "order_number": order_number}
 
 
 # %%

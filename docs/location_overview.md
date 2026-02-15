@@ -12,7 +12,8 @@ flowchart TD
   Worker -->|INSERT transition rows| RLE[rider_location_event table]
   RLE -->|AFTER INSERT trigger<br/>rider_location_event_update| Hook[http_post to /location-hooks/notify-rider-location-event]
   Hook --> API[FastAPI location_hooks router]
-  API -->|POST rider-rest-enter / rider-cust-enter| Restaurant[Restaurant webhook\n(get_restaurant_webhook_url_async)]
+  API -->|rid=rest: WhatsApp msg to admins| Admins[Restaurant admins\n(get_restaurant_admins)]
+  API -->|rid=cust: POST rider-cust-enter| Restaurant[Restaurant webhook\n(get_restaurant_webhook_url_async)]
 ```
 
 Rendered SVG (offline-friendly): ![Location flow](location_overview_flow.svg)
@@ -38,13 +39,21 @@ Rendered SVG (offline-friendly): ![Location flow](location_overview_flow.svg)
 
 - Route `POST /location-hooks/notify-rider-location-event` receives the trigger payload (JSON of the inserted `rider_location_event` row).
 - Pulls `event`, `rid` (named `location` in the handler), `customer_id`, and `order_number`. Fetches `delivery_summary` from Supabase via `client_ordelo.table("delivery_summary")`.
-- On `event='enter'` and `rid='rest'`: fetches restaurant webhook URL with `get_restaurant_webhook_url_async(rest_ref, "rider-rest-enter")` and POSTs `{delivery_summary}` to `{webhook_url}/{order_number}` via `httpx`.
-- On `event='enter'` and `rid='cust'`: same pattern with `rider-cust-enter`.
+- On `event='enter'` and `rid='rest'`: looks up the restaurant's admin phone numbers via `get_restaurant_admins(rest_ref)` and sends a WhatsApp message directly to each admin with the restaurant confirmation code (e.g., "Rider is nearby for order ..., please have the food ready. 2 Digit Code: **XX**"). No restaurant webhook is called for this event.
+- On `event='enter'` and `rid='cust'`: fetches restaurant webhook URL with `get_restaurant_webhook_url_async(rest_ref, "rider-cust-enter")` and POSTs `{delivery_summary}` to `{webhook_url}/{order_number}` via `httpx`.
 - Other event/rid combos currently return `{"event": "success"}` (no-op).
+
+> **Note**: `process_location_transitionTBD()` is unused dead code (the `TBD` suffix indicates it was never activated). It is not called by any active endpoint or handler.
 
 ### Live Location Map Endpoint
 
 - `GET /location-hooks/live-location-map/{order_number}` → uses `get_live_map_location_url` to redirect to a rider map link; returns 400/404 on invalid order or missing data.
+
+### Null or Outdated Location Endpoint
+
+- `POST /location-hooks/null-or-outdated-location` → receives an array of inflight rows, each containing `rider_id`, `order_number`, and `reason`. Sends a WhatsApp message to the rider based on `reason`:
+  - `NO_LOCATION_DATA`: prompts the rider to enable live tracking.
+  - `OUTDATED_LOCATION_DATA`: asks the rider how the delivery is going (indicates the rider has stopped sending location updates).
 
 ## Sequence for a Transition Event
 
@@ -56,6 +65,7 @@ sequenceDiagram
   participant RLE as rider_location_event
   participant TR as trigger rider_location_event_update
   participant API as FastAPI /location-hooks/notify-rider-location-event
+  participant WA as WhatsApp (restaurant admins)
   participant Rest as Restaurant webhook
 
   OT->>Q: publish {_type:"transition", rid, event, topic, tst...}
@@ -63,7 +73,11 @@ sequenceDiagram
   Job->>RLE: INSERT topic/rider_id/order_number/rid/event
   RLE-->>TR: AFTER INSERT fire trigger
   TR->>API: http_post payload=row_to_json(NEW)
-  API->>Rest: POST delivery_summary to rider-rest-enter or rider-cust-enter URL
+  alt rid=rest, event=enter
+    API->>WA: send confirmation code message to each admin
+  else rid=cust, event=enter
+    API->>Rest: POST delivery_summary to rider-cust-enter URL
+  end
   API-->>TR: response ignored
 ```
 
