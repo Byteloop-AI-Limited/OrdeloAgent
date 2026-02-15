@@ -116,11 +116,11 @@ UPDATE takeaway_summary SET pickup_time = '...'
     → HTTP POST → /takeaway-hooks/pickup-time-updated
   → pickup_time_updated_hook() (responds 200 immediately)
     → BackgroundTask: _handle_pickup_time_set()
-      → get_restaurant_webhook_url_async(rest_ref, 'pickup-time-updated')
+      → get_restaurant_webhook_url_async(rest_ref, 'order-pickup-time-updated')
       → HTTP POST → external restaurant service
 ```
 
 - Trigger condition: `OLD.pickup_time IS NULL AND NEW.pickup_time IS NOT NULL` — fires exactly once per order.
 - Payload: full `takeaway_summary` row + `restaurant_master` data (no `food_order`/`order_items`).
-- URL resolution: restaurant-specific via `get_restaurant_webhook_url_async(rest_ref, 'pickup-time-updated')`.
+- URL resolution: restaurant-specific via `get_restaurant_webhook_url_async(rest_ref, 'order-pickup-time-updated')`.
 - Debug logging: entries written to `debug_log` table at each step (controlled by `ENABLE_TRIGGER_DEBUG_LOG` config).

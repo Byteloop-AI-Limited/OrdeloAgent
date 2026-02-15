@@ -51,11 +51,14 @@ python notebooks/prod_deployment_checker.py --mode prod --skip-waba
 source .venv/bin/activate && python notebooks/prod_deployment_checker.py --mode prod
 ```
 
+## Important
+
+- **Never skip any step** (e.g. `--skip-waba`) unless the user explicitly asks to skip it. Always apply all steps by default.
+
 ## Checklist script notes
 
 - DB updates use `client_ordelo` from `config/pg_setting.py`.
 - WABA updates use `_sync_wa_client` and `waba_business_settings` from `config/waba_setting.py`.
-- The WABA callback verification expects the webhook URL to respond; ensure the local server is running before applying WABA updates.
 - For running Python snippets or if you need env/venv setup, follow `.codex/skills/pyrun/SKILL.md`.
 - If Supabase or WABA calls need network access, rerun with escalated permissions.
 

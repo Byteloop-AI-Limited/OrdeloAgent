@@ -162,7 +162,7 @@ class PayAtRest(BaseModel):
 
     recipient: str
     thread_id: str
-    order_number: str
+    order_id: str
     order_items: List[OrderItem]
     order_type: str
     notes: Optional[str] = None
@@ -190,7 +190,7 @@ async def pay_at_restaurant(
     Returns:
         Dict with success status
     """
-    order_number = request.order_number
+    order_id = request.order_id
     order_type = request.order_type
     if order_type != "takeaway":
         raise HTTPException(status_code=400, detail="Invalid action")
@@ -199,20 +199,23 @@ async def pay_at_restaurant(
     response = (
         client_ordelo.table("food_order")
         .update({"payment_status": "pay_at_rest"})
-        .eq("order_number", order_number)
+        .eq("order_number", order_id)
         .execute()
     )
 
     # Call the restaurant api to update the payment status
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Food order not found")
     food_order = FoodOrder(**response.data[0])
 
     # Call the restaurant agent to acknowledge the payment; Should I have a handle_pay_at_restaurant ?; Create according webhook
     background_tasks.add_task(handle_payment_complete, food_order)
 
     # Initialize the takeaway process with restaurant, to obtain a pickup_time
+    order_number = food_order.order_number
     background_tasks.add_task(init_takeaway_summary, order_number, food_order.recipient)
 
-    return {"status": "success", "order_number": request.order_number}
+    return {"status": "success", "order_number": order_number}
 
 
 # %%

@@ -11,7 +11,6 @@ Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . TakeawayConfirmationPayload - Payload model for restaurant confirmation webhook
     . TakeawayPickupTimePayload - Payload model for pickup time webhook
     . _format_pickup_time_display - Formats pickup time for human-readable display
-    . _send_customer_pickup_confirmation - Sends pickup confirmation to customer via WhatsApp
     . init_takeaway_summary - Background task to initialize takeaway_summary via RPC
     . _handle_restaurant_unconfirmed - Sends order confirmation request to restaurant admins
     . _handle_restaurant_accept - Sends pickup time selection to restaurant admins
@@ -110,23 +109,6 @@ def _format_pickup_time_display(pickup_time_iso: str) -> str:
     pickup_dt = datetime.fromisoformat(pickup_time_iso.replace("Z", "+00:00"))
     uk_tz = pytz.timezone("Europe/London")
     return pickup_dt.astimezone(uk_tz).strftime("%-I:%M %p")
-
-
-async def _send_customer_pickup_confirmation(
-    customer_id: str,
-    order_number: str,
-    pickup_time_iso: str,
-    rest_name: str,
-    rest_address: str,
-):
-    pickup_display = _format_pickup_time_display(pickup_time_iso)
-    text = (
-        f"Your order {order_number} is confirmed!\n\n"
-        f"Pickup time: {pickup_display}\n"
-        f"Restaurant: {rest_name}\n"
-        f"Address: {rest_address}"
-    )
-    await _async_wa_client.send_message(to=customer_id, text=text)
 
 
 def init_takeaway_summary(order_number: str, recipient: str):
@@ -284,14 +266,6 @@ async def _handle_restaurant_timedout(
                 f"Pickup time set to {pickup_display} (30 mins from order time)."
             ),
         )
-
-    await _send_customer_pickup_confirmation(
-        customer_id=takeaway_summary.customer_id,
-        order_number=takeaway_summary.order_number,
-        pickup_time_iso=new_pickup_time,
-        rest_name=takeaway_summary.rest_name,
-        rest_address=takeaway_summary.rest_address,
-    )
 
     return {
         "status": "success",
