@@ -1,7 +1,7 @@
 # Ordelo Dispatch Flow
 
-**Version:** 1.0  
-**Last Updated:** 2025-12-14
+**Version:** 1.1
+**Last Updated:** 2026-02-14
 
 This document focuses on the **dispatch portion** of the Ordelo delivery workflow: from dispatch creation, through rider accept/decline, to inflight initialization and missed‑dispatch notifications.
 
@@ -98,6 +98,8 @@ Behavior:
   - **Accept** → callback data `{ "command": "/dispatchResponse", "dispatch_id": ..., "order_number": ..., "status": "accepted" }`
   - **Decline** → same but `status: "declined"`.
 
+**Overwatch customer filtering:** Before dispatching, the handler checks if the customer is in the `overwatch_list` (from `ordelo_config`). If so, dispatch messages are sent **only** to the rider whose `rider_id` matches the `customer_id` (i.e., overwatch/test customers can only be served by themselves). All other riders are silently skipped for that order.
+
 ### 4. Rider Response Callback (WhatsApp → API)
 
 `watomation/on_callback_wa_handler.py` defines:
@@ -185,13 +187,60 @@ Still inside `delivery_inflight_whook()` (`ordelo_datamodels/inflight.sql`):
 
 `unassigned` → (`accepted` | `declined` | `timedout`) → `assigned` → `pickedup` → `completed`
 
-Additional terminal side‑path:
+Additional side‑paths:
 
-`accepted` (non‑selected rider) → `missed`
+- `accepted` (non‑selected rider) → `missed`
+- `assigned` → `declined` (pre‑pickup cancellation via `dispatch_cancel_before_pickup`)
 
 `delivery_summary.status` relevant to dispatch:
 
 `unassigned` → `assigned` → (`completed` | `timedout`)
+
+Pre‑pickup cancellation path: `assigned` → `unassigned` (order re‑enters dispatch cycle)
+
+---
+
+## Pre‑Pickup Cancellation Flow
+
+When a rider cannot complete pickup **before** restaurant code verification, the system supports cancellation that reopens the order for re‑dispatch.
+
+### Trigger
+
+The rider tells the agent they cannot pick up. The agent calls the `cancel_delivery_before_pickup` tool (in `ordelo/agents/rider_agent.py`).
+
+### Step‑by‑Step
+
+1. **Rider tool invocation** — `cancel_delivery_before_pickup` reads `dispatch_id` from agent state and calls Supabase RPC `dispatch_cancel_before_pickup(p_dispatch_id)`.
+
+2. **RPC execution** (`ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql`):
+   - Guards: dispatch must exist and `delivery_dispatch.status` must be `'assigned'` (if already `'pickedup'`, cancellation is rejected).
+   - Sets `delivery_dispatch.status = 'declined'` and `status_update_dtts = CURRENT_TIMESTAMP`.
+   - Deletes the `delivery_inflight` row for this dispatch (frees the rider).
+   - Reverts `delivery_detail.status = 'unassigned'` and clears `dispatch_id`/`rider_id`.
+   - Reverts `delivery_summary.status = 'unassigned'`.
+
+3. **Reason capture** — The tool sets `awaiting_cancel_reason = True` in agent state and asks the rider for a reason. When the rider replies:
+   - `agent_node` detects `awaiting_cancel_reason` and synthesizes a `terminate_delivery_job` tool call with `reason_for_decline` set to the rider's message.
+   - `terminate_delivery_job` persists the reason on `delivery_dispatch.reason_for_decline`.
+
+4. **Thread closure** — `terminate_delivery_job` makes the thread inactive via `ThreadHandler.make_threads_inactive()` and sends a stop‑tracking button‑URL to the rider.
+
+### Effect on Re‑Dispatch
+
+Once `delivery_summary.status` is back to `unassigned`:
+
+- `process_delivery()` (pg_cron, every 5s) picks up the order and ensures a `delivery_detail` row exists.
+- `job_create_dispatch()` (pg_cron, every 5s) creates new dispatch offers for available riders.
+- The cancelled rider is **excluded** from future dispatch batches for this order because they already have a `delivery_dispatch` row (with `status = 'declined'`), and `get_available_riders()` excludes any rider with an existing dispatch row for the same order.
+
+### Status Transitions
+
+```
+delivery_dispatch:   assigned → declined  (cancel before pickup)
+delivery_detail:     assigned → unassigned (dispatch_id/rider_id cleared)
+delivery_summary:    assigned → unassigned (re-enters dispatch cycle)
+delivery_inflight:   row deleted
+```
 
 ---
 

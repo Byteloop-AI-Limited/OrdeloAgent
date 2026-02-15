@@ -1,4 +1,5 @@
 ## Takeaway streamlining.
+- Add terminate converstaion to all of the agents.
 - in @takeaway_hooks.py, what is the flow when the pickup time is updated? 
 Its should create admin_order_reciept, with option to notify customer for pickup
 This notify should use webhook router to call restaurant and invoke the agent

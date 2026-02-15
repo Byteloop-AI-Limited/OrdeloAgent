@@ -30,6 +30,7 @@ WEBHOOK_PATHS = {
     "rider-cust-enter": "rider-event-hooks/{rest_ref}/on-customer-enter",
     "delivery-timedout": "rider-event-hooks/{rest_ref}/delivery-timedout",
     "order-payment-complete": "order-event-hooks/{rest_ref}/payment-complete/",
+    "order-pickup-time-updated": "order-event-hooks/{rest_ref}/takeaway-pickup-time-updated/",
     "order-address-update": "order-event-hooks/{rest_ref}/address-update",
     "terminate-stale-active-threads": "thread-hooks/{rest_ref}/terminate-stale-active-threads",
     "get-active-thread": "thread-hooks/get-active-thread",  # Already has rest_ref in existing path
