@@ -10,7 +10,8 @@ select * from ordelo_config where config_key like '%_APP_URL';
 -- Run before 11 am
 update rider_master set 
 is_in_shift=false
-, shift_response_dtts=now();
+;
+-- , shift_response_dtts=now();
 -- , town='dummy'
 -- where town='Salisbury';
 
