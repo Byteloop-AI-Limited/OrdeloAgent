@@ -67,6 +67,7 @@ from watomation.on_callback_wa_handler import (
     handle_shift_availability,
     handle_admin_availability,
     admin_collection_ready,
+    admin_takeaway_ready,
     restaurant_order_accept_decline_handler,
     handle_pickup_time_selection,
     IS_DISPATCH_RESPONSE,
@@ -76,6 +77,7 @@ from watomation.on_callback_wa_handler import (
     IS_RESTAURANT_ORDER_ACCEPT_DECLINE,
     IS_PICKUP_TIME,
     IS_ADMIN_COLLECTION_READY,
+    IS_ADMIN_TAKEAWAY_READY,
 )
 from watomation.on_flow_request_wa_handler import (
     on_customer_address_flow,
@@ -156,6 +158,10 @@ wa.add_handlers(
     handlers.CallbackButtonHandler(
         callback=admin_collection_ready,
         filters=IS_ADMIN_COLLECTION_READY,
+    ),
+    handlers.CallbackButtonHandler(
+        callback=admin_takeaway_ready,
+        filters=IS_ADMIN_TAKEAWAY_READY,
     ),
     handlers.CallbackButtonHandler(
         callback=dispatch_response, filters=IS_DISPATCH_RESPONSE
