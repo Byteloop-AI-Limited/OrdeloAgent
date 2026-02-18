@@ -113,9 +113,19 @@ def _format_pickup_time_display(pickup_time_iso: str) -> str:
 
 def init_takeaway_summary(order_number: str, recipient: str):
     """Background task to initialize takeaway_summary via RPC call."""
+    from config.params import _resolve_rest_ref
+
     try:
+        rest_ref = order_number.split("-")[0]
+        rest_ref = _resolve_rest_ref(rest_ref)
+        # Resolve the rest_ref so that rest_master table is picked with right restaurant
         response = client_ordelo.rpc(
-            "init_takeaway", {"p_cust_id": recipient, "p_order_number": order_number}
+            "init_takeaway",
+            {
+                "p_cust_id": recipient,
+                "p_order_number": order_number,
+                "p_rest_ref": rest_ref,
+            },
         ).execute()
         logger.info(
             f"init_takeaway completed for order {order_number} with response {response}"
