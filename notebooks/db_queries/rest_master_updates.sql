@@ -24,7 +24,7 @@ set admins=Array['447919202938'],
 where rest_ref='ELAS';
 
 select * from restaurant_master where rest_ref='ELAS';
-
+restaurant_master
 update restaurant_master
 set admins=Array['447448440754','447446933210', '447919202938'] where rest_ref='ELAS';
 

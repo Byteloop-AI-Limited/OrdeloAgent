@@ -2,15 +2,15 @@
 -- Consolidated from CommonQueries.sql and config_updates.sql.
 select * from rider_registrations;
 
-select * from rider_master order by is_in_shift desc, shift_response_dtts desc, status asc;
-
-select admins,* from restaurant_master where rest_ref='ELAS';
 select * from ordelo_config where config_key like '%_APP_URL';
+select admins,* from restaurant_master where rest_ref='ELAS';
+select * from rider_master order by is_in_shift desc, shift_response_dtts desc, status asc;
 
 -- Run before 11 am
 update rider_master set 
 is_in_shift=false
-, shift_response_dtts=now();
+;
+-- , shift_response_dtts=now();
 -- , town='dummy'
 -- where town='Salisbury';
 

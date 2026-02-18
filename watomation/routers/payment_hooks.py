@@ -79,9 +79,18 @@ async def handle_payment_complete(food_order: FoodOrder):
 
 def init_delivery_summary(order_number: str, recipient: str):
     """Background task to initialize delivery via RPC call."""
+    from config.params import _resolve_rest_ref
+
     try:
+        rest_ref = order_number.split("-")[0]
+        rest_ref = _resolve_rest_ref(rest_ref)
         response = client_ordelo.rpc(
-            "init_delivery", {"p_cust_id": recipient, "p_order_number": order_number}
+            "init_delivery",
+            {
+                "p_cust_id": recipient,
+                "p_order_number": order_number,
+                "p_rest_ref": rest_ref,
+            },
         ).execute()
         logger.info(
             f"init_delivery completed for order {order_number} with response {response}"
