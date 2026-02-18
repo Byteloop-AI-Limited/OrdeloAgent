@@ -48,7 +48,7 @@ import uuid
 
 from pywa_async import WhatsApp
 from typing import Optional, List
-from datetime import timedelta
+from datetime import datetime, timedelta
 import pytz
 import asyncio
 from utils_common.order_management.delivery_pymodels import (
@@ -95,9 +95,6 @@ async def send_restaurant_pickup_time(
     intervals_mins: List[int] = None,
     order_type: str = "delivery",
 ):
-    # Parse order_time string to datetime
-    from datetime import datetime
-
     # Use default intervals if none provided
     if intervals_mins is None:
         intervals_mins = [5, 15, 25]
@@ -245,6 +242,51 @@ Delivery Details:
 
 
 # %%
+
+
+# %%
+async def takeaway_admin_order_receipt(
+    order_number: str,
+    pickup_time: str,
+    rest_name: str,
+    admins: list[str],
+    restaurant_msg_id: str | None = None,
+    rest_ref: str | None = None,
+):
+    order_parts = order_number.split("-")
+    order_id = "-".join(order_parts[1:]) if len(order_parts) > 1 else order_number
+    resolved_rest_ref = rest_ref or order_parts[0]
+
+    food_order = FoodOrder.from_order_id(order_id)
+    rest_header, rest_text = build_wa_order_reciept_for_rest(food_order=food_order)
+
+    pickup_dt = datetime.fromisoformat(pickup_time.replace("Z", "+00:00"))
+    pickup_time_display = pickup_dt.astimezone(uk_tz).strftime("%-I:%M %p")
+    takeaway_instructions = f"""
+Takeaway Details:
+  🍽️ Restaurant - *{rest_name}*
+  ⏰ Pickup Time - *@{pickup_time_display}*
+    """
+
+    for admin in admins:
+        notify_customer = CallbackButtonData(
+            action="/AdminTakeawayReady",
+            recipient=food_order.recipient,
+            order_number=order_number,
+            rest_ref=resolved_rest_ref,
+        )
+        await _async_wa_client.send_message(
+            to=admin,
+            header=rest_header,
+            text=rest_text + "\n" + takeaway_instructions,
+            reply_to_message_id=restaurant_msg_id,
+            buttons=[
+                Button(
+                    title="Notify Customer",
+                    callback_data=notify_customer.model_dump_json(),
+                )
+            ],
+        )
 
 
 # %%

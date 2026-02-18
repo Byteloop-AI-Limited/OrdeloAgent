@@ -4,11 +4,14 @@ Restaurant webhook configuration utilities and lookup helpers.
   . WEBHOOK_PATHS maps webhook types to their path templates (with {rest_ref} placeholder)
   . get_restaurant_webhook_url_async fetches base URL from DB (now cached)
   . get_restaurant_admins fetches admin list from restaurant_master
+  . _REST_REF_ALIAS_MAP allows multiple rest_refs to share a canonical rest_ref for DB lookups
 Functions/Classes
   . WEBHOOK_PATHS - Static mapping of webhook type to path template with {rest_ref}
-  . get_restaurant_base_url_async - Async DB lookup for restaurant base URL (cached)
+  . _REST_REF_ALIAS_MAP - Alias map: alias rest_ref -> canonical rest_ref for DB lookups
+  . _resolve_rest_ref - Resolves a rest_ref to its canonical form via _REST_REF_ALIAS_MAP
+  . get_restaurant_base_url_async - Async DB lookup for restaurant base URL (cached, alias-aware)
   . get_restaurant_webhook_url_async - Constructs full webhook URL dynamically, substituting rest_ref
-  . get_restaurant_admins - Fetches restaurant admin phone numbers
+  . get_restaurant_admins - Fetches restaurant admin phone numbers (alias-aware)
 """
 
 import time
@@ -18,6 +21,18 @@ _BASE_URL_CACHE_TTL_SECS = 5 * 60  # 5 minutes
 _BASE_URL_CACHE: dict[str, tuple[str, float]] = {}
 _OVERWATCH_LIST_CACHE_TTL_SECS = 5 * 60  # 5 minutes
 _OVERWATCH_LIST_CACHE: tuple[list[str], float] | None = None
+
+# Alias map: rest_refs that share config with another rest_ref.
+# Key = alias rest_ref, Value = canonical rest_ref used for DB lookups.
+_REST_REF_ALIAS_MAP: dict[str, str] = {
+    "CHKS": "ELAS",
+}
+
+
+def _resolve_rest_ref(rest_ref: str) -> str:
+    """Resolve rest_ref alias to canonical rest_ref for DB lookups."""
+    upper = rest_ref.upper()
+    return _REST_REF_ALIAS_MAP.get(upper, upper)
 
 
 # %% Webhook path mapping - type to path template with {rest_ref} placeholder
@@ -31,6 +46,7 @@ WEBHOOK_PATHS = {
     "delivery-timedout": "rider-event-hooks/{rest_ref}/delivery-timedout",
     "order-payment-complete": "order-event-hooks/{rest_ref}/payment-complete/",
     "order-pickup-time-updated": "order-event-hooks/{rest_ref}/takeaway-pickup-time-updated/",
+    "order-takeaway-ready": "order-event-hooks/{rest_ref}/takeaway-ready",
     "order-address-update": "order-event-hooks/{rest_ref}/address-update",
     "terminate-stale-active-threads": "thread-hooks/{rest_ref}/terminate-stale-active-threads",
     "get-active-thread": "thread-hooks/get-active-thread",  # Already has rest_ref in existing path
@@ -56,7 +72,7 @@ async def get_restaurant_base_url_async(rest_ref: str) -> str:
     """
     from config import client_ordelo
 
-    rest_ref_upper = rest_ref.upper()
+    rest_ref_upper = _resolve_rest_ref(rest_ref)
     cache_key = rest_ref_upper
     now = time.monotonic()
 
@@ -196,6 +212,7 @@ async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> 
             - "rider-cust-enter" - Rider entered customer zone
             - "delivery-timedout" - Delivery timed out
             - "order-payment-complete" - Payment completed
+            - "order-takeaway-ready" - Takeaway order marked ready by admin
             - "order-address-update" - Customer address updated
 
     Returns:
@@ -216,7 +233,8 @@ async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> 
         )
 
     # Substitute rest_ref into path template
-    path = path_template.format(rest_ref=rest_ref.upper())
+    resolved_ref = _resolve_rest_ref(rest_ref)
+    path = path_template.format(rest_ref=resolved_ref)
 
     base_url = await get_restaurant_base_url_async(rest_ref)
     full_url = f"{base_url}/{path}"
@@ -244,7 +262,7 @@ def get_restaurant_admins(
     query = client_ordelo.table("restaurant_master").select("admins")
 
     if rest_ref is not None:
-        query = query.eq("rest_ref", rest_ref.upper())
+        query = query.eq("rest_ref", _resolve_rest_ref(rest_ref))
     else:
         query = query.eq("rest_id", rest_id)
 

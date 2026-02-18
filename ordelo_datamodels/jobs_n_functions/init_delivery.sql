@@ -29,7 +29,7 @@ See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 
 DROP FUNCTION public.init_delivery;
 
-CREATE OR REPLACE FUNCTION public.init_delivery(p_cust_id VARCHAR, p_order_number VARCHAR)
+CREATE OR REPLACE FUNCTION public.init_delivery(p_cust_id VARCHAR, p_order_number VARCHAR, p_rest_ref VARCHAR DEFAULT NULL)
 RETURNS TABLE (
     order_number VARCHAR,
     rest_id VARCHAR,
@@ -76,8 +76,8 @@ DECLARE
     v_rest_confirmation_code INTEGER;
     v_cust_confirmation_code INTEGER;
 BEGIN
-    -- Derive rest_ref from order_number
-    v_rest_ref := SPLIT_PART(p_order_number, '-', 1);
+    -- Derive rest_ref from order_number, or use provided value
+    v_rest_ref := COALESCE(p_rest_ref, SPLIT_PART(p_order_number, '-', 1));
 
     -- Fetch restaurant details
     SELECT

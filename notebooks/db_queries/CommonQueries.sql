@@ -1,13 +1,13 @@
 select * from thread order by dtts desc;
 select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
 
-update thread set is_active=false where recipient='447384202938';
+update thread set is_active=false where recipient='447764758075';
 
 select * from delivery_option where order_number='ELAS-LORN-24';
 
 select * from customer_master;
 
-delete from customer_master where cust_id='447438360474';
+delete from customer_master where cust_id='447448440754';
 select * from customer_master order by dtts desc limit 10;
 select *
       FROM pgmq.read('owntracks', 5, 1000);

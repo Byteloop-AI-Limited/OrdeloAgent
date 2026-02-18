@@ -5,7 +5,8 @@ Its should create admin_order_reciept, with option to notify customer for pickup
 This notify should use webhook router to call restaurant and invoke the agent
 The agent should ideally terminate the thread after this.
 
-- Your order is confirmed! - This should be a msg to customer, FROM rest agent, not ordelo
+- is AutoAccept working for takeaway?, particularly after the restaurant_accept
+
 - Remove the live tracking flow or mention of it. - Removed in elai agent, verification required.
 - Does this mean rider agent should have request_location tool? - Should this be a sperate functionality of its own?
 

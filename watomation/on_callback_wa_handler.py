@@ -33,7 +33,7 @@ from config import client_ordelo
 from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 from datetime import datetime, timezone
-from config.params import get_restaurant_base_url_async
+from config.params import get_restaurant_webhook_url_async
 import httpx
 
 # from utils_common.waba_utils.wa_senders import send_restaurant_pickup_time
@@ -223,18 +223,22 @@ async def _update_restaurant_order_status(
 ):
     """Background task to update restaurant order status."""
     try:
-        target_table = "takeaway_summary" if order_type == "takeaway" else "delivery_summary"
+        target_table = (
+            "takeaway_summary" if order_type == "takeaway" else "delivery_summary"
+        )
         result = await asyncio.to_thread(
-            lambda: client_ordelo.table(target_table)
-            .update(
-                {
-                    "restaurant_confirmation_status": status,
-                    "restaurant_admin": msg.sender,
-                }
+            lambda: (
+                client_ordelo.table(target_table)
+                .update(
+                    {
+                        "restaurant_confirmation_status": status,
+                        "restaurant_admin": msg.sender,
+                    }
+                )
+                .eq("order_number", order_number)
+                .eq("restaurant_confirmation_status", "restaurant_unconfirmed")
+                .execute()
             )
-            .eq("order_number", order_number)
-            .eq("restaurant_confirmation_status", "restaurant_unconfirmed")
-            .execute()
         )
         if result.data:
             logger.info(
@@ -299,7 +303,9 @@ async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
     pickup_time = callback_data.pickup_time
     recipient = msg.sender
     order_type = getattr(callback_data, "order_type", "delivery")
-    target_table = "takeaway_summary" if order_type == "takeaway" else "delivery_summary"
+    target_table = (
+        "takeaway_summary" if order_type == "takeaway" else "delivery_summary"
+    )
     target_status = "pickup_confirmed" if order_type == "takeaway" else "unassigned"
 
     logger.info(
@@ -314,39 +320,16 @@ async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
             "restaurant_update_dtts": datetime.now(timezone.utc).isoformat(),
         }
         result = await asyncio.to_thread(
-            lambda: client_ordelo.table(target_table)
-            .update(update_vals)
-            .eq("order_number", order_number)
-            .eq("restaurant_confirmation_status", "restaurant_accept")
-            .execute()
+            lambda: (
+                client_ordelo.table(target_table)
+                .update(update_vals)
+                .eq("order_number", order_number)
+                .eq("restaurant_confirmation_status", "restaurant_accept")
+                .execute()
+            )
         )
-        if result.data:
-            if order_type == "takeaway":
-                summary_rows = await asyncio.to_thread(
-                    lambda: client_ordelo.table("takeaway_summary")
-                    .select(
-                        "order_number,customer_id,rest_name,rest_address,pickup_time"
-                    )
-                    .eq("order_number", order_number)
-                    .limit(1)
-                    .execute()
-                    .data
-                )
-                if summary_rows:
-                    row = summary_rows[0]
-                    pickup_display = _format_pickup_time_display(
-                        row.get("pickup_time") or pickup_time
-                    )
-                    await wa.send_message(
-                        to=row["customer_id"],
-                        text=(
-                            f"Your order {row['order_number']} is confirmed!\n\n"
-                            f"Pickup time: {pickup_display}\n"
-                            f"Restaurant: {row['rest_name']}\n"
-                            f"Address: {row['rest_address']}"
-                        ),
-                    )
 
+        if result.data:
             await msg.reply(text="Pickup time updated")
             logger.info(
                 "Pickup time updated for %s order %s to %s (status -> %s)",
@@ -369,24 +352,79 @@ async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
 
 
 # %%
+IS_ADMIN_COLLECTION_READY = filters.contains("/AdminCollectionReady", ignore_case=False)
+
+
 async def admin_collection_ready(
     msg: WhatsApp, callback: CallbackButton[CallbackButtonData]
 ):
-    # Callback data created in admin_order_reciept in delivery_inflight_graph_init_hook(delivery_hooks.py)
-    # ordelo_base_url = await get_restaurant_base_url_async(rest_ref="ORDELO")
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
 
     await run_rider_agent_w_custom_msg(
         recipient=callback_data.rider_id,
         human_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {callback_data.restaurant_name} to pickup the food.",
     )
-
-    # async with httpx.AsyncClient() as client:
-    #     await client.post(
-    #         f"{ordelo_base_url}/delivery-hooks/notify-food-ready-for-pickup/{callback_data.rider_id}",
-    #         json={
-    #             "restaurant_name": "Elai Salisbury",
-    #             "order_number": callback_data.order_id,
-    #         },
-    #     )
     return
+
+
+IS_ADMIN_TAKEAWAY_READY = filters.contains("/AdminTakeawayReady", ignore_case=False)
+
+
+async def admin_takeaway_ready(
+    wa: WhatsApp, callback: CallbackButton[CallbackButtonData]
+):
+    callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
+    order_number = getattr(callback_data, "order_number", None)
+    recipient = getattr(callback_data, "recipient", None)
+    order_id = None
+    if order_number and "-" in order_number:
+        order_id = "-".join(order_number.split("-")[1:])
+    rest_ref = getattr(callback_data, "rest_ref", None)
+
+    if not rest_ref and order_number and "-" in order_number:
+        rest_ref = order_number.split("-")[0]
+
+    if not order_id:
+        await callback.reply("Missing order number in callback. Please retry.")
+        logger.error(
+            "AdminTakeawayReady callback missing/invalid order_number",
+            extra={"order_number": order_number},
+        )
+        return
+
+    if not rest_ref:
+        await callback.reply("Missing restaurant reference in callback. Please retry.")
+        logger.error(
+            "AdminTakeawayReady callback missing rest_ref",
+            extra={"order_id": order_id, "order_number": order_number},
+        )
+        return
+
+    payload = {
+        "order_id": order_id,
+        "order_number": order_number,
+        "recipient": recipient,
+        "admin_id": callback.sender,
+        "event": "admin_takeaway_ready",
+        "event_dtts": datetime.now(timezone.utc).isoformat(),
+    }
+
+    try:
+        webhook_url = await get_restaurant_webhook_url_async(
+            rest_ref, "order-takeaway-ready"
+        )
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                url=f"{webhook_url}/{order_id}",
+                json=payload,
+            )
+            response.raise_for_status()
+            logger.info(
+                f"Takeaway ready notification sent for order_id={order_id}, status_code={response.status_code}"
+            )
+        await callback.reply("Customer notification request sent.")
+    except Exception as e:
+        logger.error(
+            f"Failed to notify takeaway ready for order_id={order_id}, order_number={order_number}: {e}"
+        )
+        await callback.reply("Failed to notify customer. Please retry.")
