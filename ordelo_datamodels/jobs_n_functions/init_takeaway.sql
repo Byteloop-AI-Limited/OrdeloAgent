@@ -11,7 +11,7 @@ Invocation:
 
 DROP FUNCTION IF EXISTS public.init_takeaway;
 
-CREATE OR REPLACE FUNCTION public.init_takeaway(p_cust_id VARCHAR, p_order_number VARCHAR)
+CREATE OR REPLACE FUNCTION public.init_takeaway(p_cust_id VARCHAR, p_order_number VARCHAR, p_rest_ref VARCHAR DEFAULT NULL)
 RETURNS TABLE (
     order_number VARCHAR,
     rest_id VARCHAR,
@@ -45,7 +45,7 @@ DECLARE
     v_salt_number INTEGER;
     v_rest_confirmation_code INTEGER;
 BEGIN
-    v_rest_ref := SPLIT_PART(p_order_number, '-', 1);
+    v_rest_ref := COALESCE(p_rest_ref, SPLIT_PART(p_order_number, '-', 1));
 
     SELECT
         rm.rest_id,
