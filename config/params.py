@@ -46,6 +46,7 @@ WEBHOOK_PATHS = {
     "delivery-timedout": "rider-event-hooks/{rest_ref}/delivery-timedout",
     "order-payment-complete": "order-event-hooks/{rest_ref}/payment-complete/",
     "order-pickup-time-updated": "order-event-hooks/{rest_ref}/takeaway-pickup-time-updated/",
+    "order-takeaway-ready": "order-event-hooks/{rest_ref}/takeaway-ready",
     "order-address-update": "order-event-hooks/{rest_ref}/address-update",
     "terminate-stale-active-threads": "thread-hooks/{rest_ref}/terminate-stale-active-threads",
     "get-active-thread": "thread-hooks/get-active-thread",  # Already has rest_ref in existing path
@@ -211,6 +212,7 @@ async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> 
             - "rider-cust-enter" - Rider entered customer zone
             - "delivery-timedout" - Delivery timed out
             - "order-payment-complete" - Payment completed
+            - "order-takeaway-ready" - Takeaway order marked ready by admin
             - "order-address-update" - Customer address updated
 
     Returns:

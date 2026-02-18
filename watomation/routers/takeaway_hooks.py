@@ -42,6 +42,7 @@ from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.waba_utils.wa_senders import (
     send_restaurant_order_confirmation,
     send_restaurant_pickup_time,
+    takeaway_admin_order_receipt,
 )
 from watomation.routers.delivery_hooks import cancel_payment
 
@@ -399,6 +400,21 @@ async def _handle_pickup_time_set(
             logger.info(
                 f"Pickup time notification sent for order {takeaway_summary.order_number} to {webhook_url}"
             )
+
+        if takeaway_summary.pickup_time and restaurant_master.admins:
+            try:
+                await takeaway_admin_order_receipt(
+                    order_number=takeaway_summary.order_number,
+                    pickup_time=takeaway_summary.pickup_time,
+                    rest_name=takeaway_summary.rest_name or restaurant_master.rest_name,
+                    admins=restaurant_master.admins,
+                    restaurant_msg_id=takeaway_summary.restaurant_msg_id,
+                    rest_ref=takeaway_summary.rest_ref or restaurant_master.rest_ref,
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to send takeaway admin receipt for {takeaway_summary.order_number}: {e}"
+                )
     except Exception as e:
         logger.error(
             f"Failed to notify pickup time for order {takeaway_summary.order_number}: {e}"

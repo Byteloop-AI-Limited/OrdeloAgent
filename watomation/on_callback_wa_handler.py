@@ -33,7 +33,7 @@ from config import client_ordelo
 from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 from datetime import datetime, timezone
-from config.params import get_restaurant_base_url_async
+from config.params import get_restaurant_webhook_url_async
 import httpx
 
 # from utils_common.waba_utils.wa_senders import send_restaurant_pickup_time
@@ -365,3 +365,66 @@ async def admin_collection_ready(
         human_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {callback_data.restaurant_name} to pickup the food.",
     )
     return
+
+
+IS_ADMIN_TAKEAWAY_READY = filters.contains("/AdminTakeawayReady", ignore_case=False)
+
+
+async def admin_takeaway_ready(
+    wa: WhatsApp, callback: CallbackButton[CallbackButtonData]
+):
+    callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
+    order_number = getattr(callback_data, "order_number", None)
+    recipient = getattr(callback_data, "recipient", None)
+    order_id = None
+    if order_number and "-" in order_number:
+        order_id = "-".join(order_number.split("-")[1:])
+    rest_ref = getattr(callback_data, "rest_ref", None)
+
+    if not rest_ref and order_number and "-" in order_number:
+        rest_ref = order_number.split("-")[0]
+
+    if not order_id:
+        await callback.reply("Missing order number in callback. Please retry.")
+        logger.error(
+            "AdminTakeawayReady callback missing/invalid order_number",
+            extra={"order_number": order_number},
+        )
+        return
+
+    if not rest_ref:
+        await callback.reply("Missing restaurant reference in callback. Please retry.")
+        logger.error(
+            "AdminTakeawayReady callback missing rest_ref",
+            extra={"order_id": order_id, "order_number": order_number},
+        )
+        return
+
+    payload = {
+        "order_id": order_id,
+        "order_number": order_number,
+        "recipient": recipient,
+        "admin_id": callback.sender,
+        "event": "admin_takeaway_ready",
+        "event_dtts": datetime.now(timezone.utc).isoformat(),
+    }
+
+    try:
+        webhook_url = await get_restaurant_webhook_url_async(
+            rest_ref, "order-takeaway-ready"
+        )
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                url=f"{webhook_url}/{order_id}",
+                json=payload,
+            )
+            response.raise_for_status()
+            logger.info(
+                f"Takeaway ready notification sent for order_id={order_id}, status_code={response.status_code}"
+            )
+        await callback.reply("Customer notification request sent.")
+    except Exception as e:
+        logger.error(
+            f"Failed to notify takeaway ready for order_id={order_id}, order_number={order_number}: {e}"
+        )
+        await callback.reply("Failed to notify customer. Please retry.")
