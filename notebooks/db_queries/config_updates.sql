@@ -2,6 +2,7 @@ select * from ordelo_config where config_key like '%_APP_URL';
 select * from ordelo_config where config_key like 'RESTAURANT_MENU%';
 select * from ordelo_config where config_key like '%TIMEOUT%';
 
+
 update ordelo_config set config_value = 'https://elas-agg-test.ordelo.app' where config_key = 'ELAS_APP_URL';
 update ordelo_config set config_value = 'https://rider-agent-test.ordelo.app' where config_key = 'ORDELO_APP_URL';
 update ordelo_config set config_value = 'https://wren-agg-test.ordelo.app' where config_key = 'WREN_APP_URL';
@@ -49,11 +50,11 @@ ON CONFLICT (config_key)
 DO UPDATE SET config_value = '5';
 
 
-select * from ordelo_config where config_key like '%URL%';
+select * from ordelo_config where config_key like 'ELAS%' OR config_key like 'CHK%';
 
 -- Debugging option
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ELAS_DELIVERY_TIMEOUT_TIME', '5', 'Timeout in minutes for delivery_summary status transition to timedout')
+VALUES ('CHKS_DELIVERY_TIMEOUT_TIME', '5', 'Timeout in minutes for delivery_summary status transition to timedout')
 ON CONFLICT (config_key) 
 DO UPDATE SET config_value = '5';
 
@@ -75,7 +76,7 @@ SELECT (EXTRACT(EPOCH FROM (NOW() - date(now()-interval '3 seconds'))) / 60) > C
 
 -- Debugging option
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME', '.5', 'Timeout in minutes for delivery_summary status transition to timedout')
+VALUES ('CHKS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME', '.5', 'Timeout in minutes for delivery_summary status transition to timedout')
 ON CONFLICT (config_key) 
 DO UPDATE SET config_value = '.5';
 
