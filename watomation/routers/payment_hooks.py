@@ -111,16 +111,14 @@ async def payment_complete_path(request: Request, background_tasks: BackgroundTa
     request_body: dict = await request.json()
 
     # update payment status to `requires_payment`, `requires_capture`
-    order_number = request_body["data"]["object"]["metadata"]["orderID"]
-    logger.info(
-        f"order_number:{order_number} - PaymentComplete webhook from stripe called"
-    )
+    order_id = request_body["data"]["object"]["metadata"]["orderID"]
+    logger.info(f"order_id:{order_id} - PaymentComplete webhook from stripe called")
 
     # Update the payment status
     response = (
         client_ordelo.table("food_order")
         .update({"payment_status": "requires_capture"})
-        .eq("order_id", order_number)
+        .eq("order_id", order_id)
         .execute()
     )
 

@@ -183,13 +183,9 @@ class FoodOrder(BaseModel):
             logger.debug(
                 f"Overwatch customer {self.recipient} using test payment URL for order {self.order_number}"
             )
-            # return f"{ms_settings.stripe_url_test}/threads/{self.thread_id}/orders/{self.order_id}/payment-url"
-            return f"{ms_settings.stripe_url_test}/threads/{self.thread_id}/orders/{self.order_number}/payment-url"
-        logger.debug(
-            f"Non-overwatch customer {self.recipient} using production payment URL for order {self.order_number}"
-        )
-        # return f"{ms_settings.stripe_url}/threads/{self.thread_id}/orders/{self.order_id}/payment-url"
-        return f"{ms_settings.stripe_url}/threads/{self.thread_id}/orders/{self.order_number}/payment-url"
+            return f"{ms_settings.stripe_url_test}/threads/{self.thread_id}/orders/{self.order_id}/payment-url"
+
+        return f"{ms_settings.stripe_url}/threads/{self.thread_id}/orders/{self.order_id}/payment-url"
 
     def update_final_order_value_in_db(self) -> bool:
         """
