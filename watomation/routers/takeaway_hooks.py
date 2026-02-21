@@ -45,6 +45,10 @@ from utils_common.waba_utils.wa_senders import (
     takeaway_admin_order_receipt,
 )
 from watomation.routers.delivery_hooks import cancel_payment
+from utils_common.payment_ms.payment import (
+    generate_automatic_payment_url,
+    generate_payment_intent_url,
+)
 
 
 async def get_payload(request: Request):
@@ -449,6 +453,12 @@ async def pickup_time_updated_hook(
         )
 
         # TODO: 1. Notify restaurant service, send kitchen reciept and the printout (call payment service with additional field)
+        payment_url = await generate_automatic_payment_url(
+            FoodOrder.from_order_number(takeaway_summary.order_number),
+            is_print_only=True,
+        )
+        logger.info(f"Payment URL: {payment_url}")
+
         # TODO: 2. Notify customer, send pickup time confirmation; Should this call
         background_tasks.add_task(
             _handle_pickup_time_set,

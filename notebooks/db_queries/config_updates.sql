@@ -40,9 +40,10 @@ where config_key = 'DISPATCH_BATCH_SIZE_BICYCLE';
 
 -- Debugging option
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('overwatch_list', '447448440754,447424334783', 'list of numbers to alert')
+-- VALUES ('overwatch_list', '447448440754,447424334783', 'list of numbers to alert')
+VALUES ('overwatch_list', '447448440754', 'list of numbers to alert')
 ON CONFLICT (config_key) 
-DO UPDATE SET config_value = '447448440754,447424334783';
+DO UPDATE SET config_value = '447448440754';
 
 INSERT INTO ordelo_config (config_key, config_value)
 VALUES ('TERMINATE_STALE_ACTIVE_THREADS', '5')
