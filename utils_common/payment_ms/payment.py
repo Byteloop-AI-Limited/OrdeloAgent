@@ -64,9 +64,11 @@ async def generate_automatic_payment_url(
     order_summary = await food_order.generate_order_summary_for_automatic_payment()
 
     intent_payload = {
+        "total_amount": order_summary.get("total"),
         "items": order_summary.get("items"),
         "currency": "GBP",
         "action": "collection",
+        "restaurant_confirmation_code": "N/A",
         "manual_mode_capture": False,
         "notes": food_order.notes,
         "printonlyjob": is_print_only,
@@ -89,13 +91,17 @@ async def generate_automatic_payment_url(
 
 # %%
 """
-Test the generate_automatic_payment_url function.
+# Test the generate_automatic_payment_url function.
 # %%
 
 test_order_number = "CHKS-FIRC-30"
 food_order = FoodOrder.from_order_number(test_order_number)
+payment_uri = food_order.payment_uri
+# order_summary = await food_order.generate_order_summary_for_automatic_payment()
+
 payment_url = await generate_automatic_payment_url(food_order, is_print_only=True)
-payment_url
+
+# payment_url
 # %%
 
 
