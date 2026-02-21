@@ -6,7 +6,7 @@ FoodOrder pydantic model for food_order table
   . Supports updating final order value and bubbles failures to the caller
   . Now supports generating a capture payload for payment processing
   . On instantiation via from_order_id, ensures final_order_value is up-to-date
-  . Provides a payment_uri property to generate payment URL for Stripe
+  . Provides a payment_uri property to generate payment URL for Stripe (test URL only for overwatch + delivery action)
 Functions/Classes:
   . FoodOrder
     . get_final_order_value
@@ -178,16 +178,18 @@ class FoodOrder(BaseModel):
             str: The constructed payment URL for this order.
         """
         overwatch_list = get_overwatch_list()
-        # ie if the person ordering food is in the overwatch list, use test URL
-        if self.recipient in overwatch_list:
+        # ie if the person ordering food is in the overwatch list and action is delivery, use test URL
+        if self.recipient in overwatch_list and self.action == "delivery":
             logger.debug(
                 f"Overwatch customer {self.recipient} using test payment URL for order {self.order_number}"
             )
-            return f"{ms_settings.stripe_url_test}/threads/{self.thread_id}/orders/{self.order_id}/payment-url"
+            # return f"{ms_settings.stripe_url_test}/threads/{self.thread_id}/orders/{self.order_id}/payment-url"
+            return f"{ms_settings.stripe_url_test}/threads/{self.thread_id}/orders/{self.order_number}/payment-url"
         logger.debug(
             f"Non-overwatch customer {self.recipient} using production payment URL for order {self.order_number}"
         )
-        return f"{ms_settings.stripe_url}/threads/{self.thread_id}/orders/{self.order_id}/payment-url"
+        # return f"{ms_settings.stripe_url}/threads/{self.thread_id}/orders/{self.order_id}/payment-url"
+        return f"{ms_settings.stripe_url}/threads/{self.thread_id}/orders/{self.order_number}/payment-url"
 
     def update_final_order_value_in_db(self) -> bool:
         """
@@ -350,7 +352,8 @@ class FoodOrder(BaseModel):
             .execute()
         )
 
-        order_summary = {"items": order_items.data}
+        total = sum(item["price"] * item["quantity"] for item in order_items.data)
+        order_summary = {"items": order_items.data, "total": total}
         return order_summary
 
     async def gen_payment_intent_payload(self) -> dict:
