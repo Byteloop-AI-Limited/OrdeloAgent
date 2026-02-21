@@ -453,11 +453,11 @@ async def pickup_time_updated_hook(
         )
 
         # TODO: 1. Notify restaurant service, send kitchen reciept and the printout (call payment service with additional field)
-        payment_url = await generate_automatic_payment_url(
-            FoodOrder.from_order_number(takeaway_summary.order_number),
-            is_print_only=True,
-        )
-        logger.info(f"Payment URL: {payment_url}")
+        # payment_url = await generate_automatic_payment_url(
+        #     FoodOrder.from_order_number(takeaway_summary.order_number),
+        #     is_print_only=True,
+        # )
+        # logger.info(f"Payment URL: {payment_url}")
 
         # TODO: 2. Notify customer, send pickup time confirmation; Should this call
         background_tasks.add_task(

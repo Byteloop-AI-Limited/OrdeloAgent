@@ -15,6 +15,7 @@ is_in_shift=false
 -- where town='Salisbury';
 
 update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='bicycle' where rider_name='Lohith';
+update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='bicycle' where rider_name='Rahul';
 
 -- Prod setup
 update rider_master set town ='Salisbury' where town='dummy';

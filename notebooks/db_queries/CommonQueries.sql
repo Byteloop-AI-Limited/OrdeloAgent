@@ -1,7 +1,7 @@
 select * from thread order by dtts desc;
 select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
 
-update thread set is_active=false where recipient='447764758075';
+update thread set is_active=false where recipient='447448440754';
 
 select * from delivery_option where order_number='ELAS-LORN-24';
 
