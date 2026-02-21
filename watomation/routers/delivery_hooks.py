@@ -524,7 +524,7 @@ async def delivery_inflight_graph_init_hook(
     rest_confirmation_code = delivery_summary.rest_confirmation_code
     rider_master = payload.get("rider_master")
 
-    # 1. Capture Stripe Payment
+    # 1. Capture Stripe Payment - This also issues print job
     background_tasks.add_task(
         capture_payment, delivery_summary.order_number, rest_confirmation_code
     )
@@ -1167,10 +1167,12 @@ async def _handle_restaurant_timedout(
 
     # pylint: disable=unused-variable
     result = await asyncio.to_thread(
-        lambda: client_ordelo.table("delivery_summary")
-        .update(update_vals)
-        .eq("order_number", order_number)
-        .execute()
+        lambda: (
+            client_ordelo.table("delivery_summary")
+            .update(update_vals)
+            .eq("order_number", order_number)
+            .execute()
+        )
     )
 
     return {

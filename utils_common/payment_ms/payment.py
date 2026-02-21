@@ -48,7 +48,9 @@ async def generate_payment_intent_url(food_order: FoodOrder):
 
 
 # %%
-async def generate_automatic_payment_url(food_order: FoodOrder):
+async def generate_automatic_payment_url(
+    food_order: FoodOrder, is_print_only: bool = False
+):
     """
     Generates a Stripe payment URL for automatic capture (No manual_mode, instant capture on stripe for takeaways.).
 
@@ -67,6 +69,7 @@ async def generate_automatic_payment_url(food_order: FoodOrder):
         "action": "collection",
         "manual_mode_capture": False,
         "notes": food_order.notes,
+        "printonlyjob": is_print_only,
     }
 
     async with httpx.AsyncClient() as client:
@@ -82,3 +85,18 @@ async def generate_automatic_payment_url(food_order: FoodOrder):
 
 
 # # %% Create similar function for cancel payment intent and capture payment intent called cancel_payment and capture_payment
+
+
+# %%
+"""
+Test the generate_automatic_payment_url function.
+# %%
+
+test_order_number = "CHKS-FIRC-30"
+food_order = FoodOrder.from_order_number(test_order_number)
+payment_url = await generate_automatic_payment_url(food_order, is_print_only=True)
+payment_url
+# %%
+
+
+"""
