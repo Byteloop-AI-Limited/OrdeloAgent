@@ -59,7 +59,7 @@ async def handle_payment_complete(food_order: FoodOrder):
     async with httpx.AsyncClient() as http_client:
         try:
             res = await http_client.post(
-                url=f"{payment_complete_url}{recipient}/{thread_id}",
+                url=f"{payment_complete_url}/{recipient}/{thread_id}",
                 json=food_order.model_dump(),
             )
             res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
