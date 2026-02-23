@@ -172,7 +172,6 @@ class WabaProviderSettings(BaseSettings):
 # %%
 
 waba_provider_settings = WabaProviderSettings(**ordelo_agent_env)
-waba_provider_settings
 
 
 # %%
