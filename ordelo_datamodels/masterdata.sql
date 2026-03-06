@@ -59,5 +59,7 @@ CREATE TABLE customer_master (
     dtts        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
+ALTER TABLE customer_master
+  ADD COLUMN consented_rest_refs TEXT[] NOT NULL DEFAULT '{}';
 
--- Test Values 
+-- Test Values

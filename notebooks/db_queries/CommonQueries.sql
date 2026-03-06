@@ -1,12 +1,20 @@
 select * from thread order by dtts desc;
+update thread set is_active=false where recipient='447767909037';
+
 select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
 
-update thread set is_active=false where recipient='447448440754';
+select * from delivery_dispatch where status='completed' and rider_id!='447448440754' order by dtts desc ;
+select * from delivery_summary order by dtts desc;
+select SUBSTRING(phone, 2, LENGTH(phone)) as rider_id,* from rider_registrations;
+447853175864
+447909510536
+447446933210
+select rider_id,* from rider_registrations;
 
 select * from delivery_option where order_number='ELAS-LORN-24';
 
-select * from customer_master;
-
+select * from customer_master where cust_id='447448440754';
+update customer_master set consented_rest_refs=Array[]::text[]  where cust_id='447448440754';
 delete from customer_master where cust_id='447448440754';
 select * from customer_master where cust_id='447448440754';
 
@@ -17,9 +25,10 @@ select *
 select job_process_owntracks();
 -- view definition of function - FUNCTION public.delivery_inflight_whook
 select pg_get_functiondef('delivery_inflight_whook'::regproc);
+select title, description, price, dietary_requirements from elas_menu;
 
 select count(*) from rider_location_event;
-
+select * from elas_menu_before_march;
 
 -- delete from rider_master where rider_id in ('447448440754') and vehicle_type in ('electric_bike', 'scooter');
 
