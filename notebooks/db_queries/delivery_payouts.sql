@@ -1,6 +1,7 @@
 select * from delivery_dispatch; 
 
 select SUBSTRING(phone, 2, LENGTH(phone)) as rider_id, bank_account_name, sort_code, bank_account from rider_registrations;
+select * from rider_registrations;
 
 with riderMaster AS (
     select rider_id, rider_name, vehicle_type from rider_master
@@ -23,7 +24,7 @@ from delivery_dispatch d
 join riderMaster r on d.rider_id = r.rider_id
 join riderRegistration rr on r.rider_id = rr.rider_id
 join delivery_option dOption on d.order_number = dOption.order_number and dOption.vehicle_type = r.vehicle_type
-where d.status='completed' and d.rider_id !='447448440754' and d.dtts >= '2026-02-06' and d.dtts < '2026-02-13'
+where d.status='completed' and d.rider_id !='447448440754' and d.dtts >= '2026-02-20' and d.dtts < '2026-02-27'
 ORDER BY d.dtts DESC;
 
 -- Aggregated view
