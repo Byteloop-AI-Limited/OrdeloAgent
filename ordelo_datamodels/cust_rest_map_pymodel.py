@@ -52,7 +52,8 @@ class CustRestMap(BaseModel):
     def upsert(cls, cust_id: str, rest_ref: str, has_consent: bool, consent_dtts: Optional[datetime.datetime] = None) -> "CustRestMap":
         """
         Insert or update a cust_rest_map record.
-        Sets dtts to now() on every upsert.
+        dtts is set by DB DEFAULT on first insert and is never overwritten.
+        consent_dtts is only included in the payload when provided.
         Returns the resulting CustRestMap instance.
         """
         from config import client_ordelo
@@ -62,7 +63,6 @@ class CustRestMap(BaseModel):
             "rest_ref": rest_ref.upper(),
             "has_consent": has_consent,
             "consent_dtts": consent_dtts.isoformat() if consent_dtts else None,
-            "dtts": datetime.datetime.now(tz=datetime.timezone.utc).isoformat(),
         }
         resp = (
             client_ordelo.table("cust_rest_map")
