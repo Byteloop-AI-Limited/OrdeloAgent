@@ -1,14 +1,15 @@
 """
 Customer webhook handler module for OrdeloAgent.
   . Exposes REST endpoints for customer lifecycle operations
-  . Creates new customers in customer_master
+  . Creates or updates customers in customer_master
   . Updates customer delivery address and notifies restaurant
   . Upserts cust_rest_map consent records
+  . Includes manual curl examples for endpoint checks
 Functions/Classes:
-  . CreateCustomerRequest - Pydantic request model for customer creation
+  . CreateOrUpdateCustomerRequest - Pydantic request model for customer create-or-update
   . UpdateAddressRequest - Pydantic request model for address updates
   . UpdateCustRestMapRequest - Pydantic request model for consent map updates
-  . create_customer - POST /create-customer
+  . create_or_update_customer - POST /create-or-update-customer
   . update_address - POST /update-address
   . update_cust_rest_map - POST /update-cust-rest-map
 """
@@ -22,9 +23,13 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from config import client_ordelo
-from config.params import get_restaurant_webhook_url_async
-from ordelo_datamodels.customer_master_pymodel import CustomerMaster
+from config.params import get_restaurant_webhook_url_async, _resolve_rest_ref
+from ordelo_datamodels.customer_master_pymodel import (
+    CustomerMaster,
+    CreateOrUpdateCustomerRequest,
+)
 from ordelo_datamodels.cust_rest_map_pymodel import CustRestMap
+from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from loguru import logger
 
 # %%
@@ -32,20 +37,6 @@ router = APIRouter(tags=["customer-hooks"])
 
 
 # %% Request models
-
-class CreateCustomerRequest(BaseModel):
-    """Request model for creating a new customer."""
-
-    cust_id: str
-    cust_name: str
-    cust_email: Optional[str] = None
-    house_number: Optional[str] = None
-    building_name: Optional[str] = None
-    street_name: Optional[str] = None
-    city: str
-    postcode: str
-    lat: float
-    lon: float
 
 
 class UpdateAddressRequest(BaseModel):
@@ -73,25 +64,45 @@ class UpdateCustRestMapRequest(BaseModel):
 
 # %% Endpoints
 
-@router.post("/create-customer", summary="Create a new customer in customer_master")
-async def create_customer(request: CreateCustomerRequest):
-    """
-    Insert a new customer record into customer_master.
-    Raises 409 if the customer already exists.
-    """
-    existing = (
-        client_ordelo.table("customer_master")
-        .select("cust_id")
-        .eq("cust_id", request.cust_id)
-        .execute()
-    )
-    if existing.data:
-        raise HTTPException(status_code=409, detail=f"Customer {request.cust_id} already exists")
 
-    customer = CustomerMaster(**request.model_dump())
-    client_ordelo.table("customer_master").insert(customer.model_dump()).execute()
-    logger.info(f"Customer created: {request.cust_id}")
-    return {"success": True, "cust_id": request.cust_id}
+@router.post(
+    "/create-or-update-customer",
+    summary="Create or update a customer in customer_master",
+)
+async def create_or_update_customer(request: CreateOrUpdateCustomerRequest):
+    """
+    Create or update a customer_master record.
+    Omitted optional fields are excluded from the upsert payload and therefore
+    do not overwrite existing database values.
+    """
+    try:
+        CustomerMaster.from_cust_id(request.cust_id)
+        existed = True
+    except ValueError:
+        existed = False
+
+    payload = request.model_dump(exclude_unset=True)
+    rest_ref = _resolve_rest_ref(request.rest_ref)
+    city = RestaurantMaster.from_rest_ref(rest_ref).city
+
+    payload["cust_id"] = request.cust_id
+    payload["city"] = city
+
+    # upsert customer_master
+    CustomerMaster.upsert(**payload)
+    # upsert cust_rest_map
+    if not existed:
+        CustRestMap.upsert(
+            cust_id=request.cust_id,
+            rest_ref=rest_ref,
+            has_consent=False,
+        )
+
+    logger.info(
+        f"Customer {'updated' if existed else 'created'} via upsert: {request.cust_id}"
+    )
+
+    return {"success": True, "cust_id": request.cust_id, "existed": existed}
 
 
 @router.post("/update-address", summary="Update customer delivery address")
@@ -117,26 +128,34 @@ async def update_address(request: UpdateAddressRequest):
         .execute()
     )
     if not response.data:
-        raise HTTPException(status_code=404, detail=f"Customer {request.cust_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"Customer {request.cust_id} not found"
+        )
 
     logger.info(f"Address updated for customer {request.cust_id}")
 
     try:
-        webhook_url = await get_restaurant_webhook_url_async(request.rest_ref, "order-address-update")
+        webhook_url = await get_restaurant_webhook_url_async(
+            request.rest_ref, "order-address-update"
+        )
         async with httpx.AsyncClient() as http_client:
             res = await http_client.post(
                 url=f"{webhook_url}/{request.cust_id}",
                 json=address_payload,
             )
             res.raise_for_status()
-            logger.info(f"Restaurant {request.rest_ref} notified of address update for {request.cust_id}")
+            logger.info(
+                f"Restaurant {request.rest_ref} notified of address update for {request.cust_id}"
+            )
     except Exception as exc:
         logger.warning(f"Restaurant notification failed for {request.cust_id}: {exc}")
 
     return {"success": True, "cust_id": request.cust_id}
 
 
-@router.post("/update-cust-rest-map", summary="Upsert customer-restaurant consent mapping")
+@router.post(
+    "/update-cust-rest-map", summary="Upsert customer-restaurant consent mapping"
+)
 async def update_cust_rest_map(request: UpdateCustRestMapRequest):
     """
     Insert or update a cust_rest_map record for the given customer and restaurant.
@@ -149,5 +168,47 @@ async def update_cust_rest_map(request: UpdateCustRestMapRequest):
         has_consent=request.has_consent,
         consent_dtts=request.consent_dtts,
     )
-    logger.info(f"cust_rest_map upserted: cust_id={request.cust_id} rest_ref={request.rest_ref} has_consent={request.has_consent}")
+    logger.info(
+        f"cust_rest_map upserted: cust_id={request.cust_id} rest_ref={request.rest_ref} has_consent={request.has_consent}"
+    )
     return {"success": True, "record": record.model_dump()}
+
+
+# %%
+"""
+
+curl -X POST http://localhost:3100/order-hooks/capture-address \
+  -H "Content-Type: application/json" \
+  -d '{
+    "recipient": "447448440754",
+    "rest_ref": "ELAS",
+    "house_number": "221B",
+    "building_name": null,
+    "street_name": "Baker Street",
+    "locality": null,
+    "city": "London",
+    "county": null,
+    "postcode": "NW1 6XE",
+    "country": "UK",
+    "latitude": 51.523767,
+    "longitude": -0.1585557
+  }'
+
+curl -X POST http://localhost:3100/customer-hooks/create-or-update-customer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cust_id": "447448440754",
+    "cust_name": "Lohith Holmes",
+    "rest_ref": "chks",
+    "cust_email": "sherlock@example.com",
+    "house_number":"ola",
+    "building_name": null,
+    "street_name": null,
+    "city": null,
+    "postcode": null,
+    "lat": null,
+    "lon": null
+  }'
+
+
+"""

@@ -21,7 +21,9 @@ class CustRestMap(BaseModel):
     rest_ref: str  # VARCHAR(4) NOT NULL, FK -> restaurant_master
     has_consent: bool = False  # BOOLEAN NOT NULL DEFAULT FALSE
     consent_dtts: Optional[datetime.datetime] = None  # TIMESTAMP WITH TIME ZONE NULL
-    dtts: Optional[datetime.datetime] = None  # TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+    dtts: Optional[datetime.datetime] = (
+        None  # TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+    )
 
     @classmethod
     def from_cust_id_and_rest_ref(cls, cust_id: str, rest_ref: str) -> "CustRestMap":
@@ -49,7 +51,13 @@ class CustRestMap(BaseModel):
         return cls(**data[0])
 
     @classmethod
-    def upsert(cls, cust_id: str, rest_ref: str, has_consent: bool, consent_dtts: Optional[datetime.datetime] = None) -> "CustRestMap":
+    def upsert(
+        cls,
+        cust_id: str,
+        rest_ref: str,
+        has_consent: bool = False,
+        consent_dtts: Optional[datetime.datetime] = None,
+    ) -> "CustRestMap":
         """
         Insert or update a cust_rest_map record.
         dtts is set by DB DEFAULT on first insert and is never overwritten.
@@ -64,6 +72,7 @@ class CustRestMap(BaseModel):
             "has_consent": has_consent,
             "consent_dtts": consent_dtts.isoformat() if consent_dtts else None,
         }
+
         resp = (
             client_ordelo.table("cust_rest_map")
             .upsert(payload, on_conflict="cust_id,rest_ref")

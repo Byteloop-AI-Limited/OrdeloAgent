@@ -14,9 +14,10 @@ select rider_id,* from rider_registrations;
 select * from delivery_option where order_number='ELAS-LORN-24';
 
 select * from customer_master where cust_id='447448440754';
-update customer_master set consented_rest_refs=Array[]::text[]  where cust_id='447448440754';
+select * from cust_rest_map where cust_id='447448440754';
+
+delete from cust_rest_map where cust_id='447448440754';
 delete from customer_master where cust_id='447448440754';
-select * from customer_master where cust_id='447448440754';
 
 select * from customer_master order by dtts desc limit 10;
 select *
