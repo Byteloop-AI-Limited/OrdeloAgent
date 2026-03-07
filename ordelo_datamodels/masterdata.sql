@@ -46,20 +46,50 @@ ALTER TABLE restaurant_master
 
 CREATE TABLE customer_master (
     cust_id   VARCHAR(12) PRIMARY KEY,
-    cust_name     TEXT NOT NULL,
+    cust_name     TEXT NULL,
     cust_email     TEXT NULL,
-    house_number     TEXT NOT NULL,
+    house_number     TEXT NULL,
     building_name     TEXT NULL,
-    street_name     TEXT NOT NULL,
-    city     TEXT NOT NULL,
-    postcode     TEXT NOT NULL,
-    lat        FLOAT NOT NULL,
-    lon        FLOAT NOT NULL,
+    street_name     TEXT NULL,
+    city     TEXT NULL,
+    postcode     TEXT NULL,
+    lat        FLOAT NULL,
+    lon        FLOAT NULL,
     dt          DATE NOT NULL DEFAULT CURRENT_DATE,
     dtts        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
 ALTER TABLE customer_master
-  ADD COLUMN consented_rest_refs TEXT[] NOT NULL DEFAULT '{}';
+  ALTER COLUMN cust_name DROP NOT NULL,
+  ALTER COLUMN cust_email DROP NOT NULL,
+  ALTER COLUMN house_number DROP NOT NULL,
+  ALTER COLUMN building_name DROP NOT NULL,
+  ALTER COLUMN street_name DROP NOT NULL,
+  ALTER COLUMN city DROP NOT NULL,
+  ALTER COLUMN postcode DROP NOT NULL,
+  ALTER COLUMN lat DROP NOT NULL,
+  ALTER COLUMN lon DROP NOT NULL;
 
--- Test Values
+ALTER TABLE customer_master
+  DROP COLUMN IF EXISTS consented_rest_refs;
+
+-- Customer restaurant mapping
+CREATE TABLE cust_rest_map (
+    cust_id      VARCHAR(12)              NOT NULL REFERENCES customer_master(cust_id),
+    rest_ref     VARCHAR(4)               NOT NULL REFERENCES restaurant_master(rest_ref),
+    has_consent  BOOLEAN                  NOT NULL DEFAULT FALSE,
+    consent_dtts TIMESTAMP WITH TIME ZONE NULL,
+    dtts         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    PRIMARY KEY (cust_id, rest_ref)
+);
+
+
+SELECT
+    column_name,
+    data_type,
+    is_nullable,
+    column_default
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'customer_master'
+ORDER BY ordinal_position;

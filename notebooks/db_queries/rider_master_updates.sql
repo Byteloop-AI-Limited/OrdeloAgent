@@ -5,7 +5,7 @@ select * from rider_registrations;
 select * from ordelo_config where config_key like '%_APP_URL';
 select admins,* from restaurant_master where rest_ref='ELAS';
 select * from rider_master order by is_in_shift desc, shift_response_dtts desc, status asc;
-
+select * from cust_rest_map;
 -- Run before 11 am
 update rider_master set 
 is_in_shift=false
@@ -22,7 +22,7 @@ update rider_master set town ='Salisbury' where town='dummy';
 
 -- Test setup
 update rider_master set town ='dummy' where town='Salisbury';
-update rider_master set town='Salisbury', is_in_shift=true where rider_name in ('Lohith', 'Rahul', 'Bloop');
+update rider_master set town='Salisbury', is_in_shift=true where rider_name in ('Lohith');
 
 -- delete from rider_master where rider_name='Muhibur';
 select phone as rider_id,  from rider_registrations;

@@ -6,7 +6,7 @@ Order hook endpoints for Elai Agent
   . Delegates pricing lookup to watomation.services.order_service helpers
   . Creates new orders with order items and initiates payment capture
   . Returns payment URLs for customer checkout
-  . Captures customer addresses and upserts into customer_master
+  . Captures customer addresses and upserts into customer_master and cust_rest_map
   . Proxies thread lookup requests to restaurant systems
   . Triggers restaurant webhooks for stale thread termination
 Functions/Classes:
@@ -15,7 +15,7 @@ Functions/Classes:
   . get_min_order_value - Returns minimum order value using shared service helper
   . get_min_order_value_by_postcode - Resolves postcodes to coordinates before lookup
   . create_order - Creates order with items and captures payment
-  . capture_address - Captures customer address and upserts into customer_master
+  . capture_address - Captures customer address and upserts into customer_master and cust_rest_map
   . get_active_thread - Proxies restaurant active thread retrieval
   . terminate_stale_active_threads - Triggers restaurant webhook for stale thread cleanup
 """
@@ -29,6 +29,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from config import client_ordelo, get_restaurant_webhook_url_async, logger
+from ordelo_datamodels.cust_rest_map_pymodel import CustRestMap
 from ordelo_datamodels.customer_master_pymodel import CustomerMaster
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from utils_common.maps_service.address_resolver import address_resolver
@@ -364,6 +365,11 @@ async def capture_address(request: CaptureAddressRequest):
         client_ordelo.table("customer_master")
         .upsert(_customer_master_row.model_dump())
         .execute()
+    )
+    CustRestMap.upsert(
+        cust_id=request.recipient,
+        rest_ref=rest_ref,
+        has_consent=False,
     )
 
     logger.info(f"Customer address captured for {request.recipient}")

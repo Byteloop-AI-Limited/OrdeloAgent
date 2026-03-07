@@ -312,7 +312,14 @@ if __name__ == "__main__":
     main()
 
 """
+# Check only (no changes applied)
 python notebooks/prod_deployment_checker.py --mode test
 python notebooks/prod_deployment_checker.py --mode prod
 
+# Apply updates
+python notebooks/prod_deployment_checker.py --mode test --apply
+python notebooks/prod_deployment_checker.py --mode prod --apply
+
+# Skip WABA webhook check
+python notebooks/prod_deployment_checker.py --mode prod --skip-waba
 """
