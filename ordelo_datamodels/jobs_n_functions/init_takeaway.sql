@@ -71,8 +71,8 @@ BEGIN
     FROM customer_master cm
     WHERE cm.cust_id = p_cust_id;
 
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'Customer details not found for cust_id: %', p_cust_id;
+    IF NOT FOUND OR v_customer_name IS NULL THEN
+        v_customer_name := p_cust_id;
     END IF;
 
     SELECT (config_value)::INTEGER
