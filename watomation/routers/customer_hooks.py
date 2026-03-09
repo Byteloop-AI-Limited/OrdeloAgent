@@ -27,6 +27,8 @@ from config.params import get_restaurant_webhook_url_async, _resolve_rest_ref
 from ordelo_datamodels.customer_master_pymodel import (
     CustomerMaster,
     CreateOrUpdateCustomerRequest,
+    UpdateAddressRequest,
+    UpdateCustRestMapRequest,
 )
 from ordelo_datamodels.cust_rest_map_pymodel import CustRestMap
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
@@ -34,32 +36,6 @@ from loguru import logger
 
 # %%
 router = APIRouter(tags=["customer-hooks"])
-
-
-# %% Request models
-
-
-class UpdateAddressRequest(BaseModel):
-    """Request model for updating a customer's delivery address."""
-
-    cust_id: str
-    rest_ref: str
-    house_number: Optional[str] = None
-    building_name: Optional[str] = None
-    street_name: Optional[str] = None
-    city: str
-    postcode: str
-    lat: float
-    lon: float
-
-
-class UpdateCustRestMapRequest(BaseModel):
-    """Request model for upserting a cust_rest_map consent record."""
-
-    cust_id: str
-    rest_ref: str
-    has_consent: bool
-    consent_dtts: Optional[datetime.datetime] = None
 
 
 # %% Endpoints
@@ -82,27 +58,32 @@ async def create_or_update_customer(request: CreateOrUpdateCustomerRequest):
         existed = False
 
     payload = request.model_dump(exclude_unset=True)
-    rest_ref = _resolve_rest_ref(request.rest_ref)
-    city = RestaurantMaster.from_rest_ref(rest_ref).city
+    cust_master_update_payload = payload.copy()
+    cust_master_update_payload["cust_id"] = request.cust_id
 
-    payload["cust_id"] = request.cust_id
-    payload["city"] = city
-
-    # upsert customer_master
-    CustomerMaster.upsert(**payload)
-    # upsert cust_rest_map
     if not existed:
+        # For new customers, we need to set the city
+        rest_ref = _resolve_rest_ref(request.rest_ref)
+        city = RestaurantMaster.from_rest_ref(rest_ref).city
+        payload["city"] = city
+        # Also create a cust_rest_map record with has_consent=False
+        _cust_master = CustomerMaster.upsert(**cust_master_update_payload)
+
         CustRestMap.upsert(
             cust_id=request.cust_id,
             rest_ref=rest_ref,
             has_consent=False,
         )
 
+    else:
+        # upsert customer_master
+        _cust_master = CustomerMaster.upsert(**cust_master_update_payload)
+
     logger.info(
         f"Customer {'updated' if existed else 'created'} via upsert: {request.cust_id}"
     )
 
-    return {"success": True, "cust_id": request.cust_id, "existed": existed}
+    return _cust_master
 
 
 @router.post("/update-address", summary="Update customer delivery address")
@@ -199,7 +180,6 @@ curl -X POST http://localhost:3100/customer-hooks/create-or-update-customer \
   -d '{
     "cust_id": "447448440754",
     "cust_name": "Lohith Holmes",
-    "rest_ref": "chks",
     "cust_email": "sherlock@example.com",
     "house_number":"ola",
     "building_name": null,

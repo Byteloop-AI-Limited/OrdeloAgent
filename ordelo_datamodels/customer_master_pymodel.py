@@ -14,6 +14,7 @@ Functions/Classes:
 # %%
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
+import datetime
 
 
 class CustomerMaster(BaseModel):
@@ -127,6 +128,35 @@ class CreateOrUpdateCustomerRequest(BaseModel):
     postcode: Optional[str] = None
     lat: Optional[float] = None
     lon: Optional[float] = None
+
+
+# %%
+
+
+class UpdateAddressRequest(BaseModel):
+    """Request model for updating a customer's delivery address."""
+
+    cust_id: str
+    rest_ref: str
+    house_number: Optional[str] = None
+    building_name: Optional[str] = None
+    street_name: Optional[str] = None
+    city: str
+    postcode: str
+    lat: float
+    lon: float
+
+
+# %%
+
+
+class UpdateCustRestMapRequest(BaseModel):
+    """Request model for upserting a cust_rest_map consent record."""
+
+    cust_id: str
+    rest_ref: str
+    has_consent: bool
+    consent_dtts: Optional[datetime.datetime] = None
 
 
 # %%
