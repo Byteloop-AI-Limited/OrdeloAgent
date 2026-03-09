@@ -4,10 +4,12 @@ Pydantic model for cust_rest_map table.
   . Composite primary key: (cust_id, rest_ref)
   . Provides from_cust_id_and_rest_ref to fetch a record
   . Provides upsert to insert or update a record
+  . Provides ask_for_marketing_consent to determine whether consent should be requested again
 Functions/Classes:
   . CustRestMap
       . from_cust_id_and_rest_ref
       . upsert
+      . ask_for_marketing_consent
 """
 
 # %%
@@ -90,3 +92,26 @@ class CustRestMap(BaseModel):
                 f"Upsert failed for cust_id={cust_id}, rest_ref={rest_ref}"
             )
         return cls(**data[0])
+
+    def ask_for_marketing_consent(self, number_of_days: int = 30) -> bool:
+        """Return whether marketing consent should be requested again."""
+        if number_of_days < 0:
+            raise ValueError("number_of_days must be greater than or equal to 0")
+
+        if self.has_consent:
+            return False
+
+        if self.consent_dtts is None:
+            return True
+
+        now = (
+            datetime.datetime.now(self.consent_dtts.tzinfo)
+            if self.consent_dtts.tzinfo
+            else datetime.datetime.now()
+        )
+        return now - self.consent_dtts >= datetime.timedelta(days=number_of_days)
+
+
+# %%
+# ask_for_marketing_consent
+# %%
