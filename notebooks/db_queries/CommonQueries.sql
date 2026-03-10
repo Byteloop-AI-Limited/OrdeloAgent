@@ -1,5 +1,7 @@
 select * from thread order by dtts desc;
-update thread set is_active=false where recipient='447767909037';
+select * from thread where is_active order by dtts desc;
+
+update thread set is_active=false where recipient='447935305651';
 
 select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
 
@@ -19,6 +21,7 @@ select * from cust_rest_map where cust_id='447448440754';
 delete from cust_rest_map where cust_id='447448440754';
 delete from customer_master where cust_id='447448440754';
 
+update cust_rest_map set has_consent=false, consent_dtts='2026-01-09 23:42:32.030367+00' where cust_id='447448440754';
 select * from customer_master order by dtts desc limit 10;
 select *
       FROM pgmq.read('owntracks', 5, 1000);

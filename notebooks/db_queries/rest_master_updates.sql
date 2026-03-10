@@ -1,5 +1,6 @@
 select admins, * from restaurant_master where rest_ref='ELAS';
 select admins, * from restaurant_master where rest_ref='CHKS';
+select admins, * from restaurant_master where rest_ref='SFCS';
 
 select admins,* from restaurant_master where rest_ref='ELAS';
 
@@ -24,7 +25,7 @@ set admins=Array['447919202938'],
     restaurant_end_time=21.30
 where rest_ref in ('ELAS', 'CHKS');
 
-select * from restaurant_master ihere rest_ref='ELAS';
+select * from restaurant_master where rest_ref='ELAS';
 restaurant_master
 update restaurant_master
 set admins=Array['447448440754','447446933210', '447919202938'] where rest_ref='ELAS';
@@ -79,6 +80,45 @@ VALUES (
   -1.79717268758398,
   '2025-10-17',
   '2025-10-17 20:45:29.547521+00',
+  10,
+  11,
+  21.3
+);
+
+INSERT INTO restaurant_master (
+  admins,
+  rest_ref,
+  rest_id,
+  rest_name,
+  rest_email,
+  house_number,
+  building_name,
+  street_name,
+  city,
+  postcode,
+  lat,
+  lon,
+  dt,
+  dtts,
+  rest_stale_active_threads_minutes,
+  restaurant_start_time,
+  restaurant_end_time
+)
+VALUES (
+  ARRAY['447919202938'],
+  'SFCS',
+  '447448441234',
+  'Southern Fried Chicken',
+  'info@sfc-salisbury.co.uk',
+  '66',
+  NULL,
+  'Castle Street',
+  'Salisbury',
+  'SP1 3TS',
+  51.07176126077215, 
+  -1.79609677126815,
+  '2026-03-09',
+  '2026-03-09 20:40:29.547521+00',
   10,
   11,
   21.3
