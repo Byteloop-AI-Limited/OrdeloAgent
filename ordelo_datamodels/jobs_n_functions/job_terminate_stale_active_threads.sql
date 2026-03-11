@@ -20,7 +20,7 @@ BEGIN
       ordelo_app_url := 'https://rider-agent.ordelo.app';
     END IF;
     
-    webhook_url := ordelo_app_url || '/order-hooks/terminate-stale-active-threads';
+    webhook_url := ordelo_app_url || '/thread-hooks/terminate-stale-active-threads';
 
     response := (
         SELECT content
