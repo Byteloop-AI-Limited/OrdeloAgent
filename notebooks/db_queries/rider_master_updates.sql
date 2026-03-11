@@ -3,7 +3,10 @@
 select * from rider_registrations;
 
 select * from ordelo_config where config_key like '%_APP_URL';
+
 select admins,* from restaurant_master where rest_ref='ELAS';
+select admins,* from restaurant_master where rest_ref='SFCS';
+
 select * from rider_master order by is_in_shift desc, shift_response_dtts desc, status asc;
 
 select * from cust_rest_map;
