@@ -25,6 +25,15 @@ set admins=Array['447919202938'],
     restaurant_end_time=21.30
 where rest_ref in ('ELAS', 'CHKS');
 
+-- Test Setup - SFCS
+update restaurant_master 
+set admins=Array['447919202938'],
+    rest_stale_active_threads_minutes=10,
+    restaurant_start_time=11,
+    restaurant_end_time=21.30
+where rest_ref = 'SFCS';
+
+
 select * from restaurant_master where rest_ref='ELAS';
 restaurant_master
 update restaurant_master
