@@ -51,6 +51,7 @@ class RunSystemMessageRequest(BaseModel):
     state_update_dict: Optional[dict] = None
 
 
+# Check if this port endpoint is still required.
 @router.post(
     "/terminate-stale-active-threads",
     summary="Close inactive threads. Called by job_close_thread() PostgreSQL function via Supabase cron",

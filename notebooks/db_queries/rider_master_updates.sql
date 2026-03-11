@@ -18,6 +18,8 @@ is_in_shift=false
 update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='bicycle' where rider_name='Lohith';
 update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='bicycle' where rider_name='Rahul';
 
+SELECT public.enquire_shift_availability();
+select enquire_admin_availability(ARRAY['ELAS']);
 -- Prod setup
 update rider_master set town ='Salisbury' where town='dummy';
 

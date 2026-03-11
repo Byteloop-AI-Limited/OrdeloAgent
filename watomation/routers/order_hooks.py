@@ -29,6 +29,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from config import client_ordelo, get_restaurant_webhook_url_async, logger
+from config.params import ONBOARDED_REST_REFS
 from ordelo_datamodels.cust_rest_map_pymodel import CustRestMap
 from ordelo_datamodels.customer_master_pymodel import CustomerMaster
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
@@ -402,16 +403,12 @@ async def terminate_stale_active_threads():
     Returns:
         dict with success status and notification result
     """
-    rest_ref = "ELAS"
-    webhook_url = await get_restaurant_webhook_url_async(
-        rest_ref, "terminate-stale-active-threads"
-    )
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(url=webhook_url)
-        # logger.info(
-        #     f"Restaurant notified for stale thread termination: {response.text}"
-        # )
+    for rest_ref in ONBOARDED_REST_REFS:
+        webhook_url = await get_restaurant_webhook_url_async(
+            rest_ref, "terminate-stale-active-threads"
+        )
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url=webhook_url)
 
     return {"success": True, "status_code": response.status_code}
 
