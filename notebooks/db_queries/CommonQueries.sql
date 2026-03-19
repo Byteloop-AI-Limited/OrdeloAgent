@@ -3,6 +3,8 @@ select * from thread where is_active order by dtts desc;
 select * from delivery_dispatch;
 update thread set is_active=false where recipient='447935305651';
 
+select * from takeaway_summary where order_number='ELAS-KOYC-23';
+
 select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
 
 select * from delivery_dispatch where status='completed' and rider_id!='447448440754' order by dtts desc ;

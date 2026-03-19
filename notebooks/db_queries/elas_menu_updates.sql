@@ -1,7 +1,7 @@
 -- table backedup in elas_menu_before_march
 
 
-select * from elas_menu;
+select * from elas_menu where lower(title) like '%curry%';
 
 
 
@@ -82,8 +82,21 @@ UPDATE elas_menu SET title = 'Chicken Biryani on Bone', price = '13.95' WHERE ti
 -- UPDATE elas_menu set price = '7.95' where title = 'Plain Uttappam';
 -- UPDATE elas_menu set price = '9.95' where title = 'Vegetable Uttappam';
 -- UPDATE elas_menu set price = '9.50' where title = 'Onion Uttappam';
-select * from elas_menu;
+select title, price from elas_menu where category='Tandoori Main Course' order by title;
+select id, category, title, price from elas_menu where lower(title) like '%malabar%' order by category,title;
+select category, title, price from elas_menu  order by category,title;
+-- delete from elas_menu where title='Kozhi Varutharacha Curry';
+update elas_menu set price='9.95' where title='Chilli Chicken';
+update elas_menu set price='14.95' where title='Chicken Tikka';
+update elas_menu set price='13.50' where title='Beef Ularthiyathu';
+update elas_menu set price='9.95' where title='Chilli Chicken';
+update elas_menu set price='4.50' where title='Coconut Rice';
+update elas_menu set price='4.75' where title='Mushroom Rice';
+update elas_menu set price='4.50' where title='Zafran Pilav Rice';
+update elas_menu set price='8.95' where title='Plain Uttappam';
 
+update elas_menu set price=13.95 where id='91';
+update elas_menu set category='Tandoori Main Course' where title='Chicken Tikka';
 
 UPDATE elas_menu SET dietary_requirements = 'Gluten, Dairy' WHERE title IN ('Naan', 'Butter Naan', 'Cheese Naan', 'Roti', 'Fig and Coriander Naan', 'Keema Naan', 'Chilli Coriander Naan', 'Garlic Naan');
 
@@ -97,9 +110,14 @@ UPDATE elas_menu SET dietary_requirements = 'Dairy' WHERE title = 'Nilgiri Green
 UPDATE elas_menu SET dietary_requirements = 'Dairy' WHERE title = 'Nilgiri Green Curry (Lamb)';
 
 select max(id) from elas_menu;
-select * from elas_menu where title='Soya Manchurian';
-elas_menu
+select * from elas_menu where title='Malabar Varutharacha Curry (Lamb)';
+-- elas_menu
+
 -- New Items
+INSERT INTO elas_menu (id, created_at, category, title, description, price, dietary_requirements)
+VALUES
+(106, now(), 'Main Course', 'Malabar Varutharacha Curry (Lamb)', 'Cooked in a rich flavour of raw spices containing coconut, black pepper, curry leaves and red chillies', 14.95, NULL);
+
 -- INSERT INTO elas_menu (id, created_at, category, title, description, price, dietary_requirements)
 -- VALUES
 -- -- THUDAKAM
