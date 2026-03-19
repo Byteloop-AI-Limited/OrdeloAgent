@@ -1,23 +1,22 @@
 """
-Order hook endpoints for Elai Agent
-  . Provides FastAPI router for order-related webhook operations
-  . Supports retrieval of minimum order value configuration
-  . Accepts restaurant coordinates directly, via postcode resolution, or rest_ref lookup
-  . Delegates pricing lookup to watomation.services.order_service helpers
-  . Creates new orders with order items and initiates payment capture
-  . Returns payment URLs for customer checkout
-  . Captures customer addresses and upserts into customer_master
-  . Proxies thread lookup requests to restaurant systems
-  . Triggers restaurant webhooks for stale thread termination
+Order hook endpoints for OrdeloAgent.
+
+Provides FastAPI router for order-related webhook operations including:
+  . Retrieval of minimum order value configuration with coordinate or postcode resolution
+  . Creation of new orders with order items and payment capture initiation
+  . Customer address capture and upsert into customer_master and cust_rest_map
+  . Postcode validation via address resolver
+  . Active thread retrieval from restaurant systems
+
 Functions/Classes:
   . CreateOrderRequest - Pydantic model for order creation requests
   . CaptureAddressRequest - Pydantic model for address capture requests
-  . get_min_order_value - Returns minimum order value using shared service helper
-  . get_min_order_value_by_postcode - Resolves postcodes to coordinates before lookup
-  . create_order - Creates order with items and captures payment
-  . capture_address - Captures customer address and upserts into customer_master
-  . get_active_thread - Proxies restaurant active thread retrieval
-  . terminate_stale_active_threads - Triggers restaurant webhook for stale thread cleanup
+  . get_min_order_value - Returns minimum order value given customer and restaurant coordinates
+  . get_min_order_value_by_postcode - Resolves postcodes to coordinates then retrieves minimum order value
+  . create_order - Creates order with items and initiates payment capture
+  . validate_postcode - Validates UK postcodes and returns resolved address
+  . capture_address - Captures customer address and upserts into customer_master and cust_rest_map
+  . get_active_thread - Proxies active thread retrieval request to restaurant system
 """
 
 # %%
@@ -29,6 +28,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from config import client_ordelo, get_restaurant_webhook_url_async, logger
+from ordelo_datamodels.cust_rest_map_pymodel import CustRestMap
 from ordelo_datamodels.customer_master_pymodel import CustomerMaster
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from utils_common.maps_service.address_resolver import address_resolver
@@ -365,6 +365,11 @@ async def capture_address(request: CaptureAddressRequest):
         .upsert(_customer_master_row.model_dump())
         .execute()
     )
+    CustRestMap.upsert(
+        cust_id=request.recipient,
+        rest_ref=rest_ref,
+        has_consent=False,
+    )
 
     logger.info(f"Customer address captured for {request.recipient}")
 
@@ -380,34 +385,6 @@ async def capture_address(request: CaptureAddressRequest):
         logger.info("Status code:", response.status_code)
 
     return {"success": True}
-
-
-@router.post(
-    "/terminate-stale-active-threads",
-    summary="Trigger restaurant webhook to terminate stale active threads",
-    description="""
-    Triggered by a database job to notify the restaurant system to clean up stale threads.
-    Issues a POST request to the restaurant's terminate-stale-active-threads webhook.
-    """,
-)
-async def terminate_stale_active_threads():
-    """Trigger restaurant webhook for stale thread termination.
-
-    Returns:
-        dict with success status and notification result
-    """
-    rest_ref = "ELAS"
-    webhook_url = await get_restaurant_webhook_url_async(
-        rest_ref, "terminate-stale-active-threads"
-    )
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(url=webhook_url)
-        # logger.info(
-        #     f"Restaurant notified for stale thread termination: {response.text}"
-        # )
-
-    return {"success": True, "status_code": response.status_code}
 
 
 @router.get(

@@ -1,14 +1,16 @@
 """
 Thread webhook handler module for the Ordelo rider agent.
     . Processes thread lifecycle webhook events from database triggers
-    . Handles thread closure for inactive conversations (background task termination)
+    . Handles thread closure for inactive conversations with background webhook fan-out
     . Runs system message injections for a thread
     . Sends goodbye messages to users via WhatsApp
     . Implements FastAPI router endpoints for thread management
     . Triggered by Supabase cron job running job_close_thread() function
+    . Queues restaurant webhook notifications using FastAPI background tasks
     . Provides debug endpoints for state inspection by recipient or thread_id
   Functions/Classes:
     . RunSystemMessageRequest - Input model for system message execution
+    . notify_restaurant_thread_termination - Background task for stale thread webhook delivery
     . terminate_stale_active_threads - Processes thread closure requests from scheduled job
     . run_system_message - Executes rider graph with a system message
     . debug_state_values_path - Debug endpoint to view conversation state values
@@ -19,10 +21,12 @@ Thread webhook handler module for the Ordelo rider agent.
 
 # %%
 from typing import Optional
+import httpx
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from config.params import ONBOARDED_REST_REFS
+from config import get_restaurant_webhook_url_async, logger
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from loguru import logger
 from pydantic import BaseModel
 
 from config import client_ordelo, pg_settings
@@ -32,7 +36,7 @@ from ordelo.agents.agent_runner import (
     debug_thread,
     run_rider_agent_w_custom_msg,
 )
-from ordelo.agents.rider_agent import ContextSchema, builder
+from ordelo.agents.rider_agent import builder
 from utils_common.lg_utils import (
     get_state_values,
     shorten_state_messages,
@@ -51,13 +55,30 @@ class RunSystemMessageRequest(BaseModel):
     state_update_dict: Optional[dict] = None
 
 
+async def notify_restaurant_thread_termination(rest_ref: str, webhook_url: str):
+    """Deliver a stale-thread termination webhook notification in the background."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url=webhook_url)
+            response.raise_for_status()
+    except httpx.HTTPError as exc:
+        logger.error(
+            f"Failed stale thread termination notification for rest_ref={rest_ref}: {exc}"
+        )
+    except Exception as exc:
+        logger.error(
+            f"Unexpected stale thread termination error for rest_ref={rest_ref}: {exc}"
+        )
+
+
+# Check if this port endpoint is still required.
 @router.post(
     "/terminate-stale-active-threads",
     summary="Close inactive threads. Called by job_close_thread() PostgreSQL function via Supabase cron",
     description="""
     Processes thread closure requests from the scheduled job_close_thread() function.
 
-    Triggered by: Ordelo endpoint /order-hooks/terminate-stale-active-threads, triggered by Supabase cron job every 5 minutes
+    Triggered by: Ordelo endpoint /thread-hooks/terminate-stale-active-threads, triggered by Supabase cron job every 5 minutes
     Source Function: job_close_thread() in ordelo_datamodels/jobs_n_functions/job_close_thread.sql
 
     Workflow:
@@ -79,41 +100,23 @@ class RunSystemMessageRequest(BaseModel):
     ]
     """,
 )
-async def terminate_stale_active_threads(
-    request: Request, background_tasks: BackgroundTasks
-):
-    # debug_stack = await debug_state_values(recipient)
+async def terminate_stale_active_threads(background_tasks: BackgroundTasks):
+    """Trigger restaurant webhook for stale thread termination.
 
-    pool = await pg_settings.get_pool()
-    from utils_common.thread_management import ThreadHandler
+    Returns:
+        dict with success status and queued notification count
+    """
+    queued_notifications = 0
+    for rest_ref in ONBOARDED_REST_REFS:
+        webhook_url = await get_restaurant_webhook_url_async(
+            rest_ref, "terminate-stale-active-threads"
+        )
+        background_tasks.add_task(
+            notify_restaurant_thread_termination, rest_ref, webhook_url
+        )
+        queued_notifications += 1
 
-    thread_handler = ThreadHandler(pool)
-
-    # Fetch stale active threads
-    _stale_active_threads = await thread_handler.get_stale_active_threads(5)
-    for thread in _stale_active_threads:
-        config = {
-            "configurable": {
-                "thread_id": thread["thread_id"],
-                "recipient": thread["recipient"],
-            }
-        }
-        state_values = await debug_state_values(config=config)
-
-        # extract retain_thread from state_values
-        retain_thread = state_values.get("retain_thread", False)
-        thread["retain_thread"] = retain_thread  # update for logging
-        if retain_thread:
-            logger.info(f"Thread {thread['thread_id']} will be retained")
-        else:
-            background_tasks.add_task(
-                run_rider_agent_w_custom_msg,
-                recipient=thread["recipient"],
-                config=config,
-                system_msg="Call tool `terminate_conversation` with reason - Ending the conversation due to inactivity.",
-            )
-
-    return _stale_active_threads
+    return {"success": True, "queued_notifications": queued_notifications}
 
 
 @router.post(

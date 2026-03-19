@@ -2,6 +2,8 @@ select * from ordelo_config where config_key like '%_APP_URL';
 select * from ordelo_config where config_key like 'RESTAURANT_MENU%';
 select * from ordelo_config where config_key like '%TIMEOUT%';
 
+select * from ordelo_config where config_key like '%ELAS%';
+select * from ordelo_config where config_key like '%SFCS%';
 
 update ordelo_config set config_value = 'https://elas-agg-test.ordelo.app' where config_key = 'ELAS_APP_URL';
 update ordelo_config set config_value = 'https://rider-agent-test.ordelo.app' where config_key = 'ORDELO_APP_URL';
@@ -95,6 +97,8 @@ VALUES ('ELAS_APP_URL', 'https://elaib-agent.ordelo.app', 'URL for Salisbury app
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
+
+
 
 INSERT INTO ordelo_config (config_key, config_value, description)
 VALUES ('ORDELO_APP_URL', 'https://agent.ordelo.app', 'URL for ordelo app') ON CONFLICT (config_key) DO
@@ -216,3 +220,29 @@ WHERE config_key = 'ORDELO_APP_URL';
 
 
 select * from restaurant_
+
+
+-- Onboarding new restaurant
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('SFCS_APP_URL', 'https://elas-agg-test.ordelo.app', 'URL for Southern Fried Chicken app') ON CONFLICT (config_key) DO
+UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description;
+
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('SFCS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME', '.5', 'Timeout in minutes for delivery_summary status transition to timedout') ON CONFLICT (config_key) DO
+UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description;
+
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('SFCS_RESTAURANT_CONFIRMATION_TIMEOUT_TBD', '0.25', 'Default minutes to wait for restaurant confirmation before defaulting to max prep time') ON CONFLICT (config_key) DO
+UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description;
+
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('SFCS_DELIVERY_TIMEOUT_TIME', '5', 'Timeout in minutes for delivery_summary status transition to timedout') ON CONFLICT (config_key) DO
+UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description;

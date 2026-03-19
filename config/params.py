@@ -5,10 +5,14 @@ Restaurant webhook configuration utilities and lookup helpers.
   . get_restaurant_webhook_url_async fetches base URL from DB (now cached)
   . get_restaurant_admins fetches admin list from restaurant_master
   . _REST_REF_ALIAS_MAP allows multiple rest_refs to share a canonical rest_ref for DB lookups
+  . ONBOARDED_REST_REFS tracks canonical onboarded restaurant references
+  . is_onboarded_rest_ref checks onboarding status after alias resolution
 Functions/Classes
   . WEBHOOK_PATHS - Static mapping of webhook type to path template with {rest_ref}
   . _REST_REF_ALIAS_MAP - Alias map: alias rest_ref -> canonical rest_ref for DB lookups
+  . ONBOARDED_REST_REFS - Canonical onboarded restaurant references
   . _resolve_rest_ref - Resolves a rest_ref to its canonical form via _REST_REF_ALIAS_MAP
+  . is_onboarded_rest_ref - Checks whether a rest_ref is onboarded via canonical resolution
   . get_restaurant_base_url_async - Async DB lookup for restaurant base URL (cached, alias-aware)
   . get_restaurant_webhook_url_async - Constructs full webhook URL dynamically, substituting rest_ref
   . get_restaurant_admins - Fetches restaurant admin phone numbers (alias-aware)
@@ -28,11 +32,21 @@ _REST_REF_ALIAS_MAP: dict[str, str] = {
     "CHKS": "ELAS",
 }
 
+ONBOARDED_REST_REFS: set[str] = {
+    "ELAS",
+    "SFCS",
+}
+
 
 def _resolve_rest_ref(rest_ref: str) -> str:
     """Resolve rest_ref alias to canonical rest_ref for DB lookups."""
     upper = rest_ref.upper()
     return _REST_REF_ALIAS_MAP.get(upper, upper)
+
+
+def is_onboarded_rest_ref(rest_ref: str) -> bool:
+    """Return whether a restaurant reference is onboarded after alias resolution."""
+    return _resolve_rest_ref(rest_ref) in ONBOARDED_REST_REFS
 
 
 # %% Webhook path mapping - type to path template with {rest_ref} placeholder
