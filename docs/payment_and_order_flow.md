@@ -307,11 +307,11 @@ Proxies the request to the restaurant's `get-active-thread` webhook. Returns the
 
 ### Stale Thread Termination
 
-**Endpoint:** `POST /order-hooks/terminate-stale-active-threads`
+**Endpoint:** `POST /thread-hooks/terminate-stale-active-threads`
 
-Triggered by a database job to notify the restaurant system to clean up stale threads. POSTs to the restaurant's `terminate-stale-active-threads` webhook. Currently hardcoded to `rest_ref = "ELAS"`.
+Triggered by a database job to notify the restaurant system to clean up stale threads. POSTs to the restaurant's `terminate-stale-active-threads` webhook using background tasks to fan out notifications to all onboarded restaurants.
 
-**Source:** `watomation/routers/order_hooks.py:385-410` (`terminate_stale_active_threads`)
+**Source:** `watomation/routers/thread_hooks.py:78-122` (`terminate_stale_active_threads`)
 
 ### Payment Complete Test
 
@@ -378,7 +378,6 @@ requires_payment (initial, set at order creation)
 | `/order-hooks/postcode-validator/{postcode}` | GET | Validate UK postcode | `order_hooks.py:304` |
 | `/order-hooks/capture-address` | POST | Capture customer address and notify restaurant | `order_hooks.py:338` |
 | `/order-hooks/get-active-thread/{rest_ref}/{recipient}` | GET | Proxy active thread lookup to restaurant | `order_hooks.py:413` |
-| `/order-hooks/terminate-stale-active-threads` | POST | Trigger stale thread cleanup on restaurant | `order_hooks.py:385` |
 
 ### Payment Hooks (`/payment-hooks/`)
 
@@ -388,6 +387,13 @@ requires_payment (initial, set at order creation)
 | `/payment-hooks/payment-complete-test/{order_number}` | POST | Manual/test | Test init without Stripe | `payment_hooks.py:141` |
 | `/payment-hooks/pay-at-restaurant/{rest_ref}` | POST | Restaurant frontend | Pay-at-restaurant takeaway orders | `payment_hooks.py:171` |
 
+### Thread Hooks (`/thread-hooks/`)
+
+| Endpoint | Method | Trigger Source | Purpose | Source |
+|----------|--------|----------------|---------|--------|
+| `/thread-hooks/terminate-stale-active-threads` | POST | `job_terminate_stale_active_threads()` | Fan out stale thread cleanup to all restaurants | `thread_hooks.py:78` |
+| `/thread-hooks/run-system-message` | POST | Operational support | Inject system message into active thread | `thread_hooks.py:125` |
+
 ### External Webhooks Called
 
 | Webhook Path | Called By | Purpose |
@@ -395,7 +401,6 @@ requires_payment (initial, set at order creation)
 | `order-payment-complete/{recipient}/{thread_id}` | `handle_payment_complete()` | Notify restaurant of payment |
 | `order-address-update/{recipient}` | `capture_address()` | Notify restaurant of customer address |
 | `get-active-thread/{rest_ref}/{recipient}` | `get_active_thread()` | Proxy thread lookup |
-| `terminate-stale-active-threads` | `terminate_stale_active_threads()` | Trigger stale thread cleanup |
 
 ---
 

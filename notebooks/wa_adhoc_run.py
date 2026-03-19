@@ -32,6 +32,22 @@ from utils_common.waba_utils.wa_senders import CallbackButtonData
 # recipient = 447909510536
 recipient = 447448440754
 
+
+# %%
+from pywa.types import Contact
+
+await wa.send_contact(
+    to=recipient,
+    contact=Contact(
+        name=Contact.Name(formatted_name="David Lev", first_name="David"),
+        phones=[
+            Contact.Phone(phone="447834128803", wa_id="447834128803", type="MOBILE")
+        ],
+    ),
+)
+
+# %%
+# await wa.request_location(to=recipient, text="Please share your location")
 # %%
 await wa.send_message(
     to=recipient,

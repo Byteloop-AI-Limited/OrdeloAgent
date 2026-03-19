@@ -1,7 +1,35 @@
 """Deployment checklist + mode switcher for Ordelo.
-
-This script checks the configured test/prod state and optionally applies updates
-using the Supabase client and WABA settings.
+. Dependencies based on imports: argparse, config.client_ordelo, config.waba_setting
+. Checks restaurant_master, rider_master, ordelo_config, and WABA webhook readiness for test/prod
+. Applies environment-specific restaurant city updates for a selected rest_ref and rider town updates while preserving the existing checklist flow
+. Skips restaurant-specific apply/check/cache reset when rest_ref is ORDELO because it is a backend ref
+Functions/Classes
+  . _normalize_admins
+  . _as_float
+  . _float_equal
+  . _normalize_url
+  . _extract_waba_callback_url
+  . _normalize_rest_ref
+  . _should_handle_restaurant
+  . _print_step
+  . _get_single_row
+  . check_restaurant_master
+  . apply_restaurant_master
+  . check_rider_master
+  . apply_rider_master
+  . check_ordelo_app_url
+  . apply_ordelo_app_url
+  . check_waba_webhook
+  . apply_waba_webhook
+  . reset_restaurant_base_url_cache
+  . run_check
+  . run_apply
+  . parse_args
+  . main
+Key Functions:
+  . check_restaurant_master - Validates restaurant settings for the selected rest_ref, including the mode-specific city value
+  . _should_handle_restaurant - Identifies backend refs that should skip restaurant-specific handling
+  . run_apply - Applies the selected mode updates before running the readiness checklist
 """
 
 from __future__ import annotations
@@ -21,12 +49,14 @@ RESTAURANT_UPDATES: Dict[str, Dict[str, Any]] = {
             "447914844933",
             "447917912646",
         ],
+        "city": "Salisbury",
         "rest_stale_active_threads_minutes": 10,
         "restaurant_start_time": 12,
         "restaurant_end_time": 21.30,
     },
     "test": {
         "admins": ["447919202938"],
+        "city": "dummy",
         "rest_stale_active_threads_minutes": 10,
         "restaurant_start_time": 11,
         "restaurant_end_time": 21.30,
@@ -46,7 +76,7 @@ WABA_CALLBACK_URLS = {
 RIDER_TARGET_TOWN = "Salisbury"
 RIDER_DUMMY_TOWN = "dummy"
 RIDER_EXCLUDED_NAME = "Lohith"
-CACHE_RESET_REFS = ("elas", "ordelo")
+DEFAULT_REST_REF = "ELAS"
 
 
 def _normalize_admins(value: Any) -> List[str]:
@@ -94,6 +124,14 @@ def _extract_waba_callback_url(webhook_config: Any) -> Optional[str]:
     return None
 
 
+def _normalize_rest_ref(rest_ref: str) -> str:
+    return rest_ref.strip().upper()
+
+
+def _should_handle_restaurant(rest_ref: str) -> bool:
+    return _normalize_rest_ref(rest_ref) != "ORDELO"
+
+
 def _print_step(step_name: str, ok: bool, details: str) -> None:
     status = "OK" if ok else "MISMATCH"
     print(f"{step_name}: {status}")
@@ -106,18 +144,20 @@ def _get_single_row(table: str, columns: str, key: str, value: str) -> Dict[str,
     return (res.data or [{}])[0]
 
 
-def check_restaurant_master(mode: str) -> Tuple[bool, str]:
+def check_restaurant_master(mode: str, rest_ref: str) -> Tuple[bool, str]:
     expected = RESTAURANT_UPDATES[mode]
+    normalized_rest_ref = _normalize_rest_ref(rest_ref)
     row = _get_single_row(
         "restaurant_master",
-        "admins, rest_stale_active_threads_minutes, restaurant_start_time, restaurant_end_time",
+        "admins, city, rest_stale_active_threads_minutes, restaurant_start_time, restaurant_end_time",
         "rest_ref",
-        "ELAS",
+        normalized_rest_ref,
     )
 
     admins_ok = _normalize_admins(row.get("admins")) == _normalize_admins(
         expected["admins"]
     )
+    city_ok = row.get("city") == expected["city"]
     stale_ok = (
         row.get("rest_stale_active_threads_minutes")
         == expected["rest_stale_active_threads_minutes"]
@@ -129,47 +169,60 @@ def check_restaurant_master(mode: str) -> Tuple[bool, str]:
         row.get("restaurant_end_time"), expected["restaurant_end_time"]
     )
 
-    ok = all([admins_ok, stale_ok, start_ok, end_ok])
+    ok = all([admins_ok, city_ok, stale_ok, start_ok, end_ok])
     details = (
-        f"admins_ok={admins_ok}, stale_ok={stale_ok}, "
+        f"rest_ref={normalized_rest_ref}, admins_ok={admins_ok}, city_ok={city_ok}, stale_ok={stale_ok}, "
         f"start_ok={start_ok}, end_ok={end_ok}"
     )
     return ok, details
 
 
-def apply_restaurant_master(mode: str) -> None:
+def apply_restaurant_master(mode: str, rest_ref: str) -> None:
     payload = RESTAURANT_UPDATES[mode]
+    normalized_rest_ref = _normalize_rest_ref(rest_ref)
     client_ordelo.table("restaurant_master").update(payload).eq(
-        "rest_ref", "ELAS"
+        "rest_ref", normalized_rest_ref
     ).execute()
 
 
 def check_rider_master(mode: str) -> Tuple[bool, str]:
     dummy_rows = (
         client_ordelo.table("rider_master")
-        .select("rider_id")
+        .select("rider_id, rider_name")
         .eq("town", RIDER_DUMMY_TOWN)
         .execute()
         .data
         or []
     )
-    salisbury_rows = (
+    excluded_dummy_rows = [
+        row for row in dummy_rows if row.get("rider_name") == RIDER_EXCLUDED_NAME
+    ]
+    other_dummy_rows = [
+        row for row in dummy_rows if row.get("rider_name") != RIDER_EXCLUDED_NAME
+    ]
+    excluded_salisbury_rows = (
         client_ordelo.table("rider_master")
         .select("rider_id")
         .eq("town", RIDER_TARGET_TOWN)
-        .neq("rider_name", RIDER_EXCLUDED_NAME)
+        .eq("rider_name", RIDER_EXCLUDED_NAME)
         .execute()
         .data
         or []
     )
 
     if mode == "test":
-        ok = len(salisbury_rows) == 0
+        ok = (
+            len(excluded_dummy_rows) > 0
+            and len(other_dummy_rows) == 0
+            and len(excluded_salisbury_rows) == 0
+        )
     else:
         ok = len(dummy_rows) == 0
 
     details = (
-        f"salisbury_excl_{RIDER_EXCLUDED_NAME.lower()}_count={len(salisbury_rows)}, "
+        f"excluded_dummy_count={len(excluded_dummy_rows)}, "
+        f"other_dummy_count={len(other_dummy_rows)}, "
+        f"excluded_salisbury_count={len(excluded_salisbury_rows)}, "
         f"dummy_count={len(dummy_rows)}"
     )
     return ok, details
@@ -178,8 +231,8 @@ def check_rider_master(mode: str) -> Tuple[bool, str]:
 def apply_rider_master(mode: str) -> None:
     if mode == "test":
         client_ordelo.table("rider_master").update({"town": RIDER_DUMMY_TOWN}).eq(
-            "town", RIDER_TARGET_TOWN
-        ).neq("rider_name", RIDER_EXCLUDED_NAME).execute()
+            "rider_name", RIDER_EXCLUDED_NAME
+        ).execute()
     else:
         client_ordelo.table("rider_master").update({"town": RIDER_TARGET_TOWN}).eq(
             "town", RIDER_DUMMY_TOWN
@@ -224,32 +277,43 @@ def apply_waba_webhook(mode: str) -> None:
     )
 
 
-def reset_restaurant_base_url_cache() -> None:
+def reset_restaurant_base_url_cache(rest_ref: str) -> None:
     import requests
 
     base_url = "https://rider-agent.ordelo.app"
-    for rest_ref in CACHE_RESET_REFS:
-        url = f"{base_url}/restaurant-base-url-cache/reset"
-        try:
-            response = requests.post(
-                url,
-                params={"rest_ref": rest_ref},
-                headers={"accept": "application/json"},
-                timeout=10,
-            )
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            print(f"Cache reset failed for {rest_ref}: {exc}")
-        else:
-            print(f"Cache reset OK for {rest_ref}")
+    normalized_rest_ref = _normalize_rest_ref(rest_ref)
+    if not _should_handle_restaurant(normalized_rest_ref):
+        print(f"Cache reset skipped for backend rest_ref={normalized_rest_ref}")
+        return
+    url = f"{base_url}/restaurant-base-url-cache/reset"
+    try:
+        response = requests.post(
+            url,
+            params={"rest_ref": normalized_rest_ref.lower()},
+            headers={"accept": "application/json"},
+            timeout=10,
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        print(f"Cache reset failed for {normalized_rest_ref}: {exc}")
+    else:
+        print(f"Cache reset OK for {normalized_rest_ref}")
 
 
-def run_check(mode: str, skip_waba: bool) -> bool:
+def run_check(mode: str, skip_waba: bool, rest_ref: str) -> bool:
     ok = True
+    normalized_rest_ref = _normalize_rest_ref(rest_ref)
 
-    step1_ok, step1_details = check_restaurant_master(mode)
-    _print_step("Step1 restaurant_master", step1_ok, step1_details)
-    ok = ok and step1_ok
+    if _should_handle_restaurant(normalized_rest_ref):
+        step1_ok, step1_details = check_restaurant_master(mode, normalized_rest_ref)
+        _print_step("Step1 restaurant_master", step1_ok, step1_details)
+        ok = ok and step1_ok
+    else:
+        _print_step(
+            "Step1 restaurant_master",
+            True,
+            f"skipped for backend rest_ref={normalized_rest_ref}",
+        )
 
     step2_ok, step2_details = check_rider_master(mode)
     _print_step("Step2 rider_master", step2_ok, step2_details)
@@ -269,13 +333,19 @@ def run_check(mode: str, skip_waba: bool) -> bool:
     return ok
 
 
-def run_apply(mode: str, skip_waba: bool) -> None:
-    apply_restaurant_master(mode)
+def run_apply(mode: str, skip_waba: bool, rest_ref: str) -> None:
+    normalized_rest_ref = _normalize_rest_ref(rest_ref)
+    if _should_handle_restaurant(normalized_rest_ref):
+        apply_restaurant_master(mode, normalized_rest_ref)
+    else:
+        print(
+            f"Skipping restaurant-specific apply for backend rest_ref={normalized_rest_ref}"
+        )
     apply_rider_master(mode)
     apply_ordelo_app_url(mode)
     if not skip_waba:
         apply_waba_webhook(mode)
-    reset_restaurant_base_url_cache()
+    reset_restaurant_base_url_cache(normalized_rest_ref)
 
 
 def parse_args() -> argparse.Namespace:
@@ -283,6 +353,11 @@ def parse_args() -> argparse.Namespace:
         description="Check readiness for prod/test and optionally apply updates."
     )
     parser.add_argument("--mode", required=True, choices=["test", "prod"])
+    parser.add_argument(
+        "--rest-ref",
+        default=DEFAULT_REST_REF,
+        help="Restaurant reference for restaurant-specific checks, updates, and cache reset (case-insensitive). ORDELO skips restaurant-specific steps.",
+    )
     parser.add_argument(
         "--apply", action="store_true", help="Apply updates before checking"
     )
@@ -294,13 +369,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    normalized_rest_ref = _normalize_rest_ref(args.rest_ref)
 
     if args.apply:
-        print(f"Applying {args.mode} updates...")
-        run_apply(args.mode, args.skip_waba)
+        print(f"Applying {args.mode} updates for {normalized_rest_ref}...")
+        run_apply(args.mode, args.skip_waba, normalized_rest_ref)
 
-    print(f"Checking {args.mode} readiness...")
-    all_ok = run_check(args.mode, args.skip_waba)
+    print(f"Checking {args.mode} readiness for {normalized_rest_ref}...")
+    all_ok = run_check(args.mode, args.skip_waba, normalized_rest_ref)
 
     if all_ok:
         print("Checklist status: READY")
@@ -312,7 +388,14 @@ if __name__ == "__main__":
     main()
 
 """
-python notebooks/prod_deployment_checker.py --mode test
-python notebooks/prod_deployment_checker.py --mode prod
+# Check only (no changes applied)
+python notebooks/prod_deployment_checker.py --mode test --rest-ref elas
+python notebooks/prod_deployment_checker.py --mode prod --rest-ref ELAS
 
+# Apply updates
+python notebooks/prod_deployment_checker.py --mode test --rest-ref elas --apply
+python notebooks/prod_deployment_checker.py --mode prod --rest-ref elas --apply
+
+# Skip WABA webhook check
+python notebooks/prod_deployment_checker.py --mode prod --rest-ref elas --skip-waba
 """

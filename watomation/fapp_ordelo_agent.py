@@ -37,6 +37,7 @@ from ordelo.agent_app_handlers import (
 )
 from utils_common.waba_utils.wa_senders import enquire_shift_availability_non_template
 from watomation.routers import (
+    customer_hooks,
     delivery_hooks,
     location_hooks,
     takeaway_hooks,
@@ -118,6 +119,7 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
 
 
 # %% Add routers
+app.include_router(customer_hooks.router, prefix="/customer-hooks")
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
 app.include_router(location_hooks.router, prefix="/location-hooks")
 app.include_router(takeaway_hooks.router, prefix="/takeaway-hooks")

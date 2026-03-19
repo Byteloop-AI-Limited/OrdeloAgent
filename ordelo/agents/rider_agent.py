@@ -52,7 +52,7 @@ from langgraph.runtime import Runtime
 from langgraph.types import Command
 from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel, ConfigDict
-from pywa.types import ButtonUrl
+from pywa.types import ButtonUrl, Contact
 from pywa_async import WhatsApp
 from typing_extensions import TypedDict, Literal
 from supabase import Client
@@ -277,6 +277,71 @@ async def send_dropoff_location(
                 ),
                 AIMessage(
                     f"/dontRespond: Dropoff location is {summary['customer_address']}. Location is sent to rider on WhatsApp."
+                ),
+            ]
+        }
+    )
+
+
+# %%
+async def send_customer_contact(
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
+) -> dict:
+    """
+    Sends the customer's contact information to the rider via WhatsApp.
+    Use when the rider cannot reach the customer or asks for the customer's number.
+
+    Args:
+        None
+
+    Returns:
+        dict: Agent to respond as instructed by the tool message.
+    """
+    ctx = runtime.context
+    recipient = ctx.recipient
+
+    order_number = state.get("order_number", None)
+    if not order_number:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "Order number not found in state.", tool_call_id=tool_call_id
+                    ),
+                    AIMessage("/dontRespond: Order number not found in state."),
+                ]
+            }
+        )
+
+    delivery_summary: dict = (
+        ctx.client_ordelo.table("delivery_summary")
+        .select("customer_id")
+        .eq("order_number", order_number)
+        .execute()
+        .data[0]
+    )
+    customer_id = delivery_summary["customer_id"]
+
+    await ctx.wa_client.send_contact(
+        to=recipient,
+        contact=Contact(
+            name=Contact.Name(formatted_name=order_number, first_name=order_number),
+            phones=[
+                Contact.Phone(phone=customer_id, wa_id=customer_id, type="MOBILE")
+            ],
+        ),
+    )
+
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    "Customer contact sent to rider.", tool_call_id=tool_call_id
+                ),
+                AIMessage(
+                    "/dontRespond: Customer contact card sent to rider on WhatsApp."
                 ),
             ]
         }
@@ -897,6 +962,7 @@ _rider_agent_tools = [
     notify_food_ready_for_pickup,
     send_pickup_location,
     send_dropoff_location,
+    send_customer_contact,
     cancel_delivery_before_pickup,
     capture_reason_for_cancel_before_pickup,
     verify_restaurant_confirmation_code,
