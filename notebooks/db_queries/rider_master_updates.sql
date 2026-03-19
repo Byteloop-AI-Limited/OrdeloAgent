@@ -27,8 +27,8 @@ select enquire_admin_availability(ARRAY['ELAS']);
 update rider_master set town ='Salisbury' where town='dummy';
 
 -- Test setup
-update rider_master set town ='dummy' where town='Salisbury';
 update rider_master set town='Salisbury', is_in_shift=true where rider_name in ('Lohith');
+update rider_master set town='dummy', is_in_shift=true where rider_name in ('Lohith');
 
 -- delete from rider_master where rider_name='Muhibur';
 select phone as rider_id,  from rider_registrations;

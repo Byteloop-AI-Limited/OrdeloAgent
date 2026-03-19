@@ -1,23 +1,22 @@
 """
-Order hook endpoints for Elai Agent
-  . Provides FastAPI router for order-related webhook operations
-  . Supports retrieval of minimum order value configuration
-  . Accepts restaurant coordinates directly, via postcode resolution, or rest_ref lookup
-  . Delegates pricing lookup to watomation.services.order_service helpers
-  . Creates new orders with order items and initiates payment capture
-  . Returns payment URLs for customer checkout
-  . Captures customer addresses and upserts into customer_master and cust_rest_map
-  . Proxies thread lookup requests to restaurant systems
-  . Triggers restaurant webhooks for stale thread termination
+Order hook endpoints for OrdeloAgent.
+
+Provides FastAPI router for order-related webhook operations including:
+  . Retrieval of minimum order value configuration with coordinate or postcode resolution
+  . Creation of new orders with order items and payment capture initiation
+  . Customer address capture and upsert into customer_master and cust_rest_map
+  . Postcode validation via address resolver
+  . Active thread retrieval from restaurant systems
+
 Functions/Classes:
   . CreateOrderRequest - Pydantic model for order creation requests
   . CaptureAddressRequest - Pydantic model for address capture requests
-  . get_min_order_value - Returns minimum order value using shared service helper
-  . get_min_order_value_by_postcode - Resolves postcodes to coordinates before lookup
-  . create_order - Creates order with items and captures payment
+  . get_min_order_value - Returns minimum order value given customer and restaurant coordinates
+  . get_min_order_value_by_postcode - Resolves postcodes to coordinates then retrieves minimum order value
+  . create_order - Creates order with items and initiates payment capture
+  . validate_postcode - Validates UK postcodes and returns resolved address
   . capture_address - Captures customer address and upserts into customer_master and cust_rest_map
-  . get_active_thread - Proxies restaurant active thread retrieval
-  . terminate_stale_active_threads - Triggers restaurant webhook for stale thread cleanup
+  . get_active_thread - Proxies active thread retrieval request to restaurant system
 """
 
 # %%

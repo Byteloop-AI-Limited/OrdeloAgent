@@ -1,6 +1,6 @@
 select * from thread order by dtts desc;
 select * from thread where is_active order by dtts desc;
-
+select * from delivery_dispatch;
 update thread set is_active=false where recipient='447935305651';
 
 select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
