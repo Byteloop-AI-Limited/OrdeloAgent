@@ -31,6 +31,7 @@ import json
 from ordelo.agent_app_handlers import initial_handle_of_rider_response
 from config import client_ordelo
 from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
+from ordelo_datamodels.delivery_pymodels import DeliveryDispatch
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 from datetime import datetime, timezone
 from config.params import get_restaurant_webhook_url_async
@@ -138,10 +139,22 @@ async def rider_request_location(wa: WhatsApp, msg: Message):
     """
     # Callback created in _send_delivery_instructions, in agent_app_handlers
     callback_data: dict = json.loads(msg.data)
-    logger.info(f"callbackdata: {callback_data}")
-    await run_rider_agent_w_custom_msg(
-        recipient=callback_data["recipient"], human_msg=callback_data["human_msg"]
-    )
+    dispatch_id = callback_data.get("dispatch_id")
+    try:
+        dispatch = DeliveryDispatch.from_dispatch_id(int(dispatch_id))
+    except ValueError:
+        logger.warning(f"Dispatch {dispatch_id} not found, skipping location request")
+        return
+    if dispatch.status == "completed":
+        await wa.send_message(
+            to=callback_data["recipient"],
+            text="This job is expired.",
+        )
+        logger.info("Dispatch is complete, skipping location request")
+    else:
+        await run_rider_agent_w_custom_msg(
+            recipient=callback_data["recipient"], human_msg=callback_data["human_msg"]
+        )
 
 
 # %%

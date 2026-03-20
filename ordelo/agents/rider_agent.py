@@ -328,9 +328,7 @@ async def send_customer_contact(
         to=recipient,
         contact=Contact(
             name=Contact.Name(formatted_name=order_number, first_name=order_number),
-            phones=[
-                Contact.Phone(phone=customer_id, wa_id=customer_id, type="MOBILE")
-            ],
+            phones=[Contact.Phone(phone=customer_id, wa_id=customer_id, type="MOBILE")],
         ),
     )
 
