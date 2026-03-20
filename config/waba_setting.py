@@ -124,8 +124,8 @@ waba_business_settings.phone_id, waba_business_settings.account_id
 # business_phone_number.verified_name, business_phone_number.webhook_configuration['whatsapp_business_account'] # Should output ('Byteloop Ai', 'https://rider-agent.ordelo.app/)
 
 # _sync_wa_client.override_waba_callback_url(
-#     # callback_url="https://rider-agent.ordelo.app/",
-#     callback_url="https://rider-agent-test.ordelo.app/",
+#     callback_url="https://rider-agent.ordelo.app/",
+#     # callback_url="https://rider-agent-test.ordelo.app/",
 #     verify_token="123456",
 #     waba_id=waba_business_settings.account_id,
 # )

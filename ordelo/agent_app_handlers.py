@@ -59,6 +59,7 @@ import pytz
 from supabase._sync.client import Client
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 from utils_common.waba_utils.wa_senders import CallbackButtonData
+from ordelo_datamodels.delivery_pymodels import DeliverySummary
 
 client = pg_settings.client
 
@@ -405,6 +406,7 @@ async def _send_delivery_instructions(
     pickup_cb_data = CallbackButtonData(
         action="/riderLocationRequest",
         recipient=recipient,
+        dispatch_id=dispatch_id,
         ai_msg="",
         human_msg="Send me the pickup location",
         response="",
@@ -412,8 +414,17 @@ async def _send_delivery_instructions(
     dropoff_cb_data = CallbackButtonData(
         action="/riderLocationRequest",
         recipient=recipient,
+        dispatch_id=dispatch_id,
         ai_msg="",
         human_msg="Send me the dropoff location",
+        response="",
+    )
+    request_customer_contact = CallbackButtonData(
+        action="/riderLocationRequest",
+        recipient=recipient,
+        dispatch_id=dispatch_id,
+        ai_msg="",
+        human_msg="I cannot reach customer, please send me customer contact.",
         response="",
     )
 
@@ -435,11 +446,13 @@ async def _send_delivery_instructions(
         .execute()
         .data[0]
     )
+    summary = DeliverySummary.from_order_number(order_number)
+    summary: dict = summary.model_dump()
+    logger.info(f"Summary: {summary}")
 
     uk_tz = pytz.timezone("Europe/London")
     # convert dtts to UK local time (handles BST/GMT automatically)
-    pickup_time: str = summary["pickup_time"]
-    pickup_dt_raw = datetime.fromisoformat(pickup_time)
+    pickup_dt_raw = summary["pickup_time"]
     pickup_dt_raw = pickup_dt_raw.astimezone(uk_tz)
     # Format pickup time for human-readable display
     pickup_display = pickup_dt_raw.strftime("%-I:%M %p")
@@ -447,6 +460,8 @@ async def _send_delivery_instructions(
     body_text = f"""
 Hi {rider_name}, here are the Delivery details:
   ⏰ Pickup Time - *@{pickup_display}*
+  🏠 Pickup location - *{summary["rest_name"]}* {summary["rest_address"]}
+
   💰 Earning - *£{dispatch["rider_payout"]}*
   🛣️ Distance - *{dispatch["distance"]} miles*
 
@@ -469,6 +484,10 @@ Hi {rider_name}, here are the Delivery details:
                 title="Dropoff Location",
                 callback_data=dropoff_cb_data.model_dump_json(),
             ),
+            Button(
+                title="Contact Customer",
+                callback_data=request_customer_contact.model_dump_json(),
+            ),
         ],
     )
 
@@ -481,11 +500,6 @@ Hi {rider_name}, here are the Delivery details:
     #     buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
     # )
     return reply_to_msg_id.id, body_text
-
-
-# %% Test
-# dispatch_id = 2864
-# await _send_delivery_instructions(dispatch_id, "https://agent.ordelo.co.uk", "447448440754")
 
 
 # %%
@@ -559,3 +573,21 @@ async def debug_state_by_thread(recipient: str, thread_id: str, graph, pool) -> 
         "messages": shorten_state_messages(state.values["messages"]),
     }
     return debug_stack
+
+
+# %%
+"""
+# %% Test
+dispatch_id = 432
+await _send_delivery_instructions(
+    dispatch_id=dispatch_id,
+    start_live_tracking_url="https://agent.ordelo.co.uk",
+    recipient="447448440754",
+    rider_name="dummy",
+    client_ordelo=pg_settings.client,
+    wa_client=_async_wa_client,
+)
+
+# %%
+
+"""
