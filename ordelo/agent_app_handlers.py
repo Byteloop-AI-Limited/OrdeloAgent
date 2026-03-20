@@ -416,6 +416,13 @@ async def _send_delivery_instructions(
         human_msg="Send me the dropoff location",
         response="",
     )
+    request_customer_contact = CallbackButtonData(
+        action="/riderLocationRequest",
+        recipient=recipient,
+        ai_msg="",
+        human_msg="I cannot reach customer, please send me customer contact.",
+        response="",
+    )
 
     dispatch = (
         client_ordelo.table("delivery_dispatch")
@@ -447,6 +454,7 @@ async def _send_delivery_instructions(
     body_text = f"""
 Hi {rider_name}, here are the Delivery details:
   ⏰ Pickup Time - *@{pickup_display}*
+  🏠 Pickup Address - *{summary["rest_address"]}*
   💰 Earning - *£{dispatch["rider_payout"]}*
   🛣️ Distance - *{dispatch["distance"]} miles*
 
@@ -469,6 +477,10 @@ Hi {rider_name}, here are the Delivery details:
                 title="Dropoff Location",
                 callback_data=dropoff_cb_data.model_dump_json(),
             ),
+            Button(
+                title="Contact Customer",
+                callback_data=request_customer_contact.model_dump_json(),
+            ),
         ],
     )
 
@@ -481,11 +493,6 @@ Hi {rider_name}, here are the Delivery details:
     #     buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
     # )
     return reply_to_msg_id.id, body_text
-
-
-# %% Test
-# dispatch_id = 2864
-# await _send_delivery_instructions(dispatch_id, "https://agent.ordelo.co.uk", "447448440754")
 
 
 # %%
@@ -559,3 +566,18 @@ async def debug_state_by_thread(recipient: str, thread_id: str, graph, pool) -> 
         "messages": shorten_state_messages(state.values["messages"]),
     }
     return debug_stack
+
+
+# %%
+"""
+# %% Test
+dispatch_id = 432
+await _send_delivery_instructions(
+    dispatch_id=dispatch_id,
+    start_live_tracking_url="https://agent.ordelo.co.uk",
+    recipient="447448440754",
+    rider_name="dummy",
+    client_ordelo=pg_settings.client,
+    wa_client=_async_wa_client,
+)
+"""
