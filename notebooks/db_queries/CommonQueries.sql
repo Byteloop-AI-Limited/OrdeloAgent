@@ -1,6 +1,6 @@
 select * from thread order by dtts desc;
 select * from thread where is_active order by dtts desc;
-select * from delivery_dispatch;
+select * from delivery_dispatch order by dtts desc;
 update thread set is_active=false where recipient='447935305651';
 
 select * from takeaway_summary where order_number='ELAS-KOYC-23';

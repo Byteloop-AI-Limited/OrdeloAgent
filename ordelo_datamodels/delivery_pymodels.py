@@ -30,6 +30,30 @@ class DeliveryDetail(BaseModel):
         """Generate Google Maps URL for navigation from restaurant to customer."""
         return f"https://maps.google.com/maps?dirflg=d&saddr={self.rest_lat},{self.rest_lon}&daddr={self.customer_lat},{self.customer_lon}"
 
+    @classmethod
+    def from_order_number(cls, order_number: str) -> "DeliveryDetail":
+        from config import client_ordelo
+
+        resp = (
+            client_ordelo.table("delivery_detail")
+            .select("*")
+            .eq("order_number", order_number)
+            .limit(1)
+            .execute()
+        )
+        data = (
+            resp["data"]
+            if isinstance(resp, dict) and "data" in resp
+            else resp.data
+            if hasattr(resp, "data")
+            else None
+        )
+        if not data or len(data) == 0:
+            raise ValueError(
+                f"No delivery detail found with order_number={order_number}"
+            )
+        return cls(**data[0])
+
 
 class DeliverySummary(BaseModel):
     order_number: str = Field(..., max_length=100)
@@ -61,17 +85,76 @@ class DeliverySummary(BaseModel):
     dt: date
     dtts: datetime
 
+    @classmethod
+    def from_order_number(cls, order_number: str) -> "DeliverySummary":
+        from config import client_ordelo
+
+        resp = (
+            client_ordelo.table("delivery_summary")
+            .select("*")
+            .eq("order_number", order_number)
+            .limit(1)
+            .execute()
+        )
+        data = (
+            resp["data"]
+            if isinstance(resp, dict) and "data" in resp
+            else resp.data
+            if hasattr(resp, "data")
+            else None
+        )
+        if not data or len(data) == 0:
+            raise ValueError(
+                f"No delivery summary found with order_number={order_number}"
+            )
+        return cls(**data[0])
+
 
 class DeliveryDispatch(BaseModel):
+    dispatch_id: Optional[int] = Field(default=None)
     order_number: str = Field(..., max_length=100)
     rider_id: str = Field(..., max_length=12)
     rider_payout: float = 0.0
+    vehicle_type: Optional[str] = Field(default=None)
     distance: float = 0.0
     status: str = Field(..., max_length=50)
+    status_update_dtts: Optional[datetime] = None
+    reason_for_decline: Optional[str] = None
+    dt: Optional[date] = None
+    dtts: Optional[datetime] = None
+
+    @classmethod
+    def from_dispatch_id(cls, dispatch_id: int) -> "DeliveryDispatch":
+        from config import client_ordelo
+
+        resp = (
+            client_ordelo.table("delivery_dispatch")
+            .select("*")
+            .eq("dispatch_id", dispatch_id)
+            .limit(1)
+            .execute()
+        )
+        data = (
+            resp["data"]
+            if isinstance(resp, dict) and "data" in resp
+            else resp.data
+            if hasattr(resp, "data")
+            else None
+        )
+        if not data or len(data) == 0:
+            raise ValueError(f"No dispatch found with dispatch_id={dispatch_id}")
+        return cls(**data[0])
+
+
+# %%
 
 
 """ Test
 #%%
+dispatch = DeliveryDispatch.from_dispatch_id(432)
+print(dispatch.status)
+# %%
+
 elai_basingstoke = RestaurantMaster(
     **{
         "rest_id": "elai_basingstoke", 

@@ -76,7 +76,7 @@ During the delivery, the rider may request additional assistance *at any time* i
 - `send_pickup_location`: Re-send or clarify the restaurant pickup location.
 - `send_dropoff_location`: Re-send or clarify the customer drop-off location.
 - `send_start_live_tracking_link`: Re-send the live-tracking URL so the rider can restart or regain access to live tracking.
-- `send_customer_contact`: Send the customer's contact information so the rider can call or message the customer directly.
+- `send_customer_contact`: Send the customer's contact information so the rider can call or message the customer directly, advice its best to give them a WhatsApp call.
 
 These dynamic detours are temporary side paths. After assisting the rider, the agent should seamlessly return to the point in the main User Journey where the detour occurred.
 

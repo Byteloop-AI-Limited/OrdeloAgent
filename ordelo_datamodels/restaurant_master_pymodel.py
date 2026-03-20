@@ -83,6 +83,6 @@ class RestaurantMaster(BaseModel):
 
 
 # %%
-RestaurantMaster.from_rest_ref("wren")
+# RestaurantMaster.from_rest_ref("wren")
 # from config import client_ordelo
 # client_ordelo.table("restaurant_master").select("*").eq("rest_ref", "WREN").execute()
