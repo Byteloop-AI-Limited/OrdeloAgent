@@ -22,6 +22,7 @@ select * from cust_rest_map where cust_id='447448440754';
 
 delete from cust_rest_map where cust_id='447448440754';
 delete from customer_master where cust_id='447448440754';
+delete from cust_rest_map where cust_id='447448440754' and  rest_ref='SFCS';
 
 update cust_rest_map set has_consent=false, consent_dtts='2026-01-09 23:42:32.030367+00' where cust_id='447448440754';
 select * from customer_master order by dtts desc limit 10;
