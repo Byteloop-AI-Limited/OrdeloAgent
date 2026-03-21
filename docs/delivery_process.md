@@ -34,7 +34,7 @@ The Ordelo delivery workflow orchestrates food delivery from order placement to 
 - **PostgreSQL Functions & Triggers**: Core business logic executed at the database level
 - **pg_cron Scheduled Jobs**: Periodic tasks for dispatch creation, assignment, and timeout handling
 - **FastAPI Webhooks**: HTTP endpoints called by database triggers for complex operations
-- **WhatsApp Integration**: Rider and restaurant notifications via WhatsApp Business API
+- **WhatsApp Integration**: Rider and restaurant notifications via WhatsApp Business API (see [Embedded Signup Guide](../utils_common/waba_es/embedded_signup_guide.md) for WABA onboarding)
 - **LangGraph Agent**: AI-powered rider assistance during delivery execution
 
 ### Key Phases
