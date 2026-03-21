@@ -109,6 +109,11 @@ async def waba_embedded_signup_callback(request: Request):
             onboard_result = await onboard_business_customer(TEMP_STORE)
             return onboard_result
 
+        # Handle raw_data events from non-JSON message events (harmless, log at debug)
+        elif "raw_data" in event_data:
+            logger.debug(f"Received raw_data event (non-JSON message from FB SDK): {event_data.get('raw_data', '')[:200]}")
+            return {"status": "ignored", "message": "Raw data event acknowledged"}
+
         else:
             logger.warning(f"Unhandled event type: {event_data.get('type')}")
             return {"status": "ignored", "message": "Event type not handled"}

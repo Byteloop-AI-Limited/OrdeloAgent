@@ -187,13 +187,16 @@ def register_phone_number(phone_number_id: str) -> Dict[str, Any]:
 
 
 def send_test_message(
-    phone_number_id: str, business_token: str, recipient: str = "447448440754"
+    phone_number_id: str, recipient: str = "447448440754"
 ) -> Dict[str, Any]:
     """Send a test message to verify WhatsApp setup.
 
+    Uses the system user token (waba_business_settings.token) which has the
+    whatsapp_business_messaging permission, rather than the exchanged business
+    token which may lack this granular permission.
+
     Args:
         phone_number_id: Phone number ID to send from
-        business_token: Business access token
         recipient: Phone number to send test message to
 
     Returns:
@@ -202,7 +205,7 @@ def send_test_message(
     try:
         logger.info("Step 4: Sending test message")
         messages_url = f"https://graph.facebook.com/{waba_es_graph_api_version}/{phone_number_id}/messages"
-        headers = {"Authorization": f"Bearer {business_token}"}
+        headers = {"Authorization": f"Bearer {waba_business_settings.token}"}
         message_data = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -287,8 +290,8 @@ async def onboard_business_customer(TEMP_STORE):
         if register_result["status"] != "success":
             return register_result
 
-        # Step 4: Send test message
-        message_result = send_test_message(phone_number_id, business_token)
+        # Step 4: Send test message (uses system user token, not business_token)
+        message_result = send_test_message(phone_number_id)
         if message_result["status"] != "success":
             return message_result
 
