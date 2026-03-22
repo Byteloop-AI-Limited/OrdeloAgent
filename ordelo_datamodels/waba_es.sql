@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS waba_es (
 -- ALTER TABLE IF EXISTS waba_es
 --   ADD COLUMN IF NOT EXISTS phone_num TEXT;
 
-select * from waba_es;
+select * from waba_es order by dtts desc;
 
+update waba_es set business_ref='sfcs' where id = 5;
 -- drop table waba_es;

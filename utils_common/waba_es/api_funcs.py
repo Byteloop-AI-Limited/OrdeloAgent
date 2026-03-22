@@ -5,14 +5,21 @@ Utilities for WhatsApp Business Account (WABA) Graph API interactions
   . Fetches assigned WABAs for the configured business/tech provider
   . Lists phone numbers for a given WABA
   . Provides a merged helper to get all WABAs with their phone numbers in one call
+  . Checks webhook subscriptions and token permissions for diagnostics
  Functions/Classes
   . get_assigned_wabas
   . list_phone_numbers_for_waba
   . get_wabas_with_phone_numbers
+  . get_subscribed_apps
+  . subscribe_app
+  . debug_token
  Key Functions:
   . get_assigned_wabas - Returns the WABAs assigned to the configured business
   . list_phone_numbers_for_waba - Lists phone numbers for a WABA id
   . get_wabas_with_phone_numbers - Returns all assigned WABAs and their phone numbers
+  . get_subscribed_apps - Checks which apps are subscribed to a WABA's webhooks
+  . subscribe_app - Subscribes the app to a WABA's webhooks (required after ES onboarding)
+  . debug_token - Inspects a token's scopes, granular permissions, and validity
 """
 
 # %%
@@ -31,10 +38,9 @@ import requests
 
 # %%
 
-token = waba_business_settings.token
+token = "EAAjaBvMpTDABRAHuS9BXsss0ZAI6P2jTGE1NbcrPtTvyEnoP1dizaOTgZBIH7vT4sETiWxfPB3W9DqIEVRE1rryHUJTdosh4nRCfFYQsNF9N0tZBvfCy5DKvYWaIczZCzSUEa1GCiReM5sGFEJazoIxrRerJfBgGcDDBIpvRzN1biJZBFZCexsXI94ZBteVcssqpbYjLtjXsihJF9gzStfg5zDs1hoppKKpIqUF8GJzHAeJAOeYRyV8oO3DTSjPbSoCbYWZCZCDeJZCgRKW5igZAgYJvskC7Ov0lB1RiA3F"
 phone_number_id = "813532365168347"
-phone_number_id = "813532365168347"
-
+waba_id = "1237005775267990"
 # %%
 
 wa = WhatsApp(
@@ -170,7 +176,7 @@ def list_phone_numbers_for_waba(waba_id: str) -> Dict[str, Any]:
 
 # Example manual calls (avoid running on import)
 # get_assigned_wabas()
-get_wabas_with_phone_numbers()
+# get_wabas_with_phone_numbers()
 # list_phone_numbers_for_waba(waba_id="2335277966870509")
 # get_wabas_with_phone_numbers()
 # %% IMPORTANT: Once the emebedded signup is complete, do the number registration. Dont forget, the token is from the business account, stored in the db
@@ -178,7 +184,7 @@ get_wabas_with_phone_numbers()
 # get phone number id from the output of get_wabas_with_phone_numbers
 phone_number_id = 796698196867835
 waba_es_graph_api_version = waba_provider_settings.graph_api_version
-register_phone_number(phone_number_id)
+# register_phone_number(phone_number_id)
 
 
 # %%
@@ -218,21 +224,149 @@ def register_phone_number(phone_number_id: str) -> Dict[str, Any]:
         return {"status": "error", "message": f"Phone registration failed: {str(e)}"}
 
 
+# %% Diagnostic functions
+
+
+def get_subscribed_apps(waba_id: str, token: str | None = None) -> Dict[str, Any]:
+    """Check which apps are subscribed to a WABA's webhooks.
+
+    GET https://graph.facebook.com/v23.0/{waba_id}/subscribed_apps
+    Requires whatsapp_business_management permission on the WABA.
+    Returns {"data": [...apps...]} — empty data means not subscribed.
+
+    Args:
+        waba_id: The WABA ID to check subscriptions for
+        token: Optional token override. Defaults to waba_provider_settings.token.
+            For ES-onboarded WABAs, pass waba_business_settings.token instead.
+
+    Returns:
+        Dict containing subscribed apps data or error
+    """
+    try:
+        logger.info(f"Checking subscribed apps for WABA {waba_id}")
+        url = f"https://graph.facebook.com/v23.0/{waba_id}/subscribed_apps"
+        auth_token = token or waba_provider_settings.token
+        headers = {"Authorization": f"Bearer {auth_token}"}
+        response = requests.get(url, headers=headers)
+        if response.status_code not in [200, 201]:
+            logger.error(f"Failed to get subscribed apps: {response.text}")
+            return {"status": "error", "message": "Failed to get subscribed apps"}
+
+        logger.info("Successfully retrieved subscribed apps")
+        return response.json()
+
+    except Exception as e:
+        logger.error(f"Error getting subscribed apps: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Subscribed apps check failed: {str(e)}",
+        }
+
+
+# %%
+
+
+def subscribe_app(waba_id: str, token: str | None = None) -> Dict[str, Any]:
+    """Subscribe the app to a WABA's webhooks.
+
+    POST https://graph.facebook.com/v23.0/{waba_id}/subscribed_apps
+    This is required after Embedded Signup to start receiving webhooks
+    and enable messaging. Without this, sends fail with OAuthException #3.
+
+    Args:
+        waba_id: The WABA ID to subscribe to
+        token: Optional token override. Defaults to waba_provider_settings.token.
+
+    Returns:
+        Dict containing success status or error
+    """
+    try:
+        logger.info(f"Subscribing app to WABA {waba_id}")
+        url = f"https://graph.facebook.com/v23.0/{waba_id}/subscribed_apps"
+        auth_token = token or waba_provider_settings.token
+        headers = {"Authorization": f"Bearer {auth_token}"}
+        response = requests.post(url, headers=headers)
+        if response.status_code not in [200, 201]:
+            logger.error(f"Failed to subscribe app: {response.text}")
+            return {
+                "status": "error",
+                "message": f"Failed to subscribe app: {response.text}",
+            }
+
+        logger.info("Successfully subscribed app to WABA")
+        return response.json()
+
+    except Exception as e:
+        logger.error(f"Error subscribing app: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"App subscription failed: {str(e)}",
+        }
+
+
+def debug_token(input_token: str) -> Dict[str, Any]:
+    """Inspect a token's scopes, granular permissions, and validity.
+
+    GET https://graph.facebook.com/v23.0/debug_token?input_token={token}
+    Auth uses app access token: "{app_id}|{app_secret}" from waba_provider_settings.
+    Returns scopes, granular_scopes (which WABAs), is_valid, expires_at.
+
+    Args:
+        input_token: The token to inspect
+
+    Returns:
+        Dict containing token debug info or error
+    """
+    try:
+        logger.info("Debugging token permissions")
+        url = "https://graph.facebook.com/v23.0/debug_token"
+        app_access_token = (
+            f"{waba_provider_settings.app_id}|{waba_provider_settings.app_secret}"
+        )
+        headers = {"Authorization": f"Bearer {app_access_token}"}
+        params = {"input_token": input_token}
+        response = requests.get(url, headers=headers, params=params)
+        if response.status_code not in [200, 201]:
+            logger.error(f"Failed to debug token: {response.text}")
+            return {"status": "error", "message": "Failed to debug token"}
+
+        logger.info("Successfully retrieved token debug info")
+        return response.json()
+
+    except Exception as e:
+        logger.error(f"Error debugging token: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Token debug failed: {str(e)}",
+        }
+
+
 # %% Overriding callback URL
 from pywa import WhatsApp
 from config import waba_business_settings
 
-wa = WhatsApp(
-    token=waba_business_settings.token,
-    phone_id=waba_business_settings.phone_id,
-)
+# wa = WhatsApp(
+#     token=waba_business_settings.token,
+#     phone_id=waba_business_settings.phone_id,
+# )
 
-wa.override_waba_callback_url(
-    callback_url="https://6q5ecb-ip-217-39-41-153.tunnelmole.net",
-    verify_token="123456",
-    waba_id="2242211042906352",
-)
+# wa.override_waba_callback_url(
+#     callback_url="https://6q5ecb-ip-217-39-41-153.tunnelmole.net",
+#     verify_token="123456",
+#     waba_id="2242211042906352",
+# )
 
-wa.update_business_profile(
-    about="Best Movers in London",
-)
+# wa.update_business_profile(
+#     about="Best Movers in London",
+# )
+
+# %%
+
+"""
+
+# %%
+get_subscribed_apps(phone_number_id)
+# subscribe_app(waba_id="1237005775267990", token=token)
+# %%
+
+"""
