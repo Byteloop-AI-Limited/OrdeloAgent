@@ -210,7 +210,7 @@ async def cancel_payment(order_number):
 
     order_id = food_order.order_id
     payment_uri = food_order.payment_uri
-    cancel_payload = {"action": "delivery", "payment_mode": "cancel"}
+    cancel_payload = {"action": "delivery", "payment_mode": "cancel", "restRef": food_order.rest_ref}
 
     # Call stripe
     async with httpx.AsyncClient() as _client:
