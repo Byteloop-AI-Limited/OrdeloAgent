@@ -72,6 +72,7 @@ async def generate_automatic_payment_url(
         "manual_mode_capture": False,
         "notes": food_order.notes,
         "printonlyjob": is_print_only,
+        "restRef": food_order.rest_ref,
     }
 
     async with httpx.AsyncClient() as client:
