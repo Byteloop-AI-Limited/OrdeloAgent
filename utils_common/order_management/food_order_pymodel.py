@@ -187,6 +187,11 @@ class FoodOrder(BaseModel):
 
         return f"{ms_settings.stripe_url}/threads/{self.thread_id}/orders/{self.order_id}/payment-url"
 
+    @property
+    def rest_ref(self) -> str:
+        _rest_ref = self.order_number.split("-")[0]
+        return _rest_ref.lower()
+
     def update_final_order_value_in_db(self) -> bool:
         """
         Calculates the final order value, including charges and fees,
@@ -284,6 +289,7 @@ class FoodOrder(BaseModel):
             "rest_payout": self.rest_cost,
             "total_amount": self.final_order_value,
             "notes": self.notes,
+            "restRef": self.rest_ref,
         }
 
     async def generate_order_summary_for_payment_intent(self) -> dict:
@@ -366,6 +372,7 @@ class FoodOrder(BaseModel):
             "action": "delivery",
             "manual_mode_capture": True,
             "notes": self.notes,
+            "restRef": self.rest_ref,
         }
         return intent_payload
 
