@@ -21,19 +21,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
-from config.params import get_wa_logger
 
 import requests
 import uuid
-import httpx
 from config import client_ordelo, logger, ms_settings
 
 from utils_common.order_management.order_db_ops_new import (
     OrderItem,
     create_order_reference,
 )
-
-from utils_common.order_management.food_order_pymodel import FoodOrder
 
 
 # %%
@@ -304,46 +300,3 @@ async def create_order_with_items(
 
     # If both inserts succeeded and returned data
     return {"success": True, "order_id": order_id, "order_number": order_number}
-
-
-async def capture_payment_for_order(
-    order_id: str, thread_id: str, capture_payload: dict, restaurant_cc: int
-) -> Optional[str]:
-    """
-    Captures a payment for the specified order using the payment microservice.
-
-    Args:
-        order_id: The ID of the order for which payment should be captured
-        restaurant_cc: Restaurant confirmation code
-
-    Returns:
-        Payment URL string if successful, otherwise None
-    """
-    food_order = FoodOrder.from_order_id(order_id=order_id)
-
-    payment_uri = food_order.payment_uri
-
-    # Call stripe
-    async with httpx.AsyncClient() as _client:
-        logger.info(
-            f"Capturing payment for order {order_id} with payment URI: {payment_uri}"
-        )
-        try:
-            logger.info(f"Capture payload: {capture_payload}")
-            capture_payload["restaurant_confirmation_code"] = str(restaurant_cc)
-            logger.info(f"Capture payload: {capture_payload}")
-            res = await _client.post(
-                payment_uri,
-                json=capture_payload,
-                headers=ms_settings.stripe_headers,
-            )
-            res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
-            await get_wa_logger().info(
-                f"Payment captured for order {order_id}, Print job assumed to be completed."
-            )
-            return res.text
-        except httpx.HTTPError as e:
-            logger.error(f"Error during payment capture for order {order_id}: {e}")
-            if "res" in locals():
-                logger.error(res.text)
-            return None
