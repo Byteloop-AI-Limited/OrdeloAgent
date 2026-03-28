@@ -153,7 +153,10 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
         return
 
     # Run the graph
-    await run_rider_agent_w_custom_msg(recipient, human_msg=msg.text)
+    _state_update_dict = {"latest_wa_msg_id": msg.id}
+    await run_rider_agent_w_custom_msg(
+        recipient, human_msg=msg.text, state_update_dict=_state_update_dict
+    )
 
 
 async def init_delivery_summary(order_number: str, recipient: str):

@@ -89,6 +89,7 @@ class AgentState(TypedDict):
     is_restaurant_confirmation_code_verified: bool
     is_customer_confirmation_code_verified: bool
     awaiting_cancel_reason: bool
+    latest_wa_msg_id: str
 
 
 # %% Static Runtime Context
@@ -482,9 +483,14 @@ async def verify_restaurant_confirmation_code(
     """
     ctx = runtime.context
     client_ordelo = ctx.client_ordelo
+    wa_client = ctx.wa_client
+    recipient = ctx.recipient
+
     # Extract dispatch_id
     dispatch_id = state.get("dispatch_id", None)
     order_number = state.get("order_number", None)
+    latest_wa_msg_id = state.get("latest_wa_msg_id", None)
+
     # if either one of them is NULL
     if dispatch_id is None or order_number is None:
         logger.error(
@@ -522,6 +528,11 @@ async def verify_restaurant_confirmation_code(
         restaurant_confirmation_code != correct_restaurant_confirmation_code
         and restaurant_confirmation_code != 77
     ):
+        if latest_wa_msg_id is not None:
+            await wa_client.send_reaction(
+                to=recipient, emoji="❌", message_id=latest_wa_msg_id
+            )
+
         return Command(
             update={
                 "messages": [
@@ -534,6 +545,11 @@ async def verify_restaurant_confirmation_code(
         )
 
     #  If corrent restaurant confirmation code
+    # send reaction to
+    if latest_wa_msg_id is not None:
+        await wa_client.send_reaction(
+            to=recipient, emoji="✅", message_id=latest_wa_msg_id
+        )
     # Check if the live location is turned on
     if is_live_location_enabled(order_number):
         append_to_ai_msg = "Live location is enabled. Only prompt again if live location is *not* up to date."
@@ -737,6 +753,8 @@ async def verify_customer_confirmation_code(
     """
     ctx = runtime.context
     recipient = ctx.recipient
+    wa_client = ctx.wa_client
+    latest_wa_msg_id = state.get("latest_wa_msg_id", None)
 
     # Extract dispatch_id
     dispatch_id = state.get("dispatch_id", None)
@@ -776,6 +794,10 @@ async def verify_customer_confirmation_code(
         customer_confirmation_code != correct_confirmation_code
         and customer_confirmation_code != 44
     ):
+        if latest_wa_msg_id is not None:
+            await wa_client.send_reaction(
+                to=recipient, emoji="❌", message_id=latest_wa_msg_id
+            )
         return Command(
             update={
                 "messages": [
@@ -788,6 +810,10 @@ async def verify_customer_confirmation_code(
         )
 
     # On right confirmation code
+    if latest_wa_msg_id is not None:
+        await wa_client.send_reaction(
+            to=recipient, emoji="✅", message_id=latest_wa_msg_id
+        )
     # Notify customer, end to converstaion session.
     await post_rider_event_customer_cc(order_number, customer_id)
 
