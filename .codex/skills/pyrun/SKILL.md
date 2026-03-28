@@ -1,18 +1,6 @@
 ---
 name: pyrun
 description: Execute small Python snippets in this repo to answer ad-hoc questions, inspect live configuration/state, or run database queries against Supabase/Postgres. Use when the user asks to run Python code, query the DB, check table data, look up records, or inspect ordelo_config values — even if they don't explicitly say "pyrun".
-hooks:
-  PreToolUse:
-    - matcher: "Bash"
-      hooks:
-        - type: command
-          command: |
-            cd /home/basal/bloop/OrdeloAgent && \
-            if [ ! -f .venv/bin/activate ]; then
-              source run_setup.sh
-            else
-              source .venv/bin/activate
-            fi
 ---
 
 # Pyrun
@@ -28,20 +16,53 @@ from nearby modules so the snippet stays as small as possible.
    - Reuse constants, helper functions, and client instances from the referenced file(s).
    - Avoid rewriting logic inline; assemble existing pieces instead.
 
-2) The venv is activated automatically via the PreToolUse hook — no manual `source` needed.
-   If the hook fails or imports break, run setup manually:
+2) **Always run scripts using the explicit Python binary and PYTHONPATH — do not rely on venv
+   activation persisting across Bash tool calls:**
    ```sh
-   source run_setup.sh
+   PYTHONPATH=/home/user/OrdeloAgent /usr/bin/python3.13 - <<'PY'
+   # your code here
+   PY
    ```
+   This bypasses all venv and activation state issues.
 
-3) Write a tiny script using a `python - <<'PY'` heredoc; run from the repo root.
+3) **If imports fail (ModuleNotFoundError)**, run the bootstrap installer first, then retry:
+   ```sh
+   uv pip install \
+     pydantic-settings boto3 loguru supabase "pywa==3.6.1" \
+     "pandas==2.2.3" gspread "duckdb==1.4.3" \
+     "psycopg[binary]" psycopg-pool \
+     "langchain==1.2.1" "langchain-openai==1.1.7" \
+     "langgraph==1.0.5" "langgraph-checkpoint-postgres==3.0.2" \
+     --python /usr/bin/python3.13 -q
+   ```
+   Then re-run your script with the same `PYTHONPATH=... /usr/bin/python3.13` invocation.
+
+4) Write a tiny script using a `python - <<'PY'` heredoc; run from the repo root.
    - Treat each pyrun like a Jupyter cell: keep it focused, short, and iterative.
    - If follow-up questions are likely, keep the snippet modular and reuse imports.
 
-4) If the code needs network (e.g., AWS Secrets Manager, Supabase, external APIs), ensure
+5) If the code needs network (e.g., AWS Secrets Manager, Supabase, external APIs), ensure
    the sandbox allows it.
 
-5) Print only the required fields; avoid dumping secrets.
+6) Print only the required fields; avoid dumping secrets.
+
+---
+
+## Environment Notes
+
+- **Python version**: `pyproject.toml` requires `==3.13.11` but the machine runs `3.13.12`.
+  `uv sync` will always fail with an incompatible interpreter error. Use `uv pip install`
+  directly against `/usr/bin/python3.13` instead — it works fine at runtime.
+
+- **`run_setup.sh` is unreliable when sourced**: The script uses `set -euo pipefail`, but
+  when run via `source`, a failing `uv sync` does NOT abort the parent shell — it silently
+  stops mid-script. The AWS env-var checks that follow still pass and print
+  `SUCCESS: Setup complete.`, giving a false impression that deps were installed. Do NOT
+  rely on `source run_setup.sh` to install dependencies.
+
+- **Stale `.venv`**: The existing `.venv` contains Python 3.11, not 3.13. Activating it
+  and running `python` gives you the wrong interpreter. Always use the absolute path
+  `/usr/bin/python3.13` to avoid this.
 
 ---
 
