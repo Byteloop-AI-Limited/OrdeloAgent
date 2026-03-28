@@ -1,10 +1,10 @@
 select * from thread order by dtts desc;
 select * from thread where is_active order by dtts desc;
 select * from delivery_dispatch order by dtts desc;
-update thread set is_active=false where recipient='447935305651';
-
+-- update thread set is_active=false where is_active=True and dt<='2026-03-27';
+select * from thread where is_active=True and dt<'2026-03-27' order by dt desc;;
 select * from food_order limit 1;
-
+select * from rider_registrations order by inserted_at desc;
 select * from takeaway_summary where order_number='ELAS-KOYC-23';
 
 select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
@@ -345,3 +345,19 @@ select * from rider_master where rider_id='447448440754';
 delete from rider_master where rider_id='447448440754' and vehicle_type='bicycle';
 
 
+ELAS-ffed1547-da76-426d-8f6a-83aec8573a0e
+ELAS-ea98ad6f-b886-485d-a9c8-1cf1cfefa76c
+SFCS-cb4795de-e1dc-41e6-81a3-4146df1b3bc8
+ELAS-36d3c485-9bea-4cd7-ae96-f4d68552c5ec
+ELAS-09888d8f-c7ac-4733-8d3b-c31340a3ce17
+ELAS-e8606e55-599a-4858-8a8a-59f24d56c078
+ELAS-c4982124-380c-4679-848d-7dd1eb6507c1
+ELAS-368da687-7ccd-48d5-b447-b039f282c76c
+ELAS-934b9f8d-dcfd-4956-ad5c-aff8381666fa
+ELAS-b14038b1-ceb2-4778-9ee9-dd7ab200c294
+ELAS-be68d7b6-2f55-4afd-9e5e-c869220ec6a8
+ELAS-24eaa243-dc18-4ba4-ae75-c3a56ca5e189
+INDI-7832ab4a-646d-4f79-ae07-0c13b3e0fd1d
+ELAS-ab419d0e-803a-4118-bbca-b605064b9a7e
+ELAS-6072eff6-ae7e-43b3-ba65-eba56429963f
+ELAS-54ab221d-0e44-43cf-8c17-7d83ff1df82f
