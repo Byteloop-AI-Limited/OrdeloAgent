@@ -953,7 +953,9 @@ async def terminate_delivery_job(
 
     await ctx.wa_client.send_message(
         to=recipient,
-        text=("Delivery job completed ✅Click the link below to stop live tracking."),
+        text=(
+            """Delivery job completed ✅, thank you. \nClick the link below to stop live tracking."""
+        ),
         reply_to_message_id=reply_to_msg_id,
         buttons=ButtonUrl(title="Stop live tracking", url=stop_job_url),
     )

@@ -179,7 +179,9 @@ async def _handle_restaurant_accept(
     order_items_str = ", ".join(
         [f"{item.quantity}x {item.product_name}" for item in order_items]
     )
+    uk_tz = pytz.timezone("Europe/London")
     order_time_dt = datetime.fromisoformat(takeaway_summary.dtts.replace("Z", "+00:00"))
+    order_time_dt = order_time_dt.astimezone(uk_tz)
     order_time_epoch = int(order_time_dt.timestamp())
 
     header = f"Order {food_order.order_number} - Pickup Time"
