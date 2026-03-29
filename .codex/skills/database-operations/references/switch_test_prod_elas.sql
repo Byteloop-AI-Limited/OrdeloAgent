@@ -25,10 +25,6 @@ set is_in_shift = true,
     vehicle_type = 'bicycle'
 where rider_name = 'Lohith';
 
-update ordelo_config
-set config_value = 'https://rider-agent-test.ordelo.app'
-where config_key = 'ORDELO_APP_URL';
-
 
 -- ============================================================
 -- SFCS: Production Setup
@@ -47,7 +43,3 @@ set is_in_shift = true,
     town = 'Salisbury',
     vehicle_type = 'bicycle'
 where rider_name = 'Lohith';
-
-update ordelo_config
-set config_value = 'https://rider-agent.ordelo.app'
-where config_key = 'ORDELO_APP_URL';
