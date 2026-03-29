@@ -2,7 +2,7 @@
 -- SFCS: Verification Queries
 -- ============================================================
 
-select admins, * from restaurant_master where rest_ref = 'SFCS';
+select admins, * from restaurant_master where rest_ref = 'ELAS';
 
 select * from ordelo_config where config_key like '%_APP_URL';
 
@@ -17,7 +17,7 @@ set admins = Array['447919202938'],
     restaurant_start_time = 11,
     restaurant_end_time = 21.30,
     city='dummy'
-where rest_ref in ('ELAS', 'CHKS');
+where rest_ref in ('ELAS', 'CHKS')
 
 update rider_master
 set is_in_shift = true,

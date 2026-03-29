@@ -260,7 +260,11 @@ async def wa_send_delivery_dispatch_request_to_rider(
     order_number = delivery_summary["order_number"]
 
     # Parse pickup_time string to datetime and format for display
-    pickup_time_dt = datetime.fromisoformat(delivery_summary["pickup_time"])
+    uk_tz = pytz.timezone("Europe/London")
+    pickup_time_dt = datetime.fromisoformat(
+        delivery_summary["pickup_time"].replace("Z", "+00:00")
+    )
+    pickup_time_dt = pickup_time_dt.astimezone(uk_tz)
     pickup_time = pickup_time_dt.strftime("%I:%M %p")
 
     accept_pl = {
@@ -1154,9 +1158,12 @@ async def _handle_restaurant_timedout(
     order_time = datetime.fromisoformat(delivery_summary.dtts.replace("Z", "+00:00"))
     order_time = order_time.astimezone(uk_tz)
     new_pickuptime = (order_time + timedelta(minutes=30)).isoformat()
+    logger.critical(f"order_time is {order_time}")
+
     # Format pickup time for human-readable display
     pickup_dt = datetime.fromisoformat(new_pickuptime)
     pickup_display = pickup_dt.strftime("%-I:%M %p")
+    logger.critical(f"pickup_dt is {pickup_dt}")
 
     update_vals = {
         "status": "unassigned",
