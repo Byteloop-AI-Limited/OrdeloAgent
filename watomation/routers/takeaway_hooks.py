@@ -150,7 +150,9 @@ async def _handle_restaurant_unconfirmed(
     )
     order_amount = f"£{food_order.total_price:.2f}"
 
+    uk_tz = pytz.timezone("Europe/London")
     order_time_dt = datetime.fromisoformat(takeaway_summary.dtts.replace("Z", "+00:00"))
+    order_time_dt = order_time_dt.astimezone(uk_tz)
     order_time_epoch = int(order_time_dt.timestamp())
 
     for admin_phone in restaurant_master.admins:

@@ -1019,7 +1019,9 @@ async def _handle_restaurant_unconfirmed(
     order_amount = f"£{food_order.total_price:.2f}"
 
     # Get order time from delivery_summary.dtts and convert to epoch time
-    order_time_dt = datetime.fromisoformat(delivery_summary.dtts)
+    uk_tz = pytz.timezone("Europe/London")
+    order_time_dt = datetime.fromisoformat(delivery_summary.dtts.replace("Z", "+00:00"))
+    order_time_dt = order_time_dt.astimezone(uk_tz)
     order_time_epoch = int(order_time_dt.timestamp())
 
     # Send restaurant order confirmation to all admins
