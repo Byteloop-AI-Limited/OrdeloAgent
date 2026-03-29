@@ -17,7 +17,7 @@ Never rely on venv activation or `source run_setup.sh` for database scripts.
 **Always run scripts with the explicit Python binary and PYTHONPATH:**
 
 ```sh
-PYTHONPATH=/home/basal/bloop/OrdeloAgent /usr/bin/python3.13 - <<'PY'
+PYTHONPATH=/home/basal/bloop/OrdeloAgent .venv/bin/python3.13 - <<'PY'
 # your code here
 PY
 ```
@@ -31,7 +31,7 @@ uv pip install \
   "psycopg[binary]" psycopg-pool \
   "langchain==1.2.1" "langchain-openai==1.1.7" \
   "langgraph==1.0.5" "langgraph-checkpoint-postgres==3.0.2" \
-  --python /usr/bin/python3.13 -q
+  --python .venv/bin/python3.13 -q
 ```
 
 ## Quick Start
@@ -157,9 +157,13 @@ Read the relevant file from `.codex/skills/database-operations/references/` befo
 
 | File | What it switches |
 |---|---|
-| `switch_test_prod_sfcs.sql` | SFCS restaurant_master, rider_master, ordelo_config |
-| `switch_test_prod_elas.sql` | ELAS/CHKS restaurant_master, rider_master, ordelo_config |
+| `switch_test_prod_sfcs.sql` | SFCS restaurant_master + rider_master only |
+| `switch_test_prod_elas.sql` | ELAS/CHKS restaurant_master + rider_master only |
 | `switch_test_prod_config.sql` | Global ordelo_config URLs (ORDELO_APP_URL, ELAS_APP_URL, SFCS_APP_URL, etc.) |
+
+**Important:** Restaurant-specific switches (SFCS, ELAS) only update `restaurant_master` and
+`rider_master`. They do NOT touch `ordelo_config` or app URLs. To switch config URLs, use
+`switch_test_prod_config.sql` separately.
 
 Each file has three sections: **Verification Queries** (run first to check current state),
 **Test Setup** (switch to test), and **Production Setup** (switch to prod). Always run the
@@ -168,14 +172,14 @@ verification queries before applying changes so you can confirm current state an
 **Example — switch SFCS to test mode:**
 
 ```sh
-PYTHONPATH=/home/basal/bloop/OrdeloAgent /usr/bin/python3.13 - <<'PY'
+PYTHONPATH=/home/basal/bloop/OrdeloAgent .venv/bin/python3.13 - <<'PY'
 from config import client_ordelo
 
 # Verify current state first
 resp = client_ordelo.table("restaurant_master").select("rest_ref, admins, city").eq("rest_ref", "SFCS").execute()
 print("BEFORE:", resp.data)
 
-# Apply test config
+# Apply test config (restaurant_master + rider_master only, NOT ordelo_config)
 client_ordelo.table("restaurant_master").update(
     {"admins": ["447919202938"], "rest_stale_active_threads_minutes": 10,
      "restaurant_start_time": 11, "restaurant_end_time": 21.30, "city": "dummy"}
@@ -184,10 +188,6 @@ client_ordelo.table("restaurant_master").update(
 client_ordelo.table("rider_master").update(
     {"is_in_shift": True, "town": "dummy", "vehicle_type": "bicycle"}
 ).eq("rider_name", "Lohith").execute()
-
-client_ordelo.table("ordelo_config").update(
-    {"config_value": "https://rider-agent-test.ordelo.app"}
-).eq("config_key", "ORDELO_APP_URL").execute()
 
 print("Switched SFCS to TEST mode")
 PY
@@ -215,7 +215,7 @@ Deterministic CLI scripts in `.codex/skills/database-operations/scripts/`:
 
 Run them with:
 ```sh
-PYTHONPATH=/home/basal/bloop/OrdeloAgent /usr/bin/python3.13 \
+PYTHONPATH=/home/basal/bloop/OrdeloAgent .venv/bin/python3.13 \
   .codex/skills/database-operations/scripts/ordelo_select.py \
   --table restaurant_master --eq rest_ref=SFCS
 ```
