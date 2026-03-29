@@ -5,8 +5,12 @@ select * from delivery_dispatch order by dtts desc;
 select * from thread where is_active=True and dt<'2026-03-27' order by dt desc;;
 select * from food_order limit 1;
 select * from rider_registrations order by inserted_at desc;
-select * from takeaway_summary where order_number='ELAS-KOYC-23';
 
+select pickup_time, * from delivery_summary where order_number='ELAS-ETXF-28';
+
+SELECT dtts, dtts AT TIME ZONE 'Europe/London' as dtts_uk 
+FROM delivery_summary 
+WHERE order_number='ELAS-ETXF-27';
 
 select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
 
