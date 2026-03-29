@@ -210,7 +210,11 @@ async def cancel_payment(order_number):
 
     order_id = food_order.order_id
     payment_uri = food_order.payment_uri
-    cancel_payload = {"action": "delivery", "payment_mode": "cancel", "restRef": food_order.rest_ref}
+    cancel_payload = {
+        "action": "delivery",
+        "payment_mode": "cancel",
+        "restRef": food_order.rest_ref,
+    }
 
     # Call stripe
     async with httpx.AsyncClient() as _client:
@@ -1067,7 +1071,9 @@ async def _handle_restaurant_accept(
     )
 
     # Get order time from delivery_summary.dtts and convert to epoch time
-    order_time_dt = datetime.fromisoformat(delivery_summary.dtts)
+    uk_tz = pytz.timezone("Europe/London")
+    order_time_dt = datetime.fromisoformat(delivery_summary.dtts.replace("Z", "+00:00"))
+    order_time_dt = order_time_dt.astimezone(uk_tz)
     order_time_epoch = int(order_time_dt.timestamp())
 
     # Build header and text for pickup time message

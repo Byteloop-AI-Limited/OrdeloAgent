@@ -7,6 +7,7 @@ select * from food_order limit 1;
 select * from rider_registrations order by inserted_at desc;
 select * from takeaway_summary where order_number='ELAS-KOYC-23';
 
+
 select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
 
 select * from delivery_dispatch where status='completed' and rider_id!='447448440754' order by dtts desc ;
@@ -18,6 +19,8 @@ select SUBSTRING(phone, 2, LENGTH(phone)) as rider_id,* from rider_registrations
 select rider_id,* from rider_registrations;
 
 select * from delivery_option where order_number='ELAS-LORN-24';
+
+select * from delivery_summary order by dtts desc;
 
 select * from customer_master where cust_id='447448440754';
 select * from cust_rest_map where cust_id='447448440754';
