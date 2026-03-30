@@ -193,6 +193,21 @@ print("Switched SFCS to TEST mode")
 PY
 ```
 
+## Reference Scripts
+
+Python scripts in `.codex/skills/database-operations/references/` for common reporting tasks:
+
+| Script | Usage |
+|---|---|
+| `rider_payout.py` | Rider payout report for a date range — detailed per-order and aggregated totals. Joins `delivery_dispatch` → `rider_master` → `rider_registrations` → `delivery_option`. Excludes internal test rider (Lohith). |
+
+**Run rider payout report:**
+```sh
+PYTHONPATH=/home/user/OrdeloAgent /usr/bin/python3.13 \
+  .codex/skills/database-operations/references/rider_payout.py \
+  --start 2026-03-27 --end 2026-04-03
+```
+
 ## Repo Pointers (load as needed)
 
 - Table/function SQL definitions: `ordelo_datamodels/` — see `references/ordelo-datamodels.md`
