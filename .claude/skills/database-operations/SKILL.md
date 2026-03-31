@@ -10,11 +10,8 @@ using `client_ordelo` (Supabase REST client) or raw SQL via the async pool.
 
 ## Environment Setup
 
-The project's `.venv` is stale (Python 3.11) and `run_setup.sh` silently fails on `uv sync`
-due to a Python version mismatch (`pyproject.toml` requires 3.13.11, machine has 3.13.12).
-Never rely on venv activation or `source run_setup.sh` for database scripts.
-
-**Always run scripts with the explicit Python binary and PYTHONPATH:**
+**Always run scripts with the explicit Python binary and PYTHONPATH** (do not rely on shell
+activation or `source .venv/bin/activate` — PYTHONPATH must be set explicitly):
 
 ```sh
 PYTHONPATH=/home/basal/bloop/OrdeloAgent .venv/bin/python3.13 - <<'PY'
@@ -22,17 +19,20 @@ PYTHONPATH=/home/basal/bloop/OrdeloAgent .venv/bin/python3.13 - <<'PY'
 PY
 ```
 
-**If imports fail (ModuleNotFoundError)**, bootstrap deps first, then retry:
+**If `.venv` is missing, broken, or you get a `ModuleNotFoundError`**, the environment has not
+been set up. Run `run_setup.sh` — it creates the venv and installs **all** dependencies from
+`pyproject.toml` via `uv sync`. Do NOT manually `uv pip install` individual packages; that only
+installs a subset and will still leave imports broken.
 
 ```sh
-uv pip install \
-  pydantic-settings boto3 loguru supabase "pywa==3.6.1" \
-  "pandas==2.2.3" gspread "duckdb==1.4.3" \
-  "psycopg[binary]" psycopg-pool \
-  "langchain==1.2.1" "langchain-openai==1.1.7" \
-  "langgraph==1.0.5" "langgraph-checkpoint-postgres==3.0.2" \
-  --python .venv/bin/python3.13 -q
+# One-time setup (requires AWS_SETTINGS_* env vars — see references/run_setup.sh)
+bash /home/basal/bloop/OrdeloAgent/run_setup.sh
 ```
+
+> Reference: `references/run_setup.sh` — shows exactly what the script does (venv creation,
+> `uv sync`, PYTHONPATH injection into activate, AWS credential check).
+
+After running it, retry your command with the explicit binary as shown above.
 
 ## Quick Start
 
