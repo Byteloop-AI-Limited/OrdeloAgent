@@ -11,10 +11,23 @@ using `client_ordelo` (Supabase REST client) or raw SQL via the async pool.
 ## Environment Setup
 
 **Always run scripts with the explicit Python binary and PYTHONPATH** (do not rely on shell
-activation or `source .venv/bin/activate` — PYTHONPATH must be set explicitly):
+activation or `source .venv/bin/activate` — PYTHONPATH must be set explicitly).
+
+Detect the repo root first — it differs by machine:
 
 ```sh
-PYTHONPATH=/home/user/OrdeloAgent /usr/bin/python3.13 - <<'PY'
+# Auto-detect (works on all machines)
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
+# Or set explicitly:
+#   CI / web sessions:  REPO_ROOT=/home/user/OrdeloAgent
+#   Local (basal):      REPO_ROOT=/home/basal/bloop/OrdeloAgent
+```
+
+Then run scripts as:
+
+```sh
+PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 - <<'PY'
 # your code here
 PY
 ```
@@ -203,7 +216,8 @@ verification queries before applying changes so you can confirm current state an
 **Example — switch SFCS to test mode:**
 
 ```sh
-PYTHONPATH=/home/user/OrdeloAgent /usr/bin/python3.13 - <<'PY'
+REPO_ROOT=$(git rev-parse --show-toplevel)
+PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 - <<'PY'
 from config import client_ordelo
 
 # Verify current state first
@@ -235,7 +249,8 @@ Python scripts in `.claude/skills/database-operations/references/` for common re
 **Run rider payout report:**
 ```sh
 # --end is optional; defaults to Thursday 6 days after start (full week, excl. next Friday)
-PYTHONPATH=/home/user/OrdeloAgent /usr/bin/python3.13 \
+REPO_ROOT=$(git rev-parse --show-toplevel)
+PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 \
   .claude/skills/database-operations/references/rider_payout.py \
   --start 2026-03-27
 ```
@@ -262,7 +277,8 @@ Deterministic CLI scripts in `.codex/skills/database-operations/scripts/`:
 
 Run them with:
 ```sh
-PYTHONPATH=/home/user/OrdeloAgent /usr/bin/python3.13 \
+REPO_ROOT=$(git rev-parse --show-toplevel)
+PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 \
   .claude/skills/database-operations/scripts/ordelo_select.py \
   --table restaurant_master --eq rest_ref=SFCS
 ```
