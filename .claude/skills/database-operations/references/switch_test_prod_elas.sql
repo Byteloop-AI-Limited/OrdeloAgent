@@ -2,7 +2,7 @@
 -- SFCS: Verification Queries
 -- ============================================================
 
-select admins, * from restaurant_master where rest_ref = 'ELAS';
+select admins, city, restaurant_start_time, * from restaurant_master where rest_ref = 'ELAS';
 
 select * from ordelo_config where config_key like '%_APP_URL';
 

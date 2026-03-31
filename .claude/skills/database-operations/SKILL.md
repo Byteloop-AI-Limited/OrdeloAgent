@@ -1,6 +1,6 @@
 ---
 name: database-operations
-description: Query and operate on the Ordelo Supabase/Postgres database — select, insert, update, delete rows, call RPC/stored procedures, and switch between test/prod configurations. Use this skill whenever the user asks to change, query, or inspect any database table — especially rider_master, ordelo_config, restaurant_master, customer_master, delivery_summary, delivery_dispatch, or cust_rest_map. Also use when switching test/prod environments, updating admin phone numbers, toggling rider shifts, or changing app URLs in ordelo_config. Even if the user doesn't say "database", if they mention table names, column values, rest_ref, rider_id, cust_id, or config_key — this skill applies.
+description: Query and operate on the Ordelo Supabase/Postgres database — select, insert, update, delete rows, call RPC/stored procedures, and switch between test/prod configurations. Use this skill whenever the user asks to change, query, or inspect any database table — especially rider_master, ordelo_config, restaurant_master, customer_master, delivery_summary, delivery_dispatch, or cust_rest_map. Also use when switching test/prod environments, running the deployment checklist, updating admin phone numbers, toggling rider shifts, changing app URLs in ordelo_config, or updating the WABA webhook. Even if the user doesn't say "database", if they mention table names, column values, rest_ref, rider_id, cust_id, config_key, prod/test mode, deployment, or WABA webhook — this skill applies.
 ---
 
 # Database Operations
@@ -152,7 +152,32 @@ dispatch = DeliveryDispatch.from_dispatch_id(432)
 
 ## Switching Test / Production Environments
 
-Reference SQL files are provided for switching specific restaurants between test and prod.
+### Quick path: unified checklist script
+
+`notebooks/prod_deployment_checker.py` runs all four deployment steps in one go:
+
+```bash
+# Check current state (dry-run, no changes)
+source .venv/bin/activate && python notebooks/prod_deployment_checker.py --mode prod
+
+# Apply all changes (DB + WABA webhook)
+source .venv/bin/activate && python notebooks/prod_deployment_checker.py --mode prod --apply
+
+# Skip WABA webhook step (only if explicitly asked)
+source .venv/bin/activate && python notebooks/prod_deployment_checker.py --mode prod --apply --skip-waba
+```
+
+The four steps it covers:
+- **Step 1** `restaurant_master` — from `notebooks/db_queries/rest_master_updates.sql` lines 10-24
+- **Step 2** `rider_master` — from `notebooks/db_queries/rider_master_updates.sql` lines 14-21
+- **Step 3** `ordelo_config` `ORDELO_APP_URL` — from `notebooks/db_queries/config_updates.sql` line 5 (test) or line 14 (prod)
+- **Step 4** WABA webhook — via `_sync_wa_client` / `waba_business_settings` in `config/waba_setting.py` lines 123-131
+
+Never skip any step unless the user explicitly asks.
+
+### Manual / per-table path
+
+Reference SQL files for switching specific restaurants between test and prod.
 Read the relevant file from `.codex/skills/database-operations/references/` before executing:
 
 | File | What it switches |
@@ -162,8 +187,8 @@ Read the relevant file from `.codex/skills/database-operations/references/` befo
 | `switch_test_prod_config.sql` | Global ordelo_config URLs (ORDELO_APP_URL, ELAS_APP_URL, SFCS_APP_URL, etc.) |
 
 **Important:** Restaurant-specific switches (SFCS, ELAS) only update `restaurant_master` and
-`rider_master`. They do NOT touch `ordelo_config` or app URLs. To switch config URLs, use
-`switch_test_prod_config.sql` separately.
+`rider_master`. They do NOT touch `ordelo_config`, app URLs, or WABA webhook. Use
+`switch_test_prod_config.sql` and the WABA step separately when needed.
 
 Each file has three sections: **Verification Queries** (run first to check current state),
 **Test Setup** (switch to test), and **Production Setup** (switch to prod). Always run the
@@ -179,7 +204,7 @@ from config import client_ordelo
 resp = client_ordelo.table("restaurant_master").select("rest_ref, admins, city").eq("rest_ref", "SFCS").execute()
 print("BEFORE:", resp.data)
 
-# Apply test config (restaurant_master + rider_master only, NOT ordelo_config)
+# Apply test config (restaurant_master + rider_master only, NOT ordelo_config or WABA)
 client_ordelo.table("restaurant_master").update(
     {"admins": ["447919202938"], "rest_stale_active_threads_minutes": 10,
      "restaurant_start_time": 11, "restaurant_end_time": 21.30, "city": "dummy"}
@@ -203,9 +228,10 @@ Python scripts in `.codex/skills/database-operations/references/` for common rep
 
 **Run rider payout report:**
 ```sh
-PYTHONPATH=/home/user/OrdeloAgent /usr/bin/python3.13 \
+# --end is optional; defaults to Thursday 6 days after start (full week, excl. next Friday)
+PYTHONPATH=/home/basal/bloop/OrdeloAgent .venv/bin/python3.13 \
   .codex/skills/database-operations/references/rider_payout.py \
-  --start 2026-03-27 --end 2026-04-03
+  --start 2026-03-27
 ```
 
 ## Repo Pointers (load as needed)
