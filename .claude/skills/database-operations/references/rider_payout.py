@@ -4,7 +4,15 @@ Rider payout report for a given date range.
 Usage:
     PYTHONPATH=/home/user/OrdeloAgent /usr/bin/python3.13 \
         .codex/skills/database-operations/references/rider_payout.py \
-        --start 2026-03-27 --end 2026-04-03
+        --start 2026-03-27
+
+    # or with explicit end (inclusive):
+    PYTHONPATH=/home/user/OrdeloAgent /usr/bin/python3.13 \
+        .codex/skills/database-operations/references/rider_payout.py \
+        --start 2026-03-27 --end 2026-04-02
+
+Start date is always a Friday. If --end is omitted, end date defaults to
+the Thursday 6 days later (i.e. the full week up to but excluding the next Friday).
 
 Excludes Lohith (rider_id 447448440754) — internal test rider.
 Joins: delivery_dispatch → rider_master → rider_registrations → delivery_option
@@ -12,6 +20,7 @@ Joins: delivery_dispatch → rider_master → rider_registrations → delivery_o
 
 import argparse
 from collections import defaultdict
+from datetime import date, timedelta
 from config import client_ordelo
 
 EXCLUDE_RIDER_ID = "447448440754"
@@ -112,7 +121,11 @@ def fetch_payouts(start_date: str, end_date: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Rider payout report")
-    parser.add_argument("--start", required=True, help="Start date inclusive (YYYY-MM-DD)")
-    parser.add_argument("--end", required=True, help="End date inclusive (YYYY-MM-DD)")
+    parser.add_argument("--start", required=True, help="Start date inclusive, always a Friday (YYYY-MM-DD)")
+    parser.add_argument("--end", required=False, default=None,
+                        help="End date inclusive (YYYY-MM-DD). Defaults to the Thursday 6 days after start.")
     args = parser.parse_args()
-    fetch_payouts(args.start, args.end)
+
+    start = args.start
+    end = args.end or (date.fromisoformat(start) + timedelta(days=6)).isoformat()
+    fetch_payouts(start, end)
