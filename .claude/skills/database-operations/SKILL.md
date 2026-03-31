@@ -11,28 +11,47 @@ using `client_ordelo` (Supabase REST client) or raw SQL via the async pool.
 ## Environment Setup
 
 **Always run scripts with the explicit Python binary and PYTHONPATH** (do not rely on shell
-activation or `source .venv/bin/activate` — PYTHONPATH must be set explicitly):
+activation or `source .venv/bin/activate` — PYTHONPATH must be set explicitly).
+
+Detect the repo root first — it differs by machine:
 
 ```sh
-PYTHONPATH=/home/basal/bloop/OrdeloAgent .venv/bin/python3.13 - <<'PY'
+# Auto-detect (works on all machines)
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
+# Or set explicitly:
+#   CI / web sessions:  REPO_ROOT=/home/user/OrdeloAgent
+#   Local (basal):      REPO_ROOT=/home/basal/bloop/OrdeloAgent
+```
+
+Then run scripts as:
+
+```sh
+PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 - <<'PY'
 # your code here
 PY
 ```
 
-**If `.venv` is missing, broken, or you get a `ModuleNotFoundError`**, the environment has not
-been set up. Run `run_setup.sh` — it creates the venv and installs **all** dependencies from
-`pyproject.toml` via `uv sync`. Do NOT manually `uv pip install` individual packages; that only
-installs a subset and will still leave imports broken.
+**If you get a `ModuleNotFoundError` or the venv is missing**, run this bootstrap install
+**before anything else**, then retry your script:
 
 ```sh
-# One-time setup (requires AWS_SETTINGS_* env vars — see references/run_setup.sh)
-bash /home/basal/bloop/OrdeloAgent/run_setup.sh
+uv pip install \
+  pydantic-settings boto3 loguru supabase "pywa==3.6.1" \
+  "pandas==2.2.3" gspread "duckdb==1.4.3" \
+  "psycopg[binary]" psycopg-pool \
+  "langchain==1.2.1" "langchain-openai==1.1.7" \
+  "langgraph==1.0.5" "langgraph-checkpoint-postgres==3.0.2" \
+  --python /usr/bin/python3.13 -q
 ```
 
-> Reference: `references/run_setup.sh` — shows exactly what the script does (venv creation,
-> `uv sync`, PYTHONPATH injection into activate, AWS credential check).
+> **Why not `run_setup.sh`?** `pyproject.toml` requires `==3.13.11` but the machine runs
+> `3.13.12`. `uv sync` (used by `run_setup.sh`) enforces this constraint and always fails with
+> "No interpreter found for Python ==3.13.11". Use the `uv pip install` block above instead —
+> it installs directly against `/usr/bin/python3.13` and works fine at runtime.
+> Reference: `references/run_setup.sh` shows what the script does.
 
-After running it, retry your command with the explicit binary as shown above.
+After bootstrapping, retry your command with the explicit binary as shown above.
 
 ## Quick Start
 
@@ -178,7 +197,7 @@ Never skip any step unless the user explicitly asks.
 ### Manual / per-table path
 
 Reference SQL files for switching specific restaurants between test and prod.
-Read the relevant file from `.codex/skills/database-operations/references/` before executing:
+Read the relevant file from `.claude/skills/database-operations/references/` before executing:
 
 | File | What it switches |
 |---|---|
@@ -197,7 +216,8 @@ verification queries before applying changes so you can confirm current state an
 **Example — switch SFCS to test mode:**
 
 ```sh
-PYTHONPATH=/home/basal/bloop/OrdeloAgent .venv/bin/python3.13 - <<'PY'
+REPO_ROOT=$(git rev-parse --show-toplevel)
+PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 - <<'PY'
 from config import client_ordelo
 
 # Verify current state first
@@ -220,7 +240,7 @@ PY
 
 ## Reference Scripts
 
-Python scripts in `.codex/skills/database-operations/references/` for common reporting tasks:
+Python scripts in `.claude/skills/database-operations/references/` for common reporting tasks:
 
 | Script | Usage |
 |---|---|
@@ -229,8 +249,9 @@ Python scripts in `.codex/skills/database-operations/references/` for common rep
 **Run rider payout report:**
 ```sh
 # --end is optional; defaults to Thursday 6 days after start (full week, excl. next Friday)
-PYTHONPATH=/home/basal/bloop/OrdeloAgent .venv/bin/python3.13 \
-  .codex/skills/database-operations/references/rider_payout.py \
+REPO_ROOT=$(git rev-parse --show-toplevel)
+PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 \
+  .claude/skills/database-operations/references/rider_payout.py \
   --start 2026-03-27
 ```
 
@@ -256,7 +277,8 @@ Deterministic CLI scripts in `.codex/skills/database-operations/scripts/`:
 
 Run them with:
 ```sh
-PYTHONPATH=/home/basal/bloop/OrdeloAgent .venv/bin/python3.13 \
-  .codex/skills/database-operations/scripts/ordelo_select.py \
+REPO_ROOT=$(git rev-parse --show-toplevel)
+PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 \
+  .claude/skills/database-operations/scripts/ordelo_select.py \
   --table restaurant_master --eq rest_ref=SFCS
 ```
