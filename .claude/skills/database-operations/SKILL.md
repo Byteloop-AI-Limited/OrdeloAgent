@@ -245,6 +245,7 @@ Python scripts in `.claude/skills/database-operations/references/` for common re
 | Script | Usage |
 |---|---|
 | `rider_payout.py` | Rider payout report for a date range — detailed per-order and aggregated totals. Joins `delivery_dispatch` → `rider_master` → `rider_registrations` → `delivery_option`. Excludes internal test rider (Lohith). |
+| `switch_elas_test_prod.py` | Switch ELAS/CHKS `restaurant_master` + `rider_master` between test and prod. |
 
 **Run rider payout report:**
 ```sh
@@ -253,6 +254,14 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 \
   .claude/skills/database-operations/references/rider_payout.py \
   --start 2026-03-27
+```
+
+**Switch ELAS to test or prod:**
+```sh
+REPO_ROOT=$(git rev-parse --show-toplevel)
+PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 \
+  .claude/skills/database-operations/references/switch_elas_test_prod.py \
+  --mode test   # or --mode prod
 ```
 
 ## Repo Pointers (load as needed)
