@@ -66,24 +66,11 @@ def fetch_payouts(start_date: str, end_date: str):
     )
     reg_by_rider = {r["phone"][1:]: r for r in reg_rows}
 
-    # 4. Delivery options (vehicle_type per order)
-    options = {
-        o["order_number"]: o
-        for o in client_ordelo.table("delivery_option")
-        .select("order_number, vehicle_type")
-        .in_("order_number", order_numbers)
-        .execute()
-        .data
-    }
-
     # Join
     detailed = []
     for d in dispatches:
         rider = riders.get(d["rider_id"])
         if not rider:
-            continue
-        opt = options.get(d["order_number"])
-        if not opt or opt["vehicle_type"] != rider["vehicle_type"]:
             continue
         reg = reg_by_rider.get(d["rider_id"])
         if not reg:

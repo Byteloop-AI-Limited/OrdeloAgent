@@ -265,7 +265,7 @@ Python scripts in `.claude/skills/database-operations/references/` for common re
 
 | Script | Usage |
 |---|---|
-| `rider_payout.py` | Rider payout report for a date range — detailed per-order and aggregated totals. Joins `delivery_dispatch` → `rider_master` → `rider_registrations` → `delivery_option`. Excludes internal test rider (Lohith). |
+| `rider_payout.py` | Rider payout report for a date range — detailed per-order and aggregated totals. Joins `delivery_dispatch` → `rider_master` → `rider_registrations`. Excludes internal test rider Lohith (`rider_id=447448440754`). |
 
 **Run rider payout report:**
 ```sh
