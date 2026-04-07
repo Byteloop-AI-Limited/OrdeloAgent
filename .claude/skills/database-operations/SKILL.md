@@ -131,6 +131,27 @@ rows = await execute_sql_query(
 )
 ```
 
+## Standard Query Filters
+
+Always apply these filters when querying `delivery_summary` for order listings, reports,
+or payout queries — unless the user explicitly asks to include test data:
+
+```python
+.neq("town", "dummy")           # exclude test orders
+.neq("customer_name", "447448440754")  # exclude internal test customer
+```
+
+Example:
+```python
+resp = client_ordelo.table("delivery_summary")\
+    .select("order_number, rest_name, customer_name, status, dtts, pickup_time, town")\
+    .gte("dt", "2026-03-26")\
+    .neq("town", "dummy")\
+    .neq("customer_name", "447448440754")\
+    .order("dtts")\
+    .execute()
+```
+
 ## Using DataModels (preferred for lookups)
 
 The `ordelo_datamodels` package has Pydantic models with classmethods that handle
