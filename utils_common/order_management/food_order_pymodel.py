@@ -302,9 +302,10 @@ class FoodOrder(BaseModel):
         order_items = (
             client_ordelo.table("order_item")
             .select("""
-                product_name, 
-                quantity, 
-                price
+                product_name,
+                quantity,
+                price,
+                modifications
             """)
             .eq("order_id", self.order_id)
             .execute()
@@ -346,9 +347,10 @@ class FoodOrder(BaseModel):
         order_items = (
             client_ordelo.table("order_item")
             .select("""
-                product_name, 
-                quantity, 
-                price
+                product_name,
+                quantity,
+                price,
+                modifications
             """)
             .eq("order_id", self.order_id)
             .execute()

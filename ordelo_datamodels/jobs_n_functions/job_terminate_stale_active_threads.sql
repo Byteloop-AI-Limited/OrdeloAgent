@@ -38,4 +38,4 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-select * from job_terminate_stale_active_threads()
+select * from job_terminate_stale_active_threads();
