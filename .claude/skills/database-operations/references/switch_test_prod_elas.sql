@@ -1,5 +1,5 @@
 -- ============================================================
--- SFCS: Verification Queries
+-- ELAS: Verification Queries
 -- ============================================================
 
 select admins, city, restaurant_start_time, * from restaurant_master where rest_ref = 'ELAS';
@@ -8,7 +8,7 @@ select * from ordelo_config where config_key like '%_APP_URL';
 
 select * from rider_master where rider_name = 'Lohith';
 -- ============================================================
--- SFCS: Test Setup
+-- ELAS: Test Setup
 -- ============================================================
 
 update restaurant_master
@@ -25,9 +25,10 @@ set is_in_shift = true,
     vehicle_type = 'bicycle'
 where rider_name = 'Lohith';
 
+update ordelo_config set config_value = 'https://elas-agg-test.ordelo.app' where config_key = 'ELAS_APP_URL';
 
 -- ============================================================
--- SFCS: Production Setup
+-- ELAS: Production Setup
 -- ============================================================
 
 update restaurant_master
@@ -43,3 +44,5 @@ set is_in_shift = true,
     town = 'Salisbury',
     vehicle_type = 'bicycle'
 where rider_name = 'Lohith';
+
+update ordelo_config set config_value = 'https://elas-agg.ordelo.app' where config_key = 'ELAS_APP_URL';
