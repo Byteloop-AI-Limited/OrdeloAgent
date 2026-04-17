@@ -1,116 +1,101 @@
 # %%
 from config import client_ordelo
+import uuid
+from datetime import datetime
+from pydantic import BaseModel
+from typing import Optional, List
 
-riders = ["447448440754", "447448440755"]
-(
-    client_ordelo.table("rider_master")
-    .update({"is_in_shift": False, "shift_response_dtts": None})
-    .in_("rider_id", riders)
-    .execute()
-)
+# Generate random test values
+order_id = f"ESUY-24"
+order_number = f"SFCS-ESUY-24"
+seq_number_data = 42  # Simulating seq_number.data
+recipient = "447448440754"  # Test phone number
+notes = "Extra spicy, no onions"
+modifications = ["Extra cheese", "Well done", "No pickles"]
+thread_id = f"thread_{uuid.uuid4().hex[:12]}"
+action = "new_order"
+total_price = 24.99
+payment_status = "requires_payment"
 
-# %% To be changed later
+# %%
+from utils_common.order_management.food_order_pymodel import FoodOrder
+
+order_id = "HXKS-29"
+food_order = FoodOrder.from_order_id(order_id)
+payment_uri = food_order.payment_uri
+intent_payload = await food_order.gen_payment_intent_payload()
+intent_payload
+# %%
+insert_payload = {
+    "order_id": order_id,
+    "order_number": order_number,
+    "seq_id": seq_number_data,
+    "recipient": recipient,
+    "notes": notes,
+    "modifications": modifications,
+    "thread_id": thread_id,
+    "action": action,
+    "total_price": total_price,
+    "payment_status": payment_status,
+}
+
+# Insert into food_order
+try:
+    food_order_response = (
+        client_ordelo.table("food_order").insert(insert_payload).execute()
+    )
+    print(f"✓ Inserted order: {order_number}")
+    print(f"Response: {food_order_response.data}")
+except Exception as e:
+    print(f"✗ Error inserting food_order: {e}")
+
+
+# %%
+class OrderItem(BaseModel):
+    order_id: str
+    sku: str
+    quantity: int
+    price: float
+    product_name: str
+    modifications: Optional[List[str]] = None
+
+
+# Create sample order items
+order_items = [
+    OrderItem(
+        order_id=order_id,
+        sku="PIZZA-MARG-L",
+        quantity=2,
+        price=12.99,
+        product_name="Large Margherita Pizza",
+    ),
+    OrderItem(
+        order_id=order_id,
+        sku="WINGS-BBQ-10",
+        quantity=1,
+        price=8.99,
+        product_name="BBQ Chicken Wings (10pc)",
+    ),
+    OrderItem(
+        order_id=order_id,
+        sku="DRINK-COKE-500",
+        quantity=3,
+        price=1.50,
+        product_name="Coca-Cola 500ml",
+        modifications=["Extra ice", "l and l"],
+    ),
+]
+
 # %%
 
-from timeit import timeit
-import psycopg
-from psycopg_pool import ConnectionPool
-import os
-from config import pg_settings
-import asyncio
-from datetime import datetime
-from config import _sync_wa_client
-
-# Database connection parameters
-DB_URL = pg_settings.db_uri
-
-
-def process_dispatch_response_from_rider(
-    recipient: str, callback_data: dict, _sync_wa_client: _sync_wa_client
-):
-    """
-    Process rider's response to a delivery dispatch in a sync context.
-
-    This function executes database operations in an async context.
-
-    Args:
-        recipient: The phone number of the recipient.
-        callback_data: The callback data containing the dispatch ID and order number.
-        _sync_wa_client: An instance of the AsyncWhatsApp client.
-
-    Returns:
-        None
-    """
-    # Create a new pool for this function call
-    pool = ConnectionPool(DB_URL)
-
-    try:
-        pool.open()
-
-        _dispatch_id = callback_data["dispatch_id"]
-        _order_number = callback_data["order_number"]
-        rider_response = callback_data["status"]
-
-        with pool.connection() as conn:
-            with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
-                if rider_response == "declined":
-                    cur.execute(
-                        """
-                        UPDATE delivery_dispatch 
-                        SET status = 'declined', status_update_dtts = %s 
-                        WHERE dispatch_id = %s
-                        """,
-                        (datetime.now().isoformat(), _dispatch_id),
-                    )
-
-                elif rider_response == "accepted":
-                    # Check current status
-                    cur.execute(
-                        "SELECT status FROM delivery_detail WHERE order_number = %s",
-                        (_order_number,),
-                    )
-                    _detail = cur.fetchone()
-
-                    if _detail and _detail["status"] == "assigned":
-                        # Job already assigned
-                        _sync_wa_client.send_message(
-                            to=recipient,
-                            text="Sorry, This job has already been assigned",
-                        )
-                    else:
-                        # Update dispatch status
-                        cur.execute(
-                            """
-                            UPDATE delivery_dispatch 
-                            SET status = 'assigned', status_update_dtts = %s 
-                            WHERE dispatch_id = %s
-                            """,
-                            (datetime.now().isoformat(), _dispatch_id),
-                        )
-
-                        # Update delivery detail
-                        cur.execute(
-                            """
-                            UPDATE delivery_detail 
-                            SET status = 'assigned', dispatch_id = %s, rider_id = %s 
-                            WHERE order_number = %s
-                            """,
-                            (_dispatch_id, recipient, _order_number),
-                        )
-
-                conn.commit()
-
-    except Exception as e:
-        print(f"Error processing dispatch response: {e}")
-        raise
-    finally:
-        if pool and not pool.closed:
-            pool.close()
-
-
-# %% Test
-process_dispatch_response_from_rider(
-    recipient="447448440754",
-    callback_data={"dispatch_id": 123, "order_number": "test123", "status": "accepted"},
-    _sync_wa_client=_sync_wa_client,
-)
+# Insert order items
+try:
+    order_items_response = (
+        client_ordelo.table("order_item_v2")
+        .insert([item.model_dump() for item in order_items])
+        .execute()
+    )
+    print(f"✓ Inserted {len(order_items)} order items for order: {order_id}")
+    print(f"Response: {order_items_response.data}")
+except Exception as e:
+    print(f"✗ Error inserting order_items: {e}")
