@@ -16,6 +16,15 @@ thread_id = f"thread_{uuid.uuid4().hex[:12]}"
 action = "new_order"
 total_price = 24.99
 payment_status = "requires_payment"
+
+# %%
+from utils_common.order_management.food_order_pymodel import FoodOrder
+
+order_id = "HXKS-29"
+food_order = FoodOrder.from_order_id(order_id)
+payment_uri = food_order.payment_uri
+intent_payload = await food_order.gen_payment_intent_payload()
+intent_payload
 # %%
 insert_payload = {
     "order_id": order_id,
