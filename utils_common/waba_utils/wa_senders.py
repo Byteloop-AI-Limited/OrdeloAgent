@@ -3,7 +3,7 @@ WhatsApp messaging utilities for order management and address confirmation flows
     . Implements WhatsApp communication for delivery and order management
     . Defines reusable models for button callbacks with immutable properties
     . Supports extra fields in callback data (extra="allow") for flexibility
-    . Sends admin notifications for order and delivery status updates
+    . Sends admin notifications for order and delivery status updates (pickup_time converted to UK local time for BST/GMT)
     . Provides interactive address confirmation flows with buttons
     . Implements postcode search/update flows via WhatsApp Flow API
     . Uses FlowButton for complex user interactions and form submissions
@@ -203,7 +203,8 @@ async def admin_order_reciept(
     # pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
     ordelo_base_url = await get_restaurant_base_url_async(rest_ref="ORDELO")
     rest_ref = delivery_summary.rest_ref
-    pickup_time = delivery_summary.pickup_time.strftime("%I:%M %p")
+    uk_tz = pytz.timezone("Europe/London")
+    pickup_time = delivery_summary.pickup_time.astimezone(uk_tz).strftime("%I:%M %p")
 
     delivery_instructions = f"""
 Delivery Details:
