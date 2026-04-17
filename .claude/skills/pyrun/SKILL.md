@@ -229,3 +229,14 @@ for d in resp.data:
 ## Reference scripts
 
 - `scripts/debug_thread_messages.py` prints only the message content for a given thread_id using `debug_thread`.
+- `scripts/price_breakdown.py` prints a formatted price breakdown for a given order number and vehicle type.
+
+**Run price breakdown:**
+```sh
+REPO_ROOT=$(git rev-parse --show-toplevel)
+PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 \
+  .claude/skills/pyrun/scripts/price_breakdown.py \
+  --order ELAS-UYWS-20 --vehicle car
+```
+
+Output includes: order value, revenue split (restaurant cost, commission, driver payout, processing fee, profit), customer fees, distance, and a vehicle-type comparison table.
