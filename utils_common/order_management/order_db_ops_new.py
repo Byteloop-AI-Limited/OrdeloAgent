@@ -17,7 +17,7 @@ Order database operations (new version with improved models)
 # Standard library imports
 import hashlib
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # Third-party imports
 from dataclasses import asdict
@@ -41,6 +41,7 @@ class OrderItem(BaseModel):
     quantity: int
     price: float
     product_name: str
+    modifications: Optional[List[str]] = None
 
 
 # %%
@@ -261,31 +262,3 @@ async def create_order_summary(order_id: str) -> Dict:
         "currency": "GBP",
     }
     return order_summary_dict
-
-
-""" Test 
-# %%
-import requests 
-def get_pricing_details(order_number, total_food_value, distance_in_miles):
-    url = "https://vfw8b9byz3.execute-api.eu-west-2.amazonaws.com/prod/pricing"
-    
-    payload = {
-        "order_number": order_number,
-        "total_food_value": total_food_value,
-        "distance_in_miles": distance_in_miles
-    }
-    
-    headers = {
-        "Content-Type": "application/json"
-    }
-    
-    response = requests.post(url, json=payload, headers=headers)
-    
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return {"error": f"Failed to get pricing: {response.status_code}", "details": response.text}
-
-
-get_pricing_details("test_8004", 10.99, 2)
-"""

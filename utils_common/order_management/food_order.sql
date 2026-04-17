@@ -55,10 +55,31 @@ CREATE TABLE public.order_item (
     sku TEXT NOT NULL,
     quantity INTEGER NOT NULL,
     price FLOAT NOT NULL,
+    modifications TEXT[] NULL,
     FOREIGN KEY (order_id) REFERENCES public.food_order(order_id) ON DELETE CASCADE
 );
+
+ALTER TABLE public.order_item
+    ADD COLUMN IF NOT EXISTS modifications TEXT[] NULL;
+
+-- Create the OrderItem table
+CREATE TABLE public.order_item_v2 (
+    order_id TEXT,
+    product_name TEXT NOT NULL,
+    sku TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    price FLOAT NOT NULL,
+    modifications TEXT[] NULL,
+    FOREIGN KEY (order_id) REFERENCES public.food_order(order_id) ON DELETE CASCADE
+);
+
 
 -- %% cascaded drop
 DROP TABLE IF EXISTS OrderItem;
 DROP TABLE IF EXISTS FoodOrder;
 
+select * from food_order where order_number like 'SFCS-ESUY-24';
+select * from order_item_v2 where order_id = 'ESUY-24';
+select * from order_item where order_id = 'HXKS-29';
+
+-- delete from order_item where order_id = 'ESUY-24';
