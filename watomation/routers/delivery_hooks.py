@@ -1158,12 +1158,10 @@ async def _handle_restaurant_timedout(
     order_time = datetime.fromisoformat(delivery_summary.dtts.replace("Z", "+00:00"))
     order_time = order_time.astimezone(uk_tz)
     new_pickuptime = (order_time + timedelta(minutes=30)).isoformat()
-    logger.critical(f"order_time is {order_time}")
 
     # Format pickup time for human-readable display
     pickup_dt = datetime.fromisoformat(new_pickuptime)
     pickup_display = pickup_dt.strftime("%-I:%M %p")
-    logger.critical(f"pickup_dt is {pickup_dt}")
 
     update_vals = {
         "status": "unassigned",
