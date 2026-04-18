@@ -15,13 +15,17 @@ ENV PYTHONPATH=/app
 
 # Install UV package manager using official installer
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:$PATH"
+ENV PATH="/root/.local/bin:/app/.venv/bin:$PATH"
+
+# Install dependencies from lockfile first (better layer caching)
+COPY pyproject.toml uv.lock /app/
+RUN uv sync --frozen --no-dev --no-install-project
 
 # Copy your application code (including start.sh) into /app
 COPY . /app
 
-# Install dependencies from pyproject.toml
-RUN uv pip install --system .
+# Install the project itself from lockfile
+RUN uv sync --frozen --no-dev
 
 # Copy your startup script and make it executable
 RUN chmod +x /app/start.sh
