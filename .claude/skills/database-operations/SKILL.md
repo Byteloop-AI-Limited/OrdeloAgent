@@ -1,40 +1,40 @@
 ---
 name: database-operations
-description: Query and operate on the Ordelo Supabase/Postgres database — select, insert, update, delete rows, call RPC/stored procedures, and switch between test/prod configurations. Use this skill whenever the user asks to change, query, or inspect any database table — especially rider_master, ordelo_config, restaurant_master, customer_master, delivery_summary, delivery_dispatch, or cust_rest_map. Also use when switching test/prod environments, running the deployment checklist, updating admin phone numbers, toggling rider shifts, changing app URLs in ordelo_config, or updating the WABA webhook. Even if the user doesn't say "database", if they mention table names, column values, rest_ref, rider_id, cust_id, config_key, prod/test mode, deployment, or WABA webhook — this skill applies.
+description: Query and operate on the Ordelo Supabase/Postgres database — select, insert, update, delete rows, call RPC/stored procedures, and switch between test/prod configurations. Use this skill whenever the user asks to change, query, or inspect any database table (especially rider_master, ordelo_config, restaurant_master, customer_master, delivery_summary, delivery_dispatch, or cust_rest_map), check table data, look up records by ID/order_number/rider_id/cust_id, run SQL queries, switch between test/prod environments, update admin phones, toggle rider shifts, change app URLs, or update the WABA webhook. Even if the user doesn't explicitly say "database" or "Supabase", if they mention table names, column values, rest_ref, rider_id, cust_id, config_key, prod/test mode, deployment, or WABA webhook — this skill applies. ALWAYS use this for database work, not pyrun.
 ---
 
 # Database Operations
 
 Perform reads, writes, and environment switches against the Ordelo Supabase/Postgres database
-using `client_ordelo` (Supabase REST client) or raw SQL via the async pool.
+using `client_ordelo` (Supabase REST client) or direct Python Supabase client when config module fails.
+
+## Quick Start
+
+The simplest approach: use the config module's pre-built client:
+
+```python
+from config import client_ordelo
+
+resp = client_ordelo.table("delivery_summary").select("*").eq("order_number", "ELAS-CEKT-22").execute()
+print(resp.data)
+```
+
+If the config module fails to load (AWS/credential errors), jump to **Fallback: Direct Supabase Client** below.
 
 ## Environment Setup
 
-**Always run scripts with the explicit Python binary and PYTHONPATH** (do not rely on shell
-activation or `source .venv/bin/activate` — PYTHONPATH must be set explicitly).
-
-Detect the repo root first — it differs by machine:
+**Always run scripts with explicit Python binary and PYTHONPATH:**
 
 ```sh
-# Auto-detect (works on all machines)
 REPO_ROOT=$(git rev-parse --show-toplevel)
-
-# Or set explicitly:
-#   CI / web sessions:  REPO_ROOT=/home/user/OrdeloAgent
-#   Local (basal):      REPO_ROOT=/home/basal/bloop/OrdeloAgent
-```
-
-Then run scripts as:
-
-```sh
-PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 - <<'PY'
+PYTHONPATH=$REPO_ROOT python3 - <<'PY'
 # your code here
 PY
 ```
 
-**If you get a `ModuleNotFoundError` or the venv is missing**, run this bootstrap install
-**before anything else**, then retry your script:
+**If you get `ModuleNotFoundError` or import errors:**
 
+Try the bootstrap installer first:
 ```sh
 uv pip install \
   pydantic-settings boto3 loguru supabase "pywa==3.6.1" \
@@ -42,31 +42,46 @@ uv pip install \
   "psycopg[binary]" psycopg-pool \
   "langchain==1.2.1" "langchain-openai==1.1.7" \
   "langgraph==1.0.5" "langgraph-checkpoint-postgres==3.0.2" \
-  --python /usr/bin/python3.13 -q
+  -q
 ```
 
-> **Why not `run_setup.sh`?** `pyproject.toml` requires `==3.13.11` but the machine runs
-> `3.13.12`. `uv sync` (used by `run_setup.sh`) enforces this constraint and always fails with
-> "No interpreter found for Python ==3.13.11". Use the `uv pip install` block above instead —
-> it installs directly against `/usr/bin/python3.13` and works fine at runtime.
-> Reference: `references/run_setup.sh` shows what the script does.
+Then retry your script. **Do NOT use `run_setup.sh`** — it enforces `==3.13.11` which conflicts with the system's `3.13.12`.
 
-After bootstrapping, retry your command with the explicit binary as shown above.
+## Fallback: Direct Supabase Client (when config module fails)
 
-## Quick Start
+If `config` module fails due to AWS credential errors or other config issues, use direct Supabase client initialization from `env.json`:
 
 ```python
-from config import client_ordelo
+import json
+from supabase import create_client
+
+# Read env.json in repo root
+with open("env.json") as f:
+    env = json.load(f)
+
+# Create client
+url = env["sbase_ordelo_rest_url"]
+key = env["sbase_ordelo_rest_key"]
+client = create_client(url, key)
+
+# Query normally
+resp = client.table("delivery_summary").select("*").eq("order_number", "ELAS-CEKT-22").execute()
+print(resp.data)
 ```
 
-This is the synchronous Supabase `Client` wired in `config/pg_setting.py`. All examples below
-use this import.
+This bypasses AWS Secrets Manager and uses local env.json credentials. Use this when:
+- AWS credentials are not configured
+- `config` module import fails  
+- `pydantic_settings` validation fails
+- You just need quick database access without full app initialization
+
+## Query Patterns
 
 ### SELECT
 
 ```python
 resp = (
-    client_ordelo.table("restaurant_master")
+    client.table("restaurant_master")
     .select("rest_ref, rest_name, admins, city")
     .eq("rest_ref", "SFCS")
     .execute()
@@ -74,18 +89,18 @@ resp = (
 print(resp.data)
 ```
 
-### UPDATE
+### UPDATE (always filter tightly)
 
 ```python
-client_ordelo.table("rider_master").update(
-    {"is_in_shift": True, "town": "Salisbury", "vehicle_type": "bicycle"}
+client.table("rider_master").update(
+    {"is_in_shift": True, "town": "Salisbury"}
 ).eq("rider_name", "Lohith").execute()
 ```
 
 ### INSERT
 
 ```python
-client_ordelo.table("food_order").insert(
+client.table("food_order").insert(
     {"order_number": "ORD123", "item": "Biryani"}
 ).execute()
 ```
@@ -93,7 +108,7 @@ client_ordelo.table("food_order").insert(
 ### UPSERT
 
 ```python
-client_ordelo.table("cust_rest_map").upsert(
+client.table("cust_rest_map").upsert(
     {"cust_id": "447000000001", "rest_ref": "ELAI", "has_consent": True},
     on_conflict="cust_id,rest_ref"
 ).execute()
@@ -102,7 +117,7 @@ client_ordelo.table("cust_rest_map").upsert(
 ### DELETE (always filter tightly)
 
 ```python
-client_ordelo.table("delivery_option").delete().like(
+client.table("delivery_option").delete().like(
     "order_number", "WREN-TEST-%"
 ).execute()
 ```
@@ -110,17 +125,15 @@ client_ordelo.table("delivery_option").delete().like(
 ### RPC / Stored Procedures
 
 ```python
-client_ordelo.rpc("dispatch_cancel_before_pickup", {"p_dispatch_id": 432}).execute()
+client.rpc("dispatch_cancel_before_pickup", {"p_dispatch_id": 432}).execute()
 
 # Schema-specific RPC
-client_ordelo.schema("pgmq_public").rpc(
+client.schema("pgmq_public").rpc(
     "send", {"queue_name": "owntracks", "message": {"key": "val"}}
 ).execute()
 ```
 
-### Raw SQL (joins, catalog introspection)
-
-When you need full SQL (joins, system catalogs like `pg_trigger`, function defs):
+### Raw SQL (joins, catalog queries)
 
 ```python
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
@@ -133,26 +146,23 @@ rows = await execute_sql_query(
 
 ## Using DataModels (preferred for lookups)
 
-The `ordelo_datamodels` package has Pydantic models with classmethods that handle
-query + validation. Prefer these over raw `client_ordelo` calls when a classmethod exists.
+The `ordelo_datamodels` package has Pydantic models with classmethods for common lookups:
 
 ```python
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
-from ordelo_datamodels.customer_master_pymodel import CustomerMaster
-from ordelo_datamodels.delivery_pymodels import DeliveryDetail, DeliverySummary, DeliveryDispatch
-from ordelo_datamodels.cust_rest_map_pymodel import CustRestMap
+from ordelo_datamodels.delivery_pymodels import DeliverySummary, DeliveryDispatch
 
 restaurant = RestaurantMaster.from_rest_ref("SFCS")
-customer = CustomerMaster.from_cust_id("447000000001")
+summary = DeliverySummary.from_order_number("ELAS-CEKT-22")
 dispatch = DeliveryDispatch.from_dispatch_id(432)
 ```
 
 ## Safety Rules for Writes
 
-- Confirm the target environment and exact filter keys (IDs, order_number, dispatch_id).
-- For `update`/`delete`, run an equivalent `select` first and confirm the rowset size.
-- Never run unfiltered `update`/`delete`; always use `.eq()`/`.in_()`/tight `.like()`.
-- Capture the "before" state in output so changes are reversible.
+- Confirm the target environment and exact filter keys (IDs, order_number, dispatch_id)
+- For `update`/`delete`, run an equivalent `select` first and confirm rowset size
+- Never run unfiltered `update`/`delete`; always use `.eq()` or `.in_()` with tight `.like()` filters
+- Capture the "before" state in output so changes are reversible
 
 ## Tables Reference
 
@@ -165,129 +175,44 @@ dispatch = DeliveryDispatch.from_dispatch_id(432)
 | `delivery_summary` | `order_number` | `rest_ref`, `customer_id`, `status`, `pickup_time`, `dt` | `DeliverySummary` |
 | `delivery_detail` | `order_number` | `rest_id`, `customer_id`, `rider_id`, `dispatch_id`, `status` | `DeliveryDetail` |
 | `delivery_dispatch` | `dispatch_id` | `order_number`, `rider_id`, `status`, `vehicle_type` | `DeliveryDispatch` |
+| `delivery_option` | — | `order_number`, `vehicle_type`, `final_order_value` | — |
 | `cust_rest_map` | `cust_id, rest_ref` | `has_consent`, `consent_dtts` | `CustRestMap` |
 | `food_order` | `order_number` | `item`, `qty`, `price` | — |
 | `thread` | `thread_id` | `rider_id`, `dispatch_id` | — |
 
-## Switching Test / Production Environments
+## Switching Test/Production Environments
 
-### Quick path: unified checklist script
-
-`notebooks/prod_deployment_checker.py` runs all four deployment steps in one go:
+Use the unified deployment script to switch restaurants between test and prod safely:
 
 ```bash
-# Check current state (dry-run, no changes)
-source .venv/bin/activate && python notebooks/prod_deployment_checker.py --mode prod
-
-# Apply all changes (DB + WABA webhook)
 source .venv/bin/activate && python notebooks/prod_deployment_checker.py --mode prod --apply
-
-# Skip WABA webhook step (only if explicitly asked)
-source .venv/bin/activate && python notebooks/prod_deployment_checker.py --mode prod --apply --skip-waba
 ```
 
-The four steps it covers:
-- **Step 1** `restaurant_master` — from `notebooks/db_queries/rest_master_updates.sql` lines 10-24
-- **Step 2** `rider_master` — from `notebooks/db_queries/rider_master_updates.sql` lines 14-21
-- **Step 3** `ordelo_config` `ORDELO_APP_URL` — from `notebooks/db_queries/config_updates.sql` line 5 (test) or line 14 (prod)
-- **Step 4** WABA webhook — via `_sync_wa_client` / `waba_business_settings` in `config/waba_setting.py` lines 123-131
+Handles all four steps: restaurant_master, rider_master, ordelo_config, and WABA webhook.
 
-Never skip any step unless the user explicitly asks.
-
-### Manual / per-table path
-
-Reference SQL files for switching specific restaurants between test and prod.
-Read the relevant file from `.claude/skills/database-operations/references/` before executing:
-
-| File | What it switches |
-|---|---|
-| `switch_test_prod_sfcs.sql` | SFCS restaurant_master + rider_master only |
-| `switch_test_prod_elas.sql` | ELAS/CHKS restaurant_master + rider_master only |
-| `switch_test_prod_config.sql` | Global ordelo_config URLs (ORDELO_APP_URL, ELAS_APP_URL, SFCS_APP_URL, etc.) |
-
-**Important:** Restaurant-specific switches (SFCS, ELAS) only update `restaurant_master` and
-`rider_master`. They do NOT touch `ordelo_config`, app URLs, or WABA webhook. Use
-`switch_test_prod_config.sql` and the WABA step separately when needed.
-
-Each file has three sections: **Verification Queries** (run first to check current state),
-**Test Setup** (switch to test), and **Production Setup** (switch to prod). Always run the
-verification queries before applying changes so you can confirm current state and revert if needed.
-
-**Example — switch SFCS to test mode:**
-
-```sh
-REPO_ROOT=$(git rev-parse --show-toplevel)
-PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 - <<'PY'
-from config import client_ordelo
-
-# Verify current state first
-resp = client_ordelo.table("restaurant_master").select("rest_ref, admins, city").eq("rest_ref", "SFCS").execute()
-print("BEFORE:", resp.data)
-
-# Apply test config (restaurant_master + rider_master only, NOT ordelo_config or WABA)
-client_ordelo.table("restaurant_master").update(
-    {"admins": ["447919202938"], "rest_stale_active_threads_minutes": 10,
-     "restaurant_start_time": 11, "restaurant_end_time": 21.30, "city": "dummy"}
-).eq("rest_ref", "SFCS").execute()
-
-client_ordelo.table("rider_master").update(
-    {"is_in_shift": True, "town": "dummy", "vehicle_type": "bicycle"}
-).eq("rider_name", "Lohith").execute()
-
-print("Switched SFCS to TEST mode")
-PY
-```
+For manual per-table switches, reference SQL files in `.claude/skills/database-operations/references/`:
+- `switch_test_prod_sfcs.sql`
+- `switch_test_prod_elas.sql`
+- `switch_test_prod_config.sql`
 
 ## Reference Scripts
 
-Python scripts in `.claude/skills/database-operations/references/` for common reporting tasks:
-
 | Script | Usage |
 |---|---|
-| `rider_payout.py` | Rider payout report for a date range — detailed per-order and aggregated totals. Joins `delivery_dispatch` → `rider_master` → `rider_registrations` → `delivery_option`. Excludes internal test rider (Lohith). |
-| `switch_elas_test_prod.py` | Switch ELAS/CHKS `restaurant_master` + `rider_master` between test and prod. |
+| `rider_payout.py` | Rider payout report for date range |
+| `switch_elas_test_prod.py` | Switch ELAS/CHKS between test/prod |
 
-**Run rider payout report:**
-```sh
-# --end is optional; defaults to Thursday 6 days after start (full week, excl. next Friday)
-REPO_ROOT=$(git rev-parse --show-toplevel)
-PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 \
+**Run rider payout:**
+```bash
+PYTHONPATH=$(git rev-parse --show-toplevel) python3 \
   .claude/skills/database-operations/references/rider_payout.py \
   --start 2026-03-27
 ```
 
-**Switch ELAS to test or prod:**
-```sh
-REPO_ROOT=$(git rev-parse --show-toplevel)
-PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 \
-  .claude/skills/database-operations/references/switch_elas_test_prod.py \
-  --mode test   # or --mode prod
-```
+## Repo Pointers
 
-## Repo Pointers (load as needed)
-
-- Table/function SQL definitions: `ordelo_datamodels/` — see `references/ordelo-datamodels.md`
+- Table/function SQL definitions: `ordelo_datamodels/`
 - Ad-hoc SQL examples: `notebooks/db_queries/CommonQueries.sql`
 - Supabase client + async pool: `config/pg_setting.py`
 - Raw SQL helpers: `utils_common/db_utils/sbase_pool_ops.py`
 - REST helper wrappers: `utils_common/db_utils/sbase_rest_ops.py`
-
-## Bundled Scripts
-
-Deterministic CLI scripts in `.codex/skills/database-operations/scripts/`:
-
-| Script | Usage |
-|---|---|
-| `ordelo_select.py` | `--table T --eq col=val --select "col1,col2" --limit 10` |
-| `ordelo_update.py` | `--table T --eq col=val --set-json '{"col":"newval"}'` |
-| `ordelo_insert.py` | `--table T --json '{"col":"val"}'` |
-| `ordelo_delete.py` | `--table T --eq col=val --confirm` |
-| `ordelo_rpc.py` | `--function fn_name --json '{"param":"val"}'` |
-
-Run them with:
-```sh
-REPO_ROOT=$(git rev-parse --show-toplevel)
-PYTHONPATH=$REPO_ROOT /usr/bin/python3.13 \
-  .claude/skills/database-operations/scripts/ordelo_select.py \
-  --table restaurant_master --eq rest_ref=SFCS
-```
