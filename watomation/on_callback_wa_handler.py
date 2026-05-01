@@ -10,6 +10,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . Serves as entry point into the LangGraph agent workflow
     . Processes restaurant confirmation of food preparation time
     . Uses asyncio.create_task for long-running RPC calls to avoid timeouts
+    . Guards pickup-time updates so stale or repeated button taps cannot overwrite existing pickup times
   Functions/Classes:
     . dispatch_response - Processes rider responses to delivery dispatch assignments
     . rider_request_location - Handles rider requests for location information
@@ -18,6 +19,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . handle_restaurant_confirmation - Processes restaurant prep time confirmation
     . restaurant_order_accept_decline_handler - Handles restaurant accept/decline responses
     . _update_restaurant_order_status - Background task for updating restaurant order status
+    . handle_pickup_time_selection - Handles restaurant pickup-time selection callbacks
 """
 
 # %%
@@ -338,6 +340,7 @@ async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
                 .update(update_vals)
                 .eq("order_number", order_number)
                 .eq("restaurant_confirmation_status", "restaurant_accept")
+                .filter("pickup_time", "is", "null")
                 .execute()
             )
         )
@@ -354,7 +357,7 @@ async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
         else:
             await msg.reply(text="Pickup time already updated")
             logger.info(
-                "Skipped pickup time update for %s (%s); status is not restaurant_accept",
+                "Skipped pickup time update for %s (%s); status is not restaurant_accept or pickup_time already set",
                 order_number,
                 order_type,
             )

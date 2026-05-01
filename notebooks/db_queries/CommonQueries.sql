@@ -1,8 +1,9 @@
 select * from thread order by dtts desc;
 select * from thread where is_active order by dtts desc;
 
-update thread set is_active=False where is_active and recipient='447448440754';
+update thread set is_active=False where is_active and recipient='447767909037';
 
+select * from customer_master where cust_id='447767909037';
 
 select * from delivery_dispatch order by dtts desc;
 -- update thread set is_active=false where is_active=True and dt<='2026-03-27';

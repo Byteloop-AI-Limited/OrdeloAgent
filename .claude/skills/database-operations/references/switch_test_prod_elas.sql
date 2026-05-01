@@ -25,7 +25,7 @@ set is_in_shift = true,
     vehicle_type = 'bicycle'
 where rider_name = 'Lohith';
 
-update ordelo_config set config_value = 'https://elas-agg-test.ordelo.app' where config_key = 'ELAS_APP_URL';
+update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'ELAS_APP_URL';
 
 -- ============================================================
 -- ELAS: Production Setup
