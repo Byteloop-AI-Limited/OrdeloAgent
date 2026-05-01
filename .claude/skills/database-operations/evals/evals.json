@@ -1,0 +1,26 @@
+{
+  "skill_name": "database-operations",
+  "evals": [
+    {
+      "id": 1,
+      "name": "query-with-config-available",
+      "prompt": "Get all columns from delivery_summary for order ELAS-CEKT-22",
+      "expected_output": "All delivery_summary columns for the order: order_number, rest_id, rest_name, customer_id, status, pickup_time, confirmation codes, etc.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "config-import-fails-fallback",
+      "prompt": "The config module is failing with AWS credential errors. Query delivery_option for order ELAS-CEKT-22 using a fallback method that doesn't require AWS setup.",
+      "expected_output": "Successfully query delivery_option table using direct Supabase client from env.json, showing all 3 delivery options with vehicle_type, pricing, and breakdown details",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "update-with-safety-checks",
+      "prompt": "Update a rider's shift status to in_shift=true, but first verify current state so we know what changed.",
+      "expected_output": "Show before state (current is_in_shift value), then show update query, then show after state confirming the change",
+      "files": []
+    }
+  ]
+}

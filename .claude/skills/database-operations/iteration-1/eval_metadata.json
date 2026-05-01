@@ -1,0 +1,61 @@
+[
+  {
+    "eval_id": 1,
+    "eval_name": "query-with-config-available",
+    "prompt": "Get all columns from delivery_summary for order ELAS-CEKT-22",
+    "assertions": [
+      {
+        "name": "returns_order_record",
+        "description": "Result includes exactly one row with order_number = ELAS-CEKT-22",
+        "type": "presence"
+      },
+      {
+        "name": "has_all_core_columns",
+        "description": "Output includes at least: order_number, rest_ref, customer_id, status, pickup_time",
+        "type": "presence"
+      },
+      {
+        "name": "correct_restaurant",
+        "description": "rest_ref value is ELAS",
+        "type": "value"
+      },
+      {
+        "name": "status_is_assigned",
+        "description": "status field shows 'assigned'",
+        "type": "value"
+      }
+    ]
+  },
+  {
+    "eval_id": 2,
+    "eval_name": "config-import-fails-fallback",
+    "prompt": "The config module is failing with AWS credential errors. Query delivery_option for order ELAS-CEKT-22 using a fallback method that doesn't require AWS setup.",
+    "assertions": [
+      {
+        "name": "uses_fallback_approach",
+        "description": "Solution uses direct Supabase client from env.json, NOT the config module",
+        "type": "presence"
+      },
+      {
+        "name": "returns_delivery_options",
+        "description": "Result includes delivery_option records for ELAS-CEKT-22",
+        "type": "presence"
+      },
+      {
+        "name": "shows_multiple_options",
+        "description": "At least 3 delivery options returned (car, scooter, e-bike)",
+        "type": "count"
+      },
+      {
+        "name": "includes_pricing_breakdown",
+        "description": "Each option shows: final_order_value, total_customer_charge, driver_payout, breakdown details",
+        "type": "presence"
+      },
+      {
+        "name": "no_aws_credentials_needed",
+        "description": "Solution works without AWS environment variables or Secrets Manager",
+        "type": "implementation"
+      }
+    ]
+  }
+]
