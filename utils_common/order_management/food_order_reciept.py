@@ -4,6 +4,7 @@ Order receipt generation and formatting utilities
   . Fetches order items from database for receipt generation
   . Formats order details and item-level modifications with WhatsApp-safe nested markers
   . Calculates order totals and item summaries
+  . Appends order-level notes after totals when provided
   . Generates customer-facing and restaurant-facing receipt text
   Functions/Classes:
     . _fetch_order_items
@@ -134,6 +135,8 @@ def build_wa_order_reciept_for_cust(
     if charges_block:
         text_parts.extend(["", charges_block])
     text_parts.extend(["", total_line])
+    if order.notes:
+        text_parts.extend(["", "*Notes:*", f"_{order.notes}_"])
 
     text = "\n".join(text_parts).strip()
 
@@ -206,6 +209,8 @@ def build_wa_order_reciept_for_rest(
     if charges_block:
         text_parts.extend(["", charges_block])
     text_parts.extend(["", total_line])
+    if order.notes:
+        text_parts.extend(["", "*Notes:*", f"_{order.notes}_"])
 
     return header, "\n".join(text_parts).strip()
 
