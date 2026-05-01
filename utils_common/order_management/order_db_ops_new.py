@@ -1,15 +1,15 @@
 """
-Order database operations (new version with improved models)
-  . Defines OrderItem and FoodOrder Pydantic models
-  . Generates unique order IDs and order numbers
-  . Inserts WhatsApp orders into database with validation
-  . Handles order item creation from WhatsApp Product objects
-  . Validates and enriches order data before database insertion
+Order database operations and models (new version)
+  . Defines OrderItem Pydantic model for individual order items
+  . Generates unique order references with hashing and encoding
+  . Creates order items from WhatsApp Order/Product objects
+  . Inserts orders and order items into database with validation
+  . Calculates order totals from WhatsApp orders
   Functions/Classes:
     . OrderItem
-    . FoodOrder
-    . generate_order_id
-    . generate_order_number
+    . get_order_total
+    . create_order_reference
+    . create_order_items_from_order
     . insert_wa_order
 """
 
@@ -17,7 +17,7 @@ Order database operations (new version with improved models)
 # Standard library imports
 import hashlib
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 # Third-party imports
 from dataclasses import asdict
@@ -26,9 +26,6 @@ from pywa.types import Order, Product
 
 # Local imports
 from config import client_ordelo, project_settings, logger
-
-# from config.params import REST_MASTER
-from utils_common.params import filter_dict
 
 # %%
 SALT = project_settings.salt
@@ -228,37 +225,4 @@ async def insert_wa_order(recipient: str, thread_id: str, wa_order: Order):
     return order_id, order_number
 
 
-# %% reference table select
 
-
-async def create_order_summary(order_id: str) -> Dict:
-    response = (
-        client_ordelo.table("order_item")
-        .select("""
-            product_name, 
-            quantity, 
-            price, 
-            food_order(
-                order_id, 
-                order_type, 
-                payment_status, 
-                recipient, 
-                thread_id
-                )
-            )
-        """)
-        .eq("order_id", order_id)
-        .execute()
-    )
-
-    food_order_data = response.data[0]["food_order"]
-    order_items_data = filter_dict(
-        response.data, select_cols=["product_name", "price", "quantity"]
-    )
-
-    order_summary_dict: dict = {
-        **food_order_data,
-        "items": order_items_data,
-        "currency": "GBP",
-    }
-    return order_summary_dict

@@ -2,7 +2,8 @@
 Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . Processes takeaway restaurant confirmation workflow events via DB trigger webhooks
     . Handles restaurant_unconfirmed, restaurant_accept, restaurant_decline, restaurant_timedout
-    . Notifies external restaurant service when pickup_time is set (NULL → non-NULL)
+    . Returns pickup_time trigger webhooks quickly and runs print/notification work in background
+    . Guards timeout auto-accept updates so stale timeout work cannot overwrite selected pickup times
     . Initializes takeaway_summary via RPC for pay-at-restaurant orders
     . Uses BackgroundTasks to avoid DB trigger HTTP timeouts
   Functions/Classes:
@@ -18,6 +19,7 @@ Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . _handle_restaurant_timedout - Auto-accepts order and sets default pickup time
     . restaurant_confirmation_flow - Webhook endpoint for restaurant confirmation events
     . _handle_pickup_time_set - Background task to POST pickup time event to restaurant service
+    . _handle_pickup_time_updated_background - Runs print and notification work after fast webhook response
     . pickup_time_updated_hook - Webhook endpoint for pickup_time set events
     . init_takeaway_order - Direct entrypoint for pay-at-restaurant takeaway orders
 """
@@ -261,7 +263,7 @@ async def _handle_restaurant_timedout(
     new_pickup_time = (order_time + timedelta(minutes=30)).isoformat()
     pickup_display = _format_pickup_time_display(new_pickup_time)
 
-    await asyncio.to_thread(
+    result = await asyncio.to_thread(
         lambda: (
             client_ordelo.table("takeaway_summary")
             .update(
@@ -273,9 +275,22 @@ async def _handle_restaurant_timedout(
                 }
             )
             .eq("order_number", takeaway_summary.order_number)
+            .eq("restaurant_confirmation_status", "restaurant_timedout")
+            .filter("pickup_time", "is", "null")
             .execute()
         )
     )
+
+    if not result.data:
+        logger.info(
+            "Skipped timeout auto-accept for takeaway order %s; order state changed or pickup_time already set",
+            takeaway_summary.order_number,
+        )
+        return {
+            "status": "skipped",
+            "action": "auto_accept_skipped",
+            "order_number": takeaway_summary.order_number,
+        }
 
     for admin_phone in restaurant_admins:
         await _async_wa_client.send_message(
@@ -435,6 +450,27 @@ async def _handle_pickup_time_set(
     }
 
 
+async def _handle_pickup_time_updated_background(
+    takeaway_summary: TakeawaySummaryData,
+    restaurant_master: RestaurantMasterData,
+) -> dict:
+    try:
+        food_order = await asyncio.to_thread(
+            FoodOrder.from_order_number, takeaway_summary.order_number
+        )
+        payment_url = await generate_automatic_payment_url(
+            food_order,
+            is_print_only=True,
+        )
+        logger.info(f"Payment URL: {payment_url}")
+    except Exception as e:
+        logger.error(
+            f"Failed to generate print payment URL for {takeaway_summary.order_number}: {e}"
+        )
+
+    return await _handle_pickup_time_set(takeaway_summary, restaurant_master)
+
+
 # Review if restaurant_master record is needed?
 @router.post("/pickup-time-updated")
 async def pickup_time_updated_hook(
@@ -456,16 +492,8 @@ async def pickup_time_updated_hook(
             f"pickup_time={takeaway_summary.pickup_time}, rest_id={takeaway_summary.rest_id}"
         )
 
-        # TODO: 1. Notify restaurant service, send kitchen reciept and the printout (call payment service with additional field)
-        payment_url = await generate_automatic_payment_url(
-            FoodOrder.from_order_number(takeaway_summary.order_number),
-            is_print_only=True,
-        )
-        logger.info(f"Payment URL: {payment_url}")
-
-        # TODO: 2. Notify customer, send pickup time confirmation; Should this call
         background_tasks.add_task(
-            _handle_pickup_time_set,
+            _handle_pickup_time_updated_background,
             takeaway_summary,
             restaurant_master,
         )

@@ -1,13 +1,16 @@
 """
 Order receipt generation and formatting utilities
+  . Depends on FoodOrder, OrderItem, Supabase client, and typing helpers
   . Fetches order items from database for receipt generation
-  . Formats order details for WhatsApp message display
+  . Formats order details and item-level modifications with WhatsApp-safe nested markers
   . Calculates order totals and item summaries
-  . Generates human-readable receipt text
+  . Appends order-level notes after totals when provided
+  . Generates customer-facing and restaurant-facing receipt text
   Functions/Classes:
     . _fetch_order_items
-    . generate_order_receipt
-    . format_receipt_for_whatsapp
+    . _format_order_item_lines
+    . build_wa_order_reciept_for_cust
+    . build_wa_order_reciept_for_rest
 """
 
 # %%
@@ -30,7 +33,7 @@ def _fetch_order_items(order_id: str) -> List[dict]:
     try:
         response = (
             client_ordelo.table("order_item")
-            .select("product_name, quantity, price")
+            .select("product_name, quantity, price, modifications")
             .eq("order_id", order_id)
             .execute()
         )
@@ -38,6 +41,32 @@ def _fetch_order_items(order_id: str) -> List[dict]:
     except Exception as e:  # pragma: no cover – database/network failure
         print(f"⚠️  Failed to fetch order_items for {order_id}: {e}")
         return []
+
+
+def _format_order_item_lines(items_data: List[dict]) -> List[str]:
+    item_lines: List[str] = []
+    for item in items_data:
+        qty = item.get("quantity", 1)
+        name = item.get("product_name", "Item")
+        unit_price = item.get("price", 0)
+        line_total = unit_price * qty
+        item_lines.append(f"*• {qty} × {name}  –  £{line_total:.2f}*")
+
+        modifications = item.get("modifications") or []
+        if isinstance(modifications, str):
+            modification_values = [modifications]
+        else:
+            try:
+                modification_values = list(modifications)
+            except TypeError:
+                modification_values = [modifications]
+
+        for modification in modification_values:
+            modification_text = str(modification).strip()
+            if modification_text:
+                item_lines.append(f"   ↳ _{modification_text}_")
+
+    return item_lines
 
 
 # %%
@@ -81,13 +110,7 @@ def build_wa_order_reciept_for_cust(
     header = f"Order #{order.order_number}"  # eg: Order #ELB-QPRX-28
 
     # 3️⃣ Build items list
-    item_lines: List[str] = []
-    for item in order_items:
-        qty = item.get("quantity", 1)
-        name = item.get("product_name", "Item")
-        unit_price = item.get("price", 0)
-        line_total = unit_price * qty
-        item_lines.append(f"• {qty} × {name}  –  £{line_total:.2f}")
+    item_lines = _format_order_item_lines(order_items)
 
     items_block = "\n".join(item_lines)
 
@@ -112,6 +135,8 @@ def build_wa_order_reciept_for_cust(
     if charges_block:
         text_parts.extend(["", charges_block])
     text_parts.extend(["", total_line])
+    if order.notes:
+        text_parts.extend(["", "*Notes:*", f"_{order.notes}_"])
 
     text = "\n".join(text_parts).strip()
 
@@ -159,6 +184,7 @@ def build_wa_order_reciept_for_rest(
                 "quantity": item.quantity,
                 "product_name": item.product_name,
                 "price": item.price,
+                "modifications": item.modifications,
             }
             for item in order_items
         ]
@@ -166,13 +192,7 @@ def build_wa_order_reciept_for_rest(
     header = f"Order #{order.order_number} (Kitchen)"
 
     # Items
-    item_lines: List[str] = []
-    for item in items_data:
-        qty = item.get("quantity", 1)
-        name = item.get("product_name", "Item")
-        unit_price = item.get("price", 0)
-        line_total = unit_price * qty
-        item_lines.append(f"• {qty} × {name}  –  £{line_total:.2f}")
+    item_lines = _format_order_item_lines(items_data)
 
     items_block = "\n".join(item_lines)
 
@@ -189,6 +209,8 @@ def build_wa_order_reciept_for_rest(
     if charges_block:
         text_parts.extend(["", charges_block])
     text_parts.extend(["", total_line])
+    if order.notes:
+        text_parts.extend(["", "*Notes:*", f"_{order.notes}_"])
 
     return header, "\n".join(text_parts).strip()
 
