@@ -1,0 +1,39 @@
+[
+  {
+    "eval_id": 1,
+    "eval_name": "simple-db-query",
+    "prompt": "Run a quick Python snippet to check how many active riders are currently in shift for the ELAS restaurant",
+    "assertions": [
+      {
+        "name": "returns_python_code",
+        "description": "Response includes executable Python code snippet",
+        "type": "presence"
+      },
+      {
+        "name": "queries_rider_master",
+        "description": "Code queries the rider_master table",
+        "type": "presence"
+      },
+      {
+        "name": "filters_by_restaurant",
+        "description": "Code filters for ELAS restaurant (by rest_ref or restaurant lookup)",
+        "type": "presence"
+      },
+      {
+        "name": "filters_active_shift",
+        "description": "Code filters for is_in_shift=true",
+        "type": "presence"
+      },
+      {
+        "name": "shows_count",
+        "description": "Output shows count of active riders",
+        "type": "presence"
+      },
+      {
+        "name": "lists_rider_names",
+        "description": "Output lists the specific rider names/IDs",
+        "type": "presence"
+      }
+    ]
+  }
+]
