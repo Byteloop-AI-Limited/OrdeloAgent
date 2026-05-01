@@ -99,8 +99,8 @@ async def send_restaurant_pickup_time(
     if intervals_mins is None:
         intervals_mins = [5, 15, 25]
 
-    # Parse the order_time (assuming ISO format or similar)
-    order_dt = datetime.fromtimestamp(order_time_epoch)
+    uk_tz = pytz.timezone("Europe/London")
+    order_dt = datetime.fromtimestamp(order_time_epoch, tz=uk_tz)
 
     # Calculate times and create buttons dynamically
     buttons = []
