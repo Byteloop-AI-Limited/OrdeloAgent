@@ -1,3 +1,20 @@
+## SFCS go live changes
+1. orderlo - admin time confirmation - ClockChange is wrong. 
+payment complete waLink goes to elai
+2. Rest WA notifications doesnt have it (I will need to change)
+3. Cust acknowledgement doesnt have it either (Change on my end)
+3. Elai - The sorry, no rider found should hard terminate the thread
+
+class RestaurantConfirmationPayload(BaseModel):
+    """Payload model for restaurant confirmation webhook."""
+
+    trigger_reason: str
+    delivery_summary: DeliverySummaryData
+    restaurant_master: RestaurantMasterData
+    food_order: FoodOrder
+    order_items: List[OrderItem]
+
+
 ## Takeaway streamlining.
 - Add terminate converstaion to all of the agents.
 - in @takeaway_hooks.py, what is the flow when the pickup time is updated? 
