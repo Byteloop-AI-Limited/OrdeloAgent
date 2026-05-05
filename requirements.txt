@@ -19,7 +19,7 @@ pywa[cryptography]
 supabase==2.15.3
 duckdb==1.2.0
 pandas==2.2.3
-pytz
+tzdata
 pyarrow==19.0.0
 gspread
 # utilities
