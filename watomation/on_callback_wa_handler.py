@@ -225,11 +225,6 @@ async def handle_admin_availability(wa: WhatsApp, msg: Message):
     logger.info(f"Admin availability confirmed for {recipient}")
 
 
-def _format_pickup_time_display(pickup_time_iso: str) -> str:
-    pickup_dt = datetime.fromisoformat(pickup_time_iso.replace("Z", "+00:00"))
-    return pickup_dt.strftime("%-I:%M %p")
-
-
 async def _update_restaurant_order_status(
     order_number: str,
     status: str,
