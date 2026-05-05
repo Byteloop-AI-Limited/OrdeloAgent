@@ -8,7 +8,7 @@ Google API settings and client configuration for OrdeloAgent.
 
 # %%
 from pydantic_settings import BaseSettings, SettingsConfigDict
-import gspread
+# import gspread
 from google.oauth2.service_account import Credentials
 import json
 import base64
@@ -41,7 +41,8 @@ class GoogleSettings(BaseSettings):
         creds = Credentials.from_service_account_info(credentials_json, scopes=SCOPES)
 
         # Connect to Google Sheets
-        client = gspread.authorize(creds)
+        # client = gspread.authorize(creds)
+        client = None
 
         return client
 
