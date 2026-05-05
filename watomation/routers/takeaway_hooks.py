@@ -28,7 +28,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-import pytz
+from utils_common.tz_utils import UK_TZ, fmt_uk_time, parse_db_iso, to_uk_epoch
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
 import httpx
@@ -113,9 +113,7 @@ class TakeawayConfirmationPayload(BaseModel):
 
 
 def _format_pickup_time_display(pickup_time_iso: str) -> str:
-    pickup_dt = datetime.fromisoformat(pickup_time_iso.replace("Z", "+00:00"))
-    uk_tz = pytz.timezone("Europe/London")
-    return pickup_dt.astimezone(uk_tz).strftime("%-I:%M %p")
+    return fmt_uk_time(pickup_time_iso)
 
 
 def init_takeaway_summary(order_number: str, recipient: str):
@@ -152,10 +150,7 @@ async def _handle_restaurant_unconfirmed(
     )
     order_amount = f"£{food_order.total_price:.2f}"
 
-    uk_tz = pytz.timezone("Europe/London")
-    order_time_dt = datetime.fromisoformat(takeaway_summary.dtts.replace("Z", "+00:00"))
-    order_time_dt = order_time_dt.astimezone(uk_tz)
-    order_time_epoch = int(order_time_dt.timestamp())
+    order_time_epoch = to_uk_epoch(takeaway_summary.dtts)
 
     for admin_phone in restaurant_master.admins:
         await send_restaurant_order_confirmation(
@@ -183,10 +178,7 @@ async def _handle_restaurant_accept(
     order_items_str = ", ".join(
         [f"{item.quantity}x {item.product_name}" for item in order_items]
     )
-    uk_tz = pytz.timezone("Europe/London")
-    order_time_dt = datetime.fromisoformat(takeaway_summary.dtts.replace("Z", "+00:00"))
-    order_time_dt = order_time_dt.astimezone(uk_tz)
-    order_time_epoch = int(order_time_dt.timestamp())
+    order_time_epoch = to_uk_epoch(takeaway_summary.dtts)
 
     header = f"Order {food_order.order_number} - Pickup Time"
     text = f"Order accepted! Items: {order_items_str}\n\nPlease select estimated pickup time:"
@@ -257,11 +249,9 @@ async def _handle_restaurant_timedout(
     takeaway_summary: TakeawaySummaryData,
     restaurant_admins: List[str],
 ) -> dict:
-    uk_tz = pytz.timezone("Europe/London")
-    order_time = datetime.fromisoformat(takeaway_summary.dtts.replace("Z", "+00:00"))
-    order_time = order_time.astimezone(uk_tz)
+    order_time = parse_db_iso(takeaway_summary.dtts).astimezone(UK_TZ)
     new_pickup_time = (order_time + timedelta(minutes=30)).isoformat()
-    pickup_display = _format_pickup_time_display(new_pickup_time)
+    pickup_display = fmt_uk_time(order_time + timedelta(minutes=30))
 
     result = await asyncio.to_thread(
         lambda: (
