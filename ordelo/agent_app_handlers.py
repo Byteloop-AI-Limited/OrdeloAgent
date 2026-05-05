@@ -32,7 +32,7 @@ Agent app handlers for Ordelo delivery agent workflows and WhatsApp integration.
 # %%
 import base64
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import psycopg
 from psycopg_pool import ConnectionPool
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
@@ -55,7 +55,7 @@ from utils_common.lg_utils import (
     shorten_state_messages,
     get_config_for_recipient,
 )
-import pytz
+from utils_common.tz_utils import fmt_uk_time
 from supabase._sync.client import Client
 from utils_common.db_utils.sbase_pool_ops import execute_sql_query
 from utils_common.waba_utils.wa_senders import CallbackButtonData
@@ -107,7 +107,7 @@ def process_dispatch_response_from_rider_sync(
                         SET status_update_dtts = %s 
                         WHERE dispatch_id = %s
                         """,
-                        (datetime.now().isoformat(), dispatch_id),
+                        (datetime.now(timezone.utc).isoformat(), dispatch_id),
                     )
                     # Job already assigned
                     _sync_wa_client.send_message(
@@ -137,7 +137,7 @@ def process_dispatch_response_from_rider_sync(
                     SET status = 'declined', status_update_dtts = %s 
                     WHERE dispatch_id = %s
                     """,
-                    (datetime.now().isoformat(), dispatch_id),
+                    (datetime.now(timezone.utc).isoformat(), dispatch_id),
                 )
                 return_value = "job declined"
         conn.commit()
@@ -450,12 +450,7 @@ async def _send_delivery_instructions(
     summary: dict = summary.model_dump()
     logger.info(f"Summary: {summary}")
 
-    uk_tz = pytz.timezone("Europe/London")
-    # convert dtts to UK local time (handles BST/GMT automatically)
-    pickup_dt_raw = summary["pickup_time"]
-    pickup_dt_raw = pickup_dt_raw.astimezone(uk_tz)
-    # Format pickup time for human-readable display
-    pickup_display = pickup_dt_raw.strftime("%-I:%M %p")
+    pickup_display = fmt_uk_time(summary["pickup_time"])
 
     body_text = f"""
 Hi {rider_name}, here are the Delivery details:

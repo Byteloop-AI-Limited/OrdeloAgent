@@ -23,7 +23,6 @@ Functions/Classes:
 import json
 from typing import Any, Dict, List
 
-from IPython.display import Image, display
 from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
@@ -237,16 +236,9 @@ def extract_state_fields_from_tool_msgs(state):
     return result_dict.get("state_fields", {})
 
 
-def display_graph_old(compiled_graph: Any) -> None:
-    try:
-        display(Image(compiled_graph.get_graph(xray=True).draw_mermaid_png()))
-    except Exception:
-        # This requires some extra dependencies and is optional
-        pass
-
-
 def display_graph(graph_or_builder: Any) -> None:
     """Display a LangGraph diagram for either a StateGraph builder or a CompiledStateGraph."""
+    from IPython.display import Image, display
     try:
         if isinstance(graph_or_builder, StateGraph):
             compiled_graph = graph_or_builder.compile()
