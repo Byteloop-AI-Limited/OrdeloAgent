@@ -28,7 +28,7 @@ WhatsApp messaging utilities for order management and address confirmation flows
 # %%
 from config import (
     _async_wa_client,
-    waba_cat_settings,
+    # waba_cat_settings,
     get_restaurant_admins,
     get_restaurant_base_url_async,
 )
@@ -49,7 +49,7 @@ import uuid
 from pywa_async import WhatsApp
 from typing import Optional, List
 from datetime import datetime, timedelta
-import pytz
+from utils_common.tz_utils import UK_TZ, fmt_uk_time
 import asyncio
 from utils_common.order_management.delivery_pymodels import (
     DeliverySummary,
@@ -63,8 +63,6 @@ from utils_common.order_management.food_order_reciept import (
 # from config.params import REST_MASTER
 REST_MASTER = "dummy"
 
-
-uk_tz = pytz.timezone("Europe/London")
 
 
 # %% reusable button callback model
@@ -99,8 +97,7 @@ async def send_restaurant_pickup_time(
     if intervals_mins is None:
         intervals_mins = [5, 15, 25]
 
-    uk_tz = pytz.timezone("Europe/London")
-    order_dt = datetime.fromtimestamp(order_time_epoch, tz=uk_tz)
+    order_dt = datetime.fromtimestamp(order_time_epoch, tz=UK_TZ)
 
     # Calculate times and create buttons dynamically
     buttons = []
@@ -109,7 +106,7 @@ async def send_restaurant_pickup_time(
         pickup_time = order_dt + timedelta(minutes=interval)
 
         # Format for button title (e.g., "1:35 PM")
-        time_display = pickup_time.strftime("%-I:%M %p")
+        time_display = fmt_uk_time(pickup_time)
 
         # Format for callback response (ISO string representation)
         time_str = pickup_time.isoformat()
@@ -198,13 +195,9 @@ async def admin_order_reciept(
     rest_header, rest_text = build_wa_order_reciept_for_rest(food_order=food_order)
 
     # Construct delivery instructions
-    # convert dtts to UK local time (handles BST/GMT automatically)
-    # delivery_summary_dtts = delivery_summary.dtts.astimezone(uk_tz)
-    # pickup_time = (delivery_summary_dtts + timedelta(minutes=25)).strftime("%I:%M %p")
     ordelo_base_url = await get_restaurant_base_url_async(rest_ref="ORDELO")
     rest_ref = delivery_summary.rest_ref
-    uk_tz = pytz.timezone("Europe/London")
-    pickup_time = delivery_summary.pickup_time.astimezone(uk_tz).strftime("%I:%M %p")
+    pickup_time = fmt_uk_time(delivery_summary.pickup_time)
 
     delivery_instructions = f"""
 Delivery Details:
@@ -261,8 +254,7 @@ async def takeaway_admin_order_receipt(
     food_order = FoodOrder.from_order_id(order_id)
     rest_header, rest_text = build_wa_order_reciept_for_rest(food_order=food_order)
 
-    pickup_dt = datetime.fromisoformat(pickup_time.replace("Z", "+00:00"))
-    pickup_time_display = pickup_dt.astimezone(uk_tz).strftime("%-I:%M %p")
+    pickup_time_display = fmt_uk_time(pickup_time)
     takeaway_instructions = f"""
 Takeaway Details:
   🍽️ Restaurant - *{rest_name}*

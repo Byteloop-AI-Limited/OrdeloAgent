@@ -14,8 +14,10 @@ sleep 10
 
 
 : '
-docker build -t ordelo-local .
+docker buildx build --platform linux/amd64 -t ordelo-local .
 
+docker buildx build --no-cache --platform linux/amd64 -t ordelo-local .
+docker run --env-file .env -p 3100:80 ordelo-local
 docker run --env-file .env -p 80:80 ordelo-local
 
 docker run -it --entrypoint /bin/bash ordelo-local

@@ -24,7 +24,7 @@ WhatsApp message handler for Ordelo delivery system
 import asyncio
 from datetime import datetime, timezone
 from typing import Literal
-from zoneinfo import ZoneInfo
+from utils_common.tz_utils import UK_TZ
 
 from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
@@ -77,7 +77,6 @@ def get_rider_intent(message: str) -> RiderShiftIntent:
 
 
 # %% After-hours guard
-_UK_TZ = ZoneInfo("Europe/London")
 
 
 def _message_time_uk(msg: Message) -> datetime | None:
@@ -88,7 +87,7 @@ def _message_time_uk(msg: Message) -> datetime | None:
     # If we already have a datetime, convert directly.
     if isinstance(ts, datetime):
         dt_utc = ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
-        return dt_utc.astimezone(_UK_TZ)
+        return dt_utc.astimezone(UK_TZ)
 
     # Otherwise coerce to float timestamp.
     try:
@@ -102,7 +101,7 @@ def _message_time_uk(msg: Message) -> datetime | None:
         utc_time = datetime.fromtimestamp(ts_val, tz=timezone.utc)
     except (OSError, ValueError):
         return None
-    return utc_time.astimezone(_UK_TZ)
+    return utc_time.astimezone(UK_TZ)
 
 
 def is_outside_service_hours(_: WhatsApp, msg: Message) -> bool:

@@ -45,7 +45,7 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 from typing import List, Optional
-import pytz
+from utils_common.tz_utils import UK_TZ, fmt_uk_time, parse_db_iso, to_uk_epoch
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
@@ -259,13 +259,7 @@ async def wa_send_delivery_dispatch_request_to_rider(
     """
     order_number = delivery_summary["order_number"]
 
-    # Parse pickup_time string to datetime and format for display
-    uk_tz = pytz.timezone("Europe/London")
-    pickup_time_dt = datetime.fromisoformat(
-        delivery_summary["pickup_time"].replace("Z", "+00:00")
-    )
-    pickup_time_dt = pickup_time_dt.astimezone(uk_tz)
-    pickup_time = pickup_time_dt.strftime("%I:%M %p")
+    pickup_time = fmt_uk_time(delivery_summary["pickup_time"])
 
     accept_pl = {
         "command": "/dispatchResponse",
@@ -1022,11 +1016,7 @@ async def _handle_restaurant_unconfirmed(
     # Calculate total order amount
     order_amount = f"£{food_order.total_price:.2f}"
 
-    # Get order time from delivery_summary.dtts and convert to epoch time
-    uk_tz = pytz.timezone("Europe/London")
-    order_time_dt = datetime.fromisoformat(delivery_summary.dtts.replace("Z", "+00:00"))
-    order_time_dt = order_time_dt.astimezone(uk_tz)
-    order_time_epoch = int(order_time_dt.timestamp())
+    order_time_epoch = to_uk_epoch(delivery_summary.dtts)
 
     # Send restaurant order confirmation to all admins
     admin_phones = restaurant_master.admins
@@ -1076,11 +1066,7 @@ async def _handle_restaurant_accept(
         [f"{item.quantity}x {item.product_name}" for item in order_items]
     )
 
-    # Get order time from delivery_summary.dtts and convert to epoch time
-    uk_tz = pytz.timezone("Europe/London")
-    order_time_dt = datetime.fromisoformat(delivery_summary.dtts.replace("Z", "+00:00"))
-    order_time_dt = order_time_dt.astimezone(uk_tz)
-    order_time_epoch = int(order_time_dt.timestamp())
+    order_time_epoch = to_uk_epoch(delivery_summary.dtts)
 
     # Build header and text for pickup time message
     header = f"Order {food_order.order_number} - Pickup Time"
@@ -1153,15 +1139,9 @@ async def _handle_restaurant_timedout(
     )
     # on timedout, pickup_time should be 30 mins from delivery_summary.dtts, also update status='assigned', restaurant_confirmation_status='auto_accept'
 
-    # Use UK timezone to properly handle BST/GMT transitions
-    uk_tz = pytz.timezone("Europe/London")
-    order_time = datetime.fromisoformat(delivery_summary.dtts.replace("Z", "+00:00"))
-    order_time = order_time.astimezone(uk_tz)
+    order_time = parse_db_iso(delivery_summary.dtts).astimezone(UK_TZ)
     new_pickuptime = (order_time + timedelta(minutes=30)).isoformat()
-
-    # Format pickup time for human-readable display
-    pickup_dt = datetime.fromisoformat(new_pickuptime)
-    pickup_display = pickup_dt.strftime("%-I:%M %p")
+    pickup_display = fmt_uk_time(order_time + timedelta(minutes=30))
 
     update_vals = {
         "status": "unassigned",
