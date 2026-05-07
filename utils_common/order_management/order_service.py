@@ -105,6 +105,7 @@ def get_min_order_value_for_location(
         "restaurant_longitude": restaurant_lon,
         "customer_latitude": cust_lat,
         "customer_longitude": cust_lon,
+        "rest_ref": rest_ref,
     }
 
     response_json = _call_pricing_service(payload)
@@ -151,6 +152,7 @@ def get_min_order_value(
         "restaurant_longitude": restaurant_lon,
         "customer_latitude": cust_lat,
         "customer_longitude": cust_lon,
+        "rest_ref": rest_ref,
     }
     response_json = _call_pricing_service(payload)
     if not response_json:
