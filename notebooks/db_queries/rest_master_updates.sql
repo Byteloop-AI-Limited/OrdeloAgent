@@ -30,10 +30,11 @@ where rest_ref in ('ELAS', 'CHKS');
 
 -- Test Setup - SFCS
 update restaurant_master 
-set admins=Array['447919202938'],
+-- set admins=Array['447919202938'],
+set admins=Array['447448440754'],
     rest_stale_active_threads_minutes=10,
-    restaurant_start_time=11,
-    restaurant_end_time=21.30
+    restaurant_start_time=16,
+    restaurant_end_time=24
 where rest_ref = 'SFCS';
 
 

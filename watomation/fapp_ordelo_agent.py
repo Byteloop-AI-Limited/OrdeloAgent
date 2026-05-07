@@ -232,6 +232,7 @@ async def get_details():
     # Fetch base URLs dynamically
     elas_base_url = await get_restaurant_base_url_async("ELAS")
     ordelo_base_url = await get_restaurant_base_url_async("ORDELO")
+    sfcs_base_url = await get_restaurant_base_url_async("SFCS")
     restaurant_menu_url = await get_restaurant_base_url_async("RESTAURANT_MENU")
 
     return {
@@ -242,6 +243,7 @@ async def get_details():
         "webhook_configuration": webhook_configuration,
         "elas_base_url": elas_base_url,
         "ordelo_base_url": ordelo_base_url,
+        "sfcs_base_url": sfcs_base_url,
         "restaurant_menu_url": restaurant_menu_url,
     }
 
