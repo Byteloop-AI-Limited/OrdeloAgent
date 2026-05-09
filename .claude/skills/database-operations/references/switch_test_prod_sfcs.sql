@@ -15,9 +15,16 @@ update restaurant_master
 set admins = Array['447919202938'],
 -- set admins = Array['447448440754'],
     rest_stale_active_threads_minutes = 10,
-    restaurant_start_time = 18,
-    restaurant_end_time = 24,
-    city='dummy'
+    city='dummy',
+    service_hours_json = '{
+  "mon": [["18:00", "24:00"]],
+  "tue": [["18:00", "24:00"]],
+  "wed": [["18:00", "24:00"]],
+  "thu": [["18:00", "24:00"]],
+  "fri": [["00:00", "24:00"]],
+  "sat": [["18:00", "25:00"]],
+  "sun": [["18:00", "25:00"]]
+}'::jsonb
 where rest_ref='SFCS';
 
 update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'SFCS_APP_URL';
@@ -36,9 +43,16 @@ select enquire_admin_availability(ARRAY['ELAS', 'SFCS']);
 update restaurant_master
 set admins = Array['447919202938','447827180109', '447774458613'],
     rest_stale_active_threads_minutes = 10,
-    restaurant_start_time = 14,
-    restaurant_end_time = 23.59,
-    city='Salisbury'
+    city='Salisbury',
+    service_hours_json = '{
+  "mon": [["16:00", "24:00"]],
+  "tue": [["16:00", "24:00"]],
+  "wed": [["16:00", "24:00"]],
+  "thu": [["16:00", "24:00"]],
+  "fri": [["16:00", "24:00"]],
+  "sat": [["16:00", "25:00"]],
+  "sun": [["16:00", "25:00"]]
+}'::jsonb
 where rest_ref = 'SFCS';
 
 update ordelo_config set config_value = 'https://sfcs-agg.ordelo.app' where config_key = 'SFCS_APP_URL';
