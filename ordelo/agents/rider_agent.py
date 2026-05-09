@@ -4,7 +4,7 @@ LangGraph agent implementation for rider delivery workflow
     . Manages delivery workflow from instructions to completion
     . Handles live tracking, confirmation codes, and delivery status
     . Marks dispatch as picked up on restaurant code verification
-    . Supports rider cancellation before pickup to resume dispatching
+    . Supports rider cancellation before pickup to resume dispatching using state rider metadata
     . Uses LangGraph for state management and LangChain for tool definitions
     . Communicates via WhatsApp async client
     . Performs data operations through Supabase REST calls
@@ -613,7 +613,7 @@ async def cancel_delivery_before_pickup(
     """
     ctx = runtime.context
     recipient = ctx.recipient
-    rider_name = ctx.rider_name
+    rider_name = state.get("rider_name")
 
     dispatch_id = state.get("dispatch_id")
     order_number = state.get("order_number")

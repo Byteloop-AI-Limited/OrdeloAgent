@@ -1,0 +1,196 @@
+"""Tests for rider agent tools and routing nodes.
+
+The tools are called directly with simple runtime/context fakes, avoiding a real
+LangGraph/checkpointer while still exercising DB, WA, and Command updates.
+
+Key Functions:
+  - test_send_pickup_and_dropoff_location_send_whatsapp_locations
+  - test_send_start_live_tracking_link_sends_button_url
+  - test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason
+  - test_capture_reason_for_cancel_before_pickup_updates_dispatch
+  - test_verify_restaurant_confirmation_code_wrong_and_success_paths
+  - test_verify_customer_confirmation_code_wrong_path
+  - test_terminate_delivery_job_records_cancel_reason_and_closes_thread
+  - test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages
+  - test_respond_node_sends_last_ai_message
+"""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langgraph.graph import END
+
+from ordelo.agents import rider_agent
+from tests.fixtures.fake_supabase import FakeSupabaseResponse
+from tests.fixtures.fake_wa import FakeAsyncWhatsApp
+
+
+def _runtime(*, client, wa, recipient="RIDER01"):
+    return SimpleNamespace(context=SimpleNamespace(client_ordelo=client, wa_client=wa, recipient=recipient))
+
+
+def _summary_row(**overrides):
+    row = {
+        "order_number": "ELAS-ABCD-1",
+        "rest_name": "Elai",
+        "rest_lat": 51.5074,
+        "rest_lon": -0.1278,
+        "rest_address": "1 Test Street",
+        "customer_lat": 51.5174,
+        "customer_lon": -0.1378,
+        "customer_address": "2 Customer Road",
+        "customer_id": "447400000000",
+        "rest_confirmation_code": 11,
+        "cust_confirmation_code": 22,
+    }
+    row.update(overrides)
+    return row
+
+
+async def test_send_pickup_and_dropoff_location_send_whatsapp_locations(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[_summary_row()]))
+    runtime = _runtime(client=patch_supabase_client, wa=fake_async_wa)
+
+    pickup = await rider_agent.send_pickup_location({"order_number": "ELAS-ABCD-1", "reply_to_msg_id": "msg-1"}, "tool-1", runtime)
+    dropoff = await rider_agent.send_dropoff_location({"order_number": "ELAS-ABCD-1", "reply_to_msg_id": "msg-1"}, "tool-2", runtime)
+
+    assert pickup.update["messages"][0].content == "Pickup location sent to user."
+    assert dropoff.update["messages"][0].content == "Dropoff location sent to user."
+    assert fake_async_wa.sent[0].method == "send_location"
+    assert fake_async_wa.sent[0].kwargs["latitude"] == 51.5074
+    assert fake_async_wa.sent[1].kwargs["latitude"] == 51.5174
+    assert fake_async_wa.sent[2].method == "send_message"
+
+
+async def test_send_start_live_tracking_link_sends_button_url(fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client) -> None:
+    result = await rider_agent.send_start_live_tracking_link(
+        {"start_live_tracking_url": "https://track.example.com/start", "reply_to_msg_id": "msg-1"},
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    sent = fake_async_wa.sent[-1]
+    assert sent.kwargs["header"] == "Enable Live Tracking"
+    assert sent.kwargs["buttons"].url == "https://track.example.com/start"
+    assert "live location tracking" in result.update["messages"][0].content
+
+
+async def test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    patch_supabase_client.register_rpc("dispatch_cancel_before_pickup", FakeSupabaseResponse(data={"ok": True}))
+
+    result = await rider_agent.cancel_delivery_before_pickup(
+        {"dispatch_id": 10, "order_number": "ELAS-ABCD-1", "rider_name": "Bas"},
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert result.update["awaiting_cancel_reason"] is True
+    assert "Ok Bas" in result.update["messages"][0].content
+    assert patch_supabase_client.rpc_calls[-1].payload == {"name": "dispatch_cancel_before_pickup", "args": {"p_dispatch_id": 10}}
+
+
+async def test_capture_reason_for_cancel_before_pickup_updates_dispatch(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    patch_supabase_client.register(table="delivery_dispatch", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
+
+    result = await rider_agent.capture_reason_for_cancel_before_pickup(
+        "Bike puncture",
+        {"dispatch_id": 10, "order_number": "ELAS-ABCD-1"},
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert result.update["awaiting_cancel_reason"] is False
+    assert patch_supabase_client.calls[-1].payload["reason_for_decline"] == "Bike puncture"
+
+
+async def test_verify_restaurant_confirmation_code_wrong_and_success_paths(monkeypatch, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[_summary_row()]))
+    patch_supabase_client.register(table="delivery_dispatch", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
+    monkeypatch.setattr(rider_agent, "is_live_location_enabled", lambda order_number: True)
+    webhook_calls = []
+
+    async def _fake_rest_webhook(order_number, customer_id):
+        webhook_calls.append((order_number, customer_id))
+
+    class _Logger:
+        async def info(self, message):
+            webhook_calls.append(("log", message))
+
+    async def _fake_wa_logger():
+        return _Logger()
+
+    monkeypatch.setattr(rider_agent, "post_rider_event_restaurant_cc", _fake_rest_webhook)
+    monkeypatch.setattr(rider_agent, "get_wa_logger", _fake_wa_logger)
+    state = {"dispatch_id": 10, "order_number": "ELAS-ABCD-1", "latest_wa_msg_id": "wa-msg"}
+    runtime = _runtime(client=patch_supabase_client, wa=fake_async_wa)
+
+    wrong = await rider_agent.verify_restaurant_confirmation_code(99, state, "tool-1", runtime)
+    assert "Wrong *restaurant*" in wrong.update["messages"][0].content
+    assert fake_async_wa.sent[-1].kwargs["emoji"] == "❌"
+
+    success = await rider_agent.verify_restaurant_confirmation_code(11, state, "tool-2", runtime)
+    assert success.update["is_restaurant_confirmation_code_verified"] is True
+    assert ("ELAS-ABCD-1", "447400000000") in webhook_calls
+    assert patch_supabase_client.calls[-1].payload["status"] == "pickedup"
+
+
+async def test_verify_customer_confirmation_code_wrong_path(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[_summary_row()]))
+
+    result = await rider_agent.verify_customer_confirmation_code(
+        99,
+        {"dispatch_id": 10, "order_number": "ELAS-ABCD-1", "latest_wa_msg_id": "wa-msg"},
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert "Wrong *customer*" in result.update["messages"][0].content
+    assert fake_async_wa.sent[-1].kwargs["emoji"] == "❌"
+
+
+async def test_terminate_delivery_job_records_cancel_reason_and_closes_thread(monkeypatch, patch_pg_pool, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    patch_pg_pool.register_sql("make_threads_inactive", [(1,)])
+    patch_supabase_client.register(table="delivery_dispatch", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
+
+    async def _fake_stop_config():
+        return "https://track.example.com/stop"
+
+    monkeypatch.setattr(rider_agent, "create_stop_job_config", _fake_stop_config)
+
+    result = await rider_agent.terminate_delivery_job(
+        {"dispatch_id": 10, "awaiting_cancel_reason": True, "reply_to_msg_id": "msg-1"},
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+        reason_for_decline="Bike puncture",
+    )
+
+    assert result.update["awaiting_cancel_reason"] is False
+    assert patch_supabase_client.calls[-1].payload["reason_for_decline"] == "Bike puncture"
+    assert fake_async_wa.sent[-1].kwargs["buttons"].url == "https://track.example.com/stop"
+
+
+def test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages() -> None:
+    tool_result = rider_agent.agent_node({"awaiting_cancel_reason": True, "messages": [ToolMessage("Why?", tool_call_id="tool-1")]})
+    assert tool_result.goto == "respondNode"
+    assert tool_result.update["messages"][0].content == "Why?"
+
+    human_result = rider_agent.agent_node({"awaiting_cancel_reason": True, "messages": [HumanMessage("Bike puncture")]})
+    assert human_result.goto == "toolNode"
+    call = human_result.update["messages"][0].tool_calls[0]
+    assert call["name"] == "terminate_delivery_job"
+    assert call["args"] == {"reason_for_decline": "Bike puncture"}
+
+    end_result = rider_agent.agent_node({"messages": [AIMessage("done")]})
+    assert end_result.goto == END
+
+
+async def test_respond_node_sends_last_ai_message(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    result = await rider_agent.respond_node(
+        {"reply_to_msg_id": "msg-1", "messages": [AIMessage("Hello rider")]},
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert result.goto == END
+    assert fake_async_wa.sent[-1].kwargs == {"to": "RIDER01", "text": "Hello rider", "reply_to_message_id": "msg-1"}
