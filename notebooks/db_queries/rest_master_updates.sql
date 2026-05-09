@@ -33,8 +33,15 @@ update restaurant_master
 -- set admins=Array['447919202938'],
 set admins=Array['447448440754'],
     rest_stale_active_threads_minutes=10,
-    restaurant_start_time=16,
-    restaurant_end_time=24
+    service_hours_json = '{
+  "mon": [["16:00", "24:00"]],
+  "tue": [["16:00", "24:00"]],
+  "wed": [["16:00", "24:00"]],
+  "thu": [["16:00", "24:00"]],
+  "fri": [["16:00", "24:00"]],
+  "sat": [["16:00", "25:00"]],
+  "sun": [["16:00", "25:00"]]
+}'::jsonb
 where rest_ref = 'SFCS';
 
 

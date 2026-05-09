@@ -1,11 +1,4 @@
 ## SFCS go live changes
-0. TimeZone refactor - Session Id: 
-claude --resume 441f6520-c41c-4507-92f4-0f7a1b051a04
-1. orderlo - admin time confirmation - ClockChange is wrong. 
-payment complete waLink goes to elai
-2. Rest WA notifications doesnt have it (I will need to change)
-3. Cust acknowledgement doesnt have it either (Change on my end)
-3. Elai - The sorry, no rider found should hard terminate the thread
 
 class RestaurantConfirmationPayload(BaseModel):
     """Payload model for restaurant confirmation webhook."""

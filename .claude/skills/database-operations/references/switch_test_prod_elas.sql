@@ -35,9 +35,16 @@ update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' whe
 update restaurant_master
 set admins = Array['447448440754', '447446933210','447901518136','447914844933', '447917912646', '447909488602'],
     rest_stale_active_threads_minutes = 10,
-    restaurant_start_time = 12,
-    restaurant_end_time = 21.30,
-    city='Salisbury'
+    city='Salisbury',
+    service_hours_json = '{
+        "mon": [["12:00", "22:00"]],
+        "tue": [["12:00", "22:00"]],
+        "wed": [["12:00", "22:00"]],
+        "thu": [["12:00", "22:00"]],
+        "fri": [["12:00", "22:00"]],
+        "sat": [["12:00", "22:00"]],
+        "sun": [["12:00", "21:00"]]
+    }'::jsonb
 where rest_ref in ('ELAS', 'CHKS');
 
 update rider_master
