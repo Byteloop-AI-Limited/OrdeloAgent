@@ -8,33 +8,34 @@ description: Query and operate on the Ordelo Supabase/Postgres database — sele
 Perform reads, writes, and environment switches against the Ordelo Supabase/Postgres database
 using `client_ordelo` (Supabase REST client) or direct Python Supabase client when config module fails.
 
-## Quick Start
+## Setup Priority (follow in order)
 
-The simplest approach: use the config module's pre-built client:
+### Step 1 — Full venv via run_setup.sh (preferred)
 
-```python
-from config import client_ordelo
+`run_setup.sh` creates `.venv`, syncs all deps, and validates AWS credentials in one shot.
+`pyproject.toml` requires `>=3.11`, so it works with whatever Python is on the system:
 
-resp = client_ordelo.table("delivery_summary").select("*").eq("order_number", "ELAS-CEKT-22").execute()
-print(resp.data)
+```sh
+./run_setup.sh               # creates .venv, runs uv sync, validates AWS vars
+source .venv/bin/activate
 ```
 
-If the config module fails to load (AWS/credential errors), jump to **Fallback: Direct Supabase Client** below.
-
-## Environment Setup
-
-**Always run scripts with explicit Python binary and PYTHONPATH:**
+After activation, all imports work normally:
 
 ```sh
 REPO_ROOT=$(git rev-parse --show-toplevel)
 PYTHONPATH=$REPO_ROOT python3 - <<'PY'
-# your code here
+from config.pg_setting import client_ordelo
+resp = client_ordelo.table("delivery_summary").select("*").eq("order_number", "ELAS-CEKT-22").execute()
+print(resp.data)
 PY
 ```
 
-**If you get `ModuleNotFoundError` or import errors:**
+### Step 2 — Lightweight bootstrap (no venv, quicker for one-off queries)
 
-Try the bootstrap installer first:
+Use when you need a fast one-off query without installing Python 3.13.11.
+Installs packages into system Python, then loads secrets from AWS Secrets Manager:
+
 ```sh
 uv pip install \
   pydantic-settings boto3 loguru supabase "pywa==3.6.1" \
@@ -45,35 +46,21 @@ uv pip install \
   -q
 ```
 
-Then retry your script. **Do NOT use `run_setup.sh`** — it enforces `==3.13.11` which conflicts with the system's `3.13.12`.
+Then query using the AWS-backed config:
 
-## Fallback: Direct Supabase Client (when config module fails)
-
-If `config` module fails due to AWS credential errors or other config issues, use direct Supabase client initialization from `env.json`:
-
-```python
-import json
+```sh
+PYTHONPATH=$(git rev-parse --show-toplevel) python3 - <<'PY'
+import sys; sys.path.insert(0, ".")
+from aws_setting import ordelo_agent_env          # fetches secrets from AWS Secrets Manager
 from supabase import create_client
-
-# Read env.json in repo root
-with open("env.json") as f:
-    env = json.load(f)
-
-# Create client
-url = env["sbase_ordelo_rest_url"]
-key = env["sbase_ordelo_rest_key"]
-client = create_client(url, key)
-
-# Query normally
+client = create_client(ordelo_agent_env["sbase_ordelo_rest_url"], ordelo_agent_env["sbase_ordelo_rest_key"])
 resp = client.table("delivery_summary").select("*").eq("order_number", "ELAS-CEKT-22").execute()
 print(resp.data)
+PY
 ```
 
-This bypasses AWS Secrets Manager and uses local env.json credentials. Use this when:
-- AWS credentials are not configured
-- `config` module import fails  
-- `pydantic_settings` validation fails
-- You just need quick database access without full app initialization
+> **Note:** `env.json` does not exist locally — credentials always come from AWS Secrets Manager
+> via `aws_setting.ordelo_agent_env`. Never attempt to open `env.json`.
 
 ## Query Patterns
 
