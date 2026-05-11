@@ -1,3 +1,17 @@
+## Test checkpoint
+Memory Database: Memory ID 9e32eda3-141a-4a87-ba00-fc9b13c62b5a (tag: checkpoint)
+
+Local File: toDo.md (lines 1-11)
+lan checkpoint saved. The P7 plan is stored in two locations:
+
+TODO List - Current task status tracked in the memory database (accessed via the todo_list tool)
+Checkpoint Memory - Detailed state saved as memory ID 9e32eda3-141a-4a87-ba00-fc9b13c62b5a with tag checkpoint
+To revisit, you can:
+
+Ask me to "show the P7 TODO list" or "load the P7 checkpoint memory"
+Reference the checkpoint by memory ID or tag when resuming
+Current status: 5 of 7 tasks completed. One test failing (test_send_product_sections in test_p7_wa_senders.py).
+
 ## SFCS go live changes
 
 class RestaurantConfirmationPayload(BaseModel):

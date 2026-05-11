@@ -26,6 +26,7 @@ nohup.out
 notebooks/
 *.ipynb
 .pytest_cache/
+tests/
 
 # OS files
 .DS_Store
