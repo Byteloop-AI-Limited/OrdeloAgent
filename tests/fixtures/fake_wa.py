@@ -10,7 +10,7 @@ Key Functions:
   - FakeAsyncWhatsApp - async client recording all sends
   - FakeSyncWhatsApp - sync client recording all sends
   - FakeSendResult - send return value with dict-style and attribute id access
-  - FakeMessage / FakeCallbackButton - inbound message/callback builders
+  - FakeMessage / FakeCallbackButton - inbound message/callback builders with reply recording
   - fake_async_wa - pytest fixture
   - patch_async_wa_client - pytest fixture replacing config._async_wa_client
 """
@@ -137,11 +137,18 @@ class FakeMessage:
         # Some handlers read msg.from_user.wa_id
         self.from_user = MagicMock(wa_id=sender)
         self.body = text
+        self.id = f"wamid.inbound.{sender}"
+        self.replies: list[dict[str, Any]] = []
 
     async def indicate_typing(self) -> None:
         return None
 
     async def reply_text(self, text: str, **_: Any) -> None:
+        self.replies.append({"text": text, **_})
+        return None
+
+    async def reply(self, text: str, **_: Any) -> None:
+        self.replies.append({"text": text, **_})
         return None
 
 

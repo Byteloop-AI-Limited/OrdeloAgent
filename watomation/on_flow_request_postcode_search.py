@@ -2,6 +2,7 @@
 Handles postcode search flows via WhatsApp
     . Implements WhatsApp flow request handlers for postcode search
     . Performs address lookup and builds flow responses
+    . Returns versioned FlowResponse acknowledgements for flow errors
     . Integrates with external address resolver service
     . Handles flow request initialization and data exchange
     . Validates address data and provides appropriate error responses
@@ -26,6 +27,8 @@ async def on_pc_search_init(_: WhatsApp, request: FlowRequest) -> FlowResponse |
     if request.has_error:
         logger.error("Flow request has error: %s", request.data)
         return FlowResponse(
+            version=request.version,
+            screen="START",
             data={"acknowledged": True}
         )
 
