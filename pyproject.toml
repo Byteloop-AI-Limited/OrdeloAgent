@@ -44,6 +44,9 @@ dependencies = [
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.12.0",
+    "respx>=0.21.0",
+    "freezegun>=1.4.0",
     "ipykernel",
     "ipython",
     "mermaid-python",
@@ -51,6 +54,7 @@ dev = [
     "pandas==2.2.3",
     "gspread",
     "pyarrow==19.0.0",
+    "pytest-cov>=7.1.0",
 ]
 
 [build-system]
@@ -71,3 +75,8 @@ lint.ignore = ["F704"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+asyncio_mode = "auto"
+pythonpath = ["."]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

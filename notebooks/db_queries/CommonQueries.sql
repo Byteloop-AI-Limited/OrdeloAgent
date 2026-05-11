@@ -1,10 +1,19 @@
 select * from thread order by dtts desc;
 select * from thread where is_active order by dtts desc;
 
-update thread set is_active=False where is_active and recipient='447767909037';
+select * from thread where agent='SFCS' and recipient not in ('447919202938', '447448440754', '447446933210') order by dtts desc;
 
-select * from customer_master where cust_id='447767909037';
+exclude_list = ['447919202938', '447448440754', '447446933210']
+
+update thread set is_active=False where is_active and recipient='447767909037';
+-- 447919202938
+-- 447872936799
+select * from cust_rest_map where cust_id='447448440754';
+select * from customer_master where cust_id='447919202938';
 select * from delivery_summary order by dtts desc;
+
+delete from cust_rest_map where cust_id='447448440754';
+delete from customer_master where cust_id='447448440754';
 
 select * from delivery_dispatch order by dtts desc;
 -- update thread set is_active=false where is_active=True and dt<='2026-03-27';
