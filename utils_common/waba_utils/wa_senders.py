@@ -8,7 +8,7 @@ WhatsApp messaging utilities for order management and address confirmation flows
     . Implements postcode search/update flows via WhatsApp Flow API
     . Uses FlowButton for complex user interactions and form submissions
     . Sends catalog products and sections
-    . Sends payment and reservation links
+    . Sends payment and reservation links using template params and URL buttons
   Functions/Classes:
     . CallbackButtonData - Pydantic model for WhatsApp button callback data
     . admin_delivery_driver_nearby - Notifies admin driver is nearby
@@ -16,8 +16,8 @@ WhatsApp messaging utilities for order management and address confirmation flows
     . admin_order_reciept - Sends order receipts to admins with delivery details
     . confirm_delivery_address_wa - Sends address confirmation requests to customers
     . send_postcode_search_flow - Initiates postcode search flow via WhatsApp
-    . send_request_payment_link - Sends payment link to customer
-    . send_reservation_link - Sends reservation link to customer
+    . send_request_payment_link - Sends payment link template to customer
+    . send_reservation_link - Sends reservation link template to customer
     . send_catalog - Sends catalog link to customer
     . send_order_reciept_wa - Sends customer receipt
     . send_delayed_text - Sends text with delay
@@ -32,15 +32,12 @@ from config import (
     get_restaurant_admins,
     get_restaurant_base_url_async,
 )
-from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText
+from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText, URLButton
 from pywa.types import (
     FlowButton,
     Button,
-    Template as Temp,
     ProductsSection,
     Message,
-    Template,
-    ButtonUrl,
     FlowActionType,
 )
 from pydantic import BaseModel
@@ -366,17 +363,13 @@ async def send_request_payment_link(
 ) -> Optional[dict]:
     await _async_wa_client.send_template(
         to=recipient,
-        template=Temp(
-            name="request_payment",
-            language=Temp.Language.ENGLISH_UK,
-            body=[
-                Temp.TextValue(value=user_name),
-                Temp.TextValue(value=order_id),
-            ],
-            buttons=[
-                Temp.UrlButtonValue(value=stripe_link),
-            ],
-        ),
+        name="request_payment",
+        language=TemplateLanguage.ENGLISH_UK,
+        params=[
+            BodyText.params(text=user_name),
+            BodyText.params(text=order_id),
+            URLButton.params(url_variable=stripe_link, index=0),
+        ],
     )
 
 
@@ -401,17 +394,13 @@ async def send_reservation_link(
     try:
         reservation_link = await _async_wa_client.send_template(
             to=recipient,
-            template=Temp(
-                name="send_reservation_link",
-                language=Temp.Language.ENGLISH_UK,
-                body=[
-                    Temp.TextValue(value=f"{user_name}"),
-                    Temp.TextValue(value=f"{reservation_id}"),
-                ],
-                buttons=[
-                    Temp.UrlButtonValue(value=f"{reservation_id}"),
-                ],
-            ),
+            name="send_reservation_link",
+            language=TemplateLanguage.ENGLISH_UK,
+            params=[
+                BodyText.params(text=f"{user_name}"),
+                BodyText.params(text=f"{reservation_id}"),
+                URLButton.params(url_variable=f"{reservation_id}", index=0),
+            ],
         )
         return reservation_link
     except Exception as e:
@@ -440,16 +429,14 @@ async def send_order_reciept_wa(
 ) -> Optional[dict]:
     await _async_wa_client.send_template(
         to=recipient,
-        template=Temp(
-            name="payment_reciept_elai",
-            language=Temp.Language.ENGLISH_UK,
-            body=[
-                Temp.TextValue(value=receipt[0]),
-                Temp.TextValue(value=receipt[1]),
-                Temp.TextValue(value=receipt[2]),
-                Temp.TextValue(value=receipt[3]),
-            ],
-        ),
+        name="payment_reciept_elai",
+        language=TemplateLanguage.ENGLISH_UK,
+        params=[
+            BodyText.params(text=receipt[0]),
+            BodyText.params(text=receipt[1]),
+            BodyText.params(text=receipt[2]),
+            BodyText.params(text=receipt[3]),
+        ],
     )
     return
 

@@ -1,0 +1,133 @@
+"""Tests for thread webhook router helpers.
+
+Thread hook tests cover stale-thread fan-out, system-message execution, debug
+endpoint delegation, and state-by-thread graph inspection using patched graph and
+Supabase fakes.
+
+Key Functions:
+  - test_notify_restaurant_thread_termination_posts_and_swallows_errors
+  - test_terminate_stale_active_threads_schedules_onboarded_restaurants
+  - test_run_system_message_uses_recipient_or_fetches_active_thread
+  - test_run_system_message_raises_when_thread_missing
+  - test_debug_endpoint_wrappers_delegate_to_agent_runner
+  - test_debug_state_by_thread_path_builds_graph_config
+"""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import httpx
+import pytest
+import respx
+from fastapi import HTTPException
+
+from tests.fixtures.fake_supabase import FakeSupabaseResponse
+from watomation.routers import thread_hooks
+
+
+class _FakeBackgroundTasks:
+    def __init__(self) -> None:
+        self.tasks = []
+
+    def add_task(self, func, *args, **kwargs):
+        self.tasks.append({"func": func, "args": args, "kwargs": kwargs})
+
+
+@respx.mock
+async def test_notify_restaurant_thread_termination_posts_and_swallows_errors() -> None:
+    route = respx.post("https://rest.example.com/terminate").mock(return_value=httpx.Response(200, json={"ok": True}))
+    await thread_hooks.notify_restaurant_thread_termination("ELAS", "https://rest.example.com/terminate")
+    assert route.called
+
+    respx.post("https://rest.example.com/terminate").mock(return_value=httpx.Response(500, json={"error": "down"}))
+    await thread_hooks.notify_restaurant_thread_termination("ELAS", "https://rest.example.com/terminate")
+
+
+async def test_terminate_stale_active_threads_schedules_onboarded_restaurants(monkeypatch) -> None:
+    monkeypatch.setattr(thread_hooks, "ONBOARDED_REST_REFS", ["ELAS", "SFCS"])
+
+    async def _webhook(rest_ref, webhook_type):
+        return f"https://{rest_ref.lower()}.example.com/terminate"
+
+    monkeypatch.setattr(thread_hooks, "get_restaurant_webhook_url_async", _webhook)
+    bg = _FakeBackgroundTasks()
+
+    assert await thread_hooks.terminate_stale_active_threads(bg) == {"success": True, "queued_notifications": 2}
+    assert [task["args"] for task in bg.tasks] == [
+        ("ELAS", "https://elas.example.com/terminate"),
+        ("SFCS", "https://sfcs.example.com/terminate"),
+    ]
+
+
+async def test_run_system_message_uses_recipient_or_fetches_active_thread(monkeypatch, patch_supabase_client) -> None:
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(thread_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+    request = thread_hooks.RunSystemMessageRequest(thread_id="thread-1", recipient="RIDER01", update_message="wake", state_update_dict={"x": 1})
+
+    result = await thread_hooks.run_system_message(request)
+    assert result["recipient"] == "RIDER01"
+    assert calls[-1] == {"recipient": "RIDER01", "system_msg": "wake", "state_update_dict": {"x": 1}}
+
+    patch_supabase_client.register(table="thread", verb="select", response=FakeSupabaseResponse(data=[{"thread_id": "thread-2", "recipient": "RIDER02"}]))
+    request = thread_hooks.RunSystemMessageRequest(thread_id="thread-2", update_message="wake")
+    result = await thread_hooks.run_system_message(request)
+    assert result["recipient"] == "RIDER02"
+
+
+async def test_run_system_message_raises_when_thread_missing(patch_supabase_client) -> None:
+    patch_supabase_client.register(table="thread", verb="select", response=FakeSupabaseResponse(data=[]))
+
+    with pytest.raises(HTTPException) as missing:
+        await thread_hooks.run_system_message(thread_hooks.RunSystemMessageRequest(thread_id="missing", update_message="wake"))
+    assert missing.value.status_code == 404
+
+
+async def test_debug_endpoint_wrappers_delegate_to_agent_runner(monkeypatch) -> None:
+    async def _values(recipient):
+        return {"recipient": recipient, "values": True}
+
+    async def _state(recipient):
+        return {"recipient": recipient, "state": True}
+
+    async def _thread(thread_id):
+        return {"thread_id": thread_id}
+
+    monkeypatch.setattr(thread_hooks, "debug_state_values", _values)
+    monkeypatch.setattr(thread_hooks, "debug_state", _state)
+    monkeypatch.setattr(thread_hooks, "debug_thread", _thread)
+
+    assert await thread_hooks.debug_state_values_path("RIDER01") == {"recipient": "RIDER01", "values": True}
+    assert await thread_hooks.debug_state_path("RIDER01") == {"recipient": "RIDER01", "state": True}
+    assert await thread_hooks.debug_admin_state_path("ADMIN01") == {"recipient": "ADMIN01", "state": True}
+    assert await thread_hooks.debug_thread_path("thread-1") == {"thread_id": "thread-1"}
+
+
+async def test_debug_state_by_thread_path_builds_graph_config(monkeypatch, patch_supabase_client, patch_pg_pool) -> None:
+    patch_supabase_client.register(table="thread", verb="select", response=FakeSupabaseResponse(data=[{"thread_id": "thread-1", "recipient": "RIDER01"}]))
+    seen = {}
+
+    class _Graph:
+        async def aget_state(self, config):
+            seen["config"] = config
+            return SimpleNamespace(values={"messages": ["hello"], "dispatch_id": 10})
+
+    class _Builder:
+        def compile(self, checkpointer=None):
+            seen["checkpointer"] = checkpointer
+            return _Graph()
+
+    monkeypatch.setattr(thread_hooks, "builder", _Builder())
+    monkeypatch.setattr(thread_hooks, "AsyncPostgresSaver", lambda pool: SimpleNamespace(pool=pool))
+    monkeypatch.setattr(thread_hooks, "get_state_values", lambda values: {"dispatch_id": values["dispatch_id"]})
+    monkeypatch.setattr(thread_hooks, "shorten_state_messages", lambda messages: ["short"])
+
+    result = await thread_hooks.debug_state_by_thread_path("thread-1")
+
+    assert seen["config"] == {"configurable": {"thread_id": "thread-1", "recipient": "RIDER01"}}
+    assert result == {"dispatch_id": 10, "messages": ["short"]}

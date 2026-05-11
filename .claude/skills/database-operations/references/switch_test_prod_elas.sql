@@ -54,3 +54,7 @@ set is_in_shift = true,
 where rider_name = 'Lohith';
 
 update ordelo_config set config_value = 'https://elas-agg.ordelo.app' where config_key = 'ELAS_APP_URL';
+
+-- Cache reset calls, Should be run everytime after changing the app URL
+SELECT * FROM ordelo_post('ELAS_APP_URL', '/restaurant-base-url-cache/reset', 'rest_ref=ELAS');
+SELECT * FROM ordelo_post('ELAS_APP_URL', '/restaurant-master-cache/reset',   'rest_ref=ELAS');

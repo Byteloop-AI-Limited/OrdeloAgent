@@ -2,6 +2,7 @@
 WhatsApp flow request handler for customer address collection
     . Implements WhatsApp flow request handlers for customer address collection
     . Processes flow data and updates delivery information
+    . Returns versioned FlowResponse acknowledgements for flow errors
     . Integrates with delivery system for address validation and updates
     . Handles customer address flow initialization and completion
     . Validates and formats address data for delivery processing
@@ -35,7 +36,7 @@ async def on_customer_address_flow(
 
     if request.has_error:
         logger.error("Flow request has error: %s", request.data)
-        return FlowResponse(data={"acknowledged": True})
+        return FlowResponse(version=request.version, screen="START", data={"acknowledged": True})
 
     return FlowResponse(
         version=request.version,
