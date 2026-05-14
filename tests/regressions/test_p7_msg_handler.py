@@ -45,7 +45,7 @@ async def test_send_closed_message(fake_async_wa: FakeAsyncWhatsApp):
     assert "closed" in fake_async_wa.sent[-1].kwargs["text"]
 
 
-async def test_live_location_no_inflight(fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client):
+async def test_live_location_no_inflight(fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client, patch_pg_pool):
     from tests.fixtures.fake_supabase import FakeSupabaseResponse
     patch_supabase_client.register(table="delivery_inflight", verb="select", response=FakeSupabaseResponse(data=[]))
     await h.live_location(fake_async_wa, FakeMessage(sender="4474"))
@@ -58,10 +58,10 @@ async def test_clear_dispatch(fake_async_wa: FakeAsyncWhatsApp, patch_supabase_c
     assert patch_supabase_client.rpc_calls[-1].payload["name"] == "clear_dispatch"
 
 
-async def test_test_flow(fake_async_wa: FakeAsyncWhatsApp, monkeypatch):
-    monkeypatch.setattr(h, "_sync_wa_client", fake_async_wa)
-    await h.test_flow(fake_async_wa, FakeMessage(sender="4474"))
-    s = fake_async_wa.sent[-1]
+async def test_test_flow(fake_sync_wa, monkeypatch):
+    monkeypatch.setattr(h, "_sync_wa_client", fake_sync_wa)
+    await h.test_flow(fake_sync_wa, FakeMessage(sender="4474"))
+    s = fake_sync_wa.sent[-1]
     assert s.kwargs["buttons"].flow_id == 955259853427256
 
 
@@ -88,7 +88,12 @@ async def test_init_delivery_summary(patch_supabase_client):
 async def test_process_wa_msg_end_shift_intent(monkeypatch, patch_pg_pool, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp):
     from tests.fixtures.fake_supabase import FakeSupabaseResponse
     patch_supabase_client.register(table="rider_master", verb="select", response=FakeSupabaseResponse(data=[{"is_in_shift": True}]))
-    monkeypatch.setattr(h, "ThreadHandler", type("TH", (), {"get_active_thread": lambda self, r: None})())
+    async def _no_thread(self, r): return None
+    monkeypatch.setattr(
+        h,
+        "ThreadHandler",
+        type("TH", (), {"__init__": lambda self, pool: None, "get_active_thread": _no_thread}),
+    )
     monkeypatch.setattr(h, "get_rider_intent", lambda text: SimpleNamespace(intent="End Shift", confidence=0.9))
     calls = []
     async def _fake_enquire(wa, msg): calls.append(msg.sender)
