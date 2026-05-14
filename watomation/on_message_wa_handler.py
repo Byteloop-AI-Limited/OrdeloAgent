@@ -418,7 +418,11 @@ def on_sign_up_request(_: WhatsApp, request: FlowRequest) -> FlowResponse | None
 
     if request.has_error:
         logger.error("Flow request has error: %s", request.data)
-        return FlowResponse(data={"acknowledged": True})
+        return FlowResponse(
+            version=request.version,
+            screen="START",
+            data={"acknowledged": True},
+        )
 
     return FlowResponse(
         version=request.version,

@@ -29,7 +29,9 @@ async def test_send_delayed_text(patch_async_wa_client: FakeAsyncWhatsApp, monke
 
 
 async def test_send_product_sections(patch_async_wa_client: FakeAsyncWhatsApp, monkeypatch):
-    monkeypatch.setattr(wa_senders, "waba_cat_settings", type("C", (), {"cat_id": "cat1"})())
+    monkeypatch.setattr(
+        wa_senders, "waba_cat_settings", type("C", (), {"cat_id": "cat1"})(), raising=False
+    )
     await wa_senders.send_product_sections("4474", "burger", [], _async_wa_client=patch_async_wa_client)
     s = patch_async_wa_client.sent[-1]
     assert s.method == "send_products"
