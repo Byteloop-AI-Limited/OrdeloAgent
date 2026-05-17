@@ -245,13 +245,30 @@ async def _handle_restaurant_decline(
     }
 
 
+def _get_pickup_default_minutes(rest_ref: str) -> int:
+    for key in [f"{rest_ref.upper()}_PICKUP_DEFAULT_TIME", "PICKUP_DEFAULT_TIME"]:
+        resp = (
+            client_ordelo.table("ordelo_config")
+            .select("config_value")
+            .eq("config_key", key)
+            .limit(1)
+            .execute()
+        )
+        if resp.data:
+            return int(float(resp.data[0]["config_value"]))
+    return 30
+
+
 async def _handle_restaurant_timedout(
     takeaway_summary: TakeawaySummaryData,
     restaurant_admins: List[str],
 ) -> dict:
+    rest_ref = takeaway_summary.rest_ref or takeaway_summary.order_number.split("-")[0]
+    pickup_minutes = await asyncio.to_thread(_get_pickup_default_minutes, rest_ref)
+
     order_time = parse_db_iso(takeaway_summary.dtts).astimezone(UK_TZ)
-    new_pickup_time = (order_time + timedelta(minutes=30)).isoformat()
-    pickup_display = fmt_uk_time(order_time + timedelta(minutes=30))
+    new_pickup_time = (order_time + timedelta(minutes=pickup_minutes)).isoformat()
+    pickup_display = fmt_uk_time(order_time + timedelta(minutes=pickup_minutes))
 
     result = await asyncio.to_thread(
         lambda: (
@@ -287,7 +304,7 @@ async def _handle_restaurant_timedout(
             to=admin_phone,
             text=(
                 f"Order {takeaway_summary.order_number} auto-accepted due to confirmation timeout. "
-                f"Pickup time set to {pickup_display} (30 mins from order time)."
+                f"Pickup time set to {pickup_display} ({pickup_minutes} mins from order time)."
             ),
         )
 
