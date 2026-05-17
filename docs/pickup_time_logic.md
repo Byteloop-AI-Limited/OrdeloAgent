@@ -42,7 +42,10 @@ Runtime flow for `pickup_time` in `delivery_summary` and `takeaway_summary`.
 ### 4) Auto-accept on timeout
 
 - `watomation/routers/delivery_hooks.py` in `_handle_restaurant_timedout()` sets:
-  - `pickup_time = dtts + 30 minutes` (Europe/London timezone handling)
+  - `pickup_time = dtts + N minutes` where N comes from `ordelo_config` (Europe/London timezone handling):
+    1. `{rest_ref}_DELIVERY_PICKUP_DEFAULT_TIME` (restaurant-specific override)
+    2. `DELIVERY_PICKUP_DEFAULT_TIME` (global default)
+    3. hardcoded fallback `30` minutes
   - `restaurant_confirmation_status = 'auto_accept'`
   - `status = 'unassigned'`
 - Admins are notified with the auto-assigned pickup time.
