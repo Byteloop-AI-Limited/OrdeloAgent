@@ -645,6 +645,8 @@ Called as a background task from `delivery_inflight_graph_init_hook()`:
 | `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | - | Restaurant-specific timeout override |
 | `DELIVERY_TIMEOUT_TIME` | 5 | Minutes before delivery times out (all vehicles exhausted) |
 | `{rest_ref}_DELIVERY_TIMEOUT_TIME` | - | Restaurant-specific delivery timeout |
+| `PICKUP_DEFAULT_TIME` | 30 | Minutes after order time used as pickup time when restaurant confirmation times out (takeaway only) |
+| `{rest_ref}_PICKUP_DEFAULT_TIME` | - | Restaurant-specific override for `PICKUP_DEFAULT_TIME` |
 | `DISPATCH_BATCH_SIZE_{VEHICLE_TYPE}` | 1 | Number of riders to dispatch per batch |
 | `LOCATION_ENABLE_TIME_INTERVAL` | 1 | Minutes before location is considered outdated |
 | `THREAD_INACTIVE_TIME_INTERVAL` | 5 | Minutes of inactivity before thread closure |
