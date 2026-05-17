@@ -128,3 +128,68 @@ async def test_pickup_time_updated_hook_returns_error_for_invalid_payload() -> N
 
     assert result["status"] == "error"
     assert result["order_number"] == "ELAS-ABCD-1"
+
+
+async def test_handle_restaurant_timedout_uses_rest_specific_pickup_config(
+    monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
+) -> None:
+    monkeypatch.setattr(takeaway_hooks, "client_ordelo", patch_supabase_client)
+    patch_supabase_client.register(
+        table="ordelo_config",
+        verb="select",
+        response=FakeSupabaseResponse(data=[{"config_value": "45"}]),
+    )
+    patch_supabase_client.register(
+        table="takeaway_summary",
+        verb="update",
+        response=FakeSupabaseResponse(data=[{"ok": True}]),
+    )
+    summary = takeaway_hooks.TakeawaySummaryData(**_takeaway_summary_row(rest_ref="SFCS"))
+
+    result = await takeaway_hooks._handle_restaurant_timedout(summary, ["ADMIN01"])
+
+    assert result["status"] == "success"
+    update_call = next(c for c in patch_supabase_client.calls if c.table == "takeaway_summary")
+    assert update_call.payload["pickup_time"] == "2026-05-09T11:45:00+01:00"
+    assert "45 mins" in patch_async_wa_client.sent[-1].kwargs["text"]
+
+
+async def test_handle_restaurant_timedout_falls_back_to_global_pickup_config(
+    monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
+) -> None:
+    monkeypatch.setattr(takeaway_hooks, "client_ordelo", patch_supabase_client)
+
+    def config_response(call):
+        if call.filters.get("eq:config_key") == "ELAS_PICKUP_DEFAULT_TIME":
+            return FakeSupabaseResponse(data=[])
+        return FakeSupabaseResponse(data=[{"config_value": "20"}])
+
+    patch_supabase_client.register(table="ordelo_config", verb="select", response=config_response)
+    patch_supabase_client.register(
+        table="takeaway_summary",
+        verb="update",
+        response=FakeSupabaseResponse(data=[{"ok": True}]),
+    )
+    summary = takeaway_hooks.TakeawaySummaryData(**_takeaway_summary_row())
+
+    await takeaway_hooks._handle_restaurant_timedout(summary, ["ADMIN01"])
+
+    update_call = next(c for c in patch_supabase_client.calls if c.table == "takeaway_summary")
+    assert update_call.payload["pickup_time"] == "2026-05-09T11:20:00+01:00"
+
+
+async def test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes(
+    monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
+) -> None:
+    monkeypatch.setattr(takeaway_hooks, "client_ordelo", patch_supabase_client)
+    patch_supabase_client.register(
+        table="takeaway_summary",
+        verb="update",
+        response=FakeSupabaseResponse(data=[{"ok": True}]),
+    )
+    summary = takeaway_hooks.TakeawaySummaryData(**_takeaway_summary_row())
+
+    await takeaway_hooks._handle_restaurant_timedout(summary, ["ADMIN01"])
+
+    update_call = next(c for c in patch_supabase_client.calls if c.table == "takeaway_summary")
+    assert update_call.payload["pickup_time"] == "2026-05-09T11:30:00+01:00"
