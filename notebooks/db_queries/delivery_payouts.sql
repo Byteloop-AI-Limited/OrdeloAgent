@@ -23,7 +23,7 @@ join riderMaster r on d.rider_id = r.rider_id
 join riderRegistration rr on r.rider_id = rr.rider_id
 join delivery_option dOption on d.order_number = dOption.order_number and dOption.vehicle_type = r.vehicle_type
 where d.status='completed' and d.rider_id !='447448440754' 
-and d.dtts >= '2026-04-10' and d.dtts < date('2026-04-17');
+and d.dtts >= '2026-05-01' and d.dtts < date('2026-05-08');
 ORDER BY d.dtts DESC;
 
 -- Aggregated view
@@ -43,7 +43,7 @@ join riderMaster r on d.rider_id = r.rider_id
 join riderRegistration rr on r.rider_id = rr.rider_id
 join delivery_option dOption on d.order_number = dOption.order_number and dOption.vehicle_type = r.vehicle_type
 where d.status='completed' and d.rider_id !='447448440754'
-and d.dtts >= '2026-04-10' and d.dtts < date('2026-04-17')
+and d.dtts >= '2026-05-01' and d.dtts < date('2026-05-08')
 group by rr.bank_account_name, rr.sort_code, rr.bank_account;
 
 3.85, 5.88, 3.52 (13.25);
