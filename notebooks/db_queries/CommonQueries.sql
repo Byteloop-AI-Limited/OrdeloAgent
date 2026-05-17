@@ -1,8 +1,9 @@
 select * from thread order by dtts desc;
 select * from thread where is_active order by dtts desc;
 
-select * from thread where agent='SFCS' and recipient not in ('447919202938', '447448440754', '447446933210') order by dtts desc;
+select dtts, * from thread where agent='SFCS' and recipient not in ('447919202938', '447448440754', '447446933210') order by dtts desc;
 
+select * from thread where recipient='447341964134';
 exclude_list = ['447919202938', '447448440754', '447446933210']
 
 update thread set is_active=False where is_active and recipient='447767909037';
@@ -16,7 +17,7 @@ delete from cust_rest_map where cust_id='447448440754';
 delete from customer_master where cust_id='447448440754';
 
 select * from delivery_dispatch order by dtts desc;
--- update thread set is_active=false where is_active=True and dt<='2026-03-27';
+update thread set is_active=false where is_active=True and dt<='2026-05-14' and agent='SFCS';
 select * from thread where is_active=True and dt<'2026-03-27' order by dt desc;;
 select * from food_order limit 1;
 select * from rider_registrations order by inserted_at desc;
@@ -342,9 +343,8 @@ select * from delivery_inflight where order_number='ELAS-ZSLI-22';
 select * from delivery_option where order_number='ELAS-ZSLI-22';
 select * from delivery_dispatch where order_number='ELAS-ZSLI-22';
 
-ELAS-ZSLI-22
 select * from delivery_detail order by dtts desc limit 10;
--- ELAS-WWVP-26
+
 -- Testing fro wren
 UPDATE food_order SET order_number = 'WREN-WWVP-26' WHERE order_number = 'ELAS-WWVP-26';
 UPDATE order_item SET order_id = 'WWVP-26' WHERE order_id = 'WWVP-26';
@@ -366,20 +366,15 @@ select * from delivery_detail where order_number='ELAS-WWVP-26';
 select * from rider_master where rider_id='447448440754';
 delete from rider_master where rider_id='447448440754' and vehicle_type='bicycle';
 
+-- Check outlier orders
+select * from delivery_summary where status='assigned';
+-- update delivery_summary set status='completed' where status='assigned';
+-- update delivery_summary set status='completed' where order_number='ELAS-BYSW-21';
 
-ELAS-ffed1547-da76-426d-8f6a-83aec8573a0e
-ELAS-ea98ad6f-b886-485d-a9c8-1cf1cfefa76c
-SFCS-cb4795de-e1dc-41e6-81a3-4146df1b3bc8
-ELAS-36d3c485-9bea-4cd7-ae96-f4d68552c5ec
-ELAS-09888d8f-c7ac-4733-8d3b-c31340a3ce17
-ELAS-e8606e55-599a-4858-8a8a-59f24d56c078
-ELAS-c4982124-380c-4679-848d-7dd1eb6507c1
-ELAS-368da687-7ccd-48d5-b447-b039f282c76c
-ELAS-934b9f8d-dcfd-4956-ad5c-aff8381666fa
-ELAS-b14038b1-ceb2-4778-9ee9-dd7ab200c294
-ELAS-be68d7b6-2f55-4afd-9e5e-c869220ec6a8
-ELAS-24eaa243-dc18-4ba4-ae75-c3a56ca5e189
-INDI-7832ab4a-646d-4f79-ae07-0c13b3e0fd1d
-ELAS-ab419d0e-803a-4118-bbca-b605064b9a7e
-ELAS-6072eff6-ae7e-43b3-ba65-eba56429963f
-ELAS-54ab221d-0e44-43cf-8c17-7d83ff1df82f
+select * from delivery_detail where status='assigned';
+-- update delivery_detail set status='completed' where status='assigned';
+select * from delivery_dispatch where rider_id is not null and status='assigned';
+-- update delivery_dispatch set status='completed' where rider_id is not null and status='assigned';
+
+select * from delivery_inflight;
+-- delete from delivery_inflight where order_number='ELAS-BYSW-21';
