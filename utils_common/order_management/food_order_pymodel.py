@@ -32,7 +32,7 @@ from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 
 
 class FoodOrder(BaseModel):
-    """Pydantic model representing the food_order table."""
+    """Pydantic model representing the food_order table. The record is created when an order is created in order_hooks -> create_order"""
 
     order_id: str
     order_number: str
@@ -115,8 +115,13 @@ class FoodOrder(BaseModel):
                 .data[0]
             )
             instance = cls(**food_order_row)
-            if instance.final_order_value is None and instance.action == "delivery":
-                updated = instance.update_final_order_value_in_db()
+            if instance.final_order_value is None:
+                if instance.action == "delivery":
+                    updated = instance.update_final_order_value_in_db()
+                elif instance.action == "takeaway":
+                    updated = instance.update_takeaway_financials_in_db()
+                else:
+                    updated = True
                 if not updated:
                     logger.error(
                         "FoodOrder.from_order_number: failed to update final order value for %s",
@@ -153,8 +158,13 @@ class FoodOrder(BaseModel):
                 .data[0]
             )
             instance = cls(**food_order_row)
-            if instance.final_order_value is None and instance.action == "delivery":
-                updated = instance.update_final_order_value_in_db()
+            if instance.final_order_value is None:
+                if instance.action == "delivery":
+                    updated = instance.update_final_order_value_in_db()
+                elif instance.action == "takeaway":
+                    updated = instance.update_takeaway_financials_in_db()
+                else:
+                    updated = True
                 if not updated:
                     logger.error(
                         "FoodOrder.from_order_id: failed to update final order value for %s",
@@ -274,6 +284,42 @@ class FoodOrder(BaseModel):
             )
             return False
 
+    def update_takeaway_financials_in_db(self) -> bool:
+        """
+        Calculates rest_cost using collection_commission and persists to DB.
+        final_order_value is set equal to total_price (customer pays full food value).
+        """
+        try:
+            rest_master = RestaurantMaster.from_rest_ref(self.rest_ref)
+            if rest_master.collection_commission is None:
+                logger.warning(
+                    "collection_commission not set for %s, defaulting to 0", self.rest_ref
+                )
+            commission = rest_master.collection_commission or 0.0
+            rest_cost = round(self.total_price * (1 - commission), 2)
+            final_order_value = round(self.total_price, 2)
+
+            food_order_update = {
+                "final_order_value": final_order_value,
+                "rest_cost": rest_cost,
+                "commission_rate": commission,
+            }
+
+            client_ordelo.table("food_order").update(food_order_update).eq(
+                "order_id", self.order_id
+            ).execute()
+
+            self.final_order_value = final_order_value
+            self.rest_cost = rest_cost
+            self.commission_rate = commission
+            logger.info("Successfully updated takeaway financials for order %s", self.order_id)
+            return True
+        except Exception as e:
+            logger.error(
+                "Error updating takeaway financials for order %s: %s", self.order_id, e
+            )
+            return False
+
     async def gen_capture_payload(self) -> dict:
         """
         Generates a dictionary payload for payment capture action.
@@ -357,7 +403,7 @@ class FoodOrder(BaseModel):
         )
 
         total = sum(item["price"] * item["quantity"] for item in order_items.data)
-        order_summary = {"items": order_items.data, "total": total}
+        order_summary = {"items": order_items.data, "total": total, "rest_payout": self.rest_cost}
         return order_summary
 
     async def gen_payment_intent_payload(self) -> dict:

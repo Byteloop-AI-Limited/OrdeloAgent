@@ -8,6 +8,9 @@ select admins,* from restaurant_master where rest_ref='SFCS';
 select init_delivery('447448440754', 'WREN-AEHO-21');
 select * from thread;
 
+-- Adding collection_commission columns to restaurant_master table
+ALTER TABLE restaurant_master ADD COLUMN collection_commission DOUBLE PRECISION NULL;
+update restaurant_master set collection_commission = 0.04 where rest_ref = 'SFCS';
 -- update restaurant_master set city='Orpington' where rest_ref='WREN';
 
 -- Production Setup - ELAS
