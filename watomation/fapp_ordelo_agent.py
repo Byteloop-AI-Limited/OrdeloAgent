@@ -291,22 +291,25 @@ async def get_restaurant_details(rest_ref: str):
 async def reset_restaurant_base_url_cache_endpoint(
     rest_ref: Optional[str] = None,
 ):
-    """Reset the in-memory restaurant base URL cache.
+    """Reset all in-memory caches (base URL, overwatch list, restaurant master).
 
-    If rest_ref is provided, clears only that restaurant's cached base URL.
-    If not, clears the entire cache.
+    If rest_ref is provided, clears only that restaurant's cached entries.
+    If not, clears all caches entirely.
     """
     from config.params import (
         reset_overwatch_list_cache,
         reset_restaurant_base_url_cache,
     )
+    from ordelo_datamodels.restaurant_master_pymodel import reset_restaurant_master_cache
 
     removed_entries = reset_restaurant_base_url_cache(rest_ref)
     removed_overwatch = reset_overwatch_list_cache()
+    removed_rest_master = reset_restaurant_master_cache(rest_ref)
     return {
         "scope": rest_ref.upper() if rest_ref else "ALL",
-        "removed_entries": removed_entries,
+        "removed_base_url_entries": removed_entries,
         "removed_overwatch_list_entries": removed_overwatch,
+        "removed_rest_master_entries": removed_rest_master,
     }
 
 

@@ -4,18 +4,24 @@ Pydantic model for restaurant_master table
     . Handles nullability with Optional
     . Depends on pydantic, datetime, and config.client_ordelo
     . Models the restaurant_master table structure
-    . Provides from_rest_ref to instantiate from DB
-    . Provides get_admins to fetch admins column live from DB
+    . Provides from_rest_ref to instantiate from DB (cached, alias-aware)
+    . Provides get_admins to return admins from cached object
   Functions/Classes:
     . RestaurantMaster
         . from_rest_ref
         . get_admins
+    . reset_restaurant_master_cache
 """
 
 # %%
 import datetime
+import time
 from typing import Optional
+from loguru import logger
 from pydantic import BaseModel
+
+_RESTAURANT_MASTER_CACHE_TTL_SECS = 60 * 60  # 1 hour
+_RESTAURANT_MASTER_CACHE: dict[str, tuple["RestaurantMaster", float]] = {}
 
 
 class RestaurantMaster(BaseModel):
@@ -38,11 +44,23 @@ class RestaurantMaster(BaseModel):
     @classmethod
     def from_rest_ref(cls, rest_ref: str):
         from config import client_ordelo
+        from config.params import _resolve_rest_ref
+
+        canonical = _resolve_rest_ref(rest_ref)
+        now = time.monotonic()
+
+        cached = _RESTAURANT_MASTER_CACHE.get(canonical)
+        if cached:
+            cached_value, expires_at = cached
+            if expires_at > now:
+                logger.debug(f"Using cached RestaurantMaster for {canonical}")
+                return cached_value
+            _RESTAURANT_MASTER_CACHE.pop(canonical, None)
 
         resp = (
             client_ordelo.table("restaurant_master")
             .select("*")
-            .eq("rest_ref", rest_ref.upper())
+            .eq("rest_ref", canonical)
             .execute()
         )
         data = (
@@ -54,33 +72,45 @@ class RestaurantMaster(BaseModel):
         )
         if not data or len(data) == 0:
             raise ValueError(f"No restaurant found with rest_ref={rest_ref}")
-        # Use the first row
+
         row = data[0]
-        return cls(**row)
+        instance = cls(**row)
+        _RESTAURANT_MASTER_CACHE[canonical] = (instance, now + _RESTAURANT_MASTER_CACHE_TTL_SECS)
+        logger.debug(f"Fetched and cached RestaurantMaster for {canonical}")
+        return instance
 
-    def get_admins(self):
-        """
-        Fetches the current value of the 'admins' column from the DB for this restaurant.
-        Returns a list of admin strings, or None if not set.
-        """
-        from config import client_ordelo
+    def get_admins(self) -> list[str] | None:
+        """Return admins from the cached RestaurantMaster object."""
+        return self.admins
 
-        resp = (
-            client_ordelo.table("restaurant_master")
-            .select("admins")
-            .eq("rest_ref", self.rest_ref)
-            .execute()
-        )
-        data = (
-            resp["data"]
-            if isinstance(resp, dict) and "data" in resp
-            else resp.data
-            if hasattr(resp, "data")
-            else None
-        )
-        if not data or len(data) == 0:
-            raise ValueError(f"No restaurant found with rest_ref={self.rest_ref}")
-        return data[0].get("admins")
+
+# %%
+def reset_restaurant_master_cache(rest_ref: str | None = None) -> int:
+    """Reset the in-memory RestaurantMaster cache.
+
+    Args:
+        rest_ref: Optional restaurant reference. If provided, clears only that
+            entry (case-insensitive, alias-aware). If None, clears the entire cache.
+
+    Returns:
+        Number of cache entries removed.
+    """
+    from config.params import _resolve_rest_ref
+
+    if rest_ref is None:
+        removed = len(_RESTAURANT_MASTER_CACHE)
+        _RESTAURANT_MASTER_CACHE.clear()
+        logger.debug(f"Cleared RestaurantMaster cache ({removed} entries)")
+        return removed
+
+    cache_key = _resolve_rest_ref(rest_ref)
+    existed = cache_key in _RESTAURANT_MASTER_CACHE
+    _RESTAURANT_MASTER_CACHE.pop(cache_key, None)
+    if existed:
+        logger.debug(f"Cleared RestaurantMaster cache for {cache_key}")
+        return 1
+    logger.debug(f"No RestaurantMaster cache entry for {cache_key} to clear")
+    return 0
 
 
 # %%
