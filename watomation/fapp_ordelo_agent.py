@@ -253,9 +253,9 @@ async def get_restaurant_details(rest_ref: str):
     from config.params import (
         WEBHOOK_PATHS,
         get_restaurant_base_url_async,
-        get_restaurant_admins,
         get_restaurant_webhook_url_async,
     )
+    from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 
     rest_ref = rest_ref.upper()
     try:
@@ -282,7 +282,7 @@ async def get_restaurant_details(rest_ref: str):
         "rest_ref": rest_ref,
         "base_url": base_url,
         "webhook_urls": webhook_urls,
-        "admins": get_restaurant_admins(rest_ref=rest_ref),
+        "admins": RestaurantMaster.get_admins_for(rest_ref),
     }
 
 

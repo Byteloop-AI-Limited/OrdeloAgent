@@ -51,7 +51,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
 from pywa.types import Button
 from pywa_async import WhatsApp
-from config.params import get_restaurant_admins, get_wa_logger
+from config.params import get_wa_logger
+from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from config import (
     _async_wa_client,
     client_ordelo,
@@ -151,7 +152,7 @@ class RestaurantConfirmationPayload(BaseModel):
 # %%
 
 
-async def capture_payment(order_number, restaurant_cc: int):
+async def capture_delivery_payment(order_number, restaurant_cc: int):
     """
     Captures a payment for the specified order using the payment microservice.
 
@@ -528,7 +529,7 @@ async def delivery_inflight_graph_init_hook(
 
     # 1. Capture Stripe Payment - This also issues print job
     background_tasks.add_task(
-        capture_payment, delivery_summary.order_number, rest_confirmation_code
+        capture_delivery_payment, delivery_summary.order_number, rest_confirmation_code
     )
 
     # 2. Call restaurant webhook - rider-inflight-event (background)
@@ -732,7 +733,8 @@ async def delivery_timedout(
         )
 
     # 2. Notify restaurant admins
-    rest_admins = get_restaurant_admins(rest_id=rest_id)
+    rest_ref = delivery_summary["order_number"].split("-")[0]
+    rest_admins = RestaurantMaster.get_admins_for(rest_ref)
 
     for admin_phone in rest_admins:
         await _async_wa_client.send_message(

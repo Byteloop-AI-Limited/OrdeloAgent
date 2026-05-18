@@ -41,7 +41,6 @@ from utils_common.order_management.order_service import (
     get_min_order_value as fetch_min_order_value,
 )
 from utils_common.payment_ms.payment import (
-    generate_automatic_payment_url,
     generate_payment_intent_url,
 )
 
@@ -279,12 +278,13 @@ async def create_order(
     order_id = order_result["order_id"]
     order_number = order_result["order_number"]
 
-    thread_id = food_order.thread_id
+    # thread_id = food_order.thread_id
+    payment_intent_url = await generate_payment_intent_url(food_order)
 
-    if food_order.action == "delivery":
-        payment_intent_url = await generate_payment_intent_url(food_order)
-    else:
-        payment_intent_url = await generate_automatic_payment_url(food_order)
+    # if food_order.action == "delivery":
+    #     payment_intent_url = await generate_payment_intent_url(food_order)
+    # else:
+    #     payment_intent_url = await generate_automatic_payment_url(food_order)
 
     return {
         "status": "success",

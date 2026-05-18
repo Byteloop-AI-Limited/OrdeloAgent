@@ -148,7 +148,7 @@ async def test_delivery_inflight_graph_init_hook_schedules_core_background_tasks
 
     assert result == {"status": "success"}
     assert [task["func"] for task in bg.tasks] == [
-        delivery_hooks.capture_payment,
+        delivery_hooks.capture_delivery_payment,
         delivery_hooks.post_rider_event_inflight,
         delivery_hooks.admin_order_reciept,
         delivery_hooks.init_ordelo_graph,
@@ -187,7 +187,7 @@ async def test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook(
         return "cancelled"
 
     monkeypatch.setattr(delivery_hooks, "cancel_payment", _fake_cancel)
-    monkeypatch.setattr(delivery_hooks, "get_restaurant_admins", lambda rest_id=None, rest_ref=None: ["ADMIN01", "ADMIN02"])
+    monkeypatch.setattr(delivery_hooks.RestaurantMaster, "get_admins_for", classmethod(lambda cls, rest_ref: ["ADMIN01", "ADMIN02"]))
     bg = _FakeBackgroundTasks()
 
     result = await delivery_hooks.delivery_timedout(bg, payload={"delivery_summary": [_summary_row(order_number="ELAS-ABCD-1")]})

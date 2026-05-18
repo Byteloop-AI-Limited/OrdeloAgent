@@ -83,6 +83,11 @@ class RestaurantMaster(BaseModel):
         """Return admins from the cached RestaurantMaster object."""
         return self.admins
 
+    @classmethod
+    def get_admins_for(cls, rest_ref: str) -> list[str] | None:
+        """Return admins for a restaurant by rest_ref (cache-aware)."""
+        return cls.from_rest_ref(rest_ref).admins
+
 
 # %%
 def reset_restaurant_master_cache(rest_ref: str | None = None) -> int:

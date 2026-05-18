@@ -10,7 +10,6 @@ Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . TakeawaySummaryData - Pydantic model for takeaway_summary table fields
     . RestaurantMasterData - Pydantic model for restaurant_master table fields
     . TakeawayConfirmationPayload - Payload model for restaurant confirmation webhook
-    . TakeawayPickupTimePayload - Payload model for pickup time webhook
     . _format_pickup_time_display - Formats pickup time for human-readable display
     . init_takeaway_summary - Background task to initialize takeaway_summary via RPC
     . _handle_restaurant_unconfirmed - Sends order confirmation request to restaurant admins
@@ -18,8 +17,7 @@ Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . _handle_restaurant_decline - Handles restaurant decline with payment cancellation
     . _handle_restaurant_timedout - Auto-accepts order and sets default pickup time
     . restaurant_confirmation_flow - Webhook endpoint for restaurant confirmation events
-    . _handle_pickup_time_set - Background task to POST pickup time event to restaurant service
-    . _handle_pickup_time_updated_background - Runs print and notification work after fast webhook response
+    . _post_pickup_time_event - POSTs pickup-time-updated event to restaurant webhook service
     . pickup_time_updated_hook - Webhook endpoint for pickup_time set events
     . init_takeaway_order - Direct entrypoint for pay-at-restaurant takeaway orders
 """
@@ -38,6 +36,7 @@ from config import (
     client_ordelo,
     get_restaurant_webhook_url_async,
     logger,
+    ms_settings
 )
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
@@ -46,7 +45,7 @@ from utils_common.waba_utils.wa_senders import (
     send_restaurant_pickup_time,
     takeaway_admin_order_receipt,
 )
-from watomation.routers.delivery_hooks import cancel_payment
+from watomation.routers.delivery_hooks import cancel_payment, notify_overwatch
 from utils_common.payment_ms.payment import (
     generate_automatic_payment_url,
     generate_payment_intent_url,
@@ -397,90 +396,82 @@ async def restaurant_confirmation_flow(
         }
 
 
-class TakeawayPickupTimePayload(BaseModel):
-    """Payload model for takeaway pickup time webhook."""
-
-    takeaway_summary: TakeawaySummaryData
-    restaurant_master: RestaurantMasterData
-
-
-async def _handle_pickup_time_set(
+async def _post_pickup_time_event(
     takeaway_summary: TakeawaySummaryData,
     restaurant_master: RestaurantMasterData,
-) -> dict:
-    """Background task to notify restaurant service when pickup_time is set.
+) -> None:
+    rest_ref = takeaway_summary.rest_ref or takeaway_summary.order_number.split("-")[0]
+    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "order-pickup-time-updated")
+    payload = {
+        "takeaway_summary": takeaway_summary.model_dump(),
+        "restaurant_master": restaurant_master.model_dump(),
+    }
+    async with httpx.AsyncClient(follow_redirects=True) as http_client:
+        res = await http_client.post(webhook_url, json=payload)
+        res.raise_for_status()
+    logger.info(
+        f"Pickup time event posted for order {takeaway_summary.order_number} to {webhook_url}"
+    )
+
+
+# %%
+
+async def capture_takeaway_payment(order_number: str):
+    """
+    Captures a payment for the specified order using the payment microservice.
 
     Args:
-        takeaway_summary: Takeaway summary data with pickup_time populated
-        restaurant_master: Restaurant master data for URL resolution
+        order_id (str): The ID of the order for which payment should be captured.
 
     Returns:
-        dict: Status response
+        str or None: The response text from the payment service if successful, otherwise None.
     """
-    rest_ref = takeaway_summary.rest_ref or takeaway_summary.order_number.split("-")[0]
-    try:
-        webhook_url = await get_restaurant_webhook_url_async(
-            rest_ref, "order-pickup-time-updated"
-        )
-        payload = {
-            "takeaway_summary": takeaway_summary.model_dump(),
-            "restaurant_master": restaurant_master.model_dump(),
-        }
-        async with httpx.AsyncClient(follow_redirects=True) as http_client:
-            res = await http_client.post(webhook_url, json=payload)
-            res.raise_for_status()
-            logger.info(
-                f"Pickup time notification sent for order {takeaway_summary.order_number} to {webhook_url}"
-            )
+    food_order = FoodOrder.from_order_number(order_number=order_number)
+    if not food_order:
+        logger.error(f"FoodOrder not found for order_id: {order_number}")
+        return None
 
-        if takeaway_summary.pickup_time and restaurant_master.admins:
-            try:
-                await takeaway_admin_order_receipt(
-                    order_number=takeaway_summary.order_number,
-                    pickup_time=takeaway_summary.pickup_time,
-                    rest_name=takeaway_summary.rest_name or restaurant_master.rest_name,
-                    admins=restaurant_master.admins,
-                    restaurant_msg_id=takeaway_summary.restaurant_msg_id,
-                    rest_ref=takeaway_summary.rest_ref or restaurant_master.rest_ref,
-                )
-            except Exception as e:
-                logger.error(
-                    f"Failed to send takeaway admin receipt for {takeaway_summary.order_number}: {e}"
-                )
-    except Exception as e:
-        logger.error(
-            f"Failed to notify pickup time for order {takeaway_summary.order_number}: {e}"
-        )
+    order_id = food_order.order_id
+    payment_uri = food_order.payment_uri
 
-    return {
-        "status": "success",
-        "action": "pickup_time_notified",
-        "order_number": takeaway_summary.order_number,
-    }
-
-
-async def _handle_pickup_time_updated_background(
-    takeaway_summary: TakeawaySummaryData,
-    restaurant_master: RestaurantMasterData,
-) -> dict:
-    try:
-        food_order = await asyncio.to_thread(
-            FoodOrder.from_order_number, takeaway_summary.order_number
-        )
+    # If payment status is pay_at_rest, generate a print request
+    payment_status = food_order.payment_status
+    if payment_status == "pay_at_rest":
         payment_url = await generate_automatic_payment_url(
             food_order,
             is_print_only=True,
         )
-        logger.info(f"Payment URL: {payment_url}")
-    except Exception as e:
-        logger.error(
-            f"Failed to generate print payment URL for {takeaway_summary.order_number}: {e}"
+        logger.info(f"Only issue a print request {payment_url}")
+        return None
+    
+    # Validate payment status
+    if payment_status != "requires_capture":
+        logger.error(f"Invalid payment status for order {order_id}: {payment_status}")
+        return None
+    
+    # if payment_status == 'requires_capture', capture the payment
+    async with httpx.AsyncClient() as _client:
+        logger.info(
+            f"Capturing payment for order {order_id} with payment URI: {payment_uri}"
         )
+        try:
+            capture_payload = await food_order.gen_capture_payload()
+            logger.info(f"Capture payload: {capture_payload}")
+            res = await _client.post(
+                payment_uri,
+                json=capture_payload,
+                headers=ms_settings.stripe_headers,
+            )
+            res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            return res.text
+        except httpx.HTTPError as e:
+            logger.error(f"Error during payment capture for order {order_id}: {e}")
+            if "res" in locals():
+                logger.error(res.text)
+            return None
 
-    return await _handle_pickup_time_set(takeaway_summary, restaurant_master)
+# %%
 
-
-# Review if restaurant_master record is needed?
 @router.post("/pickup-time-updated")
 async def pickup_time_updated_hook(
     background_tasks: BackgroundTasks,
@@ -491,37 +482,46 @@ async def pickup_time_updated_hook(
     Triggered by: trigger_takeaway_pickup_time_set on takeaway_summary
     Source Function: takeaway_pickup_time_whook() in ordelo_datamodels/takeaway_summary.sql
     """
-    try:
-        pickup_payload = TakeawayPickupTimePayload(**payload)
-        takeaway_summary = pickup_payload.takeaway_summary
-        restaurant_master = pickup_payload.restaurant_master
+    if "takeaway_summary" not in payload or payload["takeaway_summary"] is None:
+        logger.error("No takeaway_summary found: from pickup_time_updated_hook")
+        return {"status": "error", "data": payload}
 
-        logger.info(
-            f"Takeaway pickup time webhook triggered: order={takeaway_summary.order_number}, "
-            f"pickup_time={takeaway_summary.pickup_time}, rest_id={takeaway_summary.rest_id}"
-        )
+    takeaway_summary = TakeawaySummaryData(**payload["takeaway_summary"])
+    restaurant_master = RestaurantMasterData(**payload["restaurant_master"])
 
-        background_tasks.add_task(
-            _handle_pickup_time_updated_background,
-            takeaway_summary,
-            restaurant_master,
-        )
+    logger.info(
+        f"Takeaway pickup time webhook triggered: order={takeaway_summary.order_number}, "
+        f"pickup_time={takeaway_summary.pickup_time}, rest_id={takeaway_summary.rest_id}"
+    )
 
-        return {
-            "status": "accepted",
-            "message": "pickup_time_set handler scheduled",
-            "order_number": takeaway_summary.order_number,
-        }
+    # 1. Capture Stripe payment
+    logger.info("step1: capture takeaway payment")
+    background_tasks.add_task(capture_takeaway_payment, takeaway_summary.order_number)
 
-    except Exception as e:
-        logger.error(f"Error in pickup_time_updated_hook: {e}")
-        return {
-            "status": "error",
-            "message": str(e),
-            "order_number": payload.get("takeaway_summary", {}).get(
-                "order_number", "unknown"
-            ),
-        }
+    # 2. Call restaurant webhook - pickup-time-updated event
+    logger.info("step2: call restaurant webhook - pickup-time-updated")
+    background_tasks.add_task(_post_pickup_time_event, takeaway_summary, restaurant_master)
+
+    # 3. Send admin order receipt
+    logger.info("step3: send admin order receipt")
+    background_tasks.add_task(
+        takeaway_admin_order_receipt,
+        order_number=takeaway_summary.order_number,
+        pickup_time=takeaway_summary.pickup_time,
+        rest_name=takeaway_summary.rest_name or restaurant_master.rest_name,
+        admins=restaurant_master.admins,
+        restaurant_msg_id=takeaway_summary.restaurant_msg_id,
+        rest_ref=takeaway_summary.rest_ref or restaurant_master.rest_ref,
+    )
+
+    # 4. Notify overwatch
+    logger.info("step4: notify overwatch")
+    background_tasks.add_task(
+        notify_overwatch,
+        log_msg=f"{takeaway_summary.order_number} takeaway pickup time set",
+    )
+
+    return {"status": "success"}
 
 
 # Where is this called?

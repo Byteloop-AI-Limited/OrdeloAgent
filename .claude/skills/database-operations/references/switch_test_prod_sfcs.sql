@@ -12,8 +12,8 @@ select * from rider_master where rider_name = 'Lohith';
 -- ============================================================
 
 update restaurant_master
+-- set admins = Array['447919202938', '447448440754'],
 set admins = Array['447919202938'],
--- set admins = Array['447448440754'],
     rest_stale_active_threads_minutes = 10,
     city='dummy',
     service_hours_json = '{
@@ -29,19 +29,23 @@ where rest_ref='SFCS';
 
 update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'SFCS_APP_URL';
 
+-- Cache reset calls, Should be run everytime after changing the app URL
+SELECT * FROM ordelo_post('SFCS_APP_URL', '/restaurant-base-url-cache/reset');
+SELECT * FROM ordelo_post('SFCS_APP_URL', '/restaurant-master-cache/reset');
+
 update rider_master
 set is_in_shift = true,
     town = 'dummy',
     vehicle_type = 'bicycle'
 where rider_name = 'Lohith';
 
-select enquire_admin_availability(ARRAY['ELAS', 'SFCS']);
+select enquire_admin_availability(ARRAY['SFCS']);
 -- ============================================================
 -- SFCS: Production Setup
 -- ============================================================
 
 update restaurant_master
-set admins = Array['447919202938','447827180109', '447774458613'],
+set admins = Array[ '447446933210','447919202938','447827180109', '447774458613', '447312083527'],
     rest_stale_active_threads_minutes = 10,
     city='Salisbury',
     service_hours_json = '{

@@ -296,7 +296,7 @@ class FoodOrder(BaseModel):
                     "collection_commission not set for %s, defaulting to 0", self.rest_ref
                 )
             commission = rest_master.collection_commission or 0.0
-            rest_cost = round(self.total_price * (1 - commission), 2)
+            rest_cost = round(self.total_price * (1 - commission) - 0.25, 2)
             final_order_value = round(self.total_price, 2)
 
             food_order_update = {

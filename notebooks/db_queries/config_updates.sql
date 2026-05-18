@@ -269,11 +269,32 @@ SET config_value = EXCLUDED.config_value,
 -- Restaurant-specific overrides (insert per restaurant as needed, e.g. SFCS)
 INSERT INTO ordelo_config (config_key, config_value, description)
 VALUES
-  ('SFCS_DEFAULT_COLLECTION_PICKUP_TIME','35', 'SFCS takeaway pickup default override'), ('SFCS_DEFAULT_DELIVERY_PICKUP_TIME', '35', 'SFCS delivery pickup default override')
-ON CONFLICT (config_key) DO NOTHING;
+  ('SFCS_DEFAULT_COLLECTION_PICKUP_TIME','15', 'SFCS takeaway pickup default override'),
+  ('SFCS_DEFAULT_DELIVERY_PICKUP_TIME', '15', 'SFCS delivery pickup default override')
+ON CONFLICT (config_key) DO UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description;
 
+-- Restaurant-specific overrides (insert per restaurant as needed, e.g. SFCS)
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES
+  ('CHKS_DEFAULT_COLLECTION_PICKUP_TIME','30', 'Chks takeaway pickup default override'),
+  ('CHKS_DEFAULT_DELIVERY_PICKUP_TIME', '30', 'Chks delivery pickup default override')
+ON CONFLICT (config_key) DO UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description;
+
+
+
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('SFCS_DELIVERY_TIMEOUT_TIME', '5', 'Timeout in minutes for delivery_summary status transition to timedout')
+ON CONFLICT (config_key) DO UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description;
 
 select config_key, config_value, description from ordelo_config where config_key like '%SFCS%';
+select config_key, config_value, description from ordelo_config where config_key like '%CHKS%';
+
 -- Absolute essential configs for rest_ref
 [
  {
@@ -283,16 +304,22 @@ select config_key, config_value, description from ordelo_config where config_key
  },
  {
   "config_key": "SFCS_DEFAULT_COLLECTION_PICKUP_TIME",
-  "config_value": "15",
+  "config_value": "30",
   "description": "SFCS takeaway pickup default override"
  },
  {
   "config_key": "SFCS_DEFAULT_DELIVERY_PICKUP_TIME",
-  "config_value": "35",
+  "config_value": "30",
   "description": "SFCS delivery pickup default override"
+ },
+ {
+  "config_key": "SFCS_DELIVERY_TIMEOUT_TIME",
+  "config_value": "5",
+  "description": "Timeout in minutes for delivery_summary status transition to timedout"
  },
  {
   "config_key": "SFCS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME",
   "config_value": ".5",
   "description": "Timeout in minutes for delivery_summary status transition to timedout"
  }
+]
