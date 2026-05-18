@@ -99,7 +99,7 @@ Full details in `docs/delivery_process.md`.
 
 - **PostgreSQL via Supabase** — primary data store
 - **Async pool**: `AsyncConnectionPool` (1–5 connections) via `pg_settings`
-- **REST client**: `client_ordelo` (Supabase REST) for CRUD operations
+- **REST client**: `client_ordelo` (Supabase REST) for CRUD operations — **synchronous/blocking**; always wrap in `asyncio.to_thread()` when calling from an `async def`. The codebase has existing violations of this rule, but all new or changed code must follow it.
 - **Pydantic models** in `ordelo_datamodels/` with class methods like `.from_rest_ref()`, `.from_customer_id()`
 - **No full ORM** — mix of Pydantic + raw SQL + Supabase REST
 

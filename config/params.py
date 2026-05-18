@@ -3,7 +3,6 @@ Restaurant webhook configuration utilities and lookup helpers.
   . Provides async webhook URL construction with dynamic DB lookup
   . WEBHOOK_PATHS maps webhook types to their path templates (with {rest_ref} placeholder)
   . get_restaurant_webhook_url_async fetches base URL from DB (now cached)
-  . get_restaurant_admins fetches admin list from restaurant_master
   . _REST_REF_ALIAS_MAP allows multiple rest_refs to share a canonical rest_ref for DB lookups
   . ONBOARDED_REST_REFS tracks canonical onboarded restaurant references
   . is_onboarded_rest_ref checks onboarding status after alias resolution
@@ -15,15 +14,14 @@ Functions/Classes
   . is_onboarded_rest_ref - Checks whether a rest_ref is onboarded via canonical resolution
   . get_restaurant_base_url_async - Async DB lookup for restaurant base URL (cached, alias-aware)
   . get_restaurant_webhook_url_async - Constructs full webhook URL dynamically, substituting rest_ref
-  . get_restaurant_admins - Fetches restaurant admin phone numbers (alias-aware)
 """
 
 import time
 from loguru import logger
 
-_BASE_URL_CACHE_TTL_SECS = 5 * 60  # 5 minutes
+_BASE_URL_CACHE_TTL_SECS = 60 * 60  # 1 hour
 _BASE_URL_CACHE: dict[str, tuple[str, float]] = {}
-_OVERWATCH_LIST_CACHE_TTL_SECS = 5 * 60  # 5 minutes
+_OVERWATCH_LIST_CACHE_TTL_SECS = 60 * 60  # 1 hour
 _OVERWATCH_LIST_CACHE: tuple[list[str], float] | None = None
 
 # Alias map: rest_refs that share config with another rest_ref.
@@ -254,48 +252,6 @@ async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> 
     full_url = f"{base_url}/{path}"
     return full_url
 
-
-# %%
-def get_restaurant_admins(
-    rest_ref: str | None = None, rest_id: int | None = None
-) -> list[str] | None:
-    """Get restaurant admins by rest_ref or rest_id.
-
-    Args:
-        rest_ref: Restaurant reference code (e.g., "ELAS")
-        rest_id: Restaurant ID
-
-    Returns:
-        List of admin identifiers, or None if no restaurant found
-    """
-    from config import client_ordelo
-
-    if rest_ref is None and rest_id is None:
-        raise ValueError("Either rest_ref or rest_id must be provided")
-
-    query = client_ordelo.table("restaurant_master").select("admins")
-
-    if rest_ref is not None:
-        query = query.eq("rest_ref", _resolve_rest_ref(rest_ref))
-    else:
-        query = query.eq("rest_id", rest_id)
-
-    resp = query.execute()
-    data = (
-        resp["data"]
-        if isinstance(resp, dict) and "data" in resp
-        else resp.data
-        if hasattr(resp, "data")
-        else None
-    )
-
-    if not data or len(data) == 0:
-        return None
-
-    return data[0]["admins"]
-
-
-# %%
 
 # %%
 # Example usage:

@@ -51,7 +51,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
 from pywa.types import Button
 from pywa_async import WhatsApp
-from config.params import get_restaurant_admins, get_wa_logger
+from config.params import get_wa_logger
+from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from config import (
     _async_wa_client,
     client_ordelo,
@@ -151,7 +152,7 @@ class RestaurantConfirmationPayload(BaseModel):
 # %%
 
 
-async def capture_payment(order_number, restaurant_cc: int):
+async def capture_delivery_payment(order_number, restaurant_cc: int):
     """
     Captures a payment for the specified order using the payment microservice.
 
@@ -528,7 +529,7 @@ async def delivery_inflight_graph_init_hook(
 
     # 1. Capture Stripe Payment - This also issues print job
     background_tasks.add_task(
-        capture_payment, delivery_summary.order_number, rest_confirmation_code
+        capture_delivery_payment, delivery_summary.order_number, rest_confirmation_code
     )
 
     # 2. Call restaurant webhook - rider-inflight-event (background)
@@ -732,7 +733,8 @@ async def delivery_timedout(
         )
 
     # 2. Notify restaurant admins
-    rest_admins = get_restaurant_admins(rest_id=rest_id)
+    rest_ref = delivery_summary["order_number"].split("-")[0]
+    rest_admins = RestaurantMaster.get_admins_for(rest_ref)
 
     for admin_phone in rest_admins:
         await _async_wa_client.send_message(
@@ -1120,6 +1122,20 @@ async def _handle_restaurant_decline(
     }
 
 
+def _get_delivery_pickup_default_minutes(rest_ref: str) -> int:
+    for key in [f"{rest_ref.upper()}_DEFAULT_DELIVERY_PICKUP_TIME", "DEFAULT_DELIVERY_PICKUP_TIME"]:
+        resp = (
+            client_ordelo.table("ordelo_config")
+            .select("config_value")
+            .eq("config_key", key)
+            .limit(1)
+            .execute()
+        )
+        if resp.data:
+            return int(float(resp.data[0]["config_value"]))
+    return 30
+
+
 async def _handle_restaurant_timedout(
     delivery_summary: DeliverySummaryData,
     restaurant_admins: List[str],
@@ -1137,11 +1153,12 @@ async def _handle_restaurant_timedout(
     logger.info(
         f"rest_id={delivery_summary.rest_id}, rest_name={delivery_summary.rest_name}"
     )
-    # on timedout, pickup_time should be 30 mins from delivery_summary.dtts, also update status='assigned', restaurant_confirmation_status='auto_accept'
+    rest_ref = delivery_summary.rest_ref or delivery_summary.order_number.split("-")[0]
+    pickup_minutes = await asyncio.to_thread(_get_delivery_pickup_default_minutes, rest_ref)
 
     order_time = parse_db_iso(delivery_summary.dtts).astimezone(UK_TZ)
-    new_pickuptime = (order_time + timedelta(minutes=30)).isoformat()
-    pickup_display = fmt_uk_time(order_time + timedelta(minutes=30))
+    new_pickuptime = (order_time + timedelta(minutes=pickup_minutes)).isoformat()
+    pickup_display = fmt_uk_time(order_time + timedelta(minutes=pickup_minutes))
 
     update_vals = {
         "status": "unassigned",
@@ -1155,7 +1172,7 @@ async def _handle_restaurant_timedout(
     for admin_phone in restaurant_admins:
         await _async_wa_client.send_message(
             to=admin_phone,
-            text=f"Order {order_number} auto-accepted due to confirmation timeout. Pickup time set to {pickup_display} (30 mins from order time).",
+            text=f"Order {order_number} auto-accepted due to confirmation timeout. Pickup time set to {pickup_display} ({pickup_minutes} mins from order time).",
         )
 
     # pylint: disable=unused-variable

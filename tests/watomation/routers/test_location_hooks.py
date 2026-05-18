@@ -104,7 +104,7 @@ async def test_live_location_map_validates_and_returns_url(monkeypatch) -> None:
 
 async def test_notify_rider_location_event_restaurant_enter_notifies_admins(monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp) -> None:
     patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[_summary_row()]))
-    monkeypatch.setattr(location_hooks, "get_restaurant_admins", lambda rest_ref=None, rest_id=None: ["ADMIN01", "ADMIN02"])
+    monkeypatch.setattr(location_hooks.RestaurantMaster, "get_admins_for", classmethod(lambda cls, rest_ref: ["ADMIN01", "ADMIN02"]))
 
     await location_hooks.notify_rider_location_event(
         _FakeRequest({"event": "enter", "rid": "rest", "customer_id": "4474", "order_number": "ELAS-ABCD-1"}),

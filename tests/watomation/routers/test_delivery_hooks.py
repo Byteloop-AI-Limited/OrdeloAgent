@@ -15,6 +15,9 @@ Key Functions:
   - test_check_rider_allocation_status_returns_summary_status
   - test_shift_and_admin_availability_hooks_schedule_background_processing
   - test_restaurant_confirmation_flow_routes_and_validates_payload
+  - test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config
+  - test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config
+  - test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery
 """
 
 from __future__ import annotations
@@ -145,7 +148,7 @@ async def test_delivery_inflight_graph_init_hook_schedules_core_background_tasks
 
     assert result == {"status": "success"}
     assert [task["func"] for task in bg.tasks] == [
-        delivery_hooks.capture_payment,
+        delivery_hooks.capture_delivery_payment,
         delivery_hooks.post_rider_event_inflight,
         delivery_hooks.admin_order_reciept,
         delivery_hooks.init_ordelo_graph,
@@ -184,7 +187,7 @@ async def test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook(
         return "cancelled"
 
     monkeypatch.setattr(delivery_hooks, "cancel_payment", _fake_cancel)
-    monkeypatch.setattr(delivery_hooks, "get_restaurant_admins", lambda rest_id=None, rest_ref=None: ["ADMIN01", "ADMIN02"])
+    monkeypatch.setattr(delivery_hooks.RestaurantMaster, "get_admins_for", classmethod(lambda cls, rest_ref: ["ADMIN01", "ADMIN02"]))
     bg = _FakeBackgroundTasks()
 
     result = await delivery_hooks.delivery_timedout(bg, payload={"delivery_summary": [_summary_row(order_number="ELAS-ABCD-1")]})
@@ -232,3 +235,71 @@ async def test_restaurant_confirmation_flow_routes_and_validates_payload() -> No
 
     result = await delivery_hooks.restaurant_confirmation_flow(_FakeBackgroundTasks(), payload=_restaurant_payload("restaurant_accept", admins=[]))
     assert result == {"status": "error", "message": "No restaurant contacts", "order_number": "ELAS-ABCD-1"}
+
+
+async def test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config(
+    monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
+) -> None:
+    monkeypatch.setattr(delivery_hooks, "client_ordelo", patch_supabase_client)
+    patch_supabase_client.register(
+        table="ordelo_config",
+        verb="select",
+        response=FakeSupabaseResponse(data=[{"config_value": "45"}]),
+    )
+    patch_supabase_client.register(
+        table="delivery_summary",
+        verb="update",
+        response=FakeSupabaseResponse(data=[{"ok": True}]),
+    )
+    from watomation.routers.delivery_hooks import DeliverySummaryData
+    summary = DeliverySummaryData(**{**_summary_row(), "pickup_time": None, "pickup_date": "2026-05-09", "dt": "2026-05-09", "dtts": "2026-05-09T10:00:00+00:00", "rest_ref": "SFCS"})
+
+    result = await delivery_hooks._handle_restaurant_timedout(summary, ["ADMIN01"])
+
+    assert result["status"] == "success"
+    update_call = next(c for c in patch_supabase_client.calls if c.table == "delivery_summary")
+    assert update_call.payload["pickup_time"] == "2026-05-09T11:45:00+01:00"
+    assert "45 mins" in patch_async_wa_client.sent[-1].kwargs["text"]
+
+
+async def test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config(
+    monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
+) -> None:
+    monkeypatch.setattr(delivery_hooks, "client_ordelo", patch_supabase_client)
+
+    def config_response(call):
+        if call.filters.get("eq:config_key") == "ELAS_DELIVERY_PICKUP_DEFAULT_TIME":
+            return FakeSupabaseResponse(data=[])
+        return FakeSupabaseResponse(data=[{"config_value": "20"}])
+
+    patch_supabase_client.register(table="ordelo_config", verb="select", response=config_response)
+    patch_supabase_client.register(
+        table="delivery_summary",
+        verb="update",
+        response=FakeSupabaseResponse(data=[{"ok": True}]),
+    )
+    from watomation.routers.delivery_hooks import DeliverySummaryData
+    summary = DeliverySummaryData(**{**_summary_row(), "pickup_time": None, "pickup_date": "2026-05-09", "dt": "2026-05-09", "dtts": "2026-05-09T10:00:00+00:00"})
+
+    await delivery_hooks._handle_restaurant_timedout(summary, ["ADMIN01"])
+
+    update_call = next(c for c in patch_supabase_client.calls if c.table == "delivery_summary")
+    assert update_call.payload["pickup_time"] == "2026-05-09T11:20:00+01:00"
+
+
+async def test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery(
+    monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
+) -> None:
+    monkeypatch.setattr(delivery_hooks, "client_ordelo", patch_supabase_client)
+    patch_supabase_client.register(
+        table="delivery_summary",
+        verb="update",
+        response=FakeSupabaseResponse(data=[{"ok": True}]),
+    )
+    from watomation.routers.delivery_hooks import DeliverySummaryData
+    summary = DeliverySummaryData(**{**_summary_row(), "pickup_time": None, "pickup_date": "2026-05-09", "dt": "2026-05-09", "dtts": "2026-05-09T10:00:00+00:00"})
+
+    await delivery_hooks._handle_restaurant_timedout(summary, ["ADMIN01"])
+
+    update_call = next(c for c in patch_supabase_client.calls if c.table == "delivery_summary")
+    assert update_call.payload["pickup_time"] == "2026-05-09T11:30:00+01:00"
