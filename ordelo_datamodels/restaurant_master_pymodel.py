@@ -33,6 +33,7 @@ class RestaurantMaster(BaseModel):
     lon: float  # double precision, NOT NULL
     dt: datetime.date  # date, NOT NULL
     dtts: datetime.datetime  # timestamp with time zone, NOT NULL
+    collection_commission: Optional[float] = None  # e.g. 0.04 for 4%
 
     @classmethod
     def from_rest_ref(cls, rest_ref: str):
