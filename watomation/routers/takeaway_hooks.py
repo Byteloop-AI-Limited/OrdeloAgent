@@ -23,7 +23,7 @@ Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . pickup_time_updated_hook - Webhook endpoint for pickup_time set events
     . init_takeaway_order - Direct entrypoint for pay-at-restaurant takeaway orders
 """
-
+# %%
 import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
@@ -246,7 +246,7 @@ async def _handle_restaurant_decline(
 
 
 def _get_pickup_default_minutes(rest_ref: str) -> int:
-    for key in [f"{rest_ref.upper()}_PICKUP_DEFAULT_TIME", "PICKUP_DEFAULT_TIME"]:
+    for key in [f"{rest_ref.upper()}_DEFAULT_COLLECTION_PICKUP_TIME", "DEFAULT_COLLECTION_PICKUP_TIME"]:
         resp = (
             client_ordelo.table("ordelo_config")
             .select("config_value")
@@ -254,6 +254,7 @@ def _get_pickup_default_minutes(rest_ref: str) -> int:
             .limit(1)
             .execute()
         )
+        logger.info(f"Config response for {key}: {resp.data}")
         if resp.data:
             return int(float(resp.data[0]["config_value"]))
     return 30
@@ -265,6 +266,7 @@ async def _handle_restaurant_timedout(
 ) -> dict:
     rest_ref = takeaway_summary.rest_ref or takeaway_summary.order_number.split("-")[0]
     pickup_minutes = await asyncio.to_thread(_get_pickup_default_minutes, rest_ref)
+    logger.info(f"Pickup minutes for {rest_ref}: {pickup_minutes}")
 
     order_time = parse_db_iso(takeaway_summary.dtts).astimezone(UK_TZ)
     new_pickup_time = (order_time + timedelta(minutes=pickup_minutes)).isoformat()
