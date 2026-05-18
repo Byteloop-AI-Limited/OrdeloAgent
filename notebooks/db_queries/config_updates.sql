@@ -6,6 +6,8 @@ select * from ordelo_config where config_key like '%ORDELO%';
 select * from ordelo_config where config_key like '%ELAS%';
 select * from ordelo_config where config_key like '%SFCS%';
 
+SELECT * FROM ordelo_post('ORDELO_APP_URL', '/restaurant-base-url-cache/reset');
+
 update ordelo_config set config_value = 'https://rider-agent-test.ordelo.app' where config_key = 'ORDELO_APP_URL';
 update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'ELAS_APP_URL';
 update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'SFCS_APP_URL';
@@ -249,3 +251,48 @@ VALUES ('SFCS_DELIVERY_TIMEOUT_TIME', '5', 'Timeout in minutes for delivery_summ
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
+
+-- delete from ordelo_config where config_key = 'DELIVERY_PICKUP_DEFAULT_TIME';
+-- INSERT INTO ordelo_config (config_key, config_value, description)
+-- VALUES
+--   ('DEFAULT_COLLECTION_PICKUP_TIME',          '30', 'Default pickup time in minutes from order time when takeaway confirmation times out'),
+--   ('DEFAULT_DELIVERY_PICKUP_TIME', '30', 'Default pickup time in minutes from order time when delivery confirmation times out')
+-- ON CONFLICT (config_key) DO NOTHING;
+
+-- -- Restaurant-specific overrides (insert per restaurant as needed, e.g. SFCS)
+-- INSERT INTO ordelo_config (config_key, config_value, description)
+-- VALUES
+--   ('ELAS_PICKUP_DEFAULT_TIME',          '35', 'Elas takeaway pickup default override'),
+--   ('ELAS_DELIVERY_PICKUP_DEFAULT_TIME', '35', 'Elas delivery pickup default override')
+-- ON CONFLICT (config_key) DO NOTHING;
+
+-- Restaurant-specific overrides (insert per restaurant as needed, e.g. SFCS)
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES
+  ('SFCS_DEFAULT_COLLECTION_PICKUP_TIME','35', 'SFCS takeaway pickup default override'), ('SFCS_DEFAULT_DELIVERY_PICKUP_TIME', '35', 'SFCS delivery pickup default override')
+ON CONFLICT (config_key) DO NOTHING;
+
+
+select config_key, config_value, description from ordelo_config where config_key like '%SFCS%';
+-- Absolute essential configs for rest_ref
+[
+ {
+  "config_key": "SFCS_APP_URL",
+  "config_value": "https://sfcs-agg.ordelo.app",
+  "description": "URL for Southern Fried Chicken app"
+ },
+ {
+  "config_key": "SFCS_DEFAULT_COLLECTION_PICKUP_TIME",
+  "config_value": "15",
+  "description": "SFCS takeaway pickup default override"
+ },
+ {
+  "config_key": "SFCS_DEFAULT_DELIVERY_PICKUP_TIME",
+  "config_value": "35",
+  "description": "SFCS delivery pickup default override"
+ },
+ {
+  "config_key": "SFCS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME",
+  "config_value": ".5",
+  "description": "Timeout in minutes for delivery_summary status transition to timedout"
+ }

@@ -1121,7 +1121,7 @@ async def _handle_restaurant_decline(
 
 
 def _get_delivery_pickup_default_minutes(rest_ref: str) -> int:
-    for key in [f"{rest_ref.upper()}_DELIVERY_PICKUP_DEFAULT_TIME", "DELIVERY_PICKUP_DEFAULT_TIME"]:
+    for key in [f"{rest_ref.upper()}_DEFAULT_DELIVERY_PICKUP_TIME", "DEFAULT_DELIVERY_PICKUP_TIME"]:
         resp = (
             client_ordelo.table("ordelo_config")
             .select("config_value")
