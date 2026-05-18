@@ -378,3 +378,12 @@ select * from delivery_dispatch where rider_id is not null and status='assigned'
 
 select * from delivery_inflight;
 -- delete from delivery_inflight where order_number='ELAS-BYSW-21';
+
+
+-- Temp
+select * from food_order where order_number='SFCS-CHFA-26';
+select * from food_order where order_number='SFCS-SKVY-30';
+select * from food_order where order_number like 'ELAS-%' and action='takeaway';
+
+
+select * from

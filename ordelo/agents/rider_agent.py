@@ -65,7 +65,8 @@ from config import (
     pg_settings,
     project_settings,
 )
-from config.params import get_restaurant_admins, get_wa_logger
+from config.params import get_wa_logger
+from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from ordelo.agent_app_handlers import (
     _send_delivery_instructions,
     create_stop_job_config,
@@ -819,7 +820,7 @@ async def verify_customer_confirmation_code(
 
     # Notify the restaurant admin
     rest_ref = order_number.split("-")[0]
-    rest_admins = get_restaurant_admins(rest_ref=rest_ref)
+    rest_admins = RestaurantMaster.get_admins_for(rest_ref)
     for admin in rest_admins:
         await _async_wa_client.send_message(
             to=admin,

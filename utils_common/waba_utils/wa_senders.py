@@ -29,9 +29,9 @@ WhatsApp messaging utilities for order management and address confirmation flows
 from config import (
     _async_wa_client,
     # waba_cat_settings,
-    get_restaurant_admins,
     get_restaurant_base_url_async,
 )
+from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText, URLButton
 from pywa.types import (
     FlowButton,
@@ -209,7 +209,7 @@ Delivery Details:
     # temp_admins = ["447448440754"]
 
     # get restaurant admins
-    rest_admins = get_restaurant_admins(rest_ref=rest_ref)
+    rest_admins = RestaurantMaster.get_admins_for(rest_ref)
     for admin in rest_admins:
         food_ready_y = CallbackButtonData(
             action="/AdminCollectionReady",

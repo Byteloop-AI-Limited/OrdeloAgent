@@ -182,7 +182,7 @@ All handlers run as background tasks to avoid DB trigger HTTP timeouts.
 | `restaurant_unconfirmed` | `_handle_restaurant_unconfirmed()` | Sends Accept/Decline order confirmation to all restaurant admins via WhatsApp |
 | `restaurant_accept` | `_handle_restaurant_accept()` | Sends pickup time selection (5/15/25 min intervals) to all restaurant admins |
 | `restaurant_decline` | `_handle_restaurant_decline()` | Updates status to `declined`, cancels payment if applicable, notifies customer |
-| `restaurant_timedout` | `_handle_restaurant_timedout()` | Auto-accepts with pickup time 30 mins from order time, notifies admins and customer |
+| `restaurant_timedout` | `_handle_restaurant_timedout()` | Auto-accepts with pickup time set from `PICKUP_DEFAULT_TIME` config (default 30 mins from order time), notifies admins and customer |
 
 ### WhatsApp Callback Handlers
 
@@ -259,7 +259,7 @@ When a restaurant does not respond within the configured timeout period:
 1. A `pg_cron` job (similar to delivery's `process_restaurant_confirmation`) updates `restaurant_confirmation_status` to `restaurant_timedout`
 2. The DB trigger fires the webhook with `trigger_reason = "restaurant_timedout"`
 3. `_handle_restaurant_timedout()` auto-accepts the order:
-   - Sets pickup time to **30 minutes after order time**
+   - Sets pickup time to **`PICKUP_DEFAULT_TIME` minutes after order time** (restaurant-specific `{rest_ref}_PICKUP_DEFAULT_TIME` checked first, then global `PICKUP_DEFAULT_TIME`, then hardcoded fallback of 30 minutes)
    - Updates `takeaway_summary.status` to `pickup_confirmed`
    - Updates `restaurant_confirmation_status` to `auto_accept`
    - Notifies all restaurant admins that the order was auto-accepted
@@ -293,7 +293,7 @@ When a restaurant does not respond within the configured timeout period:
    └── Timeout → restaurant_confirmation_status = 'restaurant_timedout'
        └── restaurant_confirmation_status = 'auto_accept'
            └── status = 'pickup_confirmed'
-               ├── pickup_time = order_time + 30 min
+               ├── pickup_time = order_time + PICKUP_DEFAULT_TIME min
                ├── [Admin auto-accept notification]
                ├── [Customer pickup confirmation message]
                └── [Trigger: pickup_time_updated → external restaurant notification]

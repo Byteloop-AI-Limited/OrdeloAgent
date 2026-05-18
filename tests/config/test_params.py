@@ -13,8 +13,6 @@ Key Functions:
   - test_get_restaurant_webhook_url_async_rejects_unknown_type
   - test_get_overwatch_list_parses_and_caches
   - test_reset_overwatch_list_cache
-  - test_get_restaurant_admins_by_rest_ref_and_rest_id
-  - test_get_restaurant_admins_requires_identifier
 """
 
 from __future__ import annotations
@@ -109,20 +107,3 @@ def test_reset_overwatch_list_cache() -> None:
     assert params.reset_overwatch_list_cache() == 0
 
 
-def test_get_restaurant_admins_by_rest_ref_and_rest_id(patch_supabase_client) -> None:
-    patch_supabase_client.register(
-        table="restaurant_master",
-        verb="select",
-        response=FakeSupabaseResponse(data=[{"admins": ["111", "222"]}]),
-    )
-
-    assert params.get_restaurant_admins(rest_ref="chks") == ["111", "222"]
-    assert patch_supabase_client.calls[-1].filters["eq:rest_ref"] == "ELAS"
-
-    assert params.get_restaurant_admins(rest_id=123) == ["111", "222"]
-    assert patch_supabase_client.calls[-1].filters["eq:rest_id"] == 123
-
-
-def test_get_restaurant_admins_requires_identifier() -> None:
-    with pytest.raises(ValueError, match="Either rest_ref or rest_id"):
-        params.get_restaurant_admins()
