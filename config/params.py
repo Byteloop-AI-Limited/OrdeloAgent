@@ -21,9 +21,9 @@ Functions/Classes
 import time
 from loguru import logger
 
-_BASE_URL_CACHE_TTL_SECS = 5 * 60  # 5 minutes
+_BASE_URL_CACHE_TTL_SECS = 60 * 60  # 1 hour
 _BASE_URL_CACHE: dict[str, tuple[str, float]] = {}
-_OVERWATCH_LIST_CACHE_TTL_SECS = 5 * 60  # 5 minutes
+_OVERWATCH_LIST_CACHE_TTL_SECS = 60 * 60  # 1 hour
 _OVERWATCH_LIST_CACHE: tuple[list[str], float] | None = None
 
 # Alias map: rest_refs that share config with another rest_ref.
