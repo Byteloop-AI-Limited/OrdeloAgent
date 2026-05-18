@@ -36,7 +36,7 @@ import httpx
 from datetime import datetime, timezone
 from pywa.types import ButtonUrl
 from ordelo.agent_app_handlers import get_live_map_location_url
-from config.params import get_restaurant_admins
+from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 
 
 # %% Define Dependancies and routes
@@ -275,7 +275,7 @@ async def notify_rider_location_event(
         rest_ref = delivery_summary.get("rest_ref")
         # cust_confirmation_code = delivery_summary.get("cust_confirmation_code")
         rest_confirmation_code = delivery_summary.get("rest_confirmation_code")
-        rest_admins = get_restaurant_admins(rest_ref=rest_ref)
+        rest_admins = RestaurantMaster.get_admins_for(rest_ref)
 
         for admin_phone in rest_admins:
             await _async_wa_client.send_message(

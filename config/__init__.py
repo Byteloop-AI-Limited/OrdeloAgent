@@ -13,7 +13,6 @@ __all__ = [
     "google_settings",
     "client_ordelo",
     "get_restaurant_webhook_url_async",
-    "get_restaurant_admins",
     "get_restaurant_base_url_async",
     "llm_settings",
 ]
@@ -35,7 +34,6 @@ from .microservices_setting import ms_settings
 from .pg_setting import pg_settings, client_ordelo
 from .params import (
     get_restaurant_webhook_url_async,
-    get_restaurant_admins,
     get_restaurant_base_url_async,
 )
 from .llm_setting import llm_settings
