@@ -76,7 +76,7 @@ UPDATE ordelo_config
 SET config_value = '30'
 WHERE config_key = 'ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME';
 
-delete from ordelo_config where config_key = 'ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME';
+-- delete from ordelo_config where config_key = 'ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME';
 
 select * from ordelo_config where config_key = 'ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME';
 

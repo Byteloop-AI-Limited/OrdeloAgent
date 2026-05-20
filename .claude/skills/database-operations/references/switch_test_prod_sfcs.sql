@@ -27,6 +27,7 @@ set admins = Array['447919202938'],
 }'::jsonb
 where rest_ref='SFCS';
 
+
 update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'SFCS_APP_URL';
 
 -- Cache reset calls, Should be run everytime after changing the app URL
@@ -44,8 +45,14 @@ select enquire_admin_availability(ARRAY['SFCS']);
 -- SFCS: Production Setup
 -- ============================================================
 
+'447827180109' - Mi
+'447769081769' - SFCS Admin number2
+'447312083527' - Srj
+'447446933210' - Rh
+'447919202938' - Bl;
+
 update restaurant_master
-set admins = Array[ '447446933210','447919202938','447827180109', '447774458613', '447312083527'],
+set admins = Array[ '447446933210','447919202938','447827180109', '447769081769', '447312083527'],
     rest_stale_active_threads_minutes = 10,
     city='Salisbury',
     service_hours_json = '{
