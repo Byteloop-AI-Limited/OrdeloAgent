@@ -304,6 +304,26 @@ async def send_live_map_location(wa: WhatsApp, msg: Message):
 # %% Test flow
 TEST_FLOW = filters.contains("/flow", ignore_case=True)
 
+# %% Admin dashboard login
+LOGIN_FILTER = filters.startswith("/login", ignore_case=True)
+
+
+async def handle_login_wa_msg(wa: WhatsApp, msg: Message):
+    from watomation.routers.admin_hooks import mint_dashboard_session
+
+    wa_number = msg.from_user.wa_id
+    try:
+        url = await mint_dashboard_session(wa_number)
+        await wa.send_message(
+            to=wa_number,
+            text=f"Here's your dashboard. Link expires in 30 minutes and works once:\n{url}",
+        )
+    except ValueError:
+        await wa.send_message(to=wa_number, text="You are not a registered admin.")
+    except Exception as e:
+        logger.error(f"mint_dashboard_session failed for {wa_number}: {e}")
+        await wa.send_message(to=wa_number, text="Something went wrong. Please try again.")
+
 
 async def test_flow(wa: WhatsApp, msg: Message):
     recipient = msg.sender
