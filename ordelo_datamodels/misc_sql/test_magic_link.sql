@@ -11,6 +11,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 --    The raw token is what goes in the URL. Pick any string.
 --    URL becomes: <host>/admin/activate/<token>
 -- ---------------------------------------------------------------------------
+delete from dashboard_sessions;
 INSERT INTO dashboard_sessions (
   admin_id,
   rest_ref,
@@ -19,13 +20,13 @@ INSERT INTO dashboard_sessions (
   expires_at
 ) VALUES (
   'adm_test_001',
-  'elas',
-  '+919876543210',
-  encode(digest('test-magic-link-token-please-use-this', 'sha256'), 'hex'),
+  'ELAS',
+  '447919202938',
+  encode(digest('elas2', 'sha256'), 'hex'),
   now() + interval '30 minutes'
 );
 select * from dashboard_sessions;
--- Visit: http://localhost:3000/admin/activate/test-magic-link-token-please-use-this
+-- Visit: http://localhost:3000/admin/activate/elas2
 -- Expected: 302 -> /admin, __Host-ddash cookie set, top bar shows "ELAS".
 
 
