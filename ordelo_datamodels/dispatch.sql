@@ -118,3 +118,23 @@ CREATE TABLE delivery_dispatch (
 CREATE TRIGGER trigger_delivery_dispatch_whook AFTER
 INSERT ON public.delivery_dispatch REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION public.delivery_dispatch_whook_statement();
+
+-- ---------------------------------------------------------------------------
+-- Payout tracking columns (rider dashboard)
+-- ---------------------------------------------------------------------------
+ALTER TABLE delivery_dispatch
+  ADD COLUMN IF NOT EXISTS paid_status VARCHAR(20) NOT NULL DEFAULT 'unpaid'
+    CHECK (paid_status IN ('unpaid', 'paid')),
+  ADD COLUMN IF NOT EXISTS paid_dtts  TIMESTAMP;
+
+-- Enforce: paid_dtts must be set iff paid_status='paid';
+-- ALTER TABLE delivery_dispatch
+--   ADD CONSTRAINT IF NOT EXISTS delivery_dispatch_paid_dtts_consistency
+--     CHECK (
+--       (paid_status = 'paid'   AND paid_dtts IS NOT NULL) OR
+--       (paid_status = 'unpaid' AND paid_dtts IS NULL)
+--     );
+
+-- Partial index for fast paid/unpaid queries on the rider dashboard
+CREATE INDEX IF NOT EXISTS delivery_dispatch_paid_status_dt_idx
+  ON delivery_dispatch (paid_status, dt DESC);

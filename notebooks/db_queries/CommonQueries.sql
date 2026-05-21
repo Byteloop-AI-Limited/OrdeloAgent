@@ -381,9 +381,9 @@ select * from delivery_inflight;
 
 
 -- Temp
-select * from food_order where order_number='SFCS-CHFA-26';
+select * from food_order where order_number='SFCS-CHFA-41';
 select * from food_order where order_number='SFCS-SKVY-30';
 select * from food_order where order_number like 'ELAS-%' and action='takeaway';
 
 
-select * from
+select 10.55 - (10.55 * 0.04 + .25);

@@ -76,4 +76,4 @@ $$ LANGUAGE plpgsql;
 
 -- Example usage:
 -- select enquire_admin_availability(); -- All restaurants
-select enquire_admin_availability(ARRAY['ELAS']); -- Specific restaurants
+select enquire_admin_availability(ARRAY['SFCS']); -- Specific restaurants
