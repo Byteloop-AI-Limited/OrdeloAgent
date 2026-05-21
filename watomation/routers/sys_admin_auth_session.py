@@ -134,7 +134,7 @@ def fetch_payouts(start_date: str, end_date: str) -> dict:
     """
     dispatches = (
         client_ordelo.table("delivery_dispatch")
-        .select("dispatch_id, order_number, rider_id, rider_payout, dtts, paid_status")
+        .select("dispatch_id, order_number, rider_id, rider_payout, dtts, paid_status, paid_dtts")
         .eq("status", "completed")
         .neq("rider_id", EXCLUDE_RIDER_ID)
         .gte("dtts", start_date)
