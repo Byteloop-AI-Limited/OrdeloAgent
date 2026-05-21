@@ -1,18 +1,18 @@
 -- Canonical schema: auth_sessions
--- Generalized session table for all dashboard roles (admin, rider, ...).
+-- Generalized session table for all dashboard roles (rest_admin, rider, sys_admin, ...).
 -- Replaces dashboard_sessions.sql.
 -- Run once on a fresh Supabase instance.
 -- For existing instances with dashboard_sessions, run auth_sessions_migration.sql instead.
-
+DROP TABLE IF EXISTS auth_sessions;
 CREATE TABLE IF NOT EXISTS auth_sessions (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Role discriminator
-  role              TEXT NOT NULL CHECK (role IN ('admin', 'rider')),
+  role              TEXT NOT NULL CHECK (role IN ('rest_admin', 'rider', 'sys_admin')),
 
   -- Identity (set at creation, immutable)
-  -- principal_id: admin_id for admin; rider_id (digits-only, no '+') for rider
-  -- scope_ref:    rest_ref for admin; NULL for rider
+  -- principal_id: rest_admin_id for rest_admin; rider_id (digits-only, no '+') for rider; sys_admin id for sys_admin
+  -- scope_ref:    rest_ref for rest_admin; NULL for rider/sys_admin
   -- wa_number:    digits-only canonical form for all roles
   principal_id      TEXT NOT NULL,
   scope_ref         TEXT,
@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   revoked_reason    TEXT,
 
   -- Invariants
-  CONSTRAINT auth_sessions_scope_required_for_admin
-    CHECK ((role = 'admin' AND scope_ref IS NOT NULL) OR role <> 'admin')
+  CONSTRAINT auth_sessions_scope_required_for_rest_admin
+    CHECK ((role = 'rest_admin' AND scope_ref IS NOT NULL) OR role <> 'rest_admin')
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS auth_sessions_token_hash_idx
@@ -64,3 +64,5 @@ CREATE INDEX IF NOT EXISTS auth_sessions_scope_ref_idx
 -- Composite index for efficient lookup by role + principal (e.g. revoke all sessions for a rider)
 CREATE INDEX IF NOT EXISTS auth_sessions_role_principal_idx
   ON auth_sessions(role, principal_id, created_at DESC);
+
+

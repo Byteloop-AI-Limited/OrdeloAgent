@@ -16,13 +16,27 @@ Functions/Classes
   . get_restaurant_webhook_url_async - Constructs full webhook URL dynamically, substituting rest_ref
 """
 
+import asyncio
 import time
+from typing import Literal, Optional
+
 from loguru import logger
 
 _BASE_URL_CACHE_TTL_SECS = 60 * 60  # 1 hour
 _BASE_URL_CACHE: dict[str, tuple[str, float]] = {}
 _OVERWATCH_LIST_CACHE_TTL_SECS = 60 * 60  # 1 hour
 _OVERWATCH_LIST_CACHE: tuple[list[str], float] | None = None
+
+_APP_URL_CACHE_TTL_SECS = 60 * 60  # 1 hour
+_APP_URL_CACHE: dict[str, tuple[str, float]] = {}
+
+DashboardRole = Literal["sys_admin", "rest_admin", "rider"]
+
+_ROLE_TO_APP_URL_CONFIG_KEY: dict[str, str] = {
+    "sys_admin":  "RESTAURANT_MENU_APP_URL",
+    "rest_admin": "RESTAURANT_MENU_APP_URL",
+    "rider":      "RESTAURANT_MENU_APP_URL",
+}
 
 # Alias map: rest_refs that share config with another rest_ref.
 # Key = alias rest_ref, Value = canonical rest_ref used for DB lookups.
@@ -181,7 +195,6 @@ def get_overwatch_list() -> list[str]:
     raw_value = data[0]["config_value"] or ""
     parsed = [item.strip() for item in raw_value.split(",") if item.strip()]
     _OVERWATCH_LIST_CACHE = (parsed, now + _OVERWATCH_LIST_CACHE_TTL_SECS)
-    logger.debug(f"Fetched overwatch list: {parsed}")
     return parsed
 
 
@@ -195,6 +208,53 @@ def reset_overwatch_list_cache() -> int:
         logger.debug("Cleared overwatch list cache")
         return 1
     logger.debug("No overwatch list cache entry to clear")
+    return 0
+
+
+# %% get_dashboard_app_url_async
+async def get_dashboard_app_url_async(role: DashboardRole) -> str:
+    """Return the dashboard base URL for a given role, cached for 1 hour."""
+    from config import client_ordelo
+
+    config_key = _ROLE_TO_APP_URL_CONFIG_KEY[role]
+    now = time.monotonic()
+
+    cached = _APP_URL_CACHE.get(config_key)
+    if cached:
+        value, expires_at = cached
+        if expires_at > now:
+            return value
+        _APP_URL_CACHE.pop(config_key, None)
+
+    resp = await asyncio.to_thread(
+        lambda: client_ordelo.table("ordelo_config")
+        .select("config_value")
+        .eq("config_key", config_key)
+        .single()
+        .execute()
+    )
+    value = resp.data["config_value"]
+    _APP_URL_CACHE[config_key] = (value, now + _APP_URL_CACHE_TTL_SECS)
+    logger.debug(f"Fetched app URL for role={role} config_key={config_key}: {value}")
+    return value
+
+
+# %% reset_app_url_cache
+def reset_app_url_cache(role: Optional[DashboardRole] = None) -> int:
+    """Reset the in-memory app URL cache. role=None clears all entries."""
+    if role is None:
+        removed = len(_APP_URL_CACHE)
+        _APP_URL_CACHE.clear()
+        logger.debug(f"Cleared app URL cache ({removed} entries)")
+        return removed
+
+    config_key = _ROLE_TO_APP_URL_CONFIG_KEY[role]
+    existed = config_key in _APP_URL_CACHE
+    _APP_URL_CACHE.pop(config_key, None)
+    if existed:
+        logger.debug(f"Cleared app URL cache for role={role} config_key={config_key}")
+        return 1
+    logger.debug(f"No app URL cache entry for role={role} to clear")
     return 0
 
 
