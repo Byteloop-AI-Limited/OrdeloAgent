@@ -37,7 +37,9 @@ from ordelo.agent_app_handlers import (
 )
 from utils_common.waba_utils.wa_senders import enquire_shift_availability_non_template
 from watomation.routers import (
-    admin_hooks,
+    rest_admin_auth_session,
+    rider_auth_session,
+    sys_admin_auth_session,
     customer_hooks,
     delivery_hooks,
     location_hooks,
@@ -64,6 +66,8 @@ from watomation.on_message_wa_handler import (
     TEST_FLOW,
     LOGIN_FILTER,
     handle_login_wa_msg,
+    SYSADMIN_FILTER,
+    handle_sysadmin_wa_msg,
 )
 from watomation.on_callback_wa_handler import (
     dispatch_response,
@@ -122,7 +126,9 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
 
 
 # %% Add routers
-app.include_router(admin_hooks.router)
+app.include_router(rest_admin_auth_session.router)
+app.include_router(rider_auth_session.router)
+app.include_router(sys_admin_auth_session.router)
 app.include_router(customer_hooks.router, prefix="/customer-hooks")
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
 app.include_router(location_hooks.router, prefix="/location-hooks")
@@ -152,6 +158,7 @@ SHIFT_UPDATE = filters.contains("/shift", ignore_case=True)
 wa.add_handlers(
     # handlers.MessageHandler(callback=send_closed_message, filters=OUT_OF_HOURS_FILTER),
     handlers.MessageHandler(callback=handle_login_wa_msg, filters=LOGIN_FILTER),
+    handlers.MessageHandler(callback=handle_sysadmin_wa_msg, filters=SYSADMIN_FILTER),
     handlers.MessageHandler(callback=reset_thread, filters=WHEN_RESET),
     handlers.MessageHandler(callback=test_delivery, filters=TEST_DELIVERY),
     handlers.MessageHandler(callback=clear_dispatch, filters=CLEAR_DISPATCH),
@@ -302,6 +309,7 @@ async def reset_restaurant_base_url_cache_endpoint(
     If not, clears all caches entirely.
     """
     from config.params import (
+        reset_app_url_cache,
         reset_overwatch_list_cache,
         reset_restaurant_base_url_cache,
     )
@@ -310,11 +318,13 @@ async def reset_restaurant_base_url_cache_endpoint(
     removed_entries = reset_restaurant_base_url_cache(rest_ref)
     removed_overwatch = reset_overwatch_list_cache()
     removed_rest_master = reset_restaurant_master_cache(rest_ref)
+    removed_app_url = reset_app_url_cache()
     return {
         "scope": rest_ref.upper() if rest_ref else "ALL",
         "removed_base_url_entries": removed_entries,
         "removed_overwatch_list_entries": removed_overwatch,
         "removed_rest_master_entries": removed_rest_master,
+        "removed_app_url_entries": removed_app_url,
     }
 
 
