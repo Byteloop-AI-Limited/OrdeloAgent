@@ -61,9 +61,8 @@ SELECT
     fo.commission_rate
 FROM takeaway_summary ts
 JOIN food_order fo ON fo.order_number = ts.order_number
-WHERE fo.rest_cost       IS NOT NULL
-  AND fo.commission_rate IS NOT NULL
-  AND ts.customer_id NOT IN ('447448440754','447446933210', '447919202938');
+WHERE 
+  ts.customer_id NOT IN ('447448440754','447446933210', '447919202938');
 
 
 -- ============================================================================
@@ -124,4 +123,6 @@ GROUP BY rest_ref, date_trunc('month', day)::date, type;
 
 
 -- select * from takeaway_summary where customer_id not in ('447448440754','447446933210') limit 10;
--- select * from v_admin_order_items where rest_ref = 'SFCS' limit 100;
+select * from v_admin_orders where rest_ref = 'ELAS' and type!='delivery' limit 100;
+
+
