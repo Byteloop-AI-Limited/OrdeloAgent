@@ -1,6 +1,7 @@
 select admins, * from restaurant_master where rest_ref='ELAS';
 select admins, * from restaurant_master where rest_ref='CHKS';
 select admins, * from restaurant_master where rest_ref='SFCS';
+select admins, * from restaurant_master where rest_ref='INDI';
 
 select admins,* from restaurant_master where rest_ref='ELAS';
 select admins,* from restaurant_master where rest_ref='SFCS';
@@ -13,23 +14,14 @@ ALTER TABLE restaurant_master ADD COLUMN collection_commission DOUBLE PRECISION 
 update restaurant_master set collection_commission = 0.04 where rest_ref = 'SFCS';
 -- update restaurant_master set city='Orpington' where rest_ref='WREN';
 
--- Production Setup - ELAS
-update restaurant_master 
-set admins=Array['447448440754', '447446933210','447901518136','447914844933', '447917912646', '447909488602'],
-    rest_stale_active_threads_minutes=10,
-    restaurant_start_time=12,
-    restaurant_end_time=21.30,
-    city='Salisbury'
-where rest_ref in ('ELAS', 'CHKS');
-
 -- Test Setup - ELAS
 update restaurant_master 
-set admins=Array['447919202938'],
+set admins=Array['dummy'],
     rest_stale_active_threads_minutes=10,
     restaurant_start_time=17,
     restaurant_end_time=21.30,
     city='dummy'
-where rest_ref in ('ELAS', 'CHKS');
+where rest_ref in ('INDI');
 
 -- Test Setup - SFCS
 update restaurant_master 

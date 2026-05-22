@@ -16,6 +16,7 @@ select * from delivery_summary order by dtts desc;
 delete from cust_rest_map where cust_id='447448440754';
 delete from customer_master where cust_id='447448440754';
 
+
 select * from delivery_dispatch order by dtts desc;
 update thread set is_active=false where is_active=True and dt<='2026-05-14' and agent='SFCS';
 select * from thread where is_active=True and dt<'2026-03-27' order by dt desc;;
