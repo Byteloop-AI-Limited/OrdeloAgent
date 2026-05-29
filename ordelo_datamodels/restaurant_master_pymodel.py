@@ -119,6 +119,9 @@ def reset_restaurant_master_cache(rest_ref: str | None = None) -> int:
 
 
 # %%
-# RestaurantMaster.from_rest_ref("wren")
+
+# %%
+# _restaurant_master.rest_name
+# %%
 # from config import client_ordelo
 # client_ordelo.table("restaurant_master").select("*").eq("rest_ref", "WREN").execute()

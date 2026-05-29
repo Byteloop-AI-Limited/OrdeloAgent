@@ -3,7 +3,7 @@ FoodOrder pydantic model for food_order table
   . Depends on pydantic, config, and utils_common.pricing_ms
   . Provides model for food order records
   . Supports fetching from DB by order_id
-  . Supports updating final order value and bubbles failures to the caller
+  . Supports updating final order value using the model rest_ref and bubbles failures to the caller
   . Now supports generating a capture payload for payment processing
   . On instantiation via from_order_id, ensures final_order_value is up-to-date
   . Provides a payment_uri property to generate payment URL for Stripe (test URL only for overwatch + delivery action)
@@ -52,7 +52,11 @@ class FoodOrder(BaseModel):
 
     @staticmethod
     def get_final_order_value(
-        order_number: str, cust_lat: float, cust_lon: float, total_food_value: float
+        order_number: str,
+        cust_lat: float,
+        cust_lon: float,
+        total_food_value: float,
+        rest_ref: Optional[str] = None,
     ):
         """
         Calculates final order value by calling the pricing microservice.
@@ -62,11 +66,12 @@ class FoodOrder(BaseModel):
             cust_lat: Customer latitude.
             cust_lon: Customer longitude.
             total_food_value: Total food value before fees.
+            rest_ref: Restaurant reference. Falls back to order_number if omitted.
 
         Returns:
             dict: Pricing option for car delivery, or tuple (status_code, text) on error.
         """
-        rest_ref = order_number.split("-")[0]
+        rest_ref = rest_ref or order_number.split("-", 1)[0]
         rest_master = RestaurantMaster.from_rest_ref(rest_ref)
 
         payload = {
@@ -76,6 +81,7 @@ class FoodOrder(BaseModel):
             "restaurant_longitude": rest_master.lon,
             "customer_latitude": cust_lat,
             "customer_longitude": cust_lon,
+            "rest_ref": rest_ref.lower(),
         }
         url = ms_settings.pricing_url
         headers = {"Content-Type": "application/json"}
@@ -236,6 +242,7 @@ class FoodOrder(BaseModel):
                 cust_lat=customer_master_row["lat"],
                 cust_lon=customer_master_row["lon"],
                 total_food_value=self.total_price,  # Use self.total_price
+                rest_ref=self.rest_ref,
             )
 
             if not isinstance(pricing_pl, dict):
@@ -427,9 +434,14 @@ class FoodOrder(BaseModel):
 
 # %%
 
-# if __name__ == "__main__":
-#     # food_order = FoodOrder.from_order_id("TDOJ-39")
-#     food_order = FoodOrder.from_order_number("ELAS-ZVEO-29")
-#     # op = await food_order.generate_order_summary_for_automatic_payment()
-#     op = await food_order.generate_order_summary_for_payment_intent()
-#     print(op, food_order)
+""" Test
+if __name__ == "__main__":
+    # food_order = FoodOrder.from_order_id("TDOJ-39")
+    food_order = FoodOrder.from_order_number("ELAS-ZVEO-29")
+    # op = await food_order.generate_order_summary_for_automatic_payment()
+    # op = await food_order.generate_order_summary_for_payment_intent()
+    # print(op, food_order)
+
+# %%
+
+"""

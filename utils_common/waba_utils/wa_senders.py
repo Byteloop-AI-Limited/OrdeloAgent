@@ -209,12 +209,14 @@ Delivery Details:
     # temp_admins = ["447448440754"]
 
     # get restaurant admins
-    rest_admins = RestaurantMaster.get_admins_for(rest_ref)
+    _restaurant_master = RestaurantMaster.from_rest_ref(rest_ref)
+    rest_admins = _restaurant_master.get_admins()
+    
     for admin in rest_admins:
         food_ready_y = CallbackButtonData(
             action="/AdminCollectionReady",
             rider_id=rider_master["rider_id"],
-            restaurant_name="Elai Salisbury",
+            restaurant_name=_restaurant_master.rest_name,
             order_id=order_id,
         )
         await _async_wa_client.send_message(

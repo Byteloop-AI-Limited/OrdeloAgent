@@ -2,19 +2,22 @@ select * from thread order by dtts desc;
 select * from thread where is_active order by dtts desc;
 
 select dtts, * from thread where agent='SFCS' and recipient not in ('447919202938', '447448440754', '447446933210') order by dtts desc;
-
+select * from cust_rest_map where rest_ref='SFCS';
 select * from thread where recipient='447341964134';
-exclude_list = ['447919202938', '447448440754', '447446933210']
+exclude_list = ['447919202938', '447448440754', '447446933210'];
 
-update thread set is_active=False where is_active and recipient='447767909037';
+
+update thread set is_active=False where is_active and recipient='447712439392';
 -- 447919202938
 -- 447872936799
 select * from cust_rest_map where cust_id='447448440754';
 select * from customer_master where cust_id='447919202938';
 select * from delivery_summary order by dtts desc;
-
+select * from delivery_summary order by dtts desc;
+update delivery_summary set status='timedout' where order_number='SFCS-TIGD-21';
 delete from cust_rest_map where cust_id='447448440754';
 delete from customer_master where cust_id='447448440754';
+
 
 select * from delivery_dispatch order by dtts desc;
 update thread set is_active=false where is_active=True and dt<='2026-05-14' and agent='SFCS';

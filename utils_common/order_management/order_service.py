@@ -302,3 +302,53 @@ async def create_order_with_items(
 
     # If both inserts succeeded and returned data
     return {"success": True, "order_id": order_id, "order_number": order_number}
+
+# %%
+""" Test
+payload = {
+    "total_food_value": 0,
+    "restaurant_latitude": 51.0717612607721,
+    "restaurant_longitude": -1.79609677126815,
+    "customer_latitude": 51.0439463,
+    "customer_longitude": -1.7898225,
+    "rest_ref": "sfcs",
+}
+
+result = _call_pricing_service(payload)
+print(result)
+
+
+
+# %%
+payload = {
+        "order_number": "sfcs-12545",
+        "total_food_value": 20,
+        "restaurant_latitude": 51.0717612607721,
+        "restaurant_longitude": -1.79609677126815,
+        "customer_latitude": 51.0439463,
+        "customer_longitude": -1.7898225,
+        "rest_ref": "SFCS",
+    }
+
+# payload = {
+#         "order_number": "SFCS-123",
+#         "total_food_value": 20,
+#         "restaurant_latitude": 51.0717612607721,
+#         "restaurant_longitude": -1.79609677126815,
+#         "customer_latitude": 51.0716352,
+#         "customer_longitude": -1.796063,
+#     }
+
+url = ms_settings.pricing_url
+headers = {"Content-Type": "application/json"}
+
+response = requests.post(url, json=payload, headers=headers)
+if response.status_code != 200:
+    print(response.status_code, response.text)
+else:
+    response_json = response.json()
+    print(response_json)
+
+# %%
+
+"""
