@@ -418,18 +418,3 @@ async def get_active_thread(rest_ref: str, recipient: str):
 
 
 # %%
-
-"""
-# %%
-
-food_order = FoodOrder.from_order_number(order_number="ELAS-TDOJ-35")
-payment_intent_url = await generate_payment_intent_url(food_order)
-
-# %%
-
-payment_intent_url
-
-
-# %%
-
-"""

@@ -154,11 +154,12 @@ async def notify_food_ready_for_pickup(
         reply_to_message_id=reply_to_msg_id,
     )
 
+    # TODO: No need for the tool msg
     return Command(
         update={
             "messages": [
                 ToolMessage(
-                    "Order number not found in state.", tool_call_id=tool_call_id
+                    "Food is ready for pickup!", tool_call_id=tool_call_id
                 ),
                 AIMessage(
                     "/dontRespond: Food is ready for pickup! Please hurry to {restaurant_name} to collect the order."
