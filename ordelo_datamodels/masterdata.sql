@@ -59,18 +59,7 @@ CREATE TABLE customer_master (
     dtts        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
-ALTER TABLE customer_master
-  ALTER COLUMN cust_name DROP NOT NULL,
-  ALTER COLUMN cust_email DROP NOT NULL,
-  ALTER COLUMN house_number DROP NOT NULL,
-  ALTER COLUMN building_name DROP NOT NULL,
-  ALTER COLUMN street_name DROP NOT NULL,
-  ALTER COLUMN city DROP NOT NULL,
-  ALTER COLUMN postcode DROP NOT NULL,
-  ALTER COLUMN lat DROP NOT NULL,
-  ALTER COLUMN lon DROP NOT NULL;
-
-ALTER TABLE customer_master
+LTER TABLE customer_master
   DROP COLUMN IF EXISTS consented_rest_refs;
 
 -- Customer restaurant mapping

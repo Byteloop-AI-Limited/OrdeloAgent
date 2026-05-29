@@ -1,0 +1,37 @@
+select * from customer_master where cust_id='447448440754';
+select * from customer_master;
+select * from restaurant_master where rest_ref='SFCS';
+-- SP2 8BJ, 51.0439463, -1.7898225
+
+restaurant_lat, lon - -1.79609677126815
+restaurant_lat=51.0717612607721	
+restaurant_lon=-1.79609677126815
+
+payload = {
+    "total_food_value": 0,
+    "restaurant_latitude": 51.0717612607721,
+    "restaurant_longitude": -1.79609677126815,
+    "customer_latitude": 51.0439463,
+    "customer_longitude": -1.7898225,
+    "rest_ref": "SFCS",
+}
+
+
+def _call_pricing_service(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Call pricing microservice and return parsed JSON on success."""
+    url = ms_settings.pricing_url
+    headers = {"Content-Type": "application/json"}
+    payload["order_number"] = str(uuid.uuid4())
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.HTTPError as http_err:
+        logger.error(f"Pricing service HTTP error: {http_err}")
+    except requests.exceptions.RequestException as req_err:
+        logger.error(f"Pricing service request error: {req_err}")
+    except Exception as err:  # noqa: BLE001 - capture unexpected issues
+        logger.exception(f"Unexpected error calling pricing service: {err}")
+    return None
+
+
