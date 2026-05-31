@@ -1,0 +1,64 @@
+[
+  {
+    "order": 1,
+    "title": "Full Delivery Lifecycle",
+    "description": "Start with delivery_process.md — the authoritative reference (v3.1) for everything Ordelo does. It walks through all 6 phases from order creation to completion, introduces the database tables and status state machines, explains the pg_cron scheduled jobs and PostgreSQL triggers that drive automation, and maps the LangGraph rider agent architecture. Every other document in this set is a focused zoom-in on one piece of what this document describes at the 30,000-foot level. Reading this first gives you the vocabulary and mental model needed for every subsequent step.",
+    "nodeIds": ["document:delivery_process.md"],
+    "languageLesson": "State machines are central to this system: each delivery and dispatch record holds a status column that can only transition forward through defined values. PostgreSQL triggers fire on status changes to kick off the next phase automatically, turning the database itself into the orchestration engine rather than relying on application-level polling."
+  },
+  {
+    "order": 2,
+    "title": "Order Creation & Payment",
+    "description": "Before any delivery can happen, a customer must place and pay for an order. payment_and_order_flow.md covers the full pre-delivery pipeline: minimum order validation by coordinates and postcode, address capture through a WhatsApp interactive flow, and the two payment paths — Stripe online and pay-at-restaurant. The critical branching point is the payment completion handler, which routes to either init_delivery() for a full delivery or init_takeaway() for collection. Understanding this step explains where delivery_summary rows come from and why the 6-phase lifecycle in Step 1 begins with 'restaurant_unconfirmed'.",
+    "nodeIds": ["document:payment_and_order_flow.md"],
+    "languageLesson": "WhatsApp Flows are interactive multi-screen forms sent inside a WhatsApp message. The address capture flow collects structured customer input (postcode search, address selection) within the chat itself, avoiding any external web redirect. The completed payload returns to a FastAPI webhook endpoint for server-side processing."
+  },
+  {
+    "order": 3,
+    "title": "Dispatch & Rider Assignment",
+    "description": "With an order confirmed by the restaurant and a pickup time set, the system creates dispatch records and notifies riders via WhatsApp. dispatch_flow.md is a focused deep-dive into exactly this phase: how dispatch rows are created, how multiple riders are notified simultaneously, how the first-accept wins using a SQL rank() window function to resolve the race condition, how the inflight LangGraph agent is initialized for the winning rider, and how the pre-pickup cancellation path works if needed. This is where the concurrency challenge of a real-time dispatch system becomes concrete.",
+    "nodeIds": ["document:dispatch_flow.md"],
+    "languageLesson": "The first-accept race condition is a classic distributed systems problem: multiple riders reply 'accept' within milliseconds of each other. The solution uses a SQL window function — RANK() OVER (PARTITION BY delivery_id ORDER BY accepted_at ASC) — inside a stored procedure so that only the rider with rank=1 is assigned. All others receive a polite 'sorry, already taken' message. Solving this in SQL rather than application code means the database transaction guarantees atomicity."
+  },
+  {
+    "order": 4,
+    "title": "WhatsApp Callback Handlers",
+    "description": "The delivery workflow is driven almost entirely by button taps in WhatsApp — not web forms or API calls. callback_handlers.md catalogs all 9 registered callback handlers: rider accept/decline dispatch, rider shift availability, restaurant order confirmation, pickup time selection by admin, and admin notification opt-in. For each handler it documents the filter string, the source button, the actor role (rider / restaurant / admin), and the step-by-step behavior the system executes on receipt. After Step 3's description of the race condition, you can now see exactly how the 'accept' callback triggers the SQL rank() evaluation described there.",
+    "nodeIds": ["document:callback_handlers.md"],
+    "languageLesson": "PyWA (the Python WhatsApp Business API library used here) registers callback handlers with a filter string that matches the button payload. When a WhatsApp user taps a button, the platform sends a webhook POST with that payload. FastAPI routes it to the matching handler. This event-driven design means the backend is entirely reactive — it only runs code when a human acts."
+  },
+  {
+    "order": 5,
+    "title": "Pickup Time Logic",
+    "description": "Between restaurant confirmation and dispatch creation sits a small but critical sub-flow: choosing the pickup time. pickup_time_logic.md traces the full trigger chain for both delivery_summary and takeaway_summary rows — the admin selects a time via a WhatsApp callback button (covered in Step 4), but if 5 minutes pass with no selection, the process_restaurant_confirmation pg_cron job fires an auto-accept with a default time. Mid-delivery adjustments are also supported through a separate callback. This step clarifies why dispatch creation (Step 3) cannot begin until pickup_time is non-null in the summary table.",
+    "nodeIds": ["document:pickup_time_logic.md"],
+    "languageLesson": "pg_cron is a PostgreSQL extension that schedules SQL functions on a cron schedule directly inside the database. Because the timer and the business logic live in the same transaction context as the data, there is no need for an external job queue or a separate scheduler service. The trade-off is that pg_cron jobs are harder to test and monitor than application-level schedulers."
+  },
+  {
+    "order": 6,
+    "title": "Takeaway: The Parallel Path",
+    "description": "Not every order requires a rider. takeaway_flow.md documents the takeaway lifecycle — a parallel path to delivery that shares the same payment entry points (Step 2) and restaurant confirmation mechanics (Steps 4-5), but skips dispatch, rider assignment, and live tracking entirely. The takeaway_summary table has its own status machine. The restaurant receives an external webhook notification when a takeaway is confirmed, so the customer can collect directly. Reading this alongside delivery_process.md makes the shared infrastructure — WhatsApp callbacks, pickup time logic, payment routing — visible as the reusable platform it is.",
+    "nodeIds": ["document:takeaway_flow.md"]
+  },
+  {
+    "order": 7,
+    "title": "Live Location Tracking",
+    "description": "Once a rider is assigned and en route, the system switches into real-time location mode. location_overview.md explains the OwnTracks-based subsystem: the rider's phone publishes GPS coordinates to a PGMQ message queue, job_process_owntracks() dequeues and inserts them into rider_location and rider_location_event tables, and a PostgreSQL trigger on those tables fires a FastAPI webhook at /location-hooks/ when the rider enters the restaurant or customer geofence zones. These zone-entry events drive the LangGraph agent's next-step prompts (Step 3's inflight agent sends the customer a notification when the rider leaves the restaurant). This step shows how the database-as-orchestrator pattern from Step 1 extends into the physical world.",
+    "nodeIds": ["document:location_overview.md"],
+    "languageLesson": "PGMQ (Postgres Message Queue) is a Postgres-native queue extension. Location events are enqueued by the mobile app and dequeued by a scheduled SQL job, providing backpressure and durability without an external message broker like Redis or RabbitMQ. The geofence trigger is a pure SQL function that checks whether the new coordinates fall within a stored polygon."
+  },
+  {
+    "order": 8,
+    "title": "Webhook URL Utility",
+    "description": "Every phase that triggers an external webhook — dispatch creation, location events, delivery timeouts — needs to look up the correct FastAPI endpoint URL for the specific restaurant. get_restaurant_webhook_url_async_guide.md documents the get_restaurant_webhook_url_async utility that centralizes this lookup. It supports all 9 webhook type strings (rider-inflight, rider-cust-enter, delivery-timedout, and 6 others), applies a 5-minute in-memory TTL cache to avoid hitting the database on every event, and provides migration notes for callers still on the synchronous predecessor function. After seeing all the phases in Steps 1-7, this utility is the connective tissue that appears in every one of them.",
+    "nodeIds": ["document:get_restaurant_webhook_url_async_guide.md"],
+    "languageLesson": "The 5-minute TTL cache is a simple dict keyed on (rest_ref, webhook_type). Because FastAPI workers are long-lived processes, a module-level dict persists across requests within a single worker. The trade-off: a config change in the database takes up to 5 minutes to propagate. For webhook URLs that rarely change, this is an acceptable latency for the reduction in database round-trips."
+  },
+  {
+    "order": 9,
+    "title": "Interactive Architecture Explorer",
+    "description": "delivery_process_explorer.html is a self-contained single-page app that visualizes everything covered in Steps 1-8 interactively. It lets you navigate all 6 delivery phases, click through status transitions, and see which components (database tables, triggers, agents, webhooks) are involved at each stage. Because it references and cross-links all the documents in this tour, it works best as a capstone — a way to consolidate the mental model built across the preceding steps rather than as an introduction. Open it in a browser with no server required; all logic is embedded JavaScript.",
+    "nodeIds": ["file:delivery_process_explorer.html"],
+    "languageLesson": "Self-contained HTML files embed all CSS and JavaScript inline or in <script>/<style> tags, making them portable documentation artifacts that can be opened directly from a file system, emailed, or committed to a repository alongside the markdown docs they visualize. The trade-off versus a hosted app is that updates require regenerating and redistributing the file."
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "nodes": [
+    {
+      "id": "config:.understand-anything/.understandignore",
+      "type": "config",
+      "name": ".understandignore",
+      "filePath": ".understand-anything/.understandignore",
+      "summary": "Exclusion pattern file for the understand-anything analysis tool, using .gitignore syntax. Currently contains only comments and no active ignore rules, meaning all files in the docs project are included in analysis by default.",
+      "tags": ["configuration", "tooling", "build-system"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": []
+}

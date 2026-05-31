@@ -1,0 +1,137 @@
+{
+  "scriptCompleted": true,
+  "directoryGroups": {
+    "docs-root": [
+      "document:callback_handlers.md",
+      "document:delivery_process.md",
+      "document:dispatch_flow.md",
+      "document:get_restaurant_webhook_url_async_guide.md",
+      "document:location_overview.md",
+      "document:payment_and_order_flow.md",
+      "document:pickup_time_logic.md",
+      "document:takeaway_flow.md"
+    ],
+    "html": [
+      "file:delivery_process_explorer.html"
+    ],
+    ".understand-anything": [
+      "config:.understand-anything/.understandignore"
+    ]
+  },
+  "nodeTypeGroups": {
+    "document": [
+      "document:callback_handlers.md",
+      "document:delivery_process.md",
+      "document:dispatch_flow.md",
+      "document:get_restaurant_webhook_url_async_guide.md",
+      "document:location_overview.md",
+      "document:payment_and_order_flow.md",
+      "document:pickup_time_logic.md",
+      "document:takeaway_flow.md"
+    ],
+    "file": [
+      "file:delivery_process_explorer.html"
+    ],
+    "config": [
+      "config:.understand-anything/.understandignore"
+    ]
+  },
+  "crossCategoryEdges": [
+    {
+      "fromType": "document",
+      "toType": "document",
+      "edgeType": "related",
+      "count": 16
+    },
+    {
+      "fromType": "file",
+      "toType": "document",
+      "edgeType": "documents",
+      "count": 5
+    }
+  ],
+  "interGroupImports": [],
+  "intraGroupDensity": {
+    "docs-root": {
+      "internalEdges": 0,
+      "totalEdges": 0,
+      "density": 0
+    },
+    "html": {
+      "internalEdges": 0,
+      "totalEdges": 0,
+      "density": 0
+    },
+    ".understand-anything": {
+      "internalEdges": 0,
+      "totalEdges": 0,
+      "density": 0
+    }
+  },
+  "patternMatches": {
+    "docs-root": "documentation",
+    "html": "interactive",
+    ".understand-anything": "unknown"
+  },
+  "deploymentTopology": {
+    "hasDockerfile": false,
+    "hasCompose": false,
+    "hasK8s": false,
+    "hasTerraform": false,
+    "hasCI": false,
+    "infraFiles": []
+  },
+  "dataPipeline": {
+    "schemaFiles": [],
+    "migrationFiles": [],
+    "dataModelFiles": [],
+    "apiHandlerFiles": []
+  },
+  "docCoverage": {
+    "groupsWithDocs": 1,
+    "totalGroups": 3,
+    "coverageRatio": 0.3333333333333333,
+    "undocumentedGroups": [
+      "html",
+      ".understand-anything"
+    ]
+  },
+  "dependencyDirection": [],
+  "fileStats": {
+    "totalFileNodes": 10,
+    "filesPerGroup": {
+      "docs-root": 8,
+      "html": 1,
+      ".understand-anything": 1
+    },
+    "nodeTypeCounts": {
+      "document": 8,
+      "file": 1,
+      "config": 1
+    }
+  },
+  "fileFanIn": {
+    "document:callback_handlers.md": 0,
+    "document:delivery_process.md": 0,
+    "file:delivery_process_explorer.html": 0,
+    "document:dispatch_flow.md": 0,
+    "document:get_restaurant_webhook_url_async_guide.md": 0,
+    "document:location_overview.md": 0,
+    "document:payment_and_order_flow.md": 0,
+    "document:pickup_time_logic.md": 0,
+    "document:takeaway_flow.md": 0,
+    "config:.understand-anything/.understandignore": 0
+  },
+  "fileFanOut": {
+    "document:callback_handlers.md": 0,
+    "document:delivery_process.md": 0,
+    "file:delivery_process_explorer.html": 0,
+    "document:dispatch_flow.md": 0,
+    "document:get_restaurant_webhook_url_async_guide.md": 0,
+    "document:location_overview.md": 0,
+    "document:payment_and_order_flow.md": 0,
+    "document:pickup_time_logic.md": 0,
+    "document:takeaway_flow.md": 0,
+    "config:.understand-anything/.understandignore": 0
+  }
+}
