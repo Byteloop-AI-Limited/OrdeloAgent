@@ -14,7 +14,7 @@ CREATE TABLE delivery_summary (
     customer_address     TEXT NOT NULL,
     -- Restaurant confirmation status (separate from delivery lifecycle)
     restaurant_confirmation_status VARCHAR(50) NOT NULL DEFAULT 'restaurant_unconfirmed' 
-        CHECK (restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'auto_accept','auto_decline')),
+        CHECK (restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'auto_accept','auto_decline','restaurant_pickuptime_adjusted')),
     restaurant_update_dtts TIMESTAMP WITH TIME ZONE, -- nullable, set when restaurant_confirmation_status changes
     restaurant_admin VARCHAR(12), -- nullable, stores the admin phone who confirmed the order
     -- Delivery lifecycle status
@@ -50,7 +50,7 @@ CREATE TABLE delivery_summary (
 CREATE OR REPLACE TRIGGER trigger_restaurant_updates 
 AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON public.delivery_summary 
 FOR EACH ROW 
-WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout'))
+WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'restaurant_pickuptime_adjusted'))
 EXECUTE FUNCTION restaurant_updates_whook();
 
 -- drop trigger trigger_restaurant_updates on delivery_summary;
@@ -75,10 +75,12 @@ FOR EACH ROW WHEN (OLD.status <> 'timedout'
  *    - TRIGGER: The trigger object
  *  notes:
  *    - Triggered on delivery_summary INSERT with restaurant_confirmation_status='restaurant_unconfirmed'
- *    - Triggered on delivery_summary UPDATE to restaurant_confirmation_status='restaurant_accept', 'restaurant_decline', or 'restaurant_timedout'
+ *    - Triggered on delivery_summary UPDATE to restaurant_confirmation_status='restaurant_accept', 'restaurant_decline', 'restaurant_timedout', or 'restaurant_pickuptime_adjusted'
  *    - For trigger_reason='restaurant_accept', API handler _handle_restaurant_accept() sends pickup-time buttons
  *      and the selected value is written back to delivery_summary.pickup_time via /PickupTime callback
  *    - For trigger_reason='restaurant_timedout', API handler _handle_restaurant_timedout() auto-sets pickup_time (+30 mins)
+ *    - For trigger_reason='restaurant_pickuptime_adjusted', set when an admin adjusts an already-set pickup_time
+ *      (via /AdminAdjustPickupTime callback); API handler _handle_restaurant_pickuptime_adjusted() notifies the inflight rider
  *    - Builds delivery_summary JSON from NEW record (all fields)
  *    - Fetches restaurant_master data and includes in payload
  *    - Joins with food_order table using order_number
@@ -122,7 +124,7 @@ BEGIN
   END IF;
 
   -- Process for restaurant_unconfirmed, restaurant_accept, restaurant_decline, or restaurant_timedout
-  IF NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout') THEN
+  IF NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'restaurant_pickuptime_adjusted') THEN
     
     IF p_log_to_table THEN
       INSERT INTO debug_log (trigger_name, order_number, message)

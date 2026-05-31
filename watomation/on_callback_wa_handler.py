@@ -11,6 +11,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . Processes restaurant confirmation of food preparation time
     . Uses asyncio.create_task for long-running RPC calls to avoid timeouts
     . Guards pickup-time updates so stale or repeated button taps cannot overwrite existing pickup times
+    . Supports admin pickup-time adjustment after pickup_time is set, flagging restaurant_pickuptime_adjusted to notify the inflight rider
   Functions/Classes:
     . dispatch_response - Processes rider responses to delivery dispatch assignments
     . rider_request_location - Handles rider requests for location information
@@ -20,6 +21,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . restaurant_order_accept_decline_handler - Handles restaurant accept/decline responses
     . _update_restaurant_order_status - Background task for updating restaurant order status
     . handle_pickup_time_selection - Handles restaurant pickup-time selection callbacks
+    . admin_adjust_pickup_time - Handles admin pickup-time adjustment callbacks (sets restaurant_pickuptime_adjusted)
 """
 
 # %%
@@ -37,6 +39,7 @@ from ordelo_datamodels.delivery_pymodels import DeliveryDispatch
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 from datetime import datetime, timezone
 from config.params import get_restaurant_webhook_url_async
+from utils_common.tz_utils import fmt_uk_time
 import httpx
 
 # from utils_common.waba_utils.wa_senders import send_restaurant_pickup_time
@@ -375,6 +378,68 @@ async def admin_collection_ready(
         recipient=callback_data.rider_id,
         human_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {callback_data.restaurant_name} to pickup the food.",
     )
+    return
+
+
+# %% Handle admin pickup-time adjustment (after pickup_time already set)
+IS_ADMIN_ADJUST_PICKUP_TIME = filters.contains(
+    "/AdminAdjustPickupTime", ignore_case=False
+)
+
+
+async def admin_adjust_pickup_time(
+    msg: WhatsApp, callback: CallbackButton[CallbackButtonData]
+):
+    """
+    Handles a restaurant admin adjusting an already-set delivery pickup time.
+
+    The button callback (created in admin_order_reciept) carries a precomputed
+    new pickup_time (+10/+20 mins) and the order_number. This updates
+    delivery_summary.pickup_time and sets restaurant_confirmation_status to
+    'restaurant_pickuptime_adjusted', which fires trigger_restaurant_updates ->
+    /delivery-hooks/restaurant-confirmation-request -> _handle_restaurant_pickuptime_adjusted
+    so the inflight rider is notified. Lifecycle 'status' is left unchanged.
+    """
+    callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
+
+    order_number = getattr(callback_data, "order_number", None)
+    pickup_time = getattr(callback_data, "pickup_time", None)
+    recipient = callback.sender
+
+    if not order_number or not pickup_time:
+        await callback.reply("Missing order or pickup time in callback. Please retry.")
+        logger.error(
+            "AdminAdjustPickupTime callback missing order_number/pickup_time",
+            extra={"order_number": order_number},
+        )
+        return
+
+    try:
+        await asyncio.to_thread(
+            lambda: (
+                client_ordelo.table("delivery_summary")
+                .update(
+                    {
+                        "pickup_time": pickup_time,
+                        "restaurant_confirmation_status": "restaurant_pickuptime_adjusted",
+                        "restaurant_admin": recipient,
+                        "restaurant_update_dtts": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+                .eq("order_number", order_number)
+                .execute()
+            )
+        )
+        await callback.reply(text=f"Pickup time updated to {fmt_uk_time(pickup_time)}")
+        logger.info(
+            "Admin %s adjusted pickup time for %s to %s",
+            recipient,
+            order_number,
+            pickup_time,
+        )
+    except Exception as e:
+        logger.error(f"Failed to adjust pickup time for order {order_number}: {e}")
+        await callback.reply("Failed to update pickup time. Please retry.")
     return
 
 

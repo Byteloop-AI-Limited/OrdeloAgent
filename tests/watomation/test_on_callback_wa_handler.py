@@ -15,6 +15,8 @@ Key Functions:
   - test_handle_pickup_time_selection_success_and_already_updated
   - test_admin_collection_ready_runs_rider_graph
   - test_admin_takeaway_ready_validates_and_posts_webhook
+  - test_admin_adjust_pickup_time_updates_summary
+  - test_admin_adjust_pickup_time_missing_data
 """
 
 from __future__ import annotations
@@ -167,6 +169,36 @@ async def test_handle_pickup_time_selection_success_and_already_updated(patch_su
     patch_supabase_client.register(table="delivery_summary", verb="update", response=FakeSupabaseResponse(data=[]))
     await handler.handle_pickup_time_selection(FakeAsyncWhatsApp(), msg)
     assert msg.replies[-1] == {"text": "Pickup time already updated"}
+
+
+async def test_admin_adjust_pickup_time_updates_summary(patch_supabase_client) -> None:
+    patch_supabase_client.register(table="delivery_summary", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
+    callback = _FakeCallback(
+        data=json.dumps({
+            "action": "/AdminAdjustPickupTime10",
+            "order_number": "ELAS-ABCD-1",
+            "pickup_time": "2026-05-09T11:40:00+00:00",
+        }),
+        sender="ADMIN01",
+    )
+
+    await handler.admin_adjust_pickup_time(FakeAsyncWhatsApp(), callback)
+
+    update_call = patch_supabase_client.calls[-1]
+    assert update_call.table == "delivery_summary"
+    assert update_call.payload["pickup_time"] == "2026-05-09T11:40:00+00:00"
+    assert update_call.payload["restaurant_confirmation_status"] == "restaurant_pickuptime_adjusted"
+    assert update_call.payload["restaurant_admin"] == "ADMIN01"
+    assert update_call.filters["eq:order_number"] == "ELAS-ABCD-1"
+    assert callback.replies  # admin received a confirmation
+
+
+async def test_admin_adjust_pickup_time_missing_data(patch_supabase_client) -> None:
+    callback = _FakeCallback(data=json.dumps({"action": "/AdminAdjustPickupTime10"}))
+
+    await handler.admin_adjust_pickup_time(FakeAsyncWhatsApp(), callback)
+
+    assert callback.replies[-1] == "Missing order or pickup time in callback. Please retry."
 
 
 async def test_admin_collection_ready_runs_rider_graph(monkeypatch) -> None:

@@ -4,6 +4,8 @@ The tools are called directly with simple runtime/context fakes, avoiding a real
 LangGraph/checkpointer while still exercising DB, WA, and Command updates.
 
 Key Functions:
+  - test_notify_pickup_time_adjusted_sends_message
+  - test_notify_pickup_time_adjusted_no_pickup_time
   - test_send_pickup_and_dropoff_location_send_whatsapp_locations
   - test_send_start_live_tracking_link_sends_button_url
   - test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason
@@ -47,6 +49,36 @@ def _summary_row(**overrides):
     }
     row.update(overrides)
     return row
+
+
+async def test_notify_pickup_time_adjusted_sends_message(fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client) -> None:
+    result = await rider_agent.notify_pickup_time_adjusted(
+        {
+            "rider_name": "Bas",
+            "order_number": "ELAS-ABCD-1",
+            "reply_to_msg_id": "msg-1",
+            "pickup_time": "2026-05-09T11:40:00+00:00",
+        },
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    sent = fake_async_wa.sent[-1]
+    assert sent.kwargs["to"] == "RIDER01"
+    assert "updated" in sent.kwargs["text"]
+    assert isinstance(result.update["messages"][-1], AIMessage)
+    assert "/dontRespond" in result.update["messages"][-1].content
+
+
+async def test_notify_pickup_time_adjusted_no_pickup_time(fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client) -> None:
+    result = await rider_agent.notify_pickup_time_adjusted(
+        {"rider_name": "Bas", "order_number": "ELAS-ABCD-1", "pickup_time": None},
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert fake_async_wa.sent == []
+    assert "/dontRespond" in result.update["messages"][-1].content
 
 
 async def test_send_pickup_and_dropoff_location_send_whatsapp_locations(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
