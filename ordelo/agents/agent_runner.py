@@ -5,6 +5,8 @@ Core agent runner for Ordelo's delivery workflow system
     . Processes messages between rider agents and WhatsApp interface
     . Manages delivery job state through PostgreSQL persistence
     . Coordinates with rider_agent for workflow execution
+    . Seeds pickup_time into graph state at init for adjusted-pickup-time notifications
+    . Supports refreshing graph state via state_update_dict (e.g. updated pickup_time on adjust)
   Functions/Classes:
     . run_rider_agent_w_custom_msg - Executes rider graph with custom messages and returns AI response
     . init_ordelo_graph - Initializes delivery workflow for given detail
@@ -131,6 +133,7 @@ async def init_ordelo_graph(
             "start_live_tracking_url": start_live_tracking_url,
             "delivery_start_dtts": delivery_start_dtts,
             "rider_name": rider_name,
+            "pickup_time": delivery_summary.pickup_time,
         },
         as_node="toolNode",
     )

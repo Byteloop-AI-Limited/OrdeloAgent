@@ -21,7 +21,7 @@ class CustomerMaster(BaseModel):
     cust_id: str = Field(..., max_length=12)  # VARCHAR(12) PRIMARY KEY
     cust_name: Optional[str] = None  # TEXT NULL
     cust_email: Optional[str] = None  # TEXT NULL
-    house_number: Optional[str] = None  # TEXT NULL
+    house_number: Optional[str] = None  # TEXT NUL
     building_name: Optional[str] = None  # TEXT NULL
     street_name: Optional[str] = None  # TEXT NULL
     city: Optional[str] = None  # TEXT NULL

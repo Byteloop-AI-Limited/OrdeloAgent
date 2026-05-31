@@ -30,6 +30,7 @@ This document maps the codebase structure and explains how agents, webhooks, mes
     - `send_start_live_tracking_link` — OwnTracks start/config link.
     - `verify_restaurant_confirmation_code` — confirms pickup and marks `delivery_dispatch.status='pickedup'`.
     - `verify_customer_confirmation_code` — completes delivery and calls `dispatch_complete_func`.
+    - `notify_pickup_time_adjusted` — notifies the inflight rider when the restaurant adjusts the pickup time (reads `pickup_time` from graph state, refreshed via `state_update_dict`).
     - `cancel_delivery_before_pickup` — rolls back an assigned dispatch pre‑pickup and reopens dispatching.
     - `terminate_delivery_job` — closes the delivery job/thread and sends stop‑tracking link.
     - Graph control nodes: `agent_node`, `respond_node`, `ToolNode`.
@@ -54,6 +55,7 @@ This document maps the codebase structure and explains how agents, webhooks, mes
   - Inflight init (DB trigger → init graph, rider notify): `delivery_inflight_graph_init_hook`
   - Missed dispatches notify + flag: `notify_missed_dispatches_hook`
   - Food ready notify via tool call: `notify_food_ready_for_pickup`
+  - Pickup-time adjust (admin changes an already-set pickup time): `admin_order_reciept` sends +10/+20 buttons (`/AdminAdjustPickupTime{10,20}`) → `on_callback_wa_handler.admin_adjust_pickup_time` sets `delivery_summary.restaurant_confirmation_status='restaurant_pickuptime_adjusted'` → `trigger_restaurant_updates` → `restaurant_confirmation_flow` (`trigger_reason='restaurant_pickuptime_adjusted'`) → `_handle_restaurant_pickuptime_adjusted` resolves the inflight rider and runs `notify_pickup_time_adjusted`.
   - Delivery timed out notify: `delivery_timedout`
   - Availability enquiries (DB scheduled jobs → webhook → WA fan-out):
     - `shift_availability_enquiry_hook`

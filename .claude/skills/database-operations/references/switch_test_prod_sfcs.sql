@@ -37,7 +37,7 @@ SELECT * FROM ordelo_post('SFCS_APP_URL', '/restaurant-master-cache/reset');
 update rider_master
 set is_in_shift = true,
     town = 'dummy',
-    vehicle_type = 'bicycle'
+    vehicle_type = 'car'
 where rider_name = 'Lohith';
 
 select enquire_admin_availability(ARRAY['SFCS']);

@@ -13,6 +13,7 @@ LangGraph agent implementation for rider delivery workflow
   Functions/Classes:
     . AgentState - TypedDict for agent state management
     . notify_food_ready_for_pickup - Notifies rider about food readiness
+    . notify_pickup_time_adjusted - Notifies rider of an adjusted pickup time (reads state pickup_time)
     . send_pickup_location - Sends restaurant location to rider
     . send_dropoff_location - Sends customer location to rider
     . send_delivery_instructions - Provides delivery instructions
@@ -66,6 +67,7 @@ from config import (
     project_settings,
 )
 from config.params import get_wa_logger
+from utils_common.tz_utils import fmt_uk_time
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from ordelo.agent_app_handlers import (
     _send_delivery_instructions,
@@ -91,6 +93,7 @@ class AgentState(TypedDict):
     is_customer_confirmation_code_verified: bool
     awaiting_cancel_reason: bool
     latest_wa_msg_id: str
+    pickup_time: str
 
 
 # %% Static Runtime Context
@@ -163,6 +166,71 @@ async def notify_food_ready_for_pickup(
                 ),
                 AIMessage(
                     "/dontRespond: Food is ready for pickup! Please hurry to {restaurant_name} to collect the order."
+                ),
+            ]
+        }
+    )
+
+
+# %%
+async def notify_pickup_time_adjusted(
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
+) -> dict:
+    """
+    Notifies the rider via WhatsApp that the restaurant has adjusted the pickup time.
+
+    Reads the latest pickup_time from the agent state (refreshed by the adjust webhook via
+    state_update_dict) and sends a WhatsApp message to the rider with the new pickup time
+    formatted to UK local time.
+
+    Args:
+        None
+
+    Returns:
+        dict: Command containing ToolMessage and AIMessage updates for the agent's state.
+    """
+    ctx = runtime.context
+    recipient = ctx.recipient
+
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
+    rider_name = state.get("rider_name", None)
+    order_number = state.get("order_number", None)
+    pickup_time = state.get("pickup_time", None)
+
+    if not pickup_time:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "Pickup time not found in state.", tool_call_id=tool_call_id
+                    ),
+                    AIMessage("/dontRespond: Pickup time not found in state."),
+                ]
+            }
+        )
+
+    pickup_time_display = fmt_uk_time(pickup_time)
+
+    await ctx.wa_client.send_message(
+        to=recipient,
+        text=(
+            f"Heads up {rider_name}, the pickup time for order {order_number} "
+            f"has been updated to {pickup_time_display}."
+        ),
+        reply_to_message_id=reply_to_msg_id,
+    )
+
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    "Rider notified of the adjusted pickup time.",
+                    tool_call_id=tool_call_id,
+                ),
+                AIMessage(
+                    f"/dontRespond: Rider notified that pickup time is updated to {pickup_time_display}."
                 ),
             ]
         }
@@ -988,6 +1056,7 @@ _rider_agent_tools = [
     send_delivery_instructions,
     send_start_live_tracking_link,
     notify_food_ready_for_pickup,
+    notify_pickup_time_adjusted,
     send_pickup_location,
     send_dropoff_location,
     send_customer_contact,
