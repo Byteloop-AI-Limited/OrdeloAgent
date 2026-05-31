@@ -1,0 +1,77 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 5,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/ordelo_post.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 35,
+      "nonEmptyLines": 31,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/process_delivery.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 142,
+      "nonEmptyLines": 136,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/process_restaurant_confirmation.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 103,
+      "nonEmptyLines": 92,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/test_reset_order_and_dispatch.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 59,
+      "nonEmptyLines": 53,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/test_reset_takeaway_order.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 27,
+      "nonEmptyLines": 23,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    }
+  ]
+}

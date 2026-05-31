@@ -1,0 +1,24 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "ordelo_datamodels/auth_sessions.sql", "language": "sql", "sizeLines": 68, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/dashboard_sessions.sql", "language": "sql", "sizeLines": 49, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/db_config.sql", "language": "sql", "sizeLines": 44, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/debug_log.sql", "language": "sql", "sizeLines": 7, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/delivery_models.sql", "language": "sql", "sizeLines": 19, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/delivery_option.sql", "language": "sql", "sizeLines": 18, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/detail.sql", "language": "sql", "sizeLines": 15, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/dispatch.sql", "language": "sql", "sizeLines": 140, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/dispatch_bulk.sql", "language": "sql", "sizeLines": 62, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/elas_stats.sql", "language": "sql", "sizeLines": 42, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/inflight.sql", "language": "sql", "sizeLines": 183, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/location.sql", "language": "sql", "sizeLines": 88, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/masterdata.sql", "language": "sql", "sizeLines": 83, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/ordelo_config.sql", "language": "sql", "sizeLines": 25, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/sbase_queues_from_order.sql", "language": "sql", "sizeLines": 34, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/summary.sql", "language": "sql", "sizeLines": 372, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/takeaway_summary.sql", "language": "sql", "sizeLines": 432, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/waba_es.sql", "language": "sql", "sizeLines": 21, "fileCategory": "data"}
+  ],
+  "batchImportData": {}
+}

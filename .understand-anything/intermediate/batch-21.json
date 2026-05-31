@@ -1,0 +1,227 @@
+{
+  "nodes": [
+    {
+      "id": "file:notebooks/db_queries/CommonQueries.sql",
+      "type": "file",
+      "name": "CommonQueries.sql",
+      "filePath": "notebooks/db_queries/CommonQueries.sql",
+      "summary": "General-purpose ad-hoc query notebook covering thread management, customer/delivery inspection, cust_rest_map cleanup, OwnTracks queue reads, and miscellaneous order status updates across multiple restaurants (SFCS, ELAS, WREN).",
+      "tags": ["database", "debugging", "ad-hoc", "monitoring", "development"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:notebooks/db_queries/adhoc_queries.sql",
+      "type": "file",
+      "name": "adhoc_queries.sql",
+      "filePath": "notebooks/db_queries/adhoc_queries.sql",
+      "summary": "Small collection of one-off investigative queries for inspecting delivery_summary, delivery_option, and food_order records during debugging sessions.",
+      "tags": ["database", "debugging", "ad-hoc", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/db_queries/clear_wren_test.sql",
+      "type": "file",
+      "name": "clear_wren_test.sql",
+      "filePath": "notebooks/db_queries/clear_wren_test.sql",
+      "summary": "Empty placeholder SQL file, likely reserved for WREN restaurant test-data cleanup scripts.",
+      "tags": ["database", "test", "placeholder"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/db_queries/config_updates.sql",
+      "type": "file",
+      "name": "config_updates.sql",
+      "filePath": "notebooks/db_queries/config_updates.sql",
+      "summary": "Operational runbook of ordelo_config UPDATE/INSERT statements for switching between production and test app URLs, dispatch batch sizes, overwatch notification lists, WABA webhook, and per-restaurant timeout settings.",
+      "tags": ["database", "configuration", "operational", "deployment"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:notebooks/db_queries/consume_queue.sql",
+      "type": "file",
+      "name": "consume_queue.sql",
+      "filePath": "notebooks/db_queries/consume_queue.sql",
+      "summary": "Development queries for reading and inspecting the pgmq OwnTracks message queue, extracting location and transition events, and joining them against delivery_inflight to correlate riders with active orders.",
+      "tags": ["database", "queue", "location-tracking", "debugging"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "table:notebooks/db_queries/creating_new_schema.sql:elas",
+      "type": "table",
+      "name": "elas",
+      "filePath": "notebooks/db_queries/creating_new_schema.sql",
+      "lineRange": [20, 29],
+      "summary": "Schema definition for the elas thread-tracking table storing WhatsApp thread state including recipient, active flag, and access timestamps.",
+      "tags": ["database", "schema-definition", "thread-management"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/db_queries/creating_new_schema.sql",
+      "type": "file",
+      "name": "creating_new_schema.sql",
+      "filePath": "notebooks/db_queries/creating_new_schema.sql",
+      "summary": "Schema creation script defining the elas thread-management table with thread_id, recipient, active status, and timestamp columns.",
+      "tags": ["database", "schema-definition", "migration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/db_queries/delivery_payouts.sql",
+      "type": "file",
+      "name": "delivery_payouts.sql",
+      "filePath": "notebooks/db_queries/delivery_payouts.sql",
+      "summary": "Rider payout calculation queries joining delivery_dispatch, rider_master, rider_registrations, and delivery_option to produce per-order and aggregated payout reports with bank details for a given date range.",
+      "tags": ["database", "finance", "reporting", "riders"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/db_queries/distance_travelled.sql",
+      "type": "file",
+      "name": "distance_travelled.sql",
+      "filePath": "notebooks/db_queries/distance_travelled.sql",
+      "summary": "PostGIS-based CTE query that calculates the distance travelled by riders within a 3-minute rolling window using ST_Distance on rider_location coordinates, filtering out stationary points.",
+      "tags": ["database", "geospatial", "analytics", "location-tracking"],
+      "complexity": "moderate",
+      "languageNotes": "Uses PostGIS ST_Distance with SRID 4326 geography type; result converted from metres to miles via /1609.34."
+    },
+    {
+      "id": "file:notebooks/db_queries/elai_updates.sql",
+      "type": "file",
+      "name": "elai_updates.sql",
+      "filePath": "notebooks/db_queries/elai_updates.sql",
+      "summary": "Targeted one-off UPDATE statements for correcting the Elai restaurant record in restaurant_master and related ordelo_config entries.",
+      "tags": ["database", "operational", "restaurant", "ad-hoc"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/db_queries/elas_menu_updates.sql",
+      "type": "file",
+      "name": "elas_menu_updates.sql",
+      "filePath": "notebooks/db_queries/elas_menu_updates.sql",
+      "summary": "Bulk INSERT/UPDATE statements for managing menu items and categories in the ELAS (Elai Salisbury) restaurant, including price corrections and item additions.",
+      "tags": ["database", "menu", "restaurant", "operational"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/db_queries/master_data_update.sql",
+      "type": "file",
+      "name": "master_data_update.sql",
+      "filePath": "notebooks/db_queries/master_data_update.sql",
+      "summary": "Consolidated maintenance script for restaurant_master, rider_master, and customer_master tables, covering location coordinate corrections, admin array updates, rider shift resets, and INSERT of new restaurant records.",
+      "tags": ["database", "operational", "master-data", "maintenance"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/db_queries/non_prod_init.sql",
+      "type": "file",
+      "name": "non_prod_init.sql",
+      "filePath": "notebooks/db_queries/non_prod_init.sql",
+      "summary": "Non-production environment initialisation script that seeds ordelo_config with test app URLs and minimal reference data to bootstrap a dev environment.",
+      "tags": ["database", "development", "environment-setup", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/db_queries/overwatch_dashboard.sql",
+      "type": "file",
+      "name": "overwatch_dashboard.sql",
+      "filePath": "notebooks/db_queries/overwatch_dashboard.sql",
+      "summary": "Defines the overwatch_view PostgreSQL function that joins delivery_summary, delivery_dispatch, delivery_option, customer_master, rider_master, and food_order into a single comprehensive monitoring view covering order status, financials, rider info, and customer address.",
+      "tags": ["database", "monitoring", "analytics", "reporting"],
+      "complexity": "complex",
+      "languageNotes": "Implemented as a CREATE OR REPLACE FUNCTION returning TABLE, using CTEs to compose data from 6+ tables."
+    },
+    {
+      "id": "file:notebooks/db_queries/overwatch_views.sql",
+      "type": "file",
+      "name": "overwatch_views.sql",
+      "filePath": "notebooks/db_queries/overwatch_views.sql",
+      "summary": "Prototype exploration queries and combined CTE view for overwatch monitoring, showing the data joins across delivery_summary, delivery_dispatch, delivery_option, and rider/customer master tables that were used to design the overwatch_view function.",
+      "tags": ["database", "monitoring", "analytics", "development"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:notebooks/db_queries/rest_master_updates.sql",
+      "type": "file",
+      "name": "rest_master_updates.sql",
+      "filePath": "notebooks/db_queries/rest_master_updates.sql",
+      "summary": "Ad-hoc UPDATE/ALTER statements for restaurant_master covering admin phone arrays, service hours JSON, collection_commission column addition, and test-environment overrides for ELAS, SFCS, WREN, and INDI restaurants.",
+      "tags": ["database", "operational", "restaurant", "maintenance"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "config:notebooks/db_queries/result_export.json",
+      "type": "config",
+      "name": "result_export.json",
+      "filePath": "notebooks/db_queries/result_export.json",
+      "summary": "Exported snapshot of ordelo_config rows for the SFCS restaurant, capturing timeout values, default pickup times, and app URLs at a specific point in time — used as a reference or seed file.",
+      "tags": ["configuration", "database", "reference-data"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/db_queries/rider_master_updates.sql",
+      "type": "file",
+      "name": "rider_master_updates.sql",
+      "filePath": "notebooks/db_queries/rider_master_updates.sql",
+      "summary": "Maintenance queries for rider_master including SELECT, INSERT, UPDATE of rider profiles (shift status, vehicle type, town), and inspection of rider_registrations data.",
+      "tags": ["database", "operational", "riders", "maintenance"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/db_queries/settingup_QUEUE.SQL",
+      "type": "file",
+      "name": "settingup_QUEUE.SQL",
+      "filePath": "notebooks/db_queries/settingup_QUEUE.SQL",
+      "summary": "PGMQ queue inspection and rider-accept dispatch assignment logic — reads the rider_accept_q queue, applies RANK-based deduplication, and performs the delivery_detail/dispatch/inflight CTE update chain to assign the first valid rider to an order.",
+      "tags": ["database", "queue", "dispatch", "development"],
+      "complexity": "moderate",
+      "languageNotes": "Uses pgmq.read() function and a multi-step CTE with UPDATE and INSERT in sequence to atomically assign a rider."
+    },
+    {
+      "id": "file:notebooks/db_queries/simulate_dispatches.sql",
+      "type": "file",
+      "name": "simulate_dispatches.sql",
+      "filePath": "notebooks/db_queries/simulate_dispatches.sql",
+      "summary": "Minimal script to trigger the dispatch creation stored procedure for testing the delivery dispatch pipeline manually.",
+      "tags": ["database", "test", "dispatch", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:notebooks/db_queries/temp.json",
+      "type": "config",
+      "name": "temp.json",
+      "filePath": "notebooks/db_queries/temp.json",
+      "summary": "Empty temporary JSON file used as a scratch pad during query development; contains no data.",
+      "tags": ["placeholder", "development"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:notebooks/db_queries/creating_new_schema.sql",
+      "target": "table:notebooks/db_queries/creating_new_schema.sql:elas",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:notebooks/db_queries/creating_new_schema.sql",
+      "target": "table:notebooks/db_queries/creating_new_schema.sql:elas",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/db_queries/overwatch_dashboard.sql",
+      "target": "file:notebooks/db_queries/overwatch_views.sql",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:notebooks/db_queries/result_export.json",
+      "target": "file:notebooks/db_queries/config_updates.sql",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

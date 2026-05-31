@@ -1,0 +1,415 @@
+{
+  "nodes": [
+    {
+      "id": "file:.claude/skills/database-operations/references/rider_payout.py",
+      "type": "file",
+      "name": "rider_payout.py",
+      "filePath": ".claude/skills/database-operations/references/rider_payout.py",
+      "summary": "Reference script for computing and displaying rider payout summaries for a given date range, used as a skill example for database queries.",
+      "tags": ["utility", "script", "database", "reference"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:.claude/skills/pyrun/scripts/debug_thread_messages.py",
+      "type": "file",
+      "name": "debug_thread_messages.py",
+      "filePath": ".claude/skills/pyrun/scripts/debug_thread_messages.py",
+      "summary": "Debug helper script for inspecting LangGraph thread message history by thread ID, intended for use by the pyrun skill.",
+      "tags": ["utility", "script", "debug"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:config/params.py",
+      "type": "file",
+      "name": "params.py",
+      "filePath": "config/params.py",
+      "summary": "Provides cached async lookups for restaurant base URLs, webhook URLs, dashboard app URLs, and the overwatch phone list from the ordelo_config DB table, with TTL-based invalidation.",
+      "tags": ["configuration", "utility", "service", "caching"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:config/params.py:get_restaurant_base_url_async",
+      "type": "function",
+      "name": "get_restaurant_base_url_async",
+      "filePath": "config/params.py",
+      "lineRange": [83, 134],
+      "summary": "Async function that fetches and caches a restaurant's base URL from the ordelo_config table with TTL-based expiry.",
+      "tags": ["utility", "caching", "async", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:config/params.py:get_restaurant_webhook_url_async",
+      "type": "function",
+      "name": "get_restaurant_webhook_url_async",
+      "filePath": "config/params.py",
+      "lineRange": [270, 313],
+      "summary": "Resolves a fully-qualified webhook URL for a restaurant and webhook type by combining the base URL with a registered path template.",
+      "tags": ["utility", "async", "webhook"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:config/params.py:get_overwatch_list",
+      "type": "function",
+      "name": "get_overwatch_list",
+      "filePath": "config/params.py",
+      "lineRange": [165, 198],
+      "summary": "Fetches and caches the overwatch phone number list from ordelo_config, returning a list of stripped phone strings.",
+      "tags": ["utility", "caching", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:config/params.py:get_dashboard_app_url_async",
+      "type": "function",
+      "name": "get_dashboard_app_url_async",
+      "filePath": "config/params.py",
+      "lineRange": [215, 239],
+      "summary": "Fetches and caches the dashboard app URL for a given role (rider/restaurant/admin) from ordelo_config.",
+      "tags": ["utility", "caching", "async"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:get_ddl.py",
+      "type": "file",
+      "name": "get_ddl.py",
+      "filePath": "get_ddl.py",
+      "summary": "Small utility script that executes a SQL query to retrieve DDL schema information from the database and prints it.",
+      "tags": ["utility", "script", "database"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/async_runner_template.py",
+      "type": "file",
+      "name": "async_runner_template.py",
+      "filePath": "notebooks/async_runner_template.py",
+      "summary": "Notebook template demonstrating how to run async operations with the AsyncConnectionPool and ThreadHandler, useful for local development experiments.",
+      "tags": ["utility", "template", "async"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:ordelo/agent_app_handlers.py",
+      "type": "file",
+      "name": "agent_app_handlers.py",
+      "filePath": "ordelo/agent_app_handlers.py",
+      "summary": "Glue layer between the LangGraph rider agent tools, the WhatsApp API, and the database — implements delivery instruction sending, rider response handling, live-location checks, and debug utilities.",
+      "tags": ["service", "middleware", "event-handler", "delivery"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:ordelo/agent_app_handlers.py:process_dispatch_response_from_rider_sync",
+      "type": "function",
+      "name": "process_dispatch_response_from_rider_sync",
+      "filePath": "ordelo/agent_app_handlers.py",
+      "lineRange": [68, 144],
+      "summary": "Synchronous handler that processes a rider's dispatch accept/decline response, updating the database and sending WhatsApp confirmations.",
+      "tags": ["event-handler", "delivery", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:ordelo/agent_app_handlers.py:initial_handle_of_rider_response",
+      "type": "function",
+      "name": "initial_handle_of_rider_response",
+      "filePath": "ordelo/agent_app_handlers.py",
+      "lineRange": [222, 293],
+      "summary": "Routes a rider's accept/decline callback to the appropriate agent invocation or database update, handling edge cases like already-completed or timed-out deliveries.",
+      "tags": ["event-handler", "delivery", "routing"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:ordelo/agent_app_handlers.py:_send_delivery_instructions",
+      "type": "function",
+      "name": "_send_delivery_instructions",
+      "filePath": "ordelo/agent_app_handlers.py",
+      "lineRange": [395, 497],
+      "summary": "Sends the full delivery instruction message to a rider via WhatsApp, including pickup/dropoff buttons and order details fetched from the database.",
+      "tags": ["event-handler", "delivery", "whatsapp"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:ordelo/agent_app_handlers.py:enquire_shift_availability",
+      "type": "function",
+      "name": "enquire_shift_availability",
+      "filePath": "ordelo/agent_app_handlers.py",
+      "lineRange": [339, 386],
+      "summary": "Sends a WhatsApp template message asking a rider for their shift availability with accept/decline callback buttons.",
+      "tags": ["event-handler", "whatsapp", "delivery"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:ordelo/agent_app_handlers.py:post_rider_event_customer_cc",
+      "type": "function",
+      "name": "post_rider_event_customer_cc",
+      "filePath": "ordelo/agent_app_handlers.py",
+      "lineRange": [501, 523],
+      "summary": "Posts a customer cross-notification webhook event after a rider milestone (e.g., pickup confirmed).",
+      "tags": ["event-handler", "webhook", "delivery"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:ordelo/agent_app_handlers.py:post_rider_event_restaurant_cc",
+      "type": "function",
+      "name": "post_rider_event_restaurant_cc",
+      "filePath": "ordelo/agent_app_handlers.py",
+      "lineRange": [527, 546],
+      "summary": "Posts a restaurant cross-notification webhook event after a rider milestone (e.g., pickup confirmed).",
+      "tags": ["event-handler", "webhook", "delivery"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:ordelo/agent_app_handlers.py:create_start_job_config",
+      "type": "function",
+      "name": "create_start_job_config",
+      "filePath": "ordelo/agent_app_handlers.py",
+      "lineRange": [155, 198],
+      "summary": "Builds a WhatsApp interactive message config payload for starting a delivery job, including delivery details and timestamps.",
+      "tags": ["factory", "delivery", "whatsapp"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:.claude/skills/database-operations/references/rider_payout.py",
+      "target": "file:watomation/routers/sys_admin_auth_session.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:.claude/skills/pyrun/scripts/debug_thread_messages.py",
+      "target": "file:ordelo/agents/agent_runner.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:get_ddl.py",
+      "target": "file:utils_common/db_utils/sbase_pool_ops.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/async_runner_template.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/async_runner_template.py",
+      "target": "file:utils_common/thread_management/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "file:utils_common/db_utils/sbase_pool_ops.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "file:utils_common/lg_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "file:utils_common/tz_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "file:utils_common/waba_utils/wa_senders.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:process_dispatch_response_from_rider_sync",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:process_dispatch_response_from_rider_sync",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:initial_handle_of_rider_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:initial_handle_of_rider_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:_send_delivery_instructions",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:_send_delivery_instructions",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:enquire_shift_availability",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:enquire_shift_availability",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:post_rider_event_customer_cc",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:post_rider_event_customer_cc",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:post_rider_event_restaurant_cc",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:post_rider_event_restaurant_cc",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:create_start_job_config",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agent_app_handlers.py",
+      "target": "function:ordelo/agent_app_handlers.py:create_start_job_config",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/params.py",
+      "target": "function:config/params.py:get_restaurant_base_url_async",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/params.py",
+      "target": "function:config/params.py:get_restaurant_base_url_async",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/params.py",
+      "target": "function:config/params.py:get_restaurant_webhook_url_async",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/params.py",
+      "target": "function:config/params.py:get_restaurant_webhook_url_async",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/params.py",
+      "target": "function:config/params.py:get_overwatch_list",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/params.py",
+      "target": "function:config/params.py:get_overwatch_list",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/params.py",
+      "target": "function:config/params.py:get_dashboard_app_url_async",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/params.py",
+      "target": "function:config/params.py:get_dashboard_app_url_async",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:ordelo/agent_app_handlers.py:post_rider_event_customer_cc",
+      "target": "function:config/params.py:get_restaurant_webhook_url_async",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:ordelo/agent_app_handlers.py:post_rider_event_restaurant_cc",
+      "target": "function:config/params.py:get_restaurant_webhook_url_async",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

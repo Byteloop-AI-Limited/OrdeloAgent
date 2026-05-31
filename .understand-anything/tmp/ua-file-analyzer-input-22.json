@@ -1,0 +1,13 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "notebooks/db_queries/test_delivery_summary.sql", "language": "sql", "sizeLines": 112, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/test_driverNotify.sql", "language": "sql", "sizeLines": 78, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/test_jobs_sequentially.sql", "language": "sql", "sizeLines": 34, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/test_location_setup.sql", "language": "sql", "sizeLines": 24, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/test_manage_init_delivery_detail.sql", "language": "sql", "sizeLines": 70, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/test_rider_agent.sql", "language": "sql", "sizeLines": 38, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/test_takeaway.sql", "language": "sql", "sizeLines": 102, "fileCategory": "data"}
+  ],
+  "batchImportData": {}
+}

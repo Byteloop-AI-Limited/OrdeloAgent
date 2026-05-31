@@ -1,0 +1,54 @@
+{
+  "nodes": [
+    {
+      "id": "file:ordelo_datamodels/migrations/add_redispatch_dtts.sql",
+      "type": "file",
+      "name": "add_redispatch_dtts.sql",
+      "filePath": "ordelo_datamodels/migrations/add_redispatch_dtts.sql",
+      "summary": "Adds a nullable redispatch_dtts TIMESTAMPTZ column to delivery_summary so the re-dispatch timeout window resets on each pre-pickup rider decline, giving the new dispatch cycle a fresh timeout independent of the original order creation time.",
+      "tags": ["database", "migration"],
+      "complexity": "simple",
+      "languageNotes": "Uses IF NOT EXISTS for idempotency; process_delivery uses COALESCE(redispatch_dtts, dtts) so existing rows fall back to original behavior automatically."
+    },
+    {
+      "id": "file:ordelo_datamodels/migrations/add_restaurant_confirmation_fields.sql",
+      "type": "file",
+      "name": "add_restaurant_confirmation_fields.sql",
+      "filePath": "ordelo_datamodels/migrations/add_restaurant_confirmation_fields.sql",
+      "summary": "Migrates delivery_summary to support the restaurant confirmation touchpoint: adds confirmation tracking columns, extends the status enum to include 'restaurant_unconfirmed', and installs a webhook trigger that fires an HTTP POST to the FastAPI endpoint when a new unconfirmed order is inserted.",
+      "tags": ["database", "migration", "schema-definition"],
+      "complexity": "moderate",
+      "languageNotes": "Drops and recreates the status CHECK constraint to add the new value; creates a PL/pgSQL trigger function that reads ORDELO_APP_URL from ordelo_config with a hardcoded fallback URL."
+    },
+    {
+      "id": "file:ordelo_datamodels/migrations/admin_orders_indexes.sql",
+      "type": "file",
+      "name": "admin_orders_indexes.sql",
+      "filePath": "ordelo_datamodels/migrations/admin_orders_indexes.sql",
+      "summary": "Creates five performance indexes on delivery_summary, takeaway_summary, and order_item to support keyset pagination, London-timezone date-range filtering, and order-items lookup in the admin dashboard.",
+      "tags": ["database", "migration", "configuration"],
+      "complexity": "simple",
+      "languageNotes": "Uses functional indexes on COALESCE(pickup_time, dtts) AT TIME ZONE 'Europe/London' to support London-local date filtering without recalculating at query time; comment notes CONCURRENTLY must be used per-statement in production."
+    },
+    {
+      "id": "file:ordelo_datamodels/migrations/admin_orders_views.sql",
+      "type": "file",
+      "name": "admin_orders_views.sql",
+      "filePath": "ordelo_datamodels/migrations/admin_orders_views.sql",
+      "summary": "Defines four CREATE OR REPLACE VIEW statements (v_admin_orders, v_admin_order_items, v_admin_orders_daily, v_admin_orders_monthly) that back the admin dashboard orders API, unioning delivery and takeaway summaries with financial data and pre-aggregating daily and monthly KPIs.",
+      "tags": ["database", "migration", "schema-definition"],
+      "complexity": "complex",
+      "languageNotes": "v_admin_orders_daily and v_admin_orders_monthly chain off v_admin_orders, so the indexes in admin_orders_indexes.sql must be applied first for optimal query plans."
+    },
+    {
+      "id": "file:ordelo_datamodels/migrations/create_cust_rest_map.sql",
+      "type": "file",
+      "name": "create_cust_rest_map.sql",
+      "filePath": "ordelo_datamodels/migrations/create_cust_rest_map.sql",
+      "summary": "Creates the cust_rest_map table with a composite primary key of (cust_id, rest_ref), tracking per-customer per-restaurant consent state with foreign keys to customer_master and restaurant_master.",
+      "tags": ["database", "migration"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": []
+}

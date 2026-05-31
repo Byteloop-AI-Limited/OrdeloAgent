@@ -1,0 +1,37 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": ".windsurf/workflows/analyze.md", "language": "markdown", "sizeLines": 101, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/clarify.md", "language": "markdown", "sizeLines": 158, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/constitution.md", "language": "markdown", "sizeLines": 73, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/implement.md", "language": "markdown", "sizeLines": 56, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/plan.md", "language": "markdown", "sizeLines": 43, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/specify.md", "language": "markdown", "sizeLines": 21, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/speckit.analyze.md", "language": "markdown", "sizeLines": 184, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/speckit.checklist.md", "language": "markdown", "sizeLines": 287, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/speckit.clarify.md", "language": "markdown", "sizeLines": 176, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/speckit.constitution.md", "language": "markdown", "sizeLines": 77, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/speckit.implement.md", "language": "markdown", "sizeLines": 131, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/speckit.plan.md", "language": "markdown", "sizeLines": 80, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/speckit.specify.md", "language": "markdown", "sizeLines": 229, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/speckit.tasks.md", "language": "markdown", "sizeLines": 128, "fileCategory": "docs"},
+    {"path": ".windsurf/workflows/tasks.md", "language": "markdown", "sizeLines": 62, "fileCategory": "docs"}
+  ],
+  "batchImportData": {
+    ".windsurf/workflows/analyze.md": [],
+    ".windsurf/workflows/clarify.md": [],
+    ".windsurf/workflows/constitution.md": [],
+    ".windsurf/workflows/implement.md": [],
+    ".windsurf/workflows/plan.md": [],
+    ".windsurf/workflows/specify.md": [],
+    ".windsurf/workflows/speckit.analyze.md": [],
+    ".windsurf/workflows/speckit.checklist.md": [],
+    ".windsurf/workflows/speckit.clarify.md": [],
+    ".windsurf/workflows/speckit.constitution.md": [],
+    ".windsurf/workflows/speckit.implement.md": [],
+    ".windsurf/workflows/speckit.plan.md": [],
+    ".windsurf/workflows/speckit.specify.md": [],
+    ".windsurf/workflows/speckit.tasks.md": [],
+    ".windsurf/workflows/tasks.md": []
+  }
+}

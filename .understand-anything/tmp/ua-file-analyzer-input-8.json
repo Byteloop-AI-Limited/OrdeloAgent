@@ -1,0 +1,19 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": ".claude/skills/database-operations/scripts/_bootstrap.py", "language": "python", "sizeLines": 69, "fileCategory": "code"},
+    {"path": ".claude/skills/database-operations/scripts/ordelo_delete.py", "language": "python", "sizeLines": 49, "fileCategory": "code"},
+    {"path": ".claude/skills/database-operations/scripts/ordelo_insert.py", "language": "python", "sizeLines": 31, "fileCategory": "code"},
+    {"path": ".claude/skills/database-operations/scripts/ordelo_rpc.py", "language": "python", "sizeLines": 40, "fileCategory": "code"},
+    {"path": ".claude/skills/database-operations/scripts/ordelo_select.py", "language": "python", "sizeLines": 92, "fileCategory": "code"},
+    {"path": ".claude/skills/database-operations/scripts/ordelo_update.py", "language": "python", "sizeLines": 52, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    ".claude/skills/database-operations/scripts/_bootstrap.py": [],
+    ".claude/skills/database-operations/scripts/ordelo_delete.py": [".claude/skills/database-operations/scripts/_bootstrap.py"],
+    ".claude/skills/database-operations/scripts/ordelo_insert.py": [".claude/skills/database-operations/scripts/_bootstrap.py"],
+    ".claude/skills/database-operations/scripts/ordelo_rpc.py": [".claude/skills/database-operations/scripts/_bootstrap.py"],
+    ".claude/skills/database-operations/scripts/ordelo_select.py": [".claude/skills/database-operations/scripts/_bootstrap.py"],
+    ".claude/skills/database-operations/scripts/ordelo_update.py": [".claude/skills/database-operations/scripts/_bootstrap.py"]
+  }
+}

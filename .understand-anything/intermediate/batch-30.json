@@ -1,0 +1,257 @@
+{
+  "nodes": [
+    {
+      "id": "document:.claude/CLOUD_SESSION_SETUP.md",
+      "type": "document",
+      "name": "CLOUD_SESSION_SETUP.md",
+      "filePath": ".claude/CLOUD_SESSION_SETUP.md",
+      "summary": "Step-by-step guide for initialising the Python virtual environment in cloud-hosted Claude Code sessions, covering UV-based quick setup, manual setup, activation, and verification.",
+      "tags": ["documentation", "development", "configuration", "build-system"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.claude/proPlans/groovy-forging-peach.md",
+      "type": "document",
+      "name": "groovy-forging-peach.md",
+      "filePath": ".claude/proPlans/groovy-forging-peach.md",
+      "summary": "Detailed 8-step implementation plan for adding a takeaway restaurant confirmation flow, including SQL schema, a new router, callback handler updates, payment branching, and acceptance criteria with test cases.",
+      "tags": ["documentation", "development", "planning"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:.claude/SKILLS_SYMLINK.md",
+      "type": "document",
+      "name": "SKILLS_SYMLINK.md",
+      "filePath": ".claude/SKILLS_SYMLINK.md",
+      "summary": "Short guide explaining the symlink structure that exposes shared Claude Code skills to the project-local `.claude/skills/` directory.",
+      "tags": ["documentation", "development", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:.claude/skills/database-operations/evals/evals.json",
+      "type": "config",
+      "name": "evals.json",
+      "filePath": ".claude/skills/database-operations/evals/evals.json",
+      "summary": "Evaluation manifest for the database-operations Claude Code skill, listing named eval cases used to measure skill quality.",
+      "tags": ["configuration", "ci-cd", "documentation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:.claude/skills/database-operations/iteration-1/eval_metadata.json",
+      "type": "config",
+      "name": "eval_metadata.json",
+      "filePath": ".claude/skills/database-operations/iteration-1/eval_metadata.json",
+      "summary": "Iteration-1 evaluation metadata for the database-operations skill, capturing prompts, expected outputs, and scoring results.",
+      "tags": ["configuration", "documentation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.claude/skills/database-operations/SKILL_OPTIMIZED.md",
+      "type": "document",
+      "name": "SKILL_OPTIMIZED.md",
+      "filePath": ".claude/skills/database-operations/SKILL_OPTIMIZED.md",
+      "summary": "Optimised (condensed) version of the database-operations skill prompt, intended as a lighter-weight alternative to the full SKILL.md.",
+      "tags": ["documentation", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.claude/skills/database-operations/SKILL.md",
+      "type": "document",
+      "name": "SKILL.md",
+      "filePath": ".claude/skills/database-operations/SKILL.md",
+      "summary": "Full specification for the database-operations Claude Code skill, covering environment setup priorities, SELECT/INSERT/UPDATE/DELETE/RPC query patterns, DataModel lookups, safety rules, table references, and test/production switching.",
+      "tags": ["documentation", "database", "configuration"],
+      "complexity": "complex"
+    },
+    {
+      "id": "config:.claude/skills/pyrun/evals/evals.json",
+      "type": "config",
+      "name": "evals.json",
+      "filePath": ".claude/skills/pyrun/evals/evals.json",
+      "summary": "Evaluation manifest for the pyrun Claude Code skill listing named eval cases.",
+      "tags": ["configuration", "ci-cd"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:.claude/skills/pyrun/iteration-1/eval_metadata.json",
+      "type": "config",
+      "name": "eval_metadata.json",
+      "filePath": ".claude/skills/pyrun/iteration-1/eval_metadata.json",
+      "summary": "Iteration-1 evaluation metadata for the pyrun skill, capturing task prompts and scoring information.",
+      "tags": ["configuration", "documentation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:.claude/skills/pyrun/iteration-1/eval-1/with_skill/outputs/check_active_riders.py",
+      "type": "file",
+      "name": "check_active_riders.py",
+      "filePath": ".claude/skills/pyrun/iteration-1/eval-1/with_skill/outputs/check_active_riders.py",
+      "summary": "Pyrun skill eval artefact that queries the Supabase `rider_master` table to list active riders for the ELAS restaurant, demonstrating the skill's database query pattern.",
+      "tags": ["test", "database", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": ".claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/README.md",
+      "summary": "Baseline eval report for the pyrun skill showing results for an active-riders query task executed without the skill, including rider list, query strategy, and database schema notes.",
+      "tags": ["documentation", "test"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.claude/skills/pyrun/SKILL.md",
+      "type": "document",
+      "name": "SKILL.md",
+      "filePath": ".claude/skills/pyrun/SKILL.md",
+      "summary": "Full specification for the pyrun Claude Code skill, providing a workflow, standard import patterns, Supabase client fallback, database query examples, table reference, and iterative development guidance for executing Python snippets.",
+      "tags": ["documentation", "database", "configuration"],
+      "complexity": "complex"
+    },
+    {
+      "id": "config:.devcontainer/devcontainer.json",
+      "type": "config",
+      "name": "devcontainer.json",
+      "filePath": ".devcontainer/devcontainer.json",
+      "summary": "VS Code / Codespaces devcontainer configuration that builds the project image, installs Python/Docker extensions, runs UV sync on creation, and exposes port 80.",
+      "tags": ["configuration", "infrastructure", "containerization"],
+      "complexity": "simple",
+      "languageNotes": "Uses `build.dockerfile` pointing to the project Dockerfile; `postCreateCommand` runs `uv sync` to restore the virtual environment."
+    },
+    {
+      "id": "document:.specify/memory/constitution.md",
+      "type": "document",
+      "name": "constitution.md",
+      "filePath": ".specify/memory/constitution.md",
+      "summary": "Authoritative project constitution for OrdeloAgent covering five core principles (test-first, API-first, DB-triggered webhooks, observability, code quality), a full module architecture map, performance requirements, security standards, and governance rules.",
+      "tags": ["documentation", "development", "configuration"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:.understand-anything/.understandignore",
+      "type": "file",
+      "name": ".understandignore",
+      "filePath": ".understand-anything/.understandignore",
+      "summary": "Ignore-list for the understand-anything knowledge-graph scanner, excluding build artefacts, virtual environments, caches, test fixtures, and generated files from analysis.",
+      "tags": ["configuration", "build-system"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.windsurf/rules/code-documentation-rules.md",
+      "type": "document",
+      "name": "code-documentation-rules.md",
+      "filePath": ".windsurf/rules/code-documentation-rules.md",
+      "summary": "Windsurf IDE rule defining the required module-level docstring format for all Python files in the project.",
+      "tags": ["documentation", "configuration", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:.windsurf/settings.json",
+      "type": "config",
+      "name": "settings.json",
+      "filePath": ".windsurf/settings.json",
+      "summary": "Windsurf IDE workspace settings pinning the Python interpreter to the project's UV virtual environment.",
+      "tags": ["configuration", "build-system"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:.zed/tasks.json",
+      "type": "config",
+      "name": "tasks.json",
+      "filePath": ".zed/tasks.json",
+      "summary": "Zed editor task definitions for running the project's test suite and development server.",
+      "tags": ["configuration", "build-system", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:bkp_DockerfileBkp",
+      "type": "file",
+      "name": "bkp_DockerfileBkp",
+      "filePath": "bkp_DockerfileBkp",
+      "summary": "Archived backup of a previous Dockerfile used before the current production Dockerfile was introduced.",
+      "tags": ["containerization", "infrastructure"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:config/cat_con_setting.py",
+      "type": "file",
+      "name": "cat_con_setting.py",
+      "filePath": "config/cat_con_setting.py",
+      "summary": "Product catalog configuration module that initialises a DuckDB connection and provides a `CatConSettings` Pydantic-settings class for managing catalog data loaded from Google Sheets.",
+      "tags": ["configuration", "database", "service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:config/cat_con_setting.py:CatConSettings",
+      "type": "class",
+      "name": "CatConSettings",
+      "filePath": "config/cat_con_setting.py",
+      "lineRange": [15, 21],
+      "summary": "Pydantic BaseSettings subclass for catalog connection configuration with a stub `init_local_catalog` method for loading data from Google Sheets.",
+      "tags": ["configuration", "data-model"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:config/temp_cache/test_cde",
+      "type": "file",
+      "name": "test_cde",
+      "filePath": "config/temp_cache/test_cde",
+      "summary": "Temporary cache file storing a test code or credential snippet used during local development; not part of the production codebase.",
+      "tags": ["configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:Dockerfile_awslambda",
+      "type": "file",
+      "name": "Dockerfile_awslambda",
+      "filePath": "Dockerfile_awslambda",
+      "summary": "Dockerfile variant packaging the OrdeloAgent application for AWS Lambda deployment using a Lambda-compatible Python base image.",
+      "tags": ["containerization", "infrastructure", "deployment"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:Dockerfile_UVBCKP",
+      "type": "file",
+      "name": "Dockerfile_UVBCKP",
+      "filePath": "Dockerfile_UVBCKP",
+      "summary": "Backup Dockerfile using UV as the package installer, preserved for reference before switching to the current production Dockerfile.",
+      "tags": ["containerization", "infrastructure"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:gunicorn_conf.py",
+      "type": "file",
+      "name": "gunicorn_conf.py",
+      "filePath": "gunicorn_conf.py",
+      "summary": "Gunicorn server configuration that dynamically calculates worker count from CPU cores, reads bind/log/timeout settings from environment variables, and caps workers at 3 for production deployments.",
+      "tags": ["configuration", "infrastructure", "deployment"],
+      "complexity": "moderate",
+      "languageNotes": "Uses `multiprocessing.cpu_count()` to compute `workers_per_core * cores` then clamps against MAX_WORKERS=3; `worker_tmp_dir` is set to `/dev/shm` for RAM-backed temp files."
+    },
+    {
+      "id": "document:notebooks/App Review/app_review.md",
+      "type": "document",
+      "name": "app_review.md",
+      "filePath": "notebooks/App Review/app_review.md",
+      "summary": "Meta Business app review guide demonstrating use of the `whatsapp_business_management` and `whatsapp_business_messaging` permissions via the Facebook Graph API, including template CRUD and webhook registration evidence.",
+      "tags": ["documentation", "development"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:config/cat_con_setting.py",
+      "target": "class:config/cat_con_setting.py:CatConSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/cat_con_setting.py",
+      "target": "class:config/cat_con_setting.py:CatConSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

@@ -1,0 +1,1454 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 25,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "utils_common/docker_cleanup.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 12,
+      "nonEmptyLines": 8,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/edge_functions_sbase/edge_app_runner_manager.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 87,
+      "nonEmptyLines": 86,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/edge_functions_sbase/edge_owntracks-webhook.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 42,
+      "nonEmptyLines": 42,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/edge_functions_sbase/README.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 53,
+      "nonEmptyLines": 41,
+      "sections": [
+        {
+          "heading": "Edge Functions (Supabase/Deno)",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Existing Edge Functions",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "1. App Runner Manager (`edge_app_runner_manager.ts`)",
+          "level": 3,
+          "line": 7
+        },
+        {
+          "heading": "2. OwnTracks Webhook (`edge_owntracks-webhook.ts`)",
+          "level": 3,
+          "line": 18
+        },
+        {
+          "heading": "Local Development & Execution",
+          "level": 2,
+          "line": 27
+        },
+        {
+          "heading": "1. Install Deno",
+          "level": 3,
+          "line": 29
+        },
+        {
+          "heading": "2. Configuration",
+          "level": 3,
+          "line": 34
+        },
+        {
+          "heading": "3. Running Locally",
+          "level": 3,
+          "line": 37
+        },
+        {
+          "heading": "4. Testing",
+          "level": 3,
+          "line": 50
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": "utils_common/edge_functions_sbase/test_app_runner.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 43,
+      "nonEmptyLines": 35,
+      "functions": [
+        {
+          "name": "test_pause_service",
+          "startLine": 17,
+          "endLine": 25,
+          "params": [
+            "service_name"
+          ]
+        },
+        {
+          "name": "test_resume_service",
+          "startLine": 28,
+          "endLine": 36,
+          "params": [
+            "service_name"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "test_pause_service",
+          "line": 17,
+          "isDefault": false
+        },
+        {
+          "name": "test_resume_service",
+          "line": 28,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "test_pause_service",
+          "callee": "print",
+          "lineNumber": 18
+        },
+        {
+          "caller": "test_pause_service",
+          "callee": "requests.get",
+          "lineNumber": 21
+        },
+        {
+          "caller": "test_pause_service",
+          "callee": "print",
+          "lineNumber": 22
+        },
+        {
+          "caller": "test_pause_service",
+          "callee": "print",
+          "lineNumber": 23
+        },
+        {
+          "caller": "test_pause_service",
+          "callee": "json.dumps",
+          "lineNumber": 23
+        },
+        {
+          "caller": "test_pause_service",
+          "callee": "response.json",
+          "lineNumber": 23
+        },
+        {
+          "caller": "test_pause_service",
+          "callee": "print",
+          "lineNumber": 25
+        },
+        {
+          "caller": "test_resume_service",
+          "callee": "print",
+          "lineNumber": 29
+        },
+        {
+          "caller": "test_resume_service",
+          "callee": "requests.get",
+          "lineNumber": 32
+        },
+        {
+          "caller": "test_resume_service",
+          "callee": "print",
+          "lineNumber": 33
+        },
+        {
+          "caller": "test_resume_service",
+          "callee": "print",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_resume_service",
+          "callee": "json.dumps",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_resume_service",
+          "callee": "response.json",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_resume_service",
+          "callee": "print",
+          "lineNumber": 36
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 2,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/edge_functions_sbase/test_owntracks_webhook.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 53,
+      "nonEmptyLines": 44,
+      "functions": [
+        {
+          "name": "test_owntracks_webhook",
+          "startLine": 17,
+          "endLine": 49,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "test_owntracks_webhook",
+          "line": 17,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "test_owntracks_webhook",
+          "callee": "print",
+          "lineNumber": 18
+        },
+        {
+          "caller": "test_owntracks_webhook",
+          "callee": "int",
+          "lineNumber": 31
+        },
+        {
+          "caller": "test_owntracks_webhook",
+          "callee": "time.time",
+          "lineNumber": 31
+        },
+        {
+          "caller": "test_owntracks_webhook",
+          "callee": "requests.post",
+          "lineNumber": 42
+        },
+        {
+          "caller": "test_owntracks_webhook",
+          "callee": "print",
+          "lineNumber": 43
+        },
+        {
+          "caller": "test_owntracks_webhook",
+          "callee": "print",
+          "lineNumber": 45
+        },
+        {
+          "caller": "test_owntracks_webhook",
+          "callee": "json.dumps",
+          "lineNumber": 45
+        },
+        {
+          "caller": "test_owntracks_webhook",
+          "callee": "response.json",
+          "lineNumber": 45
+        },
+        {
+          "caller": "test_owntracks_webhook",
+          "callee": "print",
+          "lineNumber": 47
+        },
+        {
+          "caller": "test_owntracks_webhook",
+          "callee": "print",
+          "lineNumber": 49
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/live_location/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 6,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/live_location/live_track.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 47,
+      "nonEmptyLines": 39,
+      "definitions": [
+        {
+          "name": "live",
+          "kind": "table",
+          "fields": [
+            "id",
+            "battery",
+            "created_at",
+            "latitude",
+            "longitude",
+            "topic",
+            "create_ts",
+            "user_id",
+            "device_id",
+            "type",
+            "connection"
+          ],
+          "startLine": 2,
+          "endLine": 18
+        },
+        {
+          "name": "idx_live_track_user",
+          "kind": "index",
+          "fields": [],
+          "startLine": 21,
+          "endLine": 21
+        },
+        {
+          "name": "idx_live_track_device",
+          "kind": "index",
+          "fields": [],
+          "startLine": 22,
+          "endLine": 22
+        },
+        {
+          "name": "idx_live_track_created_at",
+          "kind": "index",
+          "fields": [],
+          "startLine": 23,
+          "endLine": 23
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 4
+      }
+    },
+    {
+      "path": "utils_common/live_location/read_pickly_file.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 192,
+      "nonEmptyLines": 166,
+      "functions": [
+        {
+          "name": "read_pickle_file",
+          "startLine": 21,
+          "endLine": 42,
+          "params": [
+            "file_path"
+          ]
+        },
+        {
+          "name": "create_duckdb_table",
+          "startLine": 45,
+          "endLine": 64,
+          "params": [
+            "data_list"
+          ]
+        },
+        {
+          "name": "query_location_data",
+          "startLine": 68,
+          "endLine": 171,
+          "params": [
+            "con",
+            "query_type"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "read_pickle_file",
+          "line": 21,
+          "isDefault": false
+        },
+        {
+          "name": "create_duckdb_table",
+          "line": 45,
+          "isDefault": false
+        },
+        {
+          "name": "query_location_data",
+          "line": 68,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "read_pickle_file",
+          "callee": "open",
+          "lineNumber": 33
+        },
+        {
+          "caller": "read_pickle_file",
+          "callee": "pickle.load",
+          "lineNumber": 36
+        },
+        {
+          "caller": "read_pickle_file",
+          "callee": "data_list.append",
+          "lineNumber": 37
+        },
+        {
+          "caller": "read_pickle_file",
+          "callee": "print",
+          "lineNumber": 41
+        },
+        {
+          "caller": "create_duckdb_table",
+          "callee": "pd.DataFrame",
+          "lineNumber": 56
+        },
+        {
+          "caller": "create_duckdb_table",
+          "callee": "duckdb.connect",
+          "lineNumber": 59
+        },
+        {
+          "caller": "create_duckdb_table",
+          "callee": "con.register",
+          "lineNumber": 62
+        },
+        {
+          "caller": "query_location_data",
+          "callee": "con.execute(query).df().to_dict",
+          "lineNumber": 171
+        },
+        {
+          "caller": "query_location_data",
+          "callee": "con.execute(query).df",
+          "lineNumber": 171
+        },
+        {
+          "caller": "query_location_data",
+          "callee": "con.execute",
+          "lineNumber": 171
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 3,
+        "functionCount": 3,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/misc_setup/setup_ipykernel_on_startup.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 31,
+      "nonEmptyLines": 25,
+      "functions": [
+        {
+          "name": "configure_pythonpath",
+          "startLine": 10,
+          "endLine": 28,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "configure_pythonpath",
+          "line": 10,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "configure_pythonpath",
+          "callee": "subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], \n                                            universal_newlines=True).strip",
+          "lineNumber": 17
+        },
+        {
+          "caller": "configure_pythonpath",
+          "callee": "subprocess.check_output",
+          "lineNumber": 17
+        },
+        {
+          "caller": "configure_pythonpath",
+          "callee": "sys.path.insert",
+          "lineNumber": 25
+        },
+        {
+          "caller": "configure_pythonpath",
+          "callee": "RuntimeError",
+          "lineNumber": 28
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/misc_setup/uv_setup.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 6,
+      "nonEmptyLines": 5,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": "utils_common/order_management/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 8,
+      "nonEmptyLines": 8,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/order_management/food_order.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 85,
+      "nonEmptyLines": 73,
+      "definitions": [
+        {
+          "name": "daily_seq_last_value",
+          "kind": "table",
+          "fields": [
+            "last_value_date"
+          ],
+          "startLine": 4,
+          "endLine": 6
+        },
+        {
+          "name": "public",
+          "kind": "table",
+          "fields": [
+            "order_number",
+            "order_id",
+            "seq_id",
+            "recipient",
+            "notes",
+            "thread_id",
+            "action",
+            "total_price",
+            "final_order_value",
+            "rest_cost",
+            "service_charge",
+            "delivery_fee",
+            "small_order_fee",
+            "commission_rate",
+            "payment_status",
+            "order_dt",
+            "order_dtts"
+          ],
+          "startLine": 30,
+          "endLine": 48
+        },
+        {
+          "name": "public",
+          "kind": "table",
+          "fields": [
+            "order_id",
+            "product_name",
+            "sku",
+            "quantity",
+            "price",
+            "modifications"
+          ],
+          "startLine": 52,
+          "endLine": 60
+        },
+        {
+          "name": "public",
+          "kind": "table",
+          "fields": [
+            "order_id",
+            "product_name",
+            "sku",
+            "quantity",
+            "price",
+            "modifications"
+          ],
+          "startLine": 66,
+          "endLine": 74
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 4
+      }
+    },
+    {
+      "path": "utils_common/order_management/order_num_gen.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 59,
+      "nonEmptyLines": 48,
+      "functions": [
+        {
+          "name": "create_order_number",
+          "startLine": 20,
+          "endLine": 34,
+          "params": [
+            "recipient"
+          ]
+        },
+        {
+          "name": "decode_order_number",
+          "startLine": 36,
+          "endLine": 45,
+          "params": [
+            "encoded_string"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "create_order_number",
+          "line": 20,
+          "isDefault": false
+        },
+        {
+          "name": "decode_order_number",
+          "line": 36,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "create_order_number",
+          "callee": "len",
+          "lineNumber": 23
+        },
+        {
+          "caller": "create_order_number",
+          "callee": "number.isdigit",
+          "lineNumber": 23
+        },
+        {
+          "caller": "create_order_number",
+          "callee": "ValueError",
+          "lineNumber": 24
+        },
+        {
+          "caller": "create_order_number",
+          "callee": "datetime.now().strftime",
+          "lineNumber": 26
+        },
+        {
+          "caller": "create_order_number",
+          "callee": "datetime.now",
+          "lineNumber": 26
+        },
+        {
+          "caller": "create_order_number",
+          "callee": "hashlib.sha256(salted_number.encode()).hexdigest",
+          "lineNumber": 28
+        },
+        {
+          "caller": "create_order_number",
+          "callee": "hashlib.sha256",
+          "lineNumber": 28
+        },
+        {
+          "caller": "create_order_number",
+          "callee": "salted_number.encode",
+          "lineNumber": 28
+        },
+        {
+          "caller": "create_order_number",
+          "callee": "range",
+          "lineNumber": 31
+        },
+        {
+          "caller": "create_order_number",
+          "callee": "int",
+          "lineNumber": 32
+        },
+        {
+          "caller": "create_order_number",
+          "callee": "len",
+          "lineNumber": 32
+        },
+        {
+          "caller": "decode_order_number",
+          "callee": "len",
+          "lineNumber": 38
+        },
+        {
+          "caller": "decode_order_number",
+          "callee": "ValueError",
+          "lineNumber": 39
+        },
+        {
+          "caller": "decode_order_number",
+          "callee": "range",
+          "lineNumber": 41
+        },
+        {
+          "caller": "decode_order_number",
+          "callee": "str(number).zfill",
+          "lineNumber": 42
+        },
+        {
+          "caller": "decode_order_number",
+          "callee": "str",
+          "lineNumber": 42
+        },
+        {
+          "caller": "decode_order_number",
+          "callee": "create_order_number",
+          "lineNumber": 43
+        },
+        {
+          "caller": "decode_order_number",
+          "callee": "ValueError",
+          "lineNumber": 45
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 2,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/payment_ms/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 7,
+      "nonEmptyLines": 7,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/pricing_ms/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 10,
+      "nonEmptyLines": 9,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/pricing_ms/TBD_pricing_logic.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 95,
+      "nonEmptyLines": 75,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/thread_handlers.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 83,
+      "nonEmptyLines": 60,
+      "functions": [
+        {
+          "name": "get_active_thread",
+          "startLine": 10,
+          "endLine": 21,
+          "params": [
+            "from_number"
+          ]
+        },
+        {
+          "name": "create_new_entry",
+          "startLine": 24,
+          "endLine": 42,
+          "params": [
+            "from_number"
+          ]
+        },
+        {
+          "name": "add_new_thread",
+          "startLine": 45,
+          "endLine": 56,
+          "params": [
+            "from_number"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "get_active_thread",
+          "line": 10,
+          "isDefault": false
+        },
+        {
+          "name": "create_new_entry",
+          "line": 24,
+          "isDefault": false
+        },
+        {
+          "name": "add_new_thread",
+          "line": 45,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "get_active_thread",
+          "callee": "reversed",
+          "lineNumber": 17
+        },
+        {
+          "caller": "create_new_entry",
+          "callee": "get_active_thread",
+          "lineNumber": 31
+        },
+        {
+          "caller": "create_new_entry",
+          "callee": "str",
+          "lineNumber": 36
+        },
+        {
+          "caller": "create_new_entry",
+          "callee": "uuid.uuid4",
+          "lineNumber": 36
+        },
+        {
+          "caller": "create_new_entry",
+          "callee": "datetime.now().isoformat",
+          "lineNumber": 37
+        },
+        {
+          "caller": "create_new_entry",
+          "callee": "datetime.now",
+          "lineNumber": 37
+        },
+        {
+          "caller": "create_new_entry",
+          "callee": "thread_dict[from_number].append",
+          "lineNumber": 41
+        },
+        {
+          "caller": "add_new_thread",
+          "callee": "create_new_entry",
+          "lineNumber": 56
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 3,
+        "functionCount": 3,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/waba_es/embedded_signup_guide.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 278,
+      "nonEmptyLines": 194,
+      "sections": [
+        {
+          "heading": "WhatsApp Embedded Signup — Onboarding Guide",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Table of Contents",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 23
+        },
+        {
+          "heading": "Architecture",
+          "level": 2,
+          "line": 36
+        },
+        {
+          "heading": "Configuration & Credentials",
+          "level": 2,
+          "line": 65
+        },
+        {
+          "heading": "Step-by-Step Flow",
+          "level": 2,
+          "line": 88
+        },
+        {
+          "heading": "Step 1: Render Embedded Signup Dialog",
+          "level": 3,
+          "line": 90
+        },
+        {
+          "heading": "Step 2: Receive `WA_EMBEDDED_SIGNUP` Message Event",
+          "level": 3,
+          "line": 112
+        },
+        {
+          "heading": "Step 3: Receive `FB_AUTH_RESPONSE` Callback",
+          "level": 3,
+          "line": 125
+        },
+        {
+          "heading": "Step 4: Exchange Code for Business Token",
+          "level": 3,
+          "line": 133
+        },
+        {
+          "heading": "Step 4a: Persist Onboarding Data",
+          "level": 3,
+          "line": 146
+        },
+        {
+          "heading": "Step 5: Subscribe App to WABA",
+          "level": 3,
+          "line": 154
+        },
+        {
+          "heading": "Step 5a: Update PIN (Optional, Currently Skipped)",
+          "level": 3,
+          "line": 165
+        },
+        {
+          "heading": "Step 6: Register Phone Number",
+          "level": 3,
+          "line": 171
+        },
+        {
+          "heading": "Step 7: Send Test Message",
+          "level": 3,
+          "line": 183
+        },
+        {
+          "heading": "Token Types",
+          "level": 2,
+          "line": 197
+        },
+        {
+          "heading": "Database Persistence",
+          "level": 2,
+          "line": 210
+        },
+        {
+          "heading": "`waba_es` Table",
+          "level": 3,
+          "line": 212
+        },
+        {
+          "heading": "Pre-Signup Setup",
+          "level": 3,
+          "line": 226
+        },
+        {
+          "heading": "Post-Onboarding",
+          "level": 2,
+          "line": 239
+        },
+        {
+          "heading": "Troubleshooting",
+          "level": 2,
+          "line": 261
+        },
+        {
+          "heading": "Common Issues",
+          "level": 3,
+          "line": 263
+        },
+        {
+          "heading": "Verifying a Successful Onboarding",
+          "level": 3,
+          "line": 273
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 23
+      }
+    },
+    {
+      "path": "utils_common/waba_es/waba_es_configuration.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 55,
+      "nonEmptyLines": 49,
+      "sections": [
+        {
+          "heading": "WhatsApp Embedded Signup Configuration Guide",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Embedded Signup Configuration Settings",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "!!! Actions — Assign New WABA to System User !!!",
+          "level": 2,
+          "line": 45
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 3
+      }
+    },
+    {
+      "path": "utils_common/waba_utils/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils/aws_setting.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 165,
+      "nonEmptyLines": 142,
+      "functions": [
+        {
+          "name": "is_running_on_lambda",
+          "startLine": 59,
+          "endLine": 61,
+          "params": []
+        },
+        {
+          "name": "get_secrets_client",
+          "startLine": 64,
+          "endLine": 73,
+          "params": []
+        },
+        {
+          "name": "get_ordelo_agent_env",
+          "startLine": 76,
+          "endLine": 94,
+          "params": [
+            "secret_name"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "AwsSettings",
+          "startLine": 27,
+          "endLine": 56,
+          "methods": [
+            "secrets_client",
+            "get_secret"
+          ],
+          "properties": [
+            "key_id",
+            "access_key",
+            "region",
+            "secret_name"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "AwsSettings",
+          "line": 27,
+          "isDefault": false
+        },
+        {
+          "name": "is_running_on_lambda",
+          "line": 59,
+          "isDefault": false
+        },
+        {
+          "name": "get_secrets_client",
+          "line": 64,
+          "isDefault": false
+        },
+        {
+          "name": "get_ordelo_agent_env",
+          "line": 76,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "secrets_client",
+          "callee": "boto3.Session",
+          "lineNumber": 40
+        },
+        {
+          "caller": "secrets_client",
+          "callee": "session.client",
+          "lineNumber": 45
+        },
+        {
+          "caller": "get_secret",
+          "callee": "self.secrets_client.get_secret_value",
+          "lineNumber": 49
+        },
+        {
+          "caller": "get_secret",
+          "callee": "print",
+          "lineNumber": 53
+        },
+        {
+          "caller": "get_secret",
+          "callee": "print",
+          "lineNumber": 55
+        },
+        {
+          "caller": "get_secrets_client",
+          "callee": "is_running_on_lambda",
+          "lineNumber": 66
+        },
+        {
+          "caller": "get_secrets_client",
+          "callee": "os.environ.get",
+          "lineNumber": 68
+        },
+        {
+          "caller": "get_secrets_client",
+          "callee": "boto3.Session",
+          "lineNumber": 69
+        },
+        {
+          "caller": "get_secrets_client",
+          "callee": "session.client",
+          "lineNumber": 70
+        },
+        {
+          "caller": "get_secrets_client",
+          "callee": "AwsSettings",
+          "lineNumber": 72
+        },
+        {
+          "caller": "get_ordelo_agent_env",
+          "callee": "get_secrets_client",
+          "lineNumber": 78
+        },
+        {
+          "caller": "get_ordelo_agent_env",
+          "callee": "is_running_on_lambda",
+          "lineNumber": 82
+        },
+        {
+          "caller": "get_ordelo_agent_env",
+          "callee": "AwsSettings",
+          "lineNumber": 83
+        },
+        {
+          "caller": "get_ordelo_agent_env",
+          "callee": "os.environ.get",
+          "lineNumber": 85
+        },
+        {
+          "caller": "get_ordelo_agent_env",
+          "callee": "client.get_secret_value",
+          "lineNumber": 87
+        },
+        {
+          "caller": "get_ordelo_agent_env",
+          "callee": "json.loads",
+          "lineNumber": 88
+        },
+        {
+          "caller": "get_ordelo_agent_env",
+          "callee": "print",
+          "lineNumber": 91
+        },
+        {
+          "caller": "get_ordelo_agent_env",
+          "callee": "print",
+          "lineNumber": 93
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 4,
+        "functionCount": 3,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "watomation/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 17,
+      "nonEmptyLines": 17,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "zedScripts/run_cell.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 67,
+      "nonEmptyLines": 53,
+      "functions": [
+        {
+          "name": "main",
+          "startLine": 8,
+          "endLine": 64,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "main",
+          "line": 8,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "main",
+          "callee": "os.environ.get",
+          "lineNumber": 9
+        },
+        {
+          "caller": "main",
+          "callee": "os.environ.get",
+          "lineNumber": 10
+        },
+        {
+          "caller": "main",
+          "callee": "os.environ.get",
+          "lineNumber": 11
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 14
+        },
+        {
+          "caller": "main",
+          "callee": "sorted",
+          "lineNumber": 15
+        },
+        {
+          "caller": "main",
+          "callee": "os.environ.items",
+          "lineNumber": 15
+        },
+        {
+          "caller": "main",
+          "callee": "k.startswith",
+          "lineNumber": 16
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 17
+        },
+        {
+          "caller": "main",
+          "callee": "sys.exit",
+          "lineNumber": 18
+        },
+        {
+          "caller": "main",
+          "callee": "int",
+          "lineNumber": 20
+        },
+        {
+          "caller": "main",
+          "callee": "int",
+          "lineNumber": 21
+        },
+        {
+          "caller": "main",
+          "callee": "open",
+          "lineNumber": 23
+        },
+        {
+          "caller": "main",
+          "callee": "f.read",
+          "lineNumber": 24
+        },
+        {
+          "caller": "main",
+          "callee": "text.splitlines",
+          "lineNumber": 28
+        },
+        {
+          "caller": "main",
+          "callee": "len",
+          "lineNumber": 29
+        },
+        {
+          "caller": "main",
+          "callee": "len",
+          "lineNumber": 30
+        },
+        {
+          "caller": "main",
+          "callee": "sum",
+          "lineNumber": 32
+        },
+        {
+          "caller": "main",
+          "callee": "len",
+          "lineNumber": 32
+        },
+        {
+          "caller": "main",
+          "callee": "range",
+          "lineNumber": 32
+        },
+        {
+          "caller": "main",
+          "callee": "text.find",
+          "lineNumber": 35
+        },
+        {
+          "caller": "main",
+          "callee": "len",
+          "lineNumber": 38
+        },
+        {
+          "caller": "main",
+          "callee": "text.rfind",
+          "lineNumber": 41
+        },
+        {
+          "caller": "main",
+          "callee": "tempfile.NamedTemporaryFile",
+          "lineNumber": 46
+        },
+        {
+          "caller": "main",
+          "callee": "tmp.write",
+          "lineNumber": 47
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 50
+        },
+        {
+          "caller": "main",
+          "callee": "os.path.basename",
+          "lineNumber": 50
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 52
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 54
+        },
+        {
+          "caller": "main",
+          "callee": "subprocess.run",
+          "lineNumber": 57
+        },
+        {
+          "caller": "main",
+          "callee": "os.unlink",
+          "lineNumber": 60
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    }
+  ]
+}

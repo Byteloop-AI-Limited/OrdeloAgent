@@ -1,0 +1,258 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 5,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".specify/scripts/bash/check-prerequisites.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 166,
+      "nonEmptyLines": 141,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": ".specify/scripts/bash/common.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 156,
+      "nonEmptyLines": 131,
+      "functions": [
+        {
+          "name": "get_repo_root",
+          "startLine": 5,
+          "endLine": 13,
+          "params": []
+        },
+        {
+          "name": "get_current_branch",
+          "startLine": 16,
+          "endLine": 58,
+          "params": []
+        },
+        {
+          "name": "has_git",
+          "startLine": 61,
+          "endLine": 63,
+          "params": []
+        },
+        {
+          "name": "check_feature_branch",
+          "startLine": 65,
+          "endLine": 82,
+          "params": []
+        },
+        {
+          "name": "get_feature_dir",
+          "startLine": 84,
+          "endLine": 84,
+          "params": []
+        },
+        {
+          "name": "find_feature_dir_by_prefix",
+          "startLine": 88,
+          "endLine": 125,
+          "params": []
+        },
+        {
+          "name": "get_feature_paths",
+          "startLine": 127,
+          "endLine": 152,
+          "params": []
+        },
+        {
+          "name": "check_file",
+          "startLine": 154,
+          "endLine": 154,
+          "params": []
+        },
+        {
+          "name": "check_dir",
+          "startLine": 155,
+          "endLine": 155,
+          "params": []
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 9,
+        "classCount": 0
+      }
+    },
+    {
+      "path": ".specify/scripts/bash/create-new-feature.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 206,
+      "nonEmptyLines": 178,
+      "functions": [
+        {
+          "name": "find_repo_root",
+          "startLine": 56,
+          "endLine": 66,
+          "params": []
+        },
+        {
+          "name": "generate_branch_name",
+          "startLine": 105,
+          "endLine": 149,
+          "params": []
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": ".specify/scripts/bash/setup-plan.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 61,
+      "nonEmptyLines": 51,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": ".specify/scripts/bash/update-agent-context.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 739,
+      "nonEmptyLines": 622,
+      "functions": [
+        {
+          "name": "log_info",
+          "startLine": 88,
+          "endLine": 90,
+          "params": []
+        },
+        {
+          "name": "log_success",
+          "startLine": 92,
+          "endLine": 94,
+          "params": []
+        },
+        {
+          "name": "log_error",
+          "startLine": 96,
+          "endLine": 98,
+          "params": []
+        },
+        {
+          "name": "log_warning",
+          "startLine": 100,
+          "endLine": 102,
+          "params": []
+        },
+        {
+          "name": "cleanup",
+          "startLine": 105,
+          "endLine": 110,
+          "params": []
+        },
+        {
+          "name": "validate_environment",
+          "startLine": 119,
+          "endLine": 146,
+          "params": []
+        },
+        {
+          "name": "extract_plan_field",
+          "startLine": 152,
+          "endLine": 162,
+          "params": []
+        },
+        {
+          "name": "parse_plan_data",
+          "startLine": 164,
+          "endLine": 202,
+          "params": []
+        },
+        {
+          "name": "format_technology_stack",
+          "startLine": 204,
+          "endLine": 226,
+          "params": []
+        },
+        {
+          "name": "get_project_structure",
+          "startLine": 232,
+          "endLine": 240,
+          "params": []
+        },
+        {
+          "name": "get_commands_for_language",
+          "startLine": 242,
+          "endLine": 259,
+          "params": []
+        },
+        {
+          "name": "get_language_conventions",
+          "startLine": 261,
+          "endLine": 264,
+          "params": []
+        },
+        {
+          "name": "create_new_agent_file",
+          "startLine": 266,
+          "endLine": 354,
+          "params": []
+        },
+        {
+          "name": "update_existing_agent_file",
+          "startLine": 359,
+          "endLine": 469,
+          "params": []
+        },
+        {
+          "name": "update_agent_file",
+          "startLine": 474,
+          "endLine": 542,
+          "params": []
+        },
+        {
+          "name": "update_specific_agent",
+          "startLine": 548,
+          "endLine": 597,
+          "params": []
+        },
+        {
+          "name": "update_all_existing_agents",
+          "startLine": 599,
+          "endLine": 668,
+          "params": []
+        },
+        {
+          "name": "print_summary",
+          "startLine": 669,
+          "endLine": 688,
+          "params": []
+        },
+        {
+          "name": "main",
+          "startLine": 694,
+          "endLine": 733,
+          "params": []
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 19,
+        "classCount": 0
+      }
+    }
+  ]
+}

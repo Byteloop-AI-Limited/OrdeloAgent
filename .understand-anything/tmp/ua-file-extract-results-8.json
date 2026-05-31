@@ -1,0 +1,898 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 6,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".claude/skills/database-operations/scripts/_bootstrap.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 69,
+      "nonEmptyLines": 52,
+      "functions": [
+        {
+          "name": "_looks_like_repo_root",
+          "startLine": 8,
+          "endLine": 9,
+          "params": [
+            "path"
+          ]
+        },
+        {
+          "name": "ensure_repo_on_path",
+          "startLine": 12,
+          "endLine": 31,
+          "params": []
+        },
+        {
+          "name": "get_client_ordelo",
+          "startLine": 34,
+          "endLine": 39,
+          "params": [
+            "schema"
+          ]
+        },
+        {
+          "name": "load_json",
+          "startLine": 42,
+          "endLine": 49,
+          "params": [
+            "json_str",
+            "json_file"
+          ]
+        },
+        {
+          "name": "coerce_scalar",
+          "startLine": 52,
+          "endLine": 56,
+          "params": [
+            "value"
+          ]
+        },
+        {
+          "name": "parse_key_value",
+          "startLine": 59,
+          "endLine": 69,
+          "params": [
+            "pairs"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "_looks_like_repo_root",
+          "line": 8,
+          "isDefault": false
+        },
+        {
+          "name": "ensure_repo_on_path",
+          "line": 12,
+          "isDefault": false
+        },
+        {
+          "name": "get_client_ordelo",
+          "line": 34,
+          "isDefault": false
+        },
+        {
+          "name": "load_json",
+          "line": 42,
+          "isDefault": false
+        },
+        {
+          "name": "coerce_scalar",
+          "line": 52,
+          "isDefault": false
+        },
+        {
+          "name": "parse_key_value",
+          "line": 59,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "_looks_like_repo_root",
+          "callee": "(path / \"config\" / \"__init__.py\").exists",
+          "lineNumber": 9
+        },
+        {
+          "caller": "_looks_like_repo_root",
+          "callee": "(path / \"config\").is_dir",
+          "lineNumber": 9
+        },
+        {
+          "caller": "ensure_repo_on_path",
+          "callee": "os.environ.get",
+          "lineNumber": 15
+        },
+        {
+          "caller": "ensure_repo_on_path",
+          "callee": "candidates.append",
+          "lineNumber": 17
+        },
+        {
+          "caller": "ensure_repo_on_path",
+          "callee": "Path(env_root).expanduser",
+          "lineNumber": 17
+        },
+        {
+          "caller": "ensure_repo_on_path",
+          "callee": "Path",
+          "lineNumber": 17
+        },
+        {
+          "caller": "ensure_repo_on_path",
+          "callee": "Path.cwd",
+          "lineNumber": 19
+        },
+        {
+          "caller": "ensure_repo_on_path",
+          "callee": "candidates.append",
+          "lineNumber": 20
+        },
+        {
+          "caller": "ensure_repo_on_path",
+          "callee": "candidates.extend",
+          "lineNumber": 21
+        },
+        {
+          "caller": "ensure_repo_on_path",
+          "callee": "candidate.resolve",
+          "lineNumber": 24
+        },
+        {
+          "caller": "ensure_repo_on_path",
+          "callee": "_looks_like_repo_root",
+          "lineNumber": 25
+        },
+        {
+          "caller": "ensure_repo_on_path",
+          "callee": "sys.path.insert",
+          "lineNumber": 26
+        },
+        {
+          "caller": "ensure_repo_on_path",
+          "callee": "str",
+          "lineNumber": 26
+        },
+        {
+          "caller": "ensure_repo_on_path",
+          "callee": "RuntimeError",
+          "lineNumber": 29
+        },
+        {
+          "caller": "get_client_ordelo",
+          "callee": "ensure_repo_on_path",
+          "lineNumber": 35
+        },
+        {
+          "caller": "get_client_ordelo",
+          "callee": "client_ordelo.schema",
+          "lineNumber": 39
+        },
+        {
+          "caller": "load_json",
+          "callee": "ValueError",
+          "lineNumber": 44
+        },
+        {
+          "caller": "load_json",
+          "callee": "json.loads",
+          "lineNumber": 46
+        },
+        {
+          "caller": "load_json",
+          "callee": "Path(json_file).read_text",
+          "lineNumber": 46
+        },
+        {
+          "caller": "load_json",
+          "callee": "Path",
+          "lineNumber": 46
+        },
+        {
+          "caller": "load_json",
+          "callee": "json.loads",
+          "lineNumber": 48
+        },
+        {
+          "caller": "load_json",
+          "callee": "ValueError",
+          "lineNumber": 49
+        },
+        {
+          "caller": "coerce_scalar",
+          "callee": "json.loads",
+          "lineNumber": 54
+        },
+        {
+          "caller": "parse_key_value",
+          "callee": "ValueError",
+          "lineNumber": 63
+        },
+        {
+          "caller": "parse_key_value",
+          "callee": "item.split",
+          "lineNumber": 64
+        },
+        {
+          "caller": "parse_key_value",
+          "callee": "key.strip",
+          "lineNumber": 65
+        },
+        {
+          "caller": "parse_key_value",
+          "callee": "ValueError",
+          "lineNumber": 67
+        },
+        {
+          "caller": "parse_key_value",
+          "callee": "parsed.append",
+          "lineNumber": 68
+        },
+        {
+          "caller": "parse_key_value",
+          "callee": "coerce_scalar",
+          "lineNumber": 68
+        },
+        {
+          "caller": "parse_key_value",
+          "callee": "raw.strip",
+          "lineNumber": 68
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 6,
+        "functionCount": 6,
+        "classCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/scripts/ordelo_delete.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 49,
+      "nonEmptyLines": 39,
+      "functions": [
+        {
+          "name": "main",
+          "startLine": 7,
+          "endLine": 45,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "main",
+          "line": 7,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "main",
+          "callee": "argparse.ArgumentParser",
+          "lineNumber": 8
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 11
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 12
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 13
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 20
+        },
+        {
+          "caller": "main",
+          "callee": "parser.parse_args",
+          "lineNumber": 25
+        },
+        {
+          "caller": "main",
+          "callee": "SystemExit",
+          "lineNumber": 28
+        },
+        {
+          "caller": "main",
+          "callee": "SystemExit",
+          "lineNumber": 30
+        },
+        {
+          "caller": "main",
+          "callee": "ensure_repo_on_path",
+          "lineNumber": 32
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.schema",
+          "lineNumber": 37
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.table(args.table).delete",
+          "lineNumber": 39
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.table",
+          "lineNumber": 39
+        },
+        {
+          "caller": "main",
+          "callee": "parse_key_value",
+          "lineNumber": 40
+        },
+        {
+          "caller": "main",
+          "callee": "q.eq",
+          "lineNumber": 41
+        },
+        {
+          "caller": "main",
+          "callee": "q.execute",
+          "lineNumber": 43
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 44
+        },
+        {
+          "caller": "main",
+          "callee": "json.dumps",
+          "lineNumber": 44
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/scripts/ordelo_insert.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 31,
+      "nonEmptyLines": 23,
+      "functions": [
+        {
+          "name": "main",
+          "startLine": 7,
+          "endLine": 27,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "main",
+          "line": 7,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "main",
+          "callee": "argparse.ArgumentParser",
+          "lineNumber": 8
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 11
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 12
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 13
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 14
+        },
+        {
+          "caller": "main",
+          "callee": "parser.parse_args",
+          "lineNumber": 15
+        },
+        {
+          "caller": "main",
+          "callee": "load_json",
+          "lineNumber": 17
+        },
+        {
+          "caller": "main",
+          "callee": "ensure_repo_on_path",
+          "lineNumber": 18
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.schema",
+          "lineNumber": 23
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.table(args.table).insert(payload).execute",
+          "lineNumber": 25
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.table(args.table).insert",
+          "lineNumber": 25
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.table",
+          "lineNumber": 25
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 26
+        },
+        {
+          "caller": "main",
+          "callee": "json.dumps",
+          "lineNumber": 26
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/scripts/ordelo_rpc.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 40,
+      "nonEmptyLines": 31,
+      "functions": [
+        {
+          "name": "main",
+          "startLine": 7,
+          "endLine": 36,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "main",
+          "line": 7,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "main",
+          "callee": "argparse.ArgumentParser",
+          "lineNumber": 8
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 11
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 12
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 17
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 18
+        },
+        {
+          "caller": "main",
+          "callee": "parser.parse_args",
+          "lineNumber": 19
+        },
+        {
+          "caller": "main",
+          "callee": "load_json",
+          "lineNumber": 21
+        },
+        {
+          "caller": "main",
+          "callee": "isinstance",
+          "lineNumber": 24
+        },
+        {
+          "caller": "main",
+          "callee": "SystemExit",
+          "lineNumber": 25
+        },
+        {
+          "caller": "main",
+          "callee": "ensure_repo_on_path",
+          "lineNumber": 27
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.schema",
+          "lineNumber": 32
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.rpc(args.function, params).execute",
+          "lineNumber": 34
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.rpc",
+          "lineNumber": 34
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 35
+        },
+        {
+          "caller": "main",
+          "callee": "json.dumps",
+          "lineNumber": 35
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/scripts/ordelo_select.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 92,
+      "nonEmptyLines": 80,
+      "functions": [
+        {
+          "name": "main",
+          "startLine": 7,
+          "endLine": 88,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "main",
+          "line": 7,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "main",
+          "callee": "argparse.ArgumentParser",
+          "lineNumber": 8
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 11
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 14
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 15
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 21
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 28
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 35
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 42
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 50
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 51
+        },
+        {
+          "caller": "main",
+          "callee": "parser.parse_args",
+          "lineNumber": 57
+        },
+        {
+          "caller": "main",
+          "callee": "ensure_repo_on_path",
+          "lineNumber": 59
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.schema",
+          "lineNumber": 64
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.table(args.table).select",
+          "lineNumber": 66
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.table",
+          "lineNumber": 66
+        },
+        {
+          "caller": "main",
+          "callee": "parse_key_value",
+          "lineNumber": 68
+        },
+        {
+          "caller": "main",
+          "callee": "q.eq",
+          "lineNumber": 69
+        },
+        {
+          "caller": "main",
+          "callee": "parse_key_value",
+          "lineNumber": 70
+        },
+        {
+          "caller": "main",
+          "callee": "q.like",
+          "lineNumber": 71
+        },
+        {
+          "caller": "main",
+          "callee": "parse_key_value",
+          "lineNumber": 72
+        },
+        {
+          "caller": "main",
+          "callee": "q.ilike",
+          "lineNumber": 73
+        },
+        {
+          "caller": "main",
+          "callee": "parse_key_value",
+          "lineNumber": 74
+        },
+        {
+          "caller": "main",
+          "callee": "isinstance",
+          "lineNumber": 75
+        },
+        {
+          "caller": "main",
+          "callee": "ValueError",
+          "lineNumber": 76
+        },
+        {
+          "caller": "main",
+          "callee": "q.in_",
+          "lineNumber": 77
+        },
+        {
+          "caller": "main",
+          "callee": "args.order.split",
+          "lineNumber": 81
+        },
+        {
+          "caller": "main",
+          "callee": "q.order",
+          "lineNumber": 82
+        },
+        {
+          "caller": "main",
+          "callee": "direction.lower",
+          "lineNumber": 82
+        },
+        {
+          "caller": "main",
+          "callee": "q.order",
+          "lineNumber": 84
+        },
+        {
+          "caller": "main",
+          "callee": "q.limit(args.limit).execute",
+          "lineNumber": 86
+        },
+        {
+          "caller": "main",
+          "callee": "q.limit",
+          "lineNumber": 86
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 87
+        },
+        {
+          "caller": "main",
+          "callee": "json.dumps",
+          "lineNumber": 87
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/scripts/ordelo_update.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 52,
+      "nonEmptyLines": 41,
+      "functions": [
+        {
+          "name": "main",
+          "startLine": 7,
+          "endLine": 48,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "main",
+          "line": 7,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "main",
+          "callee": "argparse.ArgumentParser",
+          "lineNumber": 8
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 11
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 12
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 13
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 18
+        },
+        {
+          "caller": "main",
+          "callee": "parser.add_argument",
+          "lineNumber": 19
+        },
+        {
+          "caller": "main",
+          "callee": "parser.parse_args",
+          "lineNumber": 26
+        },
+        {
+          "caller": "main",
+          "callee": "SystemExit",
+          "lineNumber": 29
+        },
+        {
+          "caller": "main",
+          "callee": "load_json",
+          "lineNumber": 31
+        },
+        {
+          "caller": "main",
+          "callee": "isinstance",
+          "lineNumber": 32
+        },
+        {
+          "caller": "main",
+          "callee": "SystemExit",
+          "lineNumber": 33
+        },
+        {
+          "caller": "main",
+          "callee": "ensure_repo_on_path",
+          "lineNumber": 35
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.schema",
+          "lineNumber": 40
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.table(args.table).update",
+          "lineNumber": 42
+        },
+        {
+          "caller": "main",
+          "callee": "client_ordelo.table",
+          "lineNumber": 42
+        },
+        {
+          "caller": "main",
+          "callee": "parse_key_value",
+          "lineNumber": 43
+        },
+        {
+          "caller": "main",
+          "callee": "q.eq",
+          "lineNumber": 44
+        },
+        {
+          "caller": "main",
+          "callee": "q.execute",
+          "lineNumber": 46
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 47
+        },
+        {
+          "caller": "main",
+          "callee": "json.dumps",
+          "lineNumber": 47
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    }
+  ]
+}

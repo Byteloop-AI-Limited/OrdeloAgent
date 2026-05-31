@@ -1,0 +1,442 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 15,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "CLAUDE.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 126,
+      "nonEmptyLines": 91,
+      "sections": [
+        {
+          "heading": "CLAUDE.md",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Project Overview",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Commands",
+          "level": 2,
+          "line": 9
+        },
+        {
+          "heading": "Architecture",
+          "level": 2,
+          "line": 31
+        },
+        {
+          "heading": "Entry Point & Routing",
+          "level": 3,
+          "line": 33
+        },
+        {
+          "heading": "Event-Driven Flow",
+          "level": 3,
+          "line": 44
+        },
+        {
+          "heading": "LangGraph Rider Agent",
+          "level": 3,
+          "line": 48
+        },
+        {
+          "heading": "WhatsApp Message Flow",
+          "level": 3,
+          "line": 59
+        },
+        {
+          "heading": "Delivery Lifecycle (6 Phases)",
+          "level": 3,
+          "line": 73
+        },
+        {
+          "heading": "Key Packages",
+          "level": 3,
+          "line": 84
+        },
+        {
+          "heading": "Database & Data Access",
+          "level": 3,
+          "line": 98
+        },
+        {
+          "heading": "Configuration",
+          "level": 3,
+          "line": 106
+        },
+        {
+          "heading": "Conventions",
+          "level": 2,
+          "line": 118
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 13
+      }
+    },
+    {
+      "path": "OrdeloDb.session.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 5,
+      "nonEmptyLines": 2,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 56,
+      "nonEmptyLines": 39,
+      "sections": [
+        {
+          "heading": "Ordelo AI Agent Chatbot",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Recommended Naming Conventions for Services",
+          "level": 2,
+          "line": 16
+        },
+        {
+          "heading": "Project Structure",
+          "level": 2,
+          "line": 34
+        },
+        {
+          "heading": "Running the Project",
+          "level": 2,
+          "line": 43
+        },
+        {
+          "heading": "Conclusion",
+          "level": 2,
+          "line": 54
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 6
+      }
+    },
+    {
+      "path": "agents.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 376,
+      "nonEmptyLines": 295,
+      "sections": [
+        {
+          "heading": "OrdeloAgent — Agents, Modules, and How Things Fit Together",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "High‑Level Overview",
+          "level": 2,
+          "line": 6
+        },
+        {
+          "heading": "Key Components",
+          "level": 2,
+          "line": 14
+        },
+        {
+          "heading": "End‑to‑End: How the Pieces Work Together",
+          "level": 2,
+          "line": 102
+        },
+        {
+          "heading": "WhatsApp Handlers and Commands",
+          "level": 2,
+          "line": 164
+        },
+        {
+          "heading": "Data and Persistence",
+          "level": 2,
+          "line": 174
+        },
+        {
+          "heading": "Configuration and Secrets",
+          "level": 2,
+          "line": 189
+        },
+        {
+          "heading": "Environment Setup",
+          "level": 2,
+          "line": 199
+        },
+        {
+          "heading": "Quick Setup (Recommended)",
+          "level": 3,
+          "line": 201
+        },
+        {
+          "heading": "Manual Setup",
+          "level": 3,
+          "line": 217
+        },
+        {
+          "heading": "Environment Requirements",
+          "level": 3,
+          "line": 238
+        },
+        {
+          "heading": "Cloud Session Notes",
+          "level": 3,
+          "line": 253
+        },
+        {
+          "heading": "Running Locally",
+          "level": 2,
+          "line": 262
+        },
+        {
+          "heading": "Extending the System",
+          "level": 2,
+          "line": 270
+        },
+        {
+          "heading": "Quick Search Map (Common Tasks)",
+          "level": 2,
+          "line": 293
+        },
+        {
+          "heading": "Pyrun Notes",
+          "level": 2,
+          "line": 309
+        },
+        {
+          "heading": "Notable Details and Caveats",
+          "level": 2,
+          "line": 333
+        },
+        {
+          "heading": "File Index (Selected)",
+          "level": 2,
+          "line": 342
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 18
+      }
+    },
+    {
+      "path": "aws_app_runner.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 15,
+      "nonEmptyLines": 10,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "build_push_deploy_dimage.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 24,
+      "nonEmptyLines": 17,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "prestart.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 10,
+      "nonEmptyLines": 7,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "pyproject.toml",
+      "language": "toml",
+      "fileCategory": "config",
+      "totalLines": 83,
+      "nonEmptyLines": 76,
+      "sections": [
+        {
+          "heading": "project",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "dependency-groups",
+          "level": 1,
+          "line": 43
+        },
+        {
+          "heading": "build-system",
+          "level": 1,
+          "line": 61
+        },
+        {
+          "heading": "tool.hatch.build.targets.wheel",
+          "level": 5,
+          "line": 65
+        },
+        {
+          "heading": "tool.basedpyright",
+          "level": 2,
+          "line": 68
+        },
+        {
+          "heading": "tool.ruff",
+          "level": 2,
+          "line": 72
+        },
+        {
+          "heading": "tool.pytest.ini_options",
+          "level": 3,
+          "line": 76
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 7
+      }
+    },
+    {
+      "path": "requirements-dev.txt",
+      "language": "txt",
+      "fileCategory": "docs",
+      "totalLines": 15,
+      "nonEmptyLines": 13,
+      "metrics": {}
+    },
+    {
+      "path": "requirements.txt",
+      "language": "txt",
+      "fileCategory": "docs",
+      "totalLines": 37,
+      "nonEmptyLines": 37,
+      "metrics": {}
+    },
+    {
+      "path": "run_setup.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 131,
+      "nonEmptyLines": 114,
+      "functions": [
+        {
+          "name": "is_venv_functional",
+          "startLine": 23,
+          "endLine": 28,
+          "params": []
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "setup_dev.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 15,
+      "nonEmptyLines": 10,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "setup_notes.txt",
+      "language": "txt",
+      "fileCategory": "docs",
+      "totalLines": 403,
+      "nonEmptyLines": 310,
+      "metrics": {}
+    },
+    {
+      "path": "start.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 54,
+      "nonEmptyLines": 44,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "upload_secrets.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 36,
+      "nonEmptyLines": 31,
+      "functions": [
+        {
+          "name": "log_info",
+          "startLine": 6,
+          "endLine": 8,
+          "params": []
+        },
+        {
+          "name": "log_error",
+          "startLine": 9,
+          "endLine": 11,
+          "params": []
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    }
+  ]
+}

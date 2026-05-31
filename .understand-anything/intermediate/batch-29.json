@@ -1,0 +1,62 @@
+{
+  "nodes": [
+    {
+      "id": "file:watomation/routers/templates/404.html",
+      "type": "file",
+      "name": "404.html",
+      "filePath": "watomation/routers/templates/404.html",
+      "summary": "Jinja2 template extending base.html that renders a user-facing 'Live location not found' error page when a requested order's live location cannot be resolved.",
+      "tags": ["markup", "component", "api-handler"],
+      "complexity": "simple",
+      "languageNotes": "Uses Jinja2 template inheritance ({% extends %}) with title and content blocks."
+    },
+    {
+      "id": "file:watomation/routers/templates/base.html",
+      "type": "file",
+      "name": "base.html",
+      "filePath": "watomation/routers/templates/base.html",
+      "summary": "Base Jinja2 layout template providing the HTML skeleton, responsive viewport, and shared CSS styles used by all derived FastAPI page templates in the OrdeloAgent frontend.",
+      "tags": ["markup", "component", "utility"],
+      "complexity": "simple",
+      "languageNotes": "Defines two overridable Jinja2 blocks: 'title' and 'content', following the standard Jinja2 template inheritance pattern."
+    },
+    {
+      "id": "file:watomation/routers/templates/get-config.html",
+      "type": "file",
+      "name": "get-config.html",
+      "filePath": "watomation/routers/templates/get-config.html",
+      "summary": "Standalone HTML template that renders Start Job / Stop Job action buttons, accepting href URLs from the FastAPI route context via Jinja2 template variables to control pg_cron job scheduling through the browser.",
+      "tags": ["markup", "component", "api-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:watomation/routers/templates/live-location-map.html",
+      "type": "file",
+      "name": "live-location-map.html",
+      "filePath": "watomation/routers/templates/live-location-map.html",
+      "summary": "Standalone HTML template that renders an interactive Google Maps page displaying a rider's delivery route using hardcoded location coordinates, with DirectionsService polylines connecting sequential GPS points and a bicycle SVG marker at the final position.",
+      "tags": ["markup", "component", "service"],
+      "complexity": "complex",
+      "languageNotes": "Uses Google Maps JavaScript API with async DirectionsService calls to draw turn-by-turn route segments between chronological rider location points. Currently uses hardcoded sample coordinates rather than dynamic template variables."
+    },
+    {
+      "id": "file:watomation/routers/templates/waba_embedded_signup.html",
+      "type": "file",
+      "name": "waba_embedded_signup.html",
+      "filePath": "watomation/routers/templates/waba_embedded_signup.html",
+      "summary": "Jinja2 HTML template that loads the Facebook JavaScript SDK and implements the WhatsApp Business Account embedded signup flow, forwarding WA_EMBEDDED_SIGNUP message events and FB OAuth auth responses to the FastAPI backend via POST requests.",
+      "tags": ["markup", "component", "api-handler"],
+      "complexity": "moderate",
+      "languageNotes": "Jinja2 variables inject app_id, graph_api_version, and configuration_id into the FB.init and FB.login calls at render time. Event messages from Facebook's iframe are forwarded to /twilio-webhook/waba-embedded-signup."
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:watomation/routers/templates/404.html",
+      "target": "file:watomation/routers/templates/base.html",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    }
+  ]
+}

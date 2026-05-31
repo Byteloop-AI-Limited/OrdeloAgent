@@ -1,0 +1,69 @@
+{
+  "nodes": [
+    {
+      "id": "document:.claude/skills/database-operations/references/ordelo-datamodels.md",
+      "type": "document",
+      "name": "ordelo-datamodels.md",
+      "filePath": ".claude/skills/database-operations/references/ordelo-datamodels.md",
+      "summary": "Quick-reference guide for the Claude Code database-operations skill explaining where to locate SQL tables, types, RPC functions, and scheduled jobs within the ordelo_datamodels directory.",
+      "tags": ["documentation", "database", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.claude/skills/database-operations/references/repo-db-helpers.md",
+      "type": "document",
+      "name": "repo-db-helpers.md",
+      "filePath": ".claude/skills/database-operations/references/repo-db-helpers.md",
+      "summary": "Reference card for the database skill listing the primary Supabase/psycopg clients, helper utilities, and query examples used across the OrdeloAgent codebase.",
+      "tags": ["documentation", "database", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:.claude/skills/database-operations/references/run_setup.sh",
+      "type": "file",
+      "name": "run_setup.sh",
+      "filePath": ".claude/skills/database-operations/references/run_setup.sh",
+      "summary": "Bootstrap shell script for the database-operations skill that detects or creates a Python virtual environment using UV, activates it, and installs required dependencies before running the skill.",
+      "tags": ["script", "build-system", "configuration"],
+      "complexity": "moderate",
+      "languageNotes": "Uses is_venv_functional() helper to detect both .venv and venv directory layouts before deciding whether to create a new environment."
+    },
+    {
+      "id": "file:.claude/skills/database-operations/references/switch_test_prod_config.sql",
+      "type": "file",
+      "name": "switch_test_prod_config.sql",
+      "filePath": ".claude/skills/database-operations/references/switch_test_prod_config.sql",
+      "summary": "SQL snippet for the database skill to switch ordelo_config between test and production URL values, used when manually toggling the app's webhook target environment.",
+      "tags": ["database", "configuration", "deployment"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:.claude/skills/database-operations/references/switch_test_prod_elas.sql",
+      "type": "file",
+      "name": "switch_test_prod_elas.sql",
+      "filePath": ".claude/skills/database-operations/references/switch_test_prod_elas.sql",
+      "summary": "SQL snippet providing verification queries and UPDATE statements for toggling the ELAS restaurant-specific configuration between test and production environments.",
+      "tags": ["database", "configuration", "deployment"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:.claude/skills/database-operations/references/switch_test_prod_ordelo.sql",
+      "type": "file",
+      "name": "switch_test_prod_ordelo.sql",
+      "filePath": ".claude/skills/database-operations/references/switch_test_prod_ordelo.sql",
+      "summary": "SQL snippet for switching the Ordelo rider agent URL and rider_master state between test (rider-agent-test.ordelo.app) and production (rider-agent.ordelo.app) environments.",
+      "tags": ["database", "configuration", "deployment"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:.claude/skills/database-operations/references/switch_test_prod_sfcs.sql",
+      "type": "file",
+      "name": "switch_test_prod_sfcs.sql",
+      "filePath": ".claude/skills/database-operations/references/switch_test_prod_sfcs.sql",
+      "summary": "SQL snippet for toggling SFCS (second food service) restaurant configuration between test and production environments, mirroring the pattern of the other switch_test_prod scripts.",
+      "tags": ["database", "configuration", "deployment"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": []
+}

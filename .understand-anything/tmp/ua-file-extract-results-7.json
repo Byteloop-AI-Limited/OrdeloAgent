@@ -1,0 +1,1362 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 7,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "notebooks/db_scratchpad/check_live_location_transmitted.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 34,
+      "nonEmptyLines": 31,
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_scratchpad/simulate_dispatch_detail copy.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 193,
+      "nonEmptyLines": 162,
+      "functions": [
+        {
+          "name": "insert_model_to_db",
+          "startLine": 100,
+          "endLine": 129,
+          "params": [
+            "pool",
+            "table_name",
+            "model_instance"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "insert_model_to_db",
+          "line": 100,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "insert_model_to_db",
+          "callee": "pool.connection",
+          "lineNumber": 112
+        },
+        {
+          "caller": "insert_model_to_db",
+          "callee": "conn.cursor",
+          "lineNumber": 113
+        },
+        {
+          "caller": "insert_model_to_db",
+          "callee": "model_instance.model_dump",
+          "lineNumber": 115
+        },
+        {
+          "caller": "insert_model_to_db",
+          "callee": "list",
+          "lineNumber": 116
+        },
+        {
+          "caller": "insert_model_to_db",
+          "callee": "model_data.keys",
+          "lineNumber": 116
+        },
+        {
+          "caller": "insert_model_to_db",
+          "callee": "', '.join",
+          "lineNumber": 117
+        },
+        {
+          "caller": "insert_model_to_db",
+          "callee": "len",
+          "lineNumber": 117
+        },
+        {
+          "caller": "insert_model_to_db",
+          "callee": "', '.join",
+          "lineNumber": 118
+        },
+        {
+          "caller": "insert_model_to_db",
+          "callee": "tuple",
+          "lineNumber": 127
+        },
+        {
+          "caller": "insert_model_to_db",
+          "callee": "model_data.values",
+          "lineNumber": 127
+        },
+        {
+          "caller": "insert_model_to_db",
+          "callee": "cur.execute",
+          "lineNumber": 128
+        },
+        {
+          "caller": "insert_model_to_db",
+          "callee": "conn.commit",
+          "lineNumber": 129
+        }
+      ],
+      "metrics": {
+        "importCount": 4,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_scratchpad/simulate_sbase_func_call.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 12,
+      "nonEmptyLines": 9,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "notebooks/dispatch_format_tbd.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 25,
+      "nonEmptyLines": 22,
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/delivery_pymodels.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 191,
+      "nonEmptyLines": 169,
+      "classes": [
+        {
+          "name": "DeliveryDetail",
+          "startLine": 8,
+          "endLine": 55,
+          "methods": [
+            "google_maps_url",
+            "from_order_number"
+          ],
+          "properties": [
+            "order_number",
+            "vehicle_type",
+            "rider_payout",
+            "distance",
+            "rest_id",
+            "rest_name",
+            "rest_lon",
+            "rest_lat",
+            "rest_address",
+            "town",
+            "customer_id",
+            "customer_name",
+            "customer_lon",
+            "customer_lat",
+            "customer_address",
+            "status",
+            "dispatch_id",
+            "rider_id"
+          ]
+        },
+        {
+          "name": "DeliverySummary",
+          "startLine": 58,
+          "endLine": 110,
+          "methods": [
+            "from_order_number"
+          ],
+          "properties": [
+            "order_number",
+            "rest_id",
+            "rest_name",
+            "rest_lon",
+            "rest_lat",
+            "rest_address",
+            "town",
+            "customer_id",
+            "customer_name",
+            "customer_lon",
+            "customer_lat",
+            "customer_address",
+            "restaurant_confirmation_status",
+            "restaurant_update_dtts",
+            "restaurant_admin",
+            "status",
+            "rest_confirmation_code",
+            "cust_confirmation_code",
+            "rest_prep_time_minutes",
+            "rest_confirmation_method",
+            "restaurant_msg_id",
+            "rider_msg_id",
+            "customer_msg_id",
+            "pickup_time",
+            "pickup_date",
+            "rest_ref",
+            "dt",
+            "dtts"
+          ]
+        },
+        {
+          "name": "DeliveryDispatch",
+          "startLine": 113,
+          "endLine": 146,
+          "methods": [
+            "from_dispatch_id"
+          ],
+          "properties": [
+            "dispatch_id",
+            "order_number",
+            "rider_id",
+            "rider_payout",
+            "vehicle_type",
+            "distance",
+            "status",
+            "status_update_dtts",
+            "reason_for_decline",
+            "dt",
+            "dtts"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "DeliveryDetail",
+          "line": 8,
+          "isDefault": false
+        },
+        {
+          "name": "DeliverySummary",
+          "line": 58,
+          "isDefault": false
+        },
+        {
+          "name": "DeliveryDispatch",
+          "line": 113,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "from_order_number",
+          "callee": "client_ordelo.table(\"delivery_detail\")\n            .select(\"*\")\n            .eq(\"order_number\", order_number)\n            .limit(1)\n            .execute",
+          "lineNumber": 38
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "client_ordelo.table(\"delivery_detail\")\n            .select(\"*\")\n            .eq(\"order_number\", order_number)\n            .limit",
+          "lineNumber": 38
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "client_ordelo.table(\"delivery_detail\")\n            .select(\"*\")\n            .eq",
+          "lineNumber": 38
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "client_ordelo.table(\"delivery_detail\")\n            .select",
+          "lineNumber": 38
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "client_ordelo.table",
+          "lineNumber": 38
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "isinstance",
+          "lineNumber": 46
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "hasattr",
+          "lineNumber": 48
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "len",
+          "lineNumber": 51
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "ValueError",
+          "lineNumber": 52
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "cls",
+          "lineNumber": 55
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "client_ordelo.table(\"delivery_summary\")\n            .select(\"*\")\n            .eq(\"order_number\", order_number)\n            .limit(1)\n            .execute",
+          "lineNumber": 93
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "client_ordelo.table(\"delivery_summary\")\n            .select(\"*\")\n            .eq(\"order_number\", order_number)\n            .limit",
+          "lineNumber": 93
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "client_ordelo.table(\"delivery_summary\")\n            .select(\"*\")\n            .eq",
+          "lineNumber": 93
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "client_ordelo.table(\"delivery_summary\")\n            .select",
+          "lineNumber": 93
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "client_ordelo.table",
+          "lineNumber": 93
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "isinstance",
+          "lineNumber": 101
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "hasattr",
+          "lineNumber": 103
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "len",
+          "lineNumber": 106
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "ValueError",
+          "lineNumber": 107
+        },
+        {
+          "caller": "from_order_number",
+          "callee": "cls",
+          "lineNumber": 110
+        },
+        {
+          "caller": "from_dispatch_id",
+          "callee": "client_ordelo.table(\"delivery_dispatch\")\n            .select(\"*\")\n            .eq(\"dispatch_id\", dispatch_id)\n            .limit(1)\n            .execute",
+          "lineNumber": 131
+        },
+        {
+          "caller": "from_dispatch_id",
+          "callee": "client_ordelo.table(\"delivery_dispatch\")\n            .select(\"*\")\n            .eq(\"dispatch_id\", dispatch_id)\n            .limit",
+          "lineNumber": 131
+        },
+        {
+          "caller": "from_dispatch_id",
+          "callee": "client_ordelo.table(\"delivery_dispatch\")\n            .select(\"*\")\n            .eq",
+          "lineNumber": 131
+        },
+        {
+          "caller": "from_dispatch_id",
+          "callee": "client_ordelo.table(\"delivery_dispatch\")\n            .select",
+          "lineNumber": 131
+        },
+        {
+          "caller": "from_dispatch_id",
+          "callee": "client_ordelo.table",
+          "lineNumber": 131
+        },
+        {
+          "caller": "from_dispatch_id",
+          "callee": "isinstance",
+          "lineNumber": 139
+        },
+        {
+          "caller": "from_dispatch_id",
+          "callee": "hasattr",
+          "lineNumber": 141
+        },
+        {
+          "caller": "from_dispatch_id",
+          "callee": "len",
+          "lineNumber": 144
+        },
+        {
+          "caller": "from_dispatch_id",
+          "callee": "ValueError",
+          "lineNumber": 145
+        },
+        {
+          "caller": "from_dispatch_id",
+          "callee": "cls",
+          "lineNumber": 146
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 3,
+        "functionCount": 0,
+        "classCount": 3
+      }
+    },
+    {
+      "path": "tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 149,
+      "nonEmptyLines": 117,
+      "functions": [
+        {
+          "name": "_delivery_detail_row",
+          "startLine": 30,
+          "endLine": 52,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "_delivery_summary_row",
+          "startLine": 55,
+          "endLine": 77,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "_dispatch_row",
+          "startLine": 80,
+          "endLine": 91,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "test_delivery_detail_google_maps_url",
+          "startLine": 94,
+          "endLine": 97,
+          "params": []
+        },
+        {
+          "name": "test_delivery_summary_validates_required_fields_and_lengths",
+          "startLine": 100,
+          "endLine": 105,
+          "params": []
+        },
+        {
+          "name": "test_delivery_dispatch_validates_rider_id_length",
+          "startLine": 108,
+          "endLine": 112,
+          "params": []
+        },
+        {
+          "name": "test_delivery_detail_from_order_number_fetches_first_row",
+          "startLine": 115,
+          "endLine": 125,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_delivery_summary_from_order_number_raises_when_missing",
+          "startLine": 128,
+          "endLine": 136,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_delivery_dispatch_from_dispatch_id_fetches_first_row",
+          "startLine": 139,
+          "endLine": 149,
+          "params": [
+            "patch_supabase_client"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "_delivery_detail_row",
+          "line": 30,
+          "isDefault": false
+        },
+        {
+          "name": "_delivery_summary_row",
+          "line": 55,
+          "isDefault": false
+        },
+        {
+          "name": "_dispatch_row",
+          "line": 80,
+          "isDefault": false
+        },
+        {
+          "name": "test_delivery_detail_google_maps_url",
+          "line": 94,
+          "isDefault": false
+        },
+        {
+          "name": "test_delivery_summary_validates_required_fields_and_lengths",
+          "line": 100,
+          "isDefault": false
+        },
+        {
+          "name": "test_delivery_dispatch_validates_rider_id_length",
+          "line": 108,
+          "isDefault": false
+        },
+        {
+          "name": "test_delivery_detail_from_order_number_fetches_first_row",
+          "line": 115,
+          "isDefault": false
+        },
+        {
+          "name": "test_delivery_summary_from_order_number_raises_when_missing",
+          "line": 128,
+          "isDefault": false
+        },
+        {
+          "name": "test_delivery_dispatch_from_dispatch_id_fetches_first_row",
+          "line": 139,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "_delivery_detail_row",
+          "callee": "row.update",
+          "lineNumber": 51
+        },
+        {
+          "caller": "_delivery_summary_row",
+          "callee": "date",
+          "lineNumber": 72
+        },
+        {
+          "caller": "_delivery_summary_row",
+          "callee": "date",
+          "lineNumber": 73
+        },
+        {
+          "caller": "_delivery_summary_row",
+          "callee": "datetime",
+          "lineNumber": 74
+        },
+        {
+          "caller": "_delivery_summary_row",
+          "callee": "row.update",
+          "lineNumber": 76
+        },
+        {
+          "caller": "_dispatch_row",
+          "callee": "row.update",
+          "lineNumber": 90
+        },
+        {
+          "caller": "test_delivery_detail_google_maps_url",
+          "callee": "DeliveryDetail",
+          "lineNumber": 95
+        },
+        {
+          "caller": "test_delivery_detail_google_maps_url",
+          "callee": "_delivery_detail_row",
+          "lineNumber": 95
+        },
+        {
+          "caller": "test_delivery_summary_validates_required_fields_and_lengths",
+          "callee": "DeliverySummary",
+          "lineNumber": 101
+        },
+        {
+          "caller": "test_delivery_summary_validates_required_fields_and_lengths",
+          "callee": "_delivery_summary_row",
+          "lineNumber": 101
+        },
+        {
+          "caller": "test_delivery_summary_validates_required_fields_and_lengths",
+          "callee": "pytest.raises",
+          "lineNumber": 104
+        },
+        {
+          "caller": "test_delivery_summary_validates_required_fields_and_lengths",
+          "callee": "DeliverySummary",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_delivery_summary_validates_required_fields_and_lengths",
+          "callee": "_delivery_summary_row",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_delivery_dispatch_validates_rider_id_length",
+          "callee": "DeliveryDispatch",
+          "lineNumber": 109
+        },
+        {
+          "caller": "test_delivery_dispatch_validates_rider_id_length",
+          "callee": "_dispatch_row",
+          "lineNumber": 109
+        },
+        {
+          "caller": "test_delivery_dispatch_validates_rider_id_length",
+          "callee": "pytest.raises",
+          "lineNumber": 111
+        },
+        {
+          "caller": "test_delivery_dispatch_validates_rider_id_length",
+          "callee": "DeliveryDispatch",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_delivery_dispatch_validates_rider_id_length",
+          "callee": "_dispatch_row",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_delivery_detail_from_order_number_fetches_first_row",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 116
+        },
+        {
+          "caller": "test_delivery_detail_from_order_number_fetches_first_row",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 119
+        },
+        {
+          "caller": "test_delivery_detail_from_order_number_fetches_first_row",
+          "callee": "_delivery_detail_row",
+          "lineNumber": 119
+        },
+        {
+          "caller": "test_delivery_detail_from_order_number_fetches_first_row",
+          "callee": "DeliveryDetail.from_order_number",
+          "lineNumber": 122
+        },
+        {
+          "caller": "test_delivery_summary_from_order_number_raises_when_missing",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 129
+        },
+        {
+          "caller": "test_delivery_summary_from_order_number_raises_when_missing",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 132
+        },
+        {
+          "caller": "test_delivery_summary_from_order_number_raises_when_missing",
+          "callee": "pytest.raises",
+          "lineNumber": 135
+        },
+        {
+          "caller": "test_delivery_summary_from_order_number_raises_when_missing",
+          "callee": "DeliverySummary.from_order_number",
+          "lineNumber": 136
+        },
+        {
+          "caller": "test_delivery_dispatch_from_dispatch_id_fetches_first_row",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 140
+        },
+        {
+          "caller": "test_delivery_dispatch_from_dispatch_id_fetches_first_row",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 143
+        },
+        {
+          "caller": "test_delivery_dispatch_from_dispatch_id_fetches_first_row",
+          "callee": "_dispatch_row",
+          "lineNumber": 143
+        },
+        {
+          "caller": "test_delivery_dispatch_from_dispatch_id_fetches_first_row",
+          "callee": "DeliveryDispatch.from_dispatch_id",
+          "lineNumber": 146
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 9,
+        "functionCount": 9,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/db_utils/sbase_rest_ops.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 467,
+      "nonEmptyLines": 385,
+      "functions": [
+        {
+          "name": "sbase_call_function",
+          "startLine": 9,
+          "endLine": 21,
+          "params": [
+            "function_name",
+            "input_args"
+          ]
+        },
+        {
+          "name": "sql_to_supabase_rest",
+          "startLine": 28,
+          "endLine": 58,
+          "params": [
+            "**kwargs"
+          ]
+        },
+        {
+          "name": "get_sql_condition_new",
+          "startLine": 66,
+          "endLine": 140,
+          "params": [
+            "**kwargs"
+          ]
+        },
+        {
+          "name": "sbase_get",
+          "startLine": 145,
+          "endLine": 192,
+          "params": [
+            "table_name",
+            "**kwargs"
+          ]
+        },
+        {
+          "name": "sbase_sync_get",
+          "startLine": 195,
+          "endLine": 231,
+          "params": [
+            "table_name",
+            "**kwargs"
+          ]
+        },
+        {
+          "name": "sbase_insert",
+          "startLine": 235,
+          "endLine": 281,
+          "params": [
+            "table_name",
+            "payload"
+          ]
+        },
+        {
+          "name": "sbase_update",
+          "startLine": 285,
+          "endLine": 338,
+          "params": [
+            "update_fields",
+            "table_name",
+            "**kwargs"
+          ]
+        },
+        {
+          "name": "sbase_sync_update",
+          "startLine": 341,
+          "endLine": 414,
+          "params": [
+            "update_fields",
+            "table_name",
+            "**kwargs"
+          ]
+        },
+        {
+          "name": "sbase_delete",
+          "startLine": 418,
+          "endLine": 465,
+          "params": [
+            "table_name",
+            "**kwargs"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "sbase_call_function",
+          "line": 9,
+          "isDefault": false
+        },
+        {
+          "name": "sql_to_supabase_rest",
+          "line": 28,
+          "isDefault": false
+        },
+        {
+          "name": "get_sql_condition_new",
+          "line": 66,
+          "isDefault": false
+        },
+        {
+          "name": "sbase_get",
+          "line": 145,
+          "isDefault": false
+        },
+        {
+          "name": "sbase_sync_get",
+          "line": 195,
+          "isDefault": false
+        },
+        {
+          "name": "sbase_insert",
+          "line": 235,
+          "isDefault": false
+        },
+        {
+          "name": "sbase_update",
+          "line": 285,
+          "isDefault": false
+        },
+        {
+          "name": "sbase_sync_update",
+          "line": 341,
+          "isDefault": false
+        },
+        {
+          "name": "sbase_delete",
+          "line": 418,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "sbase_call_function",
+          "callee": "httpx.AsyncClient",
+          "lineNumber": 11
+        },
+        {
+          "caller": "sbase_call_function",
+          "callee": "client.post",
+          "lineNumber": 13
+        },
+        {
+          "caller": "sbase_call_function",
+          "callee": "RuntimeError",
+          "lineNumber": 19
+        },
+        {
+          "caller": "sbase_call_function",
+          "callee": "str",
+          "lineNumber": 19
+        },
+        {
+          "caller": "sbase_call_function",
+          "callee": "response.json",
+          "lineNumber": 21
+        },
+        {
+          "caller": "sql_to_supabase_rest",
+          "callee": "kwargs.items",
+          "lineNumber": 42
+        },
+        {
+          "caller": "sql_to_supabase_rest",
+          "callee": "key.split",
+          "lineNumber": 45
+        },
+        {
+          "caller": "sql_to_supabase_rest",
+          "callee": "rest_conditions.append",
+          "lineNumber": 47
+        },
+        {
+          "caller": "sql_to_supabase_rest",
+          "callee": "rest_conditions.append",
+          "lineNumber": 49
+        },
+        {
+          "caller": "sql_to_supabase_rest",
+          "callee": "rest_conditions.append",
+          "lineNumber": 51
+        },
+        {
+          "caller": "sql_to_supabase_rest",
+          "callee": "rest_conditions.append",
+          "lineNumber": 53
+        },
+        {
+          "caller": "sql_to_supabase_rest",
+          "callee": "rest_conditions.append",
+          "lineNumber": 56
+        },
+        {
+          "caller": "sql_to_supabase_rest",
+          "callee": "'&'.join",
+          "lineNumber": 58
+        },
+        {
+          "caller": "get_sql_condition_new",
+          "callee": "re.compile",
+          "lineNumber": 91
+        },
+        {
+          "caller": "process_value",
+          "callee": "isinstance",
+          "lineNumber": 95
+        },
+        {
+          "caller": "process_value",
+          "callee": "comparison_pattern.match",
+          "lineNumber": 101
+        },
+        {
+          "caller": "process_value",
+          "callee": "match.groups",
+          "lineNumber": 103
+        },
+        {
+          "caller": "process_value",
+          "callee": "isinstance",
+          "lineNumber": 110
+        },
+        {
+          "caller": "process_value",
+          "callee": "isinstance",
+          "lineNumber": 114
+        },
+        {
+          "caller": "process_value",
+          "callee": "isinstance",
+          "lineNumber": 118
+        },
+        {
+          "caller": "process_value",
+          "callee": "or_parts.append",
+          "lineNumber": 119
+        },
+        {
+          "caller": "process_value",
+          "callee": "isinstance",
+          "lineNumber": 120
+        },
+        {
+          "caller": "process_value",
+          "callee": "or_parts.append",
+          "lineNumber": 122
+        },
+        {
+          "caller": "process_value",
+          "callee": "comparison_pattern.match",
+          "lineNumber": 125
+        },
+        {
+          "caller": "process_value",
+          "callee": "match.groups",
+          "lineNumber": 127
+        },
+        {
+          "caller": "process_value",
+          "callee": "or_parts.append",
+          "lineNumber": 128
+        },
+        {
+          "caller": "process_value",
+          "callee": "or_parts.append",
+          "lineNumber": 130
+        },
+        {
+          "caller": "process_value",
+          "callee": "TypeError",
+          "lineNumber": 132
+        },
+        {
+          "caller": "process_value",
+          "callee": "\" OR \".join",
+          "lineNumber": 133
+        },
+        {
+          "caller": "process_value",
+          "callee": "TypeError",
+          "lineNumber": 135
+        },
+        {
+          "caller": "get_sql_condition_new",
+          "callee": "kwargs.items",
+          "lineNumber": 137
+        },
+        {
+          "caller": "get_sql_condition_new",
+          "callee": "conditions.append",
+          "lineNumber": 138
+        },
+        {
+          "caller": "get_sql_condition_new",
+          "callee": "process_value",
+          "lineNumber": 138
+        },
+        {
+          "caller": "get_sql_condition_new",
+          "callee": "' AND '.join",
+          "lineNumber": 140
+        },
+        {
+          "caller": "sbase_get",
+          "callee": "sql_to_supabase_rest",
+          "lineNumber": 162
+        },
+        {
+          "caller": "sbase_get",
+          "callee": "httpx.AsyncClient",
+          "lineNumber": 165
+        },
+        {
+          "caller": "sbase_get",
+          "callee": "client.get",
+          "lineNumber": 167
+        },
+        {
+          "caller": "sbase_get",
+          "callee": "response.json",
+          "lineNumber": 173
+        },
+        {
+          "caller": "sbase_get",
+          "callee": "isinstance",
+          "lineNumber": 176
+        },
+        {
+          "caller": "sbase_get",
+          "callee": "response_data.get",
+          "lineNumber": 178
+        },
+        {
+          "caller": "sbase_get",
+          "callee": "response_data.get",
+          "lineNumber": 179
+        },
+        {
+          "caller": "sbase_get",
+          "callee": "ValueError",
+          "lineNumber": 180
+        },
+        {
+          "caller": "sbase_get",
+          "callee": "RuntimeError",
+          "lineNumber": 186
+        },
+        {
+          "caller": "sbase_get",
+          "callee": "str",
+          "lineNumber": 186
+        },
+        {
+          "caller": "sbase_get",
+          "callee": "RuntimeError",
+          "lineNumber": 192
+        },
+        {
+          "caller": "sbase_get",
+          "callee": "str",
+          "lineNumber": 192
+        },
+        {
+          "caller": "sbase_sync_get",
+          "callee": "sql_to_supabase_rest",
+          "lineNumber": 211
+        },
+        {
+          "caller": "sbase_sync_get",
+          "callee": "httpx.Client",
+          "lineNumber": 214
+        },
+        {
+          "caller": "sbase_sync_get",
+          "callee": "client.get",
+          "lineNumber": 216
+        },
+        {
+          "caller": "sbase_sync_get",
+          "callee": "response.json().get",
+          "lineNumber": 223
+        },
+        {
+          "caller": "sbase_sync_get",
+          "callee": "response.json",
+          "lineNumber": 223
+        },
+        {
+          "caller": "sbase_sync_get",
+          "callee": "ValueError",
+          "lineNumber": 224
+        },
+        {
+          "caller": "sbase_sync_get",
+          "callee": "response.json",
+          "lineNumber": 226
+        },
+        {
+          "caller": "sbase_sync_get",
+          "callee": "RuntimeError",
+          "lineNumber": 229
+        },
+        {
+          "caller": "sbase_sync_get",
+          "callee": "str",
+          "lineNumber": 229
+        },
+        {
+          "caller": "sbase_sync_get",
+          "callee": "RuntimeError",
+          "lineNumber": 231
+        },
+        {
+          "caller": "sbase_sync_get",
+          "callee": "str",
+          "lineNumber": 231
+        },
+        {
+          "caller": "sbase_insert",
+          "callee": "httpx.AsyncClient",
+          "lineNumber": 250
+        },
+        {
+          "caller": "sbase_insert",
+          "callee": "client.post",
+          "lineNumber": 252
+        },
+        {
+          "caller": "sbase_insert",
+          "callee": "RuntimeError",
+          "lineNumber": 265
+        },
+        {
+          "caller": "sbase_insert",
+          "callee": "type",
+          "lineNumber": 269
+        },
+        {
+          "caller": "sbase_insert",
+          "callee": "str",
+          "lineNumber": 270
+        },
+        {
+          "caller": "sbase_insert",
+          "callee": "RuntimeError",
+          "lineNumber": 274
+        },
+        {
+          "caller": "sbase_insert",
+          "callee": "type",
+          "lineNumber": 277
+        },
+        {
+          "caller": "sbase_insert",
+          "callee": "str",
+          "lineNumber": 278
+        },
+        {
+          "caller": "sbase_insert",
+          "callee": "getattr",
+          "lineNumber": 279
+        },
+        {
+          "caller": "sbase_insert",
+          "callee": "RuntimeError",
+          "lineNumber": 281
+        },
+        {
+          "caller": "sbase_update",
+          "callee": "sql_to_supabase_rest",
+          "lineNumber": 302
+        },
+        {
+          "caller": "sbase_update",
+          "callee": "httpx.AsyncClient",
+          "lineNumber": 305
+        },
+        {
+          "caller": "sbase_update",
+          "callee": "client.patch",
+          "lineNumber": 307
+        },
+        {
+          "caller": "sbase_update",
+          "callee": "response.json",
+          "lineNumber": 319
+        },
+        {
+          "caller": "sbase_update",
+          "callee": "ValueError",
+          "lineNumber": 328
+        },
+        {
+          "caller": "sbase_update",
+          "callee": "RuntimeError",
+          "lineNumber": 332
+        },
+        {
+          "caller": "sbase_update",
+          "callee": "str",
+          "lineNumber": 332
+        },
+        {
+          "caller": "sbase_update",
+          "callee": "RuntimeError",
+          "lineNumber": 338
+        },
+        {
+          "caller": "sbase_update",
+          "callee": "str",
+          "lineNumber": 338
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "ValueError",
+          "lineNumber": 365
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "sql_to_supabase_rest",
+          "lineNumber": 368
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "httpx.Client",
+          "lineNumber": 371
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "client.patch",
+          "lineNumber": 373
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "response.json",
+          "lineNumber": 381
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "error_data.get",
+          "lineNumber": 382
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "error_data.get",
+          "lineNumber": 383
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "ValueError",
+          "lineNumber": 393
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "httpx.HTTPStatusError",
+          "lineNumber": 395
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "httpx.HTTPStatusError",
+          "lineNumber": 397
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "httpx.HTTPStatusError",
+          "lineNumber": 399
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "ValueError",
+          "lineNumber": 401
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "httpx.HTTPStatusError",
+          "lineNumber": 403
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "httpx.HTTPStatusError",
+          "lineNumber": 405
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "RuntimeError",
+          "lineNumber": 410
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "str",
+          "lineNumber": 410
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "RuntimeError",
+          "lineNumber": 414
+        },
+        {
+          "caller": "sbase_sync_update",
+          "callee": "str",
+          "lineNumber": 414
+        },
+        {
+          "caller": "sbase_delete",
+          "callee": "sql_to_supabase_rest",
+          "lineNumber": 433
+        },
+        {
+          "caller": "sbase_delete",
+          "callee": "httpx.AsyncClient",
+          "lineNumber": 434
+        },
+        {
+          "caller": "sbase_delete",
+          "callee": "client.delete",
+          "lineNumber": 436
+        },
+        {
+          "caller": "sbase_delete",
+          "callee": "RuntimeError",
+          "lineNumber": 449
+        },
+        {
+          "caller": "sbase_delete",
+          "callee": "type",
+          "lineNumber": 453
+        },
+        {
+          "caller": "sbase_delete",
+          "callee": "str",
+          "lineNumber": 454
+        },
+        {
+          "caller": "sbase_delete",
+          "callee": "RuntimeError",
+          "lineNumber": 458
+        },
+        {
+          "caller": "sbase_delete",
+          "callee": "type",
+          "lineNumber": 461
+        },
+        {
+          "caller": "sbase_delete",
+          "callee": "str",
+          "lineNumber": 462
+        },
+        {
+          "caller": "sbase_delete",
+          "callee": "getattr",
+          "lineNumber": 463
+        },
+        {
+          "caller": "sbase_delete",
+          "callee": "RuntimeError",
+          "lineNumber": 465
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 9,
+        "functionCount": 9,
+        "classCount": 0
+      }
+    }
+  ]
+}

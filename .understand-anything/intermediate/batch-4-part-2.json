@@ -1,0 +1,685 @@
+{
+  "nodes": [
+    {
+      "id": "file:utils_common/order_management/order_service.py",
+      "type": "file",
+      "name": "order_service.py",
+      "filePath": "utils_common/order_management/order_service.py",
+      "summary": "High-level order creation service that orchestrates pricing microservice calls, minimum order value checks, and the full order-with-items DB insertion flow.",
+      "tags": ["service", "api-handler", "utility"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/order_management/order_service.py:create_order_with_items",
+      "type": "function",
+      "name": "create_order_with_items",
+      "filePath": "utils_common/order_management/order_service.py",
+      "lineRange": [172, 304],
+      "summary": "Orchestrates full order creation: generates order reference, inserts food_order, inserts order_items, and handles rollback on failure.",
+      "tags": ["service", "api-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/order_management/order_service.py:get_min_order_value",
+      "type": "function",
+      "name": "get_min_order_value",
+      "filePath": "utils_common/order_management/order_service.py",
+      "lineRange": [123, 169],
+      "summary": "Fetches minimum order value and delivery fee options for a given customer-restaurant location pair by calling the pricing microservice.",
+      "tags": ["service", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/payment_ms/payment.py",
+      "type": "file",
+      "name": "payment.py",
+      "filePath": "utils_common/payment_ms/payment.py",
+      "summary": "Async payment microservice client providing `generate_payment_intent_url` and `generate_automatic_payment_url` that call the external payment service and return Stripe payment links.",
+      "tags": ["service", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/payment_ms/payment.py:generate_payment_intent_url",
+      "type": "function",
+      "name": "generate_payment_intent_url",
+      "filePath": "utils_common/payment_ms/payment.py",
+      "lineRange": [25, 47],
+      "summary": "Sends a payment intent creation request to the payment microservice using httpx and returns the resulting payment URL.",
+      "tags": ["service", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/payment_ms/payment.py:generate_automatic_payment_url",
+      "type": "function",
+      "name": "generate_automatic_payment_url",
+      "filePath": "utils_common/payment_ms/payment.py",
+      "lineRange": [51, 87],
+      "summary": "Sends an automatic payment request for the given food order to the payment microservice, returning the payment URL or None.",
+      "tags": ["service", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/tz_utils.py",
+      "type": "file",
+      "name": "tz_utils.py",
+      "filePath": "utils_common/tz_utils.py",
+      "summary": "Timezone utility helpers for the UK timezone: parsing ISO timestamps from the DB, formatting datetime to UK time string, and converting to Unix epoch.",
+      "tags": ["utility", "type-definition"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/waba_utils/wa_senders.py",
+      "type": "file",
+      "name": "wa_senders.py",
+      "filePath": "utils_common/waba_utils/wa_senders.py",
+      "summary": "Comprehensive WhatsApp message-sending library covering dispatch requests to riders, pickup time prompts, admin order receipts, customer address confirmation, payment links, catalog sharing, and shift/admin availability enquiries.",
+      "tags": ["service", "api-handler", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/waba_utils/wa_senders.py:send_restaurant_pickup_time",
+      "type": "function",
+      "name": "send_restaurant_pickup_time",
+      "filePath": "utils_common/waba_utils/wa_senders.py",
+      "lineRange": [84, 133],
+      "summary": "Sends a WhatsApp interactive button message to the restaurant with pickup time slot options computed from an epoch timestamp and interval list.",
+      "tags": ["service", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/waba_utils/wa_senders.py:admin_order_reciept",
+      "type": "function",
+      "name": "admin_order_reciept",
+      "filePath": "utils_common/waba_utils/wa_senders.py",
+      "lineRange": [184, 261],
+      "summary": "Sends the full order receipt to restaurant admins via WhatsApp with Accept/Adjust pickup time buttons, looking up the restaurant master and building the receipt text.",
+      "tags": ["service", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/waba_utils/wa_senders.py:send_restaurant_order_confirmation",
+      "type": "function",
+      "name": "send_restaurant_order_confirmation",
+      "filePath": "utils_common/waba_utils/wa_senders.py",
+      "lineRange": [598, 642],
+      "summary": "Sends the initial order confirmation message to the restaurant admin with Accept/Decline interactive buttons.",
+      "tags": ["service", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/waba_utils/wa_senders.py:enquire_shift_availability",
+      "type": "function",
+      "name": "enquire_shift_availability",
+      "filePath": "utils_common/waba_utils/wa_senders.py",
+      "lineRange": [545, 573],
+      "summary": "Sends a WhatsApp template message to a rider asking whether they are available for a shift, with Yes/No quick reply buttons.",
+      "tags": ["service", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:watomation/routers/customer_hooks.py",
+      "type": "file",
+      "name": "customer_hooks.py",
+      "filePath": "watomation/routers/customer_hooks.py",
+      "summary": "FastAPI router providing endpoints for creating/updating customer records, updating customer delivery addresses, and updating customer-restaurant marketing consent mappings.",
+      "tags": ["api-handler", "service", "data-model"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/routers/customer_hooks.py:create_or_update_customer",
+      "type": "function",
+      "name": "create_or_update_customer",
+      "filePath": "watomation/routers/customer_hooks.py",
+      "lineRange": [48, 86],
+      "summary": "Upserts a customer record in customer_master and optionally updates the cust_rest_map for marketing consent, posting a webhook notification on address updates.",
+      "tags": ["api-handler", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/routers/customer_hooks.py:update_address",
+      "type": "function",
+      "name": "update_address",
+      "filePath": "watomation/routers/customer_hooks.py",
+      "lineRange": [90, 134],
+      "summary": "Updates the customer's delivery address in customer_master and fires a webhook to the restaurant's backend with the updated data.",
+      "tags": ["api-handler", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:watomation/routers/delivery_hooks.py",
+      "type": "file",
+      "name": "delivery_hooks.py",
+      "filePath": "watomation/routers/delivery_hooks.py",
+      "summary": "Core FastAPI router implementing the full delivery lifecycle via PostgreSQL-trigger-driven webhooks: dispatch to riders, inflight LangGraph agent initialization, restaurant confirmation flow, shift availability enquiry, missed dispatch handling, and delivery timeout processing.",
+      "tags": ["api-handler", "service", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/routers/delivery_hooks.py:restaurant_confirmation_flow",
+      "type": "function",
+      "name": "restaurant_confirmation_flow",
+      "filePath": "watomation/routers/delivery_hooks.py",
+      "lineRange": [1254, 1355],
+      "summary": "Master restaurant confirmation handler that dispatches to `_handle_restaurant_unconfirmed`, `_handle_restaurant_accept`, `_handle_restaurant_decline`, `_handle_restaurant_timedout`, or `_handle_restaurant_pickuptime_adjusted` based on the trigger_reason in the payload.",
+      "tags": ["api-handler", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/routers/delivery_hooks.py:delivery_dispatch_hook",
+      "type": "function",
+      "name": "delivery_dispatch_hook",
+      "filePath": "watomation/routers/delivery_hooks.py",
+      "lineRange": [412, 459],
+      "summary": "Handles the delivery_dispatch DB trigger event by dispatching WhatsApp delivery request messages to all available riders as background tasks.",
+      "tags": ["api-handler", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/routers/delivery_hooks.py:delivery_inflight_graph_init_hook",
+      "type": "function",
+      "name": "delivery_inflight_graph_init_hook",
+      "filePath": "watomation/routers/delivery_hooks.py",
+      "lineRange": [500, 571],
+      "summary": "Initializes the LangGraph rider agent state for an inflight delivery when a rider accepts a dispatch, sending instructions and admin notifications as background tasks.",
+      "tags": ["api-handler", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/routers/delivery_hooks.py:wa_send_delivery_dispatch_request_to_rider",
+      "type": "function",
+      "name": "wa_send_delivery_dispatch_request_to_rider",
+      "filePath": "watomation/routers/delivery_hooks.py",
+      "lineRange": [243, 307],
+      "summary": "Sends a WhatsApp interactive button message to a specific rider with delivery details and Accept/Decline buttons for a dispatch request.",
+      "tags": ["service", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/routers/delivery_hooks.py:_handle_restaurant_decline",
+      "type": "function",
+      "name": "_handle_restaurant_decline",
+      "filePath": "watomation/routers/delivery_hooks.py",
+      "lineRange": [1096, 1123],
+      "summary": "Handles restaurant order decline by reverting delivery_summary status to 'unassigned' and notifying the customer via WhatsApp.",
+      "tags": ["event-handler", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:watomation/routers/order_hooks.py",
+      "type": "file",
+      "name": "order_hooks.py",
+      "filePath": "watomation/routers/order_hooks.py",
+      "summary": "FastAPI router for order management endpoints: minimum order value checks (by coordinates or postcode), order creation, postcode validation, address capture, and active thread lookup.",
+      "tags": ["api-handler", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/routers/order_hooks.py:create_order",
+      "type": "function",
+      "name": "create_order",
+      "filePath": "watomation/routers/order_hooks.py",
+      "lineRange": [232, 300],
+      "summary": "FastAPI endpoint that creates a new food order using `create_order_with_items`, optionally generates a payment intent URL, and returns order details.",
+      "tags": ["api-handler", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/routers/order_hooks.py:capture_address",
+      "type": "function",
+      "name": "capture_address",
+      "filePath": "watomation/routers/order_hooks.py",
+      "lineRange": [339, 387],
+      "summary": "Upserts customer address into customer_master and cust_rest_map, then fires a restaurant webhook with the updated address data.",
+      "tags": ["api-handler", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:watomation/routers/payment_hooks.py",
+      "type": "file",
+      "name": "payment_hooks.py",
+      "filePath": "watomation/routers/payment_hooks.py",
+      "summary": "FastAPI router handling payment lifecycle events: Stripe webhook completion, delivery summary initialization on payment, and pay-at-restaurant order flow.",
+      "tags": ["api-handler", "service", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/routers/payment_hooks.py:payment_complete_path",
+      "type": "function",
+      "name": "payment_complete_path",
+      "filePath": "watomation/routers/payment_hooks.py",
+      "lineRange": [106, 144],
+      "summary": "Handles Stripe payment webhook, updates food_order payment_status, sends customer receipt, and initializes delivery summary as background tasks.",
+      "tags": ["api-handler", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/routers/payment_hooks.py:pay_at_restaurant",
+      "type": "function",
+      "name": "pay_at_restaurant",
+      "filePath": "watomation/routers/payment_hooks.py",
+      "lineRange": [187, 227],
+      "summary": "Processes a pay-at-restaurant order by updating the payment_status and triggering the delivery initialization and receipt sending flow.",
+      "tags": ["api-handler", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:watomation/routers/takeaway_hooks.py",
+      "type": "file",
+      "name": "takeaway_hooks.py",
+      "filePath": "watomation/routers/takeaway_hooks.py",
+      "summary": "FastAPI router implementing the parallel takeaway order lifecycle via DB trigger webhooks: restaurant confirmation flow (accept/decline/timeout), pickup time update handling, and payment capture.",
+      "tags": ["api-handler", "service", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/routers/takeaway_hooks.py:restaurant_confirmation_flow",
+      "type": "function",
+      "name": "restaurant_confirmation_flow",
+      "filePath": "watomation/routers/takeaway_hooks.py",
+      "lineRange": [320, 396],
+      "summary": "Master takeaway confirmation handler dispatching to unconfirmed/accept/decline/timedout sub-handlers based on trigger_reason, mirroring the delivery confirmation flow for takeaway orders.",
+      "tags": ["api-handler", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/routers/takeaway_hooks.py:capture_takeaway_payment",
+      "type": "function",
+      "name": "capture_takeaway_payment",
+      "filePath": "watomation/routers/takeaway_hooks.py",
+      "lineRange": [419, 471],
+      "summary": "Captures payment for a completed takeaway order by calling the automatic payment URL generator and then posting a Stripe capture request.",
+      "tags": ["service", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/routers/takeaway_hooks.py:pickup_time_updated_hook",
+      "type": "function",
+      "name": "pickup_time_updated_hook",
+      "filePath": "watomation/routers/takeaway_hooks.py",
+      "lineRange": [476, 524],
+      "summary": "Handles pickup time update DB trigger by sending updated time notifications to the customer and restaurant admin via background tasks.",
+      "tags": ["api-handler", "event-handler"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:utils_common/order_management/order_service.py",
+      "target": "function:utils_common/order_management/order_service.py:create_order_with_items",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/order_service.py",
+      "target": "function:utils_common/order_management/order_service.py:create_order_with_items",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/order_service.py",
+      "target": "function:utils_common/order_management/order_service.py:get_min_order_value",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/order_service.py",
+      "target": "function:utils_common/order_management/order_service.py:get_min_order_value",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/payment_ms/payment.py",
+      "target": "function:utils_common/payment_ms/payment.py:generate_payment_intent_url",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/payment_ms/payment.py",
+      "target": "function:utils_common/payment_ms/payment.py:generate_payment_intent_url",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/payment_ms/payment.py",
+      "target": "function:utils_common/payment_ms/payment.py:generate_automatic_payment_url",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/payment_ms/payment.py",
+      "target": "function:utils_common/payment_ms/payment.py:generate_automatic_payment_url",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "function:utils_common/waba_utils/wa_senders.py:send_restaurant_pickup_time",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "function:utils_common/waba_utils/wa_senders.py:send_restaurant_pickup_time",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "function:utils_common/waba_utils/wa_senders.py:admin_order_reciept",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "function:utils_common/waba_utils/wa_senders.py:admin_order_reciept",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "function:utils_common/waba_utils/wa_senders.py:send_restaurant_order_confirmation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "function:utils_common/waba_utils/wa_senders.py:send_restaurant_order_confirmation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "function:utils_common/waba_utils/wa_senders.py:enquire_shift_availability",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "function:utils_common/waba_utils/wa_senders.py:enquire_shift_availability",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/customer_hooks.py",
+      "target": "function:watomation/routers/customer_hooks.py:create_or_update_customer",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/customer_hooks.py",
+      "target": "function:watomation/routers/customer_hooks.py:create_or_update_customer",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/customer_hooks.py",
+      "target": "function:watomation/routers/customer_hooks.py:update_address",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/customer_hooks.py",
+      "target": "function:watomation/routers/customer_hooks.py:update_address",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "function:watomation/routers/delivery_hooks.py:restaurant_confirmation_flow",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "function:watomation/routers/delivery_hooks.py:restaurant_confirmation_flow",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "function:watomation/routers/delivery_hooks.py:delivery_dispatch_hook",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "function:watomation/routers/delivery_hooks.py:delivery_dispatch_hook",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "function:watomation/routers/delivery_hooks.py:delivery_inflight_graph_init_hook",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "function:watomation/routers/delivery_hooks.py:delivery_inflight_graph_init_hook",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "function:watomation/routers/delivery_hooks.py:wa_send_delivery_dispatch_request_to_rider",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "function:watomation/routers/delivery_hooks.py:_handle_restaurant_decline",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/order_hooks.py",
+      "target": "function:watomation/routers/order_hooks.py:create_order",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/order_hooks.py",
+      "target": "function:watomation/routers/order_hooks.py:create_order",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/order_hooks.py",
+      "target": "function:watomation/routers/order_hooks.py:capture_address",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/order_hooks.py",
+      "target": "function:watomation/routers/order_hooks.py:capture_address",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/payment_hooks.py",
+      "target": "function:watomation/routers/payment_hooks.py:payment_complete_path",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/payment_hooks.py",
+      "target": "function:watomation/routers/payment_hooks.py:payment_complete_path",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/payment_hooks.py",
+      "target": "function:watomation/routers/payment_hooks.py:pay_at_restaurant",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/payment_hooks.py",
+      "target": "function:watomation/routers/payment_hooks.py:pay_at_restaurant",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/takeaway_hooks.py",
+      "target": "function:watomation/routers/takeaway_hooks.py:restaurant_confirmation_flow",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/takeaway_hooks.py",
+      "target": "function:watomation/routers/takeaway_hooks.py:restaurant_confirmation_flow",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/takeaway_hooks.py",
+      "target": "function:watomation/routers/takeaway_hooks.py:capture_takeaway_payment",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/takeaway_hooks.py",
+      "target": "function:watomation/routers/takeaway_hooks.py:capture_takeaway_payment",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/takeaway_hooks.py",
+      "target": "function:watomation/routers/takeaway_hooks.py:pickup_time_updated_hook",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/takeaway_hooks.py",
+      "target": "function:watomation/routers/takeaway_hooks.py:pickup_time_updated_hook",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:watomation/routers/delivery_hooks.py:delivery_dispatch_hook",
+      "target": "function:utils_common/waba_utils/wa_senders.py:send_restaurant_pickup_time",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:watomation/routers/delivery_hooks.py:restaurant_confirmation_flow",
+      "target": "function:utils_common/waba_utils/wa_senders.py:send_restaurant_order_confirmation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:watomation/routers/takeaway_hooks.py:restaurant_confirmation_flow",
+      "target": "function:utils_common/waba_utils/wa_senders.py:send_restaurant_order_confirmation",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:watomation/routers/order_hooks.py:create_order",
+      "target": "function:utils_common/order_management/order_service.py:create_order_with_items",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:watomation/routers/order_hooks.py:create_order",
+      "target": "function:utils_common/payment_ms/payment.py:generate_payment_intent_url",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:watomation/routers/takeaway_hooks.py:capture_takeaway_payment",
+      "target": "function:utils_common/payment_ms/payment.py:generate_automatic_payment_url",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:utils_common/waba_utils/wa_senders.py:admin_order_reciept",
+      "target": "function:utils_common/order_management/food_order_reciept.py:build_wa_order_reciept_for_rest",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:utils_common/order_management/order_service.py:create_order_with_items",
+      "target": "function:utils_common/order_management/order_db_ops_new.py:create_order_reference",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "file:utils_common/waba_utils/wa_senders.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:watomation/routers/takeaway_hooks.py",
+      "target": "file:utils_common/waba_utils/wa_senders.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:watomation/routers/order_hooks.py",
+      "target": "file:utils_common/order_management/order_service.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:watomation/routers/payment_hooks.py",
+      "target": "file:utils_common/payment_ms/payment.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    }
+  ]
+}

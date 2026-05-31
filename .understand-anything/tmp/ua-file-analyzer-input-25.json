@@ -1,0 +1,26 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "ordelo_datamodels/jobs_n_functions/_tbd_handle_restaurant_confirmation.sql", "language": "sql", "sizeLines": 67, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/archive_process_delivery.sql", "language": "sql", "sizeLines": 142, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/cleanupDeliveryOrder.sql", "language": "sql", "sizeLines": 88, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql", "language": "sql", "sizeLines": 91, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql", "language": "sql", "sizeLines": 78, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/enquire_admin_availability.sql", "language": "sql", "sizeLines": 79, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/enquire_shift_availability.sql", "language": "sql", "sizeLines": 69, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/init_delivery.sql", "language": "sql", "sizeLines": 180, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/init_delivery_detail_tbd.sql", "language": "sql", "sizeLines": 31, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/init_takeaway.sql", "language": "sql", "sizeLines": 118, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/insert_delivery_detail.sql", "language": "sql", "sizeLines": 127, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql", "language": "sql", "sizeLines": 115, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/job_awsrunner_switch.sql", "language": "sql", "sizeLines": 74, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/job_close_thread.sql", "language": "sql", "sizeLines": 94, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql", "language": "sql", "sizeLines": 138, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/job_null_or_outdated_location.sql", "language": "sql", "sizeLines": 84, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/job_process_owntracks.sql", "language": "sql", "sizeLines": 98, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/job_restaurant_confirmation_timeout.sql", "language": "sql", "sizeLines": 83, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/job_terminate_stale_active_threads.sql", "language": "sql", "sizeLines": 40, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/notify_missed_dispatches_tbd.sql", "language": "sql", "sizeLines": 110, "fileCategory": "data"}
+  ],
+  "batchImportData": {}
+}

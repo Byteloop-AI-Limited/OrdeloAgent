@@ -1,0 +1,535 @@
+{
+  "nodes": [
+    {
+      "id": "file:notebooks/db_scratchpad/check_live_location_transmitted.py",
+      "type": "file",
+      "name": "check_live_location_transmitted.py",
+      "filePath": "notebooks/db_scratchpad/check_live_location_transmitted.py",
+      "summary": "Scratchpad notebook script that queries the database to verify whether live location data has been transmitted for a given delivery, used for debugging rider tracking.",
+      "tags": ["utility", "debugging", "data-access"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/db_scratchpad/simulate_dispatch_detail copy.py",
+      "type": "file",
+      "name": "simulate_dispatch_detail copy.py",
+      "filePath": "notebooks/db_scratchpad/simulate_dispatch_detail copy.py",
+      "summary": "Scratchpad notebook that simulates inserting delivery dispatch detail records into the database using Pydantic models, useful for local testing and development of dispatch creation logic.",
+      "tags": ["utility", "debugging", "data-access", "simulation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:notebooks/db_scratchpad/simulate_dispatch_detail copy.py:insert_model_to_db",
+      "type": "function",
+      "name": "insert_model_to_db",
+      "filePath": "notebooks/db_scratchpad/simulate_dispatch_detail copy.py",
+      "lineRange": [100, 129],
+      "summary": "Inserts a Pydantic model instance into the specified database table using a raw psycopg connection pool, dynamically building the SQL INSERT from model field names and values.",
+      "tags": ["utility", "data-access", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/db_scratchpad/simulate_sbase_func_call.py",
+      "type": "file",
+      "name": "simulate_sbase_func_call.py",
+      "filePath": "notebooks/db_scratchpad/simulate_sbase_func_call.py",
+      "summary": "Minimal scratchpad script that exercises the Supabase REST function-call wrapper to test or debug a specific database RPC function invocation.",
+      "tags": ["utility", "debugging", "data-access"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/dispatch_format_tbd.py",
+      "type": "file",
+      "name": "dispatch_format_tbd.py",
+      "filePath": "notebooks/dispatch_format_tbd.py",
+      "summary": "Exploratory notebook script for prototyping and verifying the dispatch data format using delivery Pydantic models, supporting iteration on the dispatch payload structure.",
+      "tags": ["utility", "debugging", "data-model"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "file",
+      "name": "delivery_pymodels.py",
+      "filePath": "ordelo_datamodels/delivery_pymodels.py",
+      "summary": "Defines the core Pydantic data models for the delivery lifecycle — DeliveryDetail, DeliverySummary, and DeliveryDispatch — each with class methods to fetch and construct instances from Supabase, used extensively across the codebase.",
+      "tags": ["data-model", "service", "type-definition"],
+      "complexity": "moderate",
+      "languageNotes": "Uses classmethods as named constructors (from_order_number, from_dispatch_id) that perform synchronous Supabase REST queries; callers must wrap these in asyncio.to_thread() per project convention."
+    },
+    {
+      "id": "class:ordelo_datamodels/delivery_pymodels.py:DeliveryDetail",
+      "type": "class",
+      "name": "DeliveryDetail",
+      "filePath": "ordelo_datamodels/delivery_pymodels.py",
+      "lineRange": [8, 55],
+      "summary": "Pydantic model representing a full delivery detail record, combining restaurant, customer, and dispatch fields, with a computed Google Maps URL and a classmethod to fetch by order number.",
+      "tags": ["data-model", "type-definition"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:ordelo_datamodels/delivery_pymodels.py:DeliverySummary",
+      "type": "class",
+      "name": "DeliverySummary",
+      "filePath": "ordelo_datamodels/delivery_pymodels.py",
+      "lineRange": [58, 110],
+      "summary": "Pydantic model for a delivery summary record including confirmation state, pickup timing, confirmation codes, and restaurant/customer references, with a classmethod to load by order number.",
+      "tags": ["data-model", "type-definition"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:ordelo_datamodels/delivery_pymodels.py:DeliveryDispatch",
+      "type": "class",
+      "name": "DeliveryDispatch",
+      "filePath": "ordelo_datamodels/delivery_pymodels.py",
+      "lineRange": [113, 146],
+      "summary": "Pydantic model representing a delivery dispatch record with rider assignment, payout, vehicle type, distance, and status fields, with a classmethod to fetch by dispatch ID.",
+      "tags": ["data-model", "type-definition"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "type": "file",
+      "name": "test_delivery_pymodels.py",
+      "filePath": "tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "summary": "pytest test suite for delivery_pymodels.py, covering Pydantic validation, computed properties (Google Maps URL), and Supabase fetch classmethods (from_order_number, from_dispatch_id) using a fake Supabase client fixture.",
+      "tags": ["test", "data-model", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/ordelo_datamodels/test_delivery_pymodels.py:_delivery_detail_row",
+      "type": "function",
+      "name": "_delivery_detail_row",
+      "filePath": "tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "lineRange": [30, 52],
+      "summary": "Test helper factory that returns a base dict of delivery detail row fields with optional overrides, used to construct test data for DeliveryDetail.",
+      "tags": ["test", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/ordelo_datamodels/test_delivery_pymodels.py:_delivery_summary_row",
+      "type": "function",
+      "name": "_delivery_summary_row",
+      "filePath": "tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "lineRange": [55, 77],
+      "summary": "Test helper factory that returns a base dict of delivery summary row fields including date/datetime values with optional overrides, used to construct test data for DeliverySummary.",
+      "tags": ["test", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/ordelo_datamodels/test_delivery_pymodels.py:test_delivery_detail_from_order_number_fetches_first_row",
+      "type": "function",
+      "name": "test_delivery_detail_from_order_number_fetches_first_row",
+      "filePath": "tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "lineRange": [115, 125],
+      "summary": "Verifies that DeliveryDetail.from_order_number returns a correctly populated instance when the fake Supabase client returns a matching row.",
+      "tags": ["test", "data-access"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/ordelo_datamodels/test_delivery_pymodels.py:test_delivery_dispatch_from_dispatch_id_fetches_first_row",
+      "type": "function",
+      "name": "test_delivery_dispatch_from_dispatch_id_fetches_first_row",
+      "filePath": "tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "lineRange": [139, 149],
+      "summary": "Verifies that DeliveryDispatch.from_dispatch_id returns a correctly populated instance when the fake Supabase client returns a matching dispatch row.",
+      "tags": ["test", "data-access"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "type": "file",
+      "name": "sbase_rest_ops.py",
+      "filePath": "utils_common/db_utils/sbase_rest_ops.py",
+      "summary": "Core synchronous and asynchronous Supabase REST client wrapper providing generic CRUD operations (get, insert, update, delete) and RPC function calls using httpx, with SQL-to-REST query translation helpers.",
+      "tags": ["service", "data-access", "utility", "api-handler"],
+      "complexity": "complex",
+      "languageNotes": "Provides both async (httpx.AsyncClient) and sync (httpx.Client) variants for each operation; async variants must be awaited in async contexts, sync variants must be wrapped in asyncio.to_thread() per project convention."
+    },
+    {
+      "id": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_call_function",
+      "type": "function",
+      "name": "sbase_call_function",
+      "filePath": "utils_common/db_utils/sbase_rest_ops.py",
+      "lineRange": [9, 21],
+      "summary": "Asynchronously invokes a Supabase/PostgreSQL RPC function via the REST API using httpx, returning the JSON response.",
+      "tags": ["utility", "data-access", "api-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:utils_common/db_utils/sbase_rest_ops.py:sql_to_supabase_rest",
+      "type": "function",
+      "name": "sql_to_supabase_rest",
+      "filePath": "utils_common/db_utils/sbase_rest_ops.py",
+      "lineRange": [28, 58],
+      "summary": "Translates keyword-argument query conditions (using SQL-style operator suffixes) into Supabase REST API query string format, supporting eq, neq, lt, lte, gt, gte operators.",
+      "tags": ["utility", "serialization"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/db_utils/sbase_rest_ops.py:get_sql_condition_new",
+      "type": "function",
+      "name": "get_sql_condition_new",
+      "filePath": "utils_common/db_utils/sbase_rest_ops.py",
+      "lineRange": [66, 140],
+      "summary": "Builds SQL WHERE clause conditions from keyword arguments, supporting scalar values, comparison operators, list-based OR conditions, and nested value processing via an inner process_value helper.",
+      "tags": ["utility", "validation", "serialization"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_get",
+      "type": "function",
+      "name": "sbase_get",
+      "filePath": "utils_common/db_utils/sbase_rest_ops.py",
+      "lineRange": [145, 192],
+      "summary": "Asynchronously fetches rows from a Supabase table using the REST API, translating kwargs into query parameters and raising structured errors on non-200 responses or empty results.",
+      "tags": ["data-access", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_sync_get",
+      "type": "function",
+      "name": "sbase_sync_get",
+      "filePath": "utils_common/db_utils/sbase_rest_ops.py",
+      "lineRange": [195, 231],
+      "summary": "Synchronously fetches rows from a Supabase table using the REST API, translating kwargs into query parameters and raising structured errors on failure or missing data.",
+      "tags": ["data-access", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_insert",
+      "type": "function",
+      "name": "sbase_insert",
+      "filePath": "utils_common/db_utils/sbase_rest_ops.py",
+      "lineRange": [235, 281],
+      "summary": "Asynchronously inserts a record into a Supabase table via the REST API, accepting a dict or Pydantic BaseModel payload and raising on HTTP or response errors.",
+      "tags": ["data-access", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_update",
+      "type": "function",
+      "name": "sbase_update",
+      "filePath": "utils_common/db_utils/sbase_rest_ops.py",
+      "lineRange": [285, 338],
+      "summary": "Asynchronously updates records in a Supabase table via the REST API PATCH endpoint, with kwargs-based row filtering and structured error reporting.",
+      "tags": ["data-access", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_sync_update",
+      "type": "function",
+      "name": "sbase_sync_update",
+      "filePath": "utils_common/db_utils/sbase_rest_ops.py",
+      "lineRange": [341, 414],
+      "summary": "Synchronously updates records in a Supabase table via the REST API PATCH endpoint, with detailed HTTP status error handling and validation for conflict and constraint errors.",
+      "tags": ["data-access", "api-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_delete",
+      "type": "function",
+      "name": "sbase_delete",
+      "filePath": "utils_common/db_utils/sbase_rest_ops.py",
+      "lineRange": [418, 465],
+      "summary": "Asynchronously deletes records from a Supabase table via the REST API DELETE endpoint, with kwargs-based row filtering and structured error reporting.",
+      "tags": ["data-access", "api-handler"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:notebooks/db_scratchpad/check_live_location_transmitted.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/db_scratchpad/check_live_location_transmitted.py",
+      "target": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/db_scratchpad/simulate_dispatch_detail copy.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/db_scratchpad/simulate_dispatch_detail copy.py",
+      "target": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/db_scratchpad/simulate_dispatch_detail copy.py",
+      "target": "file:utils_common/db_utils/sbase_pool_ops.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/db_scratchpad/simulate_dispatch_detail copy.py",
+      "target": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/db_scratchpad/simulate_sbase_func_call.py",
+      "target": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/dispatch_format_tbd.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/dispatch_format_tbd.py",
+      "target": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "target": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/db_scratchpad/simulate_dispatch_detail copy.py",
+      "target": "function:notebooks/db_scratchpad/simulate_dispatch_detail copy.py:insert_model_to_db",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/delivery_pymodels.py",
+      "target": "class:ordelo_datamodels/delivery_pymodels.py:DeliveryDetail",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/delivery_pymodels.py",
+      "target": "class:ordelo_datamodels/delivery_pymodels.py:DeliverySummary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/delivery_pymodels.py",
+      "target": "class:ordelo_datamodels/delivery_pymodels.py:DeliveryDispatch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/delivery_pymodels.py",
+      "target": "class:ordelo_datamodels/delivery_pymodels.py:DeliveryDetail",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo_datamodels/delivery_pymodels.py",
+      "target": "class:ordelo_datamodels/delivery_pymodels.py:DeliverySummary",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo_datamodels/delivery_pymodels.py",
+      "target": "class:ordelo_datamodels/delivery_pymodels.py:DeliveryDispatch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "target": "function:tests/ordelo_datamodels/test_delivery_pymodels.py:_delivery_detail_row",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "target": "function:tests/ordelo_datamodels/test_delivery_pymodels.py:_delivery_summary_row",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "target": "function:tests/ordelo_datamodels/test_delivery_pymodels.py:test_delivery_detail_from_order_number_fetches_first_row",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "target": "function:tests/ordelo_datamodels/test_delivery_pymodels.py:test_delivery_dispatch_from_dispatch_id_fetches_first_row",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/delivery_pymodels.py",
+      "target": "file:tests/ordelo_datamodels/test_delivery_pymodels.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_call_function",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sql_to_supabase_rest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:get_sql_condition_new",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_get",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_sync_get",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_insert",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_update",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_sync_update",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_delete",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_call_function",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sql_to_supabase_rest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:get_sql_condition_new",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_get",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_sync_get",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_insert",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_update",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_sync_update",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_rest_ops.py",
+      "target": "function:utils_common/db_utils/sbase_rest_ops.py:sbase_delete",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "nodes": [
+    {
+      "id": "document:utils_common/thread_management/THREAD_CLOSURE_SYSTEM.md",
+      "type": "document",
+      "name": "THREAD_CLOSURE_SYSTEM.md",
+      "filePath": "utils_common/thread_management/THREAD_CLOSURE_SYSTEM.md",
+      "summary": "Detailed reference documentation for the automated LangGraph thread termination system, covering the FastAPI endpoint, database schema, ThreadHandler class methods, SQL functions, stale detection logic, and retention guard used to close idle WhatsApp conversation sessions.",
+      "tags": ["documentation", "infrastructure", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "table:utils_common/thread_management/thread_mgmnt.sql:thread",
+      "type": "table",
+      "name": "thread",
+      "filePath": "utils_common/thread_management/thread_mgmnt.sql",
+      "lineRange": [3, 13],
+      "summary": "Core thread table definition and full suite of CRUD stored procedures (get_active_thread, create_thread, get_or_create_thread, retain_thread, make_threads_inactive, get_stale_active_threads) that back the ThreadHandler class for managing LangGraph conversation session lifecycle.",
+      "tags": ["database", "schema-definition", "data-pipeline"],
+      "complexity": "complex",
+      "languageNotes": "get_or_create_thread uses an advisory lock (pg_advisory_xact_lock) pattern to prevent race conditions on concurrent thread creation for the same recipient. get_stale_active_threads filters on last_access_dtts to support time-based inactivity detection."
+    },
+    {
+      "id": "table:utils_common/thread_management/thread_mgmnt_ddl.sql:thread_ddl",
+      "type": "table",
+      "name": "thread_ddl",
+      "filePath": "utils_common/thread_management/thread_mgmnt_ddl.sql",
+      "lineRange": [15, 25],
+      "summary": "DDL migration script for the public.thread table that includes commented-out historical schema versions and ALTER TABLE migrations, providing the current CREATE TABLE definition with all columns and the primary key constraint for the LangGraph thread persistence store.",
+      "tags": ["database", "migration", "schema-definition"],
+      "complexity": "moderate",
+      "languageNotes": "Contains inline migration history as commented SQL (column renames, ADD COLUMN), making it the authoritative schema change log for the thread table alongside the live CREATE TABLE."
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:utils_common/thread_management/THREAD_CLOSURE_SYSTEM.md",
+      "target": "table:utils_common/thread_management/thread_mgmnt.sql:thread",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:utils_common/thread_management/THREAD_CLOSURE_SYSTEM.md",
+      "target": "table:utils_common/thread_management/thread_mgmnt_ddl.sql:thread_ddl",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "table:utils_common/thread_management/thread_mgmnt_ddl.sql:thread_ddl",
+      "target": "table:utils_common/thread_management/thread_mgmnt.sql:thread",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    }
+  ]
+}

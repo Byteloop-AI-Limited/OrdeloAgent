@@ -1,0 +1,11 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "watomation/routers/templates/404.html", "language": "html", "sizeLines": 10, "fileCategory": "markup"},
+    {"path": "watomation/routers/templates/base.html", "language": "html", "sizeLines": 20, "fileCategory": "markup"},
+    {"path": "watomation/routers/templates/get-config.html", "language": "html", "sizeLines": 66, "fileCategory": "markup"},
+    {"path": "watomation/routers/templates/live-location-map.html", "language": "html", "sizeLines": 130, "fileCategory": "markup"},
+    {"path": "watomation/routers/templates/waba_embedded_signup.html", "language": "html", "sizeLines": 85, "fileCategory": "markup"}
+  ],
+  "batchImportData": {}
+}

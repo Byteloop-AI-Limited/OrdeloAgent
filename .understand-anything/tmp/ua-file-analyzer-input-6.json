@@ -1,0 +1,43 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "tests/utils_common/order_management/test_food_order_pymodel.py", "language": "python", "sizeLines": 150, "fileCategory": "code"},
+    {"path": "tests/utils_common/order_management/test_order_db_ops_new.py", "language": "python", "sizeLines": 119, "fileCategory": "code"},
+    {"path": "tests/utils_common/order_management/test_order_num_gen.py", "language": "python", "sizeLines": 68, "fileCategory": "code"},
+    {"path": "tests/utils_common/order_management/test_order_service.py", "language": "python", "sizeLines": 120, "fileCategory": "code"},
+    {"path": "tests/utils_common/waba_utils/__init__.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/utils_common/waba_utils/test_wa_senders.py", "language": "python", "sizeLines": 134, "fileCategory": "code"},
+    {"path": "tests/watomation/__init__.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/watomation/routers/__init__.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/watomation/routers/test_customer_hooks.py", "language": "python", "sizeLines": 101, "fileCategory": "code"},
+    {"path": "tests/watomation/routers/test_delivery_hooks.py", "language": "python", "sizeLines": 363, "fileCategory": "code"},
+    {"path": "tests/watomation/routers/test_location_hooks.py", "language": "python", "sizeLines": 147, "fileCategory": "code"},
+    {"path": "tests/watomation/routers/test_order_hooks.py", "language": "python", "sizeLines": 184, "fileCategory": "code"},
+    {"path": "tests/watomation/routers/test_payment_hooks.py", "language": "python", "sizeLines": 118, "fileCategory": "code"},
+    {"path": "tests/watomation/routers/test_takeaway_hooks.py", "language": "python", "sizeLines": 195, "fileCategory": "code"},
+    {"path": "tests/watomation/routers/test_thread_hooks.py", "language": "python", "sizeLines": 133, "fileCategory": "code"},
+    {"path": "tests/watomation/test_flow_handlers.py", "language": "python", "sizeLines": 85, "fileCategory": "code"},
+    {"path": "tests/watomation/test_on_callback_wa_handler.py", "language": "python", "sizeLines": 235, "fileCategory": "code"},
+    {"path": "tests/watomation/test_on_message_wa_handler.py", "language": "python", "sizeLines": 140, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    "tests/utils_common/order_management/test_food_order_pymodel.py": ["tests/fixtures/fake_supabase.py", "utils_common/order_management/food_order_pymodel.py"],
+    "tests/utils_common/order_management/test_order_db_ops_new.py": ["tests/fixtures/fake_supabase.py", "tests/utils_common/order_management/__init__.py"],
+    "tests/utils_common/order_management/test_order_num_gen.py": ["tests/utils_common/order_management/__init__.py"],
+    "tests/utils_common/order_management/test_order_service.py": ["tests/fixtures/fake_supabase.py", "tests/utils_common/order_management/__init__.py", "utils_common/order_management/order_db_ops_new.py"],
+    "tests/utils_common/waba_utils/__init__.py": [],
+    "tests/utils_common/waba_utils/test_wa_senders.py": ["tests/fixtures/fake_wa.py", "tests/utils_common/waba_utils/__init__.py"],
+    "tests/watomation/__init__.py": [],
+    "tests/watomation/routers/__init__.py": [],
+    "tests/watomation/routers/test_customer_hooks.py": ["tests/fixtures/fake_supabase.py", "tests/watomation/routers/__init__.py"],
+    "tests/watomation/routers/test_delivery_hooks.py": ["tests/fixtures/fake_supabase.py", "tests/fixtures/fake_wa.py", "tests/watomation/routers/__init__.py"],
+    "tests/watomation/routers/test_location_hooks.py": ["tests/fixtures/fake_supabase.py", "tests/fixtures/fake_wa.py", "tests/watomation/routers/__init__.py"],
+    "tests/watomation/routers/test_order_hooks.py": ["tests/fixtures/fake_supabase.py", "tests/watomation/routers/__init__.py", "utils_common/order_management/order_db_ops_new.py"],
+    "tests/watomation/routers/test_payment_hooks.py": ["tests/fixtures/fake_supabase.py", "tests/watomation/routers/__init__.py"],
+    "tests/watomation/routers/test_takeaway_hooks.py": ["tests/fixtures/fake_supabase.py", "tests/fixtures/fake_wa.py", "tests/watomation/routers/__init__.py"],
+    "tests/watomation/routers/test_thread_hooks.py": ["tests/fixtures/fake_supabase.py", "tests/watomation/routers/__init__.py"],
+    "tests/watomation/test_flow_handlers.py": ["tests/watomation/__init__.py"],
+    "tests/watomation/test_on_callback_wa_handler.py": ["tests/fixtures/fake_supabase.py", "tests/fixtures/fake_wa.py", "tests/watomation/__init__.py"],
+    "tests/watomation/test_on_message_wa_handler.py": ["tests/fixtures/fake_supabase.py", "tests/fixtures/fake_wa.py", "tests/watomation/__init__.py"]
+  }
+}
