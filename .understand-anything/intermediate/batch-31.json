@@ -1,0 +1,317 @@
+{
+  "nodes": [
+    {
+      "id": "document:notebooks/App Review/data_handling.md",
+      "type": "document",
+      "name": "data_handling.md",
+      "filePath": "notebooks/App Review/data_handling.md",
+      "summary": "Notes on data handling patterns and practices for the Ordelo app review, covering how order and rider data is managed.",
+      "tags": ["documentation", "database"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/claude-sdk/getting_started.py",
+      "type": "file",
+      "name": "getting_started.py",
+      "filePath": "notebooks/claude-sdk/getting_started.py",
+      "summary": "Notebook script demonstrating basic usage of the Claude Agent SDK — invokes the `query` helper with `ClaudeAgentOptions` and prints streamed result content.",
+      "tags": ["utility", "entry-point"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:notebooks/docs/rider_terms_of_engagement.md",
+      "type": "document",
+      "name": "rider_terms_of_engagement.md",
+      "filePath": "notebooks/docs/rider_terms_of_engagement.md",
+      "summary": "Short rider-facing terms of engagement document covering delivery process expectations and responsibilities.",
+      "tags": ["documentation", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/getting_distance.py",
+      "type": "file",
+      "name": "getting_distance.py",
+      "filePath": "notebooks/getting_distance.py",
+      "summary": "Ad-hoc notebook script that calls a distance/routing API to compute travel distance between two coordinates, used for development exploration.",
+      "tags": ["utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/sql_test_scripts/rider_notify_test.sql",
+      "type": "file",
+      "name": "rider_notify_test.sql",
+      "filePath": "notebooks/sql_test_scripts/rider_notify_test.sql",
+      "summary": "SQL test script that manually triggers rider notification logic by inserting test dispatch records or calling stored procedures, used for development verification.",
+      "tags": ["test", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/wa_adhoc_scripts/create_carousel_template.py",
+      "type": "file",
+      "name": "create_carousel_template.py",
+      "filePath": "notebooks/wa_adhoc_scripts/create_carousel_template.py",
+      "summary": "Placeholder ad-hoc script for creating a WhatsApp carousel message template via the Graph API; currently empty.",
+      "tags": ["utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:ordelo_datamodels/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "ordelo_datamodels/__init__.py",
+      "summary": "Empty package initialiser for the `ordelo_datamodels` package, making Pydantic data models importable as a package.",
+      "tags": ["entry-point", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:ordelo/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "ordelo/__init__.py",
+      "summary": "Package initialiser for the `ordelo` core agent package, setting up namespace metadata.",
+      "tags": ["entry-point", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:ordelo/agents/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "ordelo/agents/__init__.py",
+      "summary": "Package initialiser for the `ordelo.agents` sub-package, making agent modules importable.",
+      "tags": ["entry-point", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:ordelo/agents/rider_agent_prompt.md",
+      "type": "document",
+      "name": "rider_agent_prompt.md",
+      "filePath": "ordelo/agents/rider_agent_prompt.md",
+      "summary": "LLM system prompt for the rider delivery agent, defining its role, four user-journey scenarios (initiation, pickup confirmation, job completion, pickup time adjustment), behaviour guidelines, and example conversation flows.",
+      "tags": ["documentation", "development"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:tests/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/__init__.py",
+      "summary": "Empty package initialiser making the `tests` directory a Python package.",
+      "tags": ["test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/conftest.py",
+      "type": "file",
+      "name": "conftest.py",
+      "filePath": "tests/conftest.py",
+      "summary": "Pytest session-scoped conftest that installs a fake AWS settings module and patches Google credentials to allow all modules to be imported without real cloud credentials during testing.",
+      "tags": ["test", "configuration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/conftest.py:_install_fake_aws_setting",
+      "type": "function",
+      "name": "_install_fake_aws_setting",
+      "filePath": "tests/conftest.py",
+      "lineRange": [100, 129],
+      "summary": "Session-scoped pytest fixture that injects a synthetic `config.aws_setting` module with MagicMock stubs so imports of production config succeed without AWS credentials.",
+      "tags": ["test", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/conftest.py:_install_google_credentials_patch",
+      "type": "function",
+      "name": "_install_google_credentials_patch",
+      "filePath": "tests/conftest.py",
+      "lineRange": [140, 153],
+      "summary": "Session-scoped fixture that patches `google.oauth2.service_account.Credentials.from_service_account_info` with a MagicMock to suppress Google credential errors during import.",
+      "tags": ["test", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/fixtures/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/fixtures/__init__.py",
+      "summary": "Empty package initialiser for the test fixtures sub-package.",
+      "tags": ["test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/ordelo_datamodels/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/ordelo_datamodels/__init__.py",
+      "summary": "Empty package initialiser for the `tests/ordelo_datamodels` test sub-package.",
+      "tags": ["test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/regressions/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/regressions/__init__.py",
+      "summary": "Empty package initialiser for the `tests/regressions` test sub-package.",
+      "tags": ["test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_smoke_imports.py",
+      "type": "file",
+      "name": "test_smoke_imports.py",
+      "filePath": "tests/test_smoke_imports.py",
+      "summary": "Parametrised smoke-import test that verifies every key project module can be imported without raising an error, providing a fast sanity check for dependency health.",
+      "tags": ["test", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/utils_common/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/utils_common/__init__.py",
+      "summary": "Empty package initialiser for the `tests/utils_common` test sub-package.",
+      "tags": ["test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/utils_common/db_utils/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/utils_common/db_utils/__init__.py",
+      "summary": "Empty package initialiser for the `tests/utils_common/db_utils` test sub-package.",
+      "tags": ["test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/utils_common/db_utils/test_sbase_rest_ops.py",
+      "type": "file",
+      "name": "test_sbase_rest_ops.py",
+      "filePath": "tests/utils_common/db_utils/test_sbase_rest_ops.py",
+      "summary": "Unit tests for `utils_common/db_utils/sbase_rest_ops.py` covering SQL-to-Supabase REST translation, condition building, RPC calls, GET/INSERT/UPDATE/DELETE success and error paths, using `respx` to mock HTTP.",
+      "tags": ["test", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/utils_common/thread_management/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/utils_common/thread_management/__init__.py",
+      "summary": "Empty package initialiser for the `tests/utils_common/thread_management` test sub-package.",
+      "tags": ["test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "utils_common/__init__.py",
+      "summary": "Package initialiser for the `utils_common` shared utilities package.",
+      "tags": ["entry-point", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/aws_misc/aws_runner_cost_calculator.py",
+      "type": "file",
+      "name": "aws_runner_cost_calculator.py",
+      "filePath": "utils_common/aws_misc/aws_runner_cost_calculator.py",
+      "summary": "Standalone utility that calculates estimated monthly AWS App Runner costs from provisioned and active vCPU/memory hours, used for infrastructure cost analysis.",
+      "tags": ["utility", "infrastructure"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/aws_misc/aws_runner_cost_calculator.py:calculate_monthly_app_runner_cost",
+      "type": "function",
+      "name": "calculate_monthly_app_runner_cost",
+      "filePath": "utils_common/aws_misc/aws_runner_cost_calculator.py",
+      "lineRange": [1, 45],
+      "summary": "Computes the estimated monthly AWS App Runner bill from vCPU count, memory, daily provisioned/active hours, and per-unit cost rates.",
+      "tags": ["utility", "infrastructure"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:utils_common/aws_misc/lambda_deploy_steps.md",
+      "type": "document",
+      "name": "lambda_deploy_steps.md",
+      "filePath": "utils_common/aws_misc/lambda_deploy_steps.md",
+      "summary": "Short checklist of steps for packaging and deploying the OrdeloAgent to AWS Lambda.",
+      "tags": ["documentation", "deployment", "infrastructure"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/db_utils/dispatch_utils_tbd.py",
+      "type": "file",
+      "name": "dispatch_utils_tbd.py",
+      "filePath": "utils_common/db_utils/dispatch_utils_tbd.py",
+      "summary": "To-be-developed placeholder module for dispatch database utilities; currently contains commented-out or stub logic for future dispatch query helpers.",
+      "tags": ["database", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/db_utils/queues/sbase_queues.sql",
+      "type": "file",
+      "name": "sbase_queues.sql",
+      "filePath": "utils_common/db_utils/queues/sbase_queues.sql",
+      "summary": "SQL script setting up PGMQ message queues in Supabase for async inter-service messaging, such as the OwnTracks location queue.",
+      "tags": ["database", "infrastructure"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:tests/conftest.py",
+      "target": "function:tests/conftest.py:_install_fake_aws_setting",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/conftest.py",
+      "target": "function:tests/conftest.py:_install_google_credentials_patch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/conftest.py",
+      "target": "function:tests/conftest.py:_install_fake_aws_setting",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/conftest.py",
+      "target": "function:tests/conftest.py:_install_google_credentials_patch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/aws_misc/aws_runner_cost_calculator.py",
+      "target": "function:utils_common/aws_misc/aws_runner_cost_calculator.py:calculate_monthly_app_runner_cost",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/aws_misc/aws_runner_cost_calculator.py",
+      "target": "function:utils_common/aws_misc/aws_runner_cost_calculator.py:calculate_monthly_app_runner_cost",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/utils_common/db_utils/test_sbase_rest_ops.py",
+      "target": "file:tests/utils_common/db_utils/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "document:ordelo/agents/rider_agent_prompt.md",
+      "target": "file:ordelo/agents/__init__.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

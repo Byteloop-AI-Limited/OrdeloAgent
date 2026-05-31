@@ -1,0 +1,33 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "notebooks/App Review/data_handling.md", "language": "markdown", "sizeLines": 43, "fileCategory": "docs"},
+    {"path": "notebooks/claude-sdk/getting_started.py", "language": "python", "sizeLines": 34, "fileCategory": "code"},
+    {"path": "notebooks/docs/rider_terms_of_engagement.md", "language": "markdown", "sizeLines": 30, "fileCategory": "docs"},
+    {"path": "notebooks/getting_distance.py", "language": "python", "sizeLines": 48, "fileCategory": "code"},
+    {"path": "notebooks/sql_test_scripts/rider_notify_test.sql", "language": "sql", "sizeLines": 75, "fileCategory": "data"},
+    {"path": "notebooks/wa_adhoc_scripts/create_carousel_template.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "ordelo_datamodels/__init__.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "ordelo/__init__.py", "language": "python", "sizeLines": 8, "fileCategory": "code"},
+    {"path": "ordelo/agents/__init__.py", "language": "python", "sizeLines": 7, "fileCategory": "code"},
+    {"path": "ordelo/agents/rider_agent_prompt.md", "language": "markdown", "sizeLines": 184, "fileCategory": "docs"},
+    {"path": "tests/__init__.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/conftest.py", "language": "python", "sizeLines": 165, "fileCategory": "code"},
+    {"path": "tests/fixtures/__init__.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/ordelo_datamodels/__init__.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/regressions/__init__.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/test_smoke_imports.py", "language": "python", "sizeLines": 80, "fileCategory": "code"},
+    {"path": "tests/utils_common/__init__.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/utils_common/db_utils/__init__.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/utils_common/db_utils/test_sbase_rest_ops.py", "language": "python", "sizeLines": 103, "fileCategory": "code"},
+    {"path": "tests/utils_common/thread_management/__init__.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "utils_common/__init__.py", "language": "python", "sizeLines": 5, "fileCategory": "code"},
+    {"path": "utils_common/aws_misc/aws_runner_cost_calculator.py", "language": "python", "sizeLines": 69, "fileCategory": "code"},
+    {"path": "utils_common/aws_misc/lambda_deploy_steps.md", "language": "markdown", "sizeLines": 13, "fileCategory": "docs"},
+    {"path": "utils_common/db_utils/dispatch_utils_tbd.py", "language": "python", "sizeLines": 54, "fileCategory": "code"},
+    {"path": "utils_common/db_utils/queues/sbase_queues.sql", "language": "sql", "sizeLines": 29, "fileCategory": "data"}
+  ],
+  "batchImportData": {
+    "tests/utils_common/db_utils/test_sbase_rest_ops.py": ["tests/utils_common/db_utils/__init__.py"]
+  }
+}

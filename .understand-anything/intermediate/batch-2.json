@@ -1,0 +1,1053 @@
+{
+  "nodes": [
+    {
+      "id": "file:.claude/skills/database-operations/references/switch_elas_test_prod.py",
+      "type": "file",
+      "name": "switch_elas_test_prod.py",
+      "filePath": ".claude/skills/database-operations/references/switch_elas_test_prod.py",
+      "summary": "Reference script for the database-operations skill that switches restaurant and rider configuration between test and production modes for the ELAS/CHKS restaurants.",
+      "tags": ["utility", "database", "configuration", "script"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:.claude/skills/database-operations/references/switch_elas_test_prod.py:verify",
+      "type": "function",
+      "name": "verify",
+      "filePath": ".claude/skills/database-operations/references/switch_elas_test_prod.py",
+      "lineRange": [42, 51],
+      "summary": "Queries restaurant_master and rider_master tables to print current configuration state before or after a mode switch.",
+      "tags": ["utility", "database", "validation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:.claude/skills/database-operations/references/switch_elas_test_prod.py:switch",
+      "type": "function",
+      "name": "switch",
+      "filePath": ".claude/skills/database-operations/references/switch_elas_test_prod.py",
+      "lineRange": [54, 70],
+      "summary": "Applies test/production configuration updates to restaurant_master and rider_master tables for the ELAS/CHKS restaurants, then verifies the result.",
+      "tags": ["utility", "database", "configuration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py",
+      "type": "file",
+      "name": "query_active_riders.py",
+      "filePath": ".claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py",
+      "summary": "Evaluation script for the pyrun skill that queries active (in-shift) riders for a given restaurant, joining restaurant_master and rider_master data.",
+      "tags": ["utility", "database", "script", "query"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py:get_active_riders_for_restaurant",
+      "type": "function",
+      "name": "get_active_riders_for_restaurant",
+      "filePath": ".claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py",
+      "lineRange": [33, 103],
+      "summary": "Retrieves all active (in-shift) riders for a given restaurant reference by looking up the restaurant's city and filtering rider_master accordingly.",
+      "tags": ["utility", "database", "query"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": ".claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py",
+      "lineRange": [106, 153],
+      "summary": "Entry point that calls get_active_riders_for_restaurant and formats output with error handling and traceback printing.",
+      "tags": ["entry-point", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:.claude/skills/pyrun/scripts/price_breakdown.py",
+      "type": "file",
+      "name": "price_breakdown.py",
+      "filePath": ".claude/skills/pyrun/scripts/price_breakdown.py",
+      "summary": "Pyrun skill utility script that fetches and prints a detailed pricing breakdown for a given order number and vehicle type, querying food_order, delivery_detail, and delivery_option tables.",
+      "tags": ["utility", "database", "query", "pricing"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:.claude/skills/pyrun/scripts/price_breakdown.py:price_breakdown",
+      "type": "function",
+      "name": "price_breakdown",
+      "filePath": ".claude/skills/pyrun/scripts/price_breakdown.py",
+      "lineRange": [13, 58],
+      "summary": "Fetches order, delivery detail, and delivery option records for a given order number and vehicle type, then prints a formatted cost breakdown including driver payout.",
+      "tags": ["utility", "database", "pricing"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:aws_setting.py",
+      "type": "file",
+      "name": "aws_setting.py",
+      "filePath": "aws_setting.py",
+      "summary": "Foundation module for secrets management that loads AWS credentials and provides helpers to retrieve secrets from AWS Secrets Manager with fallback to local environment files.",
+      "tags": ["configuration", "security", "service", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:aws_setting.py:AwsSettings",
+      "type": "class",
+      "name": "AwsSettings",
+      "filePath": "aws_setting.py",
+      "lineRange": [27, 56],
+      "summary": "Pydantic settings class holding AWS credentials (key_id, access_key, region, secret_name) with a cached property for the boto3 secrets client and a get_secret helper.",
+      "tags": ["configuration", "security", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:aws_setting.py:get_ordelo_agent_env",
+      "type": "function",
+      "name": "get_ordelo_agent_env",
+      "filePath": "aws_setting.py",
+      "lineRange": [76, 94],
+      "summary": "Loads environment variables for the Ordelo agent from AWS Secrets Manager on Lambda or from local env/JSON files on non-Lambda environments.",
+      "tags": ["configuration", "security", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:config/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "config/__init__.py",
+      "summary": "Central configuration barrel that imports and re-exports settings instances from all config submodules, serving as the single import point used by virtually every module in the project.",
+      "tags": ["entry-point", "barrel", "configuration"],
+      "complexity": "simple",
+      "languageNotes": "Python package __init__ acting as a barrel file; consumers import from 'config' directly rather than from individual submodules."
+    },
+    {
+      "id": "file:config/google_setting.py",
+      "type": "file",
+      "name": "google_setting.py",
+      "filePath": "config/google_setting.py",
+      "summary": "Provides GoogleSettings, a Pydantic settings class that holds Google API credentials (service account, Maps API key) and exposes a helper to build an authenticated Google API client.",
+      "tags": ["configuration", "service", "security"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:config/google_setting.py:GoogleSettings",
+      "type": "class",
+      "name": "GoogleSettings",
+      "filePath": "config/google_setting.py",
+      "lineRange": [19, 47],
+      "summary": "Pydantic settings class for Google credentials that decodes base64-encoded service account JSON and constructs a Google API Credentials object.",
+      "tags": ["configuration", "security", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:config/llm_setting.py",
+      "type": "file",
+      "name": "llm_setting.py",
+      "filePath": "config/llm_setting.py",
+      "summary": "Provides LLMSettings, a Pydantic settings class that holds OpenAI model and API key configuration, exposing a cached llm_client property returning a ChatOpenAI instance.",
+      "tags": ["configuration", "service", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:config/llm_setting.py:LLMSettings",
+      "type": "class",
+      "name": "LLMSettings",
+      "filePath": "config/llm_setting.py",
+      "lineRange": [16, 35],
+      "summary": "Pydantic settings class for the LLM configuration that constructs and caches a ChatOpenAI instance from AWS-sourced credentials.",
+      "tags": ["configuration", "service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:config/logger_setting.py",
+      "type": "file",
+      "name": "logger_setting.py",
+      "filePath": "config/logger_setting.py",
+      "summary": "Configures the application-wide Python logger with a consistent format and exposes the logger instance for use across all modules.",
+      "tags": ["configuration", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:config/microservices_setting.py",
+      "type": "file",
+      "name": "microservices_setting.py",
+      "filePath": "config/microservices_setting.py",
+      "summary": "Provides MicroServicesSettings, a Pydantic settings class holding Stripe payment endpoint URLs/tokens and a pricing microservice URL with a helper to build Stripe request headers.",
+      "tags": ["configuration", "service", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:config/microservices_setting.py:MicroServicesSettings",
+      "type": "class",
+      "name": "MicroServicesSettings",
+      "filePath": "config/microservices_setting.py",
+      "lineRange": [25, 38],
+      "summary": "Pydantic settings class for external microservice (Stripe, pricing) configuration, exposing a stripe_headers property for authenticated requests.",
+      "tags": ["configuration", "service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:config/ms_setting.py",
+      "type": "file",
+      "name": "ms_setting.py",
+      "filePath": "config/ms_setting.py",
+      "summary": "Provides MsSettings, a Pydantic settings class for Microsoft Azure AD authentication that acquires OAuth2 access tokens via MSAL ConfidentialClientApplication for Microsoft Graph API access.",
+      "tags": ["configuration", "security", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:config/ms_setting.py:MsSettings",
+      "type": "class",
+      "name": "MsSettings",
+      "filePath": "config/ms_setting.py",
+      "lineRange": [16, 46],
+      "summary": "Pydantic settings class that handles Azure AD OAuth2 client credentials flow, exposing access_token and authorization headers properties.",
+      "tags": ["configuration", "security", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:config/pg_setting.py",
+      "type": "file",
+      "name": "pg_setting.py",
+      "filePath": "config/pg_setting.py",
+      "summary": "Core database configuration module providing PgSetting, a Pydantic settings class that manages PostgreSQL connection URIs, Supabase REST client, and an async psycopg connection pool.",
+      "tags": ["configuration", "database", "service"],
+      "complexity": "moderate",
+      "languageNotes": "Uses AsyncConnectionPool (psycopg3) for async connections and supabase-py create_client for the REST API client; both are exposed as properties."
+    },
+    {
+      "id": "class:config/pg_setting.py:PgSetting",
+      "type": "class",
+      "name": "PgSetting",
+      "filePath": "config/pg_setting.py",
+      "lineRange": [26, 118],
+      "summary": "Pydantic settings class encapsulating all database access: synchronous Supabase REST client, async psycopg connection pool, and async Supabase client, with full connection kwargs.",
+      "tags": ["configuration", "database", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:config/pg_setting_w_db_retry.py",
+      "type": "file",
+      "name": "pg_setting_w_db_retry.py",
+      "filePath": "config/pg_setting_w_db_retry.py",
+      "summary": "Extended database settings variant that adds pool reset, retry logic, and a pgvector vector store property on top of the core PgSetting functionality.",
+      "tags": ["configuration", "database", "service"],
+      "complexity": "moderate",
+      "languageNotes": "Adds reset_pool and vector_store (PGVector + OpenAIEmbeddings) methods not present in pg_setting.py, intended for use cases requiring vector search or DB connection resilience."
+    },
+    {
+      "id": "class:config/pg_setting_w_db_retry.py:PgSetting",
+      "type": "class",
+      "name": "PgSetting",
+      "filePath": "config/pg_setting_w_db_retry.py",
+      "lineRange": [26, 126],
+      "summary": "Extended PgSetting variant with additional reset_pool (for connection recovery) and vector_store (PGVector/LangChain) properties.",
+      "tags": ["configuration", "database", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:config/project_setting.py",
+      "type": "file",
+      "name": "project_setting.py",
+      "filePath": "config/project_setting.py",
+      "summary": "Provides project-level settings including salt for hashing, a default rest_ref, and a helper to resolve the project root directory path.",
+      "tags": ["configuration", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:config/waba_cat_setting.py",
+      "type": "file",
+      "name": "waba_cat_setting.py",
+      "filePath": "config/waba_cat_setting.py",
+      "summary": "WhatsApp Business Catalog settings and inventory management utilities, providing the WabaCatalogSettings class and helper functions for fetching Meta catalog products, searching items, and updating inventory after checkout.",
+      "tags": ["configuration", "service", "utility", "api-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:config/waba_cat_setting.py:WabaCatalogSettings",
+      "type": "class",
+      "name": "WabaCatalogSettings",
+      "filePath": "config/waba_cat_setting.py",
+      "lineRange": [31, 108],
+      "summary": "Pydantic settings class for the WhatsApp Business Catalog holding catalog/feed credentials, paginated product fetching from Meta Graph API, and a SKU-to-product-ID map.",
+      "tags": ["configuration", "service", "api-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:config/waba_cat_setting.py:update_inventory_following_checkout",
+      "type": "function",
+      "name": "update_inventory_following_checkout",
+      "filePath": "config/waba_cat_setting.py",
+      "lineRange": [192, 235],
+      "summary": "Computes inventory deltas after a checkout by joining cart and inventory lists via DuckDB, then calls update_product for each changed SKU.",
+      "tags": ["utility", "service", "api-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:config/waba_setting.py",
+      "type": "file",
+      "name": "waba_setting.py",
+      "filePath": "config/waba_setting.py",
+      "summary": "Core WhatsApp Business Account (WABA) settings module providing async and sync WhatsApp client factories, provider settings, and a WALogger class for routing log messages to WhatsApp admin numbers.",
+      "tags": ["configuration", "service", "api-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:config/waba_setting.py:WabaBusinessSettings",
+      "type": "class",
+      "name": "WabaBusinessSettings",
+      "filePath": "config/waba_setting.py",
+      "lineRange": [38, 111],
+      "summary": "Pydantic settings class for the WhatsApp Business account holding phone ID, callback URL, token, app credentials, and a base64-encoded private key; provides async and sync WhatsApp client factory methods.",
+      "tags": ["configuration", "service", "api-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:config/waba_setting.py:WALogger",
+      "type": "class",
+      "name": "WALogger",
+      "filePath": "config/waba_setting.py",
+      "lineRange": [187, 252],
+      "summary": "WhatsApp-based logging class that sends debug/info/critical/success messages to configured admin WhatsApp numbers, enabling real-time operational alerts.",
+      "tags": ["utility", "service", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/App Review/app_demo_utils.py",
+      "type": "file",
+      "name": "app_demo_utils.py",
+      "filePath": "notebooks/App Review/app_demo_utils.py",
+      "summary": "Notebook utility for the app review workflow providing helpers to get, create, delete, and send WhatsApp Business message templates via the Meta Graph API using httpx.",
+      "tags": ["utility", "api-handler", "script"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:notebooks/App Review/app_demo_utils.py:create_whatsapp_template",
+      "type": "function",
+      "name": "create_whatsapp_template",
+      "filePath": "notebooks/App Review/app_demo_utils.py",
+      "lineRange": [33, 66],
+      "summary": "Creates a new WhatsApp message template via the Meta Graph API with specified name, category, language, components, and parameter format.",
+      "tags": ["api-handler", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:notebooks/App Review/app_demo_utils.py:send_whatsapp_template_message",
+      "type": "function",
+      "name": "send_whatsapp_template_message",
+      "filePath": "notebooks/App Review/app_demo_utils.py",
+      "lineRange": [87, 108],
+      "summary": "Sends a WhatsApp template message to a recipient phone number using the Meta Graph API via an async httpx client.",
+      "tags": ["api-handler", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/example.py",
+      "type": "file",
+      "name": "example.py",
+      "filePath": "notebooks/example.py",
+      "summary": "Minimal notebook example script that imports the config package and demonstrates basic usage of project settings.",
+      "tags": ["utility", "script"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/misc_scratchpad.py",
+      "type": "file",
+      "name": "misc_scratchpad.py",
+      "filePath": "notebooks/misc_scratchpad.py",
+      "summary": "Development scratchpad notebook with experimental rider response handling and async delivery_dispatch query helpers.",
+      "tags": ["utility", "script", "database"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/onboarding/owntracks_test.py",
+      "type": "file",
+      "name": "owntracks_test.py",
+      "filePath": "notebooks/onboarding/owntracks_test.py",
+      "summary": "Onboarding notebook for the OwnTracks location tracking integration that generates base64-encoded OwnTracks configuration deep-link URLs for new riders.",
+      "tags": ["utility", "script", "onboarding"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/prod_deployment_checker.py",
+      "type": "file",
+      "name": "prod_deployment_checker.py",
+      "filePath": "notebooks/prod_deployment_checker.py",
+      "summary": "Production deployment verification and migration script that checks and applies restaurant master, rider master, app URL, and WABA webhook configurations when switching between test and production environments.",
+      "tags": ["utility", "deployment", "script", "configuration"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:notebooks/prod_deployment_checker.py:run_check",
+      "type": "function",
+      "name": "run_check",
+      "filePath": "notebooks/prod_deployment_checker.py",
+      "lineRange": [303, 333],
+      "summary": "Orchestrates all pre-deployment checks (restaurant master, rider master, app URL, WABA webhook) and prints pass/fail results for a given mode.",
+      "tags": ["utility", "deployment", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:notebooks/prod_deployment_checker.py:run_apply",
+      "type": "function",
+      "name": "run_apply",
+      "filePath": "notebooks/prod_deployment_checker.py",
+      "lineRange": [336, 348],
+      "summary": "Applies all configuration changes for a target mode (restaurant master, rider master, app URL, WABA webhook, URL cache reset) in a single orchestrated call.",
+      "tags": ["utility", "deployment"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:notebooks/prod_deployment_checker.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "notebooks/prod_deployment_checker.py",
+      "lineRange": [370, 384],
+      "summary": "CLI entry point that parses arguments and dispatches to run_apply or run_check depending on the specified action.",
+      "tags": ["entry-point", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/tbd_location_pub_queue.py",
+      "type": "file",
+      "name": "tbd_location_pub_queue.py",
+      "filePath": "notebooks/tbd_location_pub_queue.py",
+      "summary": "Placeholder notebook stub for a future location publish queue feature; currently only imports config and contains no implemented logic.",
+      "tags": ["utility", "script"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/wa_adhoc_run.py",
+      "type": "file",
+      "name": "wa_adhoc_run.py",
+      "filePath": "notebooks/wa_adhoc_run.py",
+      "summary": "Large ad-hoc notebook script for WhatsApp message testing containing helpers to send restaurant order confirmations, generate receipts, and filter delivery records; used for manual QA and integration testing of the WABA flow.",
+      "tags": ["utility", "script", "api-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:notebooks/wa_adhoc_run.py:send_restaurant_order_confirmation",
+      "type": "function",
+      "name": "send_restaurant_order_confirmation",
+      "filePath": "notebooks/wa_adhoc_run.py",
+      "lineRange": [97, 139],
+      "summary": "Sends a WhatsApp order confirmation message to a restaurant with Accept/Decline callback buttons, order items list, and total amount.",
+      "tags": ["api-handler", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/wa_adhoc_scripts/wa_adhoc_carousel.py",
+      "type": "file",
+      "name": "wa_adhoc_carousel.py",
+      "filePath": "notebooks/wa_adhoc_scripts/wa_adhoc_carousel.py",
+      "summary": "Ad-hoc script for testing WhatsApp carousel message formatting and sending; contains inline carousel payload definitions without named functions.",
+      "tags": ["utility", "script", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/wa_adhoc_scripts/wa_adhoc_run copy.py",
+      "type": "file",
+      "name": "wa_adhoc_run copy.py",
+      "filePath": "notebooks/wa_adhoc_scripts/wa_adhoc_run copy.py",
+      "summary": "Earlier copy of the wa_adhoc_run notebook containing WhatsApp message sending experiments and a generate_whatsapp_receipt helper for formatting order summaries.",
+      "tags": ["utility", "script", "api-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:notebooks/wa_adhoc_scripts/wa_adhoc_run copy.py:generate_whatsapp_receipt",
+      "type": "function",
+      "name": "generate_whatsapp_receipt",
+      "filePath": "notebooks/wa_adhoc_scripts/wa_adhoc_run copy.py",
+      "lineRange": [174, 192],
+      "summary": "Formats an order summary dictionary into a WhatsApp-compatible receipt text string with line items and totals.",
+      "tags": ["utility", "serialization"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:.claude/skills/database-operations/references/switch_elas_test_prod.py",
+      "target": "function:.claude/skills/database-operations/references/switch_elas_test_prod.py:verify",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.claude/skills/database-operations/references/switch_elas_test_prod.py",
+      "target": "function:.claude/skills/database-operations/references/switch_elas_test_prod.py:switch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.claude/skills/database-operations/references/switch_elas_test_prod.py",
+      "target": "function:.claude/skills/database-operations/references/switch_elas_test_prod.py:verify",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:.claude/skills/database-operations/references/switch_elas_test_prod.py",
+      "target": "function:.claude/skills/database-operations/references/switch_elas_test_prod.py:switch",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:.claude/skills/database-operations/references/switch_elas_test_prod.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py",
+      "target": "function:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py:get_active_riders_for_restaurant",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py",
+      "target": "function:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py",
+      "target": "function:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py:get_active_riders_for_restaurant",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py",
+      "target": "function:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:.claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:.claude/skills/pyrun/scripts/price_breakdown.py",
+      "target": "function:.claude/skills/pyrun/scripts/price_breakdown.py:price_breakdown",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.claude/skills/pyrun/scripts/price_breakdown.py",
+      "target": "function:.claude/skills/pyrun/scripts/price_breakdown.py:price_breakdown",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:.claude/skills/pyrun/scripts/price_breakdown.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:aws_setting.py",
+      "target": "class:aws_setting.py:AwsSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:aws_setting.py",
+      "target": "function:aws_setting.py:get_ordelo_agent_env",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:aws_setting.py",
+      "target": "class:aws_setting.py:AwsSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:aws_setting.py",
+      "target": "function:aws_setting.py:get_ordelo_agent_env",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/__init__.py",
+      "target": "file:config/google_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/__init__.py",
+      "target": "file:config/llm_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/__init__.py",
+      "target": "file:config/logger_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/__init__.py",
+      "target": "file:config/microservices_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/__init__.py",
+      "target": "file:config/params.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/__init__.py",
+      "target": "file:config/pg_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/__init__.py",
+      "target": "file:config/project_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/__init__.py",
+      "target": "file:config/waba_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/google_setting.py",
+      "target": "class:config/google_setting.py:GoogleSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/google_setting.py",
+      "target": "class:config/google_setting.py:GoogleSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/google_setting.py",
+      "target": "file:aws_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/llm_setting.py",
+      "target": "class:config/llm_setting.py:LLMSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/llm_setting.py",
+      "target": "class:config/llm_setting.py:LLMSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/llm_setting.py",
+      "target": "file:aws_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/microservices_setting.py",
+      "target": "class:config/microservices_setting.py:MicroServicesSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/microservices_setting.py",
+      "target": "class:config/microservices_setting.py:MicroServicesSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/microservices_setting.py",
+      "target": "file:aws_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/ms_setting.py",
+      "target": "class:config/ms_setting.py:MsSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/ms_setting.py",
+      "target": "class:config/ms_setting.py:MsSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/ms_setting.py",
+      "target": "file:aws_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/pg_setting.py",
+      "target": "class:config/pg_setting.py:PgSetting",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/pg_setting.py",
+      "target": "class:config/pg_setting.py:PgSetting",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/pg_setting.py",
+      "target": "file:aws_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/pg_setting_w_db_retry.py",
+      "target": "class:config/pg_setting_w_db_retry.py:PgSetting",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/pg_setting_w_db_retry.py",
+      "target": "class:config/pg_setting_w_db_retry.py:PgSetting",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/pg_setting_w_db_retry.py",
+      "target": "file:aws_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/project_setting.py",
+      "target": "file:aws_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/waba_cat_setting.py",
+      "target": "class:config/waba_cat_setting.py:WabaCatalogSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/waba_cat_setting.py",
+      "target": "function:config/waba_cat_setting.py:update_inventory_following_checkout",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/waba_cat_setting.py",
+      "target": "class:config/waba_cat_setting.py:WabaCatalogSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/waba_cat_setting.py",
+      "target": "function:config/waba_cat_setting.py:update_inventory_following_checkout",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/waba_cat_setting.py",
+      "target": "file:aws_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:config/waba_setting.py",
+      "target": "class:config/waba_setting.py:WabaBusinessSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/waba_setting.py",
+      "target": "class:config/waba_setting.py:WALogger",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:config/waba_setting.py",
+      "target": "class:config/waba_setting.py:WabaBusinessSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/waba_setting.py",
+      "target": "class:config/waba_setting.py:WALogger",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:config/waba_setting.py",
+      "target": "file:aws_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/App Review/app_demo_utils.py",
+      "target": "function:notebooks/App Review/app_demo_utils.py:create_whatsapp_template",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:notebooks/App Review/app_demo_utils.py",
+      "target": "function:notebooks/App Review/app_demo_utils.py:send_whatsapp_template_message",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:notebooks/App Review/app_demo_utils.py",
+      "target": "function:notebooks/App Review/app_demo_utils.py:create_whatsapp_template",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:notebooks/App Review/app_demo_utils.py",
+      "target": "function:notebooks/App Review/app_demo_utils.py:send_whatsapp_template_message",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:notebooks/App Review/app_demo_utils.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/App Review/app_demo_utils.py",
+      "target": "file:config/waba_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/example.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/misc_scratchpad.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/onboarding/owntracks_test.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/prod_deployment_checker.py",
+      "target": "function:notebooks/prod_deployment_checker.py:run_check",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:notebooks/prod_deployment_checker.py",
+      "target": "function:notebooks/prod_deployment_checker.py:run_apply",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:notebooks/prod_deployment_checker.py",
+      "target": "function:notebooks/prod_deployment_checker.py:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:notebooks/prod_deployment_checker.py",
+      "target": "function:notebooks/prod_deployment_checker.py:run_check",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:notebooks/prod_deployment_checker.py",
+      "target": "function:notebooks/prod_deployment_checker.py:run_apply",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:notebooks/prod_deployment_checker.py",
+      "target": "function:notebooks/prod_deployment_checker.py:main",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:notebooks/prod_deployment_checker.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/prod_deployment_checker.py",
+      "target": "file:config/waba_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/tbd_location_pub_queue.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/wa_adhoc_run.py",
+      "target": "function:notebooks/wa_adhoc_run.py:send_restaurant_order_confirmation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:notebooks/wa_adhoc_run.py",
+      "target": "function:notebooks/wa_adhoc_run.py:send_restaurant_order_confirmation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:notebooks/wa_adhoc_run.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/wa_adhoc_run.py",
+      "target": "file:config/waba_cat_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/wa_adhoc_run.py",
+      "target": "file:config/waba_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/wa_adhoc_run.py",
+      "target": "file:utils_common/waba_utils/wa_senders.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/wa_adhoc_scripts/wa_adhoc_carousel.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/wa_adhoc_scripts/wa_adhoc_carousel.py",
+      "target": "file:config/waba_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/wa_adhoc_scripts/wa_adhoc_run copy.py",
+      "target": "function:notebooks/wa_adhoc_scripts/wa_adhoc_run copy.py:generate_whatsapp_receipt",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:notebooks/wa_adhoc_scripts/wa_adhoc_run copy.py",
+      "target": "function:notebooks/wa_adhoc_scripts/wa_adhoc_run copy.py:generate_whatsapp_receipt",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:notebooks/wa_adhoc_scripts/wa_adhoc_run copy.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/wa_adhoc_scripts/wa_adhoc_run copy.py",
+      "target": "file:config/waba_setting.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    }
+  ]
+}

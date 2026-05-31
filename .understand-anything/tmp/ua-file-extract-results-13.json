@@ -1,0 +1,156 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 7,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".claude/skills/database-operations/references/ordelo-datamodels.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 18,
+      "nonEmptyLines": 12,
+      "sections": [
+        {
+          "heading": "Ordelo DataModels: where to look",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Tables and types (SQL)",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Functions / RPC / scheduled jobs",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "Fast schema lookup patterns",
+          "level": 2,
+          "line": 15
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 4
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/references/repo-db-helpers.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 19,
+      "nonEmptyLines": 13,
+      "sections": [
+        {
+          "heading": "Project DB helpers and examples",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Primary clients",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Helpers",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Query examples",
+          "level": 2,
+          "line": 16
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 4
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/references/run_setup.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 131,
+      "nonEmptyLines": 114,
+      "functions": [
+        {
+          "name": "is_venv_functional",
+          "startLine": 23,
+          "endLine": 28,
+          "params": []
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/references/switch_test_prod_config.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 25,
+      "nonEmptyLines": 18,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/references/switch_test_prod_elas.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 60,
+      "nonEmptyLines": 49,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/references/switch_test_prod_ordelo.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 32,
+      "nonEmptyLines": 23,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/references/switch_test_prod_sfcs.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 80,
+      "nonEmptyLines": 65,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    }
+  ]
+}

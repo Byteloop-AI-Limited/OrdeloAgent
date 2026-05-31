@@ -1,0 +1,13 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "utils_common/maps_service/__init__.py", "language": "python", "sizeLines": 3, "fileCategory": "code"},
+    {"path": "utils_common/maps_service/address_resolver.py", "language": "python", "sizeLines": 609, "fileCategory": "code"},
+    {"path": "watomation/on_flow_request_postcode_search.py", "language": "python", "sizeLines": 84, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    "utils_common/maps_service/__init__.py": ["utils_common/maps_service/address_resolver.py"],
+    "utils_common/maps_service/address_resolver.py": ["config/__init__.py"],
+    "watomation/on_flow_request_postcode_search.py": ["config/__init__.py", "utils_common/maps_service/__init__.py", "utils_common/maps_service/address_resolver.py"]
+  }
+}

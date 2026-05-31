@@ -1,0 +1,17 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": ".specify/scripts/bash/check-prerequisites.sh", "language": "shell", "sizeLines": 166, "fileCategory": "script"},
+    {"path": ".specify/scripts/bash/common.sh", "language": "shell", "sizeLines": 156, "fileCategory": "script"},
+    {"path": ".specify/scripts/bash/create-new-feature.sh", "language": "shell", "sizeLines": 206, "fileCategory": "script"},
+    {"path": ".specify/scripts/bash/setup-plan.sh", "language": "shell", "sizeLines": 61, "fileCategory": "script"},
+    {"path": ".specify/scripts/bash/update-agent-context.sh", "language": "shell", "sizeLines": 739, "fileCategory": "script"}
+  ],
+  "batchImportData": {
+    ".specify/scripts/bash/check-prerequisites.sh": [],
+    ".specify/scripts/bash/common.sh": [],
+    ".specify/scripts/bash/create-new-feature.sh": [],
+    ".specify/scripts/bash/setup-plan.sh": [],
+    ".specify/scripts/bash/update-agent-context.sh": []
+  }
+}

@@ -1,0 +1,838 @@
+{
+  "scriptCompleted": true,
+  "stats": {
+    "filesScanned": 385,
+    "filesWithImports": 128,
+    "totalEdges": 315
+  },
+  "importMap": {
+    ".claude/CLOUD_SESSION_SETUP.md": [],
+    ".claude/proPlans/groovy-forging-peach.md": [],
+    ".claude/SKILLS_SYMLINK.md": [],
+    ".claude/skills/database-operations/evals/evals.json": [],
+    ".claude/skills/database-operations/iteration-1/eval_metadata.json": [],
+    ".claude/skills/database-operations/references/ordelo-datamodels.md": [],
+    ".claude/skills/database-operations/references/repo-db-helpers.md": [],
+    ".claude/skills/database-operations/references/rider_payout.py": [
+      "watomation/routers/sys_admin_auth_session.py"
+    ],
+    ".claude/skills/database-operations/references/run_setup.sh": [],
+    ".claude/skills/database-operations/references/switch_elas_test_prod.py": [
+      "config/__init__.py"
+    ],
+    ".claude/skills/database-operations/references/switch_test_prod_config.sql": [],
+    ".claude/skills/database-operations/references/switch_test_prod_elas.sql": [],
+    ".claude/skills/database-operations/references/switch_test_prod_ordelo.sql": [],
+    ".claude/skills/database-operations/references/switch_test_prod_sfcs.sql": [],
+    ".claude/skills/database-operations/scripts/_bootstrap.py": [],
+    ".claude/skills/database-operations/scripts/ordelo_delete.py": [
+      ".claude/skills/database-operations/scripts/_bootstrap.py"
+    ],
+    ".claude/skills/database-operations/scripts/ordelo_insert.py": [
+      ".claude/skills/database-operations/scripts/_bootstrap.py"
+    ],
+    ".claude/skills/database-operations/scripts/ordelo_rpc.py": [
+      ".claude/skills/database-operations/scripts/_bootstrap.py"
+    ],
+    ".claude/skills/database-operations/scripts/ordelo_select.py": [
+      ".claude/skills/database-operations/scripts/_bootstrap.py"
+    ],
+    ".claude/skills/database-operations/scripts/ordelo_update.py": [
+      ".claude/skills/database-operations/scripts/_bootstrap.py"
+    ],
+    ".claude/skills/database-operations/SKILL_OPTIMIZED.md": [],
+    ".claude/skills/database-operations/SKILL.md": [],
+    ".claude/skills/pyrun/evals/evals.json": [],
+    ".claude/skills/pyrun/iteration-1/eval_metadata.json": [],
+    ".claude/skills/pyrun/iteration-1/eval-1/with_skill/outputs/check_active_riders.py": [],
+    ".claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/query_active_riders.py": [
+      "config/__init__.py"
+    ],
+    ".claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/README.md": [],
+    ".claude/skills/pyrun/scripts/debug_thread_messages.py": [
+      "ordelo/agents/agent_runner.py"
+    ],
+    ".claude/skills/pyrun/scripts/price_breakdown.py": [
+      "config/__init__.py"
+    ],
+    ".claude/skills/pyrun/SKILL.md": [],
+    ".devcontainer/devcontainer.json": [],
+    ".dockerignore": [],
+    ".specify/AI_PATTERNS_GUIDE.md": [],
+    ".specify/design/restaurant_confirmation_implementation_progress.md": [],
+    ".specify/design/restaurant_confirmation_patterns_used.md": [],
+    ".specify/design/restaurant_confirmation_summary.md": [],
+    ".specify/design/restaurant_confirmation_touchpoint_proposal.md": [],
+    ".specify/memory/constitution.md": [],
+    ".specify/PATTERNS_CATALOG.md": [],
+    ".specify/QUICK_PATTERNS_REFERENCE.md": [],
+    ".specify/README.md": [],
+    ".specify/scripts/bash/check-prerequisites.sh": [],
+    ".specify/scripts/bash/common.sh": [],
+    ".specify/scripts/bash/create-new-feature.sh": [],
+    ".specify/scripts/bash/setup-plan.sh": [],
+    ".specify/scripts/bash/update-agent-context.sh": [],
+    ".specify/templates/agent-file-template.md": [],
+    ".specify/templates/checklist-template.md": [],
+    ".specify/templates/plan-template.md": [],
+    ".specify/templates/spec-template.md": [],
+    ".specify/templates/tasks-template.md": [],
+    ".understand-anything/.understandignore": [],
+    ".windsurf/rules/code-documentation-rules.md": [],
+    ".windsurf/settings.json": [],
+    ".windsurf/workflows/analyze.md": [],
+    ".windsurf/workflows/clarify.md": [],
+    ".windsurf/workflows/constitution.md": [],
+    ".windsurf/workflows/implement.md": [],
+    ".windsurf/workflows/plan.md": [],
+    ".windsurf/workflows/specify.md": [],
+    ".windsurf/workflows/speckit.analyze.md": [],
+    ".windsurf/workflows/speckit.checklist.md": [],
+    ".windsurf/workflows/speckit.clarify.md": [],
+    ".windsurf/workflows/speckit.constitution.md": [],
+    ".windsurf/workflows/speckit.implement.md": [],
+    ".windsurf/workflows/speckit.plan.md": [],
+    ".windsurf/workflows/speckit.specify.md": [],
+    ".windsurf/workflows/speckit.tasks.md": [],
+    ".windsurf/workflows/tasks.md": [],
+    ".zed/tasks.json": [],
+    "agents.md": [],
+    "aws_app_runner.sh": [],
+    "aws_setting.py": [],
+    "bkp_DockerfileBkp": [],
+    "build_push_deploy_dimage.sh": [],
+    "CLAUDE.md": [],
+    "config/__init__.py": [
+      "config/google_setting.py",
+      "config/llm_setting.py",
+      "config/logger_setting.py",
+      "config/microservices_setting.py",
+      "config/params.py",
+      "config/pg_setting.py",
+      "config/project_setting.py",
+      "config/waba_setting.py"
+    ],
+    "config/cat_con_setting.py": [],
+    "config/google_setting.py": [
+      "aws_setting.py"
+    ],
+    "config/llm_setting.py": [
+      "aws_setting.py"
+    ],
+    "config/logger_setting.py": [],
+    "config/microservices_setting.py": [
+      "aws_setting.py"
+    ],
+    "config/ms_setting.py": [
+      "aws_setting.py"
+    ],
+    "config/params.py": [],
+    "config/pg_setting_w_db_retry.py": [
+      "aws_setting.py"
+    ],
+    "config/pg_setting.py": [
+      "aws_setting.py"
+    ],
+    "config/project_setting.py": [
+      "aws_setting.py"
+    ],
+    "config/temp_cache/test_cde": [],
+    "config/waba_cat_setting.py": [
+      "aws_setting.py"
+    ],
+    "config/waba_setting.py": [
+      "aws_setting.py"
+    ],
+    "Dockerfile": [],
+    "Dockerfile_awslambda": [],
+    "Dockerfile_UVBCKP": [],
+    "docs/callback_handlers.md": [],
+    "docs/delivery_process_explorer.html": [],
+    "docs/delivery_process.md": [],
+    "docs/dispatch_flow.md": [],
+    "docs/get_restaurant_webhook_url_async_guide.md": [],
+    "docs/location_overview.md": [],
+    "docs/payment_and_order_flow.md": [],
+    "docs/pickup_time_logic.md": [],
+    "docs/takeaway_flow.md": [],
+    "get_ddl.py": [
+      "utils_common/db_utils/sbase_pool_ops.py"
+    ],
+    "gunicorn_conf.py": [],
+    "notebooks/App Review/app_demo_utils.py": [
+      "config/__init__.py",
+      "config/waba_setting.py"
+    ],
+    "notebooks/App Review/app_review.md": [],
+    "notebooks/App Review/data_handling.md": [],
+    "notebooks/async_runner_template.py": [
+      "config/__init__.py",
+      "utils_common/thread_management/__init__.py"
+    ],
+    "notebooks/claude-sdk/getting_started.py": [],
+    "notebooks/db_pool_adhoc_runs.py": [
+      "config/__init__.py",
+      "utils_common/order_management/food_order_pymodel.py"
+    ],
+    "notebooks/db_queries/adhoc_queries.sql": [],
+    "notebooks/db_queries/clear_wren_test.sql": [],
+    "notebooks/db_queries/CommonQueries.sql": [],
+    "notebooks/db_queries/config_updates.sql": [],
+    "notebooks/db_queries/consume_queue.sql": [],
+    "notebooks/db_queries/creating_new_schema.sql": [],
+    "notebooks/db_queries/delivery_payouts.sql": [],
+    "notebooks/db_queries/distance_travelled.sql": [],
+    "notebooks/db_queries/elai_updates.sql": [],
+    "notebooks/db_queries/elas_menu_updates.sql": [],
+    "notebooks/db_queries/master_data_update.sql": [],
+    "notebooks/db_queries/non_prod_init.sql": [],
+    "notebooks/db_queries/overwatch_dashboard.sql": [],
+    "notebooks/db_queries/overwatch_views.sql": [],
+    "notebooks/db_queries/rest_master_updates.sql": [],
+    "notebooks/db_queries/result_export.json": [],
+    "notebooks/db_queries/rider_master_updates.sql": [],
+    "notebooks/db_queries/settingup_QUEUE.SQL": [],
+    "notebooks/db_queries/simulate_dispatches.sql": [],
+    "notebooks/db_queries/temp.json": [],
+    "notebooks/db_queries/test_delivery_summary.sql": [],
+    "notebooks/db_queries/test_driverNotify.sql": [],
+    "notebooks/db_queries/test_jobs_sequentially.sql": [],
+    "notebooks/db_queries/test_location_setup.sql": [],
+    "notebooks/db_queries/test_manage_init_delivery_detail.sql": [],
+    "notebooks/db_queries/test_rider_agent.sql": [],
+    "notebooks/db_queries/test_takeaway.sql": [],
+    "notebooks/db_scratchpad/check_live_location_transmitted.py": [
+      "config/__init__.py",
+      "utils_common/db_utils/sbase_rest_ops.py"
+    ],
+    "notebooks/db_scratchpad/simulate_dispatch_detail copy.py": [
+      "config/__init__.py",
+      "ordelo_datamodels/delivery_pymodels.py",
+      "utils_common/db_utils/sbase_pool_ops.py",
+      "utils_common/db_utils/sbase_rest_ops.py"
+    ],
+    "notebooks/db_scratchpad/simulate_sbase_func_call.py": [
+      "utils_common/db_utils/sbase_rest_ops.py"
+    ],
+    "notebooks/dispatch_format_tbd.py": [
+      "config/__init__.py",
+      "ordelo_datamodels/delivery_pymodels.py"
+    ],
+    "notebooks/docs/rider_terms_of_engagement.md": [],
+    "notebooks/example.py": [
+      "config/__init__.py"
+    ],
+    "notebooks/getting_distance.py": [],
+    "notebooks/location_events_simulate.py": [
+      "config/__init__.py",
+      "ordelo_datamodels/location_pymodels.py"
+    ],
+    "notebooks/misc_scratchpad.py": [
+      "config/__init__.py"
+    ],
+    "notebooks/onboarding/owntracks_test.py": [
+      "config/__init__.py"
+    ],
+    "notebooks/owntracks_payload_eg.json": [],
+    "notebooks/prod_deployment_checker.py": [
+      "config/__init__.py",
+      "config/waba_setting.py"
+    ],
+    "notebooks/python_adhoc_run.py": [
+      "config/__init__.py",
+      "utils_common/order_management/food_order_pymodel.py",
+      "utils_common/order_management/food_order_reciept.py"
+    ],
+    "notebooks/sql_test_scripts/rider_notify_test.sql": [],
+    "notebooks/tbd_location_pub_queue.py": [
+      "config/__init__.py"
+    ],
+    "notebooks/test_sql.sql": [],
+    "notebooks/toDo.md": [],
+    "notebooks/wa_adhoc_run.py": [
+      "config/__init__.py",
+      "config/waba_cat_setting.py",
+      "config/waba_setting.py",
+      "utils_common/waba_utils/wa_senders.py"
+    ],
+    "notebooks/wa_adhoc_scripts/create_carousel_template.py": [],
+    "notebooks/wa_adhoc_scripts/wa_adhoc_carousel.py": [
+      "config/__init__.py",
+      "config/waba_setting.py"
+    ],
+    "notebooks/wa_adhoc_scripts/wa_adhoc_run copy.py": [
+      "config/__init__.py",
+      "config/waba_setting.py"
+    ],
+    "notebooks/wa_flows/customer_address_capture copy.py": [
+      "config/__init__.py"
+    ],
+    "notebooks/wa_flows/encryption_setup.py": [
+      "config/__init__.py"
+    ],
+    "notebooks/wa_flows/follow_guide.py": [
+      "config/__init__.py"
+    ],
+    "notebooks/wa_flows/postcode_search.py": [
+      "config/__init__.py"
+    ],
+    "notebooks/wa_flows/singup_flow_example.py": [
+      "config/__init__.py"
+    ],
+    "ordelo_datamodels/__init__.py": [],
+    "ordelo_datamodels/auth_sessions.sql": [],
+    "ordelo_datamodels/cust_rest_map_pymodel.py": [],
+    "ordelo_datamodels/customer_master_pymodel.py": [],
+    "ordelo_datamodels/dashboard_sessions.sql": [],
+    "ordelo_datamodels/db_config.sql": [],
+    "ordelo_datamodels/debug_log.sql": [],
+    "ordelo_datamodels/delivery_models.sql": [],
+    "ordelo_datamodels/delivery_option.sql": [],
+    "ordelo_datamodels/delivery_pymodels.py": [],
+    "ordelo_datamodels/detail.sql": [],
+    "ordelo_datamodels/dispatch_bulk.sql": [],
+    "ordelo_datamodels/dispatch.sql": [],
+    "ordelo_datamodels/elas_stats.sql": [],
+    "ordelo_datamodels/inflight.sql": [],
+    "ordelo_datamodels/jobs_n_functions/_tbd_handle_restaurant_confirmation.sql": [],
+    "ordelo_datamodels/jobs_n_functions/archive_process_delivery.sql": [],
+    "ordelo_datamodels/jobs_n_functions/cleanupDeliveryOrder.sql": [],
+    "ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql": [],
+    "ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql": [],
+    "ordelo_datamodels/jobs_n_functions/enquire_admin_availability.sql": [],
+    "ordelo_datamodels/jobs_n_functions/enquire_shift_availability.sql": [],
+    "ordelo_datamodels/jobs_n_functions/init_delivery_detail_tbd.sql": [],
+    "ordelo_datamodels/jobs_n_functions/init_delivery.sql": [],
+    "ordelo_datamodels/jobs_n_functions/init_takeaway.sql": [],
+    "ordelo_datamodels/jobs_n_functions/insert_delivery_detail.sql": [],
+    "ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql": [],
+    "ordelo_datamodels/jobs_n_functions/job_awsrunner_switch.sql": [],
+    "ordelo_datamodels/jobs_n_functions/job_close_thread.sql": [],
+    "ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql": [],
+    "ordelo_datamodels/jobs_n_functions/job_null_or_outdated_location.sql": [],
+    "ordelo_datamodels/jobs_n_functions/job_process_owntracks.sql": [],
+    "ordelo_datamodels/jobs_n_functions/job_restaurant_confirmation_timeout.sql": [],
+    "ordelo_datamodels/jobs_n_functions/job_terminate_stale_active_threads.sql": [],
+    "ordelo_datamodels/jobs_n_functions/notify_missed_dispatches_tbd.sql": [],
+    "ordelo_datamodels/jobs_n_functions/ordelo_post.sql": [],
+    "ordelo_datamodels/jobs_n_functions/process_delivery.sql": [],
+    "ordelo_datamodels/jobs_n_functions/process_restaurant_confirmation.sql": [],
+    "ordelo_datamodels/jobs_n_functions/test_reset_order_and_dispatch.sql": [],
+    "ordelo_datamodels/jobs_n_functions/test_reset_takeaway_order.sql": [],
+    "ordelo_datamodels/location_pymodels.py": [],
+    "ordelo_datamodels/location.sql": [],
+    "ordelo_datamodels/masterdata.sql": [],
+    "ordelo_datamodels/migrations/add_redispatch_dtts.sql": [],
+    "ordelo_datamodels/migrations/add_restaurant_confirmation_fields.sql": [],
+    "ordelo_datamodels/migrations/admin_orders_indexes.sql": [],
+    "ordelo_datamodels/migrations/admin_orders_views.sql": [],
+    "ordelo_datamodels/migrations/create_cust_rest_map.sql": [],
+    "ordelo_datamodels/misc_sql/drop_dispatch_accept_func.sql": [],
+    "ordelo_datamodels/misc_sql/get_ddl_for_table.sql": [],
+    "ordelo_datamodels/misc_sql/result_export.json": [],
+    "ordelo_datamodels/misc_sql/test_magic_link.sql": [],
+    "ordelo_datamodels/misc_sql/testing_scripts.sql": [],
+    "ordelo_datamodels/ordelo_config.sql": [],
+    "ordelo_datamodels/restaurant_master_pymodel.py": [],
+    "ordelo_datamodels/sbase_queues_from_order.sql": [],
+    "ordelo_datamodels/summary.sql": [],
+    "ordelo_datamodels/takeaway_summary.sql": [],
+    "ordelo_datamodels/waba_es.sql": [],
+    "ordelo/__init__.py": [],
+    "ordelo/agent_app_handlers.py": [
+      "config/__init__.py",
+      "ordelo_datamodels/delivery_pymodels.py",
+      "utils_common/db_utils/sbase_pool_ops.py",
+      "utils_common/lg_utils.py",
+      "utils_common/tz_utils.py",
+      "utils_common/waba_utils/wa_senders.py"
+    ],
+    "ordelo/agents/__init__.py": [],
+    "ordelo/agents/agent_runner_with_db_retry.py": [
+      "config/__init__.py",
+      "ordelo_datamodels/delivery_pymodels.py",
+      "ordelo/agent_app_handlers.py",
+      "ordelo/agents/byteloop_agent.py",
+      "ordelo/agents/rider_agent.py",
+      "utils_common/lg_utils.py",
+      "utils_common/thread_management/__init__.py"
+    ],
+    "ordelo/agents/agent_runner.py": [
+      "config/__init__.py",
+      "ordelo_datamodels/delivery_pymodels.py",
+      "ordelo/agent_app_handlers.py",
+      "ordelo/agents/rider_agent.py",
+      "utils_common/lg_utils.py"
+    ],
+    "ordelo/agents/byteloop_agent.py": [
+      "config/__init__.py",
+      "utils_common/lg_utils.py",
+      "utils_common/thread_management/thread_handler.py"
+    ],
+    "ordelo/agents/rider_agent_prompt.md": [],
+    "ordelo/agents/rider_agent.py": [
+      "config/__init__.py",
+      "config/params.py",
+      "ordelo_datamodels/restaurant_master_pymodel.py",
+      "ordelo/agent_app_handlers.py",
+      "utils_common/lg_utils.py",
+      "utils_common/thread_management/__init__.py",
+      "utils_common/tz_utils.py"
+    ],
+    "OrdeloDb.session.sql": [],
+    "prestart.sh": [],
+    "pyproject.toml": [],
+    "README.md": [],
+    "requirements-dev.txt": [],
+    "requirements.txt": [],
+    "run_setup.sh": [],
+    "scripts/debug_thread_messages.py": [
+      "ordelo/agents/agent_runner.py"
+    ],
+    "setup_dev.sh": [],
+    "setup_notes.txt": [],
+    "start.sh": [],
+    "tests/__init__.py": [],
+    "tests/config/__init__.py": [],
+    "tests/config/test_params.py": [
+      "tests/config/__init__.py",
+      "tests/fixtures/fake_supabase.py"
+    ],
+    "tests/conftest.py": [],
+    "tests/fixtures/__init__.py": [],
+    "tests/fixtures/builders.py": [],
+    "tests/fixtures/fake_llm.py": [],
+    "tests/fixtures/fake_pool.py": [],
+    "tests/fixtures/fake_supabase.py": [],
+    "tests/fixtures/fake_wa.py": [],
+    "tests/fixtures/fixtures_pkg.py": [
+      "tests/fixtures/builders.py",
+      "tests/fixtures/fake_llm.py",
+      "tests/fixtures/fake_pool.py",
+      "tests/fixtures/fake_supabase.py",
+      "tests/fixtures/fake_wa.py"
+    ],
+    "tests/ordelo_datamodels/__init__.py": [],
+    "tests/ordelo_datamodels/test_delivery_pymodels.py": [
+      "ordelo_datamodels/delivery_pymodels.py",
+      "tests/fixtures/fake_supabase.py"
+    ],
+    "tests/ordelo_datamodels/test_location_pymodels.py": [
+      "ordelo_datamodels/location_pymodels.py"
+    ],
+    "tests/ordelo_datamodels/test_master_pymodels.py": [
+      "ordelo_datamodels/cust_rest_map_pymodel.py",
+      "ordelo_datamodels/customer_master_pymodel.py",
+      "ordelo_datamodels/restaurant_master_pymodel.py",
+      "tests/fixtures/fake_supabase.py"
+    ],
+    "tests/ordelo/__init__.py": [],
+    "tests/ordelo/agents/__init__.py": [],
+    "tests/ordelo/agents/test_agent_runner.py": [
+      "ordelo_datamodels/delivery_pymodels.py",
+      "tests/fixtures/fake_supabase.py",
+      "tests/ordelo/agents/__init__.py"
+    ],
+    "tests/ordelo/agents/test_rider_agent.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/fixtures/fake_wa.py",
+      "tests/ordelo/agents/__init__.py"
+    ],
+    "tests/ordelo/test_agent_app_handlers.py": [
+      "ordelo_datamodels/delivery_pymodels.py",
+      "tests/fixtures/fake_supabase.py",
+      "tests/fixtures/fake_wa.py",
+      "tests/ordelo/__init__.py"
+    ],
+    "tests/regressions/__init__.py": [],
+    "tests/regressions/test_p5_regressions.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/fixtures/fake_wa.py",
+      "tests/ordelo/agents/__init__.py",
+      "tests/utils_common/waba_utils/__init__.py",
+      "tests/watomation/__init__.py",
+      "tests/watomation/routers/__init__.py"
+    ],
+    "tests/regressions/test_p7_msg_handler.py": [
+      "tests/fixtures/fake_wa.py",
+      "tests/watomation/__init__.py"
+    ],
+    "tests/regressions/test_p7_rider_agent.py": [
+      "tests/ordelo/agents/__init__.py"
+    ],
+    "tests/regressions/test_p7_takeaway.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/fixtures/fake_wa.py",
+      "tests/watomation/routers/__init__.py"
+    ],
+    "tests/regressions/test_p7_wa_senders.py": [
+      "tests/fixtures/fake_wa.py",
+      "tests/utils_common/waba_utils/__init__.py"
+    ],
+    "tests/test_smoke_imports.py": [],
+    "tests/utils_common/__init__.py": [],
+    "tests/utils_common/db_utils/__init__.py": [],
+    "tests/utils_common/db_utils/test_sbase_rest_ops.py": [
+      "tests/utils_common/db_utils/__init__.py"
+    ],
+    "tests/utils_common/order_management/__init__.py": [],
+    "tests/utils_common/order_management/test_food_order_pymodel.py": [
+      "tests/fixtures/fake_supabase.py",
+      "utils_common/order_management/food_order_pymodel.py"
+    ],
+    "tests/utils_common/order_management/test_food_order_reciept.py": [
+      "tests/fixtures/fake_supabase.py",
+      "utils_common/order_management/food_order_pymodel.py",
+      "utils_common/order_management/food_order_reciept.py",
+      "utils_common/order_management/order_db_ops_new.py"
+    ],
+    "tests/utils_common/order_management/test_order_db_ops_new.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/utils_common/order_management/__init__.py"
+    ],
+    "tests/utils_common/order_management/test_order_num_gen.py": [
+      "tests/utils_common/order_management/__init__.py"
+    ],
+    "tests/utils_common/order_management/test_order_service.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/utils_common/order_management/__init__.py",
+      "utils_common/order_management/order_db_ops_new.py"
+    ],
+    "tests/utils_common/test_tz_utils.py": [
+      "utils_common/tz_utils.py"
+    ],
+    "tests/utils_common/thread_management/__init__.py": [],
+    "tests/utils_common/thread_management/test_thread_handler.py": [
+      "utils_common/thread_management/thread_handler.py"
+    ],
+    "tests/utils_common/waba_utils/__init__.py": [],
+    "tests/utils_common/waba_utils/test_wa_senders.py": [
+      "tests/fixtures/fake_wa.py",
+      "tests/utils_common/waba_utils/__init__.py"
+    ],
+    "tests/watomation/__init__.py": [],
+    "tests/watomation/routers/__init__.py": [],
+    "tests/watomation/routers/test_customer_hooks.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/watomation/routers/__init__.py"
+    ],
+    "tests/watomation/routers/test_delivery_hooks.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/fixtures/fake_wa.py",
+      "tests/watomation/routers/__init__.py"
+    ],
+    "tests/watomation/routers/test_location_hooks.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/fixtures/fake_wa.py",
+      "tests/watomation/routers/__init__.py"
+    ],
+    "tests/watomation/routers/test_order_hooks.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/watomation/routers/__init__.py",
+      "utils_common/order_management/order_db_ops_new.py"
+    ],
+    "tests/watomation/routers/test_payment_hooks.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/watomation/routers/__init__.py"
+    ],
+    "tests/watomation/routers/test_takeaway_hooks.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/fixtures/fake_wa.py",
+      "tests/watomation/routers/__init__.py"
+    ],
+    "tests/watomation/routers/test_thread_hooks.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/watomation/routers/__init__.py"
+    ],
+    "tests/watomation/test_flow_handlers.py": [
+      "tests/watomation/__init__.py"
+    ],
+    "tests/watomation/test_on_callback_wa_handler.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/fixtures/fake_wa.py",
+      "tests/watomation/__init__.py"
+    ],
+    "tests/watomation/test_on_message_wa_handler.py": [
+      "tests/fixtures/fake_supabase.py",
+      "tests/fixtures/fake_wa.py",
+      "tests/watomation/__init__.py"
+    ],
+    "upload_secrets.sh": [],
+    "utils_common/__init__.py": [],
+    "utils_common/aws_misc/aws_runner_cost_calculator.py": [],
+    "utils_common/aws_misc/lambda_deploy_steps.md": [],
+    "utils_common/db_utils/checkpointer_setup.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/db_utils/dispatch_utils_tbd.py": [],
+    "utils_common/db_utils/queues/sbase_queues.sql": [],
+    "utils_common/db_utils/sbase_pool_ops.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/db_utils/sbase_realtime_ref.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/db_utils/sbase_rest_ops.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/docker_cleanup.sh": [],
+    "utils_common/edge_functions_sbase/edge_app_runner_manager.ts": [],
+    "utils_common/edge_functions_sbase/edge_owntracks-webhook.ts": [],
+    "utils_common/edge_functions_sbase/README.md": [],
+    "utils_common/edge_functions_sbase/test_app_runner.py": [],
+    "utils_common/edge_functions_sbase/test_owntracks_webhook.py": [],
+    "utils_common/lg_utils.py": [
+      "config/__init__.py",
+      "utils_common/thread_management/__init__.py"
+    ],
+    "utils_common/live_location/__init__.py": [],
+    "utils_common/live_location/app_live_location_tracker.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/live_location/live_track_db_ops.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/live_location/live_track.sql": [],
+    "utils_common/live_location/read_pickly_file.py": [],
+    "utils_common/maps_service/__init__.py": [
+      "utils_common/maps_service/address_resolver.py"
+    ],
+    "utils_common/maps_service/address_resolver.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/misc_setup/setup_ipykernel_on_startup.py": [],
+    "utils_common/misc_setup/uv_setup.md": [],
+    "utils_common/order_management/__init__.py": [],
+    "utils_common/order_management/delivery_pymodels.py": [],
+    "utils_common/order_management/example_order.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/order_management/food_order_pymodel.py": [
+      "config/__init__.py",
+      "config/params.py",
+      "ordelo_datamodels/restaurant_master_pymodel.py"
+    ],
+    "utils_common/order_management/food_order_reciept.py": [
+      "config/__init__.py",
+      "utils_common/order_management/food_order_pymodel.py",
+      "utils_common/order_management/order_db_ops_new.py"
+    ],
+    "utils_common/order_management/food_order.sql": [],
+    "utils_common/order_management/order_db_ops_new.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/order_management/order_db_ops.py": [
+      "config/__init__.py",
+      "utils_common/params.py"
+    ],
+    "utils_common/order_management/order_num_gen.py": [],
+    "utils_common/order_management/order_service.py": [
+      "config/__init__.py",
+      "utils_common/order_management/order_db_ops_new.py"
+    ],
+    "utils_common/params.py": [],
+    "utils_common/payment_ms/__init__.py": [],
+    "utils_common/payment_ms/payment.py": [
+      "config/__init__.py",
+      "utils_common/order_management/food_order_pymodel.py"
+    ],
+    "utils_common/pricing_ms/__init__.py": [],
+    "utils_common/pricing_ms/TBD_pricing_logic.py": [],
+    "utils_common/thread_handlers.py": [],
+    "utils_common/thread_management/__init__.py": [
+      "utils_common/thread_management/thread_handler.py"
+    ],
+    "utils_common/thread_management/initialize_db.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/thread_management/THREAD_CLOSURE_SYSTEM.md": [],
+    "utils_common/thread_management/thread_handler.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/thread_management/thread_mgmnt_ddl.sql": [],
+    "utils_common/thread_management/thread_mgmnt.sql": [],
+    "utils_common/tz_utils.py": [],
+    "utils_common/wa_utils.py": [
+      "utils_common/lg_utils.py"
+    ],
+    "utils_common/waba_es/api_funcs.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/waba_es/embedded_signup_guide.md": [],
+    "utils_common/waba_es/onboarding_utils.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/waba_es/waba_es_configuration.md": [],
+    "utils_common/waba_utils/__init__.py": [],
+    "utils_common/waba_utils/wa_flows/customer_address_capture copy.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/waba_utils/wa_flows/encryption_setup.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/waba_utils/wa_flows/follow_guide.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/waba_utils/wa_flows/postcode_search.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/waba_utils/wa_flows/singup_flow_example.py": [
+      "config/__init__.py"
+    ],
+    "utils_common/waba_utils/wa_senders.py": [
+      "config/__init__.py",
+      "ordelo_datamodels/restaurant_master_pymodel.py",
+      "utils_common/order_management/delivery_pymodels.py",
+      "utils_common/order_management/food_order_pymodel.py",
+      "utils_common/order_management/food_order_reciept.py",
+      "utils_common/tz_utils.py"
+    ],
+    "utils/__init__.py": [],
+    "utils/aws_setting.py": [],
+    "watomation/__init__.py": [],
+    "watomation/fapp_ordelo_agent.py": [
+      "config/__init__.py",
+      "ordelo/agent_app_handlers.py",
+      "ordelo/agents/rider_agent.py",
+      "utils_common/waba_utils/wa_senders.py",
+      "watomation/on_callback_wa_handler.py",
+      "watomation/on_flow_request_postcode_search.py",
+      "watomation/on_flow_request_wa_handler.py",
+      "watomation/on_message_wa_handler.py",
+      "watomation/routers/__init__.py",
+      "watomation/routers/customer_hooks.py",
+      "watomation/routers/delivery_hooks.py",
+      "watomation/routers/location_hooks.py",
+      "watomation/routers/order_hooks.py",
+      "watomation/routers/payment_hooks.py",
+      "watomation/routers/rest_admin_auth_session.py",
+      "watomation/routers/rider_auth_session.py",
+      "watomation/routers/sys_admin_auth_session.py",
+      "watomation/routers/takeaway_hooks.py",
+      "watomation/routers/thread_hooks.py",
+      "watomation/routers/twilio_webhook.py"
+    ],
+    "watomation/on_callback_wa_handler.py": [
+      "config/__init__.py",
+      "config/params.py",
+      "ordelo_datamodels/delivery_pymodels.py",
+      "ordelo/agent_app_handlers.py",
+      "ordelo/agents/agent_runner.py",
+      "utils_common/tz_utils.py",
+      "utils_common/waba_utils/wa_senders.py"
+    ],
+    "watomation/on_flow_request_postcode_search.py": [
+      "config/__init__.py",
+      "utils_common/maps_service/__init__.py",
+      "utils_common/maps_service/address_resolver.py"
+    ],
+    "watomation/on_flow_request_wa_handler.py": [
+      "config/__init__.py"
+    ],
+    "watomation/on_message_wa_handler.py": [
+      "config/__init__.py",
+      "config/params.py",
+      "ordelo/agent_app_handlers.py",
+      "ordelo/agents/agent_runner.py",
+      "utils_common/db_utils/sbase_pool_ops.py",
+      "utils_common/thread_management/__init__.py",
+      "utils_common/tz_utils.py",
+      "utils_common/waba_utils/wa_senders.py"
+    ],
+    "watomation/routers/__init__.py": [],
+    "watomation/routers/ai_rnd.py": [
+      "config/__init__.py"
+    ],
+    "watomation/routers/customer_hooks.py": [
+      "config/__init__.py",
+      "config/params.py",
+      "ordelo_datamodels/cust_rest_map_pymodel.py",
+      "ordelo_datamodels/customer_master_pymodel.py",
+      "ordelo_datamodels/restaurant_master_pymodel.py"
+    ],
+    "watomation/routers/delivery_hooks.py": [
+      "config/__init__.py",
+      "config/params.py",
+      "ordelo_datamodels/delivery_pymodels.py",
+      "ordelo_datamodels/restaurant_master_pymodel.py",
+      "ordelo/agents/agent_runner.py",
+      "utils_common/order_management/food_order_pymodel.py",
+      "utils_common/order_management/order_db_ops_new.py",
+      "utils_common/tz_utils.py",
+      "utils_common/waba_utils/wa_senders.py"
+    ],
+    "watomation/routers/location_hooks.py": [
+      "config/__init__.py",
+      "ordelo_datamodels/location_pymodels.py",
+      "ordelo_datamodels/restaurant_master_pymodel.py",
+      "ordelo/agent_app_handlers.py"
+    ],
+    "watomation/routers/order_hooks.py": [
+      "config/__init__.py",
+      "ordelo_datamodels/cust_rest_map_pymodel.py",
+      "ordelo_datamodels/customer_master_pymodel.py",
+      "ordelo_datamodels/restaurant_master_pymodel.py",
+      "utils_common/maps_service/address_resolver.py",
+      "utils_common/order_management/food_order_pymodel.py",
+      "utils_common/order_management/order_db_ops_new.py",
+      "utils_common/order_management/order_service.py",
+      "utils_common/payment_ms/payment.py"
+    ],
+    "watomation/routers/payment_hooks.py": [
+      "config/__init__.py",
+      "config/params.py",
+      "utils_common/order_management/food_order_pymodel.py",
+      "utils_common/order_management/order_db_ops_new.py",
+      "watomation/routers/takeaway_hooks.py"
+    ],
+    "watomation/routers/rest_admin_auth_session.py": [
+      "config/__init__.py",
+      "config/params.py"
+    ],
+    "watomation/routers/rider_auth_session.py": [
+      "config/__init__.py",
+      "config/params.py"
+    ],
+    "watomation/routers/sys_admin_auth_session.py": [
+      "config/__init__.py",
+      "config/params.py"
+    ],
+    "watomation/routers/takeaway_hooks.py": [
+      "config/__init__.py",
+      "utils_common/order_management/food_order_pymodel.py",
+      "utils_common/order_management/order_db_ops_new.py",
+      "utils_common/payment_ms/payment.py",
+      "utils_common/tz_utils.py",
+      "utils_common/waba_utils/wa_senders.py",
+      "watomation/routers/delivery_hooks.py"
+    ],
+    "watomation/routers/temp_nb.py": [
+      "config/__init__.py"
+    ],
+    "watomation/routers/templates/404.html": [],
+    "watomation/routers/templates/base.html": [],
+    "watomation/routers/templates/get-config.html": [],
+    "watomation/routers/templates/live-location-map.html": [],
+    "watomation/routers/templates/waba_embedded_signup.html": [],
+    "watomation/routers/thread_hooks.py": [
+      "config/__init__.py",
+      "config/params.py",
+      "ordelo/agents/agent_runner.py",
+      "ordelo/agents/rider_agent.py",
+      "utils_common/lg_utils.py"
+    ],
+    "watomation/routers/twilio_webhook.py": [
+      "utils_common/waba_es/onboarding_utils.py"
+    ],
+    "watomation/wo_fapp_ordelo_agent_wo_wa.py": [
+      "config/__init__.py",
+      "ordelo/agent_app_handlers.py",
+      "ordelo/agents/rider_agent.py",
+      "watomation/routers/__init__.py",
+      "watomation/routers/delivery_hooks.py",
+      "watomation/routers/location_hooks.py"
+    ],
+    "zedScripts/run_cell.py": [],
+    "zellij.kdl": []
+  }
+}

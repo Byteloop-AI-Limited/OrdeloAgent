@@ -1,0 +1,15 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": ".specify/AI_PATTERNS_GUIDE.md", "language": "markdown", "sizeLines": 1006, "fileCategory": "docs"},
+    {"path": ".specify/PATTERNS_CATALOG.md", "language": "markdown", "sizeLines": 336, "fileCategory": "docs"},
+    {"path": ".specify/QUICK_PATTERNS_REFERENCE.md", "language": "markdown", "sizeLines": 284, "fileCategory": "docs"},
+    {"path": ".specify/README.md", "language": "markdown", "sizeLines": 249, "fileCategory": "docs"}
+  ],
+  "batchImportData": {
+    ".specify/AI_PATTERNS_GUIDE.md": [],
+    ".specify/PATTERNS_CATALOG.md": [],
+    ".specify/QUICK_PATTERNS_REFERENCE.md": [],
+    ".specify/README.md": []
+  }
+}

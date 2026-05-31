@@ -1,0 +1,234 @@
+{
+  "nodes": [
+    {
+      "id": "file:utils_common/maps_service/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "utils_common/maps_service/__init__.py",
+      "summary": "Package barrel for `utils_common/maps_service`, re-exporting the public surface of `address_resolver` so consumers can import directly from `utils_common.maps_service`.",
+      "tags": ["barrel", "entry-point", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/maps_service/address_resolver.py",
+      "type": "file",
+      "name": "address_resolver.py",
+      "filePath": "utils_common/maps_service/address_resolver.py",
+      "summary": "Google Maps integration module providing address lookup from coordinates or UK postcodes via `AddressResolver`, and driving-distance calculation between postcodes or coordinates via `DrivingDistanceCalculator`, with full Pydantic models for all API responses.",
+      "tags": ["service", "utility", "api-handler", "data-model"],
+      "complexity": "complex",
+      "languageNotes": "Defines 11 Pydantic models mirroring the Google Geocoding and Directions API JSON structures; UK postcode normalisation (strip spaces, upper-case, length check) is applied before every geocoding call."
+    },
+    {
+      "id": "class:utils_common/maps_service/address_resolver.py:UKAddress",
+      "type": "class",
+      "name": "UKAddress",
+      "filePath": "utils_common/maps_service/address_resolver.py",
+      "lineRange": [66, 101],
+      "summary": "Pydantic model representing a parsed UK address with house number, street, locality, city, county, postcode, lat/lon, and a validator that normalises and length-checks the postcode.",
+      "tags": ["data-model", "validation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:utils_common/maps_service/address_resolver.py:AddressResolver",
+      "type": "class",
+      "name": "AddressResolver",
+      "filePath": "utils_common/maps_service/address_resolver.py",
+      "lineRange": [104, 286],
+      "summary": "Service class that wraps the Google Geocoding API to resolve UK postcodes or lat/lon coordinates into structured `UKAddress` objects, handling API errors and partial responses gracefully.",
+      "tags": ["service", "api-handler", "utility"],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:utils_common/maps_service/address_resolver.py:DrivingDistanceCalculator",
+      "type": "class",
+      "name": "DrivingDistanceCalculator",
+      "filePath": "utils_common/maps_service/address_resolver.py",
+      "lineRange": [363, 535],
+      "summary": "Service class wrapping the Google Directions API to compute the driving route and distance (in metres and miles) between two UK postcodes or coordinate pairs, returning a `DrivingRoute` summary.",
+      "tags": ["service", "api-handler", "utility"],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:utils_common/maps_service/address_resolver.py:DrivingRoute",
+      "type": "class",
+      "name": "DrivingRoute",
+      "filePath": "utils_common/maps_service/address_resolver.py",
+      "lineRange": [342, 360],
+      "summary": "Pydantic model summarising a computed driving route with distance (text, metres, miles), duration (text, seconds), summary, warnings, and status.",
+      "tags": ["data-model", "serialization"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:watomation/on_flow_request_postcode_search.py",
+      "type": "file",
+      "name": "on_flow_request_postcode_search.py",
+      "filePath": "watomation/on_flow_request_postcode_search.py",
+      "summary": "WhatsApp Flow request handlers for the postcode-search screen: `on_pc_search_init` serves the initial flow screen and `on_ip_pc` resolves a user-entered postcode via `AddressResolver`, returning matching address options as FlowResponse data.",
+      "tags": ["api-handler", "event-handler", "service", "middleware"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/on_flow_request_postcode_search.py:on_pc_search_init",
+      "type": "function",
+      "name": "on_pc_search_init",
+      "filePath": "watomation/on_flow_request_postcode_search.py",
+      "lineRange": [24, 44],
+      "summary": "Handles the initial INIT action of the WhatsApp postcode-search flow screen, returning the opening FlowResponse or an error response if configuration data is missing.",
+      "tags": ["api-handler", "event-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:watomation/on_flow_request_postcode_search.py:on_ip_pc",
+      "type": "function",
+      "name": "on_ip_pc",
+      "filePath": "watomation/on_flow_request_postcode_search.py",
+      "lineRange": [47, 82],
+      "summary": "Handles user postcode input in the WhatsApp flow by calling `address_resolver.get_address_from_postcode`, formatting the resolved address options, and returning a populated FlowResponse for the address-selection screen.",
+      "tags": ["api-handler", "event-handler", "service"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:utils_common/maps_service/__init__.py",
+      "target": "file:utils_common/maps_service/address_resolver.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/maps_service/address_resolver.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/on_flow_request_postcode_search.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/on_flow_request_postcode_search.py",
+      "target": "file:utils_common/maps_service/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/on_flow_request_postcode_search.py",
+      "target": "file:utils_common/maps_service/address_resolver.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/maps_service/address_resolver.py",
+      "target": "class:utils_common/maps_service/address_resolver.py:UKAddress",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/maps_service/address_resolver.py",
+      "target": "class:utils_common/maps_service/address_resolver.py:AddressResolver",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/maps_service/address_resolver.py",
+      "target": "class:utils_common/maps_service/address_resolver.py:DrivingDistanceCalculator",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/maps_service/address_resolver.py",
+      "target": "class:utils_common/maps_service/address_resolver.py:DrivingRoute",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/maps_service/address_resolver.py",
+      "target": "class:utils_common/maps_service/address_resolver.py:UKAddress",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/maps_service/address_resolver.py",
+      "target": "class:utils_common/maps_service/address_resolver.py:AddressResolver",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/maps_service/address_resolver.py",
+      "target": "class:utils_common/maps_service/address_resolver.py:DrivingDistanceCalculator",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/maps_service/address_resolver.py",
+      "target": "class:utils_common/maps_service/address_resolver.py:DrivingRoute",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/on_flow_request_postcode_search.py",
+      "target": "function:watomation/on_flow_request_postcode_search.py:on_pc_search_init",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/on_flow_request_postcode_search.py",
+      "target": "function:watomation/on_flow_request_postcode_search.py:on_ip_pc",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/on_flow_request_postcode_search.py",
+      "target": "function:watomation/on_flow_request_postcode_search.py:on_pc_search_init",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/on_flow_request_postcode_search.py",
+      "target": "function:watomation/on_flow_request_postcode_search.py:on_ip_pc",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:watomation/on_flow_request_postcode_search.py:on_ip_pc",
+      "target": "class:utils_common/maps_service/address_resolver.py:AddressResolver",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/maps_service/__init__.py",
+      "target": "file:utils_common/maps_service/address_resolver.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:utils_common/maps_service/address_resolver.py",
+      "target": "file:watomation/routers/order_hooks.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

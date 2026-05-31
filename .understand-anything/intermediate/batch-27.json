@@ -1,0 +1,52 @@
+{
+  "nodes": [
+    {
+      "id": "table:ordelo_datamodels/misc_sql/drop_dispatch_accept_func.sql:drop_dispatch_accept_func",
+      "type": "table",
+      "name": "drop_dispatch_accept_func",
+      "filePath": "ordelo_datamodels/misc_sql/drop_dispatch_accept_func.sql",
+      "summary": "Migration utility script that drops all overloaded variants of the 'dispatch_accept_func' PostgreSQL function by querying pg_proc and dynamically executing DROP FUNCTION for each signature found, used during schema refactoring.",
+      "tags": ["database", "migration", "utility"],
+      "complexity": "simple",
+      "languageNotes": "Uses anonymous DO block with dynamic EXECUTE and pg_proc / pg_namespace catalog lookups to handle all function overloads regardless of argument types."
+    },
+    {
+      "id": "table:ordelo_datamodels/misc_sql/get_ddl_for_table.sql:get_ddl_for_table",
+      "type": "table",
+      "name": "get_ddl_for_table",
+      "filePath": "ordelo_datamodels/misc_sql/get_ddl_for_table.sql",
+      "summary": "Ad-hoc diagnostic query that reconstructs a CREATE TABLE DDL statement for a given table (hardcoded to 'delivery_option') by querying information_schema.columns, useful for documentation and schema inspection.",
+      "tags": ["database", "utility", "documentation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:ordelo_datamodels/misc_sql/result_export.json",
+      "type": "config",
+      "name": "result_export.json",
+      "filePath": "ordelo_datamodels/misc_sql/result_export.json",
+      "summary": "Exported query result capturing a single auth_sessions token hash and expiry timestamp with 'rider' role, serving as a sample fixture or spot-check output from a manual SQL test run.",
+      "tags": ["configuration", "data", "security"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/misc_sql/test_magic_link.sql:test_magic_link",
+      "type": "table",
+      "name": "test_magic_link",
+      "filePath": "ordelo_datamodels/misc_sql/test_magic_link.sql",
+      "summary": "Comprehensive test fixture script for the magic-link authentication flow covering rest_admin, rider, and mixed role scenarios, inserting valid, expired, revoked, and already-activated auth_sessions rows via pgcrypto SHA-256 token hashing to exercise all expected activation outcomes.",
+      "tags": ["database", "test", "security"],
+      "complexity": "complex",
+      "languageNotes": "Uses pgcrypto's encode(digest(token, 'sha256'), 'hex') inline — the same hashing strategy used by the production magic-link handler — ensuring fixtures exactly mirror real token storage."
+    },
+    {
+      "id": "table:ordelo_datamodels/misc_sql/testing_scripts.sql:testing_scripts",
+      "type": "table",
+      "name": "testing_scripts",
+      "filePath": "ordelo_datamodels/misc_sql/testing_scripts.sql",
+      "summary": "Minimal test utility function 'clear_dispatch' that deletes the most recent delivery_dispatch record, used in development to re-trigger dispatch notifications without polluting production data.",
+      "tags": ["database", "test", "utility"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": []
+}

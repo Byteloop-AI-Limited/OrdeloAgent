@@ -1,0 +1,2762 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 23,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "notebooks/wa_flows/customer_address_capture copy.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 190,
+      "nonEmptyLines": 175,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "notebooks/wa_flows/encryption_setup.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 21,
+      "nonEmptyLines": 14,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "notebooks/wa_flows/follow_guide.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 126,
+      "nonEmptyLines": 115,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "notebooks/wa_flows/postcode_search.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 218,
+      "nonEmptyLines": 206,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "notebooks/wa_flows/singup_flow_example.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 393,
+      "nonEmptyLines": 377,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/db_utils/checkpointer_setup.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 23,
+      "nonEmptyLines": 21,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/db_utils/sbase_realtime_ref.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 47,
+      "nonEmptyLines": 36,
+      "functions": [
+        {
+          "name": "handle_delivery_detail_update",
+          "startLine": 16,
+          "endLine": 18,
+          "params": [
+            "payload"
+          ]
+        },
+        {
+          "name": "lifespan",
+          "startLine": 24,
+          "endLine": 46,
+          "params": [
+            "app"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "handle_delivery_detail_update",
+          "line": 16,
+          "isDefault": false
+        },
+        {
+          "name": "lifespan",
+          "line": 23,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "handle_delivery_detail_update",
+          "callee": "json.loads",
+          "lineNumber": 17
+        },
+        {
+          "caller": "handle_delivery_detail_update",
+          "callee": "logger.success",
+          "lineNumber": 18
+        },
+        {
+          "caller": "lifespan",
+          "callee": "AsyncConnectionPool",
+          "lineNumber": 26
+        },
+        {
+          "caller": "lifespan",
+          "callee": "ConnectionPool",
+          "lineNumber": 36
+        },
+        {
+          "caller": "lifespan",
+          "callee": "pool_sync.open",
+          "lineNumber": 37
+        },
+        {
+          "caller": "lifespan",
+          "callee": "create_async_client",
+          "lineNumber": 40
+        },
+        {
+          "caller": "lifespan",
+          "callee": "supabase.channel(\"supabase_realtime\").on_postgres_changes(\n        \"UPDATE\", schema=\"public\", table=\"delivery_detail\", callback=handle_delivery_detail_update\n    ).subscribe",
+          "lineNumber": 44
+        },
+        {
+          "caller": "lifespan",
+          "callee": "supabase.channel(\"supabase_realtime\").on_postgres_changes",
+          "lineNumber": 44
+        },
+        {
+          "caller": "lifespan",
+          "callee": "supabase.channel",
+          "lineNumber": 44
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 2,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/live_location/app_live_location_tracker.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 153,
+      "nonEmptyLines": 133,
+      "functions": [
+        {
+          "name": "receive_pub",
+          "startLine": 37,
+          "endLine": 66,
+          "params": [
+            "request"
+          ]
+        },
+        {
+          "name": "generate_config_href",
+          "startLine": 70,
+          "endLine": 73,
+          "params": [
+            "config"
+          ]
+        },
+        {
+          "name": "get_config",
+          "startLine": 77,
+          "endLine": 137,
+          "params": [
+            "request"
+          ]
+        },
+        {
+          "name": "test_sbase",
+          "startLine": 141,
+          "endLine": 144,
+          "params": [
+            "request"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "receive_pub",
+          "line": 36,
+          "isDefault": false
+        },
+        {
+          "name": "generate_config_href",
+          "line": 70,
+          "isDefault": false
+        },
+        {
+          "name": "get_config",
+          "line": 76,
+          "isDefault": false
+        },
+        {
+          "name": "test_sbase",
+          "line": 140,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "receive_pub",
+          "callee": "request.json",
+          "lineNumber": 40
+        },
+        {
+          "caller": "receive_pub",
+          "callee": "wa.send_text",
+          "lineNumber": 43
+        },
+        {
+          "caller": "receive_pub",
+          "callee": "json.dumps",
+          "lineNumber": 45
+        },
+        {
+          "caller": "receive_pub",
+          "callee": "datetime.fromtimestamp",
+          "lineNumber": 49
+        },
+        {
+          "caller": "receive_pub",
+          "callee": "timestamp.strftime",
+          "lineNumber": 50
+        },
+        {
+          "caller": "receive_pub",
+          "callee": "print",
+          "lineNumber": 51
+        },
+        {
+          "caller": "receive_pub",
+          "callee": "json.dumps",
+          "lineNumber": 51
+        },
+        {
+          "caller": "receive_pub",
+          "callee": "open",
+          "lineNumber": 56
+        },
+        {
+          "caller": "receive_pub",
+          "callee": "pickle.dump",
+          "lineNumber": 57
+        },
+        {
+          "caller": "receive_pub",
+          "callee": "print",
+          "lineNumber": 58
+        },
+        {
+          "caller": "receive_pub",
+          "callee": "print",
+          "lineNumber": 60
+        },
+        {
+          "caller": "receive_pub",
+          "callee": "print",
+          "lineNumber": 65
+        },
+        {
+          "caller": "receive_pub",
+          "callee": "str",
+          "lineNumber": 65
+        },
+        {
+          "caller": "generate_config_href",
+          "callee": "json.dumps",
+          "lineNumber": 71
+        },
+        {
+          "caller": "generate_config_href",
+          "callee": "base64.b64encode(config_json.encode()).decode",
+          "lineNumber": 72
+        },
+        {
+          "caller": "generate_config_href",
+          "callee": "base64.b64encode",
+          "lineNumber": 72
+        },
+        {
+          "caller": "generate_config_href",
+          "callee": "config_json.encode",
+          "lineNumber": 72
+        },
+        {
+          "caller": "get_config",
+          "callee": "generate_config_href",
+          "lineNumber": 134
+        },
+        {
+          "caller": "get_config",
+          "callee": "generate_config_href",
+          "lineNumber": 135
+        },
+        {
+          "caller": "get_config",
+          "callee": "templates.TemplateResponse",
+          "lineNumber": 137
+        },
+        {
+          "caller": "test_sbase",
+          "callee": "request.json",
+          "lineNumber": 142
+        },
+        {
+          "caller": "test_sbase",
+          "callee": "print",
+          "lineNumber": 143
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 4,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/live_location/live_track_db_ops.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 117,
+      "nonEmptyLines": 103,
+      "classes": [
+        {
+          "name": "LiveTrackHandler",
+          "startLine": 22,
+          "endLine": 117,
+          "methods": [
+            "__init__",
+            "_extract_user_device",
+            "insert_location",
+            "get_latest_location",
+            "get_user_locations"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "LiveTrackHandler",
+          "line": 22,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "__init__",
+          "callee": "os.getenv",
+          "lineNumber": 25
+        },
+        {
+          "caller": "__init__",
+          "callee": "os.getenv",
+          "lineNumber": 26
+        },
+        {
+          "caller": "__init__",
+          "callee": "ValueError",
+          "lineNumber": 28
+        },
+        {
+          "caller": "__init__",
+          "callee": "create_client",
+          "lineNumber": 29
+        },
+        {
+          "caller": "_extract_user_device",
+          "callee": "topic.split",
+          "lineNumber": 35
+        },
+        {
+          "caller": "_extract_user_device",
+          "callee": "len",
+          "lineNumber": 36
+        },
+        {
+          "caller": "_extract_user_device",
+          "callee": "ValueError",
+          "lineNumber": 37
+        },
+        {
+          "caller": "_extract_user_device",
+          "callee": "ValueError",
+          "lineNumber": 40
+        },
+        {
+          "caller": "_extract_user_device",
+          "callee": "str",
+          "lineNumber": 40
+        },
+        {
+          "caller": "insert_location",
+          "callee": "self._extract_user_device",
+          "lineNumber": 48
+        },
+        {
+          "caller": "insert_location",
+          "callee": "self.supabase.table(self.table_name).insert(record).execute",
+          "lineNumber": 64
+        },
+        {
+          "caller": "insert_location",
+          "callee": "self.supabase.table(self.table_name).insert",
+          "lineNumber": 64
+        },
+        {
+          "caller": "insert_location",
+          "callee": "self.supabase.table",
+          "lineNumber": 64
+        },
+        {
+          "caller": "insert_location",
+          "callee": "Exception",
+          "lineNumber": 68
+        },
+        {
+          "caller": "insert_location",
+          "callee": "str",
+          "lineNumber": 68
+        },
+        {
+          "caller": "get_latest_location",
+          "callee": "self.supabase.table(self.table_name)\n                .select(\"*\")\n                .eq(\"user_id\", user)\n                .order(\"created_at\", desc=True)\n                .limit",
+          "lineNumber": 76
+        },
+        {
+          "caller": "get_latest_location",
+          "callee": "self.supabase.table(self.table_name)\n                .select(\"*\")\n                .eq(\"user_id\", user)\n                .order",
+          "lineNumber": 76
+        },
+        {
+          "caller": "get_latest_location",
+          "callee": "self.supabase.table(self.table_name)\n                .select(\"*\")\n                .eq",
+          "lineNumber": 76
+        },
+        {
+          "caller": "get_latest_location",
+          "callee": "self.supabase.table(self.table_name)\n                .select",
+          "lineNumber": 76
+        },
+        {
+          "caller": "get_latest_location",
+          "callee": "self.supabase.table",
+          "lineNumber": 76
+        },
+        {
+          "caller": "get_latest_location",
+          "callee": "query.eq",
+          "lineNumber": 84
+        },
+        {
+          "caller": "get_latest_location",
+          "callee": "query.execute",
+          "lineNumber": 86
+        },
+        {
+          "caller": "get_latest_location",
+          "callee": "Exception",
+          "lineNumber": 89
+        },
+        {
+          "caller": "get_latest_location",
+          "callee": "str",
+          "lineNumber": 89
+        },
+        {
+          "caller": "get_user_locations",
+          "callee": "self.supabase.table(self.table_name)\n                .select(\"*\")\n                .eq(\"user_id\", user)\n                .order",
+          "lineNumber": 101
+        },
+        {
+          "caller": "get_user_locations",
+          "callee": "self.supabase.table(self.table_name)\n                .select(\"*\")\n                .eq",
+          "lineNumber": 101
+        },
+        {
+          "caller": "get_user_locations",
+          "callee": "self.supabase.table(self.table_name)\n                .select",
+          "lineNumber": 101
+        },
+        {
+          "caller": "get_user_locations",
+          "callee": "self.supabase.table",
+          "lineNumber": 101
+        },
+        {
+          "caller": "get_user_locations",
+          "callee": "query.eq",
+          "lineNumber": 108
+        },
+        {
+          "caller": "get_user_locations",
+          "callee": "query.gte",
+          "lineNumber": 110
+        },
+        {
+          "caller": "get_user_locations",
+          "callee": "query.lte",
+          "lineNumber": 112
+        },
+        {
+          "caller": "get_user_locations",
+          "callee": "query.execute",
+          "lineNumber": 114
+        },
+        {
+          "caller": "get_user_locations",
+          "callee": "Exception",
+          "lineNumber": 117
+        },
+        {
+          "caller": "get_user_locations",
+          "callee": "str",
+          "lineNumber": 117
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 0,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "utils_common/order_management/example_order.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 79,
+      "nonEmptyLines": 63,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/order_management/order_db_ops.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 395,
+      "nonEmptyLines": 328,
+      "functions": [
+        {
+          "name": "get_order_total",
+          "startLine": 82,
+          "endLine": 86,
+          "params": [
+            "wa_order"
+          ]
+        },
+        {
+          "name": "create_order_items_from_order",
+          "startLine": 89,
+          "endLine": 109,
+          "params": [
+            "wa_order",
+            "order_id",
+            "sku_nam_map"
+          ]
+        },
+        {
+          "name": "create_order_summary",
+          "startLine": 113,
+          "endLine": 145,
+          "params": [
+            "order_items"
+          ]
+        },
+        {
+          "name": "process_order_into_db",
+          "startLine": 148,
+          "endLine": 173,
+          "params": [
+            "pool",
+            "recipient",
+            "thread_id",
+            "wa_order"
+          ]
+        },
+        {
+          "name": "create_order_summary_from_db",
+          "startLine": 176,
+          "endLine": 199,
+          "params": [
+            "pool",
+            "order_id"
+          ]
+        },
+        {
+          "name": "get_stripe_payment_link",
+          "startLine": 205,
+          "endLine": 233,
+          "params": [
+            "pool",
+            "order_id"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "FoodOrderModel",
+          "startLine": 39,
+          "endLine": 70,
+          "methods": [
+            "generate_order_id",
+            "_create_order_number"
+          ],
+          "properties": [
+            "order_id",
+            "recipient",
+            "thread_id",
+            "seq_id",
+            "total_amount",
+            "order_dt",
+            "order_ts",
+            "order_type",
+            "payment_status"
+          ]
+        },
+        {
+          "name": "OrderItem",
+          "startLine": 73,
+          "endLine": 77,
+          "methods": [],
+          "properties": [
+            "order_id",
+            "product_name",
+            "quantity",
+            "price"
+          ]
+        },
+        {
+          "name": "OrderHandler",
+          "startLine": 237,
+          "endLine": 365,
+          "methods": [
+            "__init__",
+            "get_seq_num",
+            "get_order_items",
+            "create_food_order",
+            "update_order",
+            "insert_order_items"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "FoodOrderModel",
+          "line": 39,
+          "isDefault": false
+        },
+        {
+          "name": "OrderItem",
+          "line": 73,
+          "isDefault": false
+        },
+        {
+          "name": "get_order_total",
+          "line": 82,
+          "isDefault": false
+        },
+        {
+          "name": "create_order_items_from_order",
+          "line": 89,
+          "isDefault": false
+        },
+        {
+          "name": "create_order_summary",
+          "line": 113,
+          "isDefault": false
+        },
+        {
+          "name": "process_order_into_db",
+          "line": 148,
+          "isDefault": false
+        },
+        {
+          "name": "create_order_summary_from_db",
+          "line": 176,
+          "isDefault": false
+        },
+        {
+          "name": "get_stripe_payment_link",
+          "line": 205,
+          "isDefault": false
+        },
+        {
+          "name": "OrderHandler",
+          "line": 237,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "generate_order_id",
+          "callee": "self._create_order_number",
+          "lineNumber": 53
+        },
+        {
+          "caller": "generate_order_id",
+          "callee": "str",
+          "lineNumber": 53
+        },
+        {
+          "caller": "_create_order_number",
+          "callee": "len",
+          "lineNumber": 60
+        },
+        {
+          "caller": "_create_order_number",
+          "callee": "number.isdigit",
+          "lineNumber": 60
+        },
+        {
+          "caller": "_create_order_number",
+          "callee": "ValueError",
+          "lineNumber": 61
+        },
+        {
+          "caller": "_create_order_number",
+          "callee": "hashlib.sha256(salted_number.encode()).hexdigest",
+          "lineNumber": 64
+        },
+        {
+          "caller": "_create_order_number",
+          "callee": "hashlib.sha256",
+          "lineNumber": 64
+        },
+        {
+          "caller": "_create_order_number",
+          "callee": "salted_number.encode",
+          "lineNumber": 64
+        },
+        {
+          "caller": "_create_order_number",
+          "callee": "range",
+          "lineNumber": 67
+        },
+        {
+          "caller": "_create_order_number",
+          "callee": "int",
+          "lineNumber": 68
+        },
+        {
+          "caller": "_create_order_number",
+          "callee": "len",
+          "lineNumber": 68
+        },
+        {
+          "caller": "_create_order_number",
+          "callee": "encoded_chars.upper",
+          "lineNumber": 70
+        },
+        {
+          "caller": "create_order_items_from_order",
+          "callee": "asdict",
+          "lineNumber": 104
+        },
+        {
+          "caller": "create_order_items_from_order",
+          "callee": "sku_nam_map.get",
+          "lineNumber": 105
+        },
+        {
+          "caller": "create_order_items_from_order",
+          "callee": "OrderItem",
+          "lineNumber": 107
+        },
+        {
+          "caller": "create_order_items_from_order",
+          "callee": "order_items.append",
+          "lineNumber": 108
+        },
+        {
+          "caller": "create_order_summary",
+          "callee": "filter_dict",
+          "lineNumber": 129
+        },
+        {
+          "caller": "create_order_summary",
+          "callee": "filter_dict",
+          "lineNumber": 134
+        },
+        {
+          "caller": "process_order_into_db",
+          "callee": "OrderHandler",
+          "lineNumber": 154
+        },
+        {
+          "caller": "process_order_into_db",
+          "callee": "order_handler.get_seq_num",
+          "lineNumber": 156
+        },
+        {
+          "caller": "process_order_into_db",
+          "callee": "get_order_total",
+          "lineNumber": 161
+        },
+        {
+          "caller": "process_order_into_db",
+          "callee": "FoodOrderModel",
+          "lineNumber": 165
+        },
+        {
+          "caller": "process_order_into_db",
+          "callee": "order_handler.create_food_order",
+          "lineNumber": 168
+        },
+        {
+          "caller": "process_order_into_db",
+          "callee": "order_handler.insert_order_items",
+          "lineNumber": 169
+        },
+        {
+          "caller": "process_order_into_db",
+          "callee": "logger.info",
+          "lineNumber": 170
+        },
+        {
+          "caller": "create_order_summary_from_db",
+          "callee": "OrderHandler",
+          "lineNumber": 180
+        },
+        {
+          "caller": "create_order_summary_from_db",
+          "callee": "order_handler.get_order_items",
+          "lineNumber": 181
+        },
+        {
+          "caller": "create_order_summary_from_db",
+          "callee": "filter_dict",
+          "lineNumber": 183
+        },
+        {
+          "caller": "create_order_summary_from_db",
+          "callee": "filter_dict",
+          "lineNumber": 188
+        },
+        {
+          "caller": "get_stripe_payment_link",
+          "callee": "create_order_summary_from_db",
+          "lineNumber": 215
+        },
+        {
+          "caller": "get_stripe_payment_link",
+          "callee": "stripe_settings.generate_payment_intent_url",
+          "lineNumber": 217
+        },
+        {
+          "caller": "get_stripe_payment_link",
+          "callee": "order_summary.get",
+          "lineNumber": 218
+        },
+        {
+          "caller": "get_stripe_payment_link",
+          "callee": "order_summary.get",
+          "lineNumber": 219
+        },
+        {
+          "caller": "get_stripe_payment_link",
+          "callee": "httpx.AsyncClient",
+          "lineNumber": 222
+        },
+        {
+          "caller": "get_stripe_payment_link",
+          "callee": "client.post",
+          "lineNumber": 224
+        },
+        {
+          "caller": "get_stripe_payment_link",
+          "callee": "res.raise_for_status",
+          "lineNumber": 229
+        },
+        {
+          "caller": "get_stripe_payment_link",
+          "callee": "res.json",
+          "lineNumber": 230
+        },
+        {
+          "caller": "get_stripe_payment_link",
+          "callee": "print",
+          "lineNumber": 232
+        },
+        {
+          "caller": "get_seq_num",
+          "callee": "self.pool.connection",
+          "lineNumber": 243
+        },
+        {
+          "caller": "get_seq_num",
+          "callee": "conn.cursor",
+          "lineNumber": 244
+        },
+        {
+          "caller": "get_seq_num",
+          "callee": "cur.execute",
+          "lineNumber": 245
+        },
+        {
+          "caller": "get_seq_num",
+          "callee": "datetime.now().strftime",
+          "lineNumber": 249
+        },
+        {
+          "caller": "get_seq_num",
+          "callee": "datetime.now",
+          "lineNumber": 249
+        },
+        {
+          "caller": "get_seq_num",
+          "callee": "cur.fetchone",
+          "lineNumber": 251
+        },
+        {
+          "caller": "get_seq_num",
+          "callee": "print",
+          "lineNumber": 255
+        },
+        {
+          "caller": "get_order_items",
+          "callee": "self.pool.connection",
+          "lineNumber": 260
+        },
+        {
+          "caller": "get_order_items",
+          "callee": "conn.cursor",
+          "lineNumber": 261
+        },
+        {
+          "caller": "get_order_items",
+          "callee": "cur.execute",
+          "lineNumber": 262
+        },
+        {
+          "caller": "get_order_items",
+          "callee": "cur.fetchall",
+          "lineNumber": 280
+        },
+        {
+          "caller": "get_order_items",
+          "callee": "print",
+          "lineNumber": 284
+        },
+        {
+          "caller": "create_food_order",
+          "callee": "self.pool.connection",
+          "lineNumber": 289
+        },
+        {
+          "caller": "create_food_order",
+          "callee": "conn.cursor",
+          "lineNumber": 290
+        },
+        {
+          "caller": "create_food_order",
+          "callee": "tuple",
+          "lineNumber": 291
+        },
+        {
+          "caller": "create_food_order",
+          "callee": "food_order.model_dump().values",
+          "lineNumber": 291
+        },
+        {
+          "caller": "create_food_order",
+          "callee": "food_order.model_dump",
+          "lineNumber": 291
+        },
+        {
+          "caller": "create_food_order",
+          "callee": "FoodOrderModel.model_fields.keys",
+          "lineNumber": 292
+        },
+        {
+          "caller": "create_food_order",
+          "callee": "cur.execute",
+          "lineNumber": 293
+        },
+        {
+          "caller": "create_food_order",
+          "callee": "','.join",
+          "lineNumber": 297
+        },
+        {
+          "caller": "create_food_order",
+          "callee": "print",
+          "lineNumber": 306
+        },
+        {
+          "caller": "update_order",
+          "callee": "self.pool.connection",
+          "lineNumber": 311
+        },
+        {
+          "caller": "update_order",
+          "callee": "conn.cursor",
+          "lineNumber": 312
+        },
+        {
+          "caller": "update_order",
+          "callee": "cur.execute",
+          "lineNumber": 313
+        },
+        {
+          "caller": "update_order",
+          "callee": "datetime.now().strftime",
+          "lineNumber": 323
+        },
+        {
+          "caller": "update_order",
+          "callee": "datetime.now",
+          "lineNumber": 323
+        },
+        {
+          "caller": "update_order",
+          "callee": "print",
+          "lineNumber": 330
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "self.pool.connection",
+          "lineNumber": 341
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "conn.cursor",
+          "lineNumber": 342
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "tuple",
+          "lineNumber": 343
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "OrderItem.model_fields.keys",
+          "lineNumber": 343
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "create_order_items_from_order",
+          "lineNumber": 345
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "tuple",
+          "lineNumber": 348
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "order_item.model_dump().values",
+          "lineNumber": 348
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "order_item.model_dump",
+          "lineNumber": 348
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "','.join",
+          "lineNumber": 355
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "', '.join",
+          "lineNumber": 357
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "len",
+          "lineNumber": 357
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "cur.executemany",
+          "lineNumber": 360
+        },
+        {
+          "caller": "insert_order_items",
+          "callee": "print",
+          "lineNumber": 364
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 9,
+        "functionCount": 6,
+        "classCount": 3
+      }
+    },
+    {
+      "path": "utils_common/params.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 201,
+      "nonEmptyLines": 181,
+      "functions": [
+        {
+          "name": "get_project_root",
+          "startLine": 12,
+          "endLine": 26,
+          "params": []
+        },
+        {
+          "name": "filter_dict",
+          "startLine": 32,
+          "endLine": 94,
+          "params": [
+            "dicts",
+            "select_cols",
+            "**filters"
+          ]
+        },
+        {
+          "name": "get_sql_condition",
+          "startLine": 97,
+          "endLine": 171,
+          "params": [
+            "**kwargs"
+          ]
+        },
+        {
+          "name": "is_json",
+          "startLine": 174,
+          "endLine": 180,
+          "params": [
+            "s"
+          ]
+        },
+        {
+          "name": "configure_pythonpath",
+          "startLine": 186,
+          "endLine": 201,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "get_project_root",
+          "line": 12,
+          "isDefault": false
+        },
+        {
+          "name": "filter_dict",
+          "line": 32,
+          "isDefault": false
+        },
+        {
+          "name": "get_sql_condition",
+          "line": 97,
+          "isDefault": false
+        },
+        {
+          "name": "is_json",
+          "line": 174,
+          "isDefault": false
+        },
+        {
+          "name": "configure_pythonpath",
+          "line": 186,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "get_project_root",
+          "callee": "subprocess.check_output",
+          "lineNumber": 15
+        },
+        {
+          "caller": "get_project_root",
+          "callee": "git_root.decode().strip",
+          "lineNumber": 17
+        },
+        {
+          "caller": "get_project_root",
+          "callee": "git_root.decode",
+          "lineNumber": 17
+        },
+        {
+          "caller": "get_project_root",
+          "callee": "print",
+          "lineNumber": 21
+        },
+        {
+          "caller": "get_project_root",
+          "callee": "print",
+          "lineNumber": 25
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "filters.items",
+          "lineNumber": 51
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "key.endswith",
+          "lineNumber": 52
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "d.get",
+          "lineNumber": 54
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "key.endswith",
+          "lineNumber": 58
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "d.get",
+          "lineNumber": 60
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "d.get",
+          "lineNumber": 65
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "callable",
+          "lineNumber": 66
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "value",
+          "lineNumber": 67
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "isinstance",
+          "lineNumber": 70
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "isinstance",
+          "lineNumber": 82
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "d.get",
+          "lineNumber": 83
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "select_cols.items",
+          "lineNumber": 83
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "isinstance",
+          "lineNumber": 85
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "d.get",
+          "lineNumber": 86
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "ValueError",
+          "lineNumber": 88
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "filtered.append",
+          "lineNumber": 90
+        },
+        {
+          "caller": "filter_dict",
+          "callee": "filtered.append",
+          "lineNumber": 93
+        },
+        {
+          "caller": "get_sql_condition",
+          "callee": "re.compile",
+          "lineNumber": 122
+        },
+        {
+          "caller": "process_value",
+          "callee": "isinstance",
+          "lineNumber": 126
+        },
+        {
+          "caller": "process_value",
+          "callee": "comparison_pattern.match",
+          "lineNumber": 132
+        },
+        {
+          "caller": "process_value",
+          "callee": "match.groups",
+          "lineNumber": 134
+        },
+        {
+          "caller": "process_value",
+          "callee": "isinstance",
+          "lineNumber": 141
+        },
+        {
+          "caller": "process_value",
+          "callee": "isinstance",
+          "lineNumber": 145
+        },
+        {
+          "caller": "process_value",
+          "callee": "isinstance",
+          "lineNumber": 149
+        },
+        {
+          "caller": "process_value",
+          "callee": "or_parts.append",
+          "lineNumber": 150
+        },
+        {
+          "caller": "process_value",
+          "callee": "isinstance",
+          "lineNumber": 151
+        },
+        {
+          "caller": "process_value",
+          "callee": "or_parts.append",
+          "lineNumber": 153
+        },
+        {
+          "caller": "process_value",
+          "callee": "comparison_pattern.match",
+          "lineNumber": 156
+        },
+        {
+          "caller": "process_value",
+          "callee": "match.groups",
+          "lineNumber": 158
+        },
+        {
+          "caller": "process_value",
+          "callee": "or_parts.append",
+          "lineNumber": 159
+        },
+        {
+          "caller": "process_value",
+          "callee": "or_parts.append",
+          "lineNumber": 161
+        },
+        {
+          "caller": "process_value",
+          "callee": "TypeError",
+          "lineNumber": 163
+        },
+        {
+          "caller": "process_value",
+          "callee": "\" OR \".join",
+          "lineNumber": 164
+        },
+        {
+          "caller": "process_value",
+          "callee": "TypeError",
+          "lineNumber": 166
+        },
+        {
+          "caller": "get_sql_condition",
+          "callee": "kwargs.items",
+          "lineNumber": 168
+        },
+        {
+          "caller": "get_sql_condition",
+          "callee": "conditions.append",
+          "lineNumber": 169
+        },
+        {
+          "caller": "get_sql_condition",
+          "callee": "process_value",
+          "lineNumber": 169
+        },
+        {
+          "caller": "get_sql_condition",
+          "callee": "' AND '.join",
+          "lineNumber": 171
+        },
+        {
+          "caller": "is_json",
+          "callee": "json.loads",
+          "lineNumber": 177
+        },
+        {
+          "caller": "configure_pythonpath",
+          "callee": "os.environ.get",
+          "lineNumber": 192
+        },
+        {
+          "caller": "configure_pythonpath",
+          "callee": "python_path.split",
+          "lineNumber": 196
+        },
+        {
+          "caller": "configure_pythonpath",
+          "callee": "os.path.isdir",
+          "lineNumber": 197
+        },
+        {
+          "caller": "configure_pythonpath",
+          "callee": "sys.path.insert",
+          "lineNumber": 198
+        },
+        {
+          "caller": "configure_pythonpath",
+          "callee": "sys.path.insert",
+          "lineNumber": 201
+        },
+        {
+          "caller": "configure_pythonpath",
+          "callee": "os.path.abspath",
+          "lineNumber": 201
+        },
+        {
+          "caller": "configure_pythonpath",
+          "callee": "os.path.dirname",
+          "lineNumber": 201
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 5,
+        "functionCount": 5,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/thread_management/initialize_db.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 16,
+      "nonEmptyLines": 14,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/waba_es/api_funcs.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 372,
+      "nonEmptyLines": 302,
+      "functions": [
+        {
+          "name": "get_assigned_wabas",
+          "startLine": 64,
+          "endLine": 91,
+          "params": []
+        },
+        {
+          "name": "get_wabas_with_phone_numbers",
+          "startLine": 97,
+          "endLine": 147,
+          "params": []
+        },
+        {
+          "name": "list_phone_numbers_for_waba",
+          "startLine": 150,
+          "endLine": 172,
+          "params": [
+            "waba_id"
+          ]
+        },
+        {
+          "name": "register_phone_number",
+          "startLine": 193,
+          "endLine": 224,
+          "params": [
+            "phone_number_id"
+          ]
+        },
+        {
+          "name": "get_subscribed_apps",
+          "startLine": 230,
+          "endLine": 263,
+          "params": [
+            "waba_id",
+            "token"
+          ]
+        },
+        {
+          "name": "subscribe_app",
+          "startLine": 269,
+          "endLine": 304,
+          "params": [
+            "waba_id",
+            "token"
+          ]
+        },
+        {
+          "name": "debug_token",
+          "startLine": 307,
+          "endLine": 341,
+          "params": [
+            "input_token"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "get_assigned_wabas",
+          "line": 64,
+          "isDefault": false
+        },
+        {
+          "name": "get_wabas_with_phone_numbers",
+          "line": 97,
+          "isDefault": false
+        },
+        {
+          "name": "list_phone_numbers_for_waba",
+          "line": 150,
+          "isDefault": false
+        },
+        {
+          "name": "register_phone_number",
+          "line": 193,
+          "isDefault": false
+        },
+        {
+          "name": "get_subscribed_apps",
+          "line": 230,
+          "isDefault": false
+        },
+        {
+          "name": "subscribe_app",
+          "line": 269,
+          "isDefault": false
+        },
+        {
+          "name": "debug_token",
+          "line": 307,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "get_assigned_wabas",
+          "callee": "logger.info",
+          "lineNumber": 69
+        },
+        {
+          "caller": "get_assigned_wabas",
+          "callee": "requests.get",
+          "lineNumber": 74
+        },
+        {
+          "caller": "get_assigned_wabas",
+          "callee": "logger.error",
+          "lineNumber": 78
+        },
+        {
+          "caller": "get_assigned_wabas",
+          "callee": "logger.info",
+          "lineNumber": 83
+        },
+        {
+          "caller": "get_assigned_wabas",
+          "callee": "assigned_wabas_response.json",
+          "lineNumber": 84
+        },
+        {
+          "caller": "get_assigned_wabas",
+          "callee": "logger.error",
+          "lineNumber": 87
+        },
+        {
+          "caller": "get_assigned_wabas",
+          "callee": "str",
+          "lineNumber": 87
+        },
+        {
+          "caller": "get_assigned_wabas",
+          "callee": "str",
+          "lineNumber": 90
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "get_assigned_wabas",
+          "lineNumber": 113
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "isinstance",
+          "lineNumber": 114
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "assigned.get",
+          "lineNumber": 114
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "assigned.get",
+          "lineNumber": 117
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "waba.get",
+          "lineNumber": 121
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "isinstance",
+          "lineNumber": 121
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "list_phone_numbers_for_waba",
+          "lineNumber": 125
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "isinstance",
+          "lineNumber": 126
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "pn.get",
+          "lineNumber": 126
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "logger.error",
+          "lineNumber": 127
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "pn.get",
+          "lineNumber": 128
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "results.append",
+          "lineNumber": 130
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "pn.get",
+          "lineNumber": 134
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "pn.get",
+          "lineNumber": 138
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "isinstance",
+          "lineNumber": 138
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "results.append",
+          "lineNumber": 139
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "len",
+          "lineNumber": 141
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "logger.error",
+          "lineNumber": 143
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "str",
+          "lineNumber": 143
+        },
+        {
+          "caller": "get_wabas_with_phone_numbers",
+          "callee": "str",
+          "lineNumber": 146
+        },
+        {
+          "caller": "list_phone_numbers_for_waba",
+          "callee": "requests.get",
+          "lineNumber": 155
+        },
+        {
+          "caller": "list_phone_numbers_for_waba",
+          "callee": "logger.error",
+          "lineNumber": 161
+        },
+        {
+          "caller": "list_phone_numbers_for_waba",
+          "callee": "logger.info",
+          "lineNumber": 164
+        },
+        {
+          "caller": "list_phone_numbers_for_waba",
+          "callee": "phone_numbers_response.json",
+          "lineNumber": 165
+        },
+        {
+          "caller": "list_phone_numbers_for_waba",
+          "callee": "logger.error",
+          "lineNumber": 168
+        },
+        {
+          "caller": "list_phone_numbers_for_waba",
+          "callee": "str",
+          "lineNumber": 168
+        },
+        {
+          "caller": "list_phone_numbers_for_waba",
+          "callee": "str",
+          "lineNumber": 171
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "logger.info",
+          "lineNumber": 203
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "requests.post",
+          "lineNumber": 212
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "logger.error",
+          "lineNumber": 216
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "logger.info",
+          "lineNumber": 219
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "logger.error",
+          "lineNumber": 223
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "str",
+          "lineNumber": 223
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "str",
+          "lineNumber": 224
+        },
+        {
+          "caller": "get_subscribed_apps",
+          "callee": "logger.info",
+          "lineNumber": 246
+        },
+        {
+          "caller": "get_subscribed_apps",
+          "callee": "requests.get",
+          "lineNumber": 250
+        },
+        {
+          "caller": "get_subscribed_apps",
+          "callee": "logger.error",
+          "lineNumber": 252
+        },
+        {
+          "caller": "get_subscribed_apps",
+          "callee": "logger.info",
+          "lineNumber": 255
+        },
+        {
+          "caller": "get_subscribed_apps",
+          "callee": "response.json",
+          "lineNumber": 256
+        },
+        {
+          "caller": "get_subscribed_apps",
+          "callee": "logger.error",
+          "lineNumber": 259
+        },
+        {
+          "caller": "get_subscribed_apps",
+          "callee": "str",
+          "lineNumber": 259
+        },
+        {
+          "caller": "get_subscribed_apps",
+          "callee": "str",
+          "lineNumber": 262
+        },
+        {
+          "caller": "subscribe_app",
+          "callee": "logger.info",
+          "lineNumber": 284
+        },
+        {
+          "caller": "subscribe_app",
+          "callee": "requests.post",
+          "lineNumber": 288
+        },
+        {
+          "caller": "subscribe_app",
+          "callee": "logger.error",
+          "lineNumber": 290
+        },
+        {
+          "caller": "subscribe_app",
+          "callee": "logger.info",
+          "lineNumber": 296
+        },
+        {
+          "caller": "subscribe_app",
+          "callee": "response.json",
+          "lineNumber": 297
+        },
+        {
+          "caller": "subscribe_app",
+          "callee": "logger.error",
+          "lineNumber": 300
+        },
+        {
+          "caller": "subscribe_app",
+          "callee": "str",
+          "lineNumber": 300
+        },
+        {
+          "caller": "subscribe_app",
+          "callee": "str",
+          "lineNumber": 303
+        },
+        {
+          "caller": "debug_token",
+          "callee": "logger.info",
+          "lineNumber": 321
+        },
+        {
+          "caller": "debug_token",
+          "callee": "requests.get",
+          "lineNumber": 328
+        },
+        {
+          "caller": "debug_token",
+          "callee": "logger.error",
+          "lineNumber": 330
+        },
+        {
+          "caller": "debug_token",
+          "callee": "logger.info",
+          "lineNumber": 333
+        },
+        {
+          "caller": "debug_token",
+          "callee": "response.json",
+          "lineNumber": 334
+        },
+        {
+          "caller": "debug_token",
+          "callee": "logger.error",
+          "lineNumber": 337
+        },
+        {
+          "caller": "debug_token",
+          "callee": "str",
+          "lineNumber": 337
+        },
+        {
+          "caller": "debug_token",
+          "callee": "str",
+          "lineNumber": 340
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 7,
+        "functionCount": 7,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/waba_es/onboarding_utils.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 343,
+      "nonEmptyLines": 271,
+      "functions": [
+        {
+          "name": "exchange_code_for_business_token",
+          "startLine": 45,
+          "endLine": 80,
+          "params": [
+            "code"
+          ]
+        },
+        {
+          "name": "subscribe_app_to_waba",
+          "startLine": 86,
+          "endLine": 111,
+          "params": [
+            "waba_id",
+            "business_token"
+          ]
+        },
+        {
+          "name": "update_pin",
+          "startLine": 117,
+          "endLine": 149,
+          "params": [
+            "phone_number_id",
+            "business_token",
+            "pin"
+          ]
+        },
+        {
+          "name": "register_phone_number",
+          "startLine": 152,
+          "endLine": 183,
+          "params": [
+            "phone_number_id"
+          ]
+        },
+        {
+          "name": "send_test_message",
+          "startLine": 189,
+          "endLine": 229,
+          "params": [
+            "phone_number_id",
+            "recipient"
+          ]
+        },
+        {
+          "name": "onboard_business_customer",
+          "startLine": 232,
+          "endLine": 312,
+          "params": [
+            "TEMP_STORE"
+          ]
+        },
+        {
+          "name": "get_assigned_users",
+          "startLine": 316,
+          "endLine": 340,
+          "params": [
+            "waba_id"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "exchange_code_for_business_token",
+          "line": 45,
+          "isDefault": false
+        },
+        {
+          "name": "subscribe_app_to_waba",
+          "line": 86,
+          "isDefault": false
+        },
+        {
+          "name": "update_pin",
+          "line": 117,
+          "isDefault": false
+        },
+        {
+          "name": "register_phone_number",
+          "line": 152,
+          "isDefault": false
+        },
+        {
+          "name": "send_test_message",
+          "line": 189,
+          "isDefault": false
+        },
+        {
+          "name": "onboard_business_customer",
+          "line": 232,
+          "isDefault": false
+        },
+        {
+          "name": "get_assigned_users",
+          "line": 316,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "exchange_code_for_business_token",
+          "callee": "logger.info",
+          "lineNumber": 55
+        },
+        {
+          "caller": "exchange_code_for_business_token",
+          "callee": "requests.get",
+          "lineNumber": 63
+        },
+        {
+          "caller": "exchange_code_for_business_token",
+          "callee": "logger.error",
+          "lineNumber": 65
+        },
+        {
+          "caller": "exchange_code_for_business_token",
+          "callee": "token_response.json",
+          "lineNumber": 68
+        },
+        {
+          "caller": "exchange_code_for_business_token",
+          "callee": "token_data.get",
+          "lineNumber": 69
+        },
+        {
+          "caller": "exchange_code_for_business_token",
+          "callee": "logger.error",
+          "lineNumber": 72
+        },
+        {
+          "caller": "exchange_code_for_business_token",
+          "callee": "logger.info",
+          "lineNumber": 75
+        },
+        {
+          "caller": "exchange_code_for_business_token",
+          "callee": "logger.error",
+          "lineNumber": 79
+        },
+        {
+          "caller": "exchange_code_for_business_token",
+          "callee": "str",
+          "lineNumber": 79
+        },
+        {
+          "caller": "exchange_code_for_business_token",
+          "callee": "str",
+          "lineNumber": 80
+        },
+        {
+          "caller": "subscribe_app_to_waba",
+          "callee": "logger.info",
+          "lineNumber": 97
+        },
+        {
+          "caller": "subscribe_app_to_waba",
+          "callee": "requests.post",
+          "lineNumber": 101
+        },
+        {
+          "caller": "subscribe_app_to_waba",
+          "callee": "logger.error",
+          "lineNumber": 103
+        },
+        {
+          "caller": "subscribe_app_to_waba",
+          "callee": "logger.info",
+          "lineNumber": 106
+        },
+        {
+          "caller": "subscribe_app_to_waba",
+          "callee": "logger.error",
+          "lineNumber": 110
+        },
+        {
+          "caller": "subscribe_app_to_waba",
+          "callee": "str",
+          "lineNumber": 110
+        },
+        {
+          "caller": "subscribe_app_to_waba",
+          "callee": "str",
+          "lineNumber": 111
+        },
+        {
+          "caller": "update_pin",
+          "callee": "logger.info",
+          "lineNumber": 131
+        },
+        {
+          "caller": "update_pin",
+          "callee": "requests.post",
+          "lineNumber": 139
+        },
+        {
+          "caller": "update_pin",
+          "callee": "logger.error",
+          "lineNumber": 141
+        },
+        {
+          "caller": "update_pin",
+          "callee": "logger.info",
+          "lineNumber": 144
+        },
+        {
+          "caller": "update_pin",
+          "callee": "logger.error",
+          "lineNumber": 148
+        },
+        {
+          "caller": "update_pin",
+          "callee": "str",
+          "lineNumber": 148
+        },
+        {
+          "caller": "update_pin",
+          "callee": "str",
+          "lineNumber": 149
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "logger.info",
+          "lineNumber": 162
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "requests.post",
+          "lineNumber": 171
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "logger.error",
+          "lineNumber": 175
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "logger.info",
+          "lineNumber": 178
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "logger.error",
+          "lineNumber": 182
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "str",
+          "lineNumber": 182
+        },
+        {
+          "caller": "register_phone_number",
+          "callee": "str",
+          "lineNumber": 183
+        },
+        {
+          "caller": "send_test_message",
+          "callee": "logger.info",
+          "lineNumber": 206
+        },
+        {
+          "caller": "send_test_message",
+          "callee": "requests.post",
+          "lineNumber": 217
+        },
+        {
+          "caller": "send_test_message",
+          "callee": "logger.error",
+          "lineNumber": 221
+        },
+        {
+          "caller": "send_test_message",
+          "callee": "logger.info",
+          "lineNumber": 224
+        },
+        {
+          "caller": "send_test_message",
+          "callee": "logger.error",
+          "lineNumber": 228
+        },
+        {
+          "caller": "send_test_message",
+          "callee": "str",
+          "lineNumber": 228
+        },
+        {
+          "caller": "send_test_message",
+          "callee": "str",
+          "lineNumber": 229
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "TEMP_STORE.get",
+          "lineNumber": 245
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "TEMP_STORE.get",
+          "lineNumber": 246
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "TEMP_STORE.get",
+          "lineNumber": 247
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "logger.error",
+          "lineNumber": 251
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "logger.error",
+          "lineNumber": 255
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "logger.error",
+          "lineNumber": 259
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "exchange_code_for_business_token",
+          "lineNumber": 263
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "open",
+          "lineNumber": 270
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "pickle.dump",
+          "lineNumber": 271
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "client_ordelo.table(\"waba_es\").insert(TEMP_STORE).execute",
+          "lineNumber": 273
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "client_ordelo.table(\"waba_es\").insert",
+          "lineNumber": 273
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "client_ordelo.table",
+          "lineNumber": 273
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "subscribe_app_to_waba",
+          "lineNumber": 279
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "register_phone_number",
+          "lineNumber": 289
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "send_test_message",
+          "lineNumber": 294
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "logger.info",
+          "lineNumber": 298
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "logger.error",
+          "lineNumber": 311
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "str",
+          "lineNumber": 311
+        },
+        {
+          "caller": "onboard_business_customer",
+          "callee": "str",
+          "lineNumber": 312
+        },
+        {
+          "caller": "get_assigned_users",
+          "callee": "logger.info",
+          "lineNumber": 318
+        },
+        {
+          "caller": "get_assigned_users",
+          "callee": "requests.get",
+          "lineNumber": 323
+        },
+        {
+          "caller": "get_assigned_users",
+          "callee": "logger.error",
+          "lineNumber": 327
+        },
+        {
+          "caller": "get_assigned_users",
+          "callee": "logger.info",
+          "lineNumber": 332
+        },
+        {
+          "caller": "get_assigned_users",
+          "callee": "logger.error",
+          "lineNumber": 336
+        },
+        {
+          "caller": "get_assigned_users",
+          "callee": "str",
+          "lineNumber": 336
+        },
+        {
+          "caller": "get_assigned_users",
+          "callee": "str",
+          "lineNumber": 339
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 7,
+        "functionCount": 7,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/waba_utils/wa_flows/customer_address_capture copy.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 190,
+      "nonEmptyLines": 175,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/waba_utils/wa_flows/encryption_setup.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 21,
+      "nonEmptyLines": 14,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/waba_utils/wa_flows/follow_guide.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 126,
+      "nonEmptyLines": 115,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/waba_utils/wa_flows/postcode_search.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 223,
+      "nonEmptyLines": 212,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/waba_utils/wa_flows/singup_flow_example.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 393,
+      "nonEmptyLines": 377,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "watomation/routers/ai_rnd.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 92,
+      "nonEmptyLines": 78,
+      "functions": [
+        {
+          "name": "send_image",
+          "startLine": 45,
+          "endLine": 51,
+          "params": [
+            "image"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "send_image",
+          "line": 45,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "send_image",
+          "callee": "_async_wa_client.send_image",
+          "lineNumber": 46
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "watomation/routers/temp_nb.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 23,
+      "nonEmptyLines": 19,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "watomation/routers/twilio_webhook.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 209,
+      "nonEmptyLines": 171,
+      "functions": [
+        {
+          "name": "get_payload",
+          "startLine": 43,
+          "endLine": 49,
+          "params": [
+            "request"
+          ]
+        },
+        {
+          "name": "get_pool",
+          "startLine": 52,
+          "endLine": 54,
+          "params": [
+            "request"
+          ]
+        },
+        {
+          "name": "waba_embedded_signup",
+          "startLine": 65,
+          "endLine": 76,
+          "params": [
+            "request"
+          ]
+        },
+        {
+          "name": "waba_embedded_signup_callback",
+          "startLine": 80,
+          "endLine": 123,
+          "params": [
+            "request"
+          ]
+        },
+        {
+          "name": "failure_notifications",
+          "startLine": 128,
+          "endLine": 142,
+          "params": [
+            "from_number",
+            "body",
+            "message_sid"
+          ]
+        },
+        {
+          "name": "voice",
+          "startLine": 146,
+          "endLine": 154,
+          "params": []
+        },
+        {
+          "name": "handle_recording",
+          "startLine": 158,
+          "endLine": 171,
+          "params": [
+            "recording_url",
+            "recording_duration",
+            "call_sid"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "get_payload",
+          "line": 43,
+          "isDefault": false
+        },
+        {
+          "name": "get_pool",
+          "line": 52,
+          "isDefault": false
+        },
+        {
+          "name": "waba_embedded_signup",
+          "line": 64,
+          "isDefault": false
+        },
+        {
+          "name": "waba_embedded_signup_callback",
+          "line": 79,
+          "isDefault": false
+        },
+        {
+          "name": "failure_notifications",
+          "line": 127,
+          "isDefault": false
+        },
+        {
+          "name": "voice",
+          "line": 145,
+          "isDefault": false
+        },
+        {
+          "name": "handle_recording",
+          "line": 157,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "get_payload",
+          "callee": "request.json",
+          "lineNumber": 46
+        },
+        {
+          "caller": "waba_embedded_signup",
+          "callee": "templates.TemplateResponse",
+          "lineNumber": 68
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "request.json",
+          "lineNumber": 84
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "logger.info",
+          "lineNumber": 85
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "event_data.get",
+          "lineNumber": 88
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "event_data.get",
+          "lineNumber": 90
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "data.get",
+          "lineNumber": 91
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "data.get",
+          "lineNumber": 92
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "data.get",
+          "lineNumber": 93
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "event_data.get",
+          "lineNumber": 94
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "logger.info",
+          "lineNumber": 96
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "event_data.get",
+          "lineNumber": 100
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "event_data.get",
+          "lineNumber": 102
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "auth_response.get",
+          "lineNumber": 103
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "logger.info",
+          "lineNumber": 106
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "onboard_business_customer",
+          "lineNumber": 109
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "logger.debug",
+          "lineNumber": 114
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "event_data.get",
+          "lineNumber": 114
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "logger.warning",
+          "lineNumber": 118
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "event_data.get",
+          "lineNumber": 118
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "logger.error",
+          "lineNumber": 122
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "str",
+          "lineNumber": 122
+        },
+        {
+          "caller": "waba_embedded_signup_callback",
+          "callee": "str",
+          "lineNumber": 123
+        },
+        {
+          "caller": "failure_notifications",
+          "callee": "Form",
+          "lineNumber": 129
+        },
+        {
+          "caller": "failure_notifications",
+          "callee": "Form",
+          "lineNumber": 130
+        },
+        {
+          "caller": "failure_notifications",
+          "callee": "Form",
+          "lineNumber": 131
+        },
+        {
+          "caller": "failure_notifications",
+          "callee": "logger.info",
+          "lineNumber": 140
+        },
+        {
+          "caller": "voice",
+          "callee": "VoiceResponse",
+          "lineNumber": 148
+        },
+        {
+          "caller": "voice",
+          "callee": "resp.record",
+          "lineNumber": 150
+        },
+        {
+          "caller": "voice",
+          "callee": "resp.say",
+          "lineNumber": 153
+        },
+        {
+          "caller": "voice",
+          "callee": "Response",
+          "lineNumber": 154
+        },
+        {
+          "caller": "voice",
+          "callee": "str",
+          "lineNumber": 154
+        },
+        {
+          "caller": "handle_recording",
+          "callee": "Form",
+          "lineNumber": 159
+        },
+        {
+          "caller": "handle_recording",
+          "callee": "Form",
+          "lineNumber": 160
+        },
+        {
+          "caller": "handle_recording",
+          "callee": "Form",
+          "lineNumber": 161
+        },
+        {
+          "caller": "handle_recording",
+          "callee": "logger.info",
+          "lineNumber": 164
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 7,
+        "functionCount": 7,
+        "classCount": 0
+      }
+    }
+  ]
+}

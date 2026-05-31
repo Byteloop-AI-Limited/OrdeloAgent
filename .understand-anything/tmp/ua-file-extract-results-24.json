@@ -1,0 +1,726 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 18,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "ordelo_datamodels/auth_sessions.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 68,
+      "nonEmptyLines": 53,
+      "definitions": [
+        {
+          "name": "auth_sessions",
+          "kind": "table",
+          "fields": [
+            "id",
+            "no",
+            "scope_ref",
+            "wa_number",
+            "never",
+            "expires_at",
+            "ENFORCED",
+            "revoked_at",
+            "revoked_reason"
+          ],
+          "startLine": 7,
+          "endLine": 47
+        },
+        {
+          "name": "auth_sessions_token_hash_idx",
+          "kind": "index",
+          "fields": [],
+          "startLine": 49,
+          "endLine": 49
+        },
+        {
+          "name": "auth_sessions_cookie_hash_idx",
+          "kind": "index",
+          "fields": [],
+          "startLine": 53,
+          "endLine": 53
+        },
+        {
+          "name": "auth_sessions_wa_number_idx",
+          "kind": "index",
+          "fields": [],
+          "startLine": 57,
+          "endLine": 57
+        },
+        {
+          "name": "auth_sessions_scope_ref_idx",
+          "kind": "index",
+          "fields": [],
+          "startLine": 60,
+          "endLine": 60
+        },
+        {
+          "name": "auth_sessions_role_principal_idx",
+          "kind": "index",
+          "fields": [],
+          "startLine": 65,
+          "endLine": 65
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 6
+      }
+    },
+    {
+      "path": "ordelo_datamodels/dashboard_sessions.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 49,
+      "nonEmptyLines": 38,
+      "definitions": [
+        {
+          "name": "dashboard_sessions",
+          "kind": "table",
+          "fields": [
+            "id",
+            "rest_ref",
+            "wa_number",
+            "never",
+            "expires_at",
+            "ENFORCED",
+            "revoked_at",
+            "revoked_reason"
+          ],
+          "startLine": 5,
+          "endLine": 35
+        },
+        {
+          "name": "dashboard_sessions_token_hash_idx",
+          "kind": "index",
+          "fields": [],
+          "startLine": 37,
+          "endLine": 37
+        },
+        {
+          "name": "dashboard_sessions_cookie_hash_idx",
+          "kind": "index",
+          "fields": [],
+          "startLine": 41,
+          "endLine": 41
+        },
+        {
+          "name": "dashboard_sessions_wa_number_idx",
+          "kind": "index",
+          "fields": [],
+          "startLine": 45,
+          "endLine": 45
+        },
+        {
+          "name": "dashboard_sessions_rest_ref_idx",
+          "kind": "index",
+          "fields": [],
+          "startLine": 48,
+          "endLine": 48
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 5
+      }
+    },
+    {
+      "path": "ordelo_datamodels/db_config.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 45,
+      "nonEmptyLines": 41,
+      "definitions": [
+        {
+          "name": "app_config",
+          "kind": "table",
+          "fields": [
+            "config_key",
+            "config_value"
+          ],
+          "startLine": 1,
+          "endLine": 4
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 1
+      }
+    },
+    {
+      "path": "ordelo_datamodels/debug_log.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 8,
+      "nonEmptyLines": 8,
+      "definitions": [
+        {
+          "name": "debug_log",
+          "kind": "table",
+          "fields": [
+            "id",
+            "trigger_name",
+            "order_number",
+            "message",
+            "payload",
+            "created_at"
+          ],
+          "startLine": 1,
+          "endLine": 8
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 1
+      }
+    },
+    {
+      "path": "ordelo_datamodels/delivery_models.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 20,
+      "nonEmptyLines": 19,
+      "definitions": [
+        {
+          "name": "delivery_pricing_detail",
+          "kind": "table",
+          "fields": [
+            "order_number",
+            "distance",
+            "byteloop_cost",
+            "rest_cost",
+            "driver_payout",
+            "dt",
+            "ddts"
+          ],
+          "startLine": 1,
+          "endLine": 9
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 1
+      }
+    },
+    {
+      "path": "ordelo_datamodels/delivery_option.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 19,
+      "nonEmptyLines": 18,
+      "definitions": [
+        {
+          "name": "delivery_option",
+          "kind": "table",
+          "fields": [
+            "id",
+            "vehicle_type",
+            "minimum_order_value",
+            "byteloop_commission_fee",
+            "byteloop_commission_percentage",
+            "rest_cost",
+            "driver_payout",
+            "breakdown",
+            "rank",
+            "final_order_value",
+            "total_customer_charge",
+            "order_number",
+            "message",
+            "dt",
+            "dtts"
+          ],
+          "startLine": 1,
+          "endLine": 17
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 1
+      }
+    },
+    {
+      "path": "ordelo_datamodels/detail.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 15,
+      "nonEmptyLines": 14,
+      "definitions": [
+        {
+          "name": "delivery_detail",
+          "kind": "table",
+          "fields": [
+            "order_number",
+            "customer_id",
+            "vehicle_type",
+            "town",
+            "rider_payout",
+            "distance",
+            "status",
+            "dispatch_id",
+            "rider_id",
+            "dt",
+            "dtts"
+          ],
+          "startLine": 2,
+          "endLine": 15
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 1
+      }
+    },
+    {
+      "path": "ordelo_datamodels/dispatch.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 140,
+      "nonEmptyLines": 123,
+      "definitions": [
+        {
+          "name": "delivery_dispatch",
+          "kind": "table",
+          "fields": [
+            "dispatch_id",
+            "order_number",
+            "rider_id",
+            "rider_payout",
+            "vehicle_type",
+            "distance",
+            "status",
+            "status_update_dtts",
+            "reason_for_decline",
+            "dt",
+            "dtts"
+          ],
+          "startLine": 91,
+          "endLine": 114
+        },
+        {
+          "name": "delivery_dispatch_paid_status_dt_idx",
+          "kind": "index",
+          "fields": [],
+          "startLine": 139,
+          "endLine": 139
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 2
+      }
+    },
+    {
+      "path": "ordelo_datamodels/dispatch_bulk.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 62,
+      "nonEmptyLines": 57,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/elas_stats.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 43,
+      "nonEmptyLines": 37,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/inflight.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 184,
+      "nonEmptyLines": 157,
+      "definitions": [
+        {
+          "name": "delivery_inflight",
+          "kind": "table",
+          "fields": [
+            "dispatch_id",
+            "order_number",
+            "rider_id",
+            "customer_id",
+            "dt",
+            "dtts"
+          ],
+          "startLine": 177,
+          "endLine": 184
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 1
+      }
+    },
+    {
+      "path": "ordelo_datamodels/location.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 88,
+      "nonEmptyLines": 77,
+      "definitions": [
+        {
+          "name": "rider_location",
+          "kind": "table",
+          "fields": [
+            "topic",
+            "rider_id",
+            "customer_id",
+            "order_number",
+            "acc",
+            "alt",
+            "batt",
+            "lat",
+            "lon",
+            "tst",
+            "tid",
+            "conn",
+            "inregions",
+            "inrids",
+            "created_at",
+            "m",
+            "tst_dtts",
+            "dt",
+            "dtts"
+          ],
+          "startLine": 2,
+          "endLine": 22
+        },
+        {
+          "name": "rider_location_event",
+          "kind": "table",
+          "fields": [
+            "id",
+            "topic",
+            "rider_id",
+            "customer_id",
+            "order_number",
+            "rid",
+            "event",
+            "dt",
+            "dtts"
+          ],
+          "startLine": 30,
+          "endLine": 40
+        },
+        {
+          "name": "idx_rider_location_tst_desc",
+          "kind": "index",
+          "fields": [],
+          "startLine": 26,
+          "endLine": 26
+        },
+        {
+          "name": "idx_rider_location_dtts_desc",
+          "kind": "index",
+          "fields": [],
+          "startLine": 27,
+          "endLine": 27
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 4
+      }
+    },
+    {
+      "path": "ordelo_datamodels/masterdata.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 84,
+      "nonEmptyLines": 73,
+      "definitions": [
+        {
+          "name": "rider_master",
+          "kind": "table",
+          "fields": [
+            "id",
+            "rider_id",
+            "rider_name",
+            "vehicle_type",
+            "town",
+            "status",
+            "is_in_shift",
+            "priority",
+            "dtts"
+          ],
+          "startLine": 6,
+          "endLine": 16
+        },
+        {
+          "name": "restaurant_master",
+          "kind": "table",
+          "fields": [
+            "rest_ref",
+            "rest_id",
+            "rest_name",
+            "rest_email",
+            "admins",
+            "house_number",
+            "building_name",
+            "street_name",
+            "city",
+            "postcode",
+            "lat",
+            "lon",
+            "dt",
+            "dtts"
+          ],
+          "startLine": 20,
+          "endLine": 35
+        },
+        {
+          "name": "customer_master",
+          "kind": "table",
+          "fields": [
+            "cust_id",
+            "cust_name",
+            "cust_email",
+            "house_number",
+            "building_name",
+            "street_name",
+            "city",
+            "postcode",
+            "lat",
+            "lon",
+            "dt",
+            "dtts"
+          ],
+          "startLine": 47,
+          "endLine": 60
+        },
+        {
+          "name": "cust_rest_map",
+          "kind": "table",
+          "fields": [
+            "cust_id",
+            "rest_ref",
+            "has_consent",
+            "consent_dtts",
+            "dtts"
+          ],
+          "startLine": 66,
+          "endLine": 73
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 4
+      }
+    },
+    {
+      "path": "ordelo_datamodels/ordelo_config.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 26,
+      "nonEmptyLines": 23,
+      "definitions": [
+        {
+          "name": "ordelo_config",
+          "kind": "table",
+          "fields": [
+            "config_key",
+            "config_value",
+            "description",
+            "created_at",
+            "updated_at"
+          ],
+          "startLine": 2,
+          "endLine": 8
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 1
+      }
+    },
+    {
+      "path": "ordelo_datamodels/sbase_queues_from_order.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 35,
+      "nonEmptyLines": 35,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/summary.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 372,
+      "nonEmptyLines": 335,
+      "definitions": [
+        {
+          "name": "delivery_summary",
+          "kind": "table",
+          "fields": [
+            "order_number",
+            "rest_id",
+            "rest_lon",
+            "rest_lat",
+            "rest_address",
+            "town",
+            "customer_id",
+            "customer_lon",
+            "customer_lat",
+            "customer_address",
+            "restaurant_update_dtts",
+            "set",
+            "stores",
+            "rest_confirmation_code",
+            "cust_confirmation_code",
+            "rest_prep_time_minutes",
+            "rest_confirmation_method",
+            "stores",
+            "stores",
+            "stores",
+            "pickup_date",
+            "rest_ref",
+            "dtts",
+            "so",
+            "use"
+          ],
+          "startLine": 2,
+          "endLine": 46
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 1
+      }
+    },
+    {
+      "path": "ordelo_datamodels/takeaway_summary.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 432,
+      "nonEmptyLines": 397,
+      "definitions": [
+        {
+          "name": "takeaway_summary",
+          "kind": "table",
+          "fields": [
+            "order_number",
+            "rest_id",
+            "rest_name",
+            "rest_address",
+            "town",
+            "customer_id",
+            "customer_name",
+            "restaurant_confirmation_status",
+            "restaurant_update_dtts",
+            "restaurant_admin",
+            "status",
+            "rest_confirmation_code",
+            "rest_prep_time_minutes",
+            "rest_confirmation_method",
+            "restaurant_msg_id",
+            "customer_msg_id",
+            "pickup_time",
+            "pickup_date",
+            "rest_ref",
+            "dt",
+            "dtts"
+          ],
+          "startLine": 3,
+          "endLine": 43
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 1
+      }
+    },
+    {
+      "path": "ordelo_datamodels/waba_es.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 22,
+      "nonEmptyLines": 19,
+      "definitions": [
+        {
+          "name": "waba_es",
+          "kind": "table",
+          "fields": [
+            "id",
+            "phone_num",
+            "phone_number_id",
+            "business_id",
+            "event_type",
+            "FB_AUTH_RESPONSE",
+            "dtts"
+          ],
+          "startLine": 1,
+          "endLine": 13
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 1
+      }
+    }
+  ]
+}

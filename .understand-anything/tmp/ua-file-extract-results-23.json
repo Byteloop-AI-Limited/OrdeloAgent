@@ -1,0 +1,141 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "notebooks/owntracks_payload_eg.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 35,
+      "nonEmptyLines": 33,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/test_sql.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/toDo.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 161,
+      "nonEmptyLines": 121,
+      "sections": [
+        {
+          "heading": "Test checkpoint",
+          "level": 2,
+          "line": 1
+        },
+        {
+          "heading": "SFCS go live changes",
+          "level": 2,
+          "line": 15
+        },
+        {
+          "heading": "Takeaway streamlining.",
+          "level": 2,
+          "line": 27
+        },
+        {
+          "heading": "Investigate this trace:",
+          "level": 3,
+          "line": 41
+        },
+        {
+          "heading": "Chat with riders.",
+          "level": 3,
+          "line": 55
+        },
+        {
+          "heading": "GoLive checklist:",
+          "level": 2,
+          "line": 62
+        },
+        {
+          "heading": "Immediate",
+          "level": 2,
+          "line": 77
+        },
+        {
+          "heading": "8th DEC",
+          "level": 3,
+          "line": 81
+        },
+        {
+          "heading": "Riders:",
+          "level": 2,
+          "line": 85
+        },
+        {
+          "heading": "Delivery flow - Agent",
+          "level": 2,
+          "line": 96
+        },
+        {
+          "heading": "Location",
+          "level": 2,
+          "line": 99
+        },
+        {
+          "heading": "Scheduled delivery events",
+          "level": 2,
+          "line": 102
+        },
+        {
+          "heading": "Delivery and Dispatch:",
+          "level": 2,
+          "line": 111
+        },
+        {
+          "heading": "rider_registration",
+          "level": 2,
+          "line": 115
+        },
+        {
+          "heading": "Pricing service",
+          "level": 2,
+          "line": 118
+        },
+        {
+          "heading": "Agent enhancements",
+          "level": 2,
+          "line": 123
+        },
+        {
+          "heading": "How to indentify the deliveries that failed?",
+          "level": 2,
+          "line": 127
+        },
+        {
+          "heading": "OpenAI - self heal incase of error - really need a fix for this",
+          "level": 1,
+          "line": 133
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 18
+      }
+    }
+  ]
+}

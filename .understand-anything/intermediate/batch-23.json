@@ -1,0 +1,41 @@
+{
+  "nodes": [
+    {
+      "id": "config:notebooks/owntracks_payload_eg.json",
+      "type": "config",
+      "name": "owntracks_payload_eg.json",
+      "filePath": "notebooks/owntracks_payload_eg.json",
+      "summary": "Example OwnTracks MQTT payloads illustrating both a transition event (geofence enter) and a location event, showing the topic format owntracks/{rider_id}/{rider_id}-{order_number} used by the live tracking pipeline.",
+      "tags": ["configuration", "location-tracking", "reference-data", "development"],
+      "complexity": "simple",
+      "languageNotes": "Contains two separate JSON objects (not an array) separated by blank lines — a non-standard format used as a developer reference snippet rather than a parseable file."
+    },
+    {
+      "id": "file:notebooks/test_sql.sql",
+      "type": "file",
+      "name": "test_sql.sql",
+      "filePath": "notebooks/test_sql.sql",
+      "summary": "Empty SQL scratch file at the notebooks root level, used as a temporary workspace during ad-hoc database query development.",
+      "tags": ["database", "placeholder", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:notebooks/toDo.md",
+      "type": "document",
+      "name": "toDo.md",
+      "filePath": "notebooks/toDo.md",
+      "summary": "Developer task tracking document with 18 sections covering active TODOs across takeaway streamlining, rider agent enhancements, go-live checklists, SFCS changes, pricing service integration, agent error recovery, and open debugging investigations for the OrdeloAgent system.",
+      "tags": ["documentation", "development", "planning", "todo"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "config:notebooks/owntracks_payload_eg.json",
+      "target": "file:notebooks/db_queries/consume_queue.sql",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

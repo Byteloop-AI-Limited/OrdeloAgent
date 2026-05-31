@@ -1,0 +1,15 @@
+{
+  "nodes": [
+    {
+      "id": "file:zellij.kdl",
+      "type": "file",
+      "name": "zellij.kdl",
+      "filePath": "zellij.kdl",
+      "summary": "Zellij terminal multiplexer workspace layout for the OrdeloAgent project, defining named tabs, pane splits, status/tab-bar plugins, and multiple swap layouts (vertical, horizontal, stacked) for efficient multi-pane development sessions.",
+      "tags": ["configuration", "development"],
+      "complexity": "complex",
+      "languageNotes": "KDL (KDL Document Language) format used by Zellij; the layout includes a self-updating pane that dumps the current layout back to this file via `zellij action dump-layout`."
+    }
+  ],
+  "edges": []
+}

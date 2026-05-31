@@ -1,0 +1,108 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 2,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".dockerignore",
+      "language": "unknown",
+      "fileCategory": "infra",
+      "totalLines": 37,
+      "nonEmptyLines": 30,
+      "metrics": {}
+    },
+    {
+      "path": "Dockerfile",
+      "language": "dockerfile",
+      "fileCategory": "infra",
+      "totalLines": 37,
+      "nonEmptyLines": 27,
+      "services": [
+        {
+          "name": "python",
+          "image": "python:3.13-slim",
+          "ports": [
+            80
+          ],
+          "startLine": 1,
+          "endLine": 38
+        }
+      ],
+      "steps": [
+        {
+          "name": "FROM python:3.13-slim",
+          "startLine": 1,
+          "endLine": 1
+        },
+        {
+          "name": "RUN apt-get update \\",
+          "startLine": 4,
+          "endLine": 4
+        },
+        {
+          "name": "WORKDIR /app",
+          "startLine": 11,
+          "endLine": 11
+        },
+        {
+          "name": "ENV PYTHONPATH=/app",
+          "startLine": 14,
+          "endLine": 14
+        },
+        {
+          "name": "RUN curl -LsSf https://astral.sh/uv/install.sh | sh",
+          "startLine": 17,
+          "endLine": 17
+        },
+        {
+          "name": "ENV PATH=\"/root/.local/bin:/app/.venv/bin:$PATH\"",
+          "startLine": 18,
+          "endLine": 18
+        },
+        {
+          "name": "COPY pyproject.toml uv.lock /app/",
+          "startLine": 21,
+          "endLine": 21
+        },
+        {
+          "name": "RUN uv sync --frozen --no-dev --no-install-project",
+          "startLine": 22,
+          "endLine": 22
+        },
+        {
+          "name": "COPY . /app",
+          "startLine": 25,
+          "endLine": 25
+        },
+        {
+          "name": "RUN uv sync --frozen --no-dev",
+          "startLine": 28,
+          "endLine": 28
+        },
+        {
+          "name": "RUN chmod +x /app/start.sh",
+          "startLine": 31,
+          "endLine": 31
+        },
+        {
+          "name": "EXPOSE 80",
+          "startLine": 34,
+          "endLine": 34
+        },
+        {
+          "name": "ENTRYPOINT [\"/app/start.sh\"]",
+          "startLine": 37,
+          "endLine": 37
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "serviceCount": 1,
+        "stepCount": 13
+      }
+    }
+  ]
+}

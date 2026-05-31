@@ -1,0 +1,8 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": ".dockerignore", "language": "unknown", "sizeLines": 37, "fileCategory": "infra"},
+    {"path": "Dockerfile", "language": "dockerfile", "sizeLines": 37, "fileCategory": "infra"}
+  ],
+  "batchImportData": {".dockerignore": [], "Dockerfile": []}
+}

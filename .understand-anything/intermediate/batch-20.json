@@ -1,0 +1,228 @@
+{
+  "nodes": [
+    {
+      "id": "document:docs/callback_handlers.md",
+      "type": "document",
+      "name": "callback_handlers.md",
+      "filePath": "docs/callback_handlers.md",
+      "summary": "Reference guide for all WhatsApp callback button handlers in the Ordelo system, covering 8 handler types including rider dispatch accept/decline, shift management, restaurant order confirmation, pickup time selection, and admin controls.",
+      "tags": ["documentation", "callback-handlers", "whatsapp", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/delivery_process.md",
+      "type": "document",
+      "name": "delivery_process.md",
+      "filePath": "docs/delivery_process.md",
+      "summary": "Comprehensive reference for the full 6-phase Ordelo delivery lifecycle — from order creation through restaurant confirmation, dispatch creation, rider assignment, inflight execution with LangGraph agent, and completion — covering database tables, status transitions, scheduled jobs, SQL file references, and webhook endpoints.",
+      "tags": ["documentation", "delivery-lifecycle", "architecture", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:docs/delivery_process_explorer.html",
+      "type": "file",
+      "name": "delivery_process_explorer.html",
+      "filePath": "docs/delivery_process_explorer.html",
+      "summary": "Interactive HTML single-page application that visually explores the Ordelo delivery process, allowing users to navigate delivery phases, view status transitions, and understand the end-to-end flow through a browser-based interface.",
+      "tags": ["documentation", "interactive", "visualization", "delivery-lifecycle"],
+      "complexity": "complex",
+      "languageNotes": "Self-contained single-file HTML with embedded CSS and JavaScript; no external dependencies required for viewing."
+    },
+    {
+      "id": "document:docs/dispatch_flow.md",
+      "type": "document",
+      "name": "dispatch_flow.md",
+      "filePath": "docs/dispatch_flow.md",
+      "summary": "Detailed step-by-step guide to the Ordelo dispatch flow — from DB-triggered dispatch creation through WhatsApp rider notification, accept/decline callbacks, assignment job execution, inflight graph initialization, and the pre-pickup cancellation and re-dispatch paths.",
+      "tags": ["documentation", "dispatch", "rider-workflow", "architecture"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/get_restaurant_webhook_url_async_guide.md",
+      "type": "document",
+      "name": "get_restaurant_webhook_url_async_guide.md",
+      "filePath": "docs/get_restaurant_webhook_url_async_guide.md",
+      "summary": "Developer guide for the `get_restaurant_webhook_url_async` utility function in `config/params.py`, covering its signature, valid webhook types, database configuration, usage examples, error handling, and migration notes from the synchronous predecessor.",
+      "tags": ["documentation", "configuration", "utility", "webhook"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/location_overview.md",
+      "type": "document",
+      "name": "location_overview.md",
+      "filePath": "docs/location_overview.md",
+      "summary": "Overview of the rider live-location event processing pipeline, covering end-to-end flow from OwnTracks MQTT events through DB queue processing, webhook handling in `location_hooks.py`, and the live-map and null-location endpoints.",
+      "tags": ["documentation", "location-tracking", "rider-workflow", "real-time"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:docs/payment_and_order_flow.md",
+      "type": "document",
+      "name": "payment_and_order_flow.md",
+      "filePath": "docs/payment_and_order_flow.md",
+      "summary": "Comprehensive guide to the Ordelo payment and order creation flow, covering pre-order validation (minimum order value, postcode), Stripe and pay-at-restaurant payment paths, address capture via WhatsApp Flow, and the webhook endpoints in `payment_hooks.py`, `order_hooks.py`, and `thread_hooks.py`.",
+      "tags": ["documentation", "payment", "order-management", "stripe"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/pickup_time_logic.md",
+      "type": "document",
+      "name": "pickup_time_logic.md",
+      "filePath": "docs/pickup_time_logic.md",
+      "summary": "Explains the pickup time selection logic for both delivery and takeaway orders, tracing the trigger chain from restaurant acceptance through admin selection, timeout auto-accept, mid-delivery adjustment, and external restaurant notification for takeaway.",
+      "tags": ["documentation", "pickup-time", "delivery-lifecycle", "takeaway"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/takeaway_flow.md",
+      "type": "document",
+      "name": "takeaway_flow.md",
+      "filePath": "docs/takeaway_flow.md",
+      "summary": "Full reference for the Ordelo takeaway order flow, covering initialization via Stripe and pay-at-restaurant paths, restaurant confirmation lifecycle, pickup time selection with external notification, decline and timeout handling, and complete status transition tables.",
+      "tags": ["documentation", "takeaway", "restaurant-confirmation", "delivery-lifecycle"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:docs/callback_handlers.md",
+      "target": "file:watomation/on_callback_wa_handler.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/delivery_process.md",
+      "target": "file:watomation/fapp_ordelo_agent.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/delivery_process.md",
+      "target": "file:ordelo/agents/rider_agent.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/delivery_process.md",
+      "target": "file:watomation/routers/delivery_hooks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/dispatch_flow.md",
+      "target": "file:watomation/routers/delivery_hooks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/dispatch_flow.md",
+      "target": "file:ordelo/agents/agent_runner.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/dispatch_flow.md",
+      "target": "file:ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/dispatch_flow.md",
+      "target": "file:ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/pickup_time_logic.md",
+      "target": "file:watomation/routers/delivery_hooks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/pickup_time_logic.md",
+      "target": "file:watomation/routers/takeaway_hooks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/location_overview.md",
+      "target": "file:watomation/routers/location_hooks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/location_overview.md",
+      "target": "file:ordelo_datamodels/location.sql",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/payment_and_order_flow.md",
+      "target": "file:watomation/routers/payment_hooks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/payment_and_order_flow.md",
+      "target": "file:watomation/routers/order_hooks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/takeaway_flow.md",
+      "target": "file:watomation/routers/takeaway_hooks.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:docs/get_restaurant_webhook_url_async_guide.md",
+      "target": "file:config/params.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:docs/delivery_process_explorer.html",
+      "target": "document:docs/delivery_process.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:docs/delivery_process_explorer.html",
+      "target": "document:docs/dispatch_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:docs/delivery_process_explorer.html",
+      "target": "document:docs/payment_and_order_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:docs/delivery_process_explorer.html",
+      "target": "document:docs/takeaway_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

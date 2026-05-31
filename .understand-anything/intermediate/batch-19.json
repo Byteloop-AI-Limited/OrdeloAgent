@@ -1,0 +1,215 @@
+{
+  "nodes": [
+    {
+      "id": "document:CLAUDE.md",
+      "type": "document",
+      "name": "CLAUDE.md",
+      "filePath": "CLAUDE.md",
+      "summary": "Primary developer and AI agent instructions file for the OrdeloAgent project, documenting the architecture, delivery lifecycle, key packages, database access patterns, and coding conventions for Claude Code.",
+      "tags": ["documentation", "entry-point", "configuration", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:OrdeloDb.session.sql",
+      "type": "file",
+      "name": "OrdeloDb.session.sql",
+      "filePath": "OrdeloDb.session.sql",
+      "summary": "Ad-hoc SQL session file containing a quick query stub, likely used as a scratch pad for database exploration via a SQL IDE client session.",
+      "tags": ["database", "script"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "Project overview for the Ordelo AI Agent Chatbot, covering the system purpose, recommended service naming conventions, project directory structure, and instructions for running the application.",
+      "tags": ["documentation", "entry-point", "overview"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:agents.md",
+      "type": "document",
+      "name": "agents.md",
+      "filePath": "agents.md",
+      "summary": "Comprehensive internal technical reference documenting all agents, modules, WhatsApp handlers, data persistence patterns, configuration, environment setup, and a quick-search task map for the OrdeloAgent system.",
+      "tags": ["documentation", "overview", "development"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:aws_app_runner.sh",
+      "type": "file",
+      "name": "aws_app_runner.sh",
+      "filePath": "aws_app_runner.sh",
+      "summary": "Minimal shell wrapper that starts the application via AWS App Runner entrypoint, setting required environment variables before delegating to the main start script.",
+      "tags": ["script", "deployment", "infrastructure"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:build_push_deploy_dimage.sh",
+      "type": "file",
+      "name": "build_push_deploy_dimage.sh",
+      "filePath": "build_push_deploy_dimage.sh",
+      "summary": "CI/CD helper script that builds the Docker image, pushes it to the container registry, and triggers a redeployment of the AWS App Runner service in a single command.",
+      "tags": ["script", "deployment", "containerization"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:prestart.sh",
+      "type": "file",
+      "name": "prestart.sh",
+      "filePath": "prestart.sh",
+      "summary": "Pre-start hook executed before the main server process, used to apply any pending database migrations or environment initialisation steps.",
+      "tags": ["script", "deployment", "infrastructure"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:pyproject.toml",
+      "type": "config",
+      "name": "pyproject.toml",
+      "filePath": "pyproject.toml",
+      "summary": "Python project configuration using Hatchling as the build backend, declaring all runtime and dev dependencies, UV package manager settings, Ruff linting rules (F-only), basedpyright type-checking config, and pytest options.",
+      "tags": ["configuration", "build-system", "python"],
+      "complexity": "moderate",
+      "languageNotes": "Uses UV dependency groups for separating runtime vs dev deps; Hatchling wheel build targets src layout."
+    },
+    {
+      "id": "document:requirements-dev.txt",
+      "type": "document",
+      "name": "requirements-dev.txt",
+      "filePath": "requirements-dev.txt",
+      "summary": "Pinned development dependency list including testing tools (pytest, pytest-asyncio) and type stubs, used alongside the primary requirements.txt for local development environments.",
+      "tags": ["documentation", "configuration", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:requirements.txt",
+      "type": "document",
+      "name": "requirements.txt",
+      "filePath": "requirements.txt",
+      "summary": "Pinned runtime dependency list covering FastAPI, LangGraph, pywa (WhatsApp Business API), Supabase client, psycopg, and AI/LLM dependencies for production deployment.",
+      "tags": ["documentation", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:run_setup.sh",
+      "type": "file",
+      "name": "run_setup.sh",
+      "filePath": "run_setup.sh",
+      "summary": "Comprehensive local environment setup script that creates a Python virtual environment, installs dependencies via UV or pip, configures AWS credentials, and validates the environment is ready for development.",
+      "tags": ["script", "development", "infrastructure"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:run_setup.sh:is_venv_functional",
+      "type": "function",
+      "name": "is_venv_functional",
+      "filePath": "run_setup.sh",
+      "lineRange": [23, 28],
+      "summary": "Checks whether an existing Python virtual environment is usable by verifying its Python binary is executable.",
+      "tags": ["validation", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:setup_dev.sh",
+      "type": "file",
+      "name": "setup_dev.sh",
+      "filePath": "setup_dev.sh",
+      "summary": "Lightweight dev environment bootstrap that installs development-only dependencies and sets up local configuration files for contributors.",
+      "tags": ["script", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:setup_notes.txt",
+      "type": "document",
+      "name": "setup_notes.txt",
+      "filePath": "setup_notes.txt",
+      "summary": "Extensive freeform notes covering deployment procedures, AWS configuration steps, Supabase setup, WhatsApp Business API registration, environment variable requirements, and troubleshooting tips accumulated during project development.",
+      "tags": ["documentation", "development", "infrastructure"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:start.sh",
+      "type": "file",
+      "name": "start.sh",
+      "filePath": "start.sh",
+      "summary": "Production server startup script that launches the FastAPI application using Gunicorn with Uvicorn workers, configuring worker counts, timeouts, and bind address from environment variables.",
+      "tags": ["script", "deployment", "entry-point"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:upload_secrets.sh",
+      "type": "file",
+      "name": "upload_secrets.sh",
+      "filePath": "upload_secrets.sh",
+      "summary": "Utility script for uploading application secrets to AWS Secrets Manager, with logging helpers and validation checks before each upload operation.",
+      "tags": ["script", "security", "infrastructure"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:run_setup.sh",
+      "target": "function:run_setup.sh:is_venv_functional",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "document:CLAUDE.md",
+      "target": "file:watomation/fapp_ordelo_agent.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "file:watomation/fapp_ordelo_agent.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:agents.md",
+      "target": "file:ordelo/agents/rider_agent.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:agents.md",
+      "target": "file:ordelo/agents/agent_runner.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:pyproject.toml",
+      "target": "file:watomation/fapp_ordelo_agent.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:build_push_deploy_dimage.sh",
+      "target": "file:start.sh",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:aws_app_runner.sh",
+      "target": "file:start.sh",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:start.sh",
+      "target": "file:watomation/fapp_ordelo_agent.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "nodes": [
+    {
+      "id": "file:.dockerignore",
+      "type": "file",
+      "name": ".dockerignore",
+      "filePath": ".dockerignore",
+      "summary": "Docker build context exclusion list that prevents development artifacts, virtual environments, and local config files from being copied into the production image.",
+      "tags": ["containerization", "infrastructure", "build-system"],
+      "complexity": "simple"
+    },
+    {
+      "id": "service:Dockerfile",
+      "type": "service",
+      "name": "Dockerfile",
+      "filePath": "Dockerfile",
+      "summary": "Single-stage Docker build using python:3.13-slim that installs system dependencies, sets up the UV package manager, installs Python dependencies from a lockfile for layer caching, copies application code, and launches via start.sh on port 80.",
+      "tags": ["containerization", "infrastructure", "deployment"],
+      "complexity": "moderate",
+      "languageNotes": "Uses UV package manager with a two-stage dependency install pattern (lockfile-only first, then full project install) to maximize Docker layer cache hits."
+    }
+  ],
+  "edges": [
+    {
+      "source": "service:Dockerfile",
+      "target": "file:.dockerignore",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    }
+  ]
+}

@@ -1,0 +1,301 @@
+{
+  "nodes": [
+    {
+      "id": "file:.specify/scripts/bash/check-prerequisites.sh",
+      "type": "file",
+      "name": "check-prerequisites.sh",
+      "filePath": ".specify/scripts/bash/check-prerequisites.sh",
+      "summary": "Consolidated prerequisite validation script for the Spec-Driven Development workflow, supporting JSON and text output modes to verify that required feature spec files (plan.md, tasks.md) exist before workflow phases run.",
+      "tags": ["script", "validation", "development", "workflow"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:.specify/scripts/bash/common.sh",
+      "type": "file",
+      "name": "common.sh",
+      "filePath": ".specify/scripts/bash/common.sh",
+      "summary": "Shared utility library sourced by all other .specify bash scripts, providing git branch detection, feature directory resolution, file/directory existence checks, and path variable population.",
+      "tags": ["script", "utility", "library", "development"],
+      "complexity": "moderate",
+      "languageNotes": "Bash library intended to be sourced (not executed directly); exports functions and side-effects path variables via eval."
+    },
+    {
+      "id": "function:.specify/scripts/bash/common.sh:get_current_branch",
+      "type": "function",
+      "name": "get_current_branch",
+      "filePath": ".specify/scripts/bash/common.sh",
+      "lineRange": [16, 58],
+      "summary": "Resolves the current git branch name with fallbacks for detached HEAD and non-git directories.",
+      "tags": ["utility", "git"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:.specify/scripts/bash/common.sh:check_feature_branch",
+      "type": "function",
+      "name": "check_feature_branch",
+      "filePath": ".specify/scripts/bash/common.sh",
+      "lineRange": [65, 82],
+      "summary": "Validates that the current branch follows the feature branch naming convention required by the .specify workflow.",
+      "tags": ["validation", "git"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:.specify/scripts/bash/common.sh:find_feature_dir_by_prefix",
+      "type": "function",
+      "name": "find_feature_dir_by_prefix",
+      "filePath": ".specify/scripts/bash/common.sh",
+      "lineRange": [88, 125],
+      "summary": "Searches the .plans directory for a feature folder whose name matches the current branch prefix, enabling branch-to-feature-directory mapping.",
+      "tags": ["utility", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:.specify/scripts/bash/common.sh:get_feature_paths",
+      "type": "function",
+      "name": "get_feature_paths",
+      "filePath": ".specify/scripts/bash/common.sh",
+      "lineRange": [127, 152],
+      "summary": "Computes and exports all canonical feature artifact paths (spec.md, plan.md, tasks.md, contracts/) for the current branch's feature directory.",
+      "tags": ["utility", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:.specify/scripts/bash/create-new-feature.sh",
+      "type": "file",
+      "name": "create-new-feature.sh",
+      "filePath": ".specify/scripts/bash/create-new-feature.sh",
+      "summary": "Interactive script for scaffolding a new feature in the .specify workflow — creates the feature directory structure, initialises spec artifacts, and generates a corresponding git branch name.",
+      "tags": ["script", "scaffolding", "development", "workflow"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:.specify/scripts/bash/create-new-feature.sh:find_repo_root",
+      "type": "function",
+      "name": "find_repo_root",
+      "filePath": ".specify/scripts/bash/create-new-feature.sh",
+      "lineRange": [56, 66],
+      "summary": "Traverses parent directories to locate the git repository root.",
+      "tags": ["utility", "git"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:.specify/scripts/bash/create-new-feature.sh:generate_branch_name",
+      "type": "function",
+      "name": "generate_branch_name",
+      "filePath": ".specify/scripts/bash/create-new-feature.sh",
+      "lineRange": [105, 149],
+      "summary": "Derives a git-safe feature branch name from the feature title by slugifying the text and applying naming conventions.",
+      "tags": ["utility", "git"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:.specify/scripts/bash/setup-plan.sh",
+      "type": "file",
+      "name": "setup-plan.sh",
+      "filePath": ".specify/scripts/bash/setup-plan.sh",
+      "summary": "Bootstraps the implementation plan artifact for the current feature by copying the plan template into the feature's .plans directory, called during the speckit.plan workflow phase.",
+      "tags": ["script", "scaffolding", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:.specify/scripts/bash/update-agent-context.sh",
+      "type": "file",
+      "name": "update-agent-context.sh",
+      "filePath": ".specify/scripts/bash/update-agent-context.sh",
+      "summary": "Large orchestration script that reads plan.md and propagates project context (technology stack, structure, commands, conventions) into AI agent CLAUDE.md files, either creating new agent files or updating existing ones.",
+      "tags": ["script", "development", "orchestration", "workflow"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:.specify/scripts/bash/update-agent-context.sh:validate_environment",
+      "type": "function",
+      "name": "validate_environment",
+      "filePath": ".specify/scripts/bash/update-agent-context.sh",
+      "lineRange": [119, 146],
+      "summary": "Verifies required environment variables, tool availability, and plan file existence before beginning agent context updates.",
+      "tags": ["validation", "environment"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:.specify/scripts/bash/update-agent-context.sh:parse_plan_data",
+      "type": "function",
+      "name": "parse_plan_data",
+      "filePath": ".specify/scripts/bash/update-agent-context.sh",
+      "lineRange": [164, 202],
+      "summary": "Extracts structured fields (tech stack, architecture, phases) from the feature's plan.md file for injection into agent context files.",
+      "tags": ["parsing", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:.specify/scripts/bash/update-agent-context.sh:create_new_agent_file",
+      "type": "function",
+      "name": "create_new_agent_file",
+      "filePath": ".specify/scripts/bash/update-agent-context.sh",
+      "lineRange": [266, 354],
+      "summary": "Generates a new CLAUDE.md agent context file from the agent-file template, populating it with project-specific technology, structure, and command data.",
+      "tags": ["scaffolding", "development", "template"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:.specify/scripts/bash/update-agent-context.sh:update_existing_agent_file",
+      "type": "function",
+      "name": "update_existing_agent_file",
+      "filePath": ".specify/scripts/bash/update-agent-context.sh",
+      "lineRange": [359, 469],
+      "summary": "Merges updated project context into an existing CLAUDE.md agent file, preserving its current content while refreshing stale technology and structure sections.",
+      "tags": ["development", "update"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:.specify/scripts/bash/update-agent-context.sh:update_agent_file",
+      "type": "function",
+      "name": "update_agent_file",
+      "filePath": ".specify/scripts/bash/update-agent-context.sh",
+      "lineRange": [474, 542],
+      "summary": "Dispatcher that selects between create_new_agent_file and update_existing_agent_file based on whether the target CLAUDE.md already exists.",
+      "tags": ["orchestration", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:.specify/scripts/bash/update-agent-context.sh:update_all_existing_agents",
+      "type": "function",
+      "name": "update_all_existing_agents",
+      "filePath": ".specify/scripts/bash/update-agent-context.sh",
+      "lineRange": [599, 668],
+      "summary": "Iterates all existing CLAUDE.md agent files in the repository and updates each with the latest project context.",
+      "tags": ["orchestration", "development"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:.specify/scripts/bash/update-agent-context.sh:main",
+      "type": "function",
+      "name": "main",
+      "filePath": ".specify/scripts/bash/update-agent-context.sh",
+      "lineRange": [694, 733],
+      "summary": "Entry point that parses CLI arguments and dispatches to the appropriate agent update mode (specific agent, all agents, or new agent).",
+      "tags": ["entry-point", "orchestration"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:.specify/scripts/bash/common.sh",
+      "target": "function:.specify/scripts/bash/common.sh:get_current_branch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/common.sh",
+      "target": "function:.specify/scripts/bash/common.sh:check_feature_branch",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/common.sh",
+      "target": "function:.specify/scripts/bash/common.sh:find_feature_dir_by_prefix",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/common.sh",
+      "target": "function:.specify/scripts/bash/common.sh:get_feature_paths",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/create-new-feature.sh",
+      "target": "function:.specify/scripts/bash/create-new-feature.sh:find_repo_root",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/create-new-feature.sh",
+      "target": "function:.specify/scripts/bash/create-new-feature.sh:generate_branch_name",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/update-agent-context.sh",
+      "target": "function:.specify/scripts/bash/update-agent-context.sh:validate_environment",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/update-agent-context.sh",
+      "target": "function:.specify/scripts/bash/update-agent-context.sh:parse_plan_data",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/update-agent-context.sh",
+      "target": "function:.specify/scripts/bash/update-agent-context.sh:create_new_agent_file",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/update-agent-context.sh",
+      "target": "function:.specify/scripts/bash/update-agent-context.sh:update_existing_agent_file",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/update-agent-context.sh",
+      "target": "function:.specify/scripts/bash/update-agent-context.sh:update_agent_file",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/update-agent-context.sh",
+      "target": "function:.specify/scripts/bash/update-agent-context.sh:update_all_existing_agents",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/update-agent-context.sh",
+      "target": "function:.specify/scripts/bash/update-agent-context.sh:main",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:.specify/scripts/bash/check-prerequisites.sh",
+      "target": "file:.specify/scripts/bash/common.sh",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:.specify/scripts/bash/setup-plan.sh",
+      "target": "file:.specify/scripts/bash/common.sh",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:.specify/scripts/bash/setup-plan.sh",
+      "target": "document:.specify/templates/plan-template.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "file:.specify/scripts/bash/update-agent-context.sh",
+      "target": "document:.specify/templates/agent-file-template.md",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    }
+  ]
+}

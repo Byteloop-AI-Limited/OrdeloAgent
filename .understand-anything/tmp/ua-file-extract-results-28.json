@@ -1,0 +1,156 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "utils_common/thread_management/THREAD_CLOSURE_SYSTEM.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 117,
+      "nonEmptyLines": 87,
+      "sections": [
+        {
+          "heading": "Thread Closure System Documentation",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "System Components",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "1. Scheduled thread termination entrypoint (FastAPI)",
+          "level": 3,
+          "line": 9
+        },
+        {
+          "heading": "Thread Management Components",
+          "level": 2,
+          "line": 30
+        },
+        {
+          "heading": "Database Schema",
+          "level": 3,
+          "line": 32
+        },
+        {
+          "heading": "Thread Handler Class",
+          "level": 3,
+          "line": 48
+        },
+        {
+          "heading": "Database Functions",
+          "level": 3,
+          "line": 57
+        },
+        {
+          "heading": "Workflow Integration",
+          "level": 2,
+          "line": 69
+        },
+        {
+          "heading": "Configuration Management",
+          "level": 2,
+          "line": 97
+        },
+        {
+          "heading": "Error Handling",
+          "level": 2,
+          "line": 112
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 11
+      }
+    },
+    {
+      "path": "utils_common/thread_management/thread_mgmnt.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 228,
+      "nonEmptyLines": 217,
+      "definitions": [
+        {
+          "name": "thread",
+          "kind": "table",
+          "fields": [
+            "thread_id",
+            "agent",
+            "recipient",
+            "is_active",
+            "retain_thread",
+            "dt",
+            "dtts",
+            "last_access_dtts"
+          ],
+          "startLine": 3,
+          "endLine": 13
+        },
+        {
+          "name": "idx_thread_agent_thread_id",
+          "kind": "index",
+          "fields": [],
+          "startLine": 14,
+          "endLine": 14
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 2
+      }
+    },
+    {
+      "path": "utils_common/thread_management/thread_mgmnt_ddl.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 239,
+      "nonEmptyLines": 227,
+      "definitions": [
+        {
+          "name": "public",
+          "kind": "table",
+          "fields": [],
+          "startLine": 1,
+          "endLine": 7
+        },
+        {
+          "name": "public",
+          "kind": "table",
+          "fields": [
+            "thread_id",
+            "agent",
+            "recipient",
+            "is_active",
+            "retain_thread",
+            "dt",
+            "dtts",
+            "last_access_dtts"
+          ],
+          "startLine": 15,
+          "endLine": 25
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 2
+      }
+    }
+  ]
+}

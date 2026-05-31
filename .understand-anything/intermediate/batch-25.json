@@ -1,0 +1,520 @@
+{
+  "nodes": [
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/_tbd_handle_restaurant_confirmation.sql",
+      "type": "schema",
+      "name": "_tbd_handle_restaurant_confirmation.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/_tbd_handle_restaurant_confirmation.sql",
+      "summary": "Defines the handle_restaurant_confirmation() stored function (TBD/pending activation) that processes manual restaurant prep-time confirmations, updates delivery_summary, and eagerly calls process_delivery() to advance the dispatch flow.",
+      "tags": ["database", "schema-definition", "delivery-workflow", "restaurant-confirmation"],
+      "complexity": "moderate",
+      "languageNotes": "Invoked via Supabase RPC from FastAPI; transitions delivery_summary status from 'restaurant_unconfirmed' to 'unassigned'."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/archive_process_delivery.sql",
+      "type": "schema",
+      "name": "archive_process_delivery.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/archive_process_delivery.sql",
+      "summary": "Archived version of the process_delivery() pg_cron function — Step 2 of the delivery workflow — that manages delivery_detail record creation, vehicle-type timeout progression, and triggers an AFTER UPDATE trigger when delivery_summary status reaches 'timedout'.",
+      "tags": ["database", "schema-definition", "delivery-workflow", "pg-cron"],
+      "complexity": "complex",
+      "languageNotes": "Uses a multi-CTE pattern (deliverySnapShot → timedout_orders → update_summary → to_insert → insert_details) and includes a companion trigger definition for delivery_summary_timedout_whook."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/cleanupDeliveryOrder.sql",
+      "type": "schema",
+      "name": "cleanupDeliveryOrder.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/cleanupDeliveryOrder.sql",
+      "summary": "Defines the cleanup_delivery_order() utility function that destructively deletes all records for a given order number from delivery_inflight, delivery_dispatch, delivery_detail, and delivery_summary in the correct foreign-key order.",
+      "tags": ["database", "schema-definition", "utility", "maintenance"],
+      "complexity": "moderate",
+      "languageNotes": "Intended only for testing and maintenance; explicitly warns against production use without authorization."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql",
+      "type": "schema",
+      "name": "dispatch_cancel_before_pickup.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql",
+      "summary": "Defines dispatch_cancel_before_pickup() — the RPC function called by the rider agent tool when a rider declines an assigned delivery before pickup, safely rolling back dispatch state, deleting the inflight record, reopening all vehicle-type detail rows, and resetting the timeout clock via redispatch_dtts.",
+      "tags": ["database", "schema-definition", "delivery-workflow", "dispatch-management"],
+      "complexity": "moderate",
+      "languageNotes": "Sets redispatch_dtts = NOW() so process_delivery() uses COALESCE(redispatch_dtts, dtts) as the timeout base, granting the re-dispatch a full window."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql",
+      "type": "schema",
+      "name": "dispatch_complete_func.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql",
+      "summary": "Defines dispatch_complete_func() — Step 6 in the delivery workflow — that marks delivery_dispatch, delivery_detail, and delivery_summary as 'completed' and removes the delivery_inflight record for the given dispatch_id.",
+      "tags": ["database", "schema-definition", "delivery-workflow", "completion"],
+      "complexity": "moderate",
+      "languageNotes": "Also includes a standalone UPDATE snippet that times out unassigned dispatches older than 30 seconds, useful for maintenance SQL execution."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/enquire_admin_availability.sql",
+      "type": "schema",
+      "name": "enquire_admin_availability.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/enquire_admin_availability.sql",
+      "summary": "Defines enquire_admin_availability() which reads restaurant admin lists from restaurant_master, builds a JSON payload, and POSTs to the /delivery-hooks/admin-availability-enquiry endpoint using the pg_net http_post extension.",
+      "tags": ["database", "schema-definition", "webhook", "admin-management"],
+      "complexity": "moderate",
+      "languageNotes": "Accepts an optional VARCHAR[] filter to target specific restaurants; reads ORDELO_APP_URL from ordelo_config."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/enquire_shift_availability.sql",
+      "type": "schema",
+      "name": "enquire_shift_availability.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/enquire_shift_availability.sql",
+      "summary": "Defines enquire_shift_availability() which aggregates active riders from rider_master (up to 20) and POSTs the payload to the /delivery-hooks/shift-availability-enquiry endpoint, enabling the app to determine which riders are on-shift.",
+      "tags": ["database", "schema-definition", "webhook", "rider-management"],
+      "complexity": "moderate",
+      "languageNotes": "Reads ORDELO_APP_URL from ordelo_config; silently handles EXCEPTION to return false on failure."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/init_delivery.sql",
+      "type": "schema",
+      "name": "init_delivery.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/init_delivery.sql",
+      "summary": "Defines init_delivery() — Step 1 of the delivery workflow — which reads customer and restaurant master data plus a confirmation-code salt from ordelo_config, inserts the initial delivery_summary row with status 'restaurant_unconfirmed', and returns the full record.",
+      "tags": ["database", "schema-definition", "delivery-workflow", "entry-point"],
+      "complexity": "complex",
+      "languageNotes": "Generates confirmation codes as complementary pair (rest + cust = salt) using floor(random(...)) arithmetic; RETURNS TABLE mirrors all delivery_summary columns for the RPC caller."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/init_delivery_detail_tbd.sql",
+      "type": "schema",
+      "name": "init_delivery_detail_tbd.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/init_delivery_detail_tbd.sql",
+      "summary": "Defines init_delivery_detail() (TBD/pending activation) which bootstraps a delivery_detail row for a given order by finding the rank-1 vehicle type from delivery_option and delegating insertion to insert_delivery_detail().",
+      "tags": ["database", "schema-definition", "delivery-workflow", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/init_takeaway.sql",
+      "type": "schema",
+      "name": "init_takeaway.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/init_takeaway.sql",
+      "summary": "Defines init_takeaway() which initialises a takeaway_summary record by reading restaurant_master and customer_master data, generating a restaurant confirmation code, and inserting the row with status 'restaurant_unconfirmed'.",
+      "tags": ["database", "schema-definition", "takeaway-workflow", "entry-point"],
+      "complexity": "moderate",
+      "languageNotes": "Parallel to init_delivery() but for the takeaway flow; falls back to cust_id as customer name when customer record not found."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/insert_delivery_detail.sql",
+      "type": "schema",
+      "name": "insert_delivery_detail.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/insert_delivery_detail.sql",
+      "summary": "Defines insert_delivery_detail() which resolves restaurant, customer, and delivery-option data and inserts a fully populated delivery_detail row for a given order number and vehicle type.",
+      "tags": ["database", "schema-definition", "delivery-workflow", "data-model"],
+      "complexity": "moderate",
+      "languageNotes": "Derives rest_ref from the order_number prefix (first hyphen-delimited segment); raises EXCEPTION if any of the three required lookups fails."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql",
+      "type": "schema",
+      "name": "job_assign_dispatch.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql",
+      "summary": "Defines job_assign_dispatch() and assign_accepted_dispatch() — Step 4 of the delivery workflow — using rank() OVER (PARTITION BY order_number ORDER BY dispatch_id ASC) for race-condition-safe first-accept-wins logic, updating dispatch/detail/summary tables and inserting into delivery_inflight to trigger the rider graph.",
+      "tags": ["database", "schema-definition", "delivery-workflow", "dispatch-management"],
+      "complexity": "complex",
+      "languageNotes": "assign_accepted_dispatch uses a single multi-CTE transaction: acceptedDispatches → acceptedDispatch → updateDispatch → updateDetail → updateSummary → insertInflight; the rank() window function ensures only the earliest-accepted dispatch wins."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/job_awsrunner_switch.sql",
+      "type": "schema",
+      "name": "job_awsrunner_switch.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/job_awsrunner_switch.sql",
+      "summary": "Defines job_awsrunner_switch() which controls AWS App Runner services (elaib and ordelo) by making GET requests to a Supabase Edge Function to resume or pause both services atomically.",
+      "tags": ["database", "schema-definition", "infrastructure", "deployment"],
+      "complexity": "moderate",
+      "languageNotes": "Validates the action parameter ('resume'|'pause') before making calls; uses http_get() for both services sequentially and returns composite success status."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/job_close_thread.sql",
+      "type": "schema",
+      "name": "job_close_thread.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/job_close_thread.sql",
+      "summary": "Defines job_close_thread() scheduled every 5 minutes, which identifies inactive non-retained threads in the thread table and POSTs them to /delivery-hooks/close-threads to trigger farewell messages and thread closure.",
+      "tags": ["database", "schema-definition", "thread-management", "pg-cron"],
+      "complexity": "moderate",
+      "languageNotes": "Reads THREAD_INACTIVE_TIME_INTERVAL and ORDELO_APP_URL from ordelo_config; only POSTs when at least one thread qualifies."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql",
+      "type": "schema",
+      "name": "job_create_dispatch.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql",
+      "summary": "Defines job_create_dispatch() and get_available_riders() — Step 3 of the delivery workflow — which fans out dispatch records to available riders using LATERAL join, respects DISPATCH_BATCH_SIZE_ config per vehicle type, and marks vehicle types as timed-out when no riders are available.",
+      "tags": ["database", "schema-definition", "delivery-workflow", "dispatch-management"],
+      "complexity": "complex",
+      "languageNotes": "get_available_riders() excludes both riders already dispatched for the same order and riders currently in delivery_inflight (globally inflight), preventing double dispatch."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/job_null_or_outdated_location.sql",
+      "type": "schema",
+      "name": "job_null_or_outdated_location.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/job_null_or_outdated_location.sql",
+      "summary": "Defines job_null_or_outdated_location() which detects inflight deliveries with missing or stale rider location data and POSTs affected (order_number, rider_id) pairs to /location-hooks/null-or-outdated-location for remediation.",
+      "tags": ["database", "schema-definition", "location-tracking", "monitoring"],
+      "complexity": "moderate",
+      "languageNotes": "Uses LEFT JOIN between delivery_inflight and rider_location; distinguishes NO_LOCATION_DATA vs OUTDATED_LOCATION_DATA reasons; interval driven by LOCATION_ENABLE_TIME_INTERVAL config."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/job_process_owntracks.sql",
+      "type": "schema",
+      "name": "job_process_owntracks.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/job_process_owntracks.sql",
+      "summary": "Defines job_process_owntracks() (SECURITY DEFINER) which batch-reads up to 1000 messages from the pgmq 'owntracks' queue, splits them into location and transition events, inserts into rider_location and rider_location_event tables, and archives processed messages.",
+      "tags": ["database", "schema-definition", "location-tracking", "data-pipeline"],
+      "complexity": "complex",
+      "languageNotes": "Uses pgmq.read() + pgmq.archive(); the multi-CTE pattern (msgs → parsed → location_rows/transition_rows → loc_insert/event_insert → msg_id_collect) runs all inserts in a single statement."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/job_restaurant_confirmation_timeout.sql",
+      "type": "schema",
+      "name": "job_restaurant_confirmation_timeout.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/job_restaurant_confirmation_timeout.sql",
+      "summary": "Defines job_restaurant_confirmation_timeout() scheduled typically every minute, which auto-transitions restaurant_unconfirmed orders to 'unassigned' after a restaurant-specific (or global fallback) timeout, defaulting prep time to 25 minutes to keep the dispatch flow moving.",
+      "tags": ["database", "schema-definition", "restaurant-confirmation", "pg-cron"],
+      "complexity": "moderate",
+      "languageNotes": "Resolves timeout via COALESCE chain: {rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT → RESTAURANT_CONFIRMATION_TIMEOUT → 5 minutes hardcoded fallback."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/job_terminate_stale_active_threads.sql",
+      "type": "schema",
+      "name": "job_terminate_stale_active_threads.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/job_terminate_stale_active_threads.sql",
+      "summary": "Defines job_terminate_stale_active_threads() which fires a POST to the /thread-hooks/terminate-stale-active-threads FastAPI endpoint, delegating stale-thread detection logic to the application layer.",
+      "tags": ["database", "schema-definition", "thread-management", "pg-cron"],
+      "complexity": "simple",
+      "languageNotes": "Unlike job_close_thread which does filtering in SQL, this function is a thin webhook dispatcher that passes an empty payload; all business logic resides in the FastAPI handler."
+    },
+    {
+      "id": "schema:ordelo_datamodels/jobs_n_functions/notify_missed_dispatches_tbd.sql",
+      "type": "schema",
+      "name": "notify_missed_dispatches_tbd.sql",
+      "filePath": "ordelo_datamodels/jobs_n_functions/notify_missed_dispatches_tbd.sql",
+      "summary": "Defines notify_missed_dispatches() and notify_missed_dispatches_for_order() (TBD) which detect accepted dispatches on already-assigned orders — indicating a race condition — and POST the anomaly data to /delivery-hooks/notify-missed-dispatches for alerting.",
+      "tags": ["database", "schema-definition", "dispatch-management", "monitoring"],
+      "complexity": "moderate",
+      "languageNotes": "Identifies rows where delivery_dispatch.status='accepted' AND delivery_detail.status='assigned' for the same order, which signals a rider accepted after another rider was already assigned."
+    }
+  ],
+  "edges": [
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/_tbd_handle_restaurant_confirmation.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/archive_process_delivery.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/archive_process_delivery.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_detail",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/cleanupDeliveryOrder.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/cleanupDeliveryOrder.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_detail",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/cleanupDeliveryOrder.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_dispatch",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/cleanupDeliveryOrder.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_inflight",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_dispatch",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_detail",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_inflight",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_dispatch",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_detail",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_inflight",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/enquire_admin_availability.sql",
+      "target": "table:ordelo_datamodels/summary.sql:restaurant_master",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/enquire_shift_availability.sql",
+      "target": "table:ordelo_datamodels/summary.sql:rider_master",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/init_delivery.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/init_delivery_detail_tbd.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_detail",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/init_takeaway.sql",
+      "target": "table:ordelo_datamodels/summary.sql:takeaway_summary",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/insert_delivery_detail.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_detail",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_dispatch",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_detail",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_inflight",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_dispatch",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_detail",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql",
+      "target": "table:ordelo_datamodels/summary.sql:rider_master",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_close_thread.sql",
+      "target": "table:ordelo_datamodels/summary.sql:thread",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_null_or_outdated_location.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_inflight",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_null_or_outdated_location.sql",
+      "target": "table:ordelo_datamodels/summary.sql:rider_location",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_process_owntracks.sql",
+      "target": "table:ordelo_datamodels/summary.sql:rider_location",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_process_owntracks.sql",
+      "target": "table:ordelo_datamodels/summary.sql:rider_location_event",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_process_owntracks.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_inflight",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_restaurant_confirmation_timeout.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "migrates",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/notify_missed_dispatches_tbd.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_dispatch",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/notify_missed_dispatches_tbd.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_detail",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql",
+      "target": "file:ordelo/agents/rider_agent.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql",
+      "target": "file:ordelo/agents/rider_agent.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/init_delivery.sql",
+      "target": "file:watomation/routers/delivery_hooks.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql",
+      "target": "file:watomation/routers/delivery_hooks.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql",
+      "target": "file:watomation/routers/delivery_hooks.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_close_thread.sql",
+      "target": "file:watomation/routers/thread_hooks.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_null_or_outdated_location.sql",
+      "target": "file:watomation/routers/location_hooks.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/jobs_n_functions/job_terminate_stale_active_threads.sql",
+      "target": "file:watomation/routers/thread_hooks.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

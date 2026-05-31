@@ -1,0 +1,180 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 5,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "ordelo_datamodels/migrations/add_redispatch_dtts.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 22,
+      "nonEmptyLines": 19,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/migrations/add_restaurant_confirmation_fields.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 95,
+      "nonEmptyLines": 81,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/migrations/admin_orders_indexes.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 45,
+      "nonEmptyLines": 39,
+      "definitions": [
+        {
+          "name": "with",
+          "kind": "index",
+          "fields": [],
+          "startLine": 3,
+          "endLine": 3
+        },
+        {
+          "name": "CONCURRENTLY",
+          "kind": "index",
+          "fields": [],
+          "startLine": 3,
+          "endLine": 3
+        },
+        {
+          "name": "idx_delivery_summary_admin_keyset",
+          "kind": "index",
+          "fields": [],
+          "startLine": 9,
+          "endLine": 9
+        },
+        {
+          "name": "idx_delivery_summary_admin_day_local",
+          "kind": "index",
+          "fields": [],
+          "startLine": 18,
+          "endLine": 18
+        },
+        {
+          "name": "idx_takeaway_summary_admin_keyset",
+          "kind": "index",
+          "fields": [],
+          "startLine": 25,
+          "endLine": 25
+        },
+        {
+          "name": "idx_takeaway_summary_admin_day_local",
+          "kind": "index",
+          "fields": [],
+          "startLine": 32,
+          "endLine": 32
+        },
+        {
+          "name": "idx_order_item_order_id",
+          "kind": "index",
+          "fields": [],
+          "startLine": 40,
+          "endLine": 40
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 7
+      }
+    },
+    {
+      "path": "ordelo_datamodels/migrations/admin_orders_views.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 128,
+      "nonEmptyLines": 114,
+      "definitions": [
+        {
+          "name": "so",
+          "kind": "view",
+          "fields": [],
+          "startLine": 3,
+          "endLine": 3
+        },
+        {
+          "name": "v_admin_orders",
+          "kind": "view",
+          "fields": [],
+          "startLine": 20,
+          "endLine": 20
+        },
+        {
+          "name": "v_admin_order_items",
+          "kind": "view",
+          "fields": [],
+          "startLine": 74,
+          "endLine": 74
+        },
+        {
+          "name": "v_admin_orders_daily",
+          "kind": "view",
+          "fields": [],
+          "startLine": 94,
+          "endLine": 94
+        },
+        {
+          "name": "v_admin_orders_monthly",
+          "kind": "view",
+          "fields": [],
+          "startLine": 112,
+          "endLine": 112
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 5
+      }
+    },
+    {
+      "path": "ordelo_datamodels/migrations/create_cust_rest_map.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 11,
+      "nonEmptyLines": 10,
+      "definitions": [
+        {
+          "name": "cust_rest_map",
+          "kind": "table",
+          "fields": [
+            "cust_id",
+            "rest_ref",
+            "has_consent",
+            "consent_dtts",
+            "dtts"
+          ],
+          "startLine": 4,
+          "endLine": 11
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 1
+      }
+    }
+  ]
+}

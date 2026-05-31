@@ -1,0 +1,287 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 20,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/_tbd_handle_restaurant_confirmation.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 67,
+      "nonEmptyLines": 58,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/archive_process_delivery.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 142,
+      "nonEmptyLines": 134,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/cleanupDeliveryOrder.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 88,
+      "nonEmptyLines": 72,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 91,
+      "nonEmptyLines": 76,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 79,
+      "nonEmptyLines": 64,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/enquire_admin_availability.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 79,
+      "nonEmptyLines": 70,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/enquire_shift_availability.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 70,
+      "nonEmptyLines": 61,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/init_delivery.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 180,
+      "nonEmptyLines": 163,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/init_delivery_detail_tbd.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 32,
+      "nonEmptyLines": 27,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/init_takeaway.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 118,
+      "nonEmptyLines": 106,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/insert_delivery_detail.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 128,
+      "nonEmptyLines": 118,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 116,
+      "nonEmptyLines": 108,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/job_awsrunner_switch.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 74,
+      "nonEmptyLines": 69,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/job_close_thread.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 94,
+      "nonEmptyLines": 90,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 138,
+      "nonEmptyLines": 128,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/job_null_or_outdated_location.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 84,
+      "nonEmptyLines": 80,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/job_process_owntracks.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 98,
+      "nonEmptyLines": 95,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/job_restaurant_confirmation_timeout.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 84,
+      "nonEmptyLines": 75,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/job_terminate_stale_active_threads.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 41,
+      "nonEmptyLines": 33,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/jobs_n_functions/notify_missed_dispatches_tbd.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 111,
+      "nonEmptyLines": 103,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    }
+  ]
+}

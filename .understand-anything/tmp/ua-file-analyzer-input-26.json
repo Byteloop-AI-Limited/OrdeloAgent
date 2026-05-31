@@ -1,0 +1,11 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "ordelo_datamodels/jobs_n_functions/ordelo_post.sql", "language": "sql", "sizeLines": 34, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/process_delivery.sql", "language": "sql", "sizeLines": 141, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/process_restaurant_confirmation.sql", "language": "sql", "sizeLines": 103, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/test_reset_order_and_dispatch.sql", "language": "sql", "sizeLines": 59, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/jobs_n_functions/test_reset_takeaway_order.sql", "language": "sql", "sizeLines": 27, "fileCategory": "data"}
+  ],
+  "batchImportData": {}
+}

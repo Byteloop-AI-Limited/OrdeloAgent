@@ -1,0 +1,811 @@
+{
+  "nodes": [
+    {
+      "id": "file:notebooks/wa_flows/customer_address_capture copy.py",
+      "type": "file",
+      "name": "customer_address_capture copy.py",
+      "filePath": "notebooks/wa_flows/customer_address_capture copy.py",
+      "summary": "Notebook script defining a WhatsApp Flow JSON payload for capturing customer delivery addresses via interactive form screens.",
+      "tags": ["utility", "whatsapp-flow", "customer", "address-capture"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/wa_flows/encryption_setup.py",
+      "type": "file",
+      "name": "encryption_setup.py",
+      "filePath": "notebooks/wa_flows/encryption_setup.py",
+      "summary": "Notebook utility for setting up WhatsApp Flow encryption keys, demonstrating key generation or registration with the Meta API.",
+      "tags": ["utility", "encryption", "whatsapp-flow", "security"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/wa_flows/follow_guide.py",
+      "type": "file",
+      "name": "follow_guide.py",
+      "filePath": "notebooks/wa_flows/follow_guide.py",
+      "summary": "Notebook script following the WhatsApp Flows API guide, demonstrating flow creation and interaction patterns for reference.",
+      "tags": ["utility", "whatsapp-flow", "documentation", "example"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/wa_flows/postcode_search.py",
+      "type": "file",
+      "name": "postcode_search.py",
+      "filePath": "notebooks/wa_flows/postcode_search.py",
+      "summary": "Notebook script defining a WhatsApp Flow JSON for postcode search functionality used during customer address entry.",
+      "tags": ["utility", "whatsapp-flow", "postcode-search", "customer"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/wa_flows/singup_flow_example.py",
+      "type": "file",
+      "name": "singup_flow_example.py",
+      "filePath": "notebooks/wa_flows/singup_flow_example.py",
+      "summary": "Notebook example of a comprehensive WhatsApp signup/onboarding flow with multiple interactive screens and form fields.",
+      "tags": ["utility", "whatsapp-flow", "signup", "example"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:utils_common/db_utils/checkpointer_setup.py",
+      "type": "file",
+      "name": "checkpointer_setup.py",
+      "filePath": "utils_common/db_utils/checkpointer_setup.py",
+      "summary": "Initializes the LangGraph AsyncPostgresSaver checkpointer by creating database tables required for agent state persistence.",
+      "tags": ["utility", "langgraph", "checkpointer", "database"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/db_utils/sbase_realtime_ref.py",
+      "type": "file",
+      "name": "sbase_realtime_ref.py",
+      "filePath": "utils_common/db_utils/sbase_realtime_ref.py",
+      "summary": "Reference implementation for subscribing to Supabase Realtime Postgres changes on the delivery_detail table, handling update events via a FastAPI lifespan.",
+      "tags": ["utility", "supabase", "realtime", "event-handler"],
+      "complexity": "simple",
+      "languageNotes": "Uses asynccontextmanager lifespan pattern alongside both async and sync connection pools."
+    },
+    {
+      "id": "function:utils_common/db_utils/sbase_realtime_ref.py:lifespan",
+      "type": "function",
+      "name": "lifespan",
+      "filePath": "utils_common/db_utils/sbase_realtime_ref.py",
+      "lineRange": [24, 46],
+      "summary": "FastAPI lifespan context manager that opens async/sync Postgres pools and subscribes to Supabase Realtime changes on delivery_detail.",
+      "tags": ["event-handler", "supabase", "realtime", "lifecycle"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/live_location/app_live_location_tracker.py",
+      "type": "file",
+      "name": "app_live_location_tracker.py",
+      "filePath": "utils_common/live_location/app_live_location_tracker.py",
+      "summary": "FastAPI endpoint handlers for an OwnTracks-compatible MQTT pub/sub live location tracker, receiving location publishes and generating OwnTracks config hrefs for riders.",
+      "tags": ["api-handler", "live-location", "owntracks", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/live_location/app_live_location_tracker.py:receive_pub",
+      "type": "function",
+      "name": "receive_pub",
+      "filePath": "utils_common/live_location/app_live_location_tracker.py",
+      "lineRange": [37, 66],
+      "summary": "HTTP endpoint that receives OwnTracks location publish payloads, persists them, and optionally notifies via WhatsApp.",
+      "tags": ["api-handler", "live-location", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/live_location/app_live_location_tracker.py:get_config",
+      "type": "function",
+      "name": "get_config",
+      "filePath": "utils_common/live_location/app_live_location_tracker.py",
+      "lineRange": [77, 137],
+      "summary": "Returns an OwnTracks configuration page as an HTML template response, generating base64-encoded config hrefs for iOS and Android.",
+      "tags": ["api-handler", "live-location", "configuration"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:utils_common/live_location/live_track_db_ops.py",
+      "type": "file",
+      "name": "live_track_db_ops.py",
+      "filePath": "utils_common/live_location/live_track_db_ops.py",
+      "summary": "Provides the LiveTrackHandler class for Supabase CRUD operations on rider live-location data, supporting insert and query by user and time range.",
+      "tags": ["data-model", "live-location", "database", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:utils_common/live_location/live_track_db_ops.py:LiveTrackHandler",
+      "type": "class",
+      "name": "LiveTrackHandler",
+      "filePath": "utils_common/live_location/live_track_db_ops.py",
+      "lineRange": [22, 117],
+      "summary": "Handles Supabase read/write operations for live location tracking records — inserts new positions and queries latest or range of positions per user.",
+      "tags": ["data-model", "live-location", "database", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/order_management/example_order.py",
+      "type": "file",
+      "name": "example_order.py",
+      "filePath": "utils_common/order_management/example_order.py",
+      "summary": "Example/notebook script demonstrating how to construct and submit a food order using the order management utilities.",
+      "tags": ["example", "order-management", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/order_management/order_db_ops.py",
+      "type": "file",
+      "name": "order_db_ops.py",
+      "filePath": "utils_common/order_management/order_db_ops.py",
+      "summary": "Core order management module providing Pydantic models (FoodOrderModel, OrderItem), helper functions for order creation and summarization, and the OrderHandler class for database CRUD operations via psycopg connection pool.",
+      "tags": ["data-model", "order-management", "database", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:utils_common/order_management/order_db_ops.py:FoodOrderModel",
+      "type": "class",
+      "name": "FoodOrderModel",
+      "filePath": "utils_common/order_management/order_db_ops.py",
+      "lineRange": [39, 70],
+      "summary": "Pydantic model representing a food order record with order ID generation and hashed order number creation.",
+      "tags": ["data-model", "order-management", "serialization"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:utils_common/order_management/order_db_ops.py:OrderHandler",
+      "type": "class",
+      "name": "OrderHandler",
+      "filePath": "utils_common/order_management/order_db_ops.py",
+      "lineRange": [237, 365],
+      "summary": "Handles database CRUD for food orders and order items using a psycopg connection pool — creates, updates, and queries orders and line items.",
+      "tags": ["data-model", "order-management", "database", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/order_management/order_db_ops.py:process_order_into_db",
+      "type": "function",
+      "name": "process_order_into_db",
+      "filePath": "utils_common/order_management/order_db_ops.py",
+      "lineRange": [148, 173],
+      "summary": "Orchestrates the full flow of persisting a WhatsApp order into the database: retrieves sequence number, calculates total, creates the order record, and inserts all order items.",
+      "tags": ["order-management", "database", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/order_management/order_db_ops.py:get_stripe_payment_link",
+      "type": "function",
+      "name": "get_stripe_payment_link",
+      "filePath": "utils_common/order_management/order_db_ops.py",
+      "lineRange": [205, 233],
+      "summary": "Generates a Stripe payment intent URL for an order by calling the internal payment microservice with order details.",
+      "tags": ["order-management", "payment", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/params.py",
+      "type": "file",
+      "name": "params.py",
+      "filePath": "utils_common/params.py",
+      "summary": "Shared utility module providing dictionary filtering, SQL condition building, project root detection, JSON validation, and Python path configuration helpers used across the codebase.",
+      "tags": ["utility", "helper", "sql", "configuration"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/params.py:filter_dict",
+      "type": "function",
+      "name": "filter_dict",
+      "filePath": "utils_common/params.py",
+      "lineRange": [32, 94],
+      "summary": "Filters and projects a list of dictionaries based on column selection and key-value filter conditions, supporting comparison operators, callable predicates, and OR logic.",
+      "tags": ["utility", "helper", "data-processing"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/params.py:get_sql_condition",
+      "type": "function",
+      "name": "get_sql_condition",
+      "filePath": "utils_common/params.py",
+      "lineRange": [97, 171],
+      "summary": "Builds a SQL WHERE clause string from keyword arguments, supporting equality, comparison operators, list membership, and OR conditions.",
+      "tags": ["utility", "sql", "helper"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:utils_common/thread_management/initialize_db.py",
+      "type": "file",
+      "name": "initialize_db.py",
+      "filePath": "utils_common/thread_management/initialize_db.py",
+      "summary": "Script to initialize the LangGraph thread-management database tables using the async Postgres pool from configuration.",
+      "tags": ["utility", "langgraph", "database", "initialization"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/waba_es/api_funcs.py",
+      "type": "file",
+      "name": "api_funcs.py",
+      "filePath": "utils_common/waba_es/api_funcs.py",
+      "summary": "WhatsApp Business Account (WABA) management API functions for the embedded signup flow — lists assigned WABAs and phone numbers, registers phone numbers, manages app subscriptions, and debugs access tokens via the Meta Graph API.",
+      "tags": ["api-handler", "whatsapp", "onboarding", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/waba_es/api_funcs.py:get_wabas_with_phone_numbers",
+      "type": "function",
+      "name": "get_wabas_with_phone_numbers",
+      "filePath": "utils_common/waba_es/api_funcs.py",
+      "lineRange": [97, 147],
+      "summary": "Retrieves all assigned WABAs along with their registered phone numbers, assembling a structured result list with WABA and phone number metadata.",
+      "tags": ["api-handler", "whatsapp", "onboarding"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/waba_es/api_funcs.py:subscribe_app",
+      "type": "function",
+      "name": "subscribe_app",
+      "filePath": "utils_common/waba_es/api_funcs.py",
+      "lineRange": [269, 304],
+      "summary": "Subscribes the Meta app to a WABA webhook using the provided access token, enabling message event delivery.",
+      "tags": ["api-handler", "whatsapp", "onboarding"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/waba_es/onboarding_utils.py",
+      "type": "file",
+      "name": "onboarding_utils.py",
+      "filePath": "utils_common/waba_es/onboarding_utils.py",
+      "summary": "Orchestrates the full WhatsApp Business embedded signup onboarding flow — exchanges OAuth codes for business tokens, subscribes the app to WABAs, registers phone numbers, updates PINs, sends test messages, and stores onboarding state.",
+      "tags": ["api-handler", "whatsapp", "onboarding", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/waba_es/onboarding_utils.py:onboard_business_customer",
+      "type": "function",
+      "name": "onboard_business_customer",
+      "filePath": "utils_common/waba_es/onboarding_utils.py",
+      "lineRange": [232, 312],
+      "summary": "End-to-end orchestration of WhatsApp Business onboarding: validates token/WABA/phone data, exchanges code for business token, stores to DB, subscribes app, registers phone, and sends a test message.",
+      "tags": ["api-handler", "whatsapp", "onboarding", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/waba_es/onboarding_utils.py:exchange_code_for_business_token",
+      "type": "function",
+      "name": "exchange_code_for_business_token",
+      "filePath": "utils_common/waba_es/onboarding_utils.py",
+      "lineRange": [45, 80],
+      "summary": "Exchanges an OAuth authorization code for a WhatsApp Business long-lived access token via the Meta Graph API.",
+      "tags": ["api-handler", "whatsapp", "onboarding", "security"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/waba_utils/wa_flows/customer_address_capture copy.py",
+      "type": "file",
+      "name": "customer_address_capture copy.py",
+      "filePath": "utils_common/waba_utils/wa_flows/customer_address_capture copy.py",
+      "summary": "Production-area copy of the WhatsApp Flow JSON definition for capturing customer delivery addresses via interactive form screens.",
+      "tags": ["utility", "whatsapp-flow", "customer", "address-capture"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/waba_utils/wa_flows/encryption_setup.py",
+      "type": "file",
+      "name": "encryption_setup.py",
+      "filePath": "utils_common/waba_utils/wa_flows/encryption_setup.py",
+      "summary": "Utility for WhatsApp Flow encryption key setup in the waba_utils production directory.",
+      "tags": ["utility", "encryption", "whatsapp-flow", "security"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/waba_utils/wa_flows/follow_guide.py",
+      "type": "file",
+      "name": "follow_guide.py",
+      "filePath": "utils_common/waba_utils/wa_flows/follow_guide.py",
+      "summary": "Reference guide implementation for WhatsApp Flows API usage patterns in the production waba_utils directory.",
+      "tags": ["utility", "whatsapp-flow", "documentation", "example"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/waba_utils/wa_flows/postcode_search.py",
+      "type": "file",
+      "name": "postcode_search.py",
+      "filePath": "utils_common/waba_utils/wa_flows/postcode_search.py",
+      "summary": "Production WhatsApp Flow JSON definition for postcode search, enabling customers to look up delivery postcodes during address capture.",
+      "tags": ["utility", "whatsapp-flow", "postcode-search", "customer"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/waba_utils/wa_flows/singup_flow_example.py",
+      "type": "file",
+      "name": "singup_flow_example.py",
+      "filePath": "utils_common/waba_utils/wa_flows/singup_flow_example.py",
+      "summary": "Production copy of the comprehensive WhatsApp signup/onboarding flow definition with multiple interactive screens.",
+      "tags": ["utility", "whatsapp-flow", "signup", "example"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:watomation/routers/ai_rnd.py",
+      "type": "file",
+      "name": "ai_rnd.py",
+      "filePath": "watomation/routers/ai_rnd.py",
+      "summary": "Experimental FastAPI router for AI research and development endpoints, currently containing a WhatsApp image-sending endpoint using the async WhatsApp client.",
+      "tags": ["api-handler", "experimental", "whatsapp"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:watomation/routers/temp_nb.py",
+      "type": "file",
+      "name": "temp_nb.py",
+      "filePath": "watomation/routers/temp_nb.py",
+      "summary": "Temporary notebook/scratch FastAPI router for ad-hoc testing and experimentation, not intended for production use.",
+      "tags": ["utility", "experimental", "scratch"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:watomation/routers/twilio_webhook.py",
+      "type": "file",
+      "name": "twilio_webhook.py",
+      "filePath": "watomation/routers/twilio_webhook.py",
+      "summary": "FastAPI router handling WhatsApp Business embedded signup OAuth callbacks and Twilio voice/SMS webhook endpoints for failure notifications and call recording.",
+      "tags": ["api-handler", "whatsapp", "twilio", "onboarding"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/routers/twilio_webhook.py:waba_embedded_signup_callback",
+      "type": "function",
+      "name": "waba_embedded_signup_callback",
+      "filePath": "watomation/routers/twilio_webhook.py",
+      "lineRange": [80, 123],
+      "summary": "Handles the OAuth callback from WhatsApp Business embedded signup, extracting auth code and WABA data then triggering the full onboarding flow.",
+      "tags": ["api-handler", "whatsapp", "onboarding", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/routers/twilio_webhook.py:failure_notifications",
+      "type": "function",
+      "name": "failure_notifications",
+      "filePath": "watomation/routers/twilio_webhook.py",
+      "lineRange": [128, 142],
+      "summary": "Receives Twilio SMS failure/notification webhooks and logs the from number, message body, and SID.",
+      "tags": ["api-handler", "twilio", "event-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:watomation/routers/twilio_webhook.py:handle_recording",
+      "type": "function",
+      "name": "handle_recording",
+      "filePath": "watomation/routers/twilio_webhook.py",
+      "lineRange": [158, 171],
+      "summary": "Processes Twilio voice call recording webhook, logging the recording URL and duration for call analytics.",
+      "tags": ["api-handler", "twilio", "event-handler"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:notebooks/wa_flows/customer_address_capture copy.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/wa_flows/encryption_setup.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/wa_flows/follow_guide.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/wa_flows/postcode_search.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/wa_flows/singup_flow_example.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/db_utils/checkpointer_setup.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_realtime_ref.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/live_location/app_live_location_tracker.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/live_location/live_track_db_ops.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/order_management/example_order.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops.py",
+      "target": "file:utils_common/params.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/thread_management/initialize_db.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/waba_es/api_funcs.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/waba_es/onboarding_utils.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_flows/customer_address_capture copy.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_flows/encryption_setup.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_flows/follow_guide.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_flows/postcode_search.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_flows/singup_flow_example.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/ai_rnd.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/temp_nb.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/twilio_webhook.py",
+      "target": "file:utils_common/waba_es/onboarding_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_realtime_ref.py",
+      "target": "function:utils_common/db_utils/sbase_realtime_ref.py:lifespan",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_realtime_ref.py",
+      "target": "function:utils_common/db_utils/sbase_realtime_ref.py:lifespan",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/live_location/app_live_location_tracker.py",
+      "target": "function:utils_common/live_location/app_live_location_tracker.py:receive_pub",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/live_location/app_live_location_tracker.py",
+      "target": "function:utils_common/live_location/app_live_location_tracker.py:receive_pub",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/live_location/app_live_location_tracker.py",
+      "target": "function:utils_common/live_location/app_live_location_tracker.py:get_config",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/live_location/app_live_location_tracker.py",
+      "target": "function:utils_common/live_location/app_live_location_tracker.py:get_config",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/live_location/live_track_db_ops.py",
+      "target": "class:utils_common/live_location/live_track_db_ops.py:LiveTrackHandler",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/live_location/live_track_db_ops.py",
+      "target": "class:utils_common/live_location/live_track_db_ops.py:LiveTrackHandler",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops.py",
+      "target": "class:utils_common/order_management/order_db_ops.py:FoodOrderModel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops.py",
+      "target": "class:utils_common/order_management/order_db_ops.py:FoodOrderModel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops.py",
+      "target": "class:utils_common/order_management/order_db_ops.py:OrderHandler",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops.py",
+      "target": "class:utils_common/order_management/order_db_ops.py:OrderHandler",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops.py",
+      "target": "function:utils_common/order_management/order_db_ops.py:process_order_into_db",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops.py",
+      "target": "function:utils_common/order_management/order_db_ops.py:process_order_into_db",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops.py",
+      "target": "function:utils_common/order_management/order_db_ops.py:get_stripe_payment_link",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops.py",
+      "target": "function:utils_common/order_management/order_db_ops.py:get_stripe_payment_link",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/params.py",
+      "target": "function:utils_common/params.py:filter_dict",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/params.py",
+      "target": "function:utils_common/params.py:filter_dict",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/params.py",
+      "target": "function:utils_common/params.py:get_sql_condition",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/params.py",
+      "target": "function:utils_common/params.py:get_sql_condition",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/waba_es/api_funcs.py",
+      "target": "function:utils_common/waba_es/api_funcs.py:get_wabas_with_phone_numbers",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/waba_es/api_funcs.py",
+      "target": "function:utils_common/waba_es/api_funcs.py:get_wabas_with_phone_numbers",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/waba_es/api_funcs.py",
+      "target": "function:utils_common/waba_es/api_funcs.py:subscribe_app",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/waba_es/api_funcs.py",
+      "target": "function:utils_common/waba_es/api_funcs.py:subscribe_app",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/waba_es/onboarding_utils.py",
+      "target": "function:utils_common/waba_es/onboarding_utils.py:onboard_business_customer",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/waba_es/onboarding_utils.py",
+      "target": "function:utils_common/waba_es/onboarding_utils.py:onboard_business_customer",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/waba_es/onboarding_utils.py",
+      "target": "function:utils_common/waba_es/onboarding_utils.py:exchange_code_for_business_token",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/waba_es/onboarding_utils.py",
+      "target": "function:utils_common/waba_es/onboarding_utils.py:exchange_code_for_business_token",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/twilio_webhook.py",
+      "target": "function:watomation/routers/twilio_webhook.py:waba_embedded_signup_callback",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/twilio_webhook.py",
+      "target": "function:watomation/routers/twilio_webhook.py:waba_embedded_signup_callback",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/twilio_webhook.py",
+      "target": "function:watomation/routers/twilio_webhook.py:failure_notifications",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/twilio_webhook.py",
+      "target": "function:watomation/routers/twilio_webhook.py:failure_notifications",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/twilio_webhook.py",
+      "target": "function:watomation/routers/twilio_webhook.py:handle_recording",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/routers/twilio_webhook.py",
+      "target": "function:watomation/routers/twilio_webhook.py:handle_recording",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:watomation/routers/twilio_webhook.py:waba_embedded_signup_callback",
+      "target": "function:utils_common/waba_es/onboarding_utils.py:onboard_business_customer",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:utils_common/waba_es/onboarding_utils.py:onboard_business_customer",
+      "target": "function:utils_common/waba_es/onboarding_utils.py:exchange_code_for_business_token",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:utils_common/order_management/order_db_ops.py:process_order_into_db",
+      "target": "function:utils_common/params.py:filter_dict",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops.py",
+      "target": "file:utils_common/params.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    }
+  ]
+}

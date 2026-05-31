@@ -1,0 +1,17 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "ordelo_datamodels/migrations/add_redispatch_dtts.sql", "language": "sql", "sizeLines": 22, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/migrations/add_restaurant_confirmation_fields.sql", "language": "sql", "sizeLines": 95, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/migrations/admin_orders_indexes.sql", "language": "sql", "sizeLines": 45, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/migrations/admin_orders_views.sql", "language": "sql", "sizeLines": 128, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/migrations/create_cust_rest_map.sql", "language": "sql", "sizeLines": 11, "fileCategory": "data"}
+  ],
+  "batchImportData": {
+    "ordelo_datamodels/migrations/add_redispatch_dtts.sql": [],
+    "ordelo_datamodels/migrations/add_restaurant_confirmation_fields.sql": [],
+    "ordelo_datamodels/migrations/admin_orders_indexes.sql": [],
+    "ordelo_datamodels/migrations/admin_orders_views.sql": [],
+    "ordelo_datamodels/migrations/create_cust_rest_map.sql": []
+  }
+}
