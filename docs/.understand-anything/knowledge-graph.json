@@ -1,0 +1,436 @@
+{
+  "version": "1.0",
+  "kind": "knowledge",
+  "project": {
+    "name": "OrdeloAgent Documentation",
+    "languages": [
+      "markdown",
+      "html"
+    ],
+    "frameworks": [],
+    "description": "Documentation for OrdeloAgent \u2014 an AI-powered on-demand food delivery orchestration system using WhatsApp Business API, FastAPI, LangGraph agents, and PostgreSQL/Supabase.",
+    "analyzedAt": "2026-05-31T19:24:14.791294+00:00",
+    "gitCommitHash": "3b58e48b77a4de898d88a54c3d97b6d70f4612f6"
+  },
+  "nodes": [
+    {
+      "id": "document:callback_handlers.md",
+      "type": "document",
+      "name": "callback_handlers.md",
+      "filePath": "callback_handlers.md",
+      "summary": "Reference guide for all WhatsApp callback button handlers registered in the Ordelo FastAPI app, covering rider accept/decline dispatch, shift availability, restaurant order confirmation, pickup time selection, and admin notification opt-in. Documents 9 handlers with their filter strings, source buttons, actor roles, and step-by-step behavior.",
+      "tags": [
+        "documentation",
+        "api-handler",
+        "whatsapp",
+        "callback",
+        "delivery"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:delivery_process.md",
+      "type": "document",
+      "name": "delivery_process.md",
+      "filePath": "delivery_process.md",
+      "summary": "Comprehensive reference (v3.1) for the entire Ordelo delivery workflow covering all 6 phases from order creation through delivery completion, with database tables, status state machines, pg_cron scheduled jobs, PostgreSQL triggers, LangGraph rider agent architecture, AgentState TypedDict fields, and SQL file references. The authoritative top-level document for the delivery subsystem.",
+      "tags": [
+        "documentation",
+        "delivery",
+        "architecture",
+        "state-machine",
+        "database"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:delivery_process_explorer.html",
+      "type": "file",
+      "name": "delivery_process_explorer.html",
+      "filePath": "delivery_process_explorer.html",
+      "summary": "Interactive single-page HTML explorer that visualizes the Ordelo delivery process flow, allowing users to navigate all 6 delivery phases, status transitions, and component relationships from the documentation.",
+      "tags": [
+        "documentation",
+        "visualization",
+        "interactive",
+        "delivery"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Self-contained HTML file with embedded CSS and JavaScript providing a client-side interactive visualization \u2014 no server required."
+    },
+    {
+      "id": "document:dispatch_flow.md",
+      "type": "document",
+      "name": "dispatch_flow.md",
+      "filePath": "dispatch_flow.md",
+      "summary": "Focused deep-dive (v1.1) on the dispatch portion of the delivery workflow covering dispatch creation, rider notification via WhatsApp, accept/decline callback handling, the first-accept race condition resolution using SQL rank(), inflight initialization, missed-dispatch notifications, and the pre-pickup cancellation flow.",
+      "tags": [
+        "documentation",
+        "dispatch",
+        "delivery",
+        "race-condition",
+        "database"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:get_restaurant_webhook_url_async_guide.md",
+      "type": "document",
+      "name": "get_restaurant_webhook_url_async_guide.md",
+      "filePath": "get_restaurant_webhook_url_async_guide.md",
+      "summary": "API reference guide for the `get_restaurant_webhook_url_async` utility function, documenting its function signature, all 9 valid webhook types (rider-inflight, rider-cust-enter, delivery-timedout, etc.), 5-minute TTL in-memory caching strategy, usage examples with error handling, and migration notes for callers transitioning from a synchronous predecessor.",
+      "tags": [
+        "documentation",
+        "api-reference",
+        "utility",
+        "webhook",
+        "configuration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:location_overview.md",
+      "type": "document",
+      "name": "location_overview.md",
+      "filePath": "location_overview.md",
+      "summary": "Guide to the OwnTracks-based live location subsystem, tracing the end-to-end flow from PGMQ queue ingestion through `job_process_owntracks()`, insertion into `rider_location` and `rider_location_event` tables, PostgreSQL trigger firing, and FastAPI `/location-hooks/` webhook handling for restaurant and customer zone-entry events.",
+      "tags": [
+        "documentation",
+        "location-tracking",
+        "database",
+        "webhook",
+        "delivery"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:payment_and_order_flow.md",
+      "type": "document",
+      "name": "payment_and_order_flow.md",
+      "filePath": "payment_and_order_flow.md",
+      "summary": "Comprehensive reference (v1.0) for the order creation and payment lifecycle, covering pre-order validation (min order value by coordinates and postcode), Stripe and pay-at-restaurant payment paths, payment completion handler routing to `init_delivery()` or `init_takeaway()`, address capture via WhatsApp flow, and all related webhook endpoints.",
+      "tags": [
+        "documentation",
+        "payment",
+        "order-management",
+        "stripe",
+        "delivery"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:pickup_time_logic.md",
+      "type": "document",
+      "name": "pickup_time_logic.md",
+      "filePath": "pickup_time_logic.md",
+      "summary": "Runtime flow documentation for `pickup_time` in both `delivery_summary` and `takeaway_summary`, covering the full trigger chain from restaurant acceptance through admin pickup-time selection, 5-minute timeout auto-accept path via `process_restaurant_confirmation` scheduled job, mid-delivery adjustment callbacks, and downstream dispatch creation.",
+      "tags": [
+        "documentation",
+        "pickup-time",
+        "delivery",
+        "takeaway",
+        "state-machine"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:takeaway_flow.md",
+      "type": "document",
+      "name": "takeaway_flow.md",
+      "filePath": "takeaway_flow.md",
+      "summary": "Complete reference (v1.0) for the takeaway order lifecycle, documenting the parallel flow to delivery (without rider dispatch or live tracking) including Stripe and pay-at-restaurant initialization paths, `takeaway_summary` status machine, restaurant confirmation, pickup time selection, external restaurant notification webhook, and decline/timeout paths.",
+      "tags": [
+        "documentation",
+        "takeaway",
+        "state-machine",
+        "payment",
+        "restaurant"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "config:.understand-anything/.understandignore",
+      "type": "config",
+      "name": ".understandignore",
+      "filePath": ".understand-anything/.understandignore",
+      "summary": "Exclusion pattern file for the understand-anything analysis tool, using .gitignore syntax. Currently contains only comments and no active ignore rules, meaning all files in the docs project are included in analysis by default.",
+      "tags": [
+        "configuration",
+        "tooling",
+        "build-system"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:delivery_process.md",
+      "target": "document:dispatch_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:delivery_process.md",
+      "target": "document:callback_handlers.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:delivery_process.md",
+      "target": "document:pickup_time_logic.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:delivery_process.md",
+      "target": "document:location_overview.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:delivery_process.md",
+      "target": "document:payment_and_order_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:dispatch_flow.md",
+      "target": "document:delivery_process.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:dispatch_flow.md",
+      "target": "document:callback_handlers.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:pickup_time_logic.md",
+      "target": "document:callback_handlers.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:pickup_time_logic.md",
+      "target": "document:takeaway_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:takeaway_flow.md",
+      "target": "document:delivery_process.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:takeaway_flow.md",
+      "target": "document:payment_and_order_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:payment_and_order_flow.md",
+      "target": "document:delivery_process.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:payment_and_order_flow.md",
+      "target": "document:takeaway_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:get_restaurant_webhook_url_async_guide.md",
+      "target": "document:delivery_process.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:get_restaurant_webhook_url_async_guide.md",
+      "target": "document:takeaway_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:get_restaurant_webhook_url_async_guide.md",
+      "target": "document:location_overview.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:delivery_process_explorer.html",
+      "target": "document:delivery_process.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:delivery_process_explorer.html",
+      "target": "document:dispatch_flow.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:delivery_process_explorer.html",
+      "target": "document:callback_handlers.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:delivery_process_explorer.html",
+      "target": "document:pickup_time_logic.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:delivery_process_explorer.html",
+      "target": "document:takeaway_flow.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ],
+  "layers": [
+    {
+      "id": "layer:process-docs",
+      "name": "Process Docs",
+      "description": "Documents covering the end-to-end delivery and takeaway business process lifecycles, including all six delivery phases, dispatch race-condition handling, pickup-time state machines, callback handler reference, and rider accept/decline flows.",
+      "nodeIds": [
+        "document:delivery_process.md",
+        "document:dispatch_flow.md",
+        "document:pickup_time_logic.md",
+        "document:takeaway_flow.md",
+        "document:callback_handlers.md"
+      ]
+    },
+    {
+      "id": "layer:system-guides",
+      "name": "System Guides",
+      "description": "Technical reference guides for specific subsystems \u2014 live location tracking via OwnTracks, the order creation and Stripe payment lifecycle, and the async webhook URL utility with its caching strategy.",
+      "nodeIds": [
+        "document:location_overview.md",
+        "document:payment_and_order_flow.md",
+        "document:get_restaurant_webhook_url_async_guide.md"
+      ]
+    },
+    {
+      "id": "layer:interactive-tools",
+      "name": "Interactive Tools",
+      "description": "Self-contained browser-based visualization tools that let readers interactively explore delivery process phases, status transitions, and component relationships.",
+      "nodeIds": [
+        "file:delivery_process_explorer.html"
+      ]
+    },
+    {
+      "id": "layer:config",
+      "name": "Configuration",
+      "description": "Tooling configuration for the understand-anything analysis harness, controlling which documentation files are included or excluded from knowledge graph generation.",
+      "nodeIds": [
+        "config:.understand-anything/.understandignore"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "order": 1,
+      "title": "Full Delivery Lifecycle",
+      "description": "Start with delivery_process.md \u2014 the authoritative reference (v3.1) for everything Ordelo does. It walks through all 6 phases from order creation to completion, introduces the database tables and status state machines, explains the pg_cron scheduled jobs and PostgreSQL triggers that drive automation, and maps the LangGraph rider agent architecture. Every other document in this set is a focused zoom-in on one piece of what this document describes at the 30,000-foot level. Reading this first gives you the vocabulary and mental model needed for every subsequent step.",
+      "nodeIds": [
+        "document:delivery_process.md"
+      ],
+      "languageLesson": "State machines are central to this system: each delivery and dispatch record holds a status column that can only transition forward through defined values. PostgreSQL triggers fire on status changes to kick off the next phase automatically, turning the database itself into the orchestration engine rather than relying on application-level polling."
+    },
+    {
+      "order": 2,
+      "title": "Order Creation & Payment",
+      "description": "Before any delivery can happen, a customer must place and pay for an order. payment_and_order_flow.md covers the full pre-delivery pipeline: minimum order validation by coordinates and postcode, address capture through a WhatsApp interactive flow, and the two payment paths \u2014 Stripe online and pay-at-restaurant. The critical branching point is the payment completion handler, which routes to either init_delivery() for a full delivery or init_takeaway() for collection. Understanding this step explains where delivery_summary rows come from and why the 6-phase lifecycle in Step 1 begins with 'restaurant_unconfirmed'.",
+      "nodeIds": [
+        "document:payment_and_order_flow.md"
+      ],
+      "languageLesson": "WhatsApp Flows are interactive multi-screen forms sent inside a WhatsApp message. The address capture flow collects structured customer input (postcode search, address selection) within the chat itself, avoiding any external web redirect. The completed payload returns to a FastAPI webhook endpoint for server-side processing."
+    },
+    {
+      "order": 3,
+      "title": "Dispatch & Rider Assignment",
+      "description": "With an order confirmed by the restaurant and a pickup time set, the system creates dispatch records and notifies riders via WhatsApp. dispatch_flow.md is a focused deep-dive into exactly this phase: how dispatch rows are created, how multiple riders are notified simultaneously, how the first-accept wins using a SQL rank() window function to resolve the race condition, how the inflight LangGraph agent is initialized for the winning rider, and how the pre-pickup cancellation path works if needed. This is where the concurrency challenge of a real-time dispatch system becomes concrete.",
+      "nodeIds": [
+        "document:dispatch_flow.md"
+      ],
+      "languageLesson": "The first-accept race condition is a classic distributed systems problem: multiple riders reply 'accept' within milliseconds of each other. The solution uses a SQL window function \u2014 RANK() OVER (PARTITION BY delivery_id ORDER BY accepted_at ASC) \u2014 inside a stored procedure so that only the rider with rank=1 is assigned. All others receive a polite 'sorry, already taken' message. Solving this in SQL rather than application code means the database transaction guarantees atomicity."
+    },
+    {
+      "order": 4,
+      "title": "WhatsApp Callback Handlers",
+      "description": "The delivery workflow is driven almost entirely by button taps in WhatsApp \u2014 not web forms or API calls. callback_handlers.md catalogs all 9 registered callback handlers: rider accept/decline dispatch, rider shift availability, restaurant order confirmation, pickup time selection by admin, and admin notification opt-in. For each handler it documents the filter string, the source button, the actor role (rider / restaurant / admin), and the step-by-step behavior the system executes on receipt. After Step 3's description of the race condition, you can now see exactly how the 'accept' callback triggers the SQL rank() evaluation described there.",
+      "nodeIds": [
+        "document:callback_handlers.md"
+      ],
+      "languageLesson": "PyWA (the Python WhatsApp Business API library used here) registers callback handlers with a filter string that matches the button payload. When a WhatsApp user taps a button, the platform sends a webhook POST with that payload. FastAPI routes it to the matching handler. This event-driven design means the backend is entirely reactive \u2014 it only runs code when a human acts."
+    },
+    {
+      "order": 5,
+      "title": "Pickup Time Logic",
+      "description": "Between restaurant confirmation and dispatch creation sits a small but critical sub-flow: choosing the pickup time. pickup_time_logic.md traces the full trigger chain for both delivery_summary and takeaway_summary rows \u2014 the admin selects a time via a WhatsApp callback button (covered in Step 4), but if 5 minutes pass with no selection, the process_restaurant_confirmation pg_cron job fires an auto-accept with a default time. Mid-delivery adjustments are also supported through a separate callback. This step clarifies why dispatch creation (Step 3) cannot begin until pickup_time is non-null in the summary table.",
+      "nodeIds": [
+        "document:pickup_time_logic.md"
+      ],
+      "languageLesson": "pg_cron is a PostgreSQL extension that schedules SQL functions on a cron schedule directly inside the database. Because the timer and the business logic live in the same transaction context as the data, there is no need for an external job queue or a separate scheduler service. The trade-off is that pg_cron jobs are harder to test and monitor than application-level schedulers."
+    },
+    {
+      "order": 6,
+      "title": "Takeaway: The Parallel Path",
+      "description": "Not every order requires a rider. takeaway_flow.md documents the takeaway lifecycle \u2014 a parallel path to delivery that shares the same payment entry points (Step 2) and restaurant confirmation mechanics (Steps 4-5), but skips dispatch, rider assignment, and live tracking entirely. The takeaway_summary table has its own status machine. The restaurant receives an external webhook notification when a takeaway is confirmed, so the customer can collect directly. Reading this alongside delivery_process.md makes the shared infrastructure \u2014 WhatsApp callbacks, pickup time logic, payment routing \u2014 visible as the reusable platform it is.",
+      "nodeIds": [
+        "document:takeaway_flow.md"
+      ]
+    },
+    {
+      "order": 7,
+      "title": "Live Location Tracking",
+      "description": "Once a rider is assigned and en route, the system switches into real-time location mode. location_overview.md explains the OwnTracks-based subsystem: the rider's phone publishes GPS coordinates to a PGMQ message queue, job_process_owntracks() dequeues and inserts them into rider_location and rider_location_event tables, and a PostgreSQL trigger on those tables fires a FastAPI webhook at /location-hooks/ when the rider enters the restaurant or customer geofence zones. These zone-entry events drive the LangGraph agent's next-step prompts (Step 3's inflight agent sends the customer a notification when the rider leaves the restaurant). This step shows how the database-as-orchestrator pattern from Step 1 extends into the physical world.",
+      "nodeIds": [
+        "document:location_overview.md"
+      ],
+      "languageLesson": "PGMQ (Postgres Message Queue) is a Postgres-native queue extension. Location events are enqueued by the mobile app and dequeued by a scheduled SQL job, providing backpressure and durability without an external message broker like Redis or RabbitMQ. The geofence trigger is a pure SQL function that checks whether the new coordinates fall within a stored polygon."
+    },
+    {
+      "order": 8,
+      "title": "Webhook URL Utility",
+      "description": "Every phase that triggers an external webhook \u2014 dispatch creation, location events, delivery timeouts \u2014 needs to look up the correct FastAPI endpoint URL for the specific restaurant. get_restaurant_webhook_url_async_guide.md documents the get_restaurant_webhook_url_async utility that centralizes this lookup. It supports all 9 webhook type strings (rider-inflight, rider-cust-enter, delivery-timedout, and 6 others), applies a 5-minute in-memory TTL cache to avoid hitting the database on every event, and provides migration notes for callers still on the synchronous predecessor function. After seeing all the phases in Steps 1-7, this utility is the connective tissue that appears in every one of them.",
+      "nodeIds": [
+        "document:get_restaurant_webhook_url_async_guide.md"
+      ],
+      "languageLesson": "The 5-minute TTL cache is a simple dict keyed on (rest_ref, webhook_type). Because FastAPI workers are long-lived processes, a module-level dict persists across requests within a single worker. The trade-off: a config change in the database takes up to 5 minutes to propagate. For webhook URLs that rarely change, this is an acceptable latency for the reduction in database round-trips."
+    },
+    {
+      "order": 9,
+      "title": "Interactive Architecture Explorer",
+      "description": "delivery_process_explorer.html is a self-contained single-page app that visualizes everything covered in Steps 1-8 interactively. It lets you navigate all 6 delivery phases, click through status transitions, and see which components (database tables, triggers, agents, webhooks) are involved at each stage. Because it references and cross-links all the documents in this tour, it works best as a capstone \u2014 a way to consolidate the mental model built across the preceding steps rather than as an introduction. Open it in a browser with no server required; all logic is embedded JavaScript.",
+      "nodeIds": [
+        "file:delivery_process_explorer.html"
+      ],
+      "languageLesson": "Self-contained HTML files embed all CSS and JavaScript inline or in <script>/<style> tags, making them portable documentation artifacts that can be opened directly from a file system, emailed, or committed to a repository alongside the markdown docs they visualize. The trade-off versus a hosted app is that updates require regenerating and redistributing the file."
+    }
+  ]
+}
