@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ordelo Delivery Process Explorer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{padding:10px 14px;background:#1e293b;border-bottom:1px solid #334155;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap}
+header h1{font-size:14px;font-weight:700;color:#f8fafc;white-space:nowrap}
+#tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;border:1px solid #475569;color:#94a3b8;background:transparent;transition:all .15s}
+.tab:hover{background:#334155;color:#e2e8f0}
+.tab.active{background:#3b82f6;color:#fff;border-color:#3b82f6}
+.tab.special{border-color:#f59e0b;color:#fbbf24}
+.tab.special.active{background:#f59e0b;color:#0f172a}
+#main{flex:1;display:flex;overflow:hidden;min-height:0}
+#sidebar{width:210px;flex-shrink:0;background:#1e293b;border-right:1px solid #334155;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:10px}
+.sec-title{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.layer-row{display:flex;align-items:center;gap:6px;cursor:pointer;padding:2px 0;user-select:none}
+.layer-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.layer-row span{font-size:12px;color:#cbd5e1;transition:opacity .1s}
+.layer-row.off span{opacity:.35;text-decoration:line-through}
+.gotcha{background:#431407;border:1px solid #9a3412;border-radius:5px;padding:7px 9px;margin-bottom:6px;cursor:pointer;transition:background .15s}
+.gotcha:hover,.gotcha.hl{background:#7c2d12;border-color:#ea580c}
+.gtitle{font-size:11px;font-weight:700;color:#fb923c}
+.gdesc{font-size:11px;color:#fed7aa;margin-top:2px;line-height:1.45}
+.comments-list{}
+.cm{background:#0f172a;border:1px solid #334155;border-radius:4px;padding:6px 8px;margin-bottom:5px;position:relative}
+.cm-node{font-size:10px;color:#64748b;margin-bottom:2px}
+.cm-text{font-size:11px;color:#e2e8f0;padding-right:18px}
+.cm-del{position:absolute;top:5px;right:7px;cursor:pointer;color:#ef4444;font-size:14px;line-height:1}
+.no-cm{font-size:11px;color:#475569;font-style:italic}
+#canvas-wrap{flex:1;position:relative;overflow:hidden;background:#0f172a}
+svg#diagram{width:100%;height:100%;cursor:grab;display:block}
+svg#diagram.panning{cursor:grabbing}
+#zoom-btns{position:absolute;bottom:10px;right:10px;display:flex;flex-direction:column;gap:3px}
+.zbtn{width:26px;height:26px;background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:4px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;user-select:none}
+.zbtn:hover{background:#334155;color:#e2e8f0}
+#legend{position:absolute;top:8px;left:8px;background:#1e293bcc;border:1px solid #334155;border-radius:5px;padding:8px 10px;font-size:10px;backdrop-filter:blur(4px)}
+.li-row{display:flex;align-items:center;gap:6px;margin:2px 0}
+.li-line{height:2px;width:22px;border-radius:1px;flex-shrink:0}
+.li-dashed{background:repeating-linear-gradient(to right,#888 0,#888 4px,transparent 4px,transparent 7px);height:2px;width:22px}
+#detail{width:0;flex-shrink:0;background:#1e293b;border-left:1px solid #334155;padding:0;overflow:hidden;transition:width .2s,padding .2s}
+#detail.open{width:250px;padding:12px;overflow-y:auto}
+#det-close{float:right;cursor:pointer;color:#64748b;font-size:16px;line-height:1}
+#det-close:hover{color:#e2e8f0}
+#det-title{font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:3px;clear:both}
+#det-sub{font-size:11px;color:#64748b;font-family:monospace;margin-bottom:8px;word-break:break-all}
+#det-badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-bottom:9px}
+.ds{margin-bottom:9px}
+.dst{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:3px}
+.dsp{font-size:12px;color:#cbd5e1;line-height:1.55}
+.dsc{font-family:monospace;font-size:11px;background:#0f172a;border:1px solid #334155;border-radius:3px;padding:5px 7px;color:#a5f3fc;display:block;margin-top:3px;word-break:break-all}
+.dsg{background:#431407;border:1px solid #9a3412;border-radius:4px;padding:6px 8px;font-size:11px;color:#fed7aa;line-height:1.45;margin-top:5px}
+#det-comment-btn{width:100%;padding:6px;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:4px;cursor:pointer;font-size:12px;margin-top:8px}
+#det-comment-btn:hover{background:#1e40af}
+.spill{font-size:11px;color:#94a3b8;display:inline-block;margin:2px 2px 0 0;background:#1e293b;border:1px solid #334155;border-radius:3px;padding:1px 5px;font-family:monospace}
+#prompt-bar{background:#1e293b;border-top:1px solid #334155;padding:9px 12px;flex-shrink:0;display:flex;gap:10px;align-items:flex-start;max-height:110px}
+#prompt-text{flex:1;font-size:11px;color:#94a3b8;line-height:1.6;font-family:monospace;overflow-y:auto;max-height:90px}
+#copy-btn{padding:5px 14px;background:#3b82f6;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;flex-shrink:0;white-space:nowrap}
+#copy-btn:hover{background:#2563eb}
+#copy-btn.ok{background:#10b981}
+#modal-bg{display:none;position:fixed;inset:0;background:#00000099;z-index:200;align-items:center;justify-content:center}
+#modal-bg.show{display:flex}
+#modal{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;width:340px}
+#modal h3{font-size:13px;margin-bottom:8px;color:#f1f5f9}
+#modal textarea{width:100%;height:72px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:4px;padding:7px;font-size:12px;resize:vertical;outline:none}
+#modal-btns{display:flex;gap:7px;margin-top:9px;justify-content:flex-end}
+.mbtn{padding:5px 13px;border-radius:4px;cursor:pointer;font-size:12px;border:none}
+.mbtn.save{background:#3b82f6;color:#fff}.mbtn.cancel{background:#334155;color:#94a3b8}
+</style>
+</head>
+<body>
+<header>
+  <h1>Ordelo Delivery Process Explorer</h1>
+  <div id="tabs">
+    <button class="tab active" data-view="overview">Full Overview</button>
+    <button class="tab" data-view="phase1">Phase 1 · Order</button>
+    <button class="tab" data-view="phase2">Phase 2 · Restaurant</button>
+    <button class="tab" data-view="phase3">Phase 3 · Dispatch</button>
+    <button class="tab" data-view="phase4">Phase 4 · Assignment</button>
+    <button class="tab" data-view="phase5">Phase 5 · Inflight</button>
+    <button class="tab" data-view="phase6">Phase 6 · Completion</button>
+    <button class="tab special" data-view="race">⚠ Race Condition</button>
+    <button class="tab special" data-view="cancel">↩ Cancel Flow</button>
+  </div>
+</header>
+<div id="main">
+  <aside id="sidebar">
+    <div>
+      <div class="sec-title">Layers</div>
+      <div id="layer-list"></div>
+    </div>
+    <div>
+      <div class="sec-title">Connection Types</div>
+      <div id="legend-list"></div>
+    </div>
+    <div>
+      <div class="sec-title">⚠ Gotchas</div>
+      <div id="gotcha-list"></div>
+    </div>
+    <div>
+      <div class="sec-title">Comments (<span id="cm-count">0</span>)</div>
+      <div id="comments-list"><div class="no-cm">Click any node to add a comment.</div></div>
+    </div>
+  </aside>
+  <div id="canvas-wrap">
+    <svg id="diagram" viewBox="0 0 1000 540"><defs id="svg-defs"></defs><g id="svg-root"></g></svg>
+    <div id="zoom-btns">
+      <div class="zbtn" id="zin" title="Zoom in">+</div>
+      <div class="zbtn" id="zreset" title="Reset zoom">⊙</div>
+      <div class="zbtn" id="zout" title="Zoom out">−</div>
+    </div>
+    <div id="legend">
+      <div class="li-row"><div class="li-line" style="background:#60a5fa"></div><span style="color:#94a3b8;font-size:10px">HTTP / webhook</span></div>
+      <div class="li-row"><div class="li-dashed"></div><span style="color:#94a3b8;font-size:10px">pg_cron / async</span></div>
+      <div class="li-row"><div class="li-line" style="background:#ef4444"></div><span style="color:#94a3b8;font-size:10px">DB trigger</span></div>
+      <div class="li-row"><div class="li-line" style="background:#34d399"></div><span style="color:#94a3b8;font-size:10px">WhatsApp</span></div>
+      <div class="li-row"><div class="li-line" style="background:#fb923c"></div><span style="color:#94a3b8;font-size:10px">WA callback</span></div>
+      <div class="li-row"><div class="li-line" style="background:#c084fc"></div><span style="color:#94a3b8;font-size:10px">SQL / RPC</span></div>
+    </div>
+  </div>
+  <aside id="detail">
+    <span id="det-close">✕</span>
+    <div id="det-title">—</div>
+    <div id="det-sub">—</div>
+    <div id="det-badge"></div>
+    <div id="det-body"></div>
+    <button id="det-comment-btn">+ Add Comment</button>
+  </aside>
+</div>
+<div id="prompt-bar">
+  <div id="prompt-text">Select a view or click any node to explore the Ordelo delivery process.</div>
+  <button id="copy-btn">Copy</button>
+</div>
+<div id="modal-bg">
+  <div id="modal">
+    <h3 id="modal-title">Add Comment</h3>
+    <textarea id="modal-ta" placeholder="What do you want to know or note about this component?"></textarea>
+    <div id="modal-btns">
+      <button class="mbtn cancel" id="modal-cancel">Cancel</button>
+      <button class="mbtn save" id="modal-save">Save</button>
+    </div>
+  </div>
+</div>
+<script>
+// ─── Layer definitions ────────────────────────────────────────────────────────
+const L = {
+  external: { label:'External / Frontend', fill:'#1e3a5f', stroke:'#3b82f6', text:'#93c5fd', badge:'#1d4ed8' },
+  api:      { label:'FastAPI Endpoint',    fill:'#3b1f07', stroke:'#f59e0b', text:'#fcd34d', badge:'#b45309' },
+  db:       { label:'Database / Table',    fill:'#3b0764', stroke:'#a855f7', text:'#d8b4fe', badge:'#7e22ce' },
+  cron:     { label:'pg_cron Job',         fill:'#14532d', stroke:'#22c55e', text:'#86efac', badge:'#15803d' },
+  whatsapp: { label:'WhatsApp (WABA)',      fill:'#064e3b', stroke:'#10b981', text:'#6ee7b7', badge:'#047857' },
+  agent:    { label:'LangGraph Agent',     fill:'#0c4a6e', stroke:'#38bdf8', text:'#7dd3fc', badge:'#0369a1' },
+  rider:    { label:'Rider',               fill:'#1a2e05', stroke:'#84cc16', text:'#bef264', badge:'#4d7c0f' },
+  restaurant:{label:'Restaurant Admin',   fill:'#431407', stroke:'#f97316', text:'#fdba74', badge:'#c2410c' },
+};
+
+// ─── Connection type definitions ─────────────────────────────────────────────
+const CT = {
+  trigger:    { color:'#ef4444', dash:'' },
+  webhook:    { color:'#60a5fa', dash:'' },
+  whatsapp:   { color:'#34d399', dash:'' },
+  callback:   { color:'#fb923c', dash:'8,4' },
+  sql:        { color:'#c084fc', dash:'' },
+  cron:       { color:'#94a3b8', dash:'5,4' },
+  background: { color:'#fbbf24', dash:'6,3' },
+  flow:       { color:'#475569', dash:'3,3' },
+};
+
+// ─── View data ────────────────────────────────────────────────────────────────
+const VIEWS = {};
+
+// OVERVIEW ────────────────────────────────────────────────────────────────────
+VIEWS.overview = {
+  title: 'Full Delivery Lifecycle — click any phase to drill in',
+  nodes: [
+    { id:'p1', label:'Phase 1', sub:'Order Creation', x:30,  y:80,  w:270, h:110, layer:'external', phase:'phase1',
+      detail:{ type:'Phase Entry', file:'ordelo_datamodels/jobs_n_functions/init_delivery.sql',
+        desc:'Payment service calls init_delivery() RPC after Stripe success. Creates delivery_summary with status=restaurant_unconfirmed. Fires trigger_restaurant_updates which posts to the restaurant-confirmation webhook.',
+        status:'restaurant_unconfirmed' }},
+    { id:'p2', label:'Phase 2', sub:'Restaurant Confirmation', x:365, y:80,  w:270, h:110, layer:'restaurant', phase:'phase2',
+      detail:{ type:'Restaurant Flow', file:'watomation/routers/delivery_hooks.py',
+        desc:'WhatsApp sends Accept/Decline buttons to restaurant admins. If accepted, admin picks prep time (5/15/25 min). If declined or timed-out, system auto-proceeds. pg_cron process_restaurant_confirmation() runs every 5s for timeout.',
+        status:'unassigned' }},
+    { id:'p3', label:'Phase 3', sub:'Dispatch Creation', x:700, y:80,  w:270, h:110, layer:'cron', phase:'phase3',
+      detail:{ type:'Dispatch Pipeline', file:'ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql',
+        desc:'Two pg_cron jobs run every 5s: process_delivery() creates delivery_detail rows per vehicle type; job_create_dispatch() finds available riders via get_available_riders() and batch-inserts delivery_dispatch rows. DB statement-level trigger fires bulk webhook → WhatsApp to riders.',
+        status:'dispatch created' }},
+    { id:'p4', label:'Phase 4', sub:'Rider Assignment', x:30,  y:320, w:270, h:110, layer:'rider', phase:'phase4',
+      detail:{ type:'Race Resolution', file:'ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql',
+        desc:'Riders tap Accept or Decline via WhatsApp button. job_assign_dispatch() pg_cron runs every 5s and calls assign_accepted_dispatch(), which ranks accepted dispatches by dispatch_id ASC — the earliest dispatch_id (first to accept) wins. Winner gets delivery_inflight row inserted.',
+        status:'assigned', gotcha:'⚠ RACE: Multiple riders can accept simultaneously. Only the one with the LOWEST dispatch_id wins. Other accepted riders never get an explicit "declined" — they get a "missed" notification. Their accepted rows stay as-is until the notify job sets them to "missed".' }},
+    { id:'p5', label:'Phase 5', sub:'Delivery Execution (Inflight)', x:365, y:320, w:270, h:110, layer:'agent', phase:'phase5',
+      detail:{ type:'LangGraph Inflight', file:'ordelo/agents/rider_agent.py',
+        desc:'Row-level trigger fires after delivery_inflight INSERT → POST /delivery-inflight-graph-init. Background tasks: capture Stripe payment, notify restaurant webhook, send admin WhatsApp receipt, init LangGraph rider agent. Agent guides rider: send instructions → start tracking → verify restaurant CC (→ pickedup) → verify customer CC.',
+        status:'assigned → pickedup' }},
+    { id:'p6', label:'Phase 6', sub:'Completion', x:700, y:320, w:270, h:110, layer:'db', phase:'phase6',
+      detail:{ type:'Completion', file:'ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql',
+        desc:'After rider enters customer confirmation code, verify_customer_confirmation_code tool calls dispatch_complete_func() RPC. Updates dispatch, detail, summary all to "completed". Deletes delivery_inflight row. Thread closed via ThreadHandler.',
+        status:'completed' }},
+  ],
+  connections: [
+    { from:'p1', to:'p2', type:'trigger', label:'DB trigger → webhook' },
+    { from:'p2', to:'p3', type:'flow',    label:'status → unassigned' },
+    { from:'p3', to:'p4', type:'whatsapp',label:'Riders notified' },
+    { from:'p4', to:'p5', type:'trigger', label:'inflight INSERT' },
+    { from:'p5', to:'p6', type:'sql',     label:'customer CC verified' },
+    { from:'p4', to:'p2', type:'flow',    label:'cancel → re-dispatch', curved:'up' },
+  ],
+};
+
+// PHASE 1 ─────────────────────────────────────────────────────────────────────
+VIEWS.phase1 = {
+  title: 'Phase 1 — Order Creation: Payment → init_delivery() → delivery_summary',
+  nodes: [
+    { id:'stripe',      label:'Stripe Checkout',          sub:'Manual capture (delivery)',       x:30,  y:80,  w:190, h:50, layer:'external',
+      detail:{ type:'External Service', desc:'Customer completes Stripe checkout. For delivery orders, payment is captured manually later (when rider assigned). For takeaway it auto-captures.', status:'requires_capture (pending)' }},
+    { id:'pc_endpoint', label:'POST /payment-complete',   sub:'payment_hooks.py:96',             x:280, y:80,  w:200, h:50, layer:'api',
+      detail:{ type:'FastAPI Endpoint', file:'watomation/routers/payment_hooks.py:96', desc:'Stripe webhook handler. Extracts order_id from metadata.orderID, updates food_order.payment_status → "requires_capture", then schedules background tasks.', status:'requires_capture' }},
+    { id:'food_order',  label:'food_order updated',       sub:'payment_status=requires_capture', x:545, y:80,  w:210, h:50, layer:'db',
+      detail:{ type:'DB Table', desc:'food_order.payment_status updated from "requires_payment" to "requires_capture". Stripe payment authorized but not yet charged to card.', status:'requires_capture' }},
+    { id:'rest_notif',  label:'Restaurant Notified',      sub:'handle_payment_complete() bg task',x:800, y:80,  w:190, h:50, layer:'api',
+      detail:{ type:'Background Task', file:'watomation/routers/payment_hooks.py', desc:'POSTs food order data to the restaurant\'s order-payment-complete webhook at {restaurant_webhook_url}/order-payment-complete/{recipient}/{thread_id}.' }},
+    { id:'init_del',    label:'init_delivery() RPC',      sub:'init_delivery.sql',               x:280, y:230, w:200, h:50, layer:'db',
+      detail:{ type:'PostgreSQL Function', file:'ordelo_datamodels/jobs_n_functions/init_delivery.sql', desc:'Called via asyncio.to_thread() from the payment webhook. Creates delivery_summary record: copies restaurant/customer details, generates restaurant_code and customer_code (2-digit confirmation codes), sets status=restaurant_unconfirmed.', status:'restaurant_unconfirmed',
+        gotcha:'⚠ BLOCKING: The Supabase REST client is synchronous. Must use asyncio.to_thread() to avoid blocking the event loop — direct await is not safe.' }},
+    { id:'del_summary', label:'delivery_summary created', sub:'status=restaurant_unconfirmed',   x:545, y:230, w:210, h:50, layer:'db',
+      detail:{ type:'DB Table', desc:'Master order record. Contains restaurant/customer details, confirmation codes, pickup_time, and status. This row drives the entire delivery lifecycle.', status:'restaurant_unconfirmed' }},
+    { id:'trig_rest',   label:'trigger_restaurant_updates',sub:'AFTER INSERT or UPDATE',         x:800, y:230, w:190, h:50, layer:'db',
+      detail:{ type:'DB Trigger', file:'ordelo_datamodels/summary.sql', desc:'Fires AFTER INSERT or UPDATE of restaurant_confirmation_status. Condition: status IN (restaurant_unconfirmed, restaurant_accept, restaurant_decline, restaurant_timedout). Calls restaurant_updates_whook() which POSTs to /delivery-hooks/restaurant-confirmation-request.' }},
+  ],
+  connections: [
+    { from:'stripe',      to:'pc_endpoint', type:'webhook',    label:'Stripe webhook POST' },
+    { from:'pc_endpoint', to:'food_order',  type:'sql',        label:'UPDATE payment_status' },
+    { from:'pc_endpoint', to:'rest_notif',  type:'background', label:'bg task' },
+    { from:'pc_endpoint', to:'init_del',    type:'background', label:'asyncio.to_thread()' },
+    { from:'init_del',    to:'del_summary', type:'sql',        label:'INSERT' },
+    { from:'del_summary', to:'trig_rest',   type:'trigger',    label:'fires trigger' },
+  ],
+};
+
+// PHASE 2 ─────────────────────────────────────────────────────────────────────
+VIEWS.phase2 = {
+  title: 'Phase 2 — Restaurant Confirmation: 3 paths → delivery_summary.status = unassigned',
+  nodes: [
+    { id:'trig_r2',   label:'trigger_restaurant_updates',  sub:'delivery_summary INSERT/UPDATE',x:30,  y:110, w:195, h:50, layer:'db',
+      detail:{ type:'DB Trigger', desc:'Fires on INSERT or on UPDATE of restaurant_confirmation_status. Routes to webhook based on NEW.restaurant_confirmation_status value.' }},
+    { id:'whook_fn',  label:'restaurant_updates_whook()',  sub:'summary.sql',                   x:280, y:110, w:195, h:50, layer:'db',
+      detail:{ type:'PL/pgSQL Function', file:'ordelo_datamodels/summary.sql', desc:'Builds JSON payload with delivery_summary, restaurant_master, food_order, and order_items. POSTs to /delivery-hooks/restaurant-confirmation-request with trigger_reason field.' }},
+    { id:'confirm_ep',label:'POST /restaurant-confirmation-request',sub:'delivery_hooks.py',    x:535, y:110, w:215, h:50, layer:'api',
+      detail:{ type:'FastAPI Endpoint', file:'watomation/routers/delivery_hooks.py', desc:'Routes on trigger_reason: restaurant_unconfirmed → send Accept/Decline WA buttons. restaurant_accept → send pickup time selection. restaurant_decline → mark unassigned. restaurant_timedout → auto-accept with default prep time.' }},
+    { id:'wa_admin',  label:'WhatsApp → Restaurant Admins',sub:'Accept / Decline buttons',      x:800, y:110, w:185, h:50, layer:'whatsapp',
+      detail:{ type:'WhatsApp Message', desc:'Sends interactive message with two buttons: Accept and Decline. Sent to all configured admin phone numbers for this restaurant. Order details, items, and customer address included.' }},
+    // Accept path
+    { id:'adm_accept',label:'Admin taps Accept',           sub:'/RestaurantOrder-Accept callback',x:800,y:230, w:185, h:50, layer:'restaurant',
+      detail:{ type:'WhatsApp Callback', file:'watomation/on_callback_wa_handler.py', desc:'restaurant_order_accept_decline_handler() updates delivery_summary.restaurant_confirmation_status → "restaurant_accept". Gated: only if currently "restaurant_unconfirmed" to prevent duplicates. This fires trigger_restaurant_updates again.' }},
+    { id:'pickup_wa', label:'WhatsApp: Pickup Time Select',sub:'5 / 15 / 25 min buttons',        x:535, y:230, w:215, h:50, layer:'whatsapp',
+      detail:{ type:'WhatsApp Message', desc:'Three button options: 5 min / 15 min / 25 min. The selected pickup_time is set as an absolute timestamp (now + N minutes) on the delivery_summary row.' }},
+    { id:'pickup_cb', label:'/PickupTime callback',        sub:'status → unassigned',            x:535, y:340, w:215, h:50, layer:'api',
+      detail:{ type:'WA Callback Handler', file:'watomation/on_callback_wa_handler.py', desc:'handle_pickup_time_selection() sets delivery_summary.pickup_time, status → "unassigned", restaurant_admin, restaurant_update_dtts. Gated by restaurant_confirmation_status = "restaurant_accept".' }},
+    // Decline path
+    { id:'adm_decline',label:'Admin taps Decline',         sub:'/RestaurantOrder-Decline',       x:800, y:340, w:185, h:50, layer:'restaurant',
+      detail:{ type:'WhatsApp Callback', file:'watomation/on_callback_wa_handler.py', desc:'restaurant_order_accept_decline_handler() sets restaurant_confirmation_status → "restaurant_decline". Webhook handler for restaurant_decline updates delivery_summary.status → "unassigned" and proceeds to dispatch without waiting for pickup time.' }},
+    // Timeout path
+    { id:'pg_timeout',label:'process_restaurant_confirmation()',sub:'pg_cron every 5s',          x:30,  y:340, w:195, h:50, layer:'cron',
+      detail:{ type:'pg_cron Job', file:'ordelo_datamodels/jobs_n_functions/process_restaurant_confirmation.sql', desc:'Finds orders with restaurant_confirmation_status IN (restaurant_unconfirmed, restaurant_accept) AND pickup_time IS NULL. Checks if time since dtts exceeds timeout. Updates restaurant_confirmation_status → "restaurant_timedout".',
+        gotcha:'⚠ Config resolution: {rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME (restaurant-specific) → RESTAURANT_CONFIRMATION_TIMEOUT_TIME (global default: 5 min)' }},
+    { id:'auto_accept',label:'Auto-accept with default time',sub:'restaurant_timedout handler',  x:280, y:340, w:195, h:50, layer:'api',
+      detail:{ type:'Webhook Handler', file:'watomation/routers/delivery_hooks.py', desc:'_handle_restaurant_timedout() in delivery_hooks.py. Sets delivery_summary.status → "unassigned" with a default pickup time (DELIVERY_PICKUP_DEFAULT_TIME config, default 30 min from order time).' }},
+    // Final convergence
+    { id:'unassigned', label:'delivery_summary: unassigned', sub:'→ Phase 3 begins',            x:535, y:450, w:215, h:50, layer:'db',
+      detail:{ type:'Status Transition', desc:'All three paths converge here. process_delivery() pg_cron detects unassigned orders every 5s and creates delivery_detail records to begin dispatch.', status:'unassigned' }},
+  ],
+  connections: [
+    { from:'trig_r2',   to:'whook_fn',   type:'trigger',    label:'calls function' },
+    { from:'whook_fn',  to:'confirm_ep', type:'webhook',    label:'POST' },
+    { from:'confirm_ep',to:'wa_admin',   type:'whatsapp',   label:'send buttons' },
+    { from:'wa_admin',  to:'adm_accept', type:'callback',   label:'Accept tap' },
+    { from:'wa_admin',  to:'adm_decline',type:'callback',   label:'Decline tap' },
+    { from:'adm_accept',to:'pickup_wa',  type:'trigger',    label:'triggers again → restaurant_accept' },
+    { from:'pickup_wa', to:'pickup_cb',  type:'callback',   label:'time tap' },
+    { from:'pickup_cb', to:'unassigned', type:'sql',        label:'status → unassigned' },
+    { from:'adm_decline',to:'unassigned',type:'sql',        label:'status → unassigned' },
+    { from:'pg_timeout',to:'auto_accept',type:'cron',       label:'timedout → webhook' },
+    { from:'auto_accept',to:'unassigned',type:'sql',        label:'auto-accept → unassigned' },
+  ],
+};
+
+// PHASE 3 ─────────────────────────────────────────────────────────────────────
+VIEWS.phase3 = {
+  title: 'Phase 3 — Dispatch Creation: unassigned → pg_cron pipeline → WhatsApp to riders',
+  nodes: [
+    { id:'ds_unasgn',  label:'delivery_summary: unassigned',sub:'ready for dispatch',            x:30,  y:100, w:200, h:50, layer:'db',
+      detail:{ type:'Status', desc:'Entry point for Phase 3. process_delivery() pg_cron polls for unassigned orders every 5 seconds.' }},
+    { id:'proc_del',   label:'process_delivery()',           sub:'pg_cron every 5s — manage_delivery_detail',x:290,y:100,w:210,h:50, layer:'cron',
+      detail:{ type:'pg_cron Job', file:'ordelo_datamodels/jobs_n_functions/process_delivery.sql', desc:'For each unassigned delivery_summary: determines next vehicle type by rank from delivery_option table, inserts delivery_detail if not exists. If all vehicle types timed out and grace period elapsed → marks delivery_summary.status = "timedout".',
+        gotcha:'⚠ Config resolution for timeout: 1) {rest_ref}_DELIVERY_TIMEOUT_TIME (restaurant-specific), 2) DELIVERY_TIMEOUT_TIME (global), 3) hardcoded 10 min default.' }},
+    { id:'del_detail', label:'delivery_detail created',      sub:'status=unassigned, vehicle_type', x:560,y:100, w:200, h:50, layer:'db',
+      detail:{ type:'DB Table', desc:'One row per vehicle type attempt. Tracks which vehicle type is being tried. status: unassigned → assigned → completed. If no riders found: vehicle_type_timedout and process_delivery() tries next vehicle type.' }},
+    { id:'j_create',   label:'job_create_dispatch()',         sub:'pg_cron every 5s',              x:560, y:220, w:200, h:50, layer:'cron',
+      detail:{ type:'pg_cron Job', file:'ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql', desc:'For each unassigned delivery_detail: calls get_available_riders() then batch-inserts into delivery_dispatch. Batch size controlled by DISPATCH_BATCH_SIZE_{VEHICLE_TYPE} config (e.g. DISPATCH_BATCH_SIZE_BICYCLE).' }},
+    { id:'avail_riders',label:'get_available_riders()',       sub:'excludes inflight + already dispatched', x:560,y:340,w:200,h:50, layer:'db',
+      detail:{ type:'SQL Helper', file:'ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql', desc:'Returns riders in the right town with matching vehicle_type. Excludes: riders already with a delivery_dispatch row for this order (any status); riders currently in delivery_inflight. Ordered by priority.',
+        gotcha:'⚠ NO RE-OFFERS: Any rider who was already dispatched (even if timedout) is permanently excluded from this order. Prevents infinite re-dispatch on every 5s cron tick.' }},
+    { id:'dd_rows',    label:'delivery_dispatch rows',        sub:'status=unassigned (batch insert)',x:290, y:340, w:200, h:50, layer:'db',
+      detail:{ type:'DB Table', desc:'One row per rider offer. Fields: dispatch_id (serial), order_number, rider_id, rider_payout, vehicle_type, distance, status. Initial status: unassigned. The statement-level trigger fires once for the entire batch insert.' }},
+    { id:'stmt_trig',  label:'trigger_delivery_dispatch_whook',sub:'AFTER INSERT (statement-level)',x:30,  y:340, w:200, h:50, layer:'db',
+      detail:{ type:'DB Trigger', file:'ordelo_datamodels/dispatch.sql', desc:'Uses REFERENCING NEW TABLE AS new_rows for statement-level batching. Calls delivery_dispatch_whook_statement() which joins new rows to detail/summary and builds a bulk JSON payload. One HTTP POST for the whole batch — not one per rider.',
+        gotcha:'⚠ STATEMENT-LEVEL: This fires ONCE per INSERT statement regardless of how many rows were inserted. This is intentional batching to avoid N webhook calls for N riders.' }},
+    { id:'dispatch_ep',label:'POST /delivery-dispatch',       sub:'delivery_hooks.py',             x:30,  y:220, w:200, h:50, layer:'api',
+      detail:{ type:'FastAPI Endpoint', file:'watomation/routers/delivery_hooks.py', desc:'Receives bulk_dispatch list. Schedules one background task per rider: wa_send_delivery_dispatch_request_to_rider(). Returns immediately with {status: success}.',
+        gotcha:'⚠ OVERWATCH: If the customer is in the overwatch_list (test accounts), dispatch messages are ONLY sent to the rider whose rider_id matches the customer_id. All other riders silently skipped.' }},
+    { id:'wa_riders',  label:'WhatsApp → Each Rider',         sub:'Accept/Decline + order details', x:30, y:460, w:200, h:50, layer:'whatsapp',
+      detail:{ type:'WhatsApp Message', desc:'Interactive message per rider: order details, payout amount, distance, vehicle type, pickup time. Two buttons: Accept (/dispatchResponse status=accepted) and Decline (/dispatchResponse status=declined). Rider has ~30s before dispatch times out.' }},
+  ],
+  connections: [
+    { from:'ds_unasgn',  to:'proc_del',    type:'cron',      label:'polls every 5s' },
+    { from:'proc_del',   to:'del_detail',  type:'sql',       label:'INSERT if needed' },
+    { from:'del_detail', to:'j_create',    type:'cron',      label:'polls every 5s' },
+    { from:'j_create',   to:'avail_riders',type:'sql',       label:'call helper' },
+    { from:'avail_riders',to:'dd_rows',    type:'sql',       label:'batch INSERT' },
+    { from:'dd_rows',    to:'stmt_trig',   type:'trigger',   label:'fires trigger' },
+    { from:'stmt_trig',  to:'dispatch_ep', type:'webhook',   label:'POST bulk payload' },
+    { from:'dispatch_ep',to:'wa_riders',   type:'whatsapp',  label:'bg task per rider' },
+  ],
+};
+
+// PHASE 4 ─────────────────────────────────────────────────────────────────────
+VIEWS.phase4 = {
+  title: 'Phase 4 — Rider Assignment: Accept race → assign_accepted_dispatch() → delivery_inflight',
+  nodes: [
+    { id:'riders_wa',  label:'Riders Receive Dispatch',      sub:'WhatsApp Accept/Decline buttons',x:30,  y:80,  w:190, h:50, layer:'rider',
+      detail:{ type:'WhatsApp Message', desc:'Each rider in the dispatch batch receives an offer. Multiple riders may tap Accept within the same ~5s cron window, creating a race.' }},
+    { id:'r_accept',   label:'Rider taps Accept',            sub:'/dispatchResponse callback',    x:30,  y:200, w:190, h:50, layer:'rider',
+      detail:{ type:'WA Callback', desc:'Rider taps Accept button. Callback data contains dispatch_id, order_number, status=accepted, plus rider_id set from msg.sender.' }},
+    { id:'r_decline',  label:'Rider taps Decline',           sub:'/dispatchResponse callback',    x:30,  y:370, w:190, h:50, layer:'rider',
+      detail:{ type:'WA Callback', desc:'Rider taps Decline. delivery_dispatch.status → "declined". Rider gets confirmation message. These riders are permanently excluded from this order by get_available_riders().' }},
+    { id:'dr_handler', label:'dispatch_response()',          sub:'on_callback_wa_handler.py',     x:280, y:280, w:195, h:50, layer:'api',
+      detail:{ type:'Callback Handler', file:'watomation/on_callback_wa_handler.py', desc:'1) Validates order still exists in delivery_summary. 2) Checks delivery_inflight for same order_number — if already inflight by same rider: "already on job"; if by different rider: "job taken". 3) Delegates to initial_handle_of_rider_response().' }},
+    { id:'inflight_check',label:'Check delivery_inflight',  sub:'race guard',                    x:280, y:170, w:195, h:50, layer:'db',
+      detail:{ type:'Guard Check', desc:'If delivery_inflight already has a row for this order_number, the acceptance is rejected immediately. This is a fast-path guard before the pg_cron job runs.',
+        gotcha:'⚠ WINDOW: Between this check and job_assign_dispatch() running, another rider could also pass the check and get status=accepted. The race is resolved by dispatch_id rank in job_assign_dispatch.' }},
+    { id:'dd_accepted',label:'delivery_dispatch.status=accepted',sub:'if order still unassigned', x:540, y:200, w:215, h:50, layer:'db',
+      detail:{ type:'DB Update', desc:'Only updates to "accepted" if delivery_summary.status == "unassigned". If order is completed or timedout, rider gets "no longer available" message and no accept is recorded.' }},
+    { id:'dd_declined',label:'delivery_dispatch.status=declined',sub:'',                          x:540, y:370, w:215, h:50, layer:'db',
+      detail:{ type:'DB Update', desc:'Sets delivery_dispatch.status → "declined". These riders will not receive future dispatch offers for this order (get_available_riders excludes any existing dispatch row).' }},
+    { id:'j_assign',   label:'job_assign_dispatch()',        sub:'pg_cron every 5s — assign_delivery_for_accepted_jobs',x:540,y:80,w:215,h:50,layer:'cron',
+      detail:{ type:'pg_cron Job', file:'ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql', desc:'For each delivery_detail with status IN (unassigned, vehicle_type_timedout): calls assign_accepted_dispatch(order_number).' }},
+    { id:'assign_fn',  label:'assign_accepted_dispatch()',   sub:'RANK by dispatch_id ASC → winner',x:800,y:140,w:185,h:60, layer:'db',
+      detail:{ type:'SQL Function (RACE RESOLUTION)', file:'ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql:56',
+        desc:'CTE finds accepted dispatches for the order, excluding riders already in delivery_inflight. Ranks by dispatch_id ASC — lowest dispatch_id = earliest Accept tap = WINNER. WHERE dispatch_rank=1 picks exactly one.',
+        gotcha:'⚠ THE RACE IS HERE: rank() OVER(PARTITION BY order_number ORDER BY dispatch_id ASC). Lowest dispatch_id wins. Losers are left with status=accepted until notify_missed_dispatches() updates them to "missed".' }},
+    { id:'winner_set', label:'Winner assigned',              sub:'dispatch=assigned, detail=assigned, summary=assigned',x:800,y:280,w:185,h:60, layer:'db',
+      detail:{ type:'DB Updates (atomic)', desc:'In one transaction: delivery_dispatch.status → "assigned"; delivery_detail.status → "assigned" + dispatch_id/rider_id; delivery_summary.status → "assigned".' }},
+    { id:'inflight_ins',label:'delivery_inflight INSERT',   sub:'row-level trigger fires next',  x:800, y:420, w:185, h:50, layer:'db',
+      detail:{ type:'DB Table', desc:'Row inserted for the winning dispatch. This INSERT fires trigger_delivery_inflight_whook (row-level), which posts to /delivery-inflight-graph-init to start Phase 5.' }},
+  ],
+  connections: [
+    { from:'riders_wa',    to:'r_accept',    type:'callback',  label:'Accept tap' },
+    { from:'riders_wa',    to:'r_decline',   type:'callback',  label:'Decline tap' },
+    { from:'r_accept',     to:'dr_handler',  type:'callback',  label:'routes to handler' },
+    { from:'r_decline',    to:'dr_handler',  type:'callback',  label:'routes to handler' },
+    { from:'dr_handler',   to:'inflight_check',type:'sql',     label:'check first' },
+    { from:'inflight_check',to:'dd_accepted',type:'sql',       label:'clear → accept' },
+    { from:'dr_handler',   to:'dd_declined', type:'sql',       label:'decline' },
+    { from:'dd_accepted',  to:'j_assign',    type:'cron',      label:'polls every 5s' },
+    { from:'j_assign',     to:'assign_fn',   type:'sql',       label:'call assign fn' },
+    { from:'assign_fn',    to:'winner_set',  type:'sql',       label:'rank=1 → update' },
+    { from:'winner_set',   to:'inflight_ins',type:'sql',       label:'INSERT inflight' },
+  ],
+};
+
+// PHASE 5 ─────────────────────────────────────────────────────────────────────
+VIEWS.phase5 = {
+  title: 'Phase 5 — Delivery Execution: inflight trigger → LangGraph agent → restaurant CC → customer CC',
+  nodes: [
+    { id:'inflight_row',label:'delivery_inflight INSERT',   sub:'row-level AFTER INSERT trigger', x:30, y:80,  w:195, h:50, layer:'db',
+      detail:{ type:'DB Insert', desc:'Row inserted by assign_accepted_dispatch(). Contains dispatch_id, order_number, rider_id, customer_id.' }},
+    { id:'trig_inflight',label:'trigger_delivery_inflight_whook',sub:'delivery_inflight_whook()', x:285,y:80,  w:195, h:50, layer:'db',
+      detail:{ type:'DB Trigger', file:'ordelo_datamodels/inflight.sql', desc:'Row-level AFTER INSERT. Calls delivery_inflight_whook() which: 1) POSTs to /delivery-inflight-graph-init with delivery_inflight, delivery_summary, rider_master payload. 2) Calls notify_missed_dispatches() for other accepted riders.' }},
+    { id:'graph_ep',  label:'POST /delivery-inflight-graph-init',sub:'delivery_hooks.py',        x:540, y:80,  w:215, h:50, layer:'api',
+      detail:{ type:'FastAPI Endpoint', file:'watomation/routers/delivery_hooks.py', desc:'delivery_inflight_graph_init_hook(). Returns immediately; all work done via background tasks.' }},
+    { id:'cap_pay',   label:'capture_payment()',             sub:'Stripe charge captured',        x:800, y:40,  w:175, h:45, layer:'external',
+      detail:{ type:'Background Task', desc:'Captures the previously authorized Stripe payment. Only runs for delivery orders (manual capture mode). For takeaway, payment was already captured at order time.' }},
+    { id:'rest_webhook',label:'post_rider_event_inflight()',  sub:'Restaurant webhook',           x:800, y:105, w:175, h:45, layer:'api',
+      detail:{ type:'Background Task', desc:'Notifies restaurant\'s own webhook system that a rider has been assigned and is on their way. POSTs to restaurant\'s configured webhook URL.' }},
+    { id:'admin_rcpt',label:'admin_order_reciept()',         sub:'Admin WhatsApp + "Ready" button',x:800,y:170, w:175, h:45, layer:'whatsapp',
+      detail:{ type:'Background Task', desc:'Sends admin a WhatsApp message with order receipt. Includes a "Ready — Notify Rider" button (/AdminCollectionReady callback) that admin can tap when food is ready, triggering notify_food_ready_for_pickup tool in the rider agent.' }},
+    { id:'notify_missed',label:'notify_missed_dispatches()', sub:'other accepted riders',        x:285, y:220, w:195, h:50, layer:'whatsapp',
+      detail:{ type:'DB Function', file:'ordelo_datamodels/inflight.sql', desc:'Called from delivery_inflight_whook(). Finds other delivery_dispatch rows with status=accepted for this order. POSTs to /delivery-hooks/notify-missed-dispatches. Handler sends "job taken" WhatsApp and sets their status → "missed".',
+        gotcha:'⚠ TIMING: Missed riders only get notified AFTER the inflight row is inserted, not when they accepted. They may wait several seconds not knowing they lost the race.' }},
+    { id:'init_graph',label:'init_ordelo_graph()',           sub:'agent_runner.py',               x:540, y:220, w:215, h:50, layer:'agent',
+      detail:{ type:'Background Task', file:'ordelo/agents/agent_runner.py', desc:'1) Creates ContextSchema with async pool, WA client, recipient, Supabase client. 2) Compiles LangGraph with AsyncPostgresSaver checkpointer. 3) Looks up/creates rider thread via ThreadHandler. 4) Generates OwnTracks URL. 5) Seeds state (dispatch_id, order_number, rider_name, etc.). 6) Invokes graph with "Rider accepted" seed messages.' }},
+    { id:'agent_instruct',label:'Tool: send_delivery_instructions',sub:'pickup + dropoff + tracking URL',x:540,y:340,w:215,h:50, layer:'agent',
+      detail:{ type:'LangGraph Tool', file:'ordelo/agents/rider_agent.py', desc:'Sends pickup address (restaurant) and dropoff address (customer) to the rider. Sets reply_to_msg_id in state. Also sends the OwnTracks live tracking start URL.' }},
+    { id:'agent_track',label:'Tool: send_start_live_tracking_link',sub:'OwnTracks button URL',  x:540, y:430, w:215, h:50, layer:'agent',
+      detail:{ type:'LangGraph Tool', file:'ordelo/agents/rider_agent.py', desc:'Sends a WhatsApp button-URL message. Rider taps to configure OwnTracks app to start reporting GPS location. Location data flows to /location-hooks/rider-location.' }},
+    { id:'agent_rest_cc',label:'Tool: verify_restaurant_confirmation_code',sub:'dispatch → pickedup',x:540,y:510,w:215,h:50, layer:'agent',
+      detail:{ type:'LangGraph Tool', file:'ordelo/agents/rider_agent.py', desc:'Rider provides 2-digit code from restaurant screen. On match: delivery_dispatch.status → "pickedup", is_restaurant_confirmation_code_verified → True, calls post_rider_event_restaurant_cc to notify customer food is picked up. Continues to customer CC.',
+        gotcha:'⚠ CANCEL GATE: Pre-pickup cancellation (cancel_delivery_before_pickup) is only allowed when dispatch.status = "assigned". Once this tool runs and status = "pickedup", cancellation is rejected.' }},
+  ],
+  connections: [
+    { from:'inflight_row',  to:'trig_inflight', type:'trigger',    label:'row-level trigger' },
+    { from:'trig_inflight', to:'graph_ep',       type:'webhook',    label:'POST' },
+    { from:'trig_inflight', to:'notify_missed',  type:'sql',        label:'calls fn' },
+    { from:'graph_ep',      to:'cap_pay',        type:'background', label:'bg task' },
+    { from:'graph_ep',      to:'rest_webhook',   type:'background', label:'bg task' },
+    { from:'graph_ep',      to:'admin_rcpt',     type:'background', label:'bg task' },
+    { from:'graph_ep',      to:'init_graph',     type:'background', label:'bg task' },
+    { from:'init_graph',    to:'agent_instruct', type:'flow',       label:'LLM invokes tool' },
+    { from:'agent_instruct',to:'agent_track',    type:'flow',       label:'then tracking' },
+    { from:'agent_track',   to:'agent_rest_cc',  type:'flow',       label:'rider at restaurant' },
+  ],
+};
+
+// PHASE 6 ─────────────────────────────────────────────────────────────────────
+VIEWS.phase6 = {
+  title: 'Phase 6 — Completion: customer CC → dispatch_complete_func() → all statuses = completed',
+  nodes: [
+    { id:'rest_cc_done',label:'Restaurant CC verified',      sub:'dispatch.status = pickedup',    x:30,  y:80,  w:195, h:50, layer:'agent',
+      detail:{ type:'Agent State', desc:'verify_restaurant_confirmation_code succeeded. is_restaurant_confirmation_code_verified = True. Customer has been notified food is picked up. Agent waits for rider to reach customer.' }},
+    { id:'cust_notif', label:'Customer notified: food picked up',sub:'post_rider_event_restaurant_cc',x:285,y:80,w:200,h:50, layer:'whatsapp',
+      detail:{ type:'Event', desc:'After restaurant CC verified, post_rider_event_restaurant_cc notifies the customer that their food has been picked up and is on the way.' }},
+    { id:'cust_cc',    label:'Tool: verify_customer_confirmation_code',sub:'2-digit code from customer',x:30,y:220,w:195,h:60, layer:'agent',
+      detail:{ type:'LangGraph Tool', file:'ordelo/agents/rider_agent.py', desc:'Rider provides 2-digit code shown on customer\'s screen/app. On match: calls dispatch_complete_func() RPC, notifies customer and restaurant admins of completion, calls ThreadHandler.make_threads_inactive(). Sets is_customer_confirmation_code_verified = True.' }},
+    { id:'dc_func',    label:'dispatch_complete_func()',      sub:'dispatch_complete_func.sql',    x:285, y:220, w:200, h:60, layer:'db',
+      detail:{ type:'PostgreSQL RPC', file:'ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql', desc:'Called with p_dispatch_id. In sequence: 1) delivery_dispatch.status → "completed", 2) delivery_detail.status → "completed", 3) delivery_summary.status → "completed", 4) DELETE from delivery_inflight.' }},
+    { id:'all_done',   label:'All statuses → completed',      sub:'dispatch + detail + summary',   x:540, y:220, w:200, h:60, layer:'db',
+      detail:{ type:'Final State', desc:'delivery_dispatch.status = "completed"\ndelivery_detail.status = "completed"\ndelivery_summary.status = "completed"\ndelivery_inflight: row deleted', status:'completed' }},
+    { id:'inflight_del',label:'delivery_inflight deleted',    sub:'rider is free for new jobs',    x:800, y:220, w:175, h:60, layer:'db',
+      detail:{ type:'Cleanup', desc:'DELETE FROM delivery_inflight WHERE dispatch_id = p_dispatch_id. This frees the rider — get_available_riders() excludes riders currently in delivery_inflight.' }},
+    { id:'thread_close',label:'Thread closed',                sub:'ThreadHandler.make_threads_inactive()',x:800,y:80,w:175,h:60, layer:'agent',
+      detail:{ type:'Thread Lifecycle', desc:'make_threads_inactive() marks the rider\'s LangGraph thread inactive. Agent sends stop-tracking button-URL via terminate_delivery_job tool so rider can stop OwnTracks reporting.' }},
+    // Cancel before pickup path
+    { id:'can_sep', label:'─── Cancel before pickup path ───', sub:'if rider cannot complete pickup',x:30,y:380,w:970,h:2,layer:'db',
+      isLine: true },
+    { id:'rider_cancel',label:'Rider cancels before pickup',  sub:'cancel_delivery_before_pickup tool',x:30,y:420,w:195,h:50, layer:'rider',
+      detail:{ type:'Pre-pickup Cancellation', file:'ordelo/agents/rider_agent.py', desc:'Only allowed when dispatch.status = "assigned" (before restaurant CC). Calls Supabase RPC dispatch_cancel_before_pickup(). Sets awaiting_cancel_reason = True in agent state, asks rider for reason.',
+        gotcha:'⚠ CANNOT CANCEL after restaurant CC: Once dispatch.status = "pickedup", the RPC rejects the cancellation. Rider must complete the delivery.' }},
+    { id:'cancel_rpc', label:'dispatch_cancel_before_pickup()',sub:'dispatch_cancel_before_pickup.sql',x:285,y:420,w:200,h:50, layer:'db',
+      detail:{ type:'PostgreSQL RPC', file:'ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql', desc:'Guard: dispatch must exist AND status = "assigned". Sets delivery_dispatch.status → "declined". Deletes delivery_inflight row. Reverts delivery_detail.status → "unassigned", clears dispatch_id/rider_id. Reverts delivery_summary.status → "unassigned".' }},
+    { id:'cancel_reverts',label:'All statuses reverted',      sub:'dispatch=declined, summary=unassigned',x:540,y:420,w:200,h:50,layer:'db',
+      detail:{ type:'Status Revert', desc:'dispatch → "declined"\ndetail → "unassigned" (dispatch_id/rider_id cleared)\nsummary → "unassigned"\ninflight → deleted\n\nThe cancelled rider\'s dispatch row exists with status="declined", permanently excluding them from future dispatch batches for this order.' }},
+    { id:'re_dispatch', label:'Order re-enters dispatch',     sub:'process_delivery() picks up in 5s', x:800,y:420,w:175,h:50, layer:'cron',
+      detail:{ type:'Re-dispatch', desc:'delivery_summary.status = "unassigned" → process_delivery() pg_cron detects it in ≤5s and ensures delivery_detail exists → job_create_dispatch() sends new offers to available riders (excluding the cancelled rider).' }},
+  ],
+  connections: [
+    { from:'rest_cc_done', to:'cust_notif',   type:'whatsapp',  label:'notify customer' },
+    { from:'rest_cc_done', to:'cust_cc',       type:'flow',      label:'rider delivers' },
+    { from:'cust_cc',      to:'dc_func',       type:'sql',       label:'calls RPC' },
+    { from:'dc_func',      to:'all_done',      type:'sql',       label:'updates all' },
+    { from:'all_done',     to:'inflight_del',  type:'sql',       label:'DELETE inflight' },
+    { from:'cust_cc',      to:'thread_close',  type:'flow',      label:'close thread' },
+    { from:'rider_cancel', to:'cancel_rpc',    type:'sql',       label:'calls RPC' },
+    { from:'cancel_rpc',   to:'cancel_reverts',type:'sql',       label:'reverts all' },
+    { from:'cancel_reverts',to:'re_dispatch',  type:'cron',      label:'cron detects in 5s' },
+  ],
+};
+
+// RACE CONDITION view ──────────────────────────────────────────────────────────
+VIEWS.race = {
+  title: '⚠ Race Condition — Multiple Riders Accept: how job_assign_dispatch() picks the winner',
+  nodes: [
+    { id:'offer_sent', label:'Dispatch Offer Sent',          sub:'N riders receive WhatsApp',      x:30,  y:80,  w:185, h:50, layer:'whatsapp',
+      detail:{ type:'Context', desc:'job_create_dispatch() batches multiple riders into one delivery_dispatch INSERT. All receive WhatsApp offers simultaneously.' }},
+    { id:'r1_accept',  label:'Rider A accepts',              sub:'dispatch_id=1001 (first)',        x:30,  y:200, w:185, h:50, layer:'rider',
+      detail:{ type:'Accept Event', desc:'Rider A is the first to tap Accept. delivery_dispatch row with dispatch_id=1001 gets status=accepted.' }},
+    { id:'r2_accept',  label:'Rider B accepts',              sub:'dispatch_id=1002 (second)',       x:30,  y:290, w:185, h:50, layer:'rider',
+      detail:{ type:'Accept Event', desc:'Rider B also taps Accept, slightly later. dispatch_id=1002 gets status=accepted. Both riders now have status=accepted. Neither knows the other accepted.' }},
+    { id:'r3_accept',  label:'Rider C accepts',              sub:'dispatch_id=1003 (third)',        x:30,  y:380, w:185, h:50, layer:'rider',
+      detail:{ type:'Accept Event', desc:'Rider C also taps Accept. dispatch_id=1003 gets status=accepted. Three riders all have accepted status simultaneously.' }},
+    { id:'pg_cron_5s', label:'job_assign_dispatch() fires',  sub:'pg_cron every 5s',               x:280, y:280, w:195, h:50, layer:'cron',
+      detail:{ type:'pg_cron Job', desc:'The scheduler fires. At this point, multiple riders may have status=accepted. This job resolves the race.' }},
+    { id:'rank_cte',   label:'acceptedDispatch CTE',         sub:'RANK() OVER ORDER BY dispatch_id ASC', x:535,y:200,w:215,h:60, layer:'db',
+      detail:{ type:'SQL CTE (THE RACE RESOLUTION)', file:'ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql:64',
+        desc:'rank() OVER(PARTITION BY order_number ORDER BY dispatch_id ASC). Riders already IN delivery_inflight are excluded BEFORE ranking (line 67-69). WHERE dispatch_rank=1 picks exactly ONE winner.',
+        gotcha:'⚠ WINNER = LOWEST dispatch_id = first row inserted = first to have tapped Accept (since dispatch_id is a serial and accept updates happen in order).' }},
+    { id:'winner',     label:'Rider A WINS (dispatch_id=1001)',sub:'delivery_inflight INSERT',     x:800, y:200, w:185, h:60, layer:'rider',
+      detail:{ type:'Outcome', desc:'delivery_dispatch[1001].status → "assigned". delivery_detail.status → "assigned". delivery_summary.status → "assigned". delivery_inflight row inserted for Rider A. Phase 5 begins.' }},
+    { id:'losers',     label:'Riders B & C: "missed"',       sub:'notify_missed_dispatches()',     x:800, y:330, w:185, h:60, layer:'whatsapp',
+      detail:{ type:'Missed Notification', file:'ordelo_datamodels/inflight.sql',
+        desc:'After delivery_inflight INSERT, delivery_inflight_whook() calls notify_missed_dispatches(). Finds all delivery_dispatch rows with status=accepted for this order. POSTs to /notify-missed-dispatches. Handler sends WhatsApp message and sets status → "missed".',
+        gotcha:'⚠ TIMING: Riders B & C remain in status=accepted until the inflight trigger fires and the missed dispatch job runs. No immediate rejection.' }},
+    { id:'no_reentry', label:'B & C excluded from re-offers', sub:'get_available_riders() excludes all dispatch rows',x:800,y:450,w:185,h:50, layer:'db',
+      detail:{ type:'Exclusion Logic', desc:'get_available_riders() excludes any rider who already has a delivery_dispatch row for this order, regardless of status. So Riders B and C will NOT receive future offers for this order even if rider A cancels before pickup.',
+        gotcha:'⚠ Re-offer not enabled: If Rider A cancels before pickup, new riders are dispatched but B & C are still excluded because their dispatch rows (status=missed) still exist.' }},
+  ],
+  connections: [
+    { from:'offer_sent',  to:'r1_accept',   type:'whatsapp',  label:'accept' },
+    { from:'offer_sent',  to:'r2_accept',   type:'whatsapp',  label:'accept' },
+    { from:'offer_sent',  to:'r3_accept',   type:'whatsapp',  label:'accept' },
+    { from:'r1_accept',   to:'pg_cron_5s',  type:'cron',      label:'polls for accepted' },
+    { from:'r2_accept',   to:'pg_cron_5s',  type:'cron',      label:'' },
+    { from:'r3_accept',   to:'pg_cron_5s',  type:'cron',      label:'' },
+    { from:'pg_cron_5s',  to:'rank_cte',    type:'sql',       label:'CTE ranks by dispatch_id' },
+    { from:'rank_cte',    to:'winner',       type:'sql',       label:'rank=1 → assigned' },
+    { from:'rank_cte',    to:'losers',       type:'trigger',   label:'inflight trigger → missed' },
+    { from:'losers',      to:'no_reentry',   type:'sql',       label:'dispatch rows remain' },
+  ],
+};
+
+// CANCEL FLOW view ─────────────────────────────────────────────────────────────
+VIEWS.cancel = {
+  title: '↩ Pre-Pickup Cancellation: rider cancels before restaurant CC → order re-enters dispatch',
+  nodes: [
+    { id:'can_assigned',label:'Rider is assigned + inflight', sub:'dispatch=assigned, agent active', x:30, y:80,  w:195, h:50, layer:'rider',
+      detail:{ type:'State', desc:'Rider has been assigned. delivery_dispatch.status = "assigned". LangGraph agent is active. Rider has received instructions. Food NOT yet picked up (no restaurant CC).' }},
+    { id:'can_signal', label:'Rider signals cannot pickup',   sub:'says so in WhatsApp chat',       x:285, y:80,  w:195, h:50, layer:'rider',
+      detail:{ type:'Trigger', desc:'Rider sends a message like "I can\'t make it" or "cancel job". The LangGraph agent detects intent and calls the cancel_delivery_before_pickup tool.' }},
+    { id:'can_tool',   label:'Tool: cancel_delivery_before_pickup',sub:'rider_agent.py',            x:540, y:80,  w:215, h:50, layer:'agent',
+      detail:{ type:'LangGraph Tool', file:'ordelo/agents/rider_agent.py', desc:'Reads dispatch_id from agent state. Calls Supabase RPC dispatch_cancel_before_pickup(p_dispatch_id). Sets awaiting_cancel_reason = True in state. Agent asks rider for a reason.' }},
+    { id:'can_rpc',    label:'dispatch_cancel_before_pickup() RPC',sub:'Guard: status must = assigned',x:800,y:80,w:185,h:60,layer:'db',
+      detail:{ type:'PostgreSQL RPC', file:'ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql',
+        desc:'Guards: dispatch must exist AND status = "assigned". If status = "pickedup" → REJECT (too late to cancel). On success: delivery_dispatch.status → "declined", status_update_dtts = now(). Deletes delivery_inflight row. Reverts delivery_detail: status → "unassigned", clears dispatch_id/rider_id. Reverts delivery_summary.status → "unassigned".',
+        gotcha:'⚠ POINT OF NO RETURN: Once verify_restaurant_confirmation_code runs and dispatch.status → "pickedup", cancellation via this RPC is REJECTED. The status check is the gate.' }},
+    { id:'can_reason', label:'awaiting_cancel_reason = True',  sub:'agent asks for reason',         x:540, y:230, w:215, h:50, layer:'agent',
+      detail:{ type:'Agent State', desc:'Agent is now waiting for the rider\'s reason. Any message the rider sends in this state is captured as the cancel reason.' }},
+    { id:'can_reply',  label:'Rider replies with reason',      sub:'WhatsApp message',              x:285, y:230, w:195, h:50, layer:'rider',
+      detail:{ type:'Rider Input', desc:'Rider types their reason, e.g. "puncture" or "stuck in traffic". This is NOT processed by the LLM as a normal message.' }},
+    { id:'can_shortcut',label:'agent_node detects awaiting_cancel_reason',sub:'synthesizes terminate tool call',x:285,y:350,w:195,h:60,layer:'agent',
+      detail:{ type:'Agent Logic', file:'ordelo/agents/rider_agent.py', desc:'agent_node checks: if state.awaiting_cancel_reason and the incoming message is a human reply → synthesizes a terminate_delivery_job tool call with reason_for_decline = rider\'s message. Bypasses LLM.',
+        gotcha:'⚠ SHORTCUT: This bypasses the LLM entirely. The rider\'s message IS the reason, routed directly to terminate_delivery_job without LLM inference.' }},
+    { id:'can_terminate',label:'Tool: terminate_delivery_job',  sub:'reason_for_decline persisted',  x:540, y:350, w:215, h:50, layer:'agent',
+      detail:{ type:'LangGraph Tool', file:'ordelo/agents/rider_agent.py', desc:'Persists reason_for_decline on delivery_dispatch.reason_for_decline. Calls ThreadHandler.make_threads_inactive(). Sends stop-tracking button-URL to rider. awaiting_cancel_reason → False.' }},
+    { id:'reverted',   label:'delivery_summary: unassigned',   sub:'dispatch=declined, inflight deleted',x:800,y:280,w:185,h:60,layer:'db',
+      detail:{ type:'Post-Cancel State', desc:'delivery_dispatch.status = "declined" (with reason)\ndelivery_detail.status = "unassigned" (rider cleared)\ndelivery_summary.status = "unassigned"\ndelivery_inflight: deleted\n\nThe cancelled rider\'s dispatch row (status=declined) permanently excludes them from re-dispatch for this order.' }},
+    { id:'redispatch',  label:'Order re-dispatched (≤5s)',      sub:'process_delivery + job_create_dispatch',x:800,y:420,w:185,h:50,layer:'cron',
+      detail:{ type:'Re-dispatch', desc:'pg_cron detects unassigned order. process_delivery() ensures delivery_detail exists. job_create_dispatch() calls get_available_riders() — excluded: original cancelled rider (has dispatch row), any riders who previously accepted/missed. Fresh batch sent to remaining available riders.' }},
+  ],
+  connections: [
+    { from:'can_assigned', to:'can_signal',    type:'flow',      label:'rider messages' },
+    { from:'can_signal',   to:'can_tool',      type:'flow',      label:'agent calls tool' },
+    { from:'can_tool',     to:'can_rpc',       type:'sql',       label:'Supabase RPC' },
+    { from:'can_rpc',      to:'reverted',      type:'sql',       label:'reverts statuses' },
+    { from:'can_tool',     to:'can_reason',    type:'flow',      label:'awaiting_cancel_reason=True' },
+    { from:'can_reason',   to:'can_reply',     type:'whatsapp',  label:'agent asks' },
+    { from:'can_reply',    to:'can_shortcut',  type:'callback',  label:'rider replies' },
+    { from:'can_shortcut', to:'can_terminate', type:'flow',      label:'synthesizes tool call' },
+    { from:'can_terminate',to:'reverted',      type:'sql',       label:'persists reason' },
+    { from:'reverted',     to:'redispatch',    type:'cron',      label:'cron detects in 5s' },
+  ],
+};
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const state = {
+  view: 'overview',
+  zoom: 1,
+  pan: { x: 0, y: 0 },
+  selectedNode: null,
+  commentTarget: null,
+  comments: [],
+  layers: Object.fromEntries(Object.keys(L).map(k => [k, true])),
+};
+
+// ─── SVG helpers ──────────────────────────────────────────────────────────────
+const svg = document.getElementById('diagram');
+const svgRoot = document.getElementById('svg-root');
+const svgDefs = document.getElementById('svg-defs');
+
+function ns(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+
+function setupDefs() {
+  svgDefs.innerHTML = '';
+  Object.entries(CT).forEach(([key, def]) => {
+    const m = ns('marker');
+    m.setAttribute('id', 'arr-' + key);
+    m.setAttribute('markerWidth', '9'); m.setAttribute('markerHeight', '7');
+    m.setAttribute('refX', '8'); m.setAttribute('refY', '3.5');
+    m.setAttribute('orient', 'auto');
+    const p = ns('polygon');
+    p.setAttribute('points', '0 0, 9 3.5, 0 7');
+    p.setAttribute('fill', def.color);
+    m.appendChild(p); svgDefs.appendChild(m);
+  });
+}
+
+function getNodeCenter(n) {
+  return { x: n.x + n.w / 2, y: n.y + n.h / 2 };
+}
+
+function getEdgePoints(fromNode, toNode) {
+  const f = fromNode, t = toNode;
+  const fc = getNodeCenter(f), tc = getNodeCenter(t);
+  const dx = tc.x - fc.x, dy = tc.y - fc.y;
+
+  let sx, sy, ex, ey;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    sx = dx > 0 ? f.x + f.w : f.x;
+    sy = fc.y;
+    ex = dx > 0 ? t.x : t.x + t.w;
+    ey = tc.y;
+  } else {
+    sx = fc.x; sy = dy > 0 ? f.y + f.h : f.y;
+    ex = tc.x; ey = dy > 0 ? t.y : t.y + t.h;
+  }
+  return { sx, sy, ex, ey };
+}
+
+function makeBezier(sx, sy, ex, ey, curved) {
+  const dx = ex - sx, dy = ey - sy;
+  let cx1, cy1, cx2, cy2;
+  if (curved === 'up') {
+    cx1 = sx; cy1 = sy - 80;
+    cx2 = ex; cy2 = ey - 80;
+  } else if (Math.abs(dx) >= Math.abs(dy)) {
+    cx1 = sx + dx * 0.4; cy1 = sy;
+    cx2 = ex - dx * 0.4; cy2 = ey;
+  } else {
+    cx1 = sx; cy1 = sy + dy * 0.4;
+    cx2 = ex; cy2 = ey - dy * 0.4;
+  }
+  return `M ${sx} ${sy} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${ex} ${ey}`;
+}
+
+function renderDiagram() {
+  svgRoot.innerHTML = '';
+  setupDefs();
+
+  const viewData = VIEWS[state.view];
+  if (!viewData) return;
+
+  const nodes = viewData.nodes.filter(n => !n.isLine && state.layers[n.layer]);
+  const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
+
+  // Apply transform
+  svgRoot.setAttribute('transform', `translate(${state.pan.x},${state.pan.y}) scale(${state.zoom})`);
+
+  // Draw connections first
+  (viewData.connections || []).forEach(conn => {
+    const f = nodeMap[conn.from], t = nodeMap[conn.to];
+    if (!f || !t) return;
+    const { sx, sy, ex, ey } = getEdgePoints(f, t);
+    const def = CT[conn.type] || CT.flow;
+
+    // Adjust end point to not overlap arrowhead
+    const dx = ex - sx, dy = ey - sy;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const ex2 = len > 0 ? ex - (dx / len) * 9 : ex;
+    const ey2 = len > 0 ? ey - (dy / len) * 9 : ey;
+
+    const path = ns('path');
+    path.setAttribute('d', makeBezier(sx, sy, ex2, ey2, conn.curved));
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', def.color);
+    path.setAttribute('stroke-width', '1.5');
+    path.setAttribute('opacity', '0.75');
+    if (def.dash) path.setAttribute('stroke-dasharray', def.dash);
+    path.setAttribute('marker-end', `url(#arr-${conn.type})`);
+    svgRoot.appendChild(path);
+
+    // Edge label
+    if (conn.label) {
+      const midx = (sx + ex2) / 2, midy = (sy + ey2) / 2;
+      const label = ns('text');
+      label.setAttribute('x', midx); label.setAttribute('y', midy - 5);
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('font-size', '9');
+      label.setAttribute('fill', def.color);
+      label.setAttribute('opacity', '0.8');
+      label.textContent = conn.label;
+      svgRoot.appendChild(label);
+    }
+  });
+
+  // Draw nodes
+  nodes.forEach(n => {
+    const layer = L[n.layer] || L.db;
+    const hasComment = state.comments.some(c => c.target === n.id);
+    const isSelected = state.selectedNode === n.id;
+    const hasGotcha = n.detail && n.detail.gotcha;
+    const isPhaseNode = n.phase; // overview clickable phase boxes
+
+    const g = ns('g');
+    g.setAttribute('cursor', 'pointer');
+    g.dataset.nodeId = n.id;
+    g.addEventListener('click', () => handleNodeClick(n));
+
+    // Shadow / highlight
+    const rect = ns('rect');
+    rect.setAttribute('x', n.x); rect.setAttribute('y', n.y);
+    rect.setAttribute('width', n.w); rect.setAttribute('height', n.h);
+    rect.setAttribute('rx', '6'); rect.setAttribute('ry', '6');
+    rect.setAttribute('fill', layer.fill);
+    rect.setAttribute('stroke', isSelected ? '#fff' : hasGotcha ? '#f97316' : layer.stroke);
+    rect.setAttribute('stroke-width', isSelected ? '2.5' : hasGotcha ? '2' : '1.5');
+    if (hasComment) rect.setAttribute('stroke-dasharray', '4,2');
+    g.appendChild(rect);
+
+    // Phase indicator line (overview)
+    if (isPhaseNode) {
+      const bar = ns('rect');
+      bar.setAttribute('x', n.x); bar.setAttribute('y', n.y);
+      bar.setAttribute('width', n.w); bar.setAttribute('height', '5');
+      bar.setAttribute('rx', '6'); bar.setAttribute('fill', layer.stroke);
+      bar.setAttribute('opacity', '0.7');
+      g.appendChild(bar);
+    }
+
+    // Label (line 1)
+    const txt1 = ns('text');
+    txt1.setAttribute('x', n.x + n.w / 2);
+    txt1.setAttribute('y', isPhaseNode ? n.y + 38 : n.y + 20);
+    txt1.setAttribute('text-anchor', 'middle');
+    txt1.setAttribute('dominant-baseline', 'middle');
+    txt1.setAttribute('font-size', isPhaseNode ? '15' : '12');
+    txt1.setAttribute('font-weight', '700');
+    txt1.setAttribute('fill', layer.text);
+    txt1.textContent = n.label;
+    g.appendChild(txt1);
+
+    // Sublabel
+    if (n.sub) {
+      const txt2 = ns('text');
+      txt2.setAttribute('x', n.x + n.w / 2);
+      txt2.setAttribute('y', isPhaseNode ? n.y + 62 : n.y + 36);
+      txt2.setAttribute('text-anchor', 'middle');
+      txt2.setAttribute('dominant-baseline', 'middle');
+      txt2.setAttribute('font-size', isPhaseNode ? '11' : '10');
+      txt2.setAttribute('fill', layer.text);
+      txt2.setAttribute('opacity', '0.7');
+      // Wrap long text
+      const words = n.sub.split(' ');
+      if (words.length <= 5 || isPhaseNode) {
+        txt2.textContent = n.sub;
+        g.appendChild(txt2);
+      } else {
+        const half = Math.ceil(words.length / 2);
+        const l1 = words.slice(0, half).join(' ');
+        const l2 = words.slice(half).join(' ');
+        txt2.textContent = l1;
+        g.appendChild(txt2);
+        const txt3 = ns('text');
+        txt3.setAttribute('x', n.x + n.w / 2); txt3.setAttribute('y', n.y + 46);
+        txt3.setAttribute('text-anchor', 'middle'); txt3.setAttribute('dominant-baseline', 'middle');
+        txt3.setAttribute('font-size', '10'); txt3.setAttribute('fill', layer.text); txt3.setAttribute('opacity', '0.7');
+        txt3.textContent = l2;
+        g.appendChild(txt3);
+      }
+    }
+
+    // Status for overview phase boxes
+    if (isPhaseNode && n.detail && n.detail.status) {
+      const pill = ns('rect');
+      pill.setAttribute('x', n.x + 10); pill.setAttribute('y', n.y + 80);
+      pill.setAttribute('width', n.w - 20); pill.setAttribute('height', 18);
+      pill.setAttribute('rx', '9'); pill.setAttribute('fill', layer.badge);
+      pill.setAttribute('opacity', '0.6');
+      g.appendChild(pill);
+      const ptxt = ns('text');
+      ptxt.setAttribute('x', n.x + n.w / 2); ptxt.setAttribute('y', n.y + 90);
+      ptxt.setAttribute('text-anchor', 'middle'); ptxt.setAttribute('dominant-baseline', 'middle');
+      ptxt.setAttribute('font-size', '9'); ptxt.setAttribute('font-weight', '600');
+      ptxt.setAttribute('fill', '#fff'); ptxt.textContent = '→ ' + n.detail.status;
+      g.appendChild(ptxt);
+    }
+
+    // Gotcha badge
+    if (hasGotcha) {
+      const badge = ns('text');
+      badge.setAttribute('x', n.x + n.w - 8); badge.setAttribute('y', n.y + 10);
+      badge.setAttribute('text-anchor', 'end'); badge.setAttribute('font-size', '11');
+      badge.setAttribute('fill', '#fb923c'); badge.textContent = '⚠';
+      g.appendChild(badge);
+    }
+
+    // Comment dot
+    if (hasComment) {
+      const dot = ns('circle');
+      dot.setAttribute('cx', n.x + 8); dot.setAttribute('cy', n.y + 10);
+      dot.setAttribute('r', '4'); dot.setAttribute('fill', '#3b82f6');
+      g.appendChild(dot);
+    }
+
+    svgRoot.appendChild(g);
+  });
+}
+
+// ─── Node click handler ───────────────────────────────────────────────────────
+function handleNodeClick(n) {
+  if (n.phase) { // overview box → switch to phase view
+    switchView(n.phase);
+    return;
+  }
+  state.selectedNode = n.id;
+  showDetail(n);
+  renderDiagram();
+  updatePrompt();
+}
+
+function showDetail(n) {
+  const det = document.getElementById('detail');
+  det.classList.add('open');
+  const layer = L[n.layer] || L.db;
+  document.getElementById('det-title').textContent = n.label;
+  document.getElementById('det-sub').textContent = n.sub || '';
+  const badge = document.getElementById('det-badge');
+  badge.textContent = (n.detail && n.detail.type) || layer.label;
+  badge.style.background = layer.badge;
+  badge.style.color = '#fff';
+
+  let html = '';
+  const d = n.detail || {};
+  if (d.desc) html += `<div class="ds"><div class="dst">Description</div><div class="dsp">${d.desc.replace(/\n/g,'<br>')}</div></div>`;
+  if (d.file) html += `<div class="ds"><div class="dst">Source</div><code class="dsc">${d.file}</code></div>`;
+  if (d.status) html += `<div class="ds"><div class="dst">Status Transition</div><span class="spill">${d.status}</span></div>`;
+  if (d.gotcha) html += `<div class="dsg">⚠ ${d.gotcha.replace(/^⚠\s*/,'')}</div>`;
+  document.getElementById('det-body').innerHTML = html;
+
+  document.getElementById('det-comment-btn').onclick = () => openModal(n);
+}
+
+// ─── Detail panel close ───────────────────────────────────────────────────────
+document.getElementById('det-close').onclick = () => {
+  document.getElementById('detail').classList.remove('open');
+  state.selectedNode = null;
+  renderDiagram();
+};
+
+// ─── View switching ───────────────────────────────────────────────────────────
+function switchView(viewKey) {
+  state.view = viewKey;
+  state.selectedNode = null;
+  state.zoom = 1; state.pan = { x: 0, y: 0 };
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.view === viewKey);
+  });
+  document.getElementById('detail').classList.remove('open');
+  renderDiagram();
+  updatePrompt();
+}
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => switchView(t.dataset.view));
+});
+
+// ─── Layer toggles ────────────────────────────────────────────────────────────
+const layerList = document.getElementById('layer-list');
+Object.entries(L).forEach(([key, def]) => {
+  const row = document.createElement('div');
+  row.className = 'layer-row';
+  row.innerHTML = `<div class="layer-dot" style="background:${def.stroke}"></div><span>${def.label}</span>`;
+  row.addEventListener('click', () => {
+    state.layers[key] = !state.layers[key];
+    row.classList.toggle('off', !state.layers[key]);
+    renderDiagram();
+  });
+  layerList.appendChild(row);
+});
+
+// ─── Legend list ──────────────────────────────────────────────────────────────
+const legendList = document.getElementById('legend-list');
+Object.entries(CT).forEach(([key, def]) => {
+  if (key === 'flow') return;
+  const row = document.createElement('div');
+  row.className = 'layer-row';
+  row.style.pointerEvents = 'none';
+  const dot = document.createElement('div');
+  dot.className = 'layer-dot';
+  dot.style.background = def.color;
+  dot.style.borderRadius = '2px';
+  const label = document.createElement('span');
+  label.textContent = { trigger:'DB trigger', webhook:'HTTP call', whatsapp:'WhatsApp', callback:'WA callback', sql:'SQL/RPC', cron:'pg_cron', background:'Background task' }[key] || key;
+  row.appendChild(dot); row.appendChild(label);
+  legendList.appendChild(row);
+});
+
+// ─── Gotchas ──────────────────────────────────────────────────────────────────
+const gotchas = [
+  { id:'race', title:'Race: dispatch_id wins', desc:'Multiple riders can accept. Lowest dispatch_id = first accepted = winner. Losers stay "accepted" until missed-dispatch job fires.', view:'race' },
+  { id:'block', title:'Sync Supabase client', desc:'Supabase REST client is blocking. Must use asyncio.to_thread() in all async handlers. Direct await causes event loop blocking.', view:'phase1' },
+  { id:'stmt', title:'Statement-level trigger', desc:'delivery_dispatch INSERT trigger is statement-level — fires ONCE for a batch, not per row. Keeps webhooks bounded.', view:'phase3' },
+  { id:'noReoffer', title:'No re-offers to prior riders', desc:'get_available_riders() excludes ANY rider with an existing dispatch row for the order (regardless of status). Prevents infinite re-dispatch on every 5s tick.', view:'phase3' },
+  { id:'cancelGate', title:'Cancel gate: pickedup blocks cancel', desc:'dispatch_cancel_before_pickup() only works when dispatch.status = "assigned". Once "pickedup" (restaurant CC verified), cancellation is rejected.', view:'cancel' },
+  { id:'overwatch', title:'Overwatch customer filtering', desc:'If customer is in overwatch_list, dispatch WhatsApp is ONLY sent to the rider whose rider_id = customer_id. All other riders silently skipped.', view:'phase3' },
+];
+
+const gotchaList = document.getElementById('gotcha-list');
+gotchas.forEach(g => {
+  const el = document.createElement('div');
+  el.className = 'gotcha';
+  el.innerHTML = `<div class="gtitle">${g.title}</div><div class="gdesc">${g.desc}</div>`;
+  el.addEventListener('click', () => {
+    gotchaList.querySelectorAll('.gotcha').forEach(x => x.classList.remove('hl'));
+    el.classList.add('hl');
+    switchView(g.view);
+  });
+  gotchaList.appendChild(el);
+});
+
+// ─── Pan + zoom ───────────────────────────────────────────────────────────────
+let isPanning = false, panStart = { x: 0, y: 0 };
+
+svg.addEventListener('mousedown', e => {
+  if (e.target === svg || e.target === svgRoot || e.target.tagName === 'svg') {
+    isPanning = true;
+    panStart = { x: e.clientX - state.pan.x, y: e.clientY - state.pan.y };
+    svg.classList.add('panning');
+  }
+});
+window.addEventListener('mousemove', e => {
+  if (!isPanning) return;
+  state.pan.x = e.clientX - panStart.x;
+  state.pan.y = e.clientY - panStart.y;
+  svgRoot.setAttribute('transform', `translate(${state.pan.x},${state.pan.y}) scale(${state.zoom})`);
+});
+window.addEventListener('mouseup', () => { isPanning = false; svg.classList.remove('panning'); });
+
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  state.zoom = Math.min(3, Math.max(0.3, state.zoom * delta));
+  svgRoot.setAttribute('transform', `translate(${state.pan.x},${state.pan.y}) scale(${state.zoom})`);
+}, { passive: false });
+
+document.getElementById('zin').onclick = () => { state.zoom = Math.min(3, state.zoom * 1.2); svgRoot.setAttribute('transform', `translate(${state.pan.x},${state.pan.y}) scale(${state.zoom})`); };
+document.getElementById('zout').onclick = () => { state.zoom = Math.max(0.3, state.zoom / 1.2); svgRoot.setAttribute('transform', `translate(${state.pan.x},${state.pan.y}) scale(${state.zoom})`); };
+document.getElementById('zreset').onclick = () => { state.zoom = 1; state.pan = { x: 0, y: 0 }; svgRoot.setAttribute('transform', `translate(0,0) scale(1)`); };
+
+// ─── Comment system ───────────────────────────────────────────────────────────
+function openModal(n) {
+  state.commentTarget = n;
+  document.getElementById('modal-title').textContent = `Comment: ${n.label}`;
+  document.getElementById('modal-ta').value = '';
+  document.getElementById('modal-bg').classList.add('show');
+  document.getElementById('modal-ta').focus();
+}
+
+document.getElementById('modal-cancel').onclick = () => {
+  document.getElementById('modal-bg').classList.remove('show');
+};
+document.getElementById('modal-save').onclick = () => {
+  const text = document.getElementById('modal-ta').value.trim();
+  if (text && state.commentTarget) {
+    state.comments.push({ id: Date.now(), target: state.commentTarget.id, targetLabel: state.commentTarget.label, text });
+    renderComments();
+    renderDiagram();
+    updatePrompt();
+  }
+  document.getElementById('modal-bg').classList.remove('show');
+};
+
+function renderComments() {
+  const el = document.getElementById('comments-list');
+  document.getElementById('cm-count').textContent = state.comments.length;
+  if (!state.comments.length) { el.innerHTML = '<div class="no-cm">Click any node to add a comment.</div>'; return; }
+  el.innerHTML = state.comments.map(c => `
+    <div class="cm">
+      <div class="cm-node">${c.targetLabel}</div>
+      <div class="cm-text">${c.text}</div>
+      <span class="cm-del" data-id="${c.id}">✕</span>
+    </div>`).join('');
+  el.querySelectorAll('.cm-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.comments = state.comments.filter(c => c.id !== Number(btn.dataset.id));
+      renderComments(); renderDiagram(); updatePrompt();
+    });
+  });
+}
+
+// ─── Prompt output ────────────────────────────────────────────────────────────
+function updatePrompt() {
+  const vd = VIEWS[state.view];
+  const viewLabel = document.querySelector(`.tab[data-view="${state.view}"]`)?.textContent || state.view;
+  let parts = [`I'm exploring the Ordelo delivery system, currently viewing: ${viewLabel}.`];
+  if (vd) parts.push(`Context: ${vd.title}`);
+
+  if (state.selectedNode) {
+    const allNodes = vd ? vd.nodes : [];
+    const n = allNodes.find(x => x.id === state.selectedNode);
+    if (n) {
+      parts.push(`\nFocused on: ${n.label} (${n.sub || n.detail?.type || ''}).`);
+      if (n.detail?.desc) parts.push(`What it does: ${n.detail.desc.slice(0, 120)}...`);
+      if (n.detail?.gotcha) parts.push(`Known gotcha: ${n.detail.gotcha.replace(/^⚠\s*/,'').slice(0, 100)}`);
+    }
+  }
+
+  if (state.comments.length) {
+    parts.push('\nQuestions / notes on specific components:');
+    state.comments.forEach(c => { parts.push(`\n**${c.targetLabel}**: ${c.text}`); });
+  }
+
+  const hiddenLayers = Object.entries(state.layers).filter(([,v]) => !v).map(([k]) => L[k].label);
+  if (hiddenLayers.length) parts.push(`\n(Hidden layers: ${hiddenLayers.join(', ')})`);
+
+  document.getElementById('prompt-text').textContent = parts.join(' ');
+}
+
+// Copy button
+document.getElementById('copy-btn').onclick = function() {
+  navigator.clipboard.writeText(document.getElementById('prompt-text').textContent);
+  this.textContent = 'Copied!'; this.classList.add('ok');
+  setTimeout(() => { this.textContent = 'Copy'; this.classList.remove('ok'); }, 1500);
+};
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+renderDiagram();
+updatePrompt();
+</script>
+</body>
+</html>
