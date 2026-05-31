@@ -390,3 +390,18 @@ select * from food_order where order_number like 'ELAS-%' and action='takeaway';
 
 
 select 10.55 - (10.55 * 0.04 + .25);
+
+
+SELECT pg_get_functiondef(oid)
+  FROM pg_proc
+  WHERE proname =
+  'delivery_summary_timedout_whook'
+    AND pronamespace = 'public'::regnamespace;
+
+SELECT config_key, config_value FROM
+  ordelo_config
+  WHERE config_key LIKE
+  '%DELIVERY_TIMEOUT_TIME';
+
+
+update ordelo_config set config_value = '' where config_key = 'DELIVERY_TIMEOUT_TIME';

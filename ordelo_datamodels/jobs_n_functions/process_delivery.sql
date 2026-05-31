@@ -134,12 +134,5 @@ BEGIN
 END;
 $$;
 
--- Create a trigger for when the status of delivery_summary changes to 'timedout'
-
-CREATE TRIGGER trigger_delivery_summary_timedout AFTER
-UPDATE ON public.delivery_summary
-FOR EACH ROW WHEN (OLD.status <> 'timedout'
-                   AND NEW.status = 'timedout') EXECUTE FUNCTION public.delivery_summary_timedout_whook();
-
 -- delivery_summary_timedout_whook function
 select * from process_delivery();

@@ -23,6 +23,8 @@ All handlers are defined in `watomation/on_callback_wa_handler.py` and registere
 | `/RestaurantOrder` | `restaurant_order_accept_decline_handler()` | `send_restaurant_order_confirmation()` in `wa_senders.py` | Restaurant Admin |
 | `/PickupTime` | `handle_pickup_time_selection()` | `send_restaurant_pickup_time()` in `wa_senders.py` | Restaurant Admin |
 | `/AdminCollectionReady` | `admin_collection_ready()` | `admin_order_reciept()` in `wa_senders.py` | Restaurant Admin |
+| `/AdminAdjustPickupTime` | `admin_adjust_pickup_time()` | `admin_order_reciept()` in `wa_senders.py` (adjust buttons) | Restaurant Admin |
+| `/AdminTakeawayReady` | `admin_takeaway_ready()` | Takeaway order receipt message | Restaurant Admin |
 
 ---
 
@@ -138,6 +140,42 @@ Behavior:
 2. Invokes `run_rider_agent_w_custom_msg()` with the `rider_id` from callback data and a message instructing the agent to call `notify_food_ready_for_pickup`.
 3. The rider agent notifies the rider to hurry to the restaurant for pickup.
 
+### `admin_adjust_pickup_time` -- Admin Adjusts Pickup Time (Inflight Delivery)
+
+- **Filter:** `IS_ADMIN_ADJUST_PICKUP_TIME` -- `filters.contains("/AdminAdjustPickupTime")`
+- **Callback data fields:** `action`, `order_number`, `pickup_time` (precomputed ISO timestamp for +10 or +20 min)
+- **Source:** Buttons sent by `admin_order_reciept()` in `utils_common/waba_utils/wa_senders.py`, included in the inflight order receipt sent to restaurant admins
+
+Behavior:
+
+1. Parses callback JSON to get `order_number` and `pickup_time`.
+2. Updates `delivery_summary`:
+   - `pickup_time` = new value from callback
+   - `restaurant_confirmation_status` = `'restaurant_pickuptime_adjusted'`
+   - `restaurant_admin` = callback sender
+   - `restaurant_update_dtts` = now (UTC)
+3. Replies to admin with the formatted UK local time.
+4. The DB update fires `trigger_restaurant_updates` → `_handle_restaurant_pickuptime_adjusted()` → rider agent `notify_pickup_time_adjusted` tool. See `docs/pickup_time_logic.md` section C for the full chain.
+
+Only updates pickup time; does **not** change `delivery_summary.status` (the delivery remains inflight).
+
+### `admin_takeaway_ready` -- Admin Marks Takeaway Order as Ready
+
+- **Filter:** `IS_ADMIN_TAKEAWAY_READY` -- `filters.contains("/AdminTakeawayReady")`
+- **Callback data fields:** `action`, `order_number`, `recipient` (customer phone), `rest_ref`
+- **Source:** Takeaway order receipt message sent to restaurant admins
+
+Behavior:
+
+1. Parses callback JSON to extract `order_number`, `recipient`, and `rest_ref` (falling back to the prefix of `order_number` if `rest_ref` is absent).
+2. Derives `order_id` by stripping the restaurant prefix from `order_number` (e.g., `ELAS-KDDV-21` → `KDDV-21`).
+3. Builds a payload: `{ order_id, order_number, recipient, admin_id, event: "admin_takeaway_ready", event_dtts }`.
+4. Fetches the restaurant webhook URL via `get_restaurant_webhook_url_async(rest_ref, "order-takeaway-ready")`.
+5. POSTs the payload to `{webhook_url}/{order_id}` via `httpx`.
+6. Replies to admin with a confirmation or an error message if the webhook call fails.
+
+This is a pass-through to the restaurant's own service — no `takeaway_summary` status change happens in OrdeloAgent itself.
+
 ---
 
 ## Handler Signature Differences
@@ -159,5 +197,7 @@ Handlers are registered in `wa.add_handlers()` in the following order. PyWA eval
 5. `handle_admin_availability` -- `/adminAvailability`
 6. `restaurant_order_accept_decline_handler` -- `/RestaurantOrder`
 7. `handle_pickup_time_selection` -- `/PickupTime`
+8. `admin_adjust_pickup_time` -- `/AdminAdjustPickupTime`
+9. `admin_takeaway_ready` -- `/AdminTakeawayReady`
 
 All filters use `filters.contains()` with `ignore_case=False` (except `admin_collection_ready` which uses the default). Since each callback action string is unique, registration order does not affect routing.

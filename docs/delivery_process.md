@@ -76,6 +76,8 @@ Rider Assigned → Delivery Inflight → Delivery Completed
 | `restaurant_decline` | Restaurant declined the order |
 | `restaurant_timedout` | No response within timeout period |
 | `auto_accept` | System auto-accepted after timeout |
+| `auto_decline` | System auto-declined (internal use) |
+| `restaurant_pickuptime_adjusted` | Admin adjusted pickup time on an already-inflight delivery; triggers rider notification via agent |
 
 ### delivery_detail Status Values
 
@@ -136,7 +138,7 @@ This phase ensures restaurants confirm orders and provide estimated prep time be
 **Trigger:** `trigger_restaurant_updates`
 ```sql
 AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON delivery_summary
-WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout'))
+WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'restaurant_pickuptime_adjusted'))
 ```
 
 **Function:** `restaurant_updates_whook()`
@@ -146,7 +148,7 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 **Payload:**
 ```json
 {
-  "trigger_reason": "restaurant_unconfirmed|restaurant_accept|restaurant_decline|restaurant_timedout",
+  "trigger_reason": "restaurant_unconfirmed|restaurant_accept|restaurant_decline|restaurant_timedout|restaurant_pickuptime_adjusted",
   "delivery_summary": { ... },
   "restaurant_master": { ... },
   "food_order": { ... },
@@ -168,6 +170,9 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 | `restaurant_accept` | `_handle_restaurant_accept()` | Sends pickup time selection (5/15/25 min) |
 | `restaurant_decline` | `_handle_restaurant_decline()` | Updates status to `unassigned` |
 | `restaurant_timedout` | `_handle_restaurant_timedout()` | Auto-accepts with default prep time |
+| `restaurant_pickuptime_adjusted` | `_handle_restaurant_pickuptime_adjusted()` | Notifies the inflight rider of the updated pickup time via the rider agent |
+
+`_handle_restaurant_pickuptime_adjusted()` looks up the rider in `delivery_inflight` by `order_number`. If the order is inflight, it calls `run_rider_agent_w_custom_msg()` with a `state_update_dict` that patches `pickup_time` into agent state **before** the tool runs, then instructs the agent to call `notify_pickup_time_adjusted`. If no rider is inflight, it silently skips. The lifecycle `delivery_summary.status` is left unchanged — only `pickup_time` and `restaurant_confirmation_status` are updated.
 
 #### 2c. WhatsApp Callback Handlers
 
@@ -178,6 +183,7 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 | `/RestaurantOrder-Accept` | `restaurant_order_accept_decline_handler()` | Updates `restaurant_confirmation_status` to `restaurant_accept` |
 | `/RestaurantOrder-Decline` | `restaurant_order_accept_decline_handler()` | Updates `restaurant_confirmation_status` to `restaurant_decline` |
 | `/PickupTime` | `handle_pickup_time_selection()` | Sets `pickup_time` and updates `status` to `unassigned` |
+| `/AdminAdjustPickupTime` | `admin_adjust_pickup_time()` | Updates `delivery_summary.pickup_time` and sets `restaurant_confirmation_status` to `restaurant_pickuptime_adjusted`; fires trigger to notify inflight rider |
 
 #### 2d. Confirmation Timeout Job
 
@@ -415,6 +421,8 @@ The rider agent is a LangGraph `StateGraph` that manages the rider through the e
 | `is_restaurant_confirmation_code_verified` | `bool` | Whether restaurant CC has been verified |
 | `is_customer_confirmation_code_verified` | `bool` | Whether customer CC has been verified |
 | `awaiting_cancel_reason` | `bool` | Whether agent is waiting for rider's cancel reason |
+| `latest_wa_msg_id` | `str` | ID of the most recent WhatsApp message in this thread |
+| `pickup_time` | `str` | ISO timestamp of the scheduled pickup time; patched into state by `run_rider_agent_w_custom_msg()` when an admin adjusts it mid-delivery so `notify_pickup_time_adjusted` can read the fresh value |
 
 ##### Graph Structure
 
@@ -423,25 +431,29 @@ START → riderAgent → toolNode → riderAgent → respondNode → END
 ```
 
 - **`riderAgent`** (`agent_node`): Main decision node. Invokes the LLM-backed rider agent, routes to `toolNode` if a tool call is produced, or to `respondNode` for a plain text reply. Also handles the `awaiting_cancel_reason` shortcut: when the agent is waiting for a cancel reason and the rider replies, it synthesizes a `terminate_delivery_job` tool call with the rider's message as `reason_for_decline`.
-- **`toolNode`** (`ToolNode`): Executes tool calls against the 10 registered tools, then returns to `riderAgent`.
+- **`toolNode`** (`ToolNode`): Executes tool calls against the 12 registered tools, then returns to `riderAgent`.
 - **`respondNode`** (`respond_node`): Sends the final `AIMessage` content to the rider via WhatsApp, then ends the turn.
 
 **Persistence:** `AsyncPostgresSaver` (PostgreSQL checkpointer). Each rider has a LangGraph thread managed via `ThreadHandler`, keyed by recipient phone number.
 
-##### Agent Tools (10 total)
+##### Agent Tools (12 total)
 
 | # | Tool | Arguments | Description |
 |---|------|-----------|-------------|
 | 1 | `send_delivery_instructions` | *(none)* | Sends pickup/dropoff addresses + live tracking URL to the rider. Sets `reply_to_msg_id` in state. |
 | 2 | `send_start_live_tracking_link` | *(none)* | Sends a WhatsApp button-URL message to enable OwnTracks live location tracking. |
 | 3 | `notify_food_ready_for_pickup` | `restaurant_name: str` | Notifies the rider that food is ready for pickup at the restaurant and sends the pickup location. |
-| 4 | `send_pickup_location` | *(none)* | Re-sends the pickup (restaurant) location to the rider via WhatsApp. |
-| 5 | `send_dropoff_location` | *(none)* | Re-sends the dropoff (customer) location to the rider via WhatsApp. |
-| 6 | `cancel_delivery_before_pickup` | *(none)* | Cancels an assigned dispatch before pickup. Calls `dispatch_cancel_before_pickup(p_dispatch_id)` RPC to revert statuses. Only allowed when `delivery_dispatch.status = 'assigned'` (before restaurant CC verification marks it `pickedup`). Sets `awaiting_cancel_reason = True`. |
-| 7 | `capture_reason_for_cancel_before_pickup` | `reason_for_decline: str` | Persists the rider's cancel reason on `delivery_dispatch.reason_for_decline`. Should be called after tool #6. Sets `awaiting_cancel_reason = False`. |
-| 8 | `verify_restaurant_confirmation_code` | `restaurant_confirmation_code: int` | Verifies the 2-digit restaurant code. On success: marks `delivery_dispatch.status = 'pickedup'`, sets `is_restaurant_confirmation_code_verified = True`, and posts a customer notification via `post_rider_event_restaurant_cc`. |
-| 9 | `verify_customer_confirmation_code` | `customer_confirmation_code: int` | Verifies the 2-digit customer code. On success: calls `dispatch_complete_func(p_dispatch_id)` RPC, notifies customer and restaurant admins, makes the thread inactive, and sets `is_customer_confirmation_code_verified = True`. |
-| 10 | `terminate_delivery_job` | `reason_for_decline: str (optional)` | Closes the delivery job. If `awaiting_cancel_reason` is true and a reason is provided, persists it first. Makes the thread inactive, then sends a stop-tracking button-URL to the rider. |
+| 4 | `notify_pickup_time_adjusted` | *(none)* | Notifies the rider that the restaurant has updated the pickup time. Reads the new `pickup_time` from agent state (patched in by the webhook handler before invocation) and sends it formatted to UK local time. |
+| 5 | `send_pickup_location` | *(none)* | Re-sends the pickup (restaurant) location to the rider via WhatsApp. |
+| 6 | `send_dropoff_location` | *(none)* | Re-sends the dropoff (customer) location to the rider via WhatsApp. |
+| 7 | `send_customer_contact` | *(none)* | Sends the customer's WhatsApp contact card to the rider. Used when the rider cannot reach the customer at the door. |
+| 8 | `cancel_delivery_before_pickup` | *(none)* | Cancels an assigned dispatch before pickup. Calls `dispatch_cancel_before_pickup(p_dispatch_id)` RPC to revert statuses. Only allowed when `delivery_dispatch.status = 'assigned'` (before restaurant CC verification marks it `pickedup`). Sets `awaiting_cancel_reason = True`. |
+| 9 | `capture_reason_for_cancel_before_pickup` | `reason_for_decline: str` | Persists the rider's cancel reason on `delivery_dispatch.reason_for_decline`. Should be called after tool #8. Sets `awaiting_cancel_reason = False`. |
+| 10 | `verify_restaurant_confirmation_code` | `restaurant_confirmation_code: int` | Verifies the 2-digit restaurant code. On success: marks `delivery_dispatch.status = 'pickedup'`, sets `is_restaurant_confirmation_code_verified = True`, and posts a customer notification via `post_rider_event_restaurant_cc`. |
+| 11 | `verify_customer_confirmation_code` | `customer_confirmation_code: int` | Verifies the 2-digit customer code. On success: calls `dispatch_complete_func(p_dispatch_id)` RPC, notifies customer and restaurant admins, makes the thread inactive, and sets `is_customer_confirmation_code_verified = True`. |
+| 12 | `terminate_delivery_job` | `reason_for_decline: str (optional)` | Closes the delivery job. If `awaiting_cancel_reason` is true and a reason is provided, persists it first. Makes the thread inactive, then sends a stop-tracking button-URL to the rider. |
+
+> **Note:** `end_delivery` is defined in `rider_agent.py` but is **not** in the registered `_rider_agent_tools` list. It is effectively dead code — `terminate_delivery_job` (tool #12) handles job closure.
 
 ##### Agent Workflow
 
