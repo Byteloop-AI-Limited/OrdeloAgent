@@ -222,8 +222,10 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 3. Insert `delivery_detail` if none exists for that vehicle type
 4. If all vehicle types timed out and grace period elapsed → mark `delivery_summary.status = 'timedout'`
 
-**Configuration:**
-- `{rest_ref}_DELIVERY_TIMEOUT_TIME` (minutes before marking order as timedout)
+**Configuration (timeout resolution order):**
+1. `{rest_ref}_DELIVERY_TIMEOUT_TIME` — restaurant-specific timeout (minutes)
+2. `DELIVERY_TIMEOUT_TIME` — global fallback (minutes)
+3. Hardcoded default: 10 minutes
 
 #### 3b. Dispatch Creation
 
