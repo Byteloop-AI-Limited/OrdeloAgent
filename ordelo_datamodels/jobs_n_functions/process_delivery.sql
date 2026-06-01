@@ -72,10 +72,14 @@ BEGIN
       FROM timedout_orders t
      WHERE ds.order_number = t.order_number
        AND ds.status       = 'unassigned'
-       AND (EXTRACT(EPOCH FROM (NOW() - ds.dtts))/60) > COALESCE(
+       -- Timeout is measured from redispatch_dtts when present (set by
+       -- dispatch_cancel_before_pickup on a pre-pickup decline), otherwise
+       -- from dtts (order creation). NULL redispatch_dtts preserves the
+       -- original behavior for orders that have never been re-dispatched.
+       AND (EXTRACT(EPOCH FROM (NOW() - COALESCE(ds.redispatch_dtts, ds.dtts)))/60) > COALESCE(
            (SELECT config_value::int FROM ordelo_config WHERE config_key = ds.rest_ref || '_DELIVERY_TIMEOUT_TIME' LIMIT 1),
            (SELECT config_value::int FROM ordelo_config WHERE config_key = 'DELIVERY_TIMEOUT_TIME' LIMIT 1),
-           10  -- fallback to 30 minutes if no config found
+           10  -- fallback to 10 minutes if no config found
        )
     RETURNING
       'Order ' || ds.order_number || ' → status set to timeout'
