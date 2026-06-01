@@ -1,20 +1,20 @@
 select pickup_time, dtts, restaurant_confirmation_status, status, * from delivery_summary where order_number='ELAS-XUDU-22' ;
 order_number='WREN-AEHO-21';
 -- order_number='ELAS-OOLX-24';
-select * from delivery_option where order_number='ELAS-XUDU-22';
-select dtts, redispatch_dtts, status from delivery_summary where order_number='ELAS-XUDU-22';
+select * from delivery_option where order_number='SFCS-JKRO-22';
+select dtts, redispatch_dtts, status, * from delivery_summary where order_number='SFCS-JKRO-22';
 -- 2026-05-31 22:26:44.261924+00	NULL	assigned
-select * from delivery_detail where order_number='ELAS-XUDU-22';
-select * from delivery_dispatch where order_number='ELAS-XUDU-22';
+select * from delivery_detail where order_number='SFCS-JKRO-22';
+select * from delivery_dispatch where order_number='SFCS-JKRO-22';
 select * from delivery_inflight;
 -- select * from delivery_inflight;
 
 -- Cleanup
-delete from delivery_dispatch where order_number='ELAS-XUDU-22';
-delete from delivery_detail where order_number='ELAS-XUDU-22';
+delete from delivery_dispatch where order_number='SFCS-JKRO-22';
+delete from delivery_detail where order_number='SFCS-JKRO-22';
 update delivery_summary 
 set status='unassigned', dtts=now(), redispatch_dtts=null
-where order_number = 'ELAS-XUDU-22';
+where order_number = 'SFCS-JKRO-22';
 
 select * from job_create_dispatch();
 

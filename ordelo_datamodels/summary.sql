@@ -371,3 +371,9 @@ $$;
 
 -- Set timeout for 30s
 ALTER DATABASE postgres SET statement_timeout = '300s';
+
+-- Add 'restaurant_pickuptime_adjusted' to restaurant_confirmation_status CHECK constraint
+ALTER TABLE delivery_summary DROP CONSTRAINT IF EXISTS delivery_summary_restaurant_confirmation_status_check;
+ALTER TABLE delivery_summary
+    ADD CONSTRAINT delivery_summary_restaurant_confirmation_status_check
+    CHECK (restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'auto_accept', 'auto_decline', 'restaurant_pickuptime_adjusted'));

@@ -86,8 +86,8 @@ from watomation.on_callback_wa_handler import (
     IS_RESTAURANT_ORDER_ACCEPT_DECLINE,
     IS_PICKUP_TIME,
     IS_ADMIN_COLLECTION_READY,
-    IS_ADMIN_TAKEAWAY_READY,
     IS_ADMIN_ADJUST_PICKUP_TIME,
+    IS_ADMIN_TAKEAWAY_READY,
 )
 from watomation.on_flow_request_wa_handler import (
     on_customer_address_flow,
@@ -166,11 +166,10 @@ wa.add_handlers(
     handlers.MessageHandler(callback=clear_dispatch, filters=CLEAR_DISPATCH),
     handlers.MessageHandler(callback=test_flow, filters=TEST_FLOW),
     handlers.MessageHandler(callback=send_live_map_location, filters=LIVE_LOCATION),
-    handlers.MessageHandler(
-        callback=enquire_shift_availability_non_template, filters=SHIFT_UPDATE
+    handlers.CallbackButtonHandler(
+        callback=admin_adjust_pickup_time,
+        filters=IS_ADMIN_ADJUST_PICKUP_TIME,
     ),
-    # handlers.MessageHandler(callback=process_byteloop_agent),
-    handlers.MessageHandler(callback=process_wa_msg),
     handlers.CallbackButtonHandler(
         callback=admin_collection_ready,
         filters=IS_ADMIN_COLLECTION_READY,
@@ -179,6 +178,11 @@ wa.add_handlers(
         callback=admin_takeaway_ready,
         filters=IS_ADMIN_TAKEAWAY_READY,
     ),
+    handlers.MessageHandler(
+        callback=enquire_shift_availability_non_template, filters=SHIFT_UPDATE
+    ),
+    # handlers.MessageHandler(callback=process_byteloop_agent),
+    handlers.MessageHandler(callback=process_wa_msg),
     handlers.CallbackButtonHandler(
         callback=dispatch_response, filters=IS_DISPATCH_RESPONSE
     ),
@@ -198,10 +202,6 @@ wa.add_handlers(
     handlers.CallbackButtonHandler(
         callback=handle_pickup_time_selection,
         filters=IS_PICKUP_TIME,
-    ),
-    handlers.CallbackButtonHandler(
-        callback=admin_adjust_pickup_time,
-        filters=IS_ADMIN_ADJUST_PICKUP_TIME,
     ),
     handlers.FlowCompletionHandler(callback=on_customer_address_flow_completion),
 )
