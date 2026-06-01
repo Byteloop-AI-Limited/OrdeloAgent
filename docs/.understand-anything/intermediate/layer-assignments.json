@@ -1,0 +1,40 @@
+[
+  {
+    "id": "layer:process-docs",
+    "name": "Process Docs",
+    "description": "Documents covering the end-to-end delivery and takeaway business process lifecycles, including all six delivery phases, dispatch race-condition handling, pickup-time state machines, callback handler reference, and rider accept/decline flows.",
+    "nodeIds": [
+      "document:delivery_process.md",
+      "document:dispatch_flow.md",
+      "document:pickup_time_logic.md",
+      "document:takeaway_flow.md",
+      "document:callback_handlers.md"
+    ]
+  },
+  {
+    "id": "layer:system-guides",
+    "name": "System Guides",
+    "description": "Technical reference guides for specific subsystems — live location tracking via OwnTracks, the order creation and Stripe payment lifecycle, and the async webhook URL utility with its caching strategy.",
+    "nodeIds": [
+      "document:location_overview.md",
+      "document:payment_and_order_flow.md",
+      "document:get_restaurant_webhook_url_async_guide.md"
+    ]
+  },
+  {
+    "id": "layer:interactive-tools",
+    "name": "Interactive Tools",
+    "description": "Self-contained browser-based visualization tools that let readers interactively explore delivery process phases, status transitions, and component relationships.",
+    "nodeIds": [
+      "file:delivery_process_explorer.html"
+    ]
+  },
+  {
+    "id": "layer:config",
+    "name": "Configuration",
+    "description": "Tooling configuration for the understand-anything analysis harness, controlling which documentation files are included or excluded from knowledge graph generation.",
+    "nodeIds": [
+      "config:.understand-anything/.understandignore"
+    ]
+  }
+]

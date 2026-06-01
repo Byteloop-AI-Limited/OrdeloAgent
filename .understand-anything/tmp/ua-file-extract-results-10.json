@@ -1,0 +1,715 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "utils_common/maps_service/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 4,
+      "nonEmptyLines": 4,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/maps_service/address_resolver.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 609,
+      "nonEmptyLines": 499,
+      "classes": [
+        {
+          "name": "AddressComponent",
+          "startLine": 41,
+          "endLine": 46,
+          "methods": [],
+          "properties": [
+            "long_name",
+            "short_name",
+            "types"
+          ]
+        },
+        {
+          "name": "GeocodeResult",
+          "startLine": 49,
+          "endLine": 56,
+          "methods": [],
+          "properties": [
+            "address_components",
+            "formatted_address",
+            "place_id",
+            "types",
+            "geometry"
+          ]
+        },
+        {
+          "name": "GeocodeResponse",
+          "startLine": 59,
+          "endLine": 63,
+          "methods": [],
+          "properties": [
+            "results",
+            "status"
+          ]
+        },
+        {
+          "name": "UKAddress",
+          "startLine": 66,
+          "endLine": 101,
+          "methods": [
+            "validate_postcode"
+          ],
+          "properties": [
+            "house_number",
+            "building_name",
+            "street_name",
+            "locality",
+            "city",
+            "county",
+            "postcode",
+            "country",
+            "latitude",
+            "longitude",
+            "input_postcode",
+            "raw_response"
+          ]
+        },
+        {
+          "name": "AddressResolver",
+          "startLine": 104,
+          "endLine": 286,
+          "methods": [
+            "__init__",
+            "get_address_from_coordinates",
+            "get_address_from_postcode",
+            "_parse_geocode_response"
+          ],
+          "properties": []
+        },
+        {
+          "name": "RouteStep",
+          "startLine": 289,
+          "endLine": 299,
+          "methods": [],
+          "properties": [
+            "distance",
+            "duration",
+            "html_instructions",
+            "travel_mode"
+          ]
+        },
+        {
+          "name": "RouteLeg",
+          "startLine": 302,
+          "endLine": 313,
+          "methods": [],
+          "properties": [
+            "distance",
+            "duration",
+            "start_address",
+            "end_address",
+            "start_location",
+            "end_location",
+            "steps"
+          ]
+        },
+        {
+          "name": "Route",
+          "startLine": 316,
+          "endLine": 329,
+          "methods": [],
+          "properties": [
+            "summary",
+            "legs",
+            "overview_polyline",
+            "warnings",
+            "waypoint_order"
+          ]
+        },
+        {
+          "name": "DirectionsResponse",
+          "startLine": 332,
+          "endLine": 339,
+          "methods": [],
+          "properties": [
+            "routes",
+            "status",
+            "error_message"
+          ]
+        },
+        {
+          "name": "DrivingRoute",
+          "startLine": 342,
+          "endLine": 360,
+          "methods": [],
+          "properties": [
+            "origin_address",
+            "destination_address",
+            "distance_text",
+            "distance_meters",
+            "distance_miles",
+            "duration_text",
+            "duration_seconds",
+            "summary",
+            "warnings",
+            "status",
+            "raw_route"
+          ]
+        },
+        {
+          "name": "DrivingDistanceCalculator",
+          "startLine": 363,
+          "endLine": 535,
+          "methods": [
+            "__init__",
+            "calculate_route_between_postcodes",
+            "calculate_route_between_coordinates"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "AddressComponent",
+          "line": 41,
+          "isDefault": false
+        },
+        {
+          "name": "GeocodeResult",
+          "line": 49,
+          "isDefault": false
+        },
+        {
+          "name": "GeocodeResponse",
+          "line": 59,
+          "isDefault": false
+        },
+        {
+          "name": "UKAddress",
+          "line": 66,
+          "isDefault": false
+        },
+        {
+          "name": "AddressResolver",
+          "line": 104,
+          "isDefault": false
+        },
+        {
+          "name": "RouteStep",
+          "line": 289,
+          "isDefault": false
+        },
+        {
+          "name": "RouteLeg",
+          "line": 302,
+          "isDefault": false
+        },
+        {
+          "name": "Route",
+          "line": 316,
+          "isDefault": false
+        },
+        {
+          "name": "DirectionsResponse",
+          "line": 332,
+          "isDefault": false
+        },
+        {
+          "name": "DrivingRoute",
+          "line": 342,
+          "isDefault": false
+        },
+        {
+          "name": "DrivingDistanceCalculator",
+          "line": 363,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "validate_postcode",
+          "callee": "v.replace(\" \", \"\").upper",
+          "lineNumber": 97
+        },
+        {
+          "caller": "validate_postcode",
+          "callee": "v.replace",
+          "lineNumber": 97
+        },
+        {
+          "caller": "validate_postcode",
+          "callee": "len",
+          "lineNumber": 99
+        },
+        {
+          "caller": "get_address_from_coordinates",
+          "callee": "requests.get",
+          "lineNumber": 132
+        },
+        {
+          "caller": "get_address_from_coordinates",
+          "callee": "response.raise_for_status",
+          "lineNumber": 133
+        },
+        {
+          "caller": "get_address_from_coordinates",
+          "callee": "response.json",
+          "lineNumber": 134
+        },
+        {
+          "caller": "get_address_from_coordinates",
+          "callee": "logger.warning",
+          "lineNumber": 137
+        },
+        {
+          "caller": "get_address_from_coordinates",
+          "callee": "logger.error",
+          "lineNumber": 139
+        },
+        {
+          "caller": "get_address_from_coordinates",
+          "callee": "UKAddress",
+          "lineNumber": 142
+        },
+        {
+          "caller": "get_address_from_coordinates",
+          "callee": "self._parse_geocode_response",
+          "lineNumber": 147
+        },
+        {
+          "caller": "get_address_from_coordinates",
+          "callee": "logger.error",
+          "lineNumber": 152
+        },
+        {
+          "caller": "get_address_from_coordinates",
+          "callee": "UKAddress",
+          "lineNumber": 154
+        },
+        {
+          "caller": "get_address_from_postcode",
+          "callee": "postcode.replace(\" \", \"\").upper",
+          "lineNumber": 167
+        },
+        {
+          "caller": "get_address_from_postcode",
+          "callee": "postcode.replace",
+          "lineNumber": 167
+        },
+        {
+          "caller": "get_address_from_postcode",
+          "callee": "len",
+          "lineNumber": 168
+        },
+        {
+          "caller": "get_address_from_postcode",
+          "callee": "requests.get",
+          "lineNumber": 178
+        },
+        {
+          "caller": "get_address_from_postcode",
+          "callee": "response.raise_for_status",
+          "lineNumber": 179
+        },
+        {
+          "caller": "get_address_from_postcode",
+          "callee": "response.json",
+          "lineNumber": 180
+        },
+        {
+          "caller": "get_address_from_postcode",
+          "callee": "logger.warning",
+          "lineNumber": 183
+        },
+        {
+          "caller": "get_address_from_postcode",
+          "callee": "logger.error",
+          "lineNumber": 185
+        },
+        {
+          "caller": "get_address_from_postcode",
+          "callee": "UKAddress",
+          "lineNumber": 188
+        },
+        {
+          "caller": "get_address_from_postcode",
+          "callee": "self._parse_geocode_response",
+          "lineNumber": 198
+        },
+        {
+          "caller": "get_address_from_postcode",
+          "callee": "logger.error",
+          "lineNumber": 206
+        },
+        {
+          "caller": "get_address_from_postcode",
+          "callee": "UKAddress",
+          "lineNumber": 208
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "data.get",
+          "lineNumber": 227
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "UKAddress",
+          "lineNumber": 228
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "result.get",
+          "lineNumber": 232
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "component.get",
+          "lineNumber": 246
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "component.get",
+          "lineNumber": 249
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "component.get",
+          "lineNumber": 252
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "component.get",
+          "lineNumber": 256
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "component.get",
+          "lineNumber": 259
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "component.get",
+          "lineNumber": 262
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "component.get",
+          "lineNumber": 265
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "component.get",
+          "lineNumber": 268
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "component.get",
+          "lineNumber": 270
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "component.get",
+          "lineNumber": 271
+        },
+        {
+          "caller": "_parse_geocode_response",
+          "callee": "UKAddress",
+          "lineNumber": 274
+        },
+        {
+          "caller": "__init__",
+          "callee": "AddressResolver",
+          "lineNumber": 369
+        },
+        {
+          "caller": "calculate_route_between_postcodes",
+          "callee": "self.address_resolver.get_address_from_postcode",
+          "lineNumber": 386
+        },
+        {
+          "caller": "calculate_route_between_postcodes",
+          "callee": "self.address_resolver.get_address_from_postcode",
+          "lineNumber": 389
+        },
+        {
+          "caller": "calculate_route_between_postcodes",
+          "callee": "logger.error",
+          "lineNumber": 394
+        },
+        {
+          "caller": "calculate_route_between_postcodes",
+          "callee": "DrivingRoute",
+          "lineNumber": 396
+        },
+        {
+          "caller": "calculate_route_between_postcodes",
+          "callee": "logger.error",
+          "lineNumber": 404
+        },
+        {
+          "caller": "calculate_route_between_postcodes",
+          "callee": "DrivingRoute",
+          "lineNumber": 408
+        },
+        {
+          "caller": "calculate_route_between_postcodes",
+          "callee": "self.calculate_route_between_coordinates",
+          "lineNumber": 415
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "str(alternatives).lower",
+          "lineNumber": 451
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "str",
+          "lineNumber": 451
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "requests.get",
+          "lineNumber": 458
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "response.raise_for_status",
+          "lineNumber": 459
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "response.json",
+          "lineNumber": 460
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "logger.warning",
+          "lineNumber": 463
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "logger.error",
+          "lineNumber": 465
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "DrivingRoute",
+          "lineNumber": 468
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "data.get",
+          "lineNumber": 478
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "route.get",
+          "lineNumber": 479
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "leg.get",
+          "lineNumber": 486
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "leg.get",
+          "lineNumber": 487
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "distance_info.get",
+          "lineNumber": 490
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "round",
+          "lineNumber": 493
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "DrivingRoute",
+          "lineNumber": 495
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "leg.get",
+          "lineNumber": 496
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "leg.get",
+          "lineNumber": 497
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "distance_info.get",
+          "lineNumber": 498
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "duration_info.get",
+          "lineNumber": 501
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "duration_info.get",
+          "lineNumber": 502
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "route.get",
+          "lineNumber": 503
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "route.get",
+          "lineNumber": 504
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "routes.append",
+          "lineNumber": 508
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "routes.sort",
+          "lineNumber": 511
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "float",
+          "lineNumber": 511
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "DrivingRoute",
+          "lineNumber": 517
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "logger.error",
+          "lineNumber": 527
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "DrivingRoute",
+          "lineNumber": 529
+        },
+        {
+          "caller": "calculate_route_between_coordinates",
+          "callee": "str",
+          "lineNumber": 533
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 11,
+        "functionCount": 0,
+        "classCount": 11
+      }
+    },
+    {
+      "path": "watomation/on_flow_request_postcode_search.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 84,
+      "nonEmptyLines": 70,
+      "functions": [
+        {
+          "name": "on_pc_search_init",
+          "startLine": 24,
+          "endLine": 44,
+          "params": [
+            "_",
+            "request"
+          ]
+        },
+        {
+          "name": "on_ip_pc",
+          "startLine": 47,
+          "endLine": 82,
+          "params": [
+            "_",
+            "request"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "on_pc_search_init",
+          "line": 24,
+          "isDefault": false
+        },
+        {
+          "name": "on_ip_pc",
+          "line": 47,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "on_pc_search_init",
+          "callee": "logger.info",
+          "lineNumber": 25
+        },
+        {
+          "caller": "on_pc_search_init",
+          "callee": "logger.error",
+          "lineNumber": 28
+        },
+        {
+          "caller": "on_pc_search_init",
+          "callee": "FlowResponse",
+          "lineNumber": 29
+        },
+        {
+          "caller": "on_pc_search_init",
+          "callee": "FlowResponse",
+          "lineNumber": 35
+        },
+        {
+          "caller": "on_ip_pc",
+          "callee": "request.data.get",
+          "lineNumber": 48
+        },
+        {
+          "caller": "on_ip_pc",
+          "callee": "logger.info",
+          "lineNumber": 49
+        },
+        {
+          "caller": "on_ip_pc",
+          "callee": "address_resolver.get_address_from_postcode",
+          "lineNumber": 51
+        },
+        {
+          "caller": "on_ip_pc",
+          "callee": "logger.info",
+          "lineNumber": 52
+        },
+        {
+          "caller": "on_ip_pc",
+          "callee": "FlowResponse",
+          "lineNumber": 64
+        },
+        {
+          "caller": "on_ip_pc",
+          "callee": "FlowResponse",
+          "lineNumber": 70
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 2,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    }
+  ]
+}

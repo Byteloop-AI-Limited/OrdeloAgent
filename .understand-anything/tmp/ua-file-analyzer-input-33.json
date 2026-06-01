@@ -1,0 +1,9 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "zellij.kdl", "language": "kdl", "sizeLines": 311, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    "zellij.kdl": []
+  }
+}

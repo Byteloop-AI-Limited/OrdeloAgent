@@ -37,6 +37,7 @@ Delivery webhook handlers for Ordelo delivery system
     . _handle_restaurant_accept - Sends pickup time selection to restaurant
     . _handle_restaurant_decline - Updates status to unassigned on decline
     . _handle_restaurant_timedout - Logs restaurant confirmation timeout event
+    . _handle_restaurant_pickuptime_adjusted - Notifies the inflight rider when an admin adjusts the pickup time
     . close_threads - Closes inactive threads and sends goodbye messages
 """
 
@@ -1191,6 +1192,64 @@ async def _handle_restaurant_timedout(
     }
 
 
+async def _handle_restaurant_pickuptime_adjusted(
+    delivery_summary: DeliverySummaryData,
+) -> dict:
+    """
+    Handle restaurant_pickuptime_adjusted trigger: notify the inflight rider of the
+    updated pickup time.
+
+    Resolves the assigned rider from delivery_inflight by order_number. If no rider is
+    currently on the job, logs and skips silently. Otherwise drives the rider agent to
+    call the notify_pickup_time_adjusted tool, refreshing the graph state pickup_time
+    with the new value before the tool reads it.
+
+    Args:
+        delivery_summary: Delivery summary data (carries the new pickup_time)
+
+    Returns:
+        dict: Status response with order_number
+    """
+    order_number = delivery_summary.order_number
+
+    inflight = await asyncio.to_thread(
+        lambda: (
+            client_ordelo.table("delivery_inflight")
+            .select("rider_id")
+            .eq("order_number", order_number)
+            .execute()
+        )
+    )
+
+    if not inflight.data:
+        logger.info(
+            f"No inflight rider for order {order_number}; skipping pickup-time-adjusted notification"
+        )
+        return {
+            "status": "skipped",
+            "action": "no_inflight_rider",
+            "order_number": order_number,
+        }
+
+    rider_id = inflight.data[0]["rider_id"]
+
+    await run_rider_agent_w_custom_msg(
+        recipient=rider_id,
+        system_msg=(
+            "call tool `notify_pickup_time_adjusted`. The restaurant has updated the "
+            "pickup time for this order."
+        ),
+        state_update_dict={"pickup_time": delivery_summary.pickup_time},
+    )
+
+    return {
+        "status": "success",
+        "action": "pickuptime_adjusted_notified",
+        "order_number": order_number,
+        "rider_id": rider_id,
+    }
+
+
 @router.post("/restaurant-confirmation-request")
 async def restaurant_confirmation_flow(
     background_tasks: BackgroundTasks,
@@ -1266,6 +1325,10 @@ async def restaurant_confirmation_flow(
         elif trigger_reason == "restaurant_timedout":
             background_tasks.add_task(
                 _handle_restaurant_timedout, delivery_summary, restaurant_master.admins
+            )
+        elif trigger_reason == "restaurant_pickuptime_adjusted":
+            background_tasks.add_task(
+                _handle_restaurant_pickuptime_adjusted, delivery_summary
             )
         else:
             logger.error(f"Unknown trigger_reason: {trigger_reason}")

@@ -1,0 +1,31 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": ".claude/CLOUD_SESSION_SETUP.md", "language": "markdown", "sizeLines": 119, "fileCategory": "docs"},
+    {"path": ".claude/proPlans/groovy-forging-peach.md", "language": "markdown", "sizeLines": 316, "fileCategory": "docs"},
+    {"path": ".claude/SKILLS_SYMLINK.md", "language": "markdown", "sizeLines": 24, "fileCategory": "docs"},
+    {"path": ".claude/skills/database-operations/evals/evals.json", "language": "json", "sizeLines": 26, "fileCategory": "config"},
+    {"path": ".claude/skills/database-operations/iteration-1/eval_metadata.json", "language": "json", "sizeLines": 61, "fileCategory": "config"},
+    {"path": ".claude/skills/database-operations/SKILL_OPTIMIZED.md", "language": "markdown", "sizeLines": 6, "fileCategory": "docs"},
+    {"path": ".claude/skills/database-operations/SKILL.md", "language": "markdown", "sizeLines": 205, "fileCategory": "docs"},
+    {"path": ".claude/skills/pyrun/evals/evals.json", "language": "json", "sizeLines": 26, "fileCategory": "config"},
+    {"path": ".claude/skills/pyrun/iteration-1/eval_metadata.json", "language": "json", "sizeLines": 39, "fileCategory": "config"},
+    {"path": ".claude/skills/pyrun/iteration-1/eval-1/with_skill/outputs/check_active_riders.py", "language": "python", "sizeLines": 50, "fileCategory": "code"},
+    {"path": ".claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/README.md", "language": "markdown", "sizeLines": 122, "fileCategory": "docs"},
+    {"path": ".claude/skills/pyrun/SKILL.md", "language": "markdown", "sizeLines": 279, "fileCategory": "docs"},
+    {"path": ".devcontainer/devcontainer.json", "language": "json", "sizeLines": 20, "fileCategory": "config"},
+    {"path": ".specify/memory/constitution.md", "language": "markdown", "sizeLines": 443, "fileCategory": "docs"},
+    {"path": ".understand-anything/.understandignore", "language": "unknown", "sizeLines": 113, "fileCategory": "code"},
+    {"path": ".windsurf/rules/code-documentation-rules.md", "language": "markdown", "sizeLines": 27, "fileCategory": "docs"},
+    {"path": ".windsurf/settings.json", "language": "json", "sizeLines": 3, "fileCategory": "config"},
+    {"path": ".zed/tasks.json", "language": "json", "sizeLines": 9, "fileCategory": "config"},
+    {"path": "bkp_DockerfileBkp", "language": "unknown", "sizeLines": 27, "fileCategory": "code"},
+    {"path": "config/cat_con_setting.py", "language": "python", "sizeLines": 27, "fileCategory": "code"},
+    {"path": "config/temp_cache/test_cde", "language": "unknown", "sizeLines": 30, "fileCategory": "code"},
+    {"path": "Dockerfile_awslambda", "language": "unknown", "sizeLines": 34, "fileCategory": "code"},
+    {"path": "Dockerfile_UVBCKP", "language": "unknown", "sizeLines": 36, "fileCategory": "code"},
+    {"path": "gunicorn_conf.py", "language": "python", "sizeLines": 72, "fileCategory": "code"},
+    {"path": "notebooks/App Review/app_review.md", "language": "markdown", "sizeLines": 63, "fileCategory": "docs"}
+  ],
+  "batchImportData": {}
+}

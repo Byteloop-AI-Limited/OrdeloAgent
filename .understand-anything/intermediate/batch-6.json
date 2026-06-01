@@ -1,0 +1,979 @@
+{
+  "nodes": [
+    {
+      "id": "file:tests/utils_common/order_management/test_food_order_pymodel.py",
+      "type": "file",
+      "name": "test_food_order_pymodel.py",
+      "filePath": "tests/utils_common/order_management/test_food_order_pymodel.py",
+      "summary": "Tests the FoodOrder Pydantic model covering DB lookups by order ID and order number, payment URI construction, final order value DB updates, order summary generation for payment intent and automatic payment, and payload generation for capture and payment intent.",
+      "tags": ["test", "data-model", "validation", "serialization"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/utils_common/order_management/test_order_db_ops_new.py",
+      "type": "file",
+      "name": "test_order_db_ops_new.py",
+      "filePath": "tests/utils_common/order_management/test_order_db_ops_new.py",
+      "summary": "Tests order database operations including total price calculation, deterministic order reference generation, order item construction from WA order objects, and insert operations with rollback on failure.",
+      "tags": ["test", "database", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/utils_common/order_management/test_order_num_gen.py",
+      "type": "file",
+      "name": "test_order_num_gen.py",
+      "filePath": "tests/utils_common/order_management/test_order_num_gen.py",
+      "summary": "Tests the order number generation module verifying determinism for same-day orders, last-four-digit extraction, rejection of non-four-digit suffixes, and round-trip encode/decode correctness.",
+      "tags": ["test", "utility", "validation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/utils_common/order_management/test_order_service.py",
+      "type": "file",
+      "name": "test_order_service.py",
+      "filePath": "tests/utils_common/order_management/test_order_service.py",
+      "summary": "Tests the order service layer covering pricing service HTTP calls, restaurant coordinate resolution, minimum order value lookups, and full order creation with rollback on item-insert failure.",
+      "tags": ["test", "service", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/utils_common/waba_utils/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/utils_common/waba_utils/__init__.py",
+      "summary": "Empty package init file marking tests/utils_common/waba_utils as a Python test package.",
+      "tags": ["entry-point", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/utils_common/waba_utils/test_wa_senders.py",
+      "type": "file",
+      "name": "test_wa_senders.py",
+      "filePath": "tests/utils_common/waba_utils/test_wa_senders.py",
+      "summary": "Tests WhatsApp message sender functions including callback button data model immutability, pickup time interval button creation, delivery address confirmation, payment link and receipt template usage, shift/admin availability enquiry callbacks, and restaurant order confirmation.",
+      "tags": ["test", "event-handler", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/watomation/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/watomation/__init__.py",
+      "summary": "Empty package init file marking tests/watomation as a Python test package.",
+      "tags": ["entry-point", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/watomation/routers/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/watomation/routers/__init__.py",
+      "summary": "Empty package init file marking tests/watomation/routers as a Python test package.",
+      "tags": ["entry-point", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/watomation/routers/test_customer_hooks.py",
+      "type": "file",
+      "name": "test_customer_hooks.py",
+      "filePath": "tests/watomation/routers/test_customer_hooks.py",
+      "summary": "Tests customer webhook handlers covering create-or-update customer logic with restaurant city derivation, address update with DB write and restaurant notification, and cust_rest_map upsert.",
+      "tags": ["test", "api-handler", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/watomation/routers/test_delivery_hooks.py",
+      "type": "file",
+      "name": "test_delivery_hooks.py",
+      "filePath": "tests/watomation/routers/test_delivery_hooks.py",
+      "summary": "Comprehensive test suite (363 lines) for the delivery webhook router covering dispatch requests to riders, dispatch hook scheduling, inflight graph init, missed dispatch notifications, food-ready notifications, timeout handling with restaurant-specific and global config fallback, rider allocation status checks, shift/admin availability, and restaurant confirmation flow routing.",
+      "tags": ["test", "api-handler", "event-handler", "service"],
+      "complexity": "complex",
+      "languageNotes": "Uses _FakeBackgroundTasks and _summary_row fixtures inline; covers three-level config fallback chain (rest-specific → global → hardcoded 30-minute default)."
+    },
+    {
+      "id": "file:tests/watomation/routers/test_location_hooks.py",
+      "type": "file",
+      "name": "test_location_hooks.py",
+      "filePath": "tests/watomation/routers/test_location_hooks.py",
+      "summary": "Tests live location tracking webhook handlers including config href round-trip encoding, location transition SQL writes, live location map URL validation, rider location event notifications for restaurant and customer geofence entry, and null/outdated location messaging.",
+      "tags": ["test", "api-handler", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/watomation/routers/test_order_hooks.py",
+      "type": "file",
+      "name": "test_order_hooks.py",
+      "filePath": "tests/watomation/routers/test_order_hooks.py",
+      "summary": "Tests order webhook handlers covering minimum order value validation, postcode-based address resolution, order creation returning payment URLs for delivery and takeaway types, address capture with customer upsert, and active thread proxy to restaurant.",
+      "tags": ["test", "api-handler", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/watomation/routers/test_payment_hooks.py",
+      "type": "file",
+      "name": "test_payment_hooks.py",
+      "filePath": "tests/watomation/routers/test_payment_hooks.py",
+      "summary": "Tests payment webhook handlers verifying restaurant webhook posting and HTTP error swallowing on payment complete, delivery/takeaway scheduling after payment, test-path scheduling, and pay-at-restaurant validation and takeaway scheduling.",
+      "tags": ["test", "api-handler", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/watomation/routers/test_takeaway_hooks.py",
+      "type": "file",
+      "name": "test_takeaway_hooks.py",
+      "filePath": "tests/watomation/routers/test_takeaway_hooks.py",
+      "summary": "Tests takeaway webhook handlers covering restaurant timeout handling with null pickup time updates, admin notifications, pickup time update hook scheduling, and three-level config fallback for timeout duration (rest-specific, global, hardcoded 30 minutes).",
+      "tags": ["test", "api-handler", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:tests/watomation/routers/test_thread_hooks.py",
+      "type": "file",
+      "name": "test_thread_hooks.py",
+      "filePath": "tests/watomation/routers/test_thread_hooks.py",
+      "summary": "Tests thread lifecycle webhook handlers covering restaurant thread termination notification, stale thread cleanup scheduling, system message dispatch with and without explicit recipient, and debug endpoint delegation to the agent runner.",
+      "tags": ["test", "api-handler", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/watomation/test_flow_handlers.py",
+      "type": "file",
+      "name": "test_flow_handlers.py",
+      "filePath": "tests/watomation/test_flow_handlers.py",
+      "summary": "Tests WhatsApp flow request handlers for customer address capture (init, data exchange, completion) and postcode search (init, error ack, address lookup with mock external service).",
+      "tags": ["test", "event-handler", "api-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/watomation/test_on_callback_wa_handler.py",
+      "type": "file",
+      "name": "test_on_callback_wa_handler.py",
+      "filePath": "tests/watomation/test_on_callback_wa_handler.py",
+      "summary": "Comprehensive tests (235 lines) for the WhatsApp callback handler covering dispatch accept/decline, rider location requests, shift/admin availability replies, restaurant order status updates, pickup time selection, admin pickup time adjustments, admin collection-ready rider graph runs, and takeaway-ready webhook posting.",
+      "tags": ["test", "event-handler", "api-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:tests/watomation/test_on_message_wa_handler.py",
+      "type": "file",
+      "name": "test_on_message_wa_handler.py",
+      "filePath": "tests/watomation/test_on_message_wa_handler.py",
+      "summary": "Tests the WhatsApp message handler covering shift-check and availability enquiry on out-of-shift messages, no-active-delivery response without a thread, rider graph invocation with active thread, live map location sending, thread reset with dispatch closure, and /test delivery command scheduling.",
+      "tags": ["test", "event-handler", "middleware"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/utils_common/order_management/test_food_order_pymodel.py:test_from_order_id_returns_model_without_pricing_update_when_final_value_exists",
+      "type": "function",
+      "name": "test_from_order_id_returns_model_without_pricing_update_when_final_value_exists",
+      "filePath": "tests/utils_common/order_management/test_food_order_pymodel.py",
+      "lineRange": [48, 59],
+      "summary": "Verifies that FoodOrder.from_order_id returns a populated model without re-invoking pricing when a final value already exists in the DB row.",
+      "tags": ["test", "data-model"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/utils_common/order_management/test_food_order_pymodel.py:test_update_final_order_value_in_db_updates_instance_fields",
+      "type": "function",
+      "name": "test_update_final_order_value_in_db_updates_instance_fields",
+      "filePath": "tests/utils_common/order_management/test_food_order_pymodel.py",
+      "lineRange": [81, 101],
+      "summary": "Confirms that update_final_order_value_in_db writes to Supabase and mutates the in-memory FoodOrder fields in one call.",
+      "tags": ["test", "data-model", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/utils_common/order_management/test_food_order_pymodel.py:test_generate_order_summary_for_payment_intent_adds_nonzero_fees",
+      "type": "function",
+      "name": "test_generate_order_summary_for_payment_intent_adds_nonzero_fees",
+      "filePath": "tests/utils_common/order_management/test_food_order_pymodel.py",
+      "lineRange": [104, 115],
+      "summary": "Verifies that generate_order_summary_for_payment_intent includes non-zero fee line items in its output.",
+      "tags": ["test", "data-model", "serialization"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/utils_common/order_management/test_food_order_pymodel.py:test_generate_order_summary_for_automatic_payment_returns_items_and_total",
+      "type": "function",
+      "name": "test_generate_order_summary_for_automatic_payment_returns_items_and_total",
+      "filePath": "tests/utils_common/order_management/test_food_order_pymodel.py",
+      "lineRange": [118, 132],
+      "summary": "Confirms that generate_order_summary_for_automatic_payment returns both individual item lines and a total line.",
+      "tags": ["test", "data-model", "serialization"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/utils_common/order_management/test_order_db_ops_new.py:test_insert_order_items_writes_model_dump_payloads",
+      "type": "function",
+      "name": "test_insert_order_items_writes_model_dump_payloads",
+      "filePath": "tests/utils_common/order_management/test_order_db_ops_new.py",
+      "lineRange": [76, 89],
+      "summary": "Verifies that insert_order_items serializes OrderItem objects via model_dump before writing to Supabase.",
+      "tags": ["test", "database", "serialization"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/utils_common/order_management/test_order_db_ops_new.py:test_insert_wa_order_success_and_rollback_on_item_failure",
+      "type": "function",
+      "name": "test_insert_wa_order_success_and_rollback_on_item_failure",
+      "filePath": "tests/utils_common/order_management/test_order_db_ops_new.py",
+      "lineRange": [92, 119],
+      "summary": "Tests that insert_wa_order succeeds end-to-end and rolls back (deletes the order row) when subsequent item inserts fail.",
+      "tags": ["test", "database", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/utils_common/order_management/test_order_service.py:test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+      "type": "function",
+      "name": "test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+      "filePath": "tests/utils_common/order_management/test_order_service.py",
+      "lineRange": [65, 77],
+      "summary": "Verifies that _resolve_restaurant_coordinates uses explicit coordinates when provided, falls back to DB rest_ref lookup, and raises on missing coordinates.",
+      "tags": ["test", "service", "validation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/utils_common/order_management/test_order_service.py:test_create_order_with_items_success",
+      "type": "function",
+      "name": "test_create_order_with_items_success",
+      "filePath": "tests/utils_common/order_management/test_order_service.py",
+      "lineRange": [96, 107],
+      "summary": "End-to-end test verifying that create_order_with_items succeeds: calls pricing, inserts order and items, and returns an order_id.",
+      "tags": ["test", "service", "database"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/utils_common/order_management/test_order_service.py:test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+      "type": "function",
+      "name": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+      "filePath": "tests/utils_common/order_management/test_order_service.py",
+      "lineRange": [110, 120],
+      "summary": "Verifies that create_order_with_items rolls back the order row when the item insert returns an empty response.",
+      "tags": ["test", "service", "database"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/utils_common/waba_utils/test_wa_senders.py:test_send_restaurant_pickup_time_creates_interval_buttons",
+      "type": "function",
+      "name": "test_send_restaurant_pickup_time_creates_interval_buttons",
+      "filePath": "tests/utils_common/waba_utils/test_wa_senders.py",
+      "lineRange": [38, 57],
+      "summary": "Verifies that send_restaurant_pickup_time builds WhatsApp interactive buttons with correct interval-based pickup time options.",
+      "tags": ["test", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/utils_common/waba_utils/test_wa_senders.py:test_send_restaurant_order_confirmation_creates_accept_button",
+      "type": "function",
+      "name": "test_send_restaurant_order_confirmation_creates_accept_button",
+      "filePath": "tests/utils_common/waba_utils/test_wa_senders.py",
+      "lineRange": [120, 134],
+      "summary": "Confirms that send_restaurant_order_confirmation includes an accept callback button with the correct JSON payload.",
+      "tags": ["test", "event-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_delivery_hooks.py:test_delivery_dispatch_hook_empty_and_overwatch_scheduling",
+      "type": "function",
+      "name": "test_delivery_dispatch_hook_empty_and_overwatch_scheduling",
+      "filePath": "tests/watomation/routers/test_delivery_hooks.py",
+      "lineRange": [121, 139],
+      "summary": "Tests that delivery_dispatch_hook handles empty dispatch lists and correctly schedules overwatch background tasks for non-empty dispatch payloads.",
+      "tags": ["test", "api-handler", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_delivery_hooks.py:test_delivery_inflight_graph_init_hook_schedules_core_background_tasks",
+      "type": "function",
+      "name": "test_delivery_inflight_graph_init_hook_schedules_core_background_tasks",
+      "filePath": "tests/watomation/routers/test_delivery_hooks.py",
+      "lineRange": [142, 160],
+      "summary": "Verifies that delivery_inflight_graph_init_hook schedules the expected sequence of background tasks for rider graph initialization.",
+      "tags": ["test", "api-handler", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_delivery_hooks.py:test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+      "type": "function",
+      "name": "test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+      "filePath": "tests/watomation/routers/test_delivery_hooks.py",
+      "lineRange": [298, 320],
+      "summary": "Confirms that _handle_restaurant_timedout picks up a restaurant-specific delivery timeout from ordelo_config when present.",
+      "tags": ["test", "api-handler", "configuration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_delivery_hooks.py:test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+      "type": "function",
+      "name": "test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+      "filePath": "tests/watomation/routers/test_delivery_hooks.py",
+      "lineRange": [323, 345],
+      "summary": "Verifies that _handle_restaurant_timedout falls back to the global delivery pickup config when no restaurant-specific key exists.",
+      "tags": ["test", "api-handler", "configuration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_delivery_hooks.py:test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery",
+      "type": "function",
+      "name": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery",
+      "filePath": "tests/watomation/routers/test_delivery_hooks.py",
+      "lineRange": [348, 363],
+      "summary": "Tests the final fallback in _handle_restaurant_timedout — uses a hardcoded 30-minute window when both config lookups return empty.",
+      "tags": ["test", "api-handler", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_location_hooks.py:test_notify_rider_location_event_restaurant_enter_notifies_admins",
+      "type": "function",
+      "name": "test_notify_rider_location_event_restaurant_enter_notifies_admins",
+      "filePath": "tests/watomation/routers/test_location_hooks.py",
+      "lineRange": [105, 115],
+      "summary": "Verifies that notify_rider_location_event sends WA admin notifications when a rider enters the restaurant geofence.",
+      "tags": ["test", "api-handler", "event-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_location_hooks.py:test_notify_rider_location_event_customer_enter_posts_webhook",
+      "type": "function",
+      "name": "test_notify_rider_location_event_customer_enter_posts_webhook",
+      "filePath": "tests/watomation/routers/test_location_hooks.py",
+      "lineRange": [119, 133],
+      "summary": "Confirms that notify_rider_location_event posts a customer-enter webhook to the restaurant when the rider arrives at the customer geofence.",
+      "tags": ["test", "api-handler", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_order_hooks.py:test_get_min_order_value_validates_inputs_and_returns_service_value",
+      "type": "function",
+      "name": "test_get_min_order_value_validates_inputs_and_returns_service_value",
+      "filePath": "tests/watomation/routers/test_order_hooks.py",
+      "lineRange": [48, 78],
+      "summary": "Comprehensive test covering validation errors for missing rest_ref and customer_id, as well as successful minimum order value retrieval from the pricing service.",
+      "tags": ["test", "api-handler", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_order_hooks.py:test_create_order_returns_payment_url_for_delivery_and_takeaway",
+      "type": "function",
+      "name": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+      "filePath": "tests/watomation/routers/test_order_hooks.py",
+      "lineRange": [107, 134],
+      "summary": "Tests create_order for both delivery and takeaway order types, verifying a payment URL is returned in each case.",
+      "tags": ["test", "api-handler", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_order_hooks.py:test_capture_address_upserts_customer_and_notifies_restaurant",
+      "type": "function",
+      "name": "test_capture_address_upserts_customer_and_notifies_restaurant",
+      "filePath": "tests/watomation/routers/test_order_hooks.py",
+      "lineRange": [145, 168],
+      "summary": "Verifies that capture_address upserts a customer record, updates the address, and posts a notification webhook to the restaurant.",
+      "tags": ["test", "api-handler", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_payment_hooks.py:test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+      "type": "function",
+      "name": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+      "filePath": "tests/watomation/routers/test_payment_hooks.py",
+      "lineRange": [69, 83],
+      "summary": "Tests that payment_complete_path updates the order status in DB and schedules either the delivery or takeaway background task based on the order action.",
+      "tags": ["test", "api-handler", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_takeaway_hooks.py:test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins",
+      "type": "function",
+      "name": "test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins",
+      "filePath": "tests/watomation/routers/test_takeaway_hooks.py",
+      "lineRange": [77, 90],
+      "summary": "Verifies that the takeaway _handle_restaurant_timedout updates only rows with null pickup_time and sends admin WA notifications.",
+      "tags": ["test", "api-handler", "event-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_takeaway_hooks.py:test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+      "type": "function",
+      "name": "test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+      "filePath": "tests/watomation/routers/test_takeaway_hooks.py",
+      "lineRange": [133, 154],
+      "summary": "Confirms the takeaway timeout handler uses a restaurant-specific pickup timeout from ordelo_config when available.",
+      "tags": ["test", "api-handler", "configuration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_takeaway_hooks.py:test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+      "type": "function",
+      "name": "test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+      "filePath": "tests/watomation/routers/test_takeaway_hooks.py",
+      "lineRange": [157, 178],
+      "summary": "Verifies that the takeaway timeout handler falls back to global pickup config when no restaurant-specific key exists in ordelo_config.",
+      "tags": ["test", "api-handler", "configuration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/routers/test_thread_hooks.py:test_debug_state_by_thread_path_builds_graph_config",
+      "type": "function",
+      "name": "test_debug_state_by_thread_path_builds_graph_config",
+      "filePath": "tests/watomation/routers/test_thread_hooks.py",
+      "lineRange": [111, 133],
+      "summary": "Tests that debug_state_by_thread_path correctly constructs the LangGraph StateGraph and AsyncPostgresSaver config from thread lookup data.",
+      "tags": ["test", "api-handler", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/test_on_callback_wa_handler.py:test_dispatch_response_handles_missing_and_inflight_orders",
+      "type": "function",
+      "name": "test_dispatch_response_handles_missing_and_inflight_orders",
+      "filePath": "tests/watomation/test_on_callback_wa_handler.py",
+      "lineRange": [51, 63],
+      "summary": "Tests dispatch_response callback handler for three cases: missing dispatch record, inflight (already assigned) order, and normal accept flow.",
+      "tags": ["test", "event-handler", "api-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/watomation/test_on_callback_wa_handler.py:test_restaurant_order_accept_decline_schedules_update",
+      "type": "function",
+      "name": "test_restaurant_order_accept_decline_schedules_update",
+      "filePath": "tests/watomation/test_on_callback_wa_handler.py",
+      "lineRange": [140, 157],
+      "summary": "Verifies that restaurant_order_accept_decline_handler schedules an asyncio task to update the order status.",
+      "tags": ["test", "event-handler", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/test_on_callback_wa_handler.py:test_admin_adjust_pickup_time_updates_summary",
+      "type": "function",
+      "name": "test_admin_adjust_pickup_time_updates_summary",
+      "filePath": "tests/watomation/test_on_callback_wa_handler.py",
+      "lineRange": [174, 193],
+      "summary": "Tests that admin_adjust_pickup_time updates the delivery_summary pickup time in DB and sends a WA confirmation reply.",
+      "tags": ["test", "event-handler", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/test_on_message_wa_handler.py:test_process_wa_msg_with_active_thread_runs_rider_graph",
+      "type": "function",
+      "name": "test_process_wa_msg_with_active_thread_runs_rider_graph",
+      "filePath": "tests/watomation/test_on_message_wa_handler.py",
+      "lineRange": [66, 80],
+      "summary": "Verifies that process_wa_msg invokes the rider LangGraph when an active delivery thread exists for the sender.",
+      "tags": ["test", "event-handler", "middleware"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/test_on_message_wa_handler.py:test_send_live_map_location_handles_no_inflight_missing_and_success",
+      "type": "function",
+      "name": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+      "filePath": "tests/watomation/test_on_message_wa_handler.py",
+      "lineRange": [83, 107],
+      "summary": "Tests send_live_map_location for three states: no inflight dispatch (sends error), missing map URL, and successful URL delivery.",
+      "tags": ["test", "event-handler", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/watomation/test_on_message_wa_handler.py:test_test_delivery_schedules_init_and_updates_summary",
+      "type": "function",
+      "name": "test_test_delivery_schedules_init_and_updates_summary",
+      "filePath": "tests/watomation/test_on_message_wa_handler.py",
+      "lineRange": [123, 140],
+      "summary": "Confirms that the /test delivery command schedules a graph init task and updates the delivery_summary record.",
+      "tags": ["test", "event-handler", "service"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:tests/utils_common/order_management/test_food_order_pymodel.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_food_order_pymodel.py",
+      "target": "file:utils_common/order_management/food_order_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_food_order_pymodel.py",
+      "target": "file:utils_common/order_management/food_order_pymodel.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_order_db_ops_new.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_order_db_ops_new.py",
+      "target": "file:tests/utils_common/order_management/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_order_num_gen.py",
+      "target": "file:tests/utils_common/order_management/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_order_service.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_order_service.py",
+      "target": "file:tests/utils_common/order_management/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_order_service.py",
+      "target": "file:utils_common/order_management/order_db_ops_new.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_order_service.py",
+      "target": "file:utils_common/order_management/order_db_ops_new.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:tests/utils_common/waba_utils/test_wa_senders.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/waba_utils/test_wa_senders.py",
+      "target": "file:tests/utils_common/waba_utils/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_customer_hooks.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_customer_hooks.py",
+      "target": "file:tests/watomation/routers/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_delivery_hooks.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_delivery_hooks.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_delivery_hooks.py",
+      "target": "file:tests/watomation/routers/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_delivery_hooks.py",
+      "target": "file:watomation/routers/delivery_hooks.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:tests/watomation/routers/test_location_hooks.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_location_hooks.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_location_hooks.py",
+      "target": "file:tests/watomation/routers/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_order_hooks.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_order_hooks.py",
+      "target": "file:tests/watomation/routers/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_order_hooks.py",
+      "target": "file:utils_common/order_management/order_db_ops_new.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_payment_hooks.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_payment_hooks.py",
+      "target": "file:tests/watomation/routers/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_takeaway_hooks.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_takeaway_hooks.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_takeaway_hooks.py",
+      "target": "file:tests/watomation/routers/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_thread_hooks.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/routers/test_thread_hooks.py",
+      "target": "file:tests/watomation/routers/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/test_flow_handlers.py",
+      "target": "file:tests/watomation/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/test_on_callback_wa_handler.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/test_on_callback_wa_handler.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/test_on_callback_wa_handler.py",
+      "target": "file:tests/watomation/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/test_on_message_wa_handler.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/test_on_message_wa_handler.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/watomation/test_on_message_wa_handler.py",
+      "target": "file:tests/watomation/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_food_order_pymodel.py",
+      "target": "function:tests/utils_common/order_management/test_food_order_pymodel.py:test_from_order_id_returns_model_without_pricing_update_when_final_value_exists",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_food_order_pymodel.py",
+      "target": "function:tests/utils_common/order_management/test_food_order_pymodel.py:test_update_final_order_value_in_db_updates_instance_fields",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_food_order_pymodel.py",
+      "target": "function:tests/utils_common/order_management/test_food_order_pymodel.py:test_generate_order_summary_for_payment_intent_adds_nonzero_fees",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_food_order_pymodel.py",
+      "target": "function:tests/utils_common/order_management/test_food_order_pymodel.py:test_generate_order_summary_for_automatic_payment_returns_items_and_total",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_order_db_ops_new.py",
+      "target": "function:tests/utils_common/order_management/test_order_db_ops_new.py:test_insert_order_items_writes_model_dump_payloads",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_order_db_ops_new.py",
+      "target": "function:tests/utils_common/order_management/test_order_db_ops_new.py:test_insert_wa_order_success_and_rollback_on_item_failure",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_order_service.py",
+      "target": "function:tests/utils_common/order_management/test_order_service.py:test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_order_service.py",
+      "target": "function:tests/utils_common/order_management/test_order_service.py:test_create_order_with_items_success",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_order_service.py",
+      "target": "function:tests/utils_common/order_management/test_order_service.py:test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/utils_common/waba_utils/test_wa_senders.py",
+      "target": "function:tests/utils_common/waba_utils/test_wa_senders.py:test_send_restaurant_pickup_time_creates_interval_buttons",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/utils_common/waba_utils/test_wa_senders.py",
+      "target": "function:tests/utils_common/waba_utils/test_wa_senders.py:test_send_restaurant_order_confirmation_creates_accept_button",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_delivery_hooks.py",
+      "target": "function:tests/watomation/routers/test_delivery_hooks.py:test_delivery_dispatch_hook_empty_and_overwatch_scheduling",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_delivery_hooks.py",
+      "target": "function:tests/watomation/routers/test_delivery_hooks.py:test_delivery_inflight_graph_init_hook_schedules_core_background_tasks",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_delivery_hooks.py",
+      "target": "function:tests/watomation/routers/test_delivery_hooks.py:test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_delivery_hooks.py",
+      "target": "function:tests/watomation/routers/test_delivery_hooks.py:test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_delivery_hooks.py",
+      "target": "function:tests/watomation/routers/test_delivery_hooks.py:test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_location_hooks.py",
+      "target": "function:tests/watomation/routers/test_location_hooks.py:test_notify_rider_location_event_restaurant_enter_notifies_admins",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_location_hooks.py",
+      "target": "function:tests/watomation/routers/test_location_hooks.py:test_notify_rider_location_event_customer_enter_posts_webhook",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_order_hooks.py",
+      "target": "function:tests/watomation/routers/test_order_hooks.py:test_get_min_order_value_validates_inputs_and_returns_service_value",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_order_hooks.py",
+      "target": "function:tests/watomation/routers/test_order_hooks.py:test_create_order_returns_payment_url_for_delivery_and_takeaway",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_order_hooks.py",
+      "target": "function:tests/watomation/routers/test_order_hooks.py:test_capture_address_upserts_customer_and_notifies_restaurant",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_payment_hooks.py",
+      "target": "function:tests/watomation/routers/test_payment_hooks.py:test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_takeaway_hooks.py",
+      "target": "function:tests/watomation/routers/test_takeaway_hooks.py:test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_takeaway_hooks.py",
+      "target": "function:tests/watomation/routers/test_takeaway_hooks.py:test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_takeaway_hooks.py",
+      "target": "function:tests/watomation/routers/test_takeaway_hooks.py:test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/routers/test_thread_hooks.py",
+      "target": "function:tests/watomation/routers/test_thread_hooks.py:test_debug_state_by_thread_path_builds_graph_config",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/test_on_callback_wa_handler.py",
+      "target": "function:tests/watomation/test_on_callback_wa_handler.py:test_dispatch_response_handles_missing_and_inflight_orders",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/test_on_callback_wa_handler.py",
+      "target": "function:tests/watomation/test_on_callback_wa_handler.py:test_restaurant_order_accept_decline_schedules_update",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/test_on_callback_wa_handler.py",
+      "target": "function:tests/watomation/test_on_callback_wa_handler.py:test_admin_adjust_pickup_time_updates_summary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/test_on_message_wa_handler.py",
+      "target": "function:tests/watomation/test_on_message_wa_handler.py:test_process_wa_msg_with_active_thread_runs_rider_graph",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/test_on_message_wa_handler.py",
+      "target": "function:tests/watomation/test_on_message_wa_handler.py:test_send_live_map_location_handles_no_inflight_missing_and_success",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/watomation/test_on_message_wa_handler.py",
+      "target": "function:tests/watomation/test_on_message_wa_handler.py:test_test_delivery_schedules_init_and_updates_summary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    }
+  ]
+}

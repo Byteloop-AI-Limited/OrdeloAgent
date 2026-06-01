@@ -1,0 +1,518 @@
+{
+  "nodes": [
+    {
+      "id": "file:utils_common/docker_cleanup.sh",
+      "type": "file",
+      "name": "docker_cleanup.sh",
+      "filePath": "utils_common/docker_cleanup.sh",
+      "summary": "Shell script that prunes stopped Docker containers, unused images, and dangling volumes to reclaim disk space during development.",
+      "tags": ["utility", "infrastructure"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/edge_functions_sbase/edge_app_runner_manager.ts",
+      "type": "file",
+      "name": "edge_app_runner_manager.ts",
+      "filePath": "utils_common/edge_functions_sbase/edge_app_runner_manager.ts",
+      "summary": "Supabase Deno Edge Function that exposes a REST endpoint for pausing or resuming AWS App Runner services by ARN, routing `/{service}/pause` and `/{service}/resume` requests to the AWS SDK.",
+      "tags": ["api-handler", "infrastructure", "service"],
+      "complexity": "moderate",
+      "languageNotes": "Deno-based TypeScript; uses `serve()` from Deno standard library and `@aws-sdk/client-apprunner` from npm; dynamically resolves service ARN from env vars named `{SERVICE_KEY}_APP_RUNNER_SERVICE_ARN`."
+    },
+    {
+      "id": "file:utils_common/edge_functions_sbase/edge_owntracks-webhook.ts",
+      "type": "file",
+      "name": "edge_owntracks-webhook.ts",
+      "filePath": "utils_common/edge_functions_sbase/edge_owntracks-webhook.ts",
+      "summary": "Supabase Deno Edge Function webhook that receives OwnTracks location payloads and forwards them to a PGMQ `owntracks` queue via Supabase RPC.",
+      "tags": ["api-handler", "service", "event-handler"],
+      "complexity": "simple",
+      "languageNotes": "Uses `Deno.serve()` and the Supabase JS client pointed at the `pgmq_public` schema to enqueue messages."
+    },
+    {
+      "id": "document:utils_common/edge_functions_sbase/README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "utils_common/edge_functions_sbase/README.md",
+      "summary": "Developer guide for the Supabase/Deno edge functions, describing the App Runner manager and OwnTracks webhook functions, local Deno setup, configuration, and how to run and test them.",
+      "tags": ["documentation", "infrastructure"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/edge_functions_sbase/test_app_runner.py",
+      "type": "file",
+      "name": "test_app_runner.py",
+      "filePath": "utils_common/edge_functions_sbase/test_app_runner.py",
+      "summary": "Manual integration test script that exercises the App Runner manager edge function's pause and resume endpoints over HTTP.",
+      "tags": ["test", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/edge_functions_sbase/test_owntracks_webhook.py",
+      "type": "file",
+      "name": "test_owntracks_webhook.py",
+      "filePath": "utils_common/edge_functions_sbase/test_owntracks_webhook.py",
+      "summary": "Manual integration test script that sends a synthetic OwnTracks location payload to the Supabase edge function webhook and prints the response.",
+      "tags": ["test", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/live_location/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "utils_common/live_location/__init__.py",
+      "summary": "Package initialiser for the `utils_common.live_location` module.",
+      "tags": ["entry-point", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/live_location/live_track.sql",
+      "type": "file",
+      "name": "live_track.sql",
+      "filePath": "utils_common/live_location/live_track.sql",
+      "summary": "SQL DDL that creates the `live` table for storing OwnTracks GPS location events with battery, coordinates, topic, user/device identifiers, and performance indexes.",
+      "tags": ["database", "schema-definition"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:utils_common/live_location/live_track.sql:live",
+      "type": "table",
+      "name": "live",
+      "filePath": "utils_common/live_location/live_track.sql",
+      "lineRange": [2, 18],
+      "summary": "Core live-location tracking table storing OwnTracks GPS events including battery level, lat/lon coordinates, topic, user_id, and device_id.",
+      "tags": ["database", "schema-definition"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/live_location/read_pickly_file.py",
+      "type": "file",
+      "name": "read_pickly_file.py",
+      "filePath": "utils_common/live_location/read_pickly_file.py",
+      "summary": "Analysis utility that reads serialised OwnTracks location data from pickle files, loads it into an in-memory DuckDB table, and provides rich query functions for spatial and temporal analysis.",
+      "tags": ["utility", "database"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/live_location/read_pickly_file.py:read_pickle_file",
+      "type": "function",
+      "name": "read_pickle_file",
+      "filePath": "utils_common/live_location/read_pickly_file.py",
+      "lineRange": [21, 42],
+      "summary": "Reads one or more pickle files from a directory, deserialises each OwnTracks record, and returns a flat list of location event dicts.",
+      "tags": ["utility", "serialization"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:utils_common/live_location/read_pickly_file.py:create_duckdb_table",
+      "type": "function",
+      "name": "create_duckdb_table",
+      "filePath": "utils_common/live_location/read_pickly_file.py",
+      "lineRange": [45, 64],
+      "summary": "Converts a list of location event dicts into a Pandas DataFrame and registers it as an in-memory DuckDB view for SQL querying.",
+      "tags": ["utility", "database"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:utils_common/live_location/read_pickly_file.py:query_location_data",
+      "type": "function",
+      "name": "query_location_data",
+      "filePath": "utils_common/live_location/read_pickly_file.py",
+      "lineRange": [68, 171],
+      "summary": "Executes one of several named analytical queries against the DuckDB location table (e.g. trajectory, heatmap, distance summary) and returns results as a dict.",
+      "tags": ["utility", "database"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:utils_common/misc_setup/setup_ipykernel_on_startup.py",
+      "type": "file",
+      "name": "setup_ipykernel_on_startup.py",
+      "filePath": "utils_common/misc_setup/setup_ipykernel_on_startup.py",
+      "summary": "IPython kernel startup script that detects the git repository root and prepends it to `sys.path`, ensuring project modules are importable in Jupyter notebooks without manual path management.",
+      "tags": ["utility", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:utils_common/misc_setup/uv_setup.md",
+      "type": "document",
+      "name": "uv_setup.md",
+      "filePath": "utils_common/misc_setup/uv_setup.md",
+      "summary": "Ultra-short reference for the UV package manager setup commands used in this project.",
+      "tags": ["documentation", "build-system"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/order_management/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "utils_common/order_management/__init__.py",
+      "summary": "Package initialiser for the `utils_common.order_management` module.",
+      "tags": ["entry-point", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/order_management/food_order.sql",
+      "type": "file",
+      "name": "food_order.sql",
+      "filePath": "utils_common/order_management/food_order.sql",
+      "summary": "SQL DDL defining the food order schema: a `daily_seq_last_value` helper table, a core food-orders table with pricing breakdown columns, and two order-items tables for regular and takeaway items.",
+      "tags": ["database", "schema-definition"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/order_management/order_num_gen.py",
+      "type": "file",
+      "name": "order_num_gen.py",
+      "filePath": "utils_common/order_management/order_num_gen.py",
+      "summary": "Provides `create_order_number` and `decode_order_number` helpers that generate and verify reversible, date-salted hash-based order numbers from a WhatsApp recipient number.",
+      "tags": ["utility", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/order_management/order_num_gen.py:create_order_number",
+      "type": "function",
+      "name": "create_order_number",
+      "filePath": "utils_common/order_management/order_num_gen.py",
+      "lineRange": [20, 34],
+      "summary": "Generates a short, human-readable order number by salting the recipient phone number with today's date and taking characters from a SHA-256 hash.",
+      "tags": ["utility", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/order_management/order_num_gen.py:decode_order_number",
+      "type": "function",
+      "name": "decode_order_number",
+      "filePath": "utils_common/order_management/order_num_gen.py",
+      "lineRange": [36, 45],
+      "summary": "Verifies an encoded order number by regenerating it from the candidate recipient number and confirming it matches, providing an integrity check.",
+      "tags": ["utility", "validation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/payment_ms/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "utils_common/payment_ms/__init__.py",
+      "summary": "Package initialiser for the `utils_common.payment_ms` payment microservice integration module.",
+      "tags": ["entry-point", "barrel", "service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/pricing_ms/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "utils_common/pricing_ms/__init__.py",
+      "summary": "Package initialiser for the `utils_common.pricing_ms` pricing microservice integration module.",
+      "tags": ["entry-point", "barrel", "service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/pricing_ms/TBD_pricing_logic.py",
+      "type": "file",
+      "name": "TBD_pricing_logic.py",
+      "filePath": "utils_common/pricing_ms/TBD_pricing_logic.py",
+      "summary": "Commented-out placeholder for future pricing logic functions (`get_min_order_value`, `get_final_order_value`) that will call the external pricing microservice API.",
+      "tags": ["service", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/thread_handlers.py",
+      "type": "file",
+      "name": "thread_handlers.py",
+      "filePath": "utils_common/thread_handlers.py",
+      "summary": "Early in-memory thread management module providing `get_active_thread`, `create_new_entry`, and `add_new_thread` helpers for associating WhatsApp sender numbers with LangGraph conversation thread IDs.",
+      "tags": ["utility", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/thread_handlers.py:get_active_thread",
+      "type": "function",
+      "name": "get_active_thread",
+      "filePath": "utils_common/thread_handlers.py",
+      "lineRange": [10, 21],
+      "summary": "Returns the most recent active thread entry for a given WhatsApp sender number from the in-memory thread dictionary.",
+      "tags": ["utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:utils_common/thread_handlers.py:create_new_entry",
+      "type": "function",
+      "name": "create_new_entry",
+      "filePath": "utils_common/thread_handlers.py",
+      "lineRange": [24, 42],
+      "summary": "Creates a new thread entry with a UUID thread ID and ISO timestamp, appending it to the in-memory store for the given sender.",
+      "tags": ["utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:utils_common/thread_handlers.py:add_new_thread",
+      "type": "function",
+      "name": "add_new_thread",
+      "filePath": "utils_common/thread_handlers.py",
+      "lineRange": [45, 56],
+      "summary": "Public entry point that creates a new thread entry for a sender, delegating to `create_new_entry`.",
+      "tags": ["utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:utils_common/waba_es/embedded_signup_guide.md",
+      "type": "document",
+      "name": "embedded_signup_guide.md",
+      "filePath": "utils_common/waba_es/embedded_signup_guide.md",
+      "summary": "Comprehensive 7-step onboarding guide for WhatsApp Embedded Signup, covering the full token-exchange flow, WABA subscription, phone number registration, database persistence schema, and troubleshooting.",
+      "tags": ["documentation", "development"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:utils_common/waba_es/waba_es_configuration.md",
+      "type": "document",
+      "name": "waba_es_configuration.md",
+      "filePath": "utils_common/waba_es/waba_es_configuration.md",
+      "summary": "Configuration reference for WhatsApp Embedded Signup settings including Facebook app ID, client token, and the steps to assign a new WABA to a system user.",
+      "tags": ["documentation", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/waba_utils/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "utils_common/waba_utils/__init__.py",
+      "summary": "Empty package initialiser for the `utils_common.waba_utils` WhatsApp utility module.",
+      "tags": ["entry-point", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "utils/__init__.py",
+      "summary": "Empty package initialiser for the top-level `utils` package.",
+      "tags": ["entry-point", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils/aws_setting.py",
+      "type": "file",
+      "name": "aws_setting.py",
+      "filePath": "utils/aws_setting.py",
+      "summary": "Duplicate/standalone AWS settings module (mirrors `config/aws_setting.py`) providing `AwsSettings`, `is_running_on_lambda`, `get_secrets_client`, and `get_ordelo_agent_env` for loading secrets from AWS Secrets Manager.",
+      "tags": ["configuration", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:utils/aws_setting.py:AwsSettings",
+      "type": "class",
+      "name": "AwsSettings",
+      "filePath": "utils/aws_setting.py",
+      "lineRange": [27, 56],
+      "summary": "Pydantic BaseSettings class that holds AWS credentials and exposes a `secrets_client` property and `get_secret` method for retrieving secrets from AWS Secrets Manager.",
+      "tags": ["configuration", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils/aws_setting.py:get_ordelo_agent_env",
+      "type": "function",
+      "name": "get_ordelo_agent_env",
+      "filePath": "utils/aws_setting.py",
+      "lineRange": [76, 94],
+      "summary": "Loads the full OrdeloAgent environment dictionary from AWS Secrets Manager, with Lambda-aware credential selection and local `.env` fallback.",
+      "tags": ["configuration", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:watomation/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "watomation/__init__.py",
+      "summary": "Package initialiser for the `watomation` FastAPI/WhatsApp automation package, providing a module docstring that enumerates all sub-handlers and routers.",
+      "tags": ["entry-point", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:zedScripts/run_cell.py",
+      "type": "file",
+      "name": "run_cell.py",
+      "filePath": "zedScripts/run_cell.py",
+      "summary": "Zed editor helper script that extracts and executes a specific line range from an open file as a Python cell, enabling notebook-style code execution from the Zed task runner.",
+      "tags": ["utility", "development"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:utils_common/live_location/read_pickly_file.py",
+      "target": "function:utils_common/live_location/read_pickly_file.py:read_pickle_file",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/live_location/read_pickly_file.py",
+      "target": "function:utils_common/live_location/read_pickly_file.py:create_duckdb_table",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/live_location/read_pickly_file.py",
+      "target": "function:utils_common/live_location/read_pickly_file.py:query_location_data",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/live_location/read_pickly_file.py",
+      "target": "function:utils_common/live_location/read_pickly_file.py:read_pickle_file",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/live_location/read_pickly_file.py",
+      "target": "function:utils_common/live_location/read_pickly_file.py:create_duckdb_table",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/live_location/read_pickly_file.py",
+      "target": "function:utils_common/live_location/read_pickly_file.py:query_location_data",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/live_location/live_track.sql",
+      "target": "table:utils_common/live_location/live_track.sql:live",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/order_num_gen.py",
+      "target": "function:utils_common/order_management/order_num_gen.py:create_order_number",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/order_num_gen.py",
+      "target": "function:utils_common/order_management/order_num_gen.py:decode_order_number",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/order_num_gen.py",
+      "target": "function:utils_common/order_management/order_num_gen.py:create_order_number",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/order_num_gen.py",
+      "target": "function:utils_common/order_management/order_num_gen.py:decode_order_number",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/thread_handlers.py",
+      "target": "function:utils_common/thread_handlers.py:get_active_thread",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/thread_handlers.py",
+      "target": "function:utils_common/thread_handlers.py:create_new_entry",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/thread_handlers.py",
+      "target": "function:utils_common/thread_handlers.py:add_new_thread",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/thread_handlers.py",
+      "target": "function:utils_common/thread_handlers.py:get_active_thread",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/thread_handlers.py",
+      "target": "function:utils_common/thread_handlers.py:create_new_entry",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/thread_handlers.py",
+      "target": "function:utils_common/thread_handlers.py:add_new_thread",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils/aws_setting.py",
+      "target": "class:utils/aws_setting.py:AwsSettings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils/aws_setting.py",
+      "target": "function:utils/aws_setting.py:get_ordelo_agent_env",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils/aws_setting.py",
+      "target": "class:utils/aws_setting.py:AwsSettings",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils/aws_setting.py",
+      "target": "function:utils/aws_setting.py:get_ordelo_agent_env",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "document:utils_common/edge_functions_sbase/README.md",
+      "target": "file:utils_common/edge_functions_sbase/edge_app_runner_manager.ts",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:utils_common/edge_functions_sbase/README.md",
+      "target": "file:utils_common/edge_functions_sbase/edge_owntracks-webhook.ts",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:utils_common/edge_functions_sbase/test_app_runner.py",
+      "target": "file:utils_common/edge_functions_sbase/edge_app_runner_manager.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:utils_common/edge_functions_sbase/test_owntracks_webhook.py",
+      "target": "file:utils_common/edge_functions_sbase/edge_owntracks-webhook.ts",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

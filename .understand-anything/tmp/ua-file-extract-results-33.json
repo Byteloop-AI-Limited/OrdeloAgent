@@ -1,0 +1,15 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 1,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "zellij.kdl",
+      "language": "kdl",
+      "fileCategory": "code",
+      "totalLines": 311,
+      "nonEmptyLines": 310,
+      "metrics": {}
+    }
+  ]
+}

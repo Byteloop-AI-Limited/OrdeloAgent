@@ -84,6 +84,7 @@ class DeliverySummary(BaseModel):
     rest_ref: Optional[str] = None  # auto-generated from order_number
     dt: date
     dtts: datetime
+    redispatch_dtts: Optional[datetime] = None
 
     @classmethod
     def from_order_number(cls, order_number: str) -> "DeliverySummary":

@@ -1,0 +1,162 @@
+{
+  "nodes": [
+    {
+      "id": "file:notebooks/location_events_simulate.py",
+      "type": "file",
+      "name": "location_events_simulate.py",
+      "filePath": "notebooks/location_events_simulate.py",
+      "summary": "Development notebook script that simulates OwnTracks location events by constructing `Location` payloads and posting them to the location webhook endpoint, used for local testing of the live-tracking flow without a physical device.",
+      "tags": ["script", "test", "utility", "event-handler"],
+      "complexity": "moderate",
+      "languageNotes": "Top-level imperative script with no function definitions; all simulation logic runs at module scope."
+    },
+    {
+      "id": "file:ordelo_datamodels/location_pymodels.py",
+      "type": "file",
+      "name": "location_pymodels.py",
+      "filePath": "ordelo_datamodels/location_pymodels.py",
+      "summary": "Defines the `Location` Pydantic model representing an OwnTracks MQTT location event, including a `set_topic_fields` validator that parses the `owntracks/<rider_id>/<recipient>/<order_number>` topic string into typed fields.",
+      "tags": ["data-model", "validation", "serialization"],
+      "complexity": "simple",
+      "languageNotes": "Uses Pydantic v2 model_validator to parse the composite topic string via a regex; the `short_uuid` helper generates URL-safe base64 UUIDs for the record id field."
+    },
+    {
+      "id": "class:ordelo_datamodels/location_pymodels.py:Location",
+      "type": "class",
+      "name": "Location",
+      "filePath": "ordelo_datamodels/location_pymodels.py",
+      "lineRange": [12, 48],
+      "summary": "Pydantic model capturing all OwnTracks location event fields (lat, lon, batt, tst, tid, etc.) plus derived fields (rider_id, recipient, order_number, dt, dtts) extracted from the MQTT topic.",
+      "tags": ["data-model", "validation", "serialization"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/ordelo_datamodels/test_location_pymodels.py",
+      "type": "file",
+      "name": "test_location_pymodels.py",
+      "filePath": "tests/ordelo_datamodels/test_location_pymodels.py",
+      "summary": "Pytest unit tests for the `Location` model and `short_uuid` helper, verifying correct topic parsing, timestamp-to-date conversion, rejection of invalid event-type literals, and URL-safe UUID generation.",
+      "tags": ["test", "validation", "data-model"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/ordelo_datamodels/test_location_pymodels.py:test_location_parses_topic_into_rider_recipient_order",
+      "type": "function",
+      "name": "test_location_parses_topic_into_rider_recipient_order",
+      "filePath": "tests/ordelo_datamodels/test_location_pymodels.py",
+      "lineRange": [23, 37],
+      "summary": "Asserts that a Location constructed with a standard OwnTracks topic string correctly populates the rider_id, recipient, and order_number derived fields.",
+      "tags": ["test", "validation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/ordelo_datamodels/test_location_pymodels.py:test_location_sets_dt_and_dtts_from_tst",
+      "type": "function",
+      "name": "test_location_sets_dt_and_dtts_from_tst",
+      "filePath": "tests/ordelo_datamodels/test_location_pymodels.py",
+      "lineRange": [40, 55],
+      "summary": "Verifies that the `dt` (date) and `dtts` (datetime timestamp) fields are correctly derived from the Unix `tst` timestamp in the OwnTracks payload.",
+      "tags": ["test", "validation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/ordelo_datamodels/test_location_pymodels.py:test_location_rejects_invalid_event_type_literal",
+      "type": "function",
+      "name": "test_location_rejects_invalid_event_type_literal",
+      "filePath": "tests/ordelo_datamodels/test_location_pymodels.py",
+      "lineRange": [58, 70],
+      "summary": "Confirms that constructing a Location with an invalid `t` event-type value raises a ValidationError, enforcing the Pydantic Literal constraint.",
+      "tags": ["test", "validation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/ordelo_datamodels/test_location_pymodels.py:test_short_uuid_returns_urlsafe_id",
+      "type": "function",
+      "name": "test_short_uuid_returns_urlsafe_id",
+      "filePath": "tests/ordelo_datamodels/test_location_pymodels.py",
+      "lineRange": [73, 76],
+      "summary": "Checks that `short_uuid()` produces a non-empty URL-safe string without padding characters.",
+      "tags": ["test", "utility"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:ordelo_datamodels/location_pymodels.py",
+      "target": "class:ordelo_datamodels/location_pymodels.py:Location",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/location_pymodels.py",
+      "target": "class:ordelo_datamodels/location_pymodels.py:Location",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:notebooks/location_events_simulate.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/location_events_simulate.py",
+      "target": "file:ordelo_datamodels/location_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_location_pymodels.py",
+      "target": "file:ordelo_datamodels/location_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_location_pymodels.py",
+      "target": "function:tests/ordelo_datamodels/test_location_pymodels.py:test_location_parses_topic_into_rider_recipient_order",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_location_pymodels.py",
+      "target": "function:tests/ordelo_datamodels/test_location_pymodels.py:test_location_sets_dt_and_dtts_from_tst",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_location_pymodels.py",
+      "target": "function:tests/ordelo_datamodels/test_location_pymodels.py:test_location_rejects_invalid_event_type_literal",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_location_pymodels.py",
+      "target": "function:tests/ordelo_datamodels/test_location_pymodels.py:test_short_uuid_returns_urlsafe_id",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/location_pymodels.py",
+      "target": "file:tests/ordelo_datamodels/test_location_pymodels.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:ordelo_datamodels/location_pymodels.py",
+      "target": "file:watomation/routers/location_hooks.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

@@ -1,0 +1,1083 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 9,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "docs/callback_handlers.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 203,
+      "nonEmptyLines": 145,
+      "sections": [
+        {
+          "heading": "Callback Button Handlers",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Handler Registry",
+          "level": 2,
+          "line": 13
+        },
+        {
+          "heading": "Handler Details",
+          "level": 2,
+          "line": 31
+        },
+        {
+          "heading": "`dispatch_response` -- Rider Accept/Decline Dispatch",
+          "level": 3,
+          "line": 33
+        },
+        {
+          "heading": "`rider_request_location` -- Rider Location Request",
+          "level": 3,
+          "line": 50
+        },
+        {
+          "heading": "`handle_shift_availability` -- Rider Shift Start/End",
+          "level": 3,
+          "line": 62
+        },
+        {
+          "heading": "`handle_admin_availability` -- Admin Order Notification Opt-In",
+          "level": 3,
+          "line": 80
+        },
+        {
+          "heading": "`restaurant_order_accept_decline_handler` -- Restaurant Accept/Decline Order",
+          "level": 3,
+          "line": 92
+        },
+        {
+          "heading": "`handle_pickup_time_selection` -- Admin Pickup Time Selection",
+          "level": 3,
+          "line": 111
+        },
+        {
+          "heading": "`admin_collection_ready` -- Admin Notifies Food Ready for Pickup",
+          "level": 3,
+          "line": 131
+        },
+        {
+          "heading": "`admin_adjust_pickup_time` -- Admin Adjusts Pickup Time (Inflight Delivery)",
+          "level": 3,
+          "line": 143
+        },
+        {
+          "heading": "`admin_takeaway_ready` -- Admin Marks Takeaway Order as Ready",
+          "level": 3,
+          "line": 162
+        },
+        {
+          "heading": "Handler Signature Differences",
+          "level": 2,
+          "line": 181
+        },
+        {
+          "heading": "Registration Order",
+          "level": 2,
+          "line": 189
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 14
+      }
+    },
+    {
+      "path": "docs/delivery_process.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 783,
+      "nonEmptyLines": 586,
+      "sections": [
+        {
+          "heading": "Ordelo Delivery Process",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Table of Contents",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "High-Level Overview",
+          "level": 2,
+          "line": 30
+        },
+        {
+          "heading": "Key Phases",
+          "level": 3,
+          "line": 40
+        },
+        {
+          "heading": "Database Tables",
+          "level": 2,
+          "line": 49
+        },
+        {
+          "heading": "delivery_summary Status Values",
+          "level": 3,
+          "line": 60
+        },
+        {
+          "heading": "restaurant_confirmation_status Values",
+          "level": 3,
+          "line": 70
+        },
+        {
+          "heading": "delivery_detail Status Values",
+          "level": 3,
+          "line": 82
+        },
+        {
+          "heading": "delivery_dispatch Status Values",
+          "level": 3,
+          "line": 91
+        },
+        {
+          "heading": "Workflow Phases",
+          "level": 2,
+          "line": 106
+        },
+        {
+          "heading": "Phase 1: Order Creation (`init_delivery`)",
+          "level": 3,
+          "line": 108
+        },
+        {
+          "heading": "Phase 2: Restaurant Confirmation",
+          "level": 3,
+          "line": 130
+        },
+        {
+          "heading": "2a. Confirmation Request Trigger",
+          "level": 4,
+          "line": 134
+        },
+        {
+          "heading": "2b. Webhook Handler",
+          "level": 4,
+          "line": 159
+        },
+        {
+          "heading": "2c. WhatsApp Callback Handlers",
+          "level": 4,
+          "line": 177
+        },
+        {
+          "heading": "2d. Confirmation Timeout Job",
+          "level": 4,
+          "line": 188
+        },
+        {
+          "heading": "Phase 3: Dispatch Creation (`process_delivery` + `job_create_dispatch`)",
+          "level": 3,
+          "line": 210
+        },
+        {
+          "heading": "3a. Delivery Detail Management",
+          "level": 4,
+          "line": 212
+        },
+        {
+          "heading": "3b. Dispatch Creation",
+          "level": 4,
+          "line": 236
+        },
+        {
+          "heading": "3c. Dispatch Webhook Trigger",
+          "level": 4,
+          "line": 264
+        },
+        {
+          "heading": "Phase 4: Rider Assignment (`job_assign_dispatch`)",
+          "level": 3,
+          "line": 306
+        },
+        {
+          "heading": "4a. Rider Acceptance",
+          "level": 4,
+          "line": 308
+        },
+        {
+          "heading": "4b. Dispatch Assignment Job",
+          "level": 4,
+          "line": 321
+        },
+        {
+          "heading": "Phase 5: Delivery Execution (Inflight)",
+          "level": 3,
+          "line": 347
+        },
+        {
+          "heading": "5a. Inflight Trigger",
+          "level": 4,
+          "line": 349
+        },
+        {
+          "heading": "5b. Graph Initialization Handler",
+          "level": 4,
+          "line": 375
+        },
+        {
+          "heading": "5c. Missed Dispatches Notification",
+          "level": 4,
+          "line": 390
+        },
+        {
+          "heading": "5d. Rider Agent (LangGraph)",
+          "level": 4,
+          "line": 404
+        },
+        {
+          "heading": "Agent State (`AgentState` TypedDict)",
+          "level": 5,
+          "line": 410
+        },
+        {
+          "heading": "Graph Structure",
+          "level": 5,
+          "line": 427
+        },
+        {
+          "heading": "Agent Tools (12 total)",
+          "level": 5,
+          "line": 439
+        },
+        {
+          "heading": "Agent Workflow",
+          "level": 5,
+          "line": 458
+        },
+        {
+          "heading": "Pre-Pickup Cancellation Flow",
+          "level": 5,
+          "line": 470
+        },
+        {
+          "heading": "Graph Initialization (`init_ordelo_graph`)",
+          "level": 5,
+          "line": 481
+        },
+        {
+          "heading": "Thread Management",
+          "level": 5,
+          "line": 494
+        },
+        {
+          "heading": "5e. Live Location Tracking",
+          "level": 4,
+          "line": 500
+        },
+        {
+          "heading": "Phase 6: Completion (`dispatch_complete_func`)",
+          "level": 3,
+          "line": 517
+        },
+        {
+          "heading": "Triggers and Webhooks",
+          "level": 2,
+          "line": 537
+        },
+        {
+          "heading": "Scheduled Jobs (pg_cron)",
+          "level": 2,
+          "line": 548
+        },
+        {
+          "heading": "Status Transitions",
+          "level": 2,
+          "line": 595
+        },
+        {
+          "heading": "Complete Order Journey",
+          "level": 3,
+          "line": 597
+        },
+        {
+          "heading": "Configuration Keys",
+          "level": 2,
+          "line": 652
+        },
+        {
+          "heading": "Workflow Diagram",
+          "level": 2,
+          "line": 672
+        },
+        {
+          "heading": "SQL Files Reference",
+          "level": 2,
+          "line": 725
+        },
+        {
+          "heading": "Core Tables",
+          "level": 3,
+          "line": 727
+        },
+        {
+          "heading": "Jobs and Functions",
+          "level": 3,
+          "line": 735
+        },
+        {
+          "heading": "Supporting Files",
+          "level": 3,
+          "line": 753
+        },
+        {
+          "heading": "FastAPI Webhook Endpoints",
+          "level": 2,
+          "line": 763
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 48
+      }
+    },
+    {
+      "path": "docs/delivery_process_explorer.html",
+      "language": "html",
+      "fileCategory": "markup",
+      "totalLines": 1002,
+      "nonEmptyLines": 940,
+      "metrics": {}
+    },
+    {
+      "path": "docs/dispatch_flow.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 276,
+      "nonEmptyLines": 183,
+      "sections": [
+        {
+          "heading": "Ordelo Dispatch Flow",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Components Involved",
+          "level": 2,
+          "line": 12
+        },
+        {
+          "heading": "High‑Level Flow",
+          "level": 2,
+          "line": 33
+        },
+        {
+          "heading": "Step‑By‑Step Detail",
+          "level": 2,
+          "line": 45
+        },
+        {
+          "heading": "1. Dispatch Creation (DB)",
+          "level": 3,
+          "line": 47
+        },
+        {
+          "heading": "2. Dispatch Webhook Trigger (DB → API)",
+          "level": 3,
+          "line": 56
+        },
+        {
+          "heading": "3. Dispatch Hook Handler (API → WhatsApp)",
+          "level": 3,
+          "line": 80
+        },
+        {
+          "heading": "4. Rider Response Callback (WhatsApp → API)",
+          "level": 3,
+          "line": 103
+        },
+        {
+          "heading": "5. Recording Accept/Decline (API → DB)",
+          "level": 3,
+          "line": 120
+        },
+        {
+          "heading": "6. Assignment + Inflight Insert (DB)",
+          "level": 3,
+          "line": 132
+        },
+        {
+          "heading": "7. Inflight Trigger + Graph Init (DB → API)",
+          "level": 3,
+          "line": 143
+        },
+        {
+          "heading": "8. Missed Dispatch Notifications (DB → API → WhatsApp)",
+          "level": 3,
+          "line": 169
+        },
+        {
+          "heading": "Status Transitions Summary",
+          "level": 2,
+          "line": 184
+        },
+        {
+          "heading": "Pre‑Pickup Cancellation Flow",
+          "level": 2,
+          "line": 203
+        },
+        {
+          "heading": "Trigger",
+          "level": 3,
+          "line": 207
+        },
+        {
+          "heading": "Step‑by‑Step",
+          "level": 3,
+          "line": 211
+        },
+        {
+          "heading": "Effect on Re‑Dispatch",
+          "level": 3,
+          "line": 228
+        },
+        {
+          "heading": "Status Transitions",
+          "level": 3,
+          "line": 236
+        },
+        {
+          "heading": "Notes / Race Conditions",
+          "level": 2,
+          "line": 247
+        },
+        {
+          "heading": "Re‑Offer Approach (Not Enabled)",
+          "level": 2,
+          "line": 257
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 20
+      }
+    },
+    {
+      "path": "docs/get_restaurant_webhook_url_async_guide.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 204,
+      "nonEmptyLines": 148,
+      "sections": [
+        {
+          "heading": "`get_restaurant_webhook_url_async` Usage Guide",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Location",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Function Signature",
+          "level": 2,
+          "line": 15
+        },
+        {
+          "heading": "Parameters",
+          "level": 3,
+          "line": 21
+        },
+        {
+          "heading": "Valid Webhook Types",
+          "level": 3,
+          "line": 28
+        },
+        {
+          "heading": "Returns",
+          "level": 3,
+          "line": 45
+        },
+        {
+          "heading": "Raises",
+          "level": 3,
+          "line": 49
+        },
+        {
+          "heading": "Database Configuration",
+          "level": 2,
+          "line": 54
+        },
+        {
+          "heading": "Usage Examples",
+          "level": 2,
+          "line": 65
+        },
+        {
+          "heading": "Basic Usage",
+          "level": 3,
+          "line": 67
+        },
+        {
+          "heading": "With Path Parameters",
+          "level": 3,
+          "line": 81
+        },
+        {
+          "heading": "Error Handling",
+          "level": 3,
+          "line": 95
+        },
+        {
+          "heading": "Related Functions",
+          "level": 2,
+          "line": 115
+        },
+        {
+          "heading": "`get_restaurant_base_url_async`",
+          "level": 3,
+          "line": 117
+        },
+        {
+          "heading": "`WEBHOOK_PATHS`",
+          "level": 3,
+          "line": 128
+        },
+        {
+          "heading": "`reset_restaurant_base_url_cache`",
+          "level": 3,
+          "line": 143
+        },
+        {
+          "heading": "`get_restaurant_admins`",
+          "level": 3,
+          "line": 157
+        },
+        {
+          "heading": "Migration Notes",
+          "level": 2,
+          "line": 168
+        },
+        {
+          "heading": "Migration Example",
+          "level": 3,
+          "line": 179
+        },
+        {
+          "heading": "Performance Considerations",
+          "level": 2,
+          "line": 189
+        },
+        {
+          "heading": "Files Using This Function",
+          "level": 2,
+          "line": 195
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 22
+      }
+    },
+    {
+      "path": "docs/location_overview.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 97,
+      "nonEmptyLines": 74,
+      "sections": [
+        {
+          "heading": "Location Event Processing",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "End-to-End Flow",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Key Tables (`ordelo_datamodels/location.sql`)",
+          "level": 2,
+          "line": 21
+        },
+        {
+          "heading": "Queue Processing Job (`ordelo_datamodels/jobs_n_functions/job_process_owntracks.sql`)",
+          "level": 2,
+          "line": 27
+        },
+        {
+          "heading": "Webhook Handling (`watomation/routers/location_hooks.py`)",
+          "level": 2,
+          "line": 38
+        },
+        {
+          "heading": "Live Location Map Endpoint",
+          "level": 3,
+          "line": 48
+        },
+        {
+          "heading": "Null or Outdated Location Endpoint",
+          "level": 3,
+          "line": 52
+        },
+        {
+          "heading": "Sequence for a Transition Event",
+          "level": 2,
+          "line": 58
+        },
+        {
+          "heading": "Running and Verifying the Flow",
+          "level": 2,
+          "line": 86
+        },
+        {
+          "heading": "Operational Notes",
+          "level": 2,
+          "line": 93
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 10
+      }
+    },
+    {
+      "path": "docs/payment_and_order_flow.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 407,
+      "nonEmptyLines": 296,
+      "sections": [
+        {
+          "heading": "Ordelo Payment and Order Flow",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Table of Contents",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 30
+        },
+        {
+          "heading": "High-Level Flow",
+          "level": 3,
+          "line": 34
+        },
+        {
+          "heading": "Pre-Order Validation",
+          "level": 2,
+          "line": 48
+        },
+        {
+          "heading": "Minimum Order Value by Coordinates",
+          "level": 3,
+          "line": 52
+        },
+        {
+          "heading": "Minimum Order Value by Postcode",
+          "level": 3,
+          "line": 81
+        },
+        {
+          "heading": "Postcode Validator",
+          "level": 3,
+          "line": 97
+        },
+        {
+          "heading": "Order Creation",
+          "level": 2,
+          "line": 107
+        },
+        {
+          "heading": "Order Creation Logic",
+          "level": 3,
+          "line": 139
+        },
+        {
+          "heading": "Payment URL Generation",
+          "level": 3,
+          "line": 151
+        },
+        {
+          "heading": "Payment Paths",
+          "level": 2,
+          "line": 187
+        },
+        {
+          "heading": "Stripe Payment (Delivery)",
+          "level": 3,
+          "line": 189
+        },
+        {
+          "heading": "Stripe Payment (Takeaway)",
+          "level": 3,
+          "line": 202
+        },
+        {
+          "heading": "Pay-at-Restaurant (Takeaway Only)",
+          "level": 3,
+          "line": 215
+        },
+        {
+          "heading": "Payment Completion Handler",
+          "level": 2,
+          "line": 232
+        },
+        {
+          "heading": "Processing Steps",
+          "level": 3,
+          "line": 240
+        },
+        {
+          "heading": "init_delivery_summary vs init_takeaway_summary",
+          "level": 3,
+          "line": 253
+        },
+        {
+          "heading": "Address Capture",
+          "level": 2,
+          "line": 264
+        },
+        {
+          "heading": "Processing Steps",
+          "level": 3,
+          "line": 285
+        },
+        {
+          "heading": "Supporting Operations",
+          "level": 2,
+          "line": 298
+        },
+        {
+          "heading": "Active Thread Lookup",
+          "level": 3,
+          "line": 300
+        },
+        {
+          "heading": "Stale Thread Termination",
+          "level": 3,
+          "line": 308
+        },
+        {
+          "heading": "Payment Complete Test",
+          "level": 3,
+          "line": 316
+        },
+        {
+          "heading": "Status Transitions",
+          "level": 2,
+          "line": 326
+        },
+        {
+          "heading": "food_order.payment_status",
+          "level": 3,
+          "line": 328
+        },
+        {
+          "heading": "Complete Order-to-Initialization Journey",
+          "level": 3,
+          "line": 336
+        },
+        {
+          "heading": "Webhook Endpoints",
+          "level": 2,
+          "line": 369
+        },
+        {
+          "heading": "Order Hooks (`/order-hooks/`)",
+          "level": 3,
+          "line": 371
+        },
+        {
+          "heading": "Payment Hooks (`/payment-hooks/`)",
+          "level": 3,
+          "line": 382
+        },
+        {
+          "heading": "Thread Hooks (`/thread-hooks/`)",
+          "level": 3,
+          "line": 390
+        },
+        {
+          "heading": "External Webhooks Called",
+          "level": 3,
+          "line": 397
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 32
+      }
+    },
+    {
+      "path": "docs/pickup_time_logic.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 154,
+      "nonEmptyLines": 113,
+      "sections": [
+        {
+          "heading": "Pickup Time Logic",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "A. Delivery Orders (`delivery_summary`)",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Trigger chain (DB → API handler)",
+          "level": 3,
+          "line": 9
+        },
+        {
+          "heading": "1) Restaurant accepts order → pickup options sent",
+          "level": 3,
+          "line": 17
+        },
+        {
+          "heading": "2) Admin selects pickup time → DB update",
+          "level": 3,
+          "line": 24
+        },
+        {
+          "heading": "3) Timeout path if no pickup time selected",
+          "level": 3,
+          "line": 33
+        },
+        {
+          "heading": "4) Auto-accept on timeout",
+          "level": 3,
+          "line": 42
+        },
+        {
+          "heading": "5) Admin adjustment after inflight (mid-delivery pickup-time change)",
+          "level": 3,
+          "line": 53
+        },
+        {
+          "heading": "6) Downstream use",
+          "level": 3,
+          "line": 75
+        },
+        {
+          "heading": "B. Takeaway Orders (`takeaway_summary`)",
+          "level": 2,
+          "line": 83
+        },
+        {
+          "heading": "Init paths",
+          "level": 3,
+          "line": 85
+        },
+        {
+          "heading": "Trigger chain (DB → API handler)",
+          "level": 3,
+          "line": 92
+        },
+        {
+          "heading": "1) Restaurant accepts order → pickup options sent",
+          "level": 3,
+          "line": 104
+        },
+        {
+          "heading": "2) Admin selects pickup time → DB update",
+          "level": 3,
+          "line": 110
+        },
+        {
+          "heading": "3) Timeout path",
+          "level": 3,
+          "line": 119
+        },
+        {
+          "heading": "4) Auto-accept on timeout",
+          "level": 3,
+          "line": 124
+        },
+        {
+          "heading": "5) Pickup time set → external restaurant notification",
+          "level": 3,
+          "line": 135
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 17
+      }
+    },
+    {
+      "path": "docs/takeaway_flow.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 325,
+      "nonEmptyLines": 231,
+      "sections": [
+        {
+          "heading": "Ordelo Takeaway Flow",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Table of Contents",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 28
+        },
+        {
+          "heading": "High-Level Flow",
+          "level": 3,
+          "line": 32
+        },
+        {
+          "heading": "Key Differences from Delivery",
+          "level": 2,
+          "line": 43
+        },
+        {
+          "heading": "Database Tables",
+          "level": 2,
+          "line": 58
+        },
+        {
+          "heading": "takeaway_summary",
+          "level": 3,
+          "line": 60
+        },
+        {
+          "heading": "Status Values",
+          "level": 3,
+          "line": 85
+        },
+        {
+          "heading": "takeaway_summary.status",
+          "level": 4,
+          "line": 87
+        },
+        {
+          "heading": "takeaway_summary.restaurant_confirmation_status",
+          "level": 4,
+          "line": 95
+        },
+        {
+          "heading": "Initialization Paths",
+          "level": 2,
+          "line": 107
+        },
+        {
+          "heading": "Stripe Payment Path",
+          "level": 3,
+          "line": 111
+        },
+        {
+          "heading": "Pay-at-Restaurant Path",
+          "level": 3,
+          "line": 127
+        },
+        {
+          "heading": "Restaurant Confirmation Flow",
+          "level": 2,
+          "line": 148
+        },
+        {
+          "heading": "Confirmation Request Trigger",
+          "level": 3,
+          "line": 152
+        },
+        {
+          "heading": "Webhook Handler",
+          "level": 3,
+          "line": 170
+        },
+        {
+          "heading": "WhatsApp Callback Handlers",
+          "level": 3,
+          "line": 187
+        },
+        {
+          "heading": "Pickup Time Selection",
+          "level": 2,
+          "line": 201
+        },
+        {
+          "heading": "Pickup Time Webhook (External Restaurant Notification)",
+          "level": 3,
+          "line": 216
+        },
+        {
+          "heading": "Restaurant Decline Path",
+          "level": 2,
+          "line": 240
+        },
+        {
+          "heading": "Restaurant Timeout Path",
+          "level": 2,
+          "line": 255
+        },
+        {
+          "heading": "Status Transitions",
+          "level": 2,
+          "line": 272
+        },
+        {
+          "heading": "Complete Takeaway Order Journey",
+          "level": 3,
+          "line": 274
+        },
+        {
+          "heading": "Triggers and Webhooks",
+          "level": 2,
+          "line": 304
+        },
+        {
+          "heading": "Webhook Endpoints",
+          "level": 2,
+          "line": 313
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 25
+      }
+    }
+  ]
+}

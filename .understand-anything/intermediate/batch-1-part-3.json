@@ -1,0 +1,526 @@
+{
+  "nodes": [
+    {
+      "id": "file:utils_common/wa_utils.py",
+      "type": "file",
+      "name": "wa_utils.py",
+      "filePath": "utils_common/wa_utils.py",
+      "summary": "WhatsApp response utility functions that format and send AI-generated responses via the WhatsApp API, supporting text, button, and section list message types.",
+      "tags": ["utility", "whatsapp", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:watomation/fapp_ordelo_agent.py",
+      "type": "file",
+      "name": "fapp_ordelo_agent.py",
+      "filePath": "watomation/fapp_ordelo_agent.py",
+      "summary": "FastAPI application entry point that initializes the WhatsApp client, registers all routers and message/callback/flow handlers, and exposes admin endpoints for restaurant details and cache management.",
+      "tags": ["entry-point", "api-handler", "service", "fastapi"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:watomation/on_callback_wa_handler.py",
+      "type": "file",
+      "name": "on_callback_wa_handler.py",
+      "filePath": "watomation/on_callback_wa_handler.py",
+      "summary": "Handles all WhatsApp callback button interactions — dispatch accept/decline, shift availability, restaurant order confirmation, pickup time selection, and admin takeaway readiness.",
+      "tags": ["event-handler", "whatsapp", "api-handler", "delivery"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/on_callback_wa_handler.py:dispatch_response",
+      "type": "function",
+      "name": "dispatch_response",
+      "filePath": "watomation/on_callback_wa_handler.py",
+      "lineRange": [53, 134],
+      "summary": "Main WhatsApp callback handler for rider dispatch accept/decline buttons, validating order status and delegating to initial_handle_of_rider_response.",
+      "tags": ["event-handler", "whatsapp", "delivery"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/on_callback_wa_handler.py:handle_shift_availability",
+      "type": "function",
+      "name": "handle_shift_availability",
+      "filePath": "watomation/on_callback_wa_handler.py",
+      "lineRange": [169, 214],
+      "summary": "Handles a rider's shift availability callback — updating rider_master shift status in the DB and checking for active inflight deliveries.",
+      "tags": ["event-handler", "whatsapp", "delivery"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/on_callback_wa_handler.py:restaurant_order_accept_decline_handler",
+      "type": "function",
+      "name": "restaurant_order_accept_decline_handler",
+      "filePath": "watomation/on_callback_wa_handler.py",
+      "lineRange": [279, 304],
+      "summary": "Routes restaurant order accept/decline callback buttons to the appropriate status update handler as async tasks.",
+      "tags": ["event-handler", "whatsapp", "delivery"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/on_callback_wa_handler.py:handle_pickup_time_selection",
+      "type": "function",
+      "name": "handle_pickup_time_selection",
+      "filePath": "watomation/on_callback_wa_handler.py",
+      "lineRange": [311, 365],
+      "summary": "Handles the restaurant admin's pickup time selection callback, updating the delivery or takeaway order with the chosen time.",
+      "tags": ["event-handler", "whatsapp", "delivery"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/on_callback_wa_handler.py:admin_adjust_pickup_time",
+      "type": "function",
+      "name": "admin_adjust_pickup_time",
+      "filePath": "watomation/on_callback_wa_handler.py",
+      "lineRange": [390, 443],
+      "summary": "Admin callback handler that adjusts the pickup time on an existing accepted order and notifies the rider via the LangGraph agent.",
+      "tags": ["event-handler", "whatsapp", "delivery"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/on_callback_wa_handler.py:admin_takeaway_ready",
+      "type": "function",
+      "name": "admin_takeaway_ready",
+      "filePath": "watomation/on_callback_wa_handler.py",
+      "lineRange": [449, 506],
+      "summary": "Handles the admin 'takeaway ready' button, posting a webhook to the restaurant's takeaway-ready endpoint.",
+      "tags": ["event-handler", "whatsapp", "delivery"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:watomation/on_flow_request_wa_handler.py",
+      "type": "file",
+      "name": "on_flow_request_wa_handler.py",
+      "filePath": "watomation/on_flow_request_wa_handler.py",
+      "summary": "Handles WhatsApp Flow requests for the customer address collection flow — initial request, data exchange, and completion callbacks.",
+      "tags": ["event-handler", "whatsapp", "service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:watomation/on_message_wa_handler.py",
+      "type": "file",
+      "name": "on_message_wa_handler.py",
+      "filePath": "watomation/on_message_wa_handler.py",
+      "summary": "Central WhatsApp message handler routing incoming rider messages to the LangGraph agent, managing shift state, service hour checks, and special commands (/test, /reset, /live, /flow).",
+      "tags": ["event-handler", "whatsapp", "api-handler", "middleware"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/on_message_wa_handler.py:process_wa_msg",
+      "type": "function",
+      "name": "process_wa_msg",
+      "filePath": "watomation/on_message_wa_handler.py",
+      "lineRange": [127, 160],
+      "summary": "Main WhatsApp message dispatch function — checks rider shift status, resolves active thread, and routes to the rider agent or shift availability check.",
+      "tags": ["event-handler", "whatsapp", "routing"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:watomation/on_message_wa_handler.py:test_delivery",
+      "type": "function",
+      "name": "test_delivery",
+      "filePath": "watomation/on_message_wa_handler.py",
+      "lineRange": [184, 260],
+      "summary": "Developer test command handler that sets up a full delivery test scenario by cleaning up existing orders and creating new test delivery data.",
+      "tags": ["utility", "test", "delivery"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:watomation/on_message_wa_handler.py:reset_thread",
+      "type": "function",
+      "name": "reset_thread",
+      "filePath": "watomation/on_message_wa_handler.py",
+      "lineRange": [386, 413],
+      "summary": "Handles the /reset command, completing any active inflight deliveries and deactivating the rider's LangGraph thread.",
+      "tags": ["event-handler", "whatsapp", "thread-management"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:watomation/routers/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "watomation/routers/__init__.py",
+      "summary": "Router barrel module that imports and exposes all watomation sub-routers for registration with the FastAPI app.",
+      "tags": ["barrel", "entry-point", "fastapi"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:watomation/routers/location_hooks.py",
+      "type": "file",
+      "name": "location_hooks.py",
+      "filePath": "watomation/routers/location_hooks.py",
+      "summary": "FastAPI router handling live location update webhooks from riders — stores location coordinates and triggers map-based status notifications to customers and restaurants.",
+      "tags": ["api-handler", "service", "delivery", "location"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:watomation/routers/rest_admin_auth_session.py",
+      "type": "file",
+      "name": "rest_admin_auth_session.py",
+      "filePath": "watomation/routers/rest_admin_auth_session.py",
+      "summary": "FastAPI router handling restaurant admin authentication session creation, minting JWT session tokens for the admin dashboard.",
+      "tags": ["api-handler", "security", "service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:watomation/routers/rider_auth_session.py",
+      "type": "file",
+      "name": "rider_auth_session.py",
+      "filePath": "watomation/routers/rider_auth_session.py",
+      "summary": "FastAPI router for rider authentication session management, generating session tokens for the rider dashboard.",
+      "tags": ["api-handler", "security", "service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:watomation/routers/sys_admin_auth_session.py",
+      "type": "file",
+      "name": "sys_admin_auth_session.py",
+      "filePath": "watomation/routers/sys_admin_auth_session.py",
+      "summary": "FastAPI router for system admin authentication and administrative operations including rider payout fetching and system-level management endpoints.",
+      "tags": ["api-handler", "security", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:watomation/routers/thread_hooks.py",
+      "type": "file",
+      "name": "thread_hooks.py",
+      "filePath": "watomation/routers/thread_hooks.py",
+      "summary": "FastAPI router for LangGraph thread lifecycle management — ending stale conversations and managing thread state via webhook-triggered endpoints.",
+      "tags": ["api-handler", "service", "thread-management"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:watomation/wo_fapp_ordelo_agent_wo_wa.py",
+      "type": "file",
+      "name": "wo_fapp_ordelo_agent_wo_wa.py",
+      "filePath": "watomation/wo_fapp_ordelo_agent_wo_wa.py",
+      "summary": "Alternate FastAPI app variant without WhatsApp client initialization, useful for testing or running a subset of endpoints in environments without WhatsApp credentials.",
+      "tags": ["entry-point", "service", "fastapi"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:utils_common/wa_utils.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/fapp_ordelo_agent.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/fapp_ordelo_agent.py",
+      "target": "file:ordelo/agents/agent_runner.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/fapp_ordelo_agent.py",
+      "target": "file:watomation/on_callback_wa_handler.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/fapp_ordelo_agent.py",
+      "target": "file:watomation/on_flow_request_postcode_search.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/fapp_ordelo_agent.py",
+      "target": "file:watomation/on_flow_request_wa_handler.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/fapp_ordelo_agent.py",
+      "target": "file:watomation/on_message_wa_handler.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/fapp_ordelo_agent.py",
+      "target": "file:watomation/routers/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "file:ordelo/agents/agent_runner.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "file:utils_common/waba_utils/wa_senders.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "function:watomation/on_callback_wa_handler.py:dispatch_response",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "function:watomation/on_callback_wa_handler.py:dispatch_response",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "function:watomation/on_callback_wa_handler.py:handle_shift_availability",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "function:watomation/on_callback_wa_handler.py:handle_shift_availability",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "function:watomation/on_callback_wa_handler.py:restaurant_order_accept_decline_handler",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "function:watomation/on_callback_wa_handler.py:restaurant_order_accept_decline_handler",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "function:watomation/on_callback_wa_handler.py:handle_pickup_time_selection",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "function:watomation/on_callback_wa_handler.py:handle_pickup_time_selection",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "function:watomation/on_callback_wa_handler.py:admin_adjust_pickup_time",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "function:watomation/on_callback_wa_handler.py:admin_adjust_pickup_time",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "function:watomation/on_callback_wa_handler.py:admin_takeaway_ready",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/on_callback_wa_handler.py",
+      "target": "function:watomation/on_callback_wa_handler.py:admin_takeaway_ready",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/on_flow_request_wa_handler.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/on_message_wa_handler.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/on_message_wa_handler.py",
+      "target": "file:ordelo/agents/agent_runner.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/on_message_wa_handler.py",
+      "target": "file:utils_common/thread_management/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/on_message_wa_handler.py",
+      "target": "function:watomation/on_message_wa_handler.py:process_wa_msg",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/on_message_wa_handler.py",
+      "target": "function:watomation/on_message_wa_handler.py:process_wa_msg",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/on_message_wa_handler.py",
+      "target": "function:watomation/on_message_wa_handler.py:test_delivery",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/on_message_wa_handler.py",
+      "target": "function:watomation/on_message_wa_handler.py:test_delivery",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/on_message_wa_handler.py",
+      "target": "function:watomation/on_message_wa_handler.py:reset_thread",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:watomation/on_message_wa_handler.py",
+      "target": "function:watomation/on_message_wa_handler.py:reset_thread",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:watomation/routers/location_hooks.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/location_hooks.py",
+      "target": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/location_hooks.py",
+      "target": "file:utils_common/waba_utils/wa_senders.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/rest_admin_auth_session.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/rider_auth_session.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/sys_admin_auth_session.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/thread_hooks.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/thread_hooks.py",
+      "target": "file:utils_common/thread_management/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/wo_fapp_ordelo_agent_wo_wa.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "function:watomation/on_callback_wa_handler.py:dispatch_response",
+      "target": "function:ordelo/agent_app_handlers.py:initial_handle_of_rider_response",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:watomation/on_callback_wa_handler.py:admin_takeaway_ready",
+      "target": "function:config/params.py:get_restaurant_webhook_url_async",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:watomation/on_message_wa_handler.py:process_wa_msg",
+      "target": "function:ordelo/agents/agent_runner.py:run_rider_agent_w_custom_msg",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

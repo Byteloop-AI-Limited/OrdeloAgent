@@ -1,0 +1,64 @@
+{
+  "nodes": [
+    {
+      "id": "document:.specify/AI_PATTERNS_GUIDE.md",
+      "type": "document",
+      "name": "AI_PATTERNS_GUIDE.md",
+      "filePath": ".specify/AI_PATTERNS_GUIDE.md",
+      "summary": "Comprehensive AI-oriented architectural patterns guide for OrdeloAgent covering 59 sections across database-triggered webhooks, WhatsApp integration, PostgreSQL patterns, FastAPI structure, configuration management, data models, scheduled jobs, and a 7-phase implementation checklist with code examples.",
+      "tags": ["documentation", "configuration", "infrastructure"],
+      "complexity": "complex",
+      "languageNotes": "Structured as a living reference for AI agents implementing new features; includes anti-patterns, pitfalls, and a quick-reference file-location index tailored for automated code generation."
+    },
+    {
+      "id": "document:.specify/PATTERNS_CATALOG.md",
+      "type": "document",
+      "name": "PATTERNS_CATALOG.md",
+      "filePath": ".specify/PATTERNS_CATALOG.md",
+      "summary": "Catalog of 37 named architectural patterns used in OrdeloAgent, organized into categories (database, WhatsApp, FastAPI, data models, configuration, documentation, integration, workflow, error handling, performance) with a usage matrix and pattern-combination guide.",
+      "tags": ["documentation", "configuration"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:.specify/QUICK_PATTERNS_REFERENCE.md",
+      "type": "document",
+      "name": "QUICK_PATTERNS_REFERENCE.md",
+      "filePath": ".specify/QUICK_PATTERNS_REFERENCE.md",
+      "summary": "Quick-reference card with concise code templates for the most common OrdeloAgent patterns including the database-webhook-FastAPI flow, WhatsApp callbacks, configuration lookup, CTE patterns, module docstrings, and an implementation checklist.",
+      "tags": ["documentation", "configuration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.specify/README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": ".specify/README.md",
+      "summary": "Index and entry point for the .specify documentation directory, guiding AI agents and developers to the right pattern guides, implementation examples, and common-task recipes for building new OrdeloAgent features.",
+      "tags": ["documentation", "entry-point"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:.specify/README.md",
+      "target": "document:.specify/AI_PATTERNS_GUIDE.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.specify/README.md",
+      "target": "document:.specify/PATTERNS_CATALOG.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.specify/README.md",
+      "target": "document:.specify/QUICK_PATTERNS_REFERENCE.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

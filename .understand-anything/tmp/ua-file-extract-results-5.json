@@ -1,0 +1,4617 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 19,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "tests/config/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/config/test_params.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 109,
+      "nonEmptyLines": 77,
+      "functions": [
+        {
+          "name": "clear_param_caches",
+          "startLine": 27,
+          "endLine": 32,
+          "params": []
+        },
+        {
+          "name": "test_resolve_rest_ref_alias_and_passthrough",
+          "startLine": 35,
+          "endLine": 37,
+          "params": []
+        },
+        {
+          "name": "test_is_onboarded_rest_ref_resolves_alias",
+          "startLine": 40,
+          "endLine": 43,
+          "params": []
+        },
+        {
+          "name": "test_get_restaurant_base_url_async_caches_by_resolved_ref",
+          "startLine": 46,
+          "endLine": 60,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_reset_restaurant_base_url_cache_clears_all_or_one",
+          "startLine": 63,
+          "endLine": 70,
+          "params": []
+        },
+        {
+          "name": "test_get_restaurant_webhook_url_async_formats_known_path",
+          "startLine": 73,
+          "endLine": 82,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_get_restaurant_webhook_url_async_rejects_unknown_type",
+          "startLine": 85,
+          "endLine": 87,
+          "params": []
+        },
+        {
+          "name": "test_get_overwatch_list_parses_and_caches",
+          "startLine": 90,
+          "endLine": 100,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_reset_overwatch_list_cache",
+          "startLine": 103,
+          "endLine": 107,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "clear_param_caches",
+          "line": 26,
+          "isDefault": false
+        },
+        {
+          "name": "test_resolve_rest_ref_alias_and_passthrough",
+          "line": 35,
+          "isDefault": false
+        },
+        {
+          "name": "test_is_onboarded_rest_ref_resolves_alias",
+          "line": 40,
+          "isDefault": false
+        },
+        {
+          "name": "test_get_restaurant_base_url_async_caches_by_resolved_ref",
+          "line": 46,
+          "isDefault": false
+        },
+        {
+          "name": "test_reset_restaurant_base_url_cache_clears_all_or_one",
+          "line": 63,
+          "isDefault": false
+        },
+        {
+          "name": "test_get_restaurant_webhook_url_async_formats_known_path",
+          "line": 73,
+          "isDefault": false
+        },
+        {
+          "name": "test_get_restaurant_webhook_url_async_rejects_unknown_type",
+          "line": 85,
+          "isDefault": false
+        },
+        {
+          "name": "test_get_overwatch_list_parses_and_caches",
+          "line": 90,
+          "isDefault": false
+        },
+        {
+          "name": "test_reset_overwatch_list_cache",
+          "line": 103,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "clear_param_caches",
+          "callee": "params.reset_restaurant_base_url_cache",
+          "lineNumber": 28
+        },
+        {
+          "caller": "clear_param_caches",
+          "callee": "params.reset_overwatch_list_cache",
+          "lineNumber": 29
+        },
+        {
+          "caller": "clear_param_caches",
+          "callee": "params.reset_restaurant_base_url_cache",
+          "lineNumber": 31
+        },
+        {
+          "caller": "clear_param_caches",
+          "callee": "params.reset_overwatch_list_cache",
+          "lineNumber": 32
+        },
+        {
+          "caller": "test_resolve_rest_ref_alias_and_passthrough",
+          "callee": "params._resolve_rest_ref",
+          "lineNumber": 36
+        },
+        {
+          "caller": "test_resolve_rest_ref_alias_and_passthrough",
+          "callee": "params._resolve_rest_ref",
+          "lineNumber": 37
+        },
+        {
+          "caller": "test_is_onboarded_rest_ref_resolves_alias",
+          "callee": "params.is_onboarded_rest_ref",
+          "lineNumber": 41
+        },
+        {
+          "caller": "test_is_onboarded_rest_ref_resolves_alias",
+          "callee": "params.is_onboarded_rest_ref",
+          "lineNumber": 42
+        },
+        {
+          "caller": "test_is_onboarded_rest_ref_resolves_alias",
+          "callee": "params.is_onboarded_rest_ref",
+          "lineNumber": 43
+        },
+        {
+          "caller": "test_get_restaurant_base_url_async_caches_by_resolved_ref",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 47
+        },
+        {
+          "caller": "test_get_restaurant_base_url_async_caches_by_resolved_ref",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_get_restaurant_base_url_async_caches_by_resolved_ref",
+          "callee": "params.get_restaurant_base_url_async",
+          "lineNumber": 53
+        },
+        {
+          "caller": "test_get_restaurant_base_url_async_caches_by_resolved_ref",
+          "callee": "params.get_restaurant_base_url_async",
+          "lineNumber": 54
+        },
+        {
+          "caller": "test_get_restaurant_base_url_async_caches_by_resolved_ref",
+          "callee": "len",
+          "lineNumber": 59
+        },
+        {
+          "caller": "test_reset_restaurant_base_url_cache_clears_all_or_one",
+          "callee": "params.reset_restaurant_base_url_cache",
+          "lineNumber": 67
+        },
+        {
+          "caller": "test_reset_restaurant_base_url_cache_clears_all_or_one",
+          "callee": "params.reset_restaurant_base_url_cache",
+          "lineNumber": 69
+        },
+        {
+          "caller": "test_get_restaurant_webhook_url_async_formats_known_path",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 74
+        },
+        {
+          "caller": "test_get_restaurant_webhook_url_async_formats_known_path",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 77
+        },
+        {
+          "caller": "test_get_restaurant_webhook_url_async_formats_known_path",
+          "callee": "params.get_restaurant_webhook_url_async",
+          "lineNumber": 80
+        },
+        {
+          "caller": "test_get_restaurant_webhook_url_async_rejects_unknown_type",
+          "callee": "pytest.raises",
+          "lineNumber": 86
+        },
+        {
+          "caller": "test_get_restaurant_webhook_url_async_rejects_unknown_type",
+          "callee": "params.get_restaurant_webhook_url_async",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_get_overwatch_list_parses_and_caches",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 91
+        },
+        {
+          "caller": "test_get_overwatch_list_parses_and_caches",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 94
+        },
+        {
+          "caller": "test_get_overwatch_list_parses_and_caches",
+          "callee": "params.get_overwatch_list",
+          "lineNumber": 97
+        },
+        {
+          "caller": "test_get_overwatch_list_parses_and_caches",
+          "callee": "params.get_overwatch_list",
+          "lineNumber": 98
+        },
+        {
+          "caller": "test_get_overwatch_list_parses_and_caches",
+          "callee": "len",
+          "lineNumber": 100
+        },
+        {
+          "caller": "test_reset_overwatch_list_cache",
+          "callee": "params.reset_overwatch_list_cache",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_reset_overwatch_list_cache",
+          "callee": "params.reset_overwatch_list_cache",
+          "lineNumber": 107
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 9,
+        "functionCount": 9,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/fixtures/builders.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 119,
+      "nonEmptyLines": 91,
+      "functions": [
+        {
+          "name": "_merge",
+          "startLine": 21,
+          "endLine": 24,
+          "params": [
+            "defaults",
+            "overrides"
+          ]
+        },
+        {
+          "name": "delivery_summary",
+          "startLine": 28,
+          "endLine": 54,
+          "params": []
+        },
+        {
+          "name": "delivery_dispatch",
+          "startLine": 58,
+          "endLine": 71,
+          "params": []
+        },
+        {
+          "name": "delivery_detail",
+          "startLine": 75,
+          "endLine": 90,
+          "params": []
+        },
+        {
+          "name": "restaurant_master",
+          "startLine": 94,
+          "endLine": 105,
+          "params": []
+        },
+        {
+          "name": "customer_master",
+          "startLine": 109,
+          "endLine": 119,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_merge",
+          "line": 21,
+          "isDefault": false
+        },
+        {
+          "name": "delivery_summary",
+          "line": 27,
+          "isDefault": false
+        },
+        {
+          "name": "delivery_dispatch",
+          "line": 57,
+          "isDefault": false
+        },
+        {
+          "name": "delivery_detail",
+          "line": 74,
+          "isDefault": false
+        },
+        {
+          "name": "restaurant_master",
+          "line": 93,
+          "isDefault": false
+        },
+        {
+          "name": "customer_master",
+          "line": 108,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "_merge",
+          "callee": "dict",
+          "lineNumber": 22
+        },
+        {
+          "caller": "_merge",
+          "callee": "out.update",
+          "lineNumber": 23
+        },
+        {
+          "caller": "_build",
+          "callee": "DeliverySummary",
+          "lineNumber": 52
+        },
+        {
+          "caller": "_build",
+          "callee": "_merge",
+          "lineNumber": 52
+        },
+        {
+          "caller": "_build",
+          "callee": "DeliveryDispatch",
+          "lineNumber": 69
+        },
+        {
+          "caller": "_build",
+          "callee": "_merge",
+          "lineNumber": 69
+        },
+        {
+          "caller": "_build",
+          "callee": "DeliveryDetail",
+          "lineNumber": 88
+        },
+        {
+          "caller": "_build",
+          "callee": "_merge",
+          "lineNumber": 88
+        },
+        {
+          "caller": "_build",
+          "callee": "RestaurantMaster",
+          "lineNumber": 103
+        },
+        {
+          "caller": "_build",
+          "callee": "_merge",
+          "lineNumber": 103
+        },
+        {
+          "caller": "_build",
+          "callee": "CustomerMaster",
+          "lineNumber": 117
+        },
+        {
+          "caller": "_build",
+          "callee": "_merge",
+          "lineNumber": 117
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 6,
+        "functionCount": 6,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/fixtures/fake_llm.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 79,
+      "nonEmptyLines": 58,
+      "functions": [
+        {
+          "name": "fake_llm",
+          "startLine": 64,
+          "endLine": 65,
+          "params": []
+        },
+        {
+          "name": "patch_llm_client",
+          "startLine": 69,
+          "endLine": 79,
+          "params": [
+            "monkeypatch",
+            "fake_llm"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "FakeChatModel",
+          "startLine": 28,
+          "endLine": 60,
+          "methods": [
+            "__init__",
+            "queue",
+            "_next",
+            "invoke",
+            "ainvoke",
+            "bind_tools",
+            "with_structured_output"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "FakeChatModel",
+          "line": 28,
+          "isDefault": false
+        },
+        {
+          "name": "fake_llm",
+          "line": 63,
+          "isDefault": false
+        },
+        {
+          "name": "patch_llm_client",
+          "line": 68,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "__init__",
+          "callee": "deque",
+          "lineNumber": 32
+        },
+        {
+          "caller": "queue",
+          "callee": "self._queue.extend",
+          "lineNumber": 37
+        },
+        {
+          "caller": "_next",
+          "callee": "self._queue.popleft",
+          "lineNumber": 42
+        },
+        {
+          "caller": "_next",
+          "callee": "AIMessage",
+          "lineNumber": 44
+        },
+        {
+          "caller": "_next",
+          "callee": "type",
+          "lineNumber": 45
+        },
+        {
+          "caller": "invoke",
+          "callee": "self.calls.append",
+          "lineNumber": 48
+        },
+        {
+          "caller": "invoke",
+          "callee": "self._next",
+          "lineNumber": 49
+        },
+        {
+          "caller": "ainvoke",
+          "callee": "self.invoke",
+          "lineNumber": 52
+        },
+        {
+          "caller": "bind_tools",
+          "callee": "list",
+          "lineNumber": 55
+        },
+        {
+          "caller": "fake_llm",
+          "callee": "FakeChatModel",
+          "lineNumber": 65
+        },
+        {
+          "caller": "patch_llm_client",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 73
+        },
+        {
+          "caller": "patch_llm_client",
+          "callee": "property",
+          "lineNumber": 76
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 3,
+        "functionCount": 2,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "tests/fixtures/fake_pool.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 147,
+      "nonEmptyLines": 106,
+      "functions": [
+        {
+          "name": "fake_pool",
+          "startLine": 134,
+          "endLine": 135,
+          "params": []
+        },
+        {
+          "name": "patch_pg_pool",
+          "startLine": 139,
+          "endLine": 147,
+          "params": [
+            "monkeypatch",
+            "fake_pool"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "_RecordedExec",
+          "startLine": 26,
+          "endLine": 28,
+          "methods": [],
+          "properties": [
+            "sql",
+            "params"
+          ]
+        },
+        {
+          "name": "FakeAsyncCursor",
+          "startLine": 31,
+          "endLine": 70,
+          "methods": [
+            "__init__",
+            "execute",
+            "fetchone",
+            "fetchall",
+            "__aenter__",
+            "__aexit__"
+          ],
+          "properties": []
+        },
+        {
+          "name": "FakeAsyncConnection",
+          "startLine": 73,
+          "endLine": 93,
+          "methods": [
+            "__init__",
+            "cursor",
+            "commit",
+            "rollback",
+            "__aenter__",
+            "__aexit__"
+          ],
+          "properties": []
+        },
+        {
+          "name": "FakeAsyncConnectionPool",
+          "startLine": 96,
+          "endLine": 125,
+          "methods": [
+            "__init__",
+            "register_sql",
+            "connection",
+            "open",
+            "close",
+            "all_executes"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_RecordedExec",
+          "line": 25,
+          "isDefault": false
+        },
+        {
+          "name": "FakeAsyncCursor",
+          "line": 31,
+          "isDefault": false
+        },
+        {
+          "name": "FakeAsyncConnection",
+          "line": 73,
+          "isDefault": false
+        },
+        {
+          "name": "FakeAsyncConnectionPool",
+          "line": 96,
+          "isDefault": false
+        },
+        {
+          "name": "fake_pool",
+          "line": 133,
+          "isDefault": false
+        },
+        {
+          "name": "patch_pg_pool",
+          "line": 138,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "execute",
+          "callee": "_RecordedExec",
+          "lineNumber": 41
+        },
+        {
+          "caller": "execute",
+          "callee": "self._conn.executes.append",
+          "lineNumber": 42
+        },
+        {
+          "caller": "execute",
+          "callee": "self._conn.pool._sql_responses.items",
+          "lineNumber": 45
+        },
+        {
+          "caller": "execute",
+          "callee": "isinstance",
+          "lineNumber": 47
+        },
+        {
+          "caller": "execute",
+          "callee": "list",
+          "lineNumber": 49
+        },
+        {
+          "caller": "execute",
+          "callee": "isinstance",
+          "lineNumber": 49
+        },
+        {
+          "caller": "execute",
+          "callee": "len",
+          "lineNumber": 52
+        },
+        {
+          "caller": "fetchall",
+          "callee": "list",
+          "lineNumber": 64
+        },
+        {
+          "caller": "cursor",
+          "callee": "FakeAsyncCursor",
+          "lineNumber": 81
+        },
+        {
+          "caller": "connection",
+          "callee": "FakeAsyncConnection",
+          "lineNumber": 113
+        },
+        {
+          "caller": "connection",
+          "callee": "self.connections.append",
+          "lineNumber": 114
+        },
+        {
+          "caller": "fake_pool",
+          "callee": "FakeAsyncConnectionPool",
+          "lineNumber": 135
+        },
+        {
+          "caller": "patch_pg_pool",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 146
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 6,
+        "functionCount": 2,
+        "classCount": 4
+      }
+    },
+    {
+      "path": "tests/fixtures/fake_supabase.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 308,
+      "nonEmptyLines": 237,
+      "functions": [
+        {
+          "name": "fake_supabase",
+          "startLine": 273,
+          "endLine": 275,
+          "params": []
+        },
+        {
+          "name": "patch_supabase_client",
+          "startLine": 279,
+          "endLine": 308,
+          "params": [
+            "monkeypatch",
+            "fake_supabase"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "FakeSupabaseResponse",
+          "startLine": 31,
+          "endLine": 35,
+          "methods": [],
+          "properties": [
+            "data",
+            "count"
+          ]
+        },
+        {
+          "name": "_RecordedCall",
+          "startLine": 39,
+          "endLine": 46,
+          "methods": [],
+          "properties": [
+            "table",
+            "verb",
+            "payload",
+            "filters",
+            "schema"
+          ]
+        },
+        {
+          "name": "FakeSupabaseQuery",
+          "startLine": 49,
+          "endLine": 169,
+          "methods": [
+            "__init__",
+            "select",
+            "insert",
+            "update",
+            "upsert",
+            "delete",
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "like",
+            "in_",
+            "is_",
+            "filter",
+            "order",
+            "limit",
+            "single",
+            "maybe_single",
+            "execute"
+          ],
+          "properties": []
+        },
+        {
+          "name": "FakeSupabaseClient",
+          "startLine": 172,
+          "endLine": 215,
+          "methods": [
+            "__init__",
+            "register",
+            "register_rpc",
+            "table",
+            "from_",
+            "rpc",
+            "schema"
+          ],
+          "properties": []
+        },
+        {
+          "name": "FakeSupabaseSchema",
+          "startLine": 218,
+          "endLine": 229,
+          "methods": [
+            "__init__",
+            "table",
+            "rpc"
+          ],
+          "properties": []
+        },
+        {
+          "name": "FakeSupabaseRPC",
+          "startLine": 232,
+          "endLine": 264,
+          "methods": [
+            "__init__",
+            "execute"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "FakeSupabaseResponse",
+          "line": 30,
+          "isDefault": false
+        },
+        {
+          "name": "_RecordedCall",
+          "line": 38,
+          "isDefault": false
+        },
+        {
+          "name": "FakeSupabaseQuery",
+          "line": 49,
+          "isDefault": false
+        },
+        {
+          "name": "FakeSupabaseClient",
+          "line": 172,
+          "isDefault": false
+        },
+        {
+          "name": "FakeSupabaseSchema",
+          "line": 218,
+          "isDefault": false
+        },
+        {
+          "name": "FakeSupabaseRPC",
+          "line": 232,
+          "isDefault": false
+        },
+        {
+          "name": "fake_supabase",
+          "line": 272,
+          "isDefault": false
+        },
+        {
+          "name": "patch_supabase_client",
+          "line": 278,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "select",
+          "callee": "len",
+          "lineNumber": 64
+        },
+        {
+          "caller": "in_",
+          "callee": "list",
+          "lineNumber": 117
+        },
+        {
+          "caller": "execute",
+          "callee": "_RecordedCall",
+          "lineNumber": 148
+        },
+        {
+          "caller": "execute",
+          "callee": "dict",
+          "lineNumber": 152
+        },
+        {
+          "caller": "execute",
+          "callee": "self._client.calls.append",
+          "lineNumber": 155
+        },
+        {
+          "caller": "execute",
+          "callee": "isinstance",
+          "lineNumber": 165
+        },
+        {
+          "caller": "execute",
+          "callee": "callable",
+          "lineNumber": 167
+        },
+        {
+          "caller": "execute",
+          "callee": "response",
+          "lineNumber": 168
+        },
+        {
+          "caller": "__init__",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 180
+        },
+        {
+          "caller": "__init__",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 181
+        },
+        {
+          "caller": "table",
+          "callee": "FakeSupabaseQuery",
+          "lineNumber": 206
+        },
+        {
+          "caller": "from_",
+          "callee": "self.table",
+          "lineNumber": 209
+        },
+        {
+          "caller": "rpc",
+          "callee": "FakeSupabaseRPC",
+          "lineNumber": 212
+        },
+        {
+          "caller": "schema",
+          "callee": "FakeSupabaseSchema",
+          "lineNumber": 215
+        },
+        {
+          "caller": "table",
+          "callee": "FakeSupabaseQuery",
+          "lineNumber": 226
+        },
+        {
+          "caller": "rpc",
+          "callee": "FakeSupabaseRPC",
+          "lineNumber": 229
+        },
+        {
+          "caller": "execute",
+          "callee": "_RecordedCall",
+          "lineNumber": 248
+        },
+        {
+          "caller": "execute",
+          "callee": "self._client.calls.append",
+          "lineNumber": 255
+        },
+        {
+          "caller": "execute",
+          "callee": "self._client.rpc_calls.append",
+          "lineNumber": 256
+        },
+        {
+          "caller": "execute",
+          "callee": "self._client._rpc_responses.get",
+          "lineNumber": 257
+        },
+        {
+          "caller": "execute",
+          "callee": "isinstance",
+          "lineNumber": 260
+        },
+        {
+          "caller": "execute",
+          "callee": "callable",
+          "lineNumber": 262
+        },
+        {
+          "caller": "execute",
+          "callee": "response",
+          "lineNumber": 263
+        },
+        {
+          "caller": "fake_supabase",
+          "callee": "FakeSupabaseClient",
+          "lineNumber": 275
+        },
+        {
+          "caller": "patch_supabase_client",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 285
+        },
+        {
+          "caller": "patch_supabase_client",
+          "callee": "property",
+          "lineNumber": 288
+        },
+        {
+          "caller": "patch_supabase_client",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 293
+        },
+        {
+          "caller": "patch_supabase_client",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 298
+        },
+        {
+          "caller": "patch_supabase_client",
+          "callee": "list",
+          "lineNumber": 303
+        },
+        {
+          "caller": "patch_supabase_client",
+          "callee": "sys.modules.values",
+          "lineNumber": 303
+        },
+        {
+          "caller": "patch_supabase_client",
+          "callee": "hasattr",
+          "lineNumber": 306
+        },
+        {
+          "caller": "patch_supabase_client",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 307
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 8,
+        "functionCount": 2,
+        "classCount": 6
+      }
+    },
+    {
+      "path": "tests/fixtures/fake_wa.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 200,
+      "nonEmptyLines": 142,
+      "functions": [
+        {
+          "name": "fake_async_wa",
+          "startLine": 168,
+          "endLine": 169,
+          "params": []
+        },
+        {
+          "name": "fake_sync_wa",
+          "startLine": 173,
+          "endLine": 174,
+          "params": []
+        },
+        {
+          "name": "patch_async_wa_client",
+          "startLine": 178,
+          "endLine": 190,
+          "params": [
+            "monkeypatch",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "patch_sync_wa_client",
+          "startLine": 194,
+          "endLine": 200,
+          "params": [
+            "monkeypatch",
+            "fake_sync_wa"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "SentMessage",
+          "startLine": 29,
+          "endLine": 33,
+          "methods": [],
+          "properties": [
+            "method",
+            "kwargs"
+          ]
+        },
+        {
+          "name": "FakeSendResult",
+          "startLine": 37,
+          "endLine": 45,
+          "methods": [
+            "__getitem__"
+          ],
+          "properties": [
+            "id"
+          ]
+        },
+        {
+          "name": "_FakeWhatsAppBase",
+          "startLine": 48,
+          "endLine": 54,
+          "methods": [
+            "__init__",
+            "_record"
+          ],
+          "properties": []
+        },
+        {
+          "name": "FakeAsyncWhatsApp",
+          "startLine": 57,
+          "endLine": 93,
+          "methods": [
+            "send_message",
+            "send_template",
+            "send_interactive_message",
+            "send_location",
+            "send_contact",
+            "send_image",
+            "send_document",
+            "send_catalog",
+            "upload_media",
+            "__getattr__"
+          ],
+          "properties": []
+        },
+        {
+          "name": "FakeSyncWhatsApp",
+          "startLine": 96,
+          "endLine": 115,
+          "methods": [
+            "send_message",
+            "send_template",
+            "get_business_phone_number",
+            "__getattr__"
+          ],
+          "properties": []
+        },
+        {
+          "name": "FakeMessage",
+          "startLine": 123,
+          "endLine": 152,
+          "methods": [
+            "__init__",
+            "indicate_typing",
+            "reply_text",
+            "reply"
+          ],
+          "properties": []
+        },
+        {
+          "name": "FakeCallbackButton",
+          "startLine": 155,
+          "endLine": 159,
+          "methods": [
+            "__init__"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "SentMessage",
+          "line": 28,
+          "isDefault": false
+        },
+        {
+          "name": "FakeSendResult",
+          "line": 36,
+          "isDefault": false
+        },
+        {
+          "name": "_FakeWhatsAppBase",
+          "line": 48,
+          "isDefault": false
+        },
+        {
+          "name": "FakeAsyncWhatsApp",
+          "line": 57,
+          "isDefault": false
+        },
+        {
+          "name": "FakeSyncWhatsApp",
+          "line": 96,
+          "isDefault": false
+        },
+        {
+          "name": "FakeMessage",
+          "line": 123,
+          "isDefault": false
+        },
+        {
+          "name": "FakeCallbackButton",
+          "line": 155,
+          "isDefault": false
+        },
+        {
+          "name": "fake_async_wa",
+          "line": 167,
+          "isDefault": false
+        },
+        {
+          "name": "fake_sync_wa",
+          "line": 172,
+          "isDefault": false
+        },
+        {
+          "name": "patch_async_wa_client",
+          "line": 177,
+          "isDefault": false
+        },
+        {
+          "name": "patch_sync_wa_client",
+          "line": 193,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "__getitem__",
+          "callee": "KeyError",
+          "lineNumber": 44
+        },
+        {
+          "caller": "_record",
+          "callee": "self.sent.append",
+          "lineNumber": 53
+        },
+        {
+          "caller": "_record",
+          "callee": "SentMessage",
+          "lineNumber": 53
+        },
+        {
+          "caller": "_record",
+          "callee": "FakeSendResult",
+          "lineNumber": 54
+        },
+        {
+          "caller": "_record",
+          "callee": "len",
+          "lineNumber": 54
+        },
+        {
+          "caller": "send_message",
+          "callee": "self._record",
+          "lineNumber": 61
+        },
+        {
+          "caller": "send_template",
+          "callee": "self._record",
+          "lineNumber": 64
+        },
+        {
+          "caller": "send_interactive_message",
+          "callee": "self._record",
+          "lineNumber": 67
+        },
+        {
+          "caller": "send_location",
+          "callee": "self._record",
+          "lineNumber": 70
+        },
+        {
+          "caller": "send_contact",
+          "callee": "self._record",
+          "lineNumber": 73
+        },
+        {
+          "caller": "send_image",
+          "callee": "self._record",
+          "lineNumber": 76
+        },
+        {
+          "caller": "send_document",
+          "callee": "self._record",
+          "lineNumber": 79
+        },
+        {
+          "caller": "send_catalog",
+          "callee": "self._record",
+          "lineNumber": 82
+        },
+        {
+          "caller": "upload_media",
+          "callee": "self._record",
+          "lineNumber": 85
+        },
+        {
+          "caller": "_async_recorder",
+          "callee": "self._record",
+          "lineNumber": 91
+        },
+        {
+          "caller": "send_message",
+          "callee": "self._record",
+          "lineNumber": 100
+        },
+        {
+          "caller": "send_template",
+          "callee": "self._record",
+          "lineNumber": 103
+        },
+        {
+          "caller": "get_business_phone_number",
+          "callee": "MagicMock",
+          "lineNumber": 106
+        },
+        {
+          "caller": "_recorder",
+          "callee": "self._record",
+          "lineNumber": 113
+        },
+        {
+          "caller": "__init__",
+          "callee": "MagicMock",
+          "lineNumber": 138
+        },
+        {
+          "caller": "reply_text",
+          "callee": "self.replies.append",
+          "lineNumber": 147
+        },
+        {
+          "caller": "reply",
+          "callee": "self.replies.append",
+          "lineNumber": 151
+        },
+        {
+          "caller": "fake_async_wa",
+          "callee": "FakeAsyncWhatsApp",
+          "lineNumber": 169
+        },
+        {
+          "caller": "fake_sync_wa",
+          "callee": "FakeSyncWhatsApp",
+          "lineNumber": 174
+        },
+        {
+          "caller": "patch_async_wa_client",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 183
+        },
+        {
+          "caller": "patch_async_wa_client",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 184
+        },
+        {
+          "caller": "patch_async_wa_client",
+          "callee": "list",
+          "lineNumber": 185
+        },
+        {
+          "caller": "patch_async_wa_client",
+          "callee": "sys.modules.values",
+          "lineNumber": 185
+        },
+        {
+          "caller": "patch_async_wa_client",
+          "callee": "hasattr",
+          "lineNumber": 188
+        },
+        {
+          "caller": "patch_async_wa_client",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 189
+        },
+        {
+          "caller": "patch_sync_wa_client",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 198
+        },
+        {
+          "caller": "patch_sync_wa_client",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 199
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 11,
+        "functionCount": 4,
+        "classCount": 7
+      }
+    },
+    {
+      "path": "tests/fixtures/fixtures_pkg.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 19,
+      "nonEmptyLines": 15,
+      "metrics": {
+        "importCount": 5,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/ordelo/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/ordelo/agents/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/ordelo/agents/test_agent_runner.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 182,
+      "nonEmptyLines": 135,
+      "functions": [
+        {
+          "name": "_summary",
+          "startLine": 56,
+          "endLine": 78,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "patched_runner",
+          "startLine": 82,
+          "endLine": 93,
+          "params": [
+            "monkeypatch",
+            "patch_pg_pool"
+          ]
+        },
+        {
+          "name": "test_run_rider_agent_w_custom_msg_builds_messages_updates_state_and_returns_ai_content",
+          "startLine": 96,
+          "endLine": 115,
+          "params": [
+            "patched_runner"
+          ]
+        },
+        {
+          "name": "test_init_ordelo_graph_updates_initial_state_and_invokes_graph",
+          "startLine": 118,
+          "endLine": 133,
+          "params": [
+            "monkeypatch",
+            "patched_runner"
+          ]
+        },
+        {
+          "name": "test_debug_state_values_returns_shortened_state_values",
+          "startLine": 136,
+          "endLine": 143,
+          "params": [
+            "monkeypatch",
+            "patched_runner"
+          ]
+        },
+        {
+          "name": "test_debug_thread_fetches_recipient_and_uses_thread_config",
+          "startLine": 146,
+          "endLine": 159,
+          "params": [
+            "monkeypatch",
+            "patched_runner",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_debug_thread_raises_when_thread_missing",
+          "startLine": 162,
+          "endLine": 166,
+          "params": [
+            "patched_runner",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_job_end_stale_conversations_uses_supplied_handler",
+          "startLine": 169,
+          "endLine": 182,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "_FakeGraph",
+          "startLine": 28,
+          "endLine": 43,
+          "methods": [
+            "__init__",
+            "aupdate_state",
+            "ainvoke",
+            "aget_state"
+          ],
+          "properties": []
+        },
+        {
+          "name": "_FakeBuilder",
+          "startLine": 46,
+          "endLine": 53,
+          "methods": [
+            "__init__",
+            "compile"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_FakeGraph",
+          "line": 28,
+          "isDefault": false
+        },
+        {
+          "name": "_FakeBuilder",
+          "line": 46,
+          "isDefault": false
+        },
+        {
+          "name": "_summary",
+          "line": 56,
+          "isDefault": false
+        },
+        {
+          "name": "patched_runner",
+          "line": 81,
+          "isDefault": false
+        },
+        {
+          "name": "test_run_rider_agent_w_custom_msg_builds_messages_updates_state_and_returns_ai_content",
+          "line": 96,
+          "isDefault": false
+        },
+        {
+          "name": "test_init_ordelo_graph_updates_initial_state_and_invokes_graph",
+          "line": 118,
+          "isDefault": false
+        },
+        {
+          "name": "test_debug_state_values_returns_shortened_state_values",
+          "line": 136,
+          "isDefault": false
+        },
+        {
+          "name": "test_debug_thread_fetches_recipient_and_uses_thread_config",
+          "line": 146,
+          "isDefault": false
+        },
+        {
+          "name": "test_debug_thread_raises_when_thread_missing",
+          "line": 162,
+          "isDefault": false
+        },
+        {
+          "name": "test_job_end_stale_conversations_uses_supplied_handler",
+          "line": 169,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "__init__",
+          "callee": "SimpleNamespace",
+          "lineNumber": 32
+        },
+        {
+          "caller": "__init__",
+          "callee": "HumanMessage",
+          "lineNumber": 32
+        },
+        {
+          "caller": "aupdate_state",
+          "callee": "self.updates.append",
+          "lineNumber": 35
+        },
+        {
+          "caller": "ainvoke",
+          "callee": "self.invocations.append",
+          "lineNumber": 38
+        },
+        {
+          "caller": "ainvoke",
+          "callee": "AIMessage",
+          "lineNumber": 39
+        },
+        {
+          "caller": "compile",
+          "callee": "self.checkpointers.append",
+          "lineNumber": 52
+        },
+        {
+          "caller": "_summary",
+          "callee": "date",
+          "lineNumber": 73
+        },
+        {
+          "caller": "_summary",
+          "callee": "date",
+          "lineNumber": 74
+        },
+        {
+          "caller": "_summary",
+          "callee": "datetime",
+          "lineNumber": 75
+        },
+        {
+          "caller": "_summary",
+          "callee": "row.update",
+          "lineNumber": 77
+        },
+        {
+          "caller": "_summary",
+          "callee": "DeliverySummary",
+          "lineNumber": 78
+        },
+        {
+          "caller": "patched_runner",
+          "callee": "_FakeGraph",
+          "lineNumber": 83
+        },
+        {
+          "caller": "patched_runner",
+          "callee": "_FakeBuilder",
+          "lineNumber": 84
+        },
+        {
+          "caller": "patched_runner",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 85
+        },
+        {
+          "caller": "patched_runner",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 86
+        },
+        {
+          "caller": "patched_runner",
+          "callee": "SimpleNamespace",
+          "lineNumber": 86
+        },
+        {
+          "caller": "patched_runner",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 87
+        },
+        {
+          "caller": "patched_runner",
+          "callee": "SimpleNamespace",
+          "lineNumber": 87
+        },
+        {
+          "caller": "patched_runner",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 92
+        },
+        {
+          "caller": "test_run_rider_agent_w_custom_msg_builds_messages_updates_state_and_returns_ai_content",
+          "callee": "agent_runner.run_rider_agent_w_custom_msg",
+          "lineNumber": 99
+        },
+        {
+          "caller": "test_run_rider_agent_w_custom_msg_builds_messages_updates_state_and_returns_ai_content",
+          "callee": "type",
+          "lineNumber": 115
+        },
+        {
+          "caller": "test_init_ordelo_graph_updates_initial_state_and_invokes_graph",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 124
+        },
+        {
+          "caller": "test_init_ordelo_graph_updates_initial_state_and_invokes_graph",
+          "callee": "agent_runner.init_ordelo_graph",
+          "lineNumber": 126
+        },
+        {
+          "caller": "test_init_ordelo_graph_updates_initial_state_and_invokes_graph",
+          "callee": "_summary",
+          "lineNumber": 126
+        },
+        {
+          "caller": "test_debug_state_values_returns_shortened_state_values",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 138
+        },
+        {
+          "caller": "test_debug_state_values_returns_shortened_state_values",
+          "callee": "agent_runner.debug_state_values",
+          "lineNumber": 140
+        },
+        {
+          "caller": "test_debug_thread_fetches_recipient_and_uses_thread_config",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 148
+        },
+        {
+          "caller": "test_debug_thread_fetches_recipient_and_uses_thread_config",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 151
+        },
+        {
+          "caller": "test_debug_thread_fetches_recipient_and_uses_thread_config",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 153
+        },
+        {
+          "caller": "test_debug_thread_fetches_recipient_and_uses_thread_config",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 154
+        },
+        {
+          "caller": "test_debug_thread_fetches_recipient_and_uses_thread_config",
+          "callee": "agent_runner.debug_thread",
+          "lineNumber": 156
+        },
+        {
+          "caller": "test_debug_thread_raises_when_thread_missing",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 163
+        },
+        {
+          "caller": "test_debug_thread_raises_when_thread_missing",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 163
+        },
+        {
+          "caller": "test_debug_thread_raises_when_thread_missing",
+          "callee": "pytest.raises",
+          "lineNumber": 165
+        },
+        {
+          "caller": "test_debug_thread_raises_when_thread_missing",
+          "callee": "agent_runner.debug_thread",
+          "lineNumber": 166
+        },
+        {
+          "caller": "test_job_end_stale_conversations_uses_supplied_handler",
+          "callee": "_Handler",
+          "lineNumber": 178
+        },
+        {
+          "caller": "test_job_end_stale_conversations_uses_supplied_handler",
+          "callee": "agent_runner.job_end_stale_conversations",
+          "lineNumber": 180
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 10,
+        "functionCount": 8,
+        "classCount": 2
+      }
+    },
+    {
+      "path": "tests/ordelo/agents/test_rider_agent.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 228,
+      "nonEmptyLines": 172,
+      "functions": [
+        {
+          "name": "_runtime",
+          "startLine": 32,
+          "endLine": 33,
+          "params": [
+            "client",
+            "wa",
+            "recipient"
+          ]
+        },
+        {
+          "name": "_summary_row",
+          "startLine": 36,
+          "endLine": 51,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "test_notify_pickup_time_adjusted_sends_message",
+          "startLine": 54,
+          "endLine": 70,
+          "params": [
+            "fake_async_wa",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_notify_pickup_time_adjusted_no_pickup_time",
+          "startLine": 73,
+          "endLine": 81,
+          "params": [
+            "fake_async_wa",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_send_pickup_and_dropoff_location_send_whatsapp_locations",
+          "startLine": 84,
+          "endLine": 96,
+          "params": [
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_send_start_live_tracking_link_sends_button_url",
+          "startLine": 99,
+          "endLine": 109,
+          "params": [
+            "fake_async_wa",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason",
+          "startLine": 112,
+          "endLine": 123,
+          "params": [
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_capture_reason_for_cancel_before_pickup_updates_dispatch",
+          "startLine": 126,
+          "endLine": 137,
+          "params": [
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "startLine": 140,
+          "endLine": 168,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_verify_customer_confirmation_code_wrong_path",
+          "startLine": 171,
+          "endLine": 182,
+          "params": [
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_terminate_delivery_job_records_cancel_reason_and_closes_thread",
+          "startLine": 185,
+          "endLine": 203,
+          "params": [
+            "monkeypatch",
+            "patch_pg_pool",
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages",
+          "startLine": 206,
+          "endLine": 218,
+          "params": []
+        },
+        {
+          "name": "test_respond_node_sends_last_ai_message",
+          "startLine": 221,
+          "endLine": 228,
+          "params": [
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "_runtime",
+          "line": 32,
+          "isDefault": false
+        },
+        {
+          "name": "_summary_row",
+          "line": 36,
+          "isDefault": false
+        },
+        {
+          "name": "test_notify_pickup_time_adjusted_sends_message",
+          "line": 54,
+          "isDefault": false
+        },
+        {
+          "name": "test_notify_pickup_time_adjusted_no_pickup_time",
+          "line": 73,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_pickup_and_dropoff_location_send_whatsapp_locations",
+          "line": 84,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_start_live_tracking_link_sends_button_url",
+          "line": 99,
+          "isDefault": false
+        },
+        {
+          "name": "test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason",
+          "line": 112,
+          "isDefault": false
+        },
+        {
+          "name": "test_capture_reason_for_cancel_before_pickup_updates_dispatch",
+          "line": 126,
+          "isDefault": false
+        },
+        {
+          "name": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "line": 140,
+          "isDefault": false
+        },
+        {
+          "name": "test_verify_customer_confirmation_code_wrong_path",
+          "line": 171,
+          "isDefault": false
+        },
+        {
+          "name": "test_terminate_delivery_job_records_cancel_reason_and_closes_thread",
+          "line": 185,
+          "isDefault": false
+        },
+        {
+          "name": "test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages",
+          "line": 206,
+          "isDefault": false
+        },
+        {
+          "name": "test_respond_node_sends_last_ai_message",
+          "line": 221,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "_runtime",
+          "callee": "SimpleNamespace",
+          "lineNumber": 33
+        },
+        {
+          "caller": "_runtime",
+          "callee": "SimpleNamespace",
+          "lineNumber": 33
+        },
+        {
+          "caller": "_summary_row",
+          "callee": "row.update",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_notify_pickup_time_adjusted_sends_message",
+          "callee": "rider_agent.notify_pickup_time_adjusted",
+          "lineNumber": 55
+        },
+        {
+          "caller": "test_notify_pickup_time_adjusted_sends_message",
+          "callee": "_runtime",
+          "lineNumber": 63
+        },
+        {
+          "caller": "test_notify_pickup_time_adjusted_sends_message",
+          "callee": "isinstance",
+          "lineNumber": 69
+        },
+        {
+          "caller": "test_notify_pickup_time_adjusted_no_pickup_time",
+          "callee": "rider_agent.notify_pickup_time_adjusted",
+          "lineNumber": 74
+        },
+        {
+          "caller": "test_notify_pickup_time_adjusted_no_pickup_time",
+          "callee": "_runtime",
+          "lineNumber": 77
+        },
+        {
+          "caller": "test_send_pickup_and_dropoff_location_send_whatsapp_locations",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 85
+        },
+        {
+          "caller": "test_send_pickup_and_dropoff_location_send_whatsapp_locations",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 85
+        },
+        {
+          "caller": "test_send_pickup_and_dropoff_location_send_whatsapp_locations",
+          "callee": "_summary_row",
+          "lineNumber": 85
+        },
+        {
+          "caller": "test_send_pickup_and_dropoff_location_send_whatsapp_locations",
+          "callee": "_runtime",
+          "lineNumber": 86
+        },
+        {
+          "caller": "test_send_pickup_and_dropoff_location_send_whatsapp_locations",
+          "callee": "rider_agent.send_pickup_location",
+          "lineNumber": 88
+        },
+        {
+          "caller": "test_send_pickup_and_dropoff_location_send_whatsapp_locations",
+          "callee": "rider_agent.send_dropoff_location",
+          "lineNumber": 89
+        },
+        {
+          "caller": "test_send_start_live_tracking_link_sends_button_url",
+          "callee": "rider_agent.send_start_live_tracking_link",
+          "lineNumber": 100
+        },
+        {
+          "caller": "test_send_start_live_tracking_link_sends_button_url",
+          "callee": "_runtime",
+          "lineNumber": 103
+        },
+        {
+          "caller": "test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason",
+          "callee": "patch_supabase_client.register_rpc",
+          "lineNumber": 113
+        },
+        {
+          "caller": "test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 113
+        },
+        {
+          "caller": "test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason",
+          "callee": "rider_agent.cancel_delivery_before_pickup",
+          "lineNumber": 115
+        },
+        {
+          "caller": "test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason",
+          "callee": "_runtime",
+          "lineNumber": 118
+        },
+        {
+          "caller": "test_capture_reason_for_cancel_before_pickup_updates_dispatch",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 127
+        },
+        {
+          "caller": "test_capture_reason_for_cancel_before_pickup_updates_dispatch",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 127
+        },
+        {
+          "caller": "test_capture_reason_for_cancel_before_pickup_updates_dispatch",
+          "callee": "rider_agent.capture_reason_for_cancel_before_pickup",
+          "lineNumber": 129
+        },
+        {
+          "caller": "test_capture_reason_for_cancel_before_pickup_updates_dispatch",
+          "callee": "_runtime",
+          "lineNumber": 133
+        },
+        {
+          "caller": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 141
+        },
+        {
+          "caller": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 141
+        },
+        {
+          "caller": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "callee": "_summary_row",
+          "lineNumber": 141
+        },
+        {
+          "caller": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 142
+        },
+        {
+          "caller": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 142
+        },
+        {
+          "caller": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 143
+        },
+        {
+          "caller": "_fake_rest_webhook",
+          "callee": "webhook_calls.append",
+          "lineNumber": 147
+        },
+        {
+          "caller": "info",
+          "callee": "webhook_calls.append",
+          "lineNumber": 151
+        },
+        {
+          "caller": "_fake_wa_logger",
+          "callee": "_Logger",
+          "lineNumber": 154
+        },
+        {
+          "caller": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 156
+        },
+        {
+          "caller": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 157
+        },
+        {
+          "caller": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "callee": "_runtime",
+          "lineNumber": 159
+        },
+        {
+          "caller": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "callee": "rider_agent.verify_restaurant_confirmation_code",
+          "lineNumber": 161
+        },
+        {
+          "caller": "test_verify_restaurant_confirmation_code_wrong_and_success_paths",
+          "callee": "rider_agent.verify_restaurant_confirmation_code",
+          "lineNumber": 165
+        },
+        {
+          "caller": "test_verify_customer_confirmation_code_wrong_path",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 172
+        },
+        {
+          "caller": "test_verify_customer_confirmation_code_wrong_path",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 172
+        },
+        {
+          "caller": "test_verify_customer_confirmation_code_wrong_path",
+          "callee": "_summary_row",
+          "lineNumber": 172
+        },
+        {
+          "caller": "test_verify_customer_confirmation_code_wrong_path",
+          "callee": "rider_agent.verify_customer_confirmation_code",
+          "lineNumber": 174
+        },
+        {
+          "caller": "test_verify_customer_confirmation_code_wrong_path",
+          "callee": "_runtime",
+          "lineNumber": 178
+        },
+        {
+          "caller": "test_terminate_delivery_job_records_cancel_reason_and_closes_thread",
+          "callee": "patch_pg_pool.register_sql",
+          "lineNumber": 186
+        },
+        {
+          "caller": "test_terminate_delivery_job_records_cancel_reason_and_closes_thread",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 187
+        },
+        {
+          "caller": "test_terminate_delivery_job_records_cancel_reason_and_closes_thread",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 187
+        },
+        {
+          "caller": "test_terminate_delivery_job_records_cancel_reason_and_closes_thread",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 192
+        },
+        {
+          "caller": "test_terminate_delivery_job_records_cancel_reason_and_closes_thread",
+          "callee": "rider_agent.terminate_delivery_job",
+          "lineNumber": 194
+        },
+        {
+          "caller": "test_terminate_delivery_job_records_cancel_reason_and_closes_thread",
+          "callee": "_runtime",
+          "lineNumber": 197
+        },
+        {
+          "caller": "test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages",
+          "callee": "rider_agent.agent_node",
+          "lineNumber": 207
+        },
+        {
+          "caller": "test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages",
+          "callee": "ToolMessage",
+          "lineNumber": 207
+        },
+        {
+          "caller": "test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages",
+          "callee": "rider_agent.agent_node",
+          "lineNumber": 211
+        },
+        {
+          "caller": "test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages",
+          "callee": "HumanMessage",
+          "lineNumber": 211
+        },
+        {
+          "caller": "test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages",
+          "callee": "rider_agent.agent_node",
+          "lineNumber": 217
+        },
+        {
+          "caller": "test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages",
+          "callee": "AIMessage",
+          "lineNumber": 217
+        },
+        {
+          "caller": "test_respond_node_sends_last_ai_message",
+          "callee": "rider_agent.respond_node",
+          "lineNumber": 222
+        },
+        {
+          "caller": "test_respond_node_sends_last_ai_message",
+          "callee": "AIMessage",
+          "lineNumber": 223
+        },
+        {
+          "caller": "test_respond_node_sends_last_ai_message",
+          "callee": "_runtime",
+          "lineNumber": 224
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 13,
+        "functionCount": 13,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/ordelo/test_agent_app_handlers.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 197,
+      "nonEmptyLines": 156,
+      "functions": [
+        {
+          "name": "_decode_config_href",
+          "startLine": 33,
+          "endLine": 35,
+          "params": [
+            "href"
+          ]
+        },
+        {
+          "name": "_delivery_summary_row",
+          "startLine": 38,
+          "endLine": 62,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "test_generate_config_href_round_trips_payload",
+          "startLine": 65,
+          "endLine": 69,
+          "params": []
+        },
+        {
+          "name": "test_create_start_and_stop_job_configs_encode_expected_fields",
+          "startLine": 72,
+          "endLine": 83,
+          "params": []
+        },
+        {
+          "name": "test_initial_handle_accept_decline_and_unavailable_branches",
+          "startLine": 86,
+          "endLine": 109,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_initial_handle_assigned_decline_triggers_cancel_flow",
+          "startLine": 112,
+          "endLine": 139,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_is_live_location_enabled_uses_rider_location_rows",
+          "startLine": 142,
+          "endLine": 148,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_send_delivery_instructions_composes_buttons_and_returns_message_id",
+          "startLine": 151,
+          "endLine": 177,
+          "params": [
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_post_rider_event_webhooks_call_configured_urls",
+          "startLine": 181,
+          "endLine": 197,
+          "params": [
+            "monkeypatch"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "_decode_config_href",
+          "line": 33,
+          "isDefault": false
+        },
+        {
+          "name": "_delivery_summary_row",
+          "line": 38,
+          "isDefault": false
+        },
+        {
+          "name": "test_generate_config_href_round_trips_payload",
+          "line": 65,
+          "isDefault": false
+        },
+        {
+          "name": "test_create_start_and_stop_job_configs_encode_expected_fields",
+          "line": 72,
+          "isDefault": false
+        },
+        {
+          "name": "test_initial_handle_accept_decline_and_unavailable_branches",
+          "line": 86,
+          "isDefault": false
+        },
+        {
+          "name": "test_initial_handle_assigned_decline_triggers_cancel_flow",
+          "line": 112,
+          "isDefault": false
+        },
+        {
+          "name": "test_is_live_location_enabled_uses_rider_location_rows",
+          "line": 142,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_delivery_instructions_composes_buttons_and_returns_message_id",
+          "line": 151,
+          "isDefault": false
+        },
+        {
+          "name": "test_post_rider_event_webhooks_call_configured_urls",
+          "line": 180,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "_decode_config_href",
+          "callee": "href.split",
+          "lineNumber": 34
+        },
+        {
+          "caller": "_decode_config_href",
+          "callee": "json.loads",
+          "lineNumber": 35
+        },
+        {
+          "caller": "_decode_config_href",
+          "callee": "base64.b64decode(encoded).decode",
+          "lineNumber": 35
+        },
+        {
+          "caller": "_decode_config_href",
+          "callee": "base64.b64decode",
+          "lineNumber": 35
+        },
+        {
+          "caller": "_delivery_summary_row",
+          "callee": "datetime",
+          "lineNumber": 55
+        },
+        {
+          "caller": "_delivery_summary_row",
+          "callee": "date",
+          "lineNumber": 56
+        },
+        {
+          "caller": "_delivery_summary_row",
+          "callee": "date",
+          "lineNumber": 58
+        },
+        {
+          "caller": "_delivery_summary_row",
+          "callee": "datetime",
+          "lineNumber": 59
+        },
+        {
+          "caller": "_delivery_summary_row",
+          "callee": "row.update",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_generate_config_href_round_trips_payload",
+          "callee": "agent_app_handlers.generate_config_href",
+          "lineNumber": 66
+        },
+        {
+          "caller": "test_generate_config_href_round_trips_payload",
+          "callee": "href.startswith",
+          "lineNumber": 68
+        },
+        {
+          "caller": "test_generate_config_href_round_trips_payload",
+          "callee": "_decode_config_href",
+          "lineNumber": 69
+        },
+        {
+          "caller": "test_create_start_and_stop_job_configs_encode_expected_fields",
+          "callee": "DeliverySummary",
+          "lineNumber": 73
+        },
+        {
+          "caller": "test_create_start_and_stop_job_configs_encode_expected_fields",
+          "callee": "_delivery_summary_row",
+          "lineNumber": 73
+        },
+        {
+          "caller": "test_create_start_and_stop_job_configs_encode_expected_fields",
+          "callee": "_decode_config_href",
+          "lineNumber": 75
+        },
+        {
+          "caller": "test_create_start_and_stop_job_configs_encode_expected_fields",
+          "callee": "agent_app_handlers.create_start_job_config",
+          "lineNumber": 75
+        },
+        {
+          "caller": "test_create_start_and_stop_job_configs_encode_expected_fields",
+          "callee": "_decode_config_href",
+          "lineNumber": 76
+        },
+        {
+          "caller": "test_create_start_and_stop_job_configs_encode_expected_fields",
+          "callee": "agent_app_handlers.create_stop_job_config",
+          "lineNumber": 76
+        },
+        {
+          "caller": "test_initial_handle_accept_decline_and_unavailable_branches",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_initial_handle_accept_decline_and_unavailable_branches",
+          "callee": "agent_app_handlers.initial_handle_of_rider_response",
+          "lineNumber": 89
+        },
+        {
+          "caller": "test_initial_handle_accept_decline_and_unavailable_branches",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 97
+        },
+        {
+          "caller": "test_initial_handle_accept_decline_and_unavailable_branches",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 97
+        },
+        {
+          "caller": "test_initial_handle_accept_decline_and_unavailable_branches",
+          "callee": "agent_app_handlers.initial_handle_of_rider_response",
+          "lineNumber": 98
+        },
+        {
+          "caller": "test_initial_handle_accept_decline_and_unavailable_branches",
+          "callee": "agent_app_handlers.initial_handle_of_rider_response",
+          "lineNumber": 104
+        },
+        {
+          "caller": "test_initial_handle_assigned_decline_triggers_cancel_flow",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 115
+        },
+        {
+          "caller": "test_initial_handle_assigned_decline_triggers_cancel_flow",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 116
+        },
+        {
+          "caller": "test_initial_handle_assigned_decline_triggers_cancel_flow",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 119
+        },
+        {
+          "caller": "_fake_run",
+          "callee": "calls.append",
+          "lineNumber": 124
+        },
+        {
+          "caller": "test_initial_handle_assigned_decline_triggers_cancel_flow",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 126
+        },
+        {
+          "caller": "test_initial_handle_assigned_decline_triggers_cancel_flow",
+          "callee": "agent_app_handlers.initial_handle_of_rider_response",
+          "lineNumber": 128
+        },
+        {
+          "caller": "test_is_live_location_enabled_uses_rider_location_rows",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 143
+        },
+        {
+          "caller": "test_is_live_location_enabled_uses_rider_location_rows",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 143
+        },
+        {
+          "caller": "test_is_live_location_enabled_uses_rider_location_rows",
+          "callee": "agent_app_handlers.is_live_location_enabled",
+          "lineNumber": 144
+        },
+        {
+          "caller": "test_is_live_location_enabled_uses_rider_location_rows",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 147
+        },
+        {
+          "caller": "test_is_live_location_enabled_uses_rider_location_rows",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 147
+        },
+        {
+          "caller": "test_is_live_location_enabled_uses_rider_location_rows",
+          "callee": "agent_app_handlers.is_live_location_enabled",
+          "lineNumber": 148
+        },
+        {
+          "caller": "test_send_delivery_instructions_composes_buttons_and_returns_message_id",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 152
+        },
+        {
+          "caller": "test_send_delivery_instructions_composes_buttons_and_returns_message_id",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 155
+        },
+        {
+          "caller": "test_send_delivery_instructions_composes_buttons_and_returns_message_id",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 157
+        },
+        {
+          "caller": "test_send_delivery_instructions_composes_buttons_and_returns_message_id",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 160
+        },
+        {
+          "caller": "test_send_delivery_instructions_composes_buttons_and_returns_message_id",
+          "callee": "_delivery_summary_row",
+          "lineNumber": 160
+        },
+        {
+          "caller": "test_send_delivery_instructions_composes_buttons_and_returns_message_id",
+          "callee": "agent_app_handlers._send_delivery_instructions",
+          "lineNumber": 163
+        },
+        {
+          "caller": "test_post_rider_event_webhooks_call_configured_urls",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 185
+        },
+        {
+          "caller": "test_post_rider_event_webhooks_call_configured_urls",
+          "callee": "respx.post(\"https://restaurant.example.com/ELAS/rider-cust-cc/ELAS-ABCD-1/4474\").mock",
+          "lineNumber": 186
+        },
+        {
+          "caller": "test_post_rider_event_webhooks_call_configured_urls",
+          "callee": "respx.post",
+          "lineNumber": 186
+        },
+        {
+          "caller": "test_post_rider_event_webhooks_call_configured_urls",
+          "callee": "httpx.Response",
+          "lineNumber": 187
+        },
+        {
+          "caller": "test_post_rider_event_webhooks_call_configured_urls",
+          "callee": "respx.post(\"https://restaurant.example.com/ELAS/rider-rest-cc/ELAS-ABCD-1/4474\").mock",
+          "lineNumber": 189
+        },
+        {
+          "caller": "test_post_rider_event_webhooks_call_configured_urls",
+          "callee": "respx.post",
+          "lineNumber": 189
+        },
+        {
+          "caller": "test_post_rider_event_webhooks_call_configured_urls",
+          "callee": "httpx.Response",
+          "lineNumber": 190
+        },
+        {
+          "caller": "test_post_rider_event_webhooks_call_configured_urls",
+          "callee": "agent_app_handlers.post_rider_event_customer_cc",
+          "lineNumber": 193
+        },
+        {
+          "caller": "test_post_rider_event_webhooks_call_configured_urls",
+          "callee": "agent_app_handlers.post_rider_event_restaurant_cc",
+          "lineNumber": 194
+        }
+      ],
+      "metrics": {
+        "importCount": 4,
+        "exportCount": 9,
+        "functionCount": 9,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/regressions/test_p5_regressions.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 206,
+      "nonEmptyLines": 162,
+      "functions": [
+        {
+          "name": "_runtime",
+          "startLine": 34,
+          "endLine": 35,
+          "params": [
+            "client",
+            "wa",
+            "recipient"
+          ]
+        },
+        {
+          "name": "_summary_row",
+          "startLine": 38,
+          "endLine": 63,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "test_payment_and_reservation_templates_use_pywa_param_objects",
+          "startLine": 84,
+          "endLine": 121,
+          "params": [
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_cancel_delivery_before_pickup_reads_rider_name_from_state_not_context",
+          "startLine": 124,
+          "endLine": 136,
+          "params": [
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic",
+          "startLine": 139,
+          "endLine": 156,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_admin_takeaway_ready_reports_webhook_failure_to_callback",
+          "startLine": 160,
+          "endLine": 173,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_location_customer_enter_propagates_webhook_http_error",
+          "startLine": 177,
+          "endLine": 195,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_restaurant_confirmation_flow_returns_error_for_invalid_payload",
+          "startLine": 198,
+          "endLine": 206,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "_FakeRequest",
+          "startLine": 66,
+          "endLine": 71,
+          "methods": [
+            "__init__",
+            "json"
+          ],
+          "properties": []
+        },
+        {
+          "name": "_FakeCallback",
+          "startLine": 74,
+          "endLine": 81,
+          "methods": [
+            "__init__",
+            "reply"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_runtime",
+          "line": 34,
+          "isDefault": false
+        },
+        {
+          "name": "_summary_row",
+          "line": 38,
+          "isDefault": false
+        },
+        {
+          "name": "_FakeRequest",
+          "line": 66,
+          "isDefault": false
+        },
+        {
+          "name": "_FakeCallback",
+          "line": 74,
+          "isDefault": false
+        },
+        {
+          "name": "test_payment_and_reservation_templates_use_pywa_param_objects",
+          "line": 84,
+          "isDefault": false
+        },
+        {
+          "name": "test_cancel_delivery_before_pickup_reads_rider_name_from_state_not_context",
+          "line": 124,
+          "isDefault": false
+        },
+        {
+          "name": "test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic",
+          "line": 139,
+          "isDefault": false
+        },
+        {
+          "name": "test_admin_takeaway_ready_reports_webhook_failure_to_callback",
+          "line": 159,
+          "isDefault": false
+        },
+        {
+          "name": "test_location_customer_enter_propagates_webhook_http_error",
+          "line": 176,
+          "isDefault": false
+        },
+        {
+          "name": "test_restaurant_confirmation_flow_returns_error_for_invalid_payload",
+          "line": 198,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "_runtime",
+          "callee": "SimpleNamespace",
+          "lineNumber": 35
+        },
+        {
+          "caller": "_runtime",
+          "callee": "SimpleNamespace",
+          "lineNumber": 35
+        },
+        {
+          "caller": "_summary_row",
+          "callee": "row.update",
+          "lineNumber": 62
+        },
+        {
+          "caller": "reply",
+          "callee": "self.replies.append",
+          "lineNumber": 81
+        },
+        {
+          "caller": "test_payment_and_reservation_templates_use_pywa_param_objects",
+          "callee": "wa_senders.send_request_payment_link",
+          "lineNumber": 85
+        },
+        {
+          "caller": "test_payment_and_reservation_templates_use_pywa_param_objects",
+          "callee": "wa_senders.send_reservation_link",
+          "lineNumber": 98
+        },
+        {
+          "caller": "test_payment_and_reservation_templates_use_pywa_param_objects",
+          "callee": "wa_senders.send_order_reciept_wa",
+          "lineNumber": 109
+        },
+        {
+          "caller": "test_cancel_delivery_before_pickup_reads_rider_name_from_state_not_context",
+          "callee": "patch_supabase_client.register_rpc",
+          "lineNumber": 125
+        },
+        {
+          "caller": "test_cancel_delivery_before_pickup_reads_rider_name_from_state_not_context",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 125
+        },
+        {
+          "caller": "test_cancel_delivery_before_pickup_reads_rider_name_from_state_not_context",
+          "callee": "_runtime",
+          "lineNumber": 126
+        },
+        {
+          "caller": "test_cancel_delivery_before_pickup_reads_rider_name_from_state_not_context",
+          "callee": "hasattr",
+          "lineNumber": 127
+        },
+        {
+          "caller": "test_cancel_delivery_before_pickup_reads_rider_name_from_state_not_context",
+          "callee": "rider_agent.cancel_delivery_before_pickup",
+          "lineNumber": 129
+        },
+        {
+          "caller": "test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 140
+        },
+        {
+          "caller": "test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 140
+        },
+        {
+          "caller": "test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 141
+        },
+        {
+          "caller": "test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 141
+        },
+        {
+          "caller": "_fake_initial",
+          "callee": "calls.append",
+          "lineNumber": 145
+        },
+        {
+          "caller": "test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 147
+        },
+        {
+          "caller": "test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic",
+          "callee": "FakeMessage",
+          "lineNumber": 148
+        },
+        {
+          "caller": "test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic",
+          "callee": "json.dumps",
+          "lineNumber": 150
+        },
+        {
+          "caller": "test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic",
+          "callee": "on_callback_wa_handler.dispatch_response",
+          "lineNumber": 153
+        },
+        {
+          "caller": "test_admin_takeaway_ready_reports_webhook_failure_to_callback",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 164
+        },
+        {
+          "caller": "test_admin_takeaway_ready_reports_webhook_failure_to_callback",
+          "callee": "respx.post(\"https://rest.example.com/takeaway-ready/ABCD-1\").mock",
+          "lineNumber": 165
+        },
+        {
+          "caller": "test_admin_takeaway_ready_reports_webhook_failure_to_callback",
+          "callee": "respx.post",
+          "lineNumber": 165
+        },
+        {
+          "caller": "test_admin_takeaway_ready_reports_webhook_failure_to_callback",
+          "callee": "httpx.Response",
+          "lineNumber": 165
+        },
+        {
+          "caller": "test_admin_takeaway_ready_reports_webhook_failure_to_callback",
+          "callee": "_FakeCallback",
+          "lineNumber": 166
+        },
+        {
+          "caller": "test_admin_takeaway_ready_reports_webhook_failure_to_callback",
+          "callee": "json.dumps",
+          "lineNumber": 167
+        },
+        {
+          "caller": "test_admin_takeaway_ready_reports_webhook_failure_to_callback",
+          "callee": "on_callback_wa_handler.admin_takeaway_ready",
+          "lineNumber": 171
+        },
+        {
+          "caller": "test_admin_takeaway_ready_reports_webhook_failure_to_callback",
+          "callee": "FakeAsyncWhatsApp",
+          "lineNumber": 171
+        },
+        {
+          "caller": "test_location_customer_enter_propagates_webhook_http_error",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 178
+        },
+        {
+          "caller": "test_location_customer_enter_propagates_webhook_http_error",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 181
+        },
+        {
+          "caller": "test_location_customer_enter_propagates_webhook_http_error",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 187
+        },
+        {
+          "caller": "test_location_customer_enter_propagates_webhook_http_error",
+          "callee": "respx.post(\"https://rest.example.com/customer-enter/ELAS-ABCD-1\").mock",
+          "lineNumber": 188
+        },
+        {
+          "caller": "test_location_customer_enter_propagates_webhook_http_error",
+          "callee": "respx.post",
+          "lineNumber": 188
+        },
+        {
+          "caller": "test_location_customer_enter_propagates_webhook_http_error",
+          "callee": "httpx.Response",
+          "lineNumber": 188
+        },
+        {
+          "caller": "test_location_customer_enter_propagates_webhook_http_error",
+          "callee": "location_hooks.notify_rider_location_event",
+          "lineNumber": 190
+        },
+        {
+          "caller": "test_location_customer_enter_propagates_webhook_http_error",
+          "callee": "_FakeRequest",
+          "lineNumber": 191
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_returns_error_for_invalid_payload",
+          "callee": "delivery_hooks.restaurant_confirmation_flow",
+          "lineNumber": 199
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_returns_error_for_invalid_payload",
+          "callee": "SimpleNamespace",
+          "lineNumber": 200
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_returns_error_for_invalid_payload",
+          "callee": "result[\"message\"].lower",
+          "lineNumber": 206
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_returns_error_for_invalid_payload",
+          "callee": "result[\"message\"].lower",
+          "lineNumber": 206
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 10,
+        "functionCount": 8,
+        "classCount": 2
+      }
+    },
+    {
+      "path": "tests/regressions/test_p7_msg_handler.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 102,
+      "nonEmptyLines": 72,
+      "functions": [
+        {
+          "name": "test_message_time_uk_datetime",
+          "startLine": 9,
+          "endLine": 12,
+          "params": []
+        },
+        {
+          "name": "test_message_time_uk_timestamp_ms",
+          "startLine": 15,
+          "endLine": 18,
+          "params": []
+        },
+        {
+          "name": "test_message_time_uk_timestamp_s",
+          "startLine": 21,
+          "endLine": 24,
+          "params": []
+        },
+        {
+          "name": "test_message_time_uk_none",
+          "startLine": 27,
+          "endLine": 29,
+          "params": []
+        },
+        {
+          "name": "test_is_outside_service_hours_false",
+          "startLine": 32,
+          "endLine": 34,
+          "params": []
+        },
+        {
+          "name": "test_is_outside_service_hours_true",
+          "startLine": 37,
+          "endLine": 39,
+          "params": []
+        },
+        {
+          "name": "test_send_closed_message",
+          "startLine": 42,
+          "endLine": 45,
+          "params": [
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_live_location_no_inflight",
+          "startLine": 48,
+          "endLine": 52,
+          "params": [
+            "fake_async_wa",
+            "patch_supabase_client",
+            "patch_pg_pool"
+          ]
+        },
+        {
+          "name": "test_clear_dispatch",
+          "startLine": 55,
+          "endLine": 58,
+          "params": [
+            "fake_async_wa",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_test_flow",
+          "startLine": 61,
+          "endLine": 65,
+          "params": [
+            "fake_sync_wa",
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_handle_callback_button",
+          "startLine": 68,
+          "endLine": 69,
+          "params": []
+        },
+        {
+          "name": "test_on_sign_up_request",
+          "startLine": 72,
+          "endLine": 74,
+          "params": []
+        },
+        {
+          "name": "test_on_sign_up_request_error",
+          "startLine": 77,
+          "endLine": 79,
+          "params": []
+        },
+        {
+          "name": "test_init_delivery_summary",
+          "startLine": 82,
+          "endLine": 85,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_process_wa_msg_end_shift_intent",
+          "startLine": 88,
+          "endLine": 102,
+          "params": [
+            "monkeypatch",
+            "patch_pg_pool",
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "test_message_time_uk_datetime",
+          "line": 9,
+          "isDefault": false
+        },
+        {
+          "name": "test_message_time_uk_timestamp_ms",
+          "line": 15,
+          "isDefault": false
+        },
+        {
+          "name": "test_message_time_uk_timestamp_s",
+          "line": 21,
+          "isDefault": false
+        },
+        {
+          "name": "test_message_time_uk_none",
+          "line": 27,
+          "isDefault": false
+        },
+        {
+          "name": "test_is_outside_service_hours_false",
+          "line": 32,
+          "isDefault": false
+        },
+        {
+          "name": "test_is_outside_service_hours_true",
+          "line": 37,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_closed_message",
+          "line": 42,
+          "isDefault": false
+        },
+        {
+          "name": "test_live_location_no_inflight",
+          "line": 48,
+          "isDefault": false
+        },
+        {
+          "name": "test_clear_dispatch",
+          "line": 55,
+          "isDefault": false
+        },
+        {
+          "name": "test_test_flow",
+          "line": 61,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_callback_button",
+          "line": 68,
+          "isDefault": false
+        },
+        {
+          "name": "test_on_sign_up_request",
+          "line": 72,
+          "isDefault": false
+        },
+        {
+          "name": "test_on_sign_up_request_error",
+          "line": 77,
+          "isDefault": false
+        },
+        {
+          "name": "test_init_delivery_summary",
+          "line": 82,
+          "isDefault": false
+        },
+        {
+          "name": "test_process_wa_msg_end_shift_intent",
+          "line": 88,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "test_message_time_uk_datetime",
+          "callee": "SimpleNamespace",
+          "lineNumber": 10
+        },
+        {
+          "caller": "test_message_time_uk_datetime",
+          "callee": "datetime",
+          "lineNumber": 10
+        },
+        {
+          "caller": "test_message_time_uk_datetime",
+          "callee": "h._message_time_uk",
+          "lineNumber": 11
+        },
+        {
+          "caller": "test_message_time_uk_timestamp_ms",
+          "callee": "SimpleNamespace",
+          "lineNumber": 16
+        },
+        {
+          "caller": "test_message_time_uk_timestamp_ms",
+          "callee": "h._message_time_uk",
+          "lineNumber": 17
+        },
+        {
+          "caller": "test_message_time_uk_timestamp_s",
+          "callee": "SimpleNamespace",
+          "lineNumber": 22
+        },
+        {
+          "caller": "test_message_time_uk_timestamp_s",
+          "callee": "h._message_time_uk",
+          "lineNumber": 23
+        },
+        {
+          "caller": "test_message_time_uk_none",
+          "callee": "SimpleNamespace",
+          "lineNumber": 28
+        },
+        {
+          "caller": "test_message_time_uk_none",
+          "callee": "h._message_time_uk",
+          "lineNumber": 29
+        },
+        {
+          "caller": "test_is_outside_service_hours_false",
+          "callee": "SimpleNamespace",
+          "lineNumber": 33
+        },
+        {
+          "caller": "test_is_outside_service_hours_false",
+          "callee": "datetime",
+          "lineNumber": 33
+        },
+        {
+          "caller": "test_is_outside_service_hours_false",
+          "callee": "h.is_outside_service_hours",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_is_outside_service_hours_true",
+          "callee": "SimpleNamespace",
+          "lineNumber": 38
+        },
+        {
+          "caller": "test_is_outside_service_hours_true",
+          "callee": "datetime",
+          "lineNumber": 38
+        },
+        {
+          "caller": "test_is_outside_service_hours_true",
+          "callee": "h.is_outside_service_hours",
+          "lineNumber": 39
+        },
+        {
+          "caller": "test_send_closed_message",
+          "callee": "FakeMessage",
+          "lineNumber": 43
+        },
+        {
+          "caller": "test_send_closed_message",
+          "callee": "h.send_closed_message",
+          "lineNumber": 44
+        },
+        {
+          "caller": "test_live_location_no_inflight",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_live_location_no_inflight",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_live_location_no_inflight",
+          "callee": "h.live_location",
+          "lineNumber": 51
+        },
+        {
+          "caller": "test_live_location_no_inflight",
+          "callee": "FakeMessage",
+          "lineNumber": 51
+        },
+        {
+          "caller": "test_clear_dispatch",
+          "callee": "patch_supabase_client.register_rpc",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_clear_dispatch",
+          "callee": "SimpleNamespace",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_clear_dispatch",
+          "callee": "h.clear_dispatch",
+          "lineNumber": 57
+        },
+        {
+          "caller": "test_clear_dispatch",
+          "callee": "FakeMessage",
+          "lineNumber": 57
+        },
+        {
+          "caller": "test_test_flow",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 62
+        },
+        {
+          "caller": "test_test_flow",
+          "callee": "h.test_flow",
+          "lineNumber": 63
+        },
+        {
+          "caller": "test_test_flow",
+          "callee": "FakeMessage",
+          "lineNumber": 63
+        },
+        {
+          "caller": "test_handle_callback_button",
+          "callee": "h.handle_callback_button",
+          "lineNumber": 69
+        },
+        {
+          "caller": "test_handle_callback_button",
+          "callee": "SimpleNamespace",
+          "lineNumber": 69
+        },
+        {
+          "caller": "test_on_sign_up_request",
+          "callee": "h.on_sign_up_request",
+          "lineNumber": 73
+        },
+        {
+          "caller": "test_on_sign_up_request",
+          "callee": "SimpleNamespace",
+          "lineNumber": 73
+        },
+        {
+          "caller": "test_on_sign_up_request_error",
+          "callee": "h.on_sign_up_request",
+          "lineNumber": 78
+        },
+        {
+          "caller": "test_on_sign_up_request_error",
+          "callee": "SimpleNamespace",
+          "lineNumber": 78
+        },
+        {
+          "caller": "test_init_delivery_summary",
+          "callee": "patch_supabase_client.register_rpc",
+          "lineNumber": 83
+        },
+        {
+          "caller": "test_init_delivery_summary",
+          "callee": "SimpleNamespace",
+          "lineNumber": 83
+        },
+        {
+          "caller": "test_init_delivery_summary",
+          "callee": "h.init_delivery_summary",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_process_wa_msg_end_shift_intent",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 90
+        },
+        {
+          "caller": "test_process_wa_msg_end_shift_intent",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 90
+        },
+        {
+          "caller": "test_process_wa_msg_end_shift_intent",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 92
+        },
+        {
+          "caller": "test_process_wa_msg_end_shift_intent",
+          "callee": "type",
+          "lineNumber": 95
+        },
+        {
+          "caller": "test_process_wa_msg_end_shift_intent",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 97
+        },
+        {
+          "caller": "test_process_wa_msg_end_shift_intent",
+          "callee": "SimpleNamespace",
+          "lineNumber": 97
+        },
+        {
+          "caller": "_fake_enquire",
+          "callee": "calls.append",
+          "lineNumber": 99
+        },
+        {
+          "caller": "test_process_wa_msg_end_shift_intent",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 100
+        },
+        {
+          "caller": "test_process_wa_msg_end_shift_intent",
+          "callee": "h.process_wa_msg",
+          "lineNumber": 101
+        },
+        {
+          "caller": "test_process_wa_msg_end_shift_intent",
+          "callee": "FakeMessage",
+          "lineNumber": 101
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 15,
+        "functionCount": 15,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/regressions/test_p7_rider_agent.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 78,
+      "nonEmptyLines": 56,
+      "functions": [
+        {
+          "name": "_state",
+          "startLine": 36,
+          "endLine": 39,
+          "params": [
+            "**o"
+          ]
+        },
+        {
+          "name": "_runtime",
+          "startLine": 42,
+          "endLine": 43,
+          "params": []
+        },
+        {
+          "name": "test_notify_food_ready_for_pickup",
+          "startLine": 46,
+          "endLine": 48,
+          "params": []
+        },
+        {
+          "name": "test_send_pickup_location",
+          "startLine": 51,
+          "endLine": 53,
+          "params": []
+        },
+        {
+          "name": "test_send_pickup_location_no_order_number",
+          "startLine": 56,
+          "endLine": 58,
+          "params": []
+        },
+        {
+          "name": "test_send_dropoff_location",
+          "startLine": 61,
+          "endLine": 63,
+          "params": []
+        },
+        {
+          "name": "test_send_dropoff_location_no_order_number",
+          "startLine": 66,
+          "endLine": 68,
+          "params": []
+        },
+        {
+          "name": "test_send_customer_contact_no_order_number",
+          "startLine": 71,
+          "endLine": 73,
+          "params": []
+        },
+        {
+          "name": "test_capture_reason_for_cancel_before_pickup_no_dispatch",
+          "startLine": 76,
+          "endLine": 78,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "_FakeWa",
+          "startLine": 7,
+          "endLine": 11,
+          "methods": [
+            "send_message",
+            "send_location",
+            "send_contact",
+            "send_reaction"
+          ],
+          "properties": []
+        },
+        {
+          "name": "_FakeCtx",
+          "startLine": 14,
+          "endLine": 33,
+          "methods": [
+            "__init__"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_FakeWa",
+          "line": 7,
+          "isDefault": false
+        },
+        {
+          "name": "_FakeCtx",
+          "line": 14,
+          "isDefault": false
+        },
+        {
+          "name": "_state",
+          "line": 36,
+          "isDefault": false
+        },
+        {
+          "name": "_runtime",
+          "line": 42,
+          "isDefault": false
+        },
+        {
+          "name": "test_notify_food_ready_for_pickup",
+          "line": 46,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_pickup_location",
+          "line": 51,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_pickup_location_no_order_number",
+          "line": 56,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_dropoff_location",
+          "line": 61,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_dropoff_location_no_order_number",
+          "line": 66,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_customer_contact_no_order_number",
+          "line": 71,
+          "isDefault": false
+        },
+        {
+          "name": "test_capture_reason_for_cancel_before_pickup_no_dispatch",
+          "line": 76,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "__init__",
+          "callee": "_FakeWa",
+          "lineNumber": 17
+        },
+        {
+          "caller": "__init__",
+          "callee": "SimpleNamespace",
+          "lineNumber": 18
+        },
+        {
+          "caller": "__init__",
+          "callee": "SimpleNamespace",
+          "lineNumber": 19
+        },
+        {
+          "caller": "__init__",
+          "callee": "SimpleNamespace",
+          "lineNumber": 20
+        },
+        {
+          "caller": "__init__",
+          "callee": "SimpleNamespace",
+          "lineNumber": 21
+        },
+        {
+          "caller": "__init__",
+          "callee": "SimpleNamespace",
+          "lineNumber": 22
+        },
+        {
+          "caller": "__init__",
+          "callee": "SimpleNamespace",
+          "lineNumber": 23
+        },
+        {
+          "caller": "_state",
+          "callee": "s.update",
+          "lineNumber": 38
+        },
+        {
+          "caller": "_runtime",
+          "callee": "SimpleNamespace",
+          "lineNumber": 43
+        },
+        {
+          "caller": "_runtime",
+          "callee": "_FakeCtx",
+          "lineNumber": 43
+        },
+        {
+          "caller": "test_notify_food_ready_for_pickup",
+          "callee": "rider_agent.notify_food_ready_for_pickup",
+          "lineNumber": 47
+        },
+        {
+          "caller": "test_notify_food_ready_for_pickup",
+          "callee": "_state",
+          "lineNumber": 47
+        },
+        {
+          "caller": "test_notify_food_ready_for_pickup",
+          "callee": "_runtime",
+          "lineNumber": 47
+        },
+        {
+          "caller": "test_send_pickup_location",
+          "callee": "rider_agent.send_pickup_location",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_send_pickup_location",
+          "callee": "_state",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_send_pickup_location",
+          "callee": "_runtime",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_send_pickup_location_no_order_number",
+          "callee": "rider_agent.send_pickup_location",
+          "lineNumber": 57
+        },
+        {
+          "caller": "test_send_pickup_location_no_order_number",
+          "callee": "_state",
+          "lineNumber": 57
+        },
+        {
+          "caller": "test_send_pickup_location_no_order_number",
+          "callee": "_runtime",
+          "lineNumber": 57
+        },
+        {
+          "caller": "test_send_dropoff_location",
+          "callee": "rider_agent.send_dropoff_location",
+          "lineNumber": 62
+        },
+        {
+          "caller": "test_send_dropoff_location",
+          "callee": "_state",
+          "lineNumber": 62
+        },
+        {
+          "caller": "test_send_dropoff_location",
+          "callee": "_runtime",
+          "lineNumber": 62
+        },
+        {
+          "caller": "test_send_dropoff_location_no_order_number",
+          "callee": "rider_agent.send_dropoff_location",
+          "lineNumber": 67
+        },
+        {
+          "caller": "test_send_dropoff_location_no_order_number",
+          "callee": "_state",
+          "lineNumber": 67
+        },
+        {
+          "caller": "test_send_dropoff_location_no_order_number",
+          "callee": "_runtime",
+          "lineNumber": 67
+        },
+        {
+          "caller": "test_send_customer_contact_no_order_number",
+          "callee": "rider_agent.send_customer_contact",
+          "lineNumber": 72
+        },
+        {
+          "caller": "test_send_customer_contact_no_order_number",
+          "callee": "_state",
+          "lineNumber": 72
+        },
+        {
+          "caller": "test_send_customer_contact_no_order_number",
+          "callee": "_runtime",
+          "lineNumber": 72
+        },
+        {
+          "caller": "test_capture_reason_for_cancel_before_pickup_no_dispatch",
+          "callee": "rider_agent.capture_reason_for_cancel_before_pickup",
+          "lineNumber": 77
+        },
+        {
+          "caller": "test_capture_reason_for_cancel_before_pickup_no_dispatch",
+          "callee": "_state",
+          "lineNumber": 77
+        },
+        {
+          "caller": "test_capture_reason_for_cancel_before_pickup_no_dispatch",
+          "callee": "_runtime",
+          "lineNumber": 77
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 11,
+        "functionCount": 9,
+        "classCount": 2
+      }
+    },
+    {
+      "path": "tests/regressions/test_p7_takeaway.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 123,
+      "nonEmptyLines": 91,
+      "functions": [
+        {
+          "name": "_ts",
+          "startLine": 14,
+          "endLine": 16,
+          "params": [
+            "**o"
+          ]
+        },
+        {
+          "name": "_rm",
+          "startLine": 19,
+          "endLine": 21,
+          "params": [
+            "**o"
+          ]
+        },
+        {
+          "name": "_fo",
+          "startLine": 24,
+          "endLine": 26,
+          "params": [
+            "**o"
+          ]
+        },
+        {
+          "name": "test_unconfirmed_sends_to_admins",
+          "startLine": 29,
+          "endLine": 36,
+          "params": [
+            "monkeypatch",
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_accept_sends_pickup_time",
+          "startLine": 39,
+          "endLine": 46,
+          "params": [
+            "monkeypatch",
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_decline_cancels_payment",
+          "startLine": 49,
+          "endLine": 58,
+          "params": [
+            "monkeypatch",
+            "patch_async_wa_client",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_decline_pay_at_rest_skips_cancel",
+          "startLine": 61,
+          "endLine": 66,
+          "params": [
+            "monkeypatch",
+            "patch_async_wa_client",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_confirmation_flow_routes_unconfirmed",
+          "startLine": 69,
+          "endLine": 74,
+          "params": []
+        },
+        {
+          "name": "test_confirmation_flow_unknown_trigger",
+          "startLine": 77,
+          "endLine": 80,
+          "params": []
+        },
+        {
+          "name": "test_confirmation_flow_no_admins",
+          "startLine": 83,
+          "endLine": 86,
+          "params": []
+        },
+        {
+          "name": "test_pickup_time_set_posts_webhook",
+          "startLine": 89,
+          "endLine": 97,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_pickup_time_background_generates_print_url",
+          "startLine": 100,
+          "endLine": 107,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_init_takeaway_order_requires_customer_id",
+          "startLine": 110,
+          "endLine": 112,
+          "params": []
+        },
+        {
+          "name": "test_init_takeaway_order_schedules_summary",
+          "startLine": 115,
+          "endLine": 119,
+          "params": []
+        },
+        {
+          "name": "test_format_pickup_time_display",
+          "startLine": 122,
+          "endLine": 123,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "_Bg",
+          "startLine": 9,
+          "endLine": 11,
+          "methods": [
+            "__init__",
+            "add_task"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_Bg",
+          "line": 9,
+          "isDefault": false
+        },
+        {
+          "name": "_ts",
+          "line": 14,
+          "isDefault": false
+        },
+        {
+          "name": "_rm",
+          "line": 19,
+          "isDefault": false
+        },
+        {
+          "name": "_fo",
+          "line": 24,
+          "isDefault": false
+        },
+        {
+          "name": "test_unconfirmed_sends_to_admins",
+          "line": 29,
+          "isDefault": false
+        },
+        {
+          "name": "test_accept_sends_pickup_time",
+          "line": 39,
+          "isDefault": false
+        },
+        {
+          "name": "test_decline_cancels_payment",
+          "line": 49,
+          "isDefault": false
+        },
+        {
+          "name": "test_decline_pay_at_rest_skips_cancel",
+          "line": 61,
+          "isDefault": false
+        },
+        {
+          "name": "test_confirmation_flow_routes_unconfirmed",
+          "line": 69,
+          "isDefault": false
+        },
+        {
+          "name": "test_confirmation_flow_unknown_trigger",
+          "line": 77,
+          "isDefault": false
+        },
+        {
+          "name": "test_confirmation_flow_no_admins",
+          "line": 83,
+          "isDefault": false
+        },
+        {
+          "name": "test_pickup_time_set_posts_webhook",
+          "line": 89,
+          "isDefault": false
+        },
+        {
+          "name": "test_pickup_time_background_generates_print_url",
+          "line": 100,
+          "isDefault": false
+        },
+        {
+          "name": "test_init_takeaway_order_requires_customer_id",
+          "line": 110,
+          "isDefault": false
+        },
+        {
+          "name": "test_init_takeaway_order_schedules_summary",
+          "line": 115,
+          "isDefault": false
+        },
+        {
+          "name": "test_format_pickup_time_display",
+          "line": 122,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "add_task",
+          "callee": "self.tasks.append",
+          "lineNumber": 11
+        },
+        {
+          "caller": "_ts",
+          "callee": "r.update",
+          "lineNumber": 16
+        },
+        {
+          "caller": "_rm",
+          "callee": "r.update",
+          "lineNumber": 21
+        },
+        {
+          "caller": "_fo",
+          "callee": "r.update",
+          "lineNumber": 26
+        },
+        {
+          "caller": "test_unconfirmed_sends_to_admins",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 30
+        },
+        {
+          "caller": "test_unconfirmed_sends_to_admins",
+          "callee": "takeaway_hooks.TakeawaySummaryData",
+          "lineNumber": 31
+        },
+        {
+          "caller": "test_unconfirmed_sends_to_admins",
+          "callee": "_ts",
+          "lineNumber": 31
+        },
+        {
+          "caller": "test_unconfirmed_sends_to_admins",
+          "callee": "takeaway_hooks.RestaurantMasterData",
+          "lineNumber": 32
+        },
+        {
+          "caller": "test_unconfirmed_sends_to_admins",
+          "callee": "_rm",
+          "lineNumber": 32
+        },
+        {
+          "caller": "test_unconfirmed_sends_to_admins",
+          "callee": "takeaway_hooks.FoodOrder",
+          "lineNumber": 33
+        },
+        {
+          "caller": "test_unconfirmed_sends_to_admins",
+          "callee": "_fo",
+          "lineNumber": 33
+        },
+        {
+          "caller": "test_unconfirmed_sends_to_admins",
+          "callee": "takeaway_hooks._handle_restaurant_unconfirmed",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_unconfirmed_sends_to_admins",
+          "callee": "len",
+          "lineNumber": 36
+        },
+        {
+          "caller": "test_accept_sends_pickup_time",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 40
+        },
+        {
+          "caller": "test_accept_sends_pickup_time",
+          "callee": "takeaway_hooks.TakeawaySummaryData",
+          "lineNumber": 41
+        },
+        {
+          "caller": "test_accept_sends_pickup_time",
+          "callee": "_ts",
+          "lineNumber": 41
+        },
+        {
+          "caller": "test_accept_sends_pickup_time",
+          "callee": "takeaway_hooks.RestaurantMasterData",
+          "lineNumber": 42
+        },
+        {
+          "caller": "test_accept_sends_pickup_time",
+          "callee": "_rm",
+          "lineNumber": 42
+        },
+        {
+          "caller": "test_accept_sends_pickup_time",
+          "callee": "takeaway_hooks.FoodOrder",
+          "lineNumber": 43
+        },
+        {
+          "caller": "test_accept_sends_pickup_time",
+          "callee": "_fo",
+          "lineNumber": 43
+        },
+        {
+          "caller": "test_accept_sends_pickup_time",
+          "callee": "takeaway_hooks._handle_restaurant_accept",
+          "lineNumber": 44
+        },
+        {
+          "caller": "test_accept_sends_pickup_time",
+          "callee": "len",
+          "lineNumber": 46
+        },
+        {
+          "caller": "test_decline_cancels_payment",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_decline_cancels_payment",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 51
+        },
+        {
+          "caller": "test_decline_cancels_payment",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_decline_cancels_payment",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 52
+        },
+        {
+          "caller": "_c",
+          "callee": "cc.append",
+          "lineNumber": 54
+        },
+        {
+          "caller": "test_decline_cancels_payment",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 55
+        },
+        {
+          "caller": "test_decline_cancels_payment",
+          "callee": "takeaway_hooks._handle_restaurant_decline",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_decline_cancels_payment",
+          "callee": "takeaway_hooks.TakeawaySummaryData",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_decline_cancels_payment",
+          "callee": "_ts",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_decline_cancels_payment",
+          "callee": "takeaway_hooks.FoodOrder",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_decline_cancels_payment",
+          "callee": "_fo",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_decline_pay_at_rest_skips_cancel",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 62
+        },
+        {
+          "caller": "test_decline_pay_at_rest_skips_cancel",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 63
+        },
+        {
+          "caller": "test_decline_pay_at_rest_skips_cancel",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 64
+        },
+        {
+          "caller": "test_decline_pay_at_rest_skips_cancel",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 64
+        },
+        {
+          "caller": "test_decline_pay_at_rest_skips_cancel",
+          "callee": "takeaway_hooks._handle_restaurant_decline",
+          "lineNumber": 65
+        },
+        {
+          "caller": "test_decline_pay_at_rest_skips_cancel",
+          "callee": "takeaway_hooks.TakeawaySummaryData",
+          "lineNumber": 65
+        },
+        {
+          "caller": "test_decline_pay_at_rest_skips_cancel",
+          "callee": "_ts",
+          "lineNumber": 65
+        },
+        {
+          "caller": "test_decline_pay_at_rest_skips_cancel",
+          "callee": "takeaway_hooks.FoodOrder",
+          "lineNumber": 65
+        },
+        {
+          "caller": "test_decline_pay_at_rest_skips_cancel",
+          "callee": "_fo",
+          "lineNumber": 65
+        },
+        {
+          "caller": "test_confirmation_flow_routes_unconfirmed",
+          "callee": "_Bg",
+          "lineNumber": 70
+        },
+        {
+          "caller": "test_confirmation_flow_routes_unconfirmed",
+          "callee": "_ts",
+          "lineNumber": 71
+        },
+        {
+          "caller": "test_confirmation_flow_routes_unconfirmed",
+          "callee": "_rm",
+          "lineNumber": 71
+        },
+        {
+          "caller": "test_confirmation_flow_routes_unconfirmed",
+          "callee": "_fo",
+          "lineNumber": 71
+        },
+        {
+          "caller": "test_confirmation_flow_routes_unconfirmed",
+          "callee": "takeaway_hooks.restaurant_confirmation_flow",
+          "lineNumber": 72
+        },
+        {
+          "caller": "test_confirmation_flow_unknown_trigger",
+          "callee": "_ts",
+          "lineNumber": 78
+        },
+        {
+          "caller": "test_confirmation_flow_unknown_trigger",
+          "callee": "_rm",
+          "lineNumber": 78
+        },
+        {
+          "caller": "test_confirmation_flow_unknown_trigger",
+          "callee": "_fo",
+          "lineNumber": 78
+        },
+        {
+          "caller": "test_confirmation_flow_unknown_trigger",
+          "callee": "takeaway_hooks.restaurant_confirmation_flow",
+          "lineNumber": 79
+        },
+        {
+          "caller": "test_confirmation_flow_unknown_trigger",
+          "callee": "_Bg",
+          "lineNumber": 79
+        },
+        {
+          "caller": "test_confirmation_flow_no_admins",
+          "callee": "_ts",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_confirmation_flow_no_admins",
+          "callee": "_rm",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_confirmation_flow_no_admins",
+          "callee": "_fo",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_confirmation_flow_no_admins",
+          "callee": "takeaway_hooks.restaurant_confirmation_flow",
+          "lineNumber": 85
+        },
+        {
+          "caller": "test_confirmation_flow_no_admins",
+          "callee": "_Bg",
+          "lineNumber": 85
+        },
+        {
+          "caller": "test_pickup_time_set_posts_webhook",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 92
+        },
+        {
+          "caller": "test_pickup_time_set_posts_webhook",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 93
+        },
+        {
+          "caller": "test_pickup_time_set_posts_webhook",
+          "callee": "takeaway_hooks.TakeawaySummaryData",
+          "lineNumber": 94
+        },
+        {
+          "caller": "test_pickup_time_set_posts_webhook",
+          "callee": "_ts",
+          "lineNumber": 94
+        },
+        {
+          "caller": "test_pickup_time_set_posts_webhook",
+          "callee": "takeaway_hooks.RestaurantMasterData",
+          "lineNumber": 95
+        },
+        {
+          "caller": "test_pickup_time_set_posts_webhook",
+          "callee": "_rm",
+          "lineNumber": 95
+        },
+        {
+          "caller": "test_pickup_time_set_posts_webhook",
+          "callee": "takeaway_hooks._handle_pickup_time_set",
+          "lineNumber": 96
+        },
+        {
+          "caller": "test_pickup_time_background_generates_print_url",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 103
+        },
+        {
+          "caller": "test_pickup_time_background_generates_print_url",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 104
+        },
+        {
+          "caller": "test_pickup_time_background_generates_print_url",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_pickup_time_background_generates_print_url",
+          "callee": "staticmethod",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_pickup_time_background_generates_print_url",
+          "callee": "takeaway_hooks.FoodOrder",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_pickup_time_background_generates_print_url",
+          "callee": "_fo",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_pickup_time_background_generates_print_url",
+          "callee": "takeaway_hooks._handle_pickup_time_updated_background",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_pickup_time_background_generates_print_url",
+          "callee": "takeaway_hooks.TakeawaySummaryData",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_pickup_time_background_generates_print_url",
+          "callee": "_ts",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_pickup_time_background_generates_print_url",
+          "callee": "takeaway_hooks.RestaurantMasterData",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_pickup_time_background_generates_print_url",
+          "callee": "_rm",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_init_takeaway_order_requires_customer_id",
+          "callee": "takeaway_hooks.init_takeaway_order",
+          "lineNumber": 111
+        },
+        {
+          "caller": "test_init_takeaway_order_requires_customer_id",
+          "callee": "_Bg",
+          "lineNumber": 111
+        },
+        {
+          "caller": "test_init_takeaway_order_schedules_summary",
+          "callee": "_Bg",
+          "lineNumber": 116
+        },
+        {
+          "caller": "test_init_takeaway_order_schedules_summary",
+          "callee": "takeaway_hooks.init_takeaway_order",
+          "lineNumber": 117
+        },
+        {
+          "caller": "test_format_pickup_time_display",
+          "callee": "takeaway_hooks._format_pickup_time_display",
+          "lineNumber": 123
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 16,
+        "functionCount": 15,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "tests/regressions/test_p7_wa_senders.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 59,
+      "nonEmptyLines": 45,
+      "functions": [
+        {
+          "name": "test_send_postcode_search_flow",
+          "startLine": 7,
+          "endLine": 11,
+          "params": [
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_send_reservation_link",
+          "startLine": 14,
+          "endLine": 18,
+          "params": [
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_send_delayed_text",
+          "startLine": 21,
+          "endLine": 28,
+          "params": [
+            "patch_async_wa_client",
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_send_product_sections",
+          "startLine": 31,
+          "endLine": 37,
+          "params": [
+            "patch_async_wa_client",
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_enquire_shift_availability_non_template",
+          "startLine": 40,
+          "endLine": 45,
+          "params": [
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_admin_delivery_driver_nearby",
+          "startLine": 48,
+          "endLine": 52,
+          "params": [
+            "patch_async_wa_client",
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_admin_delivery_complete_notification",
+          "startLine": 55,
+          "endLine": 59,
+          "params": [
+            "patch_async_wa_client",
+            "monkeypatch"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "test_send_postcode_search_flow",
+          "line": 7,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_reservation_link",
+          "line": 14,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_delayed_text",
+          "line": 21,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_product_sections",
+          "line": 31,
+          "isDefault": false
+        },
+        {
+          "name": "test_enquire_shift_availability_non_template",
+          "line": 40,
+          "isDefault": false
+        },
+        {
+          "name": "test_admin_delivery_driver_nearby",
+          "line": 48,
+          "isDefault": false
+        },
+        {
+          "name": "test_admin_delivery_complete_notification",
+          "line": 55,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "test_send_postcode_search_flow",
+          "callee": "wa_senders.send_postcode_search_flow",
+          "lineNumber": 8
+        },
+        {
+          "caller": "test_send_reservation_link",
+          "callee": "wa_senders.send_reservation_link",
+          "lineNumber": 15
+        },
+        {
+          "caller": "test_send_delayed_text",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 25
+        },
+        {
+          "caller": "test_send_delayed_text",
+          "callee": "wa_senders.send_delayed_text",
+          "lineNumber": 26
+        },
+        {
+          "caller": "test_send_product_sections",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 32
+        },
+        {
+          "caller": "test_send_product_sections",
+          "callee": "type",
+          "lineNumber": 33
+        },
+        {
+          "caller": "test_send_product_sections",
+          "callee": "wa_senders.send_product_sections",
+          "lineNumber": 35
+        },
+        {
+          "caller": "test_enquire_shift_availability_non_template",
+          "callee": "FakeMessage",
+          "lineNumber": 42
+        },
+        {
+          "caller": "test_enquire_shift_availability_non_template",
+          "callee": "wa_senders.enquire_shift_availability_non_template",
+          "lineNumber": 43
+        },
+        {
+          "caller": "test_admin_delivery_driver_nearby",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 49
+        },
+        {
+          "caller": "test_admin_delivery_driver_nearby",
+          "callee": "type",
+          "lineNumber": 49
+        },
+        {
+          "caller": "test_admin_delivery_driver_nearby",
+          "callee": "wa_senders.admin_delivery_driver_nearby",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_admin_delivery_complete_notification",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_admin_delivery_complete_notification",
+          "callee": "type",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_admin_delivery_complete_notification",
+          "callee": "wa_senders.admin_delivery_complete_notification",
+          "lineNumber": 57
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 7,
+        "functionCount": 7,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/utils_common/order_management/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    }
+  ]
+}

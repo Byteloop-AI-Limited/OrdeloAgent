@@ -1,0 +1,37 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "CLAUDE.md", "language": "markdown", "sizeLines": 126, "fileCategory": "docs"},
+    {"path": "OrdeloDb.session.sql", "language": "sql", "sizeLines": 5, "fileCategory": "data"},
+    {"path": "README.md", "language": "markdown", "sizeLines": 56, "fileCategory": "docs"},
+    {"path": "agents.md", "language": "markdown", "sizeLines": 376, "fileCategory": "docs"},
+    {"path": "aws_app_runner.sh", "language": "shell", "sizeLines": 14, "fileCategory": "script"},
+    {"path": "build_push_deploy_dimage.sh", "language": "shell", "sizeLines": 23, "fileCategory": "script"},
+    {"path": "prestart.sh", "language": "shell", "sizeLines": 10, "fileCategory": "script"},
+    {"path": "pyproject.toml", "language": "toml", "sizeLines": 83, "fileCategory": "config"},
+    {"path": "requirements-dev.txt", "language": "txt", "sizeLines": 15, "fileCategory": "docs"},
+    {"path": "requirements.txt", "language": "txt", "sizeLines": 37, "fileCategory": "docs"},
+    {"path": "run_setup.sh", "language": "shell", "sizeLines": 131, "fileCategory": "script"},
+    {"path": "setup_dev.sh", "language": "shell", "sizeLines": 15, "fileCategory": "script"},
+    {"path": "setup_notes.txt", "language": "txt", "sizeLines": 402, "fileCategory": "docs"},
+    {"path": "start.sh", "language": "shell", "sizeLines": 54, "fileCategory": "script"},
+    {"path": "upload_secrets.sh", "language": "shell", "sizeLines": 35, "fileCategory": "script"}
+  ],
+  "batchImportData": {
+    "CLAUDE.md": [],
+    "OrdeloDb.session.sql": [],
+    "README.md": [],
+    "agents.md": [],
+    "aws_app_runner.sh": [],
+    "build_push_deploy_dimage.sh": [],
+    "prestart.sh": [],
+    "pyproject.toml": [],
+    "requirements-dev.txt": [],
+    "requirements.txt": [],
+    "run_setup.sh": [],
+    "setup_dev.sh": [],
+    "setup_notes.txt": [],
+    "start.sh": [],
+    "upload_secrets.sh": []
+  }
+}

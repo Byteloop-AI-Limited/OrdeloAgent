@@ -50,7 +50,12 @@ INSERT INTO ordelo_config (config_key, config_value, description)
 -- VALUES ('overwatch_list', '447448440754,447424334783', 'list of numbers to alert')
 VALUES ('overwatch_list', '447448440754', 'list of numbers to alert')
 ON CONFLICT (config_key) 
-DO UPDATE SET config_value = '447448440754,447446933210';
+DO UPDATE SET config_value = '123';
+-- DO UPDATE SET config_value = '447446933210';
+-- DO UPDATE SET config_value = '447448440754,447446933210';
+
+SELECT * FROM ordelo_post('SFCS_APP_URL', '/restaurant-base-url-cache/reset');
+SELECT * FROM ordelo_post('SFCS_APP_URL', '/restaurant-master-cache/reset');
 
 select * from ordelo_config where config_key = 'overwatch_list';
 
@@ -294,6 +299,9 @@ SET config_value = EXCLUDED.config_value,
 
 select config_key, config_value, description from ordelo_config where config_key like '%SFCS%';
 select config_key, config_value, description from ordelo_config where config_key like '%CHKS%';
+
+-- update config_key to 17 where config_key is SFCS_DEFAULT_COLLECTION_PICKUP_TIME and SFCS_DEFAULT_DELIVERY_PICKUP_TIME
+-- update ordelo_config set config_value='17' where config_key in ('SFCS_DEFAULT_COLLECTION_PICKUP_TIME', 'SFCS_DEFAULT_DELIVERY_PICKUP_TIME' );
 
 -- Absolute essential configs for rest_ref
 [

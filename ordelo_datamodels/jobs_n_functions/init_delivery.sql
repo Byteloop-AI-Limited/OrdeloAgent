@@ -27,7 +27,7 @@ Side Effects:
 See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/
 
-DROP FUNCTION public.init_delivery;
+DROP FUNCTION IF EXISTS public.init_delivery(VARCHAR, VARCHAR, VARCHAR);
 
 CREATE OR REPLACE FUNCTION public.init_delivery(p_cust_id VARCHAR, p_order_number VARCHAR, p_rest_ref VARCHAR DEFAULT NULL)
 RETURNS TABLE (
@@ -58,7 +58,8 @@ RETURNS TABLE (
     pickup_date DATE,
     rest_ref VARCHAR,
     dt DATE,
-    dtts TIMESTAMP WITH TIME ZONE
+    dtts TIMESTAMP WITH TIME ZONE,
+    redispatch_dtts TIMESTAMP WITH TIME ZONE
 ) AS $$
 DECLARE
     v_rest_ref VARCHAR;

@@ -1,0 +1,235 @@
+{
+  "nodes": [
+    {
+      "id": "document:callback_handlers.md",
+      "type": "document",
+      "name": "callback_handlers.md",
+      "filePath": "callback_handlers.md",
+      "summary": "Reference guide for all WhatsApp callback button handlers registered in the Ordelo FastAPI app, covering rider accept/decline dispatch, shift availability, restaurant order confirmation, pickup time selection, and admin notification opt-in. Documents 9 handlers with their filter strings, source buttons, actor roles, and step-by-step behavior.",
+      "tags": ["documentation", "api-handler", "whatsapp", "callback", "delivery"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:delivery_process.md",
+      "type": "document",
+      "name": "delivery_process.md",
+      "filePath": "delivery_process.md",
+      "summary": "Comprehensive reference (v3.1) for the entire Ordelo delivery workflow covering all 6 phases from order creation through delivery completion, with database tables, status state machines, pg_cron scheduled jobs, PostgreSQL triggers, LangGraph rider agent architecture, AgentState TypedDict fields, and SQL file references. The authoritative top-level document for the delivery subsystem.",
+      "tags": ["documentation", "delivery", "architecture", "state-machine", "database"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:delivery_process_explorer.html",
+      "type": "file",
+      "name": "delivery_process_explorer.html",
+      "filePath": "delivery_process_explorer.html",
+      "summary": "Interactive single-page HTML explorer that visualizes the Ordelo delivery process flow, allowing users to navigate all 6 delivery phases, status transitions, and component relationships from the documentation.",
+      "tags": ["documentation", "visualization", "interactive", "delivery"],
+      "complexity": "complex",
+      "languageNotes": "Self-contained HTML file with embedded CSS and JavaScript providing a client-side interactive visualization — no server required."
+    },
+    {
+      "id": "document:dispatch_flow.md",
+      "type": "document",
+      "name": "dispatch_flow.md",
+      "filePath": "dispatch_flow.md",
+      "summary": "Focused deep-dive (v1.1) on the dispatch portion of the delivery workflow covering dispatch creation, rider notification via WhatsApp, accept/decline callback handling, the first-accept race condition resolution using SQL rank(), inflight initialization, missed-dispatch notifications, and the pre-pickup cancellation flow.",
+      "tags": ["documentation", "dispatch", "delivery", "race-condition", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:get_restaurant_webhook_url_async_guide.md",
+      "type": "document",
+      "name": "get_restaurant_webhook_url_async_guide.md",
+      "filePath": "get_restaurant_webhook_url_async_guide.md",
+      "summary": "API reference guide for the `get_restaurant_webhook_url_async` utility function, documenting its function signature, all 9 valid webhook types (rider-inflight, rider-cust-enter, delivery-timedout, etc.), 5-minute TTL in-memory caching strategy, usage examples with error handling, and migration notes for callers transitioning from a synchronous predecessor.",
+      "tags": ["documentation", "api-reference", "utility", "webhook", "configuration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:location_overview.md",
+      "type": "document",
+      "name": "location_overview.md",
+      "filePath": "location_overview.md",
+      "summary": "Guide to the OwnTracks-based live location subsystem, tracing the end-to-end flow from PGMQ queue ingestion through `job_process_owntracks()`, insertion into `rider_location` and `rider_location_event` tables, PostgreSQL trigger firing, and FastAPI `/location-hooks/` webhook handling for restaurant and customer zone-entry events.",
+      "tags": ["documentation", "location-tracking", "database", "webhook", "delivery"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:payment_and_order_flow.md",
+      "type": "document",
+      "name": "payment_and_order_flow.md",
+      "filePath": "payment_and_order_flow.md",
+      "summary": "Comprehensive reference (v1.0) for the order creation and payment lifecycle, covering pre-order validation (min order value by coordinates and postcode), Stripe and pay-at-restaurant payment paths, payment completion handler routing to `init_delivery()` or `init_takeaway()`, address capture via WhatsApp flow, and all related webhook endpoints.",
+      "tags": ["documentation", "payment", "order-management", "stripe", "delivery"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:pickup_time_logic.md",
+      "type": "document",
+      "name": "pickup_time_logic.md",
+      "filePath": "pickup_time_logic.md",
+      "summary": "Runtime flow documentation for `pickup_time` in both `delivery_summary` and `takeaway_summary`, covering the full trigger chain from restaurant acceptance through admin pickup-time selection, 5-minute timeout auto-accept path via `process_restaurant_confirmation` scheduled job, mid-delivery adjustment callbacks, and downstream dispatch creation.",
+      "tags": ["documentation", "pickup-time", "delivery", "takeaway", "state-machine"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:takeaway_flow.md",
+      "type": "document",
+      "name": "takeaway_flow.md",
+      "filePath": "takeaway_flow.md",
+      "summary": "Complete reference (v1.0) for the takeaway order lifecycle, documenting the parallel flow to delivery (without rider dispatch or live tracking) including Stripe and pay-at-restaurant initialization paths, `takeaway_summary` status machine, restaurant confirmation, pickup time selection, external restaurant notification webhook, and decline/timeout paths.",
+      "tags": ["documentation", "takeaway", "state-machine", "payment", "restaurant"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:delivery_process.md",
+      "target": "document:dispatch_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:delivery_process.md",
+      "target": "document:callback_handlers.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:delivery_process.md",
+      "target": "document:pickup_time_logic.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:delivery_process.md",
+      "target": "document:location_overview.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:delivery_process.md",
+      "target": "document:payment_and_order_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:dispatch_flow.md",
+      "target": "document:delivery_process.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:dispatch_flow.md",
+      "target": "document:callback_handlers.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:pickup_time_logic.md",
+      "target": "document:callback_handlers.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:pickup_time_logic.md",
+      "target": "document:takeaway_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:takeaway_flow.md",
+      "target": "document:delivery_process.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:takeaway_flow.md",
+      "target": "document:payment_and_order_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:payment_and_order_flow.md",
+      "target": "document:delivery_process.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:payment_and_order_flow.md",
+      "target": "document:takeaway_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:get_restaurant_webhook_url_async_guide.md",
+      "target": "document:delivery_process.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:get_restaurant_webhook_url_async_guide.md",
+      "target": "document:takeaway_flow.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:get_restaurant_webhook_url_async_guide.md",
+      "target": "document:location_overview.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:delivery_process_explorer.html",
+      "target": "document:delivery_process.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:delivery_process_explorer.html",
+      "target": "document:dispatch_flow.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:delivery_process_explorer.html",
+      "target": "document:callback_handlers.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:delivery_process_explorer.html",
+      "target": "document:pickup_time_logic.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:delivery_process_explorer.html",
+      "target": "document:takeaway_flow.md",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

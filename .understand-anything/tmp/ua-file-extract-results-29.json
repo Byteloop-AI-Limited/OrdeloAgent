@@ -1,0 +1,47 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 5,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "watomation/routers/templates/404.html",
+      "language": "html",
+      "fileCategory": "markup",
+      "totalLines": 10,
+      "nonEmptyLines": 10,
+      "metrics": {}
+    },
+    {
+      "path": "watomation/routers/templates/base.html",
+      "language": "html",
+      "fileCategory": "markup",
+      "totalLines": 20,
+      "nonEmptyLines": 20,
+      "metrics": {}
+    },
+    {
+      "path": "watomation/routers/templates/get-config.html",
+      "language": "html",
+      "fileCategory": "markup",
+      "totalLines": 66,
+      "nonEmptyLines": 59,
+      "metrics": {}
+    },
+    {
+      "path": "watomation/routers/templates/live-location-map.html",
+      "language": "html",
+      "fileCategory": "markup",
+      "totalLines": 131,
+      "nonEmptyLines": 121,
+      "metrics": {}
+    },
+    {
+      "path": "watomation/routers/templates/waba_embedded_signup.html",
+      "language": "html",
+      "fileCategory": "markup",
+      "totalLines": 86,
+      "nonEmptyLines": 79,
+      "metrics": {}
+    }
+  ]
+}

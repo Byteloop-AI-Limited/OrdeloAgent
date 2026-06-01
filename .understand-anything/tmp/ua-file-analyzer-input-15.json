@@ -1,0 +1,15 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": ".specify/design/restaurant_confirmation_implementation_progress.md", "language": "markdown", "sizeLines": 165, "fileCategory": "docs"},
+    {"path": ".specify/design/restaurant_confirmation_patterns_used.md", "language": "markdown", "sizeLines": 561, "fileCategory": "docs"},
+    {"path": ".specify/design/restaurant_confirmation_summary.md", "language": "markdown", "sizeLines": 330, "fileCategory": "docs"},
+    {"path": ".specify/design/restaurant_confirmation_touchpoint_proposal.md", "language": "markdown", "sizeLines": 689, "fileCategory": "docs"}
+  ],
+  "batchImportData": {
+    ".specify/design/restaurant_confirmation_implementation_progress.md": [],
+    ".specify/design/restaurant_confirmation_patterns_used.md": [],
+    ".specify/design/restaurant_confirmation_summary.md": [],
+    ".specify/design/restaurant_confirmation_touchpoint_proposal.md": []
+  }
+}

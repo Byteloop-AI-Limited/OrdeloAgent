@@ -1,0 +1,9 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "utils_common/thread_management/THREAD_CLOSURE_SYSTEM.md", "language": "markdown", "sizeLines": 117, "fileCategory": "docs"},
+    {"path": "utils_common/thread_management/thread_mgmnt.sql", "language": "sql", "sizeLines": 228, "fileCategory": "data"},
+    {"path": "utils_common/thread_management/thread_mgmnt_ddl.sql", "language": "sql", "sizeLines": 238, "fileCategory": "data"}
+  ],
+  "batchImportData": {}
+}

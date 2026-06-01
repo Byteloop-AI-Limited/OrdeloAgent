@@ -1,0 +1,793 @@
+{
+  "nodes": [
+    {
+      "id": "file:notebooks/db_pool_adhoc_runs.py",
+      "type": "file",
+      "name": "db_pool_adhoc_runs.py",
+      "filePath": "notebooks/db_pool_adhoc_runs.py",
+      "summary": "Ad-hoc notebook script for running async database pool queries against the food_order and related tables, useful for local development and debugging.",
+      "tags": ["utility", "data-model", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/python_adhoc_run.py",
+      "type": "file",
+      "name": "python_adhoc_run.py",
+      "filePath": "notebooks/python_adhoc_run.py",
+      "summary": "Minimal ad-hoc notebook script that imports config and food order utilities for quick local scripting and manual testing.",
+      "tags": ["utility", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:ordelo_datamodels/cust_rest_map_pymodel.py",
+      "type": "file",
+      "name": "cust_rest_map_pymodel.py",
+      "filePath": "ordelo_datamodels/cust_rest_map_pymodel.py",
+      "summary": "Pydantic model for the customer-restaurant mapping table, providing classmethods for loading by customer/restaurant key, upserting consent records, and evaluating whether marketing consent should be requested.",
+      "tags": ["data-model", "service", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:ordelo_datamodels/cust_rest_map_pymodel.py:CustRestMap",
+      "type": "class",
+      "name": "CustRestMap",
+      "filePath": "ordelo_datamodels/cust_rest_map_pymodel.py",
+      "lineRange": [21, 112],
+      "summary": "Pydantic model representing a customer-restaurant mapping record with classmethods `from_cust_id_and_rest_ref`, `upsert`, and `ask_for_marketing_consent` for Supabase CRUD and consent logic.",
+      "tags": ["data-model", "service", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:ordelo_datamodels/customer_master_pymodel.py",
+      "type": "file",
+      "name": "customer_master_pymodel.py",
+      "filePath": "ordelo_datamodels/customer_master_pymodel.py",
+      "summary": "Pydantic models for the customer_master table and associated request schemas, with classmethods for loading customers by ID and upserting records into Supabase.",
+      "tags": ["data-model", "validation", "type-definition"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:ordelo_datamodels/customer_master_pymodel.py:CustomerMaster",
+      "type": "class",
+      "name": "CustomerMaster",
+      "filePath": "ordelo_datamodels/customer_master_pymodel.py",
+      "lineRange": [20, 113],
+      "summary": "Core Pydantic model for the customer_master DB table with `from_cust_id`, `from_customer_id`, and `upsert` classmethods plus address helpers.",
+      "tags": ["data-model", "service", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:ordelo_datamodels/customer_master_pymodel.py:CreateOrUpdateCustomerRequest",
+      "type": "class",
+      "name": "CreateOrUpdateCustomerRequest",
+      "filePath": "ordelo_datamodels/customer_master_pymodel.py",
+      "lineRange": [117, 130],
+      "summary": "Pydantic request model for creating or updating a customer record, used by the customer_hooks router.",
+      "tags": ["data-model", "validation", "api-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:ordelo_datamodels/customer_master_pymodel.py:UpdateAddressRequest",
+      "type": "class",
+      "name": "UpdateAddressRequest",
+      "filePath": "ordelo_datamodels/customer_master_pymodel.py",
+      "lineRange": [136, 147],
+      "summary": "Pydantic request model for updating a customer's delivery address fields.",
+      "tags": ["data-model", "validation"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:ordelo_datamodels/restaurant_master_pymodel.py",
+      "type": "file",
+      "name": "restaurant_master_pymodel.py",
+      "filePath": "ordelo_datamodels/restaurant_master_pymodel.py",
+      "summary": "Pydantic model for the restaurant_master table with an LRU-style in-process cache, providing `from_rest_ref` classmethod for cached lookup and `get_admins`/`get_admins_for` helpers used across the delivery and messaging layers.",
+      "tags": ["data-model", "service", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:ordelo_datamodels/restaurant_master_pymodel.py:RestaurantMaster",
+      "type": "class",
+      "name": "RestaurantMaster",
+      "filePath": "ordelo_datamodels/restaurant_master_pymodel.py",
+      "lineRange": [27, 89],
+      "summary": "Pydantic model for restaurant master data with time-bounded in-process cache in `from_rest_ref`, plus `get_admins` and `get_admins_for` helpers returning admin WhatsApp IDs.",
+      "tags": ["data-model", "service", "utility"],
+      "complexity": "moderate",
+      "languageNotes": "Uses an in-process dict cache with `time.monotonic()` timestamps for TTL-based expiry, avoiding repeated Supabase calls for hot restaurant lookups."
+    },
+    {
+      "id": "function:ordelo_datamodels/restaurant_master_pymodel.py:reset_restaurant_master_cache",
+      "type": "function",
+      "name": "reset_restaurant_master_cache",
+      "filePath": "ordelo_datamodels/restaurant_master_pymodel.py",
+      "lineRange": [93, 118],
+      "summary": "Invalidates the in-process restaurant master cache, either fully or for a specific rest_ref, used when restaurant data is known to have changed.",
+      "tags": ["utility", "service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/ordelo_datamodels/test_master_pymodels.py",
+      "type": "file",
+      "name": "test_master_pymodels.py",
+      "filePath": "tests/ordelo_datamodels/test_master_pymodels.py",
+      "summary": "Unit tests for RestaurantMaster, CustomerMaster, CustRestMap, and associated request Pydantic models using a fake Supabase client fixture.",
+      "tags": ["test", "data-model", "validation"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/utils_common/order_management/test_food_order_reciept.py",
+      "type": "file",
+      "name": "test_food_order_reciept.py",
+      "filePath": "tests/utils_common/order_management/test_food_order_reciept.py",
+      "summary": "Unit tests for food order receipt formatting functions covering customer and restaurant receipt builders and order item line rendering.",
+      "tags": ["test", "utility", "serialization"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/utils_common/test_tz_utils.py",
+      "type": "file",
+      "name": "test_tz_utils.py",
+      "filePath": "tests/utils_common/test_tz_utils.py",
+      "summary": "Unit tests for UK timezone utilities covering GMT/BST transitions, string formatting, ISO parsing, and epoch conversion.",
+      "tags": ["test", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/order_management/delivery_pymodels.py",
+      "type": "file",
+      "name": "delivery_pymodels.py",
+      "filePath": "utils_common/order_management/delivery_pymodels.py",
+      "summary": "Pydantic models for delivery domain entities: DeliveryDetail (dispatch-level with Google Maps URL helper), DeliverySummary (full order lifecycle state), and DeliveryDispatch (dispatch record).",
+      "tags": ["data-model", "type-definition", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:utils_common/order_management/delivery_pymodels.py:DeliveryDetail",
+      "type": "class",
+      "name": "DeliveryDetail",
+      "filePath": "utils_common/order_management/delivery_pymodels.py",
+      "lineRange": [20, 43],
+      "summary": "Pydantic model for delivery dispatch detail including rider payout, distance, coordinates, and a `google_maps_url` computed property.",
+      "tags": ["data-model", "service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:utils_common/order_management/delivery_pymodels.py:DeliverySummary",
+      "type": "class",
+      "name": "DeliverySummary",
+      "filePath": "utils_common/order_management/delivery_pymodels.py",
+      "lineRange": [46, 74],
+      "summary": "Pydantic model for the full delivery_summary DB row including restaurant confirmation status, confirmation codes, pickup time, and rider/customer message IDs.",
+      "tags": ["data-model", "type-definition"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/order_management/food_order_pymodel.py",
+      "type": "file",
+      "name": "food_order_pymodel.py",
+      "filePath": "utils_common/order_management/food_order_pymodel.py",
+      "summary": "Core FoodOrder Pydantic model representing the food_order DB table, with classmethods for loading by order number/ID, pricing microservice integration, and payment payload generation.",
+      "tags": ["data-model", "service", "api-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:utils_common/order_management/food_order_pymodel.py:FoodOrder",
+      "type": "class",
+      "name": "FoodOrder",
+      "filePath": "utils_common/order_management/food_order_pymodel.py",
+      "lineRange": [34, 432],
+      "summary": "Central Pydantic model for food orders with `from_order_number`/`from_order_id` DB loaders, pricing microservice calls via `get_final_order_value`, DB update methods, and Stripe payment payload generators.",
+      "tags": ["data-model", "service", "api-handler"],
+      "complexity": "complex",
+      "languageNotes": "Uses Supabase REST client synchronously; `from_order_number` and `from_order_id` both call `update_final_order_value_in_db` and `update_takeaway_financials_in_db` as side effects at load time."
+    },
+    {
+      "id": "file:utils_common/order_management/food_order_reciept.py",
+      "type": "file",
+      "name": "food_order_reciept.py",
+      "filePath": "utils_common/order_management/food_order_reciept.py",
+      "summary": "Receipt-building utilities that construct WhatsApp-formatted order receipt text strings for customers and restaurant admins, including order item lines and financial charge breakdowns.",
+      "tags": ["utility", "serialization", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/order_management/food_order_reciept.py:build_wa_order_reciept_for_cust",
+      "type": "function",
+      "name": "build_wa_order_reciept_for_cust",
+      "filePath": "utils_common/order_management/food_order_reciept.py",
+      "lineRange": [78, 143],
+      "summary": "Builds a WhatsApp-formatted order receipt string for the customer, including item lines, delivery/service charges, and any order notes.",
+      "tags": ["utility", "serialization"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/order_management/food_order_reciept.py:build_wa_order_reciept_for_rest",
+      "type": "function",
+      "name": "build_wa_order_reciept_for_rest",
+      "filePath": "utils_common/order_management/food_order_reciept.py",
+      "lineRange": [151, 215],
+      "summary": "Builds a WhatsApp-formatted order receipt string for restaurant admins, using food total and pre-fetched order items.",
+      "tags": ["utility", "serialization"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/order_management/order_db_ops_new.py",
+      "type": "file",
+      "name": "order_db_ops_new.py",
+      "filePath": "utils_common/order_management/order_db_ops_new.py",
+      "summary": "Low-level Supabase database operations for the food_order and order_item tables: order reference generation, item creation, and the full transactional `insert_wa_order` flow with rollback on failure.",
+      "tags": ["service", "data-model", "utility"],
+      "complexity": "complex",
+      "languageNotes": "Implements manual two-phase transactional insert: inserts food_order row first, then order_item rows; on item insert failure, deletes the orphan food_order row."
+    },
+    {
+      "id": "function:utils_common/order_management/order_db_ops_new.py:insert_wa_order",
+      "type": "function",
+      "name": "insert_wa_order",
+      "filePath": "utils_common/order_management/order_db_ops_new.py",
+      "lineRange": [124, 225],
+      "summary": "Transactional function to insert a full WhatsApp order (food_order row + order_item rows), rolling back the food_order insert if item insertion fails.",
+      "tags": ["service", "data-model"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/order_management/order_db_ops_new.py:create_order_reference",
+      "type": "function",
+      "name": "create_order_reference",
+      "filePath": "utils_common/order_management/order_db_ops_new.py",
+      "lineRange": [63, 81],
+      "summary": "Generates a unique, human-readable order reference string by salting the customer's phone number and encoding it with SHA-256.",
+      "tags": ["utility"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:notebooks/db_pool_adhoc_runs.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/db_pool_adhoc_runs.py",
+      "target": "file:utils_common/order_management/food_order_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/python_adhoc_run.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/python_adhoc_run.py",
+      "target": "file:utils_common/order_management/food_order_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:notebooks/python_adhoc_run.py",
+      "target": "file:utils_common/order_management/food_order_reciept.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_master_pymodels.py",
+      "target": "file:ordelo_datamodels/cust_rest_map_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_master_pymodels.py",
+      "target": "file:ordelo_datamodels/customer_master_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_master_pymodels.py",
+      "target": "file:ordelo_datamodels/restaurant_master_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_master_pymodels.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_food_order_reciept.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_food_order_reciept.py",
+      "target": "file:utils_common/order_management/food_order_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_food_order_reciept.py",
+      "target": "file:utils_common/order_management/food_order_reciept.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_food_order_reciept.py",
+      "target": "file:utils_common/order_management/order_db_ops_new.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/test_tz_utils.py",
+      "target": "file:utils_common/tz_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/order_management/food_order_pymodel.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/order_management/food_order_pymodel.py",
+      "target": "file:config/params.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/order_management/food_order_pymodel.py",
+      "target": "file:ordelo_datamodels/restaurant_master_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/order_management/food_order_reciept.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/order_management/food_order_reciept.py",
+      "target": "file:utils_common/order_management/food_order_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/order_management/food_order_reciept.py",
+      "target": "file:utils_common/order_management/order_db_ops_new.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops_new.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/order_management/order_service.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/order_management/order_service.py",
+      "target": "file:utils_common/order_management/order_db_ops_new.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/payment_ms/payment.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/payment_ms/payment.py",
+      "target": "file:utils_common/order_management/food_order_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "file:ordelo_datamodels/restaurant_master_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "file:utils_common/order_management/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "file:utils_common/order_management/food_order_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/waba_utils/wa_senders.py",
+      "target": "file:utils_common/order_management/order_db_ops_new.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/customer_hooks.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/customer_hooks.py",
+      "target": "file:ordelo_datamodels/customer_master_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/customer_hooks.py",
+      "target": "file:ordelo_datamodels/restaurant_master_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "file:ordelo_datamodels/restaurant_master_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "file:ordelo/agents/agent_runner.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/delivery_hooks.py",
+      "target": "file:utils_common/waba_utils/wa_senders.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/order_hooks.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/order_hooks.py",
+      "target": "file:utils_common/order_management/food_order_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/order_hooks.py",
+      "target": "file:utils_common/order_management/order_service.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/payment_hooks.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/payment_hooks.py",
+      "target": "file:utils_common/order_management/food_order_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/payment_hooks.py",
+      "target": "file:utils_common/payment_ms/payment.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/takeaway_hooks.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/takeaway_hooks.py",
+      "target": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:watomation/routers/takeaway_hooks.py",
+      "target": "file:utils_common/waba_utils/wa_senders.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo_datamodels/cust_rest_map_pymodel.py",
+      "target": "class:ordelo_datamodels/cust_rest_map_pymodel.py:CustRestMap",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/cust_rest_map_pymodel.py",
+      "target": "class:ordelo_datamodels/cust_rest_map_pymodel.py:CustRestMap",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo_datamodels/customer_master_pymodel.py",
+      "target": "class:ordelo_datamodels/customer_master_pymodel.py:CustomerMaster",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/customer_master_pymodel.py",
+      "target": "class:ordelo_datamodels/customer_master_pymodel.py:CustomerMaster",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo_datamodels/customer_master_pymodel.py",
+      "target": "class:ordelo_datamodels/customer_master_pymodel.py:CreateOrUpdateCustomerRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/customer_master_pymodel.py",
+      "target": "class:ordelo_datamodels/customer_master_pymodel.py:CreateOrUpdateCustomerRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo_datamodels/customer_master_pymodel.py",
+      "target": "class:ordelo_datamodels/customer_master_pymodel.py:UpdateAddressRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/customer_master_pymodel.py",
+      "target": "class:ordelo_datamodels/customer_master_pymodel.py:UpdateAddressRequest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo_datamodels/restaurant_master_pymodel.py",
+      "target": "class:ordelo_datamodels/restaurant_master_pymodel.py:RestaurantMaster",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/restaurant_master_pymodel.py",
+      "target": "class:ordelo_datamodels/restaurant_master_pymodel.py:RestaurantMaster",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo_datamodels/restaurant_master_pymodel.py",
+      "target": "function:ordelo_datamodels/restaurant_master_pymodel.py:reset_restaurant_master_cache",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo_datamodels/restaurant_master_pymodel.py",
+      "target": "function:ordelo_datamodels/restaurant_master_pymodel.py:reset_restaurant_master_cache",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/delivery_pymodels.py",
+      "target": "class:utils_common/order_management/delivery_pymodels.py:DeliveryDetail",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/delivery_pymodels.py",
+      "target": "class:utils_common/order_management/delivery_pymodels.py:DeliveryDetail",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/delivery_pymodels.py",
+      "target": "class:utils_common/order_management/delivery_pymodels.py:DeliverySummary",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/delivery_pymodels.py",
+      "target": "class:utils_common/order_management/delivery_pymodels.py:DeliverySummary",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/food_order_pymodel.py",
+      "target": "class:utils_common/order_management/food_order_pymodel.py:FoodOrder",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/food_order_pymodel.py",
+      "target": "class:utils_common/order_management/food_order_pymodel.py:FoodOrder",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/food_order_reciept.py",
+      "target": "function:utils_common/order_management/food_order_reciept.py:build_wa_order_reciept_for_cust",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/food_order_reciept.py",
+      "target": "function:utils_common/order_management/food_order_reciept.py:build_wa_order_reciept_for_cust",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/food_order_reciept.py",
+      "target": "function:utils_common/order_management/food_order_reciept.py:build_wa_order_reciept_for_rest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/food_order_reciept.py",
+      "target": "function:utils_common/order_management/food_order_reciept.py:build_wa_order_reciept_for_rest",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops_new.py",
+      "target": "function:utils_common/order_management/order_db_ops_new.py:insert_wa_order",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops_new.py",
+      "target": "function:utils_common/order_management/order_db_ops_new.py:insert_wa_order",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops_new.py",
+      "target": "function:utils_common/order_management/order_db_ops_new.py:create_order_reference",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/order_management/order_db_ops_new.py",
+      "target": "function:utils_common/order_management/order_db_ops_new.py:create_order_reference",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_master_pymodels.py",
+      "target": "file:ordelo_datamodels/cust_rest_map_pymodel.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_master_pymodels.py",
+      "target": "file:ordelo_datamodels/customer_master_pymodel.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:tests/ordelo_datamodels/test_master_pymodels.py",
+      "target": "file:ordelo_datamodels/restaurant_master_pymodel.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:tests/utils_common/order_management/test_food_order_reciept.py",
+      "target": "file:utils_common/order_management/food_order_reciept.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:tests/utils_common/test_tz_utils.py",
+      "target": "file:utils_common/tz_utils.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

@@ -1,0 +1,304 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 20,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "notebooks/db_queries/CommonQueries.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 407,
+      "nonEmptyLines": 288,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/adhoc_queries.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 37,
+      "nonEmptyLines": 31,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/clear_wren_test.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 1,
+      "nonEmptyLines": 1,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/config_updates.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 325,
+      "nonEmptyLines": 256,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/consume_queue.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 97,
+      "nonEmptyLines": 92,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/creating_new_schema.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 31,
+      "nonEmptyLines": 22,
+      "definitions": [
+        {
+          "name": "elas",
+          "kind": "table",
+          "fields": [
+            "thread_id",
+            "recipient",
+            "is_active",
+            "retain_thread",
+            "dt",
+            "dtts",
+            "last_access_dtts"
+          ],
+          "startLine": 20,
+          "endLine": 29
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 1
+      }
+    },
+    {
+      "path": "notebooks/db_queries/delivery_payouts.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 59,
+      "nonEmptyLines": 53,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/distance_travelled.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 96,
+      "nonEmptyLines": 96,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/elai_updates.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 23,
+      "nonEmptyLines": 19,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/elas_menu_updates.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 161,
+      "nonEmptyLines": 127,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/master_data_update.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 97,
+      "nonEmptyLines": 79,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/non_prod_init.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 15,
+      "nonEmptyLines": 10,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/overwatch_dashboard.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 221,
+      "nonEmptyLines": 221,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/overwatch_views.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 211,
+      "nonEmptyLines": 206,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/rest_master_updates.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 140,
+      "nonEmptyLines": 129,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/result_export.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 37,
+      "nonEmptyLines": 37,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/rider_master_updates.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 52,
+      "nonEmptyLines": 45,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/settingup_QUEUE.SQL",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 72,
+      "nonEmptyLines": 66,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/simulate_dispatches.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 11,
+      "nonEmptyLines": 7,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/db_queries/temp.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    }
+  ]
+}
