@@ -300,6 +300,9 @@ SET config_value = EXCLUDED.config_value,
 select config_key, config_value, description from ordelo_config where config_key like '%SFCS%';
 select config_key, config_value, description from ordelo_config where config_key like '%CHKS%';
 
+-- update config_key to 17 where config_key is SFCS_DEFAULT_COLLECTION_PICKUP_TIME and SFCS_DEFAULT_DELIVERY_PICKUP_TIME
+-- update ordelo_config set config_value='17' where config_key in ('SFCS_DEFAULT_COLLECTION_PICKUP_TIME', 'SFCS_DEFAULT_DELIVERY_PICKUP_TIME' );
+
 -- Absolute essential configs for rest_ref
 [
  {

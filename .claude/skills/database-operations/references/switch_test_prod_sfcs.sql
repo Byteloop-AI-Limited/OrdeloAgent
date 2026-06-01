@@ -6,7 +6,8 @@ select admins, city, * from restaurant_master where rest_ref = 'SFCS';
 
 select * from ordelo_config where config_key like '%_APP_URL';
 
-select * from rider_master where rider_name = 'Lohith';
+select * from rider_master where rider_name in ('Lohith', 'Rahul', 'Bloop');
+select * from rider_master where is_in_shift = true;
 -- ============================================================
 -- SFCS: Test Setup
 -- ============================================================
@@ -17,7 +18,7 @@ set admins = Array['447919202938'],
     rest_stale_active_threads_minutes = 10,
     city='dummy',
     service_hours_json = '{
-  "mon": [["00:00", "24:00"]],
+  "mon": [["18:00", "24:00"]],
   "tue": [["18:00", "24:00"]],
   "wed": [["18:00", "24:00"]],
   "thu": [["18:00", "24:00"]],
@@ -86,6 +87,13 @@ set is_in_shift = true,
     town = 'Salisbury',
     vehicle_type = 'bicycle'
 where rider_name = 'Lohith';
+
+update rider_master
+set is_in_shift = true,
+    town = 'Salisbury',
+    vehicle_type = 'bicycle'
+where rider_name = 'Bloop';
+
 
 
 -- Cache reset calls, Should be run everytime after changing the app URL
