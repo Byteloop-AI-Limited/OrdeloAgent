@@ -4,34 +4,39 @@ Dispatch Cancel Before Pickup – Resume Dispatch Workflow
 Where This Fits in the Journey:
     - Used when an assigned rider declines/cancels a job *before* pickup is confirmed.
     - Pickup confirmation is tracked via delivery_dispatch.status = 'pickedup'.
-    - If cancelled while status='assigned', the order is reopened for dispatch.
+    - If cancelled while status='assigned', the order is fully reopened for dispatch.
 
 Invocation:
     - Called by rider agent/tool via Supabase RPC: dispatch_cancel_before_pickup(p_dispatch_id).
 
 Purpose:
     - Safely roll back an assigned (but not picked up) dispatch.
-    - Resume dispatch flow by reverting delivery_detail and delivery_summary to 'unassigned'.
-    - Re-broadcast on next cron tick: every vehicle_type for the order is reopened
-      (both 'assigned' and 'vehicle_type_timedout' rows flipped to 'unassigned'),
-      so job_create_dispatch fans out across all vehicle_type rider pools in parallel.
+    - Restart the dispatch flow from scratch so the full rider pool is available again.
     - Reset the delivery-timeout clock by stamping delivery_summary.redispatch_dtts =
       NOW(); process_delivery uses COALESCE(redispatch_dtts, dtts) as the timeout base,
       giving the re-dispatch a full timeout window.
-    - The declining rider is automatically excluded from future dispatches for this
-      order by get_available_riders (which filters out any rider already present in
-      delivery_dispatch for the order_number, regardless of status).
+
+Rider exclusion:
+    - The declining rider's delivery_dispatch row is kept (status='declined').
+    - All other delivery_dispatch rows for the order are deleted so riders who
+      were previously notified (missed/unassigned dispatches) can receive
+      new notifications in the fresh dispatch round.
+    - get_available_riders excludes any rider in delivery_dispatch for the
+      order_number, so only the declined rider is permanently excluded.
 
 Dependencies:
     - Reads from: delivery_dispatch, delivery_detail, delivery_summary, delivery_inflight.
-    - Writes to: delivery_dispatch, delivery_detail, delivery_summary, delivery_inflight (delete).
+    - Writes to: delivery_dispatch (delete + update), delivery_detail (delete),
+                 delivery_summary (update), delivery_inflight (delete).
 
 Side Effects:
     1. Marks the cancelled dispatch as 'declined'.
-    2. Deletes the inflight record for the dispatch.
-    3. Reopens ALL delivery_detail rows for the order (assigned + vehicle_type_timedout)
-       so re-dispatch broadcasts simultaneously across every vehicle_type.
-    4. Reopens delivery_summary and resets redispatch_dtts to NOW().
+    2. Deletes the inflight record so rider is freed for new jobs.
+    3. Deletes all other delivery_dispatch rows for the order (prior notifications
+       cleared so those riders become eligible again).
+    4. Deletes all delivery_detail rows for the order so process_delivery rebuilds
+       the vehicle-type cascade from rank 1 on the next cron tick.
+    5. Reopens delivery_summary and resets redispatch_dtts to NOW().
 **/
 
 DROP FUNCTION IF EXISTS dispatch_cancel_before_pickup(bigint);

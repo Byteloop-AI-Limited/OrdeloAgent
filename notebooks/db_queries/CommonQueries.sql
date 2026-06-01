@@ -370,11 +370,11 @@ select * from rider_master where rider_id='447448440754';
 delete from rider_master where rider_id='447448440754' and vehicle_type='bicycle';
 
 -- Check outlier orders
-select * from delivery_summary where status='assigned';
+select dtts, redispatch_dtts, * from delivery_summary where status='unassigned';
 -- update delivery_summary set status='completed' where status='assigned';
 -- update delivery_summary set status='completed' where order_number='ELAS-BYSW-21';
 
-select * from delivery_detail where status='assigned';
+select * from delivery_detail where status='unassigned';
 -- update delivery_detail set status='completed' where status='assigned';
 select * from delivery_dispatch where rider_id is not null and status='assigned';
 -- update delivery_dispatch set status='completed' where rider_id is not null and status='assigned';

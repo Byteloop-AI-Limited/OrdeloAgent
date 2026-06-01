@@ -6,7 +6,7 @@ select admins, city, restaurant_start_time, * from restaurant_master where rest_
 
 select * from ordelo_config where config_key like '%_APP_URL';
 
-select * from rider_master where rider_name = 'Lohith';
+select * from rider_master where rider_name in ('Lohith', 'Bloop', 'Rahul');
 -- ============================================================
 -- ELAS: Test Setup
 -- ============================================================
@@ -15,6 +15,15 @@ update restaurant_master
 set admins = Array['447919202938'],
     rest_stale_active_threads_minutes = 10,
     restaurant_start_time = 11,
+    service_hours_json = '{
+  "mon": [["18:00", "24:00"]],
+  "tue": [["18:00", "24:00"]],
+  "wed": [["18:00", "24:00"]],
+  "thu": [["18:00", "24:00"]],
+  "fri": [["00:00", "24:00"]],
+  "sat": [["18:00", "25:00"]],
+  "sun": [["18:00", "21:00"]]
+}'::jsonb
     -- restaurant_end_time = 21.30,
     restaurant_end_time = 24,
     city='dummy'
@@ -23,8 +32,22 @@ where rest_ref in ('ELAS', 'CHKS');
 update rider_master
 set is_in_shift = true,
     town = 'dummy',
-    vehicle_type = 'bicycle'
+    vehicle_type = 'scooter'
 where rider_name = 'Lohith';
+
+update rider_master
+set is_in_shift = true,
+    town = 'dummy',
+    vehicle_type = 'car'
+where rider_name = 'Rahul';
+
+
+update rider_master
+set is_in_shift = true,
+    town = 'dummy',
+    vehicle_type = 'car'
+where rider_name in ('Bloop');
+
 
 update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'ELAS_APP_URL';
 
