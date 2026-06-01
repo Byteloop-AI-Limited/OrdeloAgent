@@ -249,11 +249,11 @@ Delivery Details:
                     callback_data=food_ready_y.model_dump_json(),
                 ),
                 Button(
-                    title="Pickup Time +10mins",
+                    title="PickupTime +10 mins",
                     callback_data=adjust_pickup_10.model_dump_json(),
                 ),
                 Button(
-                    title="Pickuptime +20 mins",
+                    title="PickupTime +20 mins",
                     callback_data=adjust_pickup_20.model_dump_json(),
                 ),
             ],
