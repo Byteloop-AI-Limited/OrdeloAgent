@@ -1,20 +1,83 @@
-select pickup_time, dtts, restaurant_confirmation_status, status, * from delivery_summary where order_number='WREN-AEHO-21' ;
+select pickup_time, dtts, restaurant_confirmation_status, status, * from delivery_summary where order_number='ELAS-XUDU-22' ;
 order_number='WREN-AEHO-21';
 -- order_number='ELAS-OOLX-24';
-select * from delivery_option where order_number='WREN-AEHO-21';
-select * from delivery_summary where order_number='WREN-AEHO-21';
-select * from delivery_detail where order_number='WREN-AEHO-21';
-select * from delivery_dispatch where order_number='WREN-AEHO-21';
+select * from delivery_option where order_number='ELAS-XUDU-22';
+select dtts, redispatch_dtts, status from delivery_summary where order_number='ELAS-XUDU-22';
+-- 2026-05-31 22:26:44.261924+00	NULL	assigned
+select * from delivery_detail where order_number='ELAS-XUDU-22';
+select * from delivery_dispatch where order_number='ELAS-XUDU-22';
 select * from delivery_inflight;
 -- select * from delivery_inflight;
-select * from food_order where order_number='WREN-AEHO-21';
-select * from order_item where order_id='AEHO-21';
 
-delete from delivery_detail where order_number='WREN-AEHO-21';
-
+-- Cleanup
+delete from delivery_dispatch where order_number='ELAS-XUDU-22';
+delete from delivery_detail where order_number='ELAS-XUDU-22';
 update delivery_summary 
-set status='unassigned'
-where order_number like 'WREN-AEHO-21';
+set status='unassigned', dtts=now(), redispatch_dtts=null
+where order_number = 'ELAS-XUDU-22';
+
+select * from job_create_dispatch();
+
+update delivery_detail set status='unassigned' where order_number='ELAS-XUDU-22';
+
+select * from get_available_riders('ELAS-XUDU-22', 'dummy', 'car');
+
+WITH availableRiders AS (
+        SELECT 
+            dd.order_number,
+            gar.rider_id as rider_id_to_dispatch,
+            gar.priority,
+            dd.rider_payout,
+            dd.distance,
+            dd.vehicle_type,
+            COUNT(gar.rider_id) as rider_count
+        FROM delivery_detail dd
+        LEFT JOIN LATERAL get_available_riders(dd.order_number, LOWER(dd.town), dd.vehicle_type) gar ON true
+        WHERE dd.status = 'unassigned'
+        GROUP BY dd.order_number, 
+        dd.rider_payout, 
+        dd.distance, 
+        dd.vehicle_type, 
+        gar.rider_id,
+        gar.priority)
+  select * from availableRiders;
+
+
+select * from delivery_dispatch where order_number = 'ELAS-XUDU-22';
+    WITH ridersToExclude AS (
+        SELECT DISTINCT dDispatch.rider_id, dDispatch.vehicle_type
+        FROM delivery_dispatch dDispatch
+        WHERE dDispatch.order_number = 'ELAS-XUDU-22' 
+        UNION 
+        SELECT DISTINCT inflight.rider_id, 'inflight'
+        FROM delivery_inflight inflight
+    )
+    SELECT 
+        allRiders.rider_id,
+        allRiders.priority
+    FROM rider_master allRiders 
+    WHERE 
+    LOWER(allRiders.town)='dummy'
+    AND allRiders.vehicle_type = 'car'
+    AND allRiders.is_in_shift;
+    AND NOT EXISTS 
+    (SELECT 1 FROM ridersToExclude WHERE ridersToExclude.rider_id = allRiders.rider_id);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 select status, restaurant_confirmation_status, * from delivery_summary 
 where order_number like 'WREN-%';

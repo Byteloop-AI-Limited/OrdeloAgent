@@ -37,6 +37,11 @@ CREATE TABLE delivery_summary (
     rest_ref         VARCHAR(20) GENERATED ALWAYS AS (SPLIT_PART(order_number, '-', 1)) STORED, -- derived from order_number
     dt               DATE NOT NULL DEFAULT CURRENT_DATE,
     dtts             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- "Current dispatch window started at" — populated only by
+    -- dispatch_cancel_before_pickup on a successful pre-pickup decline.
+    -- process_delivery uses COALESCE(redispatch_dtts, dtts) for the timeout
+    -- base, so NULL means "no decline yet, use dtts".
+    redispatch_dtts  TIMESTAMP WITH TIME ZONE,
     PRIMARY KEY (order_number)
 );
 -- drop table delivery_summary;
@@ -160,7 +165,8 @@ BEGIN
       'pickup_date', NEW.pickup_date,
       'rest_ref', NEW.rest_ref,
       'dt', NEW.dt,
-      'dtts', NEW.dtts
+      'dtts', NEW.dtts,
+      'redispatch_dtts', NEW.redispatch_dtts
     ) INTO delivery_summary_json;
     
     IF p_log_to_table THEN
