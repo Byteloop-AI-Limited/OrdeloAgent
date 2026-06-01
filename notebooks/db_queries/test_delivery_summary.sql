@@ -3,7 +3,7 @@ order_number='WREN-AEHO-21';
 -- order_number='ELAS-OOLX-24';
 select * from delivery_option where order_number='SFCS-JKRO-22';
 select dtts, redispatch_dtts, status, * from delivery_summary where order_number='SFCS-JKRO-22';
--- 2026-05-31 22:26:44.261924+00	NULL	assigned
+-- 2026-05-31 22:26:44.261924+00	NULL	assignebyT3100p@id
 select * from delivery_detail where order_number='SFCS-JKRO-22';
 select * from delivery_dispatch where order_number='SFCS-JKRO-22';
 select * from delivery_inflight;

@@ -1,7 +1,7 @@
 -- Master data maintenance for restaurant_master, rider_master, and customer_master.
 -- Consolidated from CommonQueries.sql and config_updates.sql.
 select * from rider_registrations;
-select * from rider_master
+select * from rider_master;
 select * from ordelo_config where config_key like '%_APP_URL';
 
 select admins,* from restaurant_master where rest_ref='ELAS';
