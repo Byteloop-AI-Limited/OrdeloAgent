@@ -37,7 +37,6 @@ BEGIN
     SELECT
       summ.order_number,
       summ.customer_id,
-      summ.rest_ref,
       det.vehicle_type   AS detail_vehicle_type,
       det.status         AS detail_vehicle_status,
       dopt.rank          AS available_vehicle_rank,
@@ -60,21 +59,28 @@ BEGIN
   )
   , timedout_orders AS (
     -- which orders have *all* vehicles timed-out?
-    SELECT order_number, rest_ref
+    SELECT order_number
       FROM deliverySnapShot
-     GROUP BY order_number, rest_ref
+     GROUP BY order_number
     HAVING MAX(available_vehicle_rank)
          = SUM( (detail_vehicle_status = 'vehicle_type_timedout')::int )
   )
   , update_summary AS (
-    -- mmark those orders as timed-outark those orders as timed-out
+    -- mark those orders as timed-out using restaurant-specific or default timeout
     UPDATE delivery_summary ds
        SET status = 'timedout'
-      FROM timedout_orders t,
-           LATERAL (SELECT COALESCE(config_value::int, 5) AS timeout_minutes FROM ordelo_config WHERE config_key = t.rest_ref || '_DELIVERY_TIMEOUT_TIME') cfg
+      FROM timedout_orders t
      WHERE ds.order_number = t.order_number
        AND ds.status       = 'unassigned'
-       AND (EXTRACT(EPOCH FROM (NOW() - ds.dtts))/60) > COALESCE(cfg.timeout_minutes, 5)
+       -- Timeout is measured from redispatch_dtts when present (set by
+       -- dispatch_cancel_before_pickup on a pre-pickup decline), otherwise
+       -- from dtts (order creation). NULL redispatch_dtts preserves the
+       -- original behavior for orders that have never been re-dispatched.
+       AND (EXTRACT(EPOCH FROM (NOW() - COALESCE(ds.redispatch_dtts, ds.dtts)))/60) > COALESCE(
+           (SELECT config_value::int FROM ordelo_config WHERE config_key = ds.rest_ref || '_DELIVERY_TIMEOUT_TIME' LIMIT 1),
+           (SELECT config_value::int FROM ordelo_config WHERE config_key = 'DELIVERY_TIMEOUT_TIME' LIMIT 1),
+           10  -- fallback to 10 minutes if no config found
+       )
     RETURNING
       'Order ' || ds.order_number || ' → status set to timeout'
         AS action
@@ -132,11 +138,5 @@ BEGIN
 END;
 $$;
 
--- Create a trigger for when the status of delivery_summary changes to 'timedout'
-
-CREATE TRIGGER trigger_delivery_summary_timedout AFTER
-UPDATE ON public.delivery_summary
-FOR EACH ROW WHEN (OLD.status <> 'timedout'
-                   AND NEW.status = 'timedout') EXECUTE FUNCTION public.delivery_summary_timedout_whook();
-
 -- delivery_summary_timedout_whook function
+select * from process_delivery();

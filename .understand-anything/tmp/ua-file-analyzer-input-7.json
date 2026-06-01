@@ -1,0 +1,21 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "notebooks/db_scratchpad/check_live_location_transmitted.py", "language": "python", "sizeLines": 33, "fileCategory": "code"},
+    {"path": "notebooks/db_scratchpad/simulate_dispatch_detail copy.py", "language": "python", "sizeLines": 192, "fileCategory": "code"},
+    {"path": "notebooks/db_scratchpad/simulate_sbase_func_call.py", "language": "python", "sizeLines": 11, "fileCategory": "code"},
+    {"path": "notebooks/dispatch_format_tbd.py", "language": "python", "sizeLines": 25, "fileCategory": "code"},
+    {"path": "ordelo_datamodels/delivery_pymodels.py", "language": "python", "sizeLines": 191, "fileCategory": "code"},
+    {"path": "tests/ordelo_datamodels/test_delivery_pymodels.py", "language": "python", "sizeLines": 149, "fileCategory": "code"},
+    {"path": "utils_common/db_utils/sbase_rest_ops.py", "language": "python", "sizeLines": 467, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    "notebooks/db_scratchpad/check_live_location_transmitted.py": ["config/__init__.py", "utils_common/db_utils/sbase_rest_ops.py"],
+    "notebooks/db_scratchpad/simulate_dispatch_detail copy.py": ["config/__init__.py", "ordelo_datamodels/delivery_pymodels.py", "utils_common/db_utils/sbase_pool_ops.py", "utils_common/db_utils/sbase_rest_ops.py"],
+    "notebooks/db_scratchpad/simulate_sbase_func_call.py": ["utils_common/db_utils/sbase_rest_ops.py"],
+    "notebooks/dispatch_format_tbd.py": ["config/__init__.py", "ordelo_datamodels/delivery_pymodels.py"],
+    "ordelo_datamodels/delivery_pymodels.py": [],
+    "tests/ordelo_datamodels/test_delivery_pymodels.py": ["ordelo_datamodels/delivery_pymodels.py", "tests/fixtures/fake_supabase.py"],
+    "utils_common/db_utils/sbase_rest_ops.py": ["config/__init__.py"]
+  }
+}

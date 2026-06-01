@@ -1,0 +1,17 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": ".specify/templates/agent-file-template.md", "language": "markdown", "sizeLines": 23, "fileCategory": "docs"},
+    {"path": ".specify/templates/checklist-template.md", "language": "markdown", "sizeLines": 41, "fileCategory": "docs"},
+    {"path": ".specify/templates/plan-template.md", "language": "markdown", "sizeLines": 105, "fileCategory": "docs"},
+    {"path": ".specify/templates/spec-template.md", "language": "markdown", "sizeLines": 116, "fileCategory": "docs"},
+    {"path": ".specify/templates/tasks-template.md", "language": "markdown", "sizeLines": 251, "fileCategory": "docs"}
+  ],
+  "batchImportData": {
+    ".specify/templates/agent-file-template.md": [],
+    ".specify/templates/checklist-template.md": [],
+    ".specify/templates/plan-template.md": [],
+    ".specify/templates/spec-template.md": [],
+    ".specify/templates/tasks-template.md": []
+  }
+}

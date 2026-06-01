@@ -1,0 +1,664 @@
+{
+  "nodes": [
+    {
+      "id": "schema:ordelo_datamodels/auth_sessions.sql",
+      "type": "schema",
+      "name": "auth_sessions.sql",
+      "filePath": "ordelo_datamodels/auth_sessions.sql",
+      "summary": "Defines the generalized auth_sessions table supporting all dashboard roles (rest_admin, rider, sys_admin) with magic-link token lifecycle, cookie binding, and revocation tracking. Replaces the older dashboard_sessions table.",
+      "tags": ["schema-definition", "database", "security", "authentication"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "table:ordelo_datamodels/auth_sessions.sql:auth_sessions",
+      "type": "table",
+      "name": "auth_sessions",
+      "filePath": "ordelo_datamodels/auth_sessions.sql",
+      "lineRange": [7, 47],
+      "summary": "Generalized session table storing magic-link tokens, cookie hashes, role discriminators, and revocation state for all dashboard user types.",
+      "tags": ["database", "security", "authentication", "session-management"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "schema:ordelo_datamodels/dashboard_sessions.sql",
+      "type": "schema",
+      "name": "dashboard_sessions.sql",
+      "filePath": "ordelo_datamodels/dashboard_sessions.sql",
+      "summary": "Defines the legacy dashboard_sessions table for restaurant admin magic-link authentication. Superseded by auth_sessions.sql but retained for migration compatibility.",
+      "tags": ["schema-definition", "database", "security", "authentication"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/dashboard_sessions.sql:dashboard_sessions",
+      "type": "table",
+      "name": "dashboard_sessions",
+      "filePath": "ordelo_datamodels/dashboard_sessions.sql",
+      "lineRange": [5, 35],
+      "summary": "Legacy restaurant-admin-only session table with magic-link token, cookie binding, and revocation fields, scoped to a single rest_ref.",
+      "tags": ["database", "security", "authentication", "session-management"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/db_config.sql",
+      "type": "schema",
+      "name": "db_config.sql",
+      "filePath": "ordelo_datamodels/db_config.sql",
+      "summary": "Defines the app_config key-value table and seeds the dispatch_batch_limit config value. Also contains an example stub of the job_create_dispatch stored procedure showing config-driven batch limiting.",
+      "tags": ["schema-definition", "database", "configuration", "build-system"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/db_config.sql:app_config",
+      "type": "table",
+      "name": "app_config",
+      "filePath": "ordelo_datamodels/db_config.sql",
+      "lineRange": [1, 4],
+      "summary": "Simple key-value configuration table for database-level runtime parameters such as dispatch_batch_limit.",
+      "tags": ["database", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/debug_log.sql",
+      "type": "schema",
+      "name": "debug_log.sql",
+      "filePath": "ordelo_datamodels/debug_log.sql",
+      "summary": "Defines the debug_log table used by PostgreSQL trigger functions to write structured diagnostic messages including trigger name, order number, and optional JSONB payload.",
+      "tags": ["schema-definition", "database", "monitoring"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/debug_log.sql:debug_log",
+      "type": "table",
+      "name": "debug_log",
+      "filePath": "ordelo_datamodels/debug_log.sql",
+      "lineRange": [1, 8],
+      "summary": "Diagnostic log table written to by PostgreSQL trigger functions; each row records the trigger name, order number, free-text message, and an optional JSONB payload.",
+      "tags": ["database", "monitoring", "logging"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/delivery_models.sql",
+      "type": "schema",
+      "name": "delivery_models.sql",
+      "filePath": "ordelo_datamodels/delivery_models.sql",
+      "summary": "Defines the delivery_pricing_detail table recording per-order pricing breakdown including byteloop platform cost, restaurant cost, driver payout, and distance.",
+      "tags": ["schema-definition", "database", "delivery", "pricing"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/delivery_models.sql:delivery_pricing_detail",
+      "type": "table",
+      "name": "delivery_pricing_detail",
+      "filePath": "ordelo_datamodels/delivery_models.sql",
+      "lineRange": [1, 9],
+      "summary": "Stores the computed pricing breakdown for each delivery order: byteloop platform margin, restaurant charge, and driver payout amounts.",
+      "tags": ["database", "delivery", "pricing"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/delivery_option.sql",
+      "type": "schema",
+      "name": "delivery_option.sql",
+      "filePath": "ordelo_datamodels/delivery_option.sql",
+      "summary": "Defines the delivery_option table holding vehicle-type-specific pricing options presented to customers during order creation, including commission, payout, and total charge breakdowns.",
+      "tags": ["schema-definition", "database", "delivery", "pricing"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/delivery_option.sql:delivery_option",
+      "type": "table",
+      "name": "delivery_option",
+      "filePath": "ordelo_datamodels/delivery_option.sql",
+      "lineRange": [1, 17],
+      "summary": "Records available delivery options per order with vehicle-type-specific pricing tiers, commission percentages, and total charge breakdown fields.",
+      "tags": ["database", "delivery", "pricing"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/detail.sql",
+      "type": "schema",
+      "name": "detail.sql",
+      "filePath": "ordelo_datamodels/detail.sql",
+      "summary": "Defines the delivery_detail table that holds the active delivery assignment record per order, linking order_number to the assigned vehicle type, rider, dispatch, and status.",
+      "tags": ["schema-definition", "database", "delivery"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/detail.sql:delivery_detail",
+      "type": "table",
+      "name": "delivery_detail",
+      "filePath": "ordelo_datamodels/detail.sql",
+      "lineRange": [2, 15],
+      "summary": "Central tracking record per delivery order capturing the current status, assigned rider, vehicle type, distance, and linked dispatch_id.",
+      "tags": ["database", "delivery", "data-model"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/dispatch.sql",
+      "type": "schema",
+      "name": "dispatch.sql",
+      "filePath": "ordelo_datamodels/dispatch.sql",
+      "summary": "Defines the delivery_dispatch table tracking individual rider assignment attempts per order, along with the delivery_dispatch_whook_statement() trigger function that fires a statement-level webhook to /delivery-hooks/delivery-dispatch on each batch INSERT.",
+      "tags": ["schema-definition", "database", "delivery", "event-driven"],
+      "complexity": "complex",
+      "languageNotes": "Uses a statement-level trigger with REFERENCING NEW TABLE AS new_rows to batch all INSERTs in one webhook POST, avoiding N+1 HTTP calls."
+    },
+    {
+      "id": "table:ordelo_datamodels/dispatch.sql:delivery_dispatch",
+      "type": "table",
+      "name": "delivery_dispatch",
+      "filePath": "ordelo_datamodels/dispatch.sql",
+      "lineRange": [91, 114],
+      "summary": "Records every rider dispatch attempt for an order with status lifecycle (unassigned → accepted/declined/missed → assigned → completed) and payout tracking columns for the rider dashboard.",
+      "tags": ["database", "delivery", "data-model"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "schema:ordelo_datamodels/dispatch_bulk.sql",
+      "type": "schema",
+      "name": "dispatch_bulk.sql",
+      "filePath": "ordelo_datamodels/dispatch_bulk.sql",
+      "summary": "Defines an alternate statement-level trigger (trigger_delivery_dispatch_whook_bulk) and its handler function for batch dispatch webhooks, posting enriched bulk payloads to /delivery-hooks/delivery-dispatch-bulk.",
+      "tags": ["schema-definition", "database", "delivery", "event-driven"],
+      "complexity": "moderate",
+      "languageNotes": "Posts to a hardcoded bulk endpoint URL; likely a predecessor to dispatch.sql's configurable endpoint."
+    },
+    {
+      "id": "schema:ordelo_datamodels/elas_stats.sql",
+      "type": "schema",
+      "name": "elas_stats.sql",
+      "filePath": "ordelo_datamodels/elas_stats.sql",
+      "summary": "Ad-hoc analytics queries for the ELA restaurant reporting monthly delivery counts, takeaway order counts, and delivery values — includes embedded result data from past runs.",
+      "tags": ["database", "analytics", "reporting"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/inflight.sql",
+      "type": "schema",
+      "name": "inflight.sql",
+      "filePath": "ordelo_datamodels/inflight.sql",
+      "summary": "Defines delivery_inflight (active rider assignment table), the delivery_inflight_whook() row-level trigger that POSTs to /delivery-hooks/delivery-inflight-graph-init to start the LangGraph rider agent, and the notify_missed_dispatches() helper that notifies riders of missed opportunities.",
+      "tags": ["schema-definition", "database", "delivery", "event-driven"],
+      "complexity": "complex",
+      "languageNotes": "Step 5 of the 6-step delivery workflow; trigger fires per INSERT row and chains two side-effects: graph init HTTP POST + missed-dispatch notification."
+    },
+    {
+      "id": "table:ordelo_datamodels/inflight.sql:delivery_inflight",
+      "type": "table",
+      "name": "delivery_inflight",
+      "filePath": "ordelo_datamodels/inflight.sql",
+      "lineRange": [177, 184],
+      "summary": "Represents an active (inflight) delivery assignment linking dispatch_id, order, rider, and customer once a rider has accepted — its INSERT triggers the LangGraph rider agent initialization.",
+      "tags": ["database", "delivery", "data-model"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/location.sql",
+      "type": "schema",
+      "name": "location.sql",
+      "filePath": "ordelo_datamodels/location.sql",
+      "summary": "Defines rider_location (raw GPS telemetry) and rider_location_event (geofence transition events) tables, with a row-level trigger that POSTs to /location-hooks/notify-rider-location-event on each event INSERT.",
+      "tags": ["schema-definition", "database", "location-tracking", "event-driven"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "table:ordelo_datamodels/location.sql:rider_location",
+      "type": "table",
+      "name": "rider_location",
+      "filePath": "ordelo_datamodels/location.sql",
+      "lineRange": [2, 22],
+      "summary": "Stores raw GPS telemetry from OwnTracks/rider devices including lat/lon, battery, accuracy, and region membership arrays per rider per order.",
+      "tags": ["database", "location-tracking", "telemetry"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/location.sql:rider_location_event",
+      "type": "table",
+      "name": "rider_location_event",
+      "filePath": "ordelo_datamodels/location.sql",
+      "lineRange": [30, 40],
+      "summary": "Records discrete geofence enter/leave events for riders linked to a specific order, triggering webhook notifications for live tracking updates.",
+      "tags": ["database", "location-tracking", "event-driven"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/masterdata.sql",
+      "type": "schema",
+      "name": "masterdata.sql",
+      "filePath": "ordelo_datamodels/masterdata.sql",
+      "summary": "Defines core entity master tables: rider_master (rider profiles and shift state), restaurant_master (restaurant configuration including coordinates and admin contacts), customer_master (customer address book), and cust_rest_map (customer-restaurant consent mapping).",
+      "tags": ["schema-definition", "database", "data-model", "master-data"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "table:ordelo_datamodels/masterdata.sql:rider_master",
+      "type": "table",
+      "name": "rider_master",
+      "filePath": "ordelo_datamodels/masterdata.sql",
+      "lineRange": [6, 16],
+      "summary": "Master record for each rider including vehicle type, town, active shift status, dispatch priority, and shift response timestamps.",
+      "tags": ["database", "master-data", "rider"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/masterdata.sql:restaurant_master",
+      "type": "table",
+      "name": "restaurant_master",
+      "filePath": "ordelo_datamodels/masterdata.sql",
+      "lineRange": [20, 35],
+      "summary": "Master record for each restaurant including geolocation coordinates, admin WhatsApp numbers, address, and operating hours used throughout dispatch and confirmation flows.",
+      "tags": ["database", "master-data", "restaurant"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/masterdata.sql:customer_master",
+      "type": "table",
+      "name": "customer_master",
+      "filePath": "ordelo_datamodels/masterdata.sql",
+      "lineRange": [47, 60],
+      "summary": "Master record for each customer holding name, email, and delivery address coordinates used to calculate distance and populate delivery payloads.",
+      "tags": ["database", "master-data", "customer"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/masterdata.sql:cust_rest_map",
+      "type": "table",
+      "name": "cust_rest_map",
+      "filePath": "ordelo_datamodels/masterdata.sql",
+      "lineRange": [66, 73],
+      "summary": "Many-to-many consent mapping between customers and restaurants, recording whether a customer has consented to receive marketing from a given restaurant.",
+      "tags": ["database", "master-data", "consent"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/ordelo_config.sql",
+      "type": "schema",
+      "name": "ordelo_config.sql",
+      "filePath": "ordelo_datamodels/ordelo_config.sql",
+      "summary": "Defines the ordelo_config key-value table used at runtime by PostgreSQL trigger functions to look up the ORDELO_APP_URL webhook base and feature flags like ENABLE_TRIGGER_DEBUG_LOG.",
+      "tags": ["schema-definition", "database", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/ordelo_config.sql:ordelo_config",
+      "type": "table",
+      "name": "ordelo_config",
+      "filePath": "ordelo_datamodels/ordelo_config.sql",
+      "lineRange": [2, 8],
+      "summary": "Runtime configuration table keyed by config_key (e.g. ORDELO_APP_URL, ENABLE_TRIGGER_DEBUG_LOG) with description and auto-updated timestamp columns.",
+      "tags": ["database", "configuration", "runtime-config"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/sbase_queues_from_order.sql",
+      "type": "schema",
+      "name": "sbase_queues_from_order.sql",
+      "filePath": "ordelo_datamodels/sbase_queues_from_order.sql",
+      "summary": "Deprecated SQL script using pgmq queues (rider_accept_q) to process rider acceptance messages; superseded by direct trigger-based webhook flow and retained for reference.",
+      "tags": ["database", "deprecated", "queue-processing"],
+      "complexity": "simple"
+    },
+    {
+      "id": "schema:ordelo_datamodels/summary.sql",
+      "type": "schema",
+      "name": "summary.sql",
+      "filePath": "ordelo_datamodels/summary.sql",
+      "summary": "Defines the central delivery_summary table (delivery lifecycle status machine + restaurant confirmation status) with two webhook triggers: trigger_restaurant_updates fires restaurant_updates_whook() to POST to /delivery-hooks/restaurant-confirmation-request, and trigger_delivery_summary_timedout fires delivery_summary_timedout_whook() to POST to /delivery-hooks/delivery-timedout.",
+      "tags": ["schema-definition", "database", "delivery", "event-driven"],
+      "complexity": "complex",
+      "languageNotes": "Contains two complete PL/pgSQL trigger functions with full payload construction, joining restaurant_master, food_order, and order_item tables before POSTing to the FastAPI webhook layer."
+    },
+    {
+      "id": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "table",
+      "name": "delivery_summary",
+      "filePath": "ordelo_datamodels/summary.sql",
+      "lineRange": [2, 46],
+      "summary": "Central delivery order record combining the restaurant confirmation status machine, delivery lifecycle status, confirmation codes for restaurant and customer, pickup time, and WhatsApp message IDs for all three parties.",
+      "tags": ["database", "delivery", "data-model"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "schema:ordelo_datamodels/takeaway_summary.sql",
+      "type": "schema",
+      "name": "takeaway_summary.sql",
+      "filePath": "ordelo_datamodels/takeaway_summary.sql",
+      "summary": "Defines the takeaway_summary table with a parallel restaurant-confirmation status machine for dine-in/takeaway orders, and two webhook triggers: trigger_takeaway_restaurant_updates (POSTs to /takeaway-hooks/restaurant-confirmation-request) and trigger_takeaway_pickup_time_set.",
+      "tags": ["schema-definition", "database", "takeaway", "event-driven"],
+      "complexity": "complex",
+      "languageNotes": "Parallel structure to summary.sql but for the takeaway flow; omits rider dispatch columns while retaining the same restaurant-confirmation status machine."
+    },
+    {
+      "id": "table:ordelo_datamodels/takeaway_summary.sql:takeaway_summary",
+      "type": "table",
+      "name": "takeaway_summary",
+      "filePath": "ordelo_datamodels/takeaway_summary.sql",
+      "lineRange": [3, 43],
+      "summary": "Central takeaway order record tracking restaurant confirmation status, pickup time, admin contact, and WhatsApp message IDs without any rider dispatch columns.",
+      "tags": ["database", "takeaway", "data-model"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "schema:ordelo_datamodels/waba_es.sql",
+      "type": "schema",
+      "name": "waba_es.sql",
+      "filePath": "ordelo_datamodels/waba_es.sql",
+      "summary": "Defines the waba_es table that records WhatsApp Business Account embedded-signup and Facebook auth events, storing phone numbers, business IDs, and sensitive business tokens.",
+      "tags": ["schema-definition", "database", "whatsapp", "authentication"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/waba_es.sql:waba_es",
+      "type": "table",
+      "name": "waba_es",
+      "filePath": "ordelo_datamodels/waba_es.sql",
+      "lineRange": [1, 13],
+      "summary": "Audit log for WABA embedded-signup OAuth events capturing phone number IDs, business IDs, event types, and temporary auth codes.",
+      "tags": ["database", "whatsapp", "authentication", "audit-log"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "schema:ordelo_datamodels/auth_sessions.sql",
+      "target": "table:ordelo_datamodels/auth_sessions.sql:auth_sessions",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/dashboard_sessions.sql",
+      "target": "table:ordelo_datamodels/dashboard_sessions.sql:dashboard_sessions",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/db_config.sql",
+      "target": "table:ordelo_datamodels/db_config.sql:app_config",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/debug_log.sql",
+      "target": "table:ordelo_datamodels/debug_log.sql:debug_log",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/delivery_models.sql",
+      "target": "table:ordelo_datamodels/delivery_models.sql:delivery_pricing_detail",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/delivery_option.sql",
+      "target": "table:ordelo_datamodels/delivery_option.sql:delivery_option",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/detail.sql",
+      "target": "table:ordelo_datamodels/detail.sql:delivery_detail",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/dispatch.sql",
+      "target": "table:ordelo_datamodels/dispatch.sql:delivery_dispatch",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/inflight.sql",
+      "target": "table:ordelo_datamodels/inflight.sql:delivery_inflight",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/location.sql",
+      "target": "table:ordelo_datamodels/location.sql:rider_location",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/location.sql",
+      "target": "table:ordelo_datamodels/location.sql:rider_location_event",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/masterdata.sql",
+      "target": "table:ordelo_datamodels/masterdata.sql:rider_master",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/masterdata.sql",
+      "target": "table:ordelo_datamodels/masterdata.sql:restaurant_master",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/masterdata.sql",
+      "target": "table:ordelo_datamodels/masterdata.sql:customer_master",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/masterdata.sql",
+      "target": "table:ordelo_datamodels/masterdata.sql:cust_rest_map",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/ordelo_config.sql",
+      "target": "table:ordelo_datamodels/ordelo_config.sql:ordelo_config",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/summary.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/takeaway_summary.sql",
+      "target": "table:ordelo_datamodels/takeaway_summary.sql:takeaway_summary",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/waba_es.sql",
+      "target": "table:ordelo_datamodels/waba_es.sql:waba_es",
+      "type": "defines_schema",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "schema:ordelo_datamodels/summary.sql",
+      "target": "file:watomation/routers/delivery_hooks.py",
+      "type": "triggers",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "schema:ordelo_datamodels/inflight.sql",
+      "target": "file:watomation/routers/delivery_hooks.py",
+      "type": "triggers",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "schema:ordelo_datamodels/dispatch.sql",
+      "target": "file:watomation/routers/delivery_hooks.py",
+      "type": "triggers",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "schema:ordelo_datamodels/dispatch_bulk.sql",
+      "target": "file:watomation/routers/delivery_hooks.py",
+      "type": "triggers",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "schema:ordelo_datamodels/takeaway_summary.sql",
+      "target": "file:watomation/routers/takeaway_hooks.py",
+      "type": "triggers",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "schema:ordelo_datamodels/location.sql",
+      "target": "file:watomation/routers/location_hooks.py",
+      "type": "triggers",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "schema:ordelo_datamodels/summary.sql",
+      "target": "table:ordelo_datamodels/masterdata.sql:restaurant_master",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/inflight.sql",
+      "target": "table:ordelo_datamodels/masterdata.sql:rider_master",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/inflight.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/dispatch.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/dispatch.sql",
+      "target": "table:ordelo_datamodels/detail.sql:delivery_detail",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/summary.sql",
+      "target": "table:ordelo_datamodels/debug_log.sql:debug_log",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/takeaway_summary.sql",
+      "target": "table:ordelo_datamodels/debug_log.sql:debug_log",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/summary.sql",
+      "target": "table:ordelo_datamodels/ordelo_config.sql:ordelo_config",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/inflight.sql",
+      "target": "table:ordelo_datamodels/ordelo_config.sql:ordelo_config",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/dispatch.sql",
+      "target": "table:ordelo_datamodels/ordelo_config.sql:ordelo_config",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/location.sql",
+      "target": "table:ordelo_datamodels/ordelo_config.sql:ordelo_config",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/takeaway_summary.sql",
+      "target": "table:ordelo_datamodels/ordelo_config.sql:ordelo_config",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/auth_sessions.sql",
+      "target": "schema:ordelo_datamodels/dashboard_sessions.sql",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/elas_stats.sql",
+      "target": "table:ordelo_datamodels/dispatch.sql:delivery_dispatch",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/elas_stats.sql",
+      "target": "table:ordelo_datamodels/takeaway_summary.sql:takeaway_summary",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/elas_stats.sql",
+      "target": "table:ordelo_datamodels/summary.sql:delivery_summary",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/sbase_queues_from_order.sql",
+      "target": "table:ordelo_datamodels/inflight.sql:delivery_inflight",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "schema:ordelo_datamodels/db_config.sql",
+      "target": "table:ordelo_datamodels/dispatch.sql:delivery_dispatch",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

@@ -13,7 +13,7 @@ WhatsApp messaging utilities for order management and address confirmation flows
     . CallbackButtonData - Pydantic model for WhatsApp button callback data
     . admin_delivery_driver_nearby - Notifies admin driver is nearby
     . admin_delivery_complete_notification - Notifies admins about completed deliveries
-    . admin_order_reciept - Sends order receipts to admins with delivery details
+    . admin_order_reciept - Sends order receipts to admins with delivery details, plus pickup-time adjust buttons (+10/+20 mins)
     . confirm_delivery_address_wa - Sends address confirmation requests to customers
     . send_postcode_search_flow - Initiates postcode search flow via WhatsApp
     . send_request_payment_link - Sends payment link template to customer
@@ -46,7 +46,7 @@ import uuid
 from pywa_async import WhatsApp
 from typing import Optional, List
 from datetime import datetime, timedelta
-from utils_common.tz_utils import UK_TZ, fmt_uk_time
+from utils_common.tz_utils import UK_TZ, fmt_uk_time, parse_db_iso
 import asyncio
 from utils_common.order_management.delivery_pymodels import (
     DeliverySummary,
@@ -208,6 +208,19 @@ Delivery Details:
     # Send notifications to restaurant and customer; ToDo - need to add callback to notifications.
     # temp_admins = ["447448440754"]
 
+    # Pre-compute adjusted pickup times (+10 / +20 mins from the current pickup_time).
+    # These static values are carried in the button callback data; repeated taps are
+    # both relative to the original pickup_time (not cumulative).
+    _pickup_dt = delivery_summary.pickup_time
+    if isinstance(_pickup_dt, str):
+        _pickup_dt = parse_db_iso(_pickup_dt)
+    _pickup_dt_10 = _pickup_dt + timedelta(minutes=10)
+    _pickup_dt_20 = _pickup_dt + timedelta(minutes=20)
+    adjust10_iso = _pickup_dt_10.isoformat()
+    adjust20_iso = _pickup_dt_20.isoformat()
+    adjust10_label = f"{fmt_uk_time(_pickup_dt_10)} (+10 mins)"
+    adjust20_label = f"{fmt_uk_time(_pickup_dt_20)} (+20 mins)"
+
     # get restaurant admins
     _restaurant_master = RestaurantMaster.from_rest_ref(rest_ref)
     rest_admins = _restaurant_master.get_admins()
@@ -219,6 +232,16 @@ Delivery Details:
             restaurant_name=_restaurant_master.rest_name,
             order_id=order_id,
         )
+        adjust_pickup_10 = CallbackButtonData(
+            action="/AdminAdjustPickupTime10",
+            order_number=order_number,
+            pickup_time=adjust10_iso,
+        )
+        adjust_pickup_20 = CallbackButtonData(
+            action="/AdminAdjustPickupTime20",
+            order_number=order_number,
+            pickup_time=adjust20_iso,
+        )
         await _async_wa_client.send_message(
             to=admin,
             header=rest_header,
@@ -228,7 +251,15 @@ Delivery Details:
                 Button(
                     title="Ready - Notify Rider",
                     callback_data=food_ready_y.model_dump_json(),
-                )
+                ),
+                Button(
+                    title=adjust10_label,
+                    callback_data=adjust_pickup_10.model_dump_json(),
+                ),
+                Button(
+                    title=adjust20_label,
+                    callback_data=adjust_pickup_20.model_dump_json(),
+                ),
             ],
         )
     return

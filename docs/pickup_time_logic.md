@@ -50,7 +50,29 @@ Runtime flow for `pickup_time` in `delivery_summary` and `takeaway_summary`.
   - `status = 'unassigned'`
 - Admins are notified with the auto-assigned pickup time.
 
-### 5) Downstream use
+### 5) Admin adjustment after inflight (mid-delivery pickup-time change)
+
+Once a delivery is inflight, a restaurant admin can adjust the pickup time from the order receipt message they received when the rider was assigned.
+
+**Full chain:**
+
+```
+Admin taps "Adjust Pickup Time" button (+10 or +20 min)
+  → /AdminAdjustPickupTime WA callback
+  → admin_adjust_pickup_time() in on_callback_wa_handler.py
+  → UPDATE delivery_summary SET pickup_time=<new>, restaurant_confirmation_status='restaurant_pickuptime_adjusted'
+  → trigger_restaurant_updates fires
+  → restaurant_updates_whook() → POST /delivery-hooks/restaurant-confirmation-request
+  → restaurant_confirmation_flow() dispatches to _handle_restaurant_pickuptime_adjusted()
+  → looks up rider_id from delivery_inflight by order_number
+  → run_rider_agent_w_custom_msg(state_update_dict={'pickup_time': <new>})
+  → agent calls notify_pickup_time_adjusted tool
+  → rider receives WhatsApp message with updated time
+```
+
+**Key point:** `run_rider_agent_w_custom_msg()` accepts an optional `state_update_dict` that patches values into the agent's LangGraph state **before** the LLM turn runs. This is how `notify_pickup_time_adjusted` reads the fresh `pickup_time` from state rather than re-querying the DB. If no rider is currently inflight for the order, `_handle_restaurant_pickuptime_adjusted()` logs and skips silently.
+
+### 6) Downstream use
 
 - `pickup_time` is included in rider dispatch payload/message flow (see `docs/dispatch_flow.md`).
 - SQL payload wiring for restaurant webhook includes `pickup_time` in `ordelo_datamodels/summary.sql` (`restaurant_updates_whook()` JSON build).

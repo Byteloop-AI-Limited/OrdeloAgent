@@ -1,0 +1,870 @@
+{
+  "nodes": [
+    {
+      "id": "file:ordelo/agents/agent_runner.py",
+      "type": "file",
+      "name": "agent_runner.py",
+      "filePath": "ordelo/agents/agent_runner.py",
+      "summary": "Primary entry point for invoking and initializing the LangGraph rider agent, providing functions to run the graph with custom messages, initialize new delivery state, and debug thread state.",
+      "tags": ["service", "agent", "entry-point", "langgraph"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:ordelo/agents/agent_runner.py:run_rider_agent_w_custom_msg",
+      "type": "function",
+      "name": "run_rider_agent_w_custom_msg",
+      "filePath": "ordelo/agents/agent_runner.py",
+      "lineRange": [49, 93],
+      "summary": "Invokes the LangGraph rider agent graph for a recipient with a custom message payload, compiling the graph with AsyncPostgresSaver checkpointer.",
+      "tags": ["service", "agent", "async", "langgraph"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:ordelo/agents/agent_runner.py:init_ordelo_graph",
+      "type": "function",
+      "name": "init_ordelo_graph",
+      "filePath": "ordelo/agents/agent_runner.py",
+      "lineRange": [97, 141],
+      "summary": "Initializes a new LangGraph delivery workflow for a rider, setting up initial agent state with delivery context and invoking the graph for the first time.",
+      "tags": ["service", "agent", "factory", "delivery"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:ordelo/agents/agent_runner.py:debug_thread",
+      "type": "function",
+      "name": "debug_thread",
+      "filePath": "ordelo/agents/agent_runner.py",
+      "lineRange": [186, 214],
+      "summary": "Retrieves and prints the LangGraph agent state for a given thread ID, useful for debugging inflight delivery conversations.",
+      "tags": ["utility", "debug", "langgraph"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:ordelo/agents/agent_runner_with_db_retry.py",
+      "type": "file",
+      "name": "agent_runner_with_db_retry.py",
+      "filePath": "ordelo/agents/agent_runner_with_db_retry.py",
+      "summary": "Enhanced version of agent_runner.py with automatic DB connection retry logic (up to 3 attempts with pool reset on failure) for both the byteloop and rider agents.",
+      "tags": ["service", "agent", "resilience", "langgraph"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:ordelo/agents/agent_runner_with_db_retry.py:run_rider_graph",
+      "type": "function",
+      "name": "run_rider_graph",
+      "filePath": "ordelo/agents/agent_runner_with_db_retry.py",
+      "lineRange": [87, 150],
+      "summary": "Invokes the rider LangGraph with retry logic, resetting the async connection pool and retrying up to 3 times on database errors.",
+      "tags": ["service", "agent", "resilience", "async"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:ordelo/agents/agent_runner_with_db_retry.py:init_ordelo_graph",
+      "type": "function",
+      "name": "init_ordelo_graph",
+      "filePath": "ordelo/agents/agent_runner_with_db_retry.py",
+      "lineRange": [154, 234],
+      "summary": "Initializes a new delivery workflow with retry logic, handling psycopg OperationalErrors and generic exceptions with pool reset and exponential backoff.",
+      "tags": ["service", "agent", "factory", "resilience"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:ordelo/agents/byteloop_agent.py",
+      "type": "file",
+      "name": "byteloop_agent.py",
+      "filePath": "ordelo/agents/byteloop_agent.py",
+      "summary": "Defines the Byteloop general-purpose LangGraph agent with prompt construction, WhatsApp notification tool, and a ContextSchema Pydantic model for dependency injection.",
+      "tags": ["agent", "langgraph", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:ordelo/agents/byteloop_agent.py:ContextSchema",
+      "type": "class",
+      "name": "ContextSchema",
+      "filePath": "ordelo/agents/byteloop_agent.py",
+      "lineRange": [88, 97],
+      "summary": "Pydantic model for byteloop agent runtime context, holding the DB pool, WhatsApp client, and ThreadHandler instance.",
+      "tags": ["data-model", "dependency-injection"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:ordelo/agents/rider_agent.py",
+      "type": "file",
+      "name": "rider_agent.py",
+      "filePath": "ordelo/agents/rider_agent.py",
+      "summary": "Core LangGraph StateGraph defining the inflight rider delivery agent with 12 registered tools (delivery instructions, location sending, confirmation code verification, cancel/terminate), AgentState TypedDict, and the agent/respond graph nodes.",
+      "tags": ["agent", "langgraph", "entry-point", "delivery"],
+      "complexity": "complex",
+      "languageNotes": "Uses LangGraph Command objects for state transitions within tool functions, and a ContextSchema Pydantic model for injecting runtime dependencies (WA client, DB pool, ThreadHandler) via configurable graph config."
+    },
+    {
+      "id": "class:ordelo/agents/rider_agent.py:AgentState",
+      "type": "class",
+      "name": "AgentState",
+      "filePath": "ordelo/agents/rider_agent.py",
+      "lineRange": [84, 96],
+      "summary": "TypedDict defining the LangGraph rider agent state with 12 fields tracking delivery context, confirmation status, and conversation state.",
+      "tags": ["data-model", "langgraph", "delivery"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:ordelo/agents/rider_agent.py:ContextSchema",
+      "type": "class",
+      "name": "ContextSchema",
+      "filePath": "ordelo/agents/rider_agent.py",
+      "lineRange": [100, 111],
+      "summary": "Pydantic model for rider agent runtime context, injecting the DB pool, WhatsApp client, Supabase client, recipient phone, and ThreadHandler.",
+      "tags": ["data-model", "dependency-injection"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:ordelo/agents/rider_agent.py:verify_restaurant_confirmation_code",
+      "type": "function",
+      "name": "verify_restaurant_confirmation_code",
+      "filePath": "ordelo/agents/rider_agent.py",
+      "lineRange": [536, 662],
+      "summary": "LangGraph tool that verifies the restaurant's 4-digit confirmation code at pickup, updates dispatch status to 'pickedup', and triggers restaurant cross-notification webhook.",
+      "tags": ["agent", "delivery", "validation", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:ordelo/agents/rider_agent.py:verify_customer_confirmation_code",
+      "type": "function",
+      "name": "verify_customer_confirmation_code",
+      "filePath": "ordelo/agents/rider_agent.py",
+      "lineRange": [805, 931],
+      "summary": "LangGraph tool that verifies the customer's delivery confirmation code, calls the dispatch_complete_func RPC, sends admin notifications, and marks the thread inactive.",
+      "tags": ["agent", "delivery", "validation", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:ordelo/agents/rider_agent.py:cancel_delivery_before_pickup",
+      "type": "function",
+      "name": "cancel_delivery_before_pickup",
+      "filePath": "ordelo/agents/rider_agent.py",
+      "lineRange": [668, 734],
+      "summary": "LangGraph tool that cancels a delivery before pickup by calling the dispatch_cancel_before_pickup RPC and transitioning state.",
+      "tags": ["agent", "delivery", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:ordelo/agents/rider_agent.py:terminate_delivery_job",
+      "type": "function",
+      "name": "terminate_delivery_job",
+      "filePath": "ordelo/agents/rider_agent.py",
+      "lineRange": [987, 1044],
+      "summary": "LangGraph tool that terminates an inflight delivery, recording a decline reason, deactivating the thread, and sending a stop-job config message to the rider.",
+      "tags": ["agent", "delivery", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:ordelo/agents/rider_agent.py:send_delivery_instructions",
+      "type": "function",
+      "name": "send_delivery_instructions",
+      "filePath": "ordelo/agents/rider_agent.py",
+      "lineRange": [439, 483],
+      "summary": "LangGraph tool that sends the full delivery instructions message to the rider at the start of an inflight delivery.",
+      "tags": ["agent", "delivery", "whatsapp"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:ordelo/agents/rider_agent.py:agent_node",
+      "type": "function",
+      "name": "agent_node",
+      "filePath": "ordelo/agents/rider_agent.py",
+      "lineRange": [1086, 1133],
+      "summary": "Core LangGraph graph node that invokes the rider LLM agent, handles tool calls, and manages state transitions including error recovery.",
+      "tags": ["agent", "langgraph", "middleware"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:ordelo/agents/rider_agent.py:send_start_live_tracking_link",
+      "type": "function",
+      "name": "send_start_live_tracking_link",
+      "filePath": "ordelo/agents/rider_agent.py",
+      "lineRange": [489, 532],
+      "summary": "LangGraph tool that sends a live tracking start link to the rider via WhatsApp after pickup.",
+      "tags": ["agent", "delivery", "whatsapp"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:scripts/debug_thread_messages.py",
+      "type": "file",
+      "name": "debug_thread_messages.py",
+      "filePath": "scripts/debug_thread_messages.py",
+      "summary": "CLI debug script that prints all messages in a LangGraph thread in chronological order with role and content extraction.",
+      "tags": ["utility", "script", "debug"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/utils_common/thread_management/test_thread_handler.py",
+      "type": "file",
+      "name": "test_thread_handler.py",
+      "filePath": "tests/utils_common/thread_management/test_thread_handler.py",
+      "summary": "Unit tests for ThreadHandler covering thread creation, active thread lookup, stale thread management, and the get-or-create pattern using a fake pool.",
+      "tags": ["test", "thread-management"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/db_utils/sbase_pool_ops.py",
+      "type": "file",
+      "name": "sbase_pool_ops.py",
+      "filePath": "utils_common/db_utils/sbase_pool_ops.py",
+      "summary": "Provides synchronous Pydantic model DB insertion and raw SQL query execution using psycopg connection pool from pg_settings.",
+      "tags": ["utility", "database", "service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:utils_common/db_utils/sbase_pool_ops.py:execute_sql_query",
+      "type": "function",
+      "name": "execute_sql_query",
+      "filePath": "utils_common/db_utils/sbase_pool_ops.py",
+      "lineRange": [43, 75],
+      "summary": "Executes an arbitrary SQL query (SELECT or DML) using the psycopg pool, committing writes and returning rows for SELECT statements.",
+      "tags": ["utility", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/db_utils/sbase_pool_ops.py:insert_model_to_db",
+      "type": "function",
+      "name": "insert_model_to_db",
+      "filePath": "utils_common/db_utils/sbase_pool_ops.py",
+      "lineRange": [11, 40],
+      "summary": "Inserts a Pydantic model instance into a specified database table by building an INSERT query from the model's fields.",
+      "tags": ["utility", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:utils_common/lg_utils.py",
+      "type": "file",
+      "name": "lg_utils.py",
+      "filePath": "utils_common/lg_utils.py",
+      "summary": "Core LangGraph utilities library providing agent factory functions, state management helpers, thread configuration, message manipulation, and LLM instance initialization.",
+      "tags": ["utility", "langgraph", "service", "factory"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:utils_common/lg_utils.py:get_config_for_recipient",
+      "type": "function",
+      "name": "get_config_for_recipient",
+      "filePath": "utils_common/lg_utils.py",
+      "lineRange": [424, 440],
+      "summary": "Creates or retrieves a LangGraph runnable config for a rider recipient by looking up or creating their thread in the database.",
+      "tags": ["utility", "langgraph", "thread-management"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:utils_common/lg_utils.py:create_agent_w_sys_prompt_n_tools",
+      "type": "function",
+      "name": "create_agent_w_sys_prompt_n_tools",
+      "filePath": "utils_common/lg_utils.py",
+      "lineRange": [177, 211],
+      "summary": "Factory function that creates a LangGraph-compatible chat agent with a system prompt and bound tools, supporting optional parallel tool calls.",
+      "tags": ["factory", "langgraph", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:utils_common/lg_utils.py:shorten_state_messages",
+      "type": "function",
+      "name": "shorten_state_messages",
+      "filePath": "utils_common/lg_utils.py",
+      "lineRange": [462, 480],
+      "summary": "Truncates and dumps LangGraph state messages to concise type/content dictionaries for logging.",
+      "tags": ["utility", "debug", "langgraph"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:utils_common/lg_utils.py:FormattedResponse",
+      "type": "class",
+      "name": "FormattedResponse",
+      "filePath": "utils_common/lg_utils.py",
+      "lineRange": [277, 286],
+      "summary": "Pydantic model for structured AI responses containing a general text response and list of option strings for UI rendering.",
+      "tags": ["data-model", "serialization"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/thread_management/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "utils_common/thread_management/__init__.py",
+      "summary": "Package barrel that re-exports the ThreadHandler class for the thread_management module.",
+      "tags": ["barrel", "entry-point", "thread-management"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:utils_common/thread_management/thread_handler.py",
+      "type": "file",
+      "name": "thread_handler.py",
+      "filePath": "utils_common/thread_management/thread_handler.py",
+      "summary": "Implements the ThreadHandler class managing LangGraph thread lifecycle in the database — creation, active lookup, stale detection, deactivation, and retain operations.",
+      "tags": ["service", "thread-management", "database"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:utils_common/thread_management/thread_handler.py:ThreadHandler",
+      "type": "class",
+      "name": "ThreadHandler",
+      "filePath": "utils_common/thread_management/thread_handler.py",
+      "lineRange": [21, 125],
+      "summary": "Manages LangGraph conversation thread state in PostgreSQL, providing CRUD-like operations for thread records keyed by recipient phone number and agent name.",
+      "tags": ["service", "thread-management", "database"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:ordelo/agents/agent_runner.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner.py",
+      "target": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner.py",
+      "target": "file:ordelo/agent_app_handlers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner.py",
+      "target": "file:ordelo/agents/rider_agent.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner.py",
+      "target": "file:utils_common/lg_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner.py",
+      "target": "function:ordelo/agents/agent_runner.py:run_rider_agent_w_custom_msg",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner.py",
+      "target": "function:ordelo/agents/agent_runner.py:run_rider_agent_w_custom_msg",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner.py",
+      "target": "function:ordelo/agents/agent_runner.py:init_ordelo_graph",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner.py",
+      "target": "function:ordelo/agents/agent_runner.py:init_ordelo_graph",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner.py",
+      "target": "function:ordelo/agents/agent_runner.py:debug_thread",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner.py",
+      "target": "function:ordelo/agents/agent_runner.py:debug_thread",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner_with_db_retry.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner_with_db_retry.py",
+      "target": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner_with_db_retry.py",
+      "target": "file:ordelo/agent_app_handlers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner_with_db_retry.py",
+      "target": "file:ordelo/agents/byteloop_agent.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner_with_db_retry.py",
+      "target": "file:ordelo/agents/rider_agent.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner_with_db_retry.py",
+      "target": "file:utils_common/lg_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner_with_db_retry.py",
+      "target": "file:utils_common/thread_management/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner_with_db_retry.py",
+      "target": "function:ordelo/agents/agent_runner_with_db_retry.py:run_rider_graph",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner_with_db_retry.py",
+      "target": "function:ordelo/agents/agent_runner_with_db_retry.py:run_rider_graph",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner_with_db_retry.py",
+      "target": "function:ordelo/agents/agent_runner_with_db_retry.py:init_ordelo_graph",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/agent_runner_with_db_retry.py",
+      "target": "function:ordelo/agents/agent_runner_with_db_retry.py:init_ordelo_graph",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/byteloop_agent.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/byteloop_agent.py",
+      "target": "file:utils_common/lg_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/byteloop_agent.py",
+      "target": "file:utils_common/thread_management/thread_handler.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/byteloop_agent.py",
+      "target": "class:ordelo/agents/byteloop_agent.py:ContextSchema",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/byteloop_agent.py",
+      "target": "class:ordelo/agents/byteloop_agent.py:ContextSchema",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "file:config/params.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "file:ordelo_datamodels/restaurant_master_pymodel.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "file:ordelo/agent_app_handlers.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "file:utils_common/lg_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "file:utils_common/thread_management/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "file:utils_common/tz_utils.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "class:ordelo/agents/rider_agent.py:AgentState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "class:ordelo/agents/rider_agent.py:AgentState",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "class:ordelo/agents/rider_agent.py:ContextSchema",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "class:ordelo/agents/rider_agent.py:ContextSchema",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:verify_restaurant_confirmation_code",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:verify_restaurant_confirmation_code",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:verify_customer_confirmation_code",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:verify_customer_confirmation_code",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:cancel_delivery_before_pickup",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:cancel_delivery_before_pickup",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:terminate_delivery_job",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:terminate_delivery_job",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:send_delivery_instructions",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:send_delivery_instructions",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:agent_node",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:agent_node",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:send_start_live_tracking_link",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:ordelo/agents/rider_agent.py",
+      "target": "function:ordelo/agents/rider_agent.py:send_start_live_tracking_link",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:scripts/debug_thread_messages.py",
+      "target": "file:ordelo/agents/agent_runner.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/utils_common/thread_management/test_thread_handler.py",
+      "target": "file:utils_common/thread_management/thread_handler.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/thread_management/thread_handler.py",
+      "target": "file:utils_common/thread_management/thread_handler.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_pool_ops.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_pool_ops.py",
+      "target": "function:utils_common/db_utils/sbase_pool_ops.py:execute_sql_query",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_pool_ops.py",
+      "target": "function:utils_common/db_utils/sbase_pool_ops.py:execute_sql_query",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_pool_ops.py",
+      "target": "function:utils_common/db_utils/sbase_pool_ops.py:insert_model_to_db",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/db_utils/sbase_pool_ops.py",
+      "target": "function:utils_common/db_utils/sbase_pool_ops.py:insert_model_to_db",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/lg_utils.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/lg_utils.py",
+      "target": "file:utils_common/thread_management/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/lg_utils.py",
+      "target": "function:utils_common/lg_utils.py:get_config_for_recipient",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/lg_utils.py",
+      "target": "function:utils_common/lg_utils.py:get_config_for_recipient",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/lg_utils.py",
+      "target": "function:utils_common/lg_utils.py:create_agent_w_sys_prompt_n_tools",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/lg_utils.py",
+      "target": "function:utils_common/lg_utils.py:create_agent_w_sys_prompt_n_tools",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/lg_utils.py",
+      "target": "function:utils_common/lg_utils.py:shorten_state_messages",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/lg_utils.py",
+      "target": "function:utils_common/lg_utils.py:shorten_state_messages",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/lg_utils.py",
+      "target": "class:utils_common/lg_utils.py:FormattedResponse",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/lg_utils.py",
+      "target": "class:utils_common/lg_utils.py:FormattedResponse",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:utils_common/thread_management/__init__.py",
+      "target": "file:utils_common/thread_management/thread_handler.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/thread_management/thread_handler.py",
+      "target": "file:config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:utils_common/thread_management/thread_handler.py",
+      "target": "class:utils_common/thread_management/thread_handler.py:ThreadHandler",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:utils_common/thread_management/thread_handler.py",
+      "target": "class:utils_common/thread_management/thread_handler.py:ThreadHandler",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:ordelo/agents/rider_agent.py:verify_restaurant_confirmation_code",
+      "target": "function:ordelo/agent_app_handlers.py:post_rider_event_restaurant_cc",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:ordelo/agents/rider_agent.py:verify_customer_confirmation_code",
+      "target": "function:ordelo/agent_app_handlers.py:post_rider_event_customer_cc",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:ordelo/agents/rider_agent.py:send_delivery_instructions",
+      "target": "function:ordelo/agent_app_handlers.py:_send_delivery_instructions",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:ordelo/agents/agent_runner.py:init_ordelo_graph",
+      "target": "function:ordelo/agent_app_handlers.py:create_start_job_config",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:ordelo/agents/agent_runner_with_db_retry.py:init_ordelo_graph",
+      "target": "function:ordelo/agent_app_handlers.py:create_start_job_config",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

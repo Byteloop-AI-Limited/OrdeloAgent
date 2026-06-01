@@ -1,0 +1,17 @@
+{
+  "fixedSectionOk": true,
+  "nodesRecovered": 0,
+  "edgesRestored": 0,
+  "crossBatchEdgesAdded": 0,
+  "typesRemapped": 0,
+  "complexityRemapped": 0,
+  "notes": [
+    "Graph is clean: 10 nodes (3 types: document, file, config), 21 edges, no dangling references, all complexity values valid (simple/moderate/complex).",
+    "No 'Could not fix' items found: no nodes with missing IDs, no unknown types, no unknown complexity values, no dropped dangling edges.",
+    "All 16 required relationships from the task's key-relationship list are present. 14 exist as direct forward edges; 2 exist as reverse-direction edges covering the same semantic relationship (pickup_time_logic->takeaway_flow covers takeaway_flow->pickup_time_logic; delivery_process->location_overview covers location_overview->delivery_process).",
+    "The two task-listed edges that are absent in forward direction (takeaway_flow->pickup_time_logic, location_overview->delivery_process) were NOT added because neither source document contains an explicit textual cross-reference to the target — takeaway_flow.md only cites delivery_process.md, and location_overview.md has no outbound doc citations. The reverse edges already capture the semantic relationship.",
+    "delivery_process_explorer.html covers delivery-process phases 1-6 and does not reference payment_and_order_flow.md or location_overview.md by name; no 'documents' edges to those were added.",
+    "batch-graph-2.json contributed only the config:.understand-anything/.understandignore node with no edges — this is expected (tooling config file, no cross-references).",
+    "All mechanical fixes had already been applied by merge-batch-graphs.py before this review. The assembled-graph.json file required no changes."
+  ]
+}

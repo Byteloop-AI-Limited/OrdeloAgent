@@ -1,0 +1,218 @@
+{
+  "nodes": [
+    {
+      "id": "document:.windsurf/workflows/analyze.md",
+      "type": "document",
+      "name": "analyze.md",
+      "filePath": ".windsurf/workflows/analyze.md",
+      "summary": "Windsurf AI workflow definition for analysing an existing codebase or feature — instructs the IDE agent to read artifacts, build a semantic model, and produce findings.",
+      "tags": ["documentation", "workflow", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.windsurf/workflows/clarify.md",
+      "type": "document",
+      "name": "clarify.md",
+      "filePath": ".windsurf/workflows/clarify.md",
+      "summary": "Windsurf workflow for the requirements clarification phase, guiding the AI agent to ask targeted disambiguation questions before committing to a specification.",
+      "tags": ["documentation", "workflow", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.windsurf/workflows/constitution.md",
+      "type": "document",
+      "name": "constitution.md",
+      "filePath": ".windsurf/workflows/constitution.md",
+      "summary": "Windsurf workflow that enforces architectural and design principles (the project constitution) as a gate before planning or implementation phases proceed.",
+      "tags": ["documentation", "workflow", "development", "configuration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.windsurf/workflows/implement.md",
+      "type": "document",
+      "name": "implement.md",
+      "filePath": ".windsurf/workflows/implement.md",
+      "summary": "Windsurf workflow for the implementation phase, directing the AI agent to execute tasks from tasks.md while respecting the plan and constitution constraints.",
+      "tags": ["documentation", "workflow", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.windsurf/workflows/plan.md",
+      "type": "document",
+      "name": "plan.md",
+      "filePath": ".windsurf/workflows/plan.md",
+      "summary": "Windsurf workflow for generating an implementation plan from a feature specification, populating the plan.md artifact with phased technical design.",
+      "tags": ["documentation", "workflow", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.windsurf/workflows/specify.md",
+      "type": "document",
+      "name": "specify.md",
+      "filePath": ".windsurf/workflows/specify.md",
+      "summary": "Minimal Windsurf workflow entry point that bootstraps the speckit specification process for a new feature, invoking the speckit.specify workflow.",
+      "tags": ["documentation", "workflow", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.windsurf/workflows/speckit.analyze.md",
+      "type": "document",
+      "name": "speckit.analyze.md",
+      "filePath": ".windsurf/workflows/speckit.analyze.md",
+      "summary": "Full speckit workflow for deep specification analysis — loads feature artifacts, runs six detection passes (duplication, ambiguity, underspecification, constitution alignment, coverage gaps, inconsistency), and produces a severity-ranked report.",
+      "tags": ["documentation", "workflow", "development", "specification"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:.windsurf/workflows/speckit.checklist.md",
+      "type": "document",
+      "name": "speckit.checklist.md",
+      "filePath": ".windsurf/workflows/speckit.checklist.md",
+      "summary": "Speckit workflow for generating targeted verification checklists (described as 'unit tests for English') from feature specifications, with examples and anti-patterns for common checklist types.",
+      "tags": ["documentation", "workflow", "development", "specification"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:.windsurf/workflows/speckit.clarify.md",
+      "type": "document",
+      "name": "speckit.clarify.md",
+      "filePath": ".windsurf/workflows/speckit.clarify.md",
+      "summary": "Speckit requirements clarification workflow that interrogates user input to surface ambiguities, missing constraints, and hidden assumptions before writing a specification.",
+      "tags": ["documentation", "workflow", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.windsurf/workflows/speckit.constitution.md",
+      "type": "document",
+      "name": "speckit.constitution.md",
+      "filePath": ".windsurf/workflows/speckit.constitution.md",
+      "summary": "Speckit constitution workflow for capturing and enforcing project-wide architectural rules, coding conventions, and non-negotiable constraints that all features must comply with.",
+      "tags": ["documentation", "workflow", "development", "configuration"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.windsurf/workflows/speckit.implement.md",
+      "type": "document",
+      "name": "speckit.implement.md",
+      "filePath": ".windsurf/workflows/speckit.implement.md",
+      "summary": "Speckit implementation workflow directing the AI agent to execute individual tasks from tasks.md in priority order, with constitution and plan validation at each step.",
+      "tags": ["documentation", "workflow", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.windsurf/workflows/speckit.plan.md",
+      "type": "document",
+      "name": "speckit.plan.md",
+      "filePath": ".windsurf/workflows/speckit.plan.md",
+      "summary": "Speckit planning workflow that transforms a feature specification into a two-phase implementation plan (outline/research then design/contracts), with rules for maintaining traceability to the spec.",
+      "tags": ["documentation", "workflow", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.windsurf/workflows/speckit.specify.md",
+      "type": "document",
+      "name": "speckit.specify.md",
+      "filePath": ".windsurf/workflows/speckit.specify.md",
+      "summary": "Speckit specification authoring workflow with detailed guidelines for writing user stories, acceptance criteria, functional requirements, and success metrics using the spec-template format.",
+      "tags": ["documentation", "workflow", "development", "specification"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:.windsurf/workflows/speckit.tasks.md",
+      "type": "document",
+      "name": "speckit.tasks.md",
+      "filePath": ".windsurf/workflows/speckit.tasks.md",
+      "summary": "Speckit task generation workflow that decomposes a plan into a structured, checkbox-formatted task list with phased organisation, dependency tracking, and parallel execution opportunities.",
+      "tags": ["documentation", "workflow", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.windsurf/workflows/tasks.md",
+      "type": "document",
+      "name": "tasks.md",
+      "filePath": ".windsurf/workflows/tasks.md",
+      "summary": "Windsurf workflow entry point for task generation, delegating to speckit.tasks to produce a phased implementation task list from the current feature's plan and spec.",
+      "tags": ["documentation", "workflow", "development"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:.windsurf/workflows/specify.md",
+      "target": "document:.windsurf/workflows/speckit.specify.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.windsurf/workflows/analyze.md",
+      "target": "document:.windsurf/workflows/speckit.analyze.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.windsurf/workflows/clarify.md",
+      "target": "document:.windsurf/workflows/speckit.clarify.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.windsurf/workflows/constitution.md",
+      "target": "document:.windsurf/workflows/speckit.constitution.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.windsurf/workflows/implement.md",
+      "target": "document:.windsurf/workflows/speckit.implement.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.windsurf/workflows/plan.md",
+      "target": "document:.windsurf/workflows/speckit.plan.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.windsurf/workflows/tasks.md",
+      "target": "document:.windsurf/workflows/speckit.tasks.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.windsurf/workflows/speckit.analyze.md",
+      "target": "document:.windsurf/workflows/speckit.specify.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.windsurf/workflows/speckit.implement.md",
+      "target": "document:.windsurf/workflows/speckit.tasks.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.windsurf/workflows/speckit.tasks.md",
+      "target": "document:.windsurf/workflows/speckit.plan.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.windsurf/workflows/speckit.plan.md",
+      "target": "document:.windsurf/workflows/speckit.specify.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

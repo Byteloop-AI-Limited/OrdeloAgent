@@ -486,14 +486,16 @@ Hi {rider_name}, here are the Delivery details:
         ],
     )
 
-    # Send the URL to the rider
-    # await _async_wa_client.send_message(
-    #     to=recipient,
-    #     header="Enable Live Tracking",
-    #     text="Please turn on the live tracking by clicking the link below.",
-    #     reply_to_message_id=reply_to_msg_id.id,
-    #     buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
-    # )
+    # Timing reminder — ask rider to arrive at pickup time, not before
+    await wa_client.send_message(
+        to=recipient,
+        text=(
+            f"⏱️ *Heads up!* The restaurant will have your order ready at *{pickup_display}*.\n\n"
+            f"Please plan to arrive at the restaurant right around that time — "
+            f"no need to head over early. We appreciate you helping us keep things running smoothly! 🙌"
+        ),
+        reply_to_message_id=reply_to_msg_id.id,
+    )
     return reply_to_msg_id.id, body_text
 
 

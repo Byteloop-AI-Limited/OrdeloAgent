@@ -1,0 +1,9 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "notebooks/owntracks_payload_eg.json", "language": "json", "sizeLines": 34, "fileCategory": "config"},
+    {"path": "notebooks/test_sql.sql", "language": "sql", "sizeLines": 0, "fileCategory": "data"},
+    {"path": "notebooks/toDo.md", "language": "markdown", "sizeLines": 161, "fileCategory": "docs"}
+  ],
+  "batchImportData": {}
+}

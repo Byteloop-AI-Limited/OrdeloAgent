@@ -1,0 +1,585 @@
+{
+  "nodes": [
+    {
+      "id": "file:tests/config/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/config/__init__.py",
+      "summary": "Empty package initializer making the tests/config directory a Python package.",
+      "tags": ["entry-point", "test", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/config/test_params.py",
+      "type": "file",
+      "name": "test_params.py",
+      "filePath": "tests/config/test_params.py",
+      "summary": "Unit tests for the config/params module verifying alias resolution, restaurant base URL caching, webhook URL formatting, and overwatch list parsing.",
+      "tags": ["test", "configuration", "caching"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/fixtures/builders.py",
+      "type": "file",
+      "name": "builders.py",
+      "filePath": "tests/fixtures/builders.py",
+      "summary": "Test fixture builder functions that construct default Pydantic model instances (DeliverySummary, DeliveryDispatch, DeliveryDetail, RestaurantMaster, CustomerMaster) with optional field overrides.",
+      "tags": ["test", "factory", "utility"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/fixtures/fake_llm.py",
+      "type": "file",
+      "name": "fake_llm.py",
+      "filePath": "tests/fixtures/fake_llm.py",
+      "summary": "Provides FakeChatModel, a controllable LangChain chat model stub that queues pre-set responses, and pytest fixtures to inject it in place of the real LLM client.",
+      "tags": ["test", "fixture", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/fixtures/fake_pool.py",
+      "type": "file",
+      "name": "fake_pool.py",
+      "filePath": "tests/fixtures/fake_pool.py",
+      "summary": "In-memory async psycopg connection pool mock (FakeAsyncConnectionPool, FakeAsyncConnection, FakeAsyncCursor) that records SQL executions and returns pre-registered responses, with pytest fixtures for patching.",
+      "tags": ["test", "fixture", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/fixtures/fake_supabase.py",
+      "type": "file",
+      "name": "fake_supabase.py",
+      "filePath": "tests/fixtures/fake_supabase.py",
+      "summary": "Full Supabase REST client mock (FakeSupabaseClient, FakeSupabaseQuery, FakeSupabaseRPC, FakeSupabaseSchema) that records all table and RPC calls and returns pre-registered response data, with pytest fixtures for global patching.",
+      "tags": ["test", "fixture", "service"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:tests/fixtures/fake_wa.py",
+      "type": "file",
+      "name": "fake_wa.py",
+      "filePath": "tests/fixtures/fake_wa.py",
+      "summary": "WhatsApp (PyWA) client mock providing FakeAsyncWhatsApp and FakeSyncWhatsApp that record all sent messages and return trackable result objects, plus FakeMessage and FakeCallbackButton stubs.",
+      "tags": ["test", "fixture", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/fixtures/fixtures_pkg.py",
+      "type": "file",
+      "name": "fixtures_pkg.py",
+      "filePath": "tests/fixtures/fixtures_pkg.py",
+      "summary": "Pytest package entry point that re-imports all fixture modules (builders, fake_llm, fake_pool, fake_supabase, fake_wa) so their fixtures are automatically discovered by pytest.",
+      "tags": ["entry-point", "test", "barrel"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/ordelo/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/ordelo/__init__.py",
+      "summary": "Empty package initializer making the tests/ordelo directory a Python package.",
+      "tags": ["entry-point", "test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/ordelo/agents/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/ordelo/agents/__init__.py",
+      "summary": "Empty package initializer making the tests/ordelo/agents directory a Python package.",
+      "tags": ["entry-point", "test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/ordelo/agents/test_agent_runner.py",
+      "type": "file",
+      "name": "test_agent_runner.py",
+      "filePath": "tests/ordelo/agents/test_agent_runner.py",
+      "summary": "Tests for ordelo/agents/agent_runner.py covering run_rider_agent_w_custom_msg, init_ordelo_graph, debug_state_values, debug_thread, and job_end_stale_conversations using a fake LangGraph stub.",
+      "tags": ["test", "service", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/ordelo/agents/test_rider_agent.py",
+      "type": "file",
+      "name": "test_rider_agent.py",
+      "filePath": "tests/ordelo/agents/test_rider_agent.py",
+      "summary": "Unit tests for the rider_agent LangGraph tool functions including pickup/dropoff location sending, confirmation code verification, cancel-before-pickup, delivery termination, agent_node routing, and respond_node output.",
+      "tags": ["test", "service", "event-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:tests/ordelo/test_agent_app_handlers.py",
+      "type": "file",
+      "name": "test_agent_app_handlers.py",
+      "filePath": "tests/ordelo/test_agent_app_handlers.py",
+      "summary": "Tests for ordelo/agent_app_handlers.py covering config href encoding, initial rider response handling (accept/decline/unavailable), live location checks, delivery instructions composition, and rider event webhook posting.",
+      "tags": ["test", "api-handler", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/regressions/test_p5_regressions.py",
+      "type": "file",
+      "name": "test_p5_regressions.py",
+      "filePath": "tests/regressions/test_p5_regressions.py",
+      "summary": "Phase-5 regression tests guarding against previously fixed bugs: WhatsApp template parameter usage, rider name sourcing in cancel flow, dispatch-decline routing, takeaway webhook failure handling, and invalid flow payload errors.",
+      "tags": ["test", "event-handler", "api-handler"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:tests/regressions/test_p7_msg_handler.py",
+      "type": "file",
+      "name": "test_p7_msg_handler.py",
+      "filePath": "tests/regressions/test_p7_msg_handler.py",
+      "summary": "Phase-7 regression tests for the WhatsApp message handler covering time conversion, service-hours checks, closed message sending, live location dispatch lookup, shift-end intent processing, and sign-up request handling.",
+      "tags": ["test", "event-handler", "api-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/regressions/test_p7_rider_agent.py",
+      "type": "file",
+      "name": "test_p7_rider_agent.py",
+      "filePath": "tests/regressions/test_p7_rider_agent.py",
+      "summary": "Phase-7 regression tests exercising rider_agent tool functions (food-ready notification, location sending, customer contact, cancel reason capture) against minimal fake context objects without real Supabase or WhatsApp dependencies.",
+      "tags": ["test", "service", "event-handler"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/regressions/test_p7_takeaway.py",
+      "type": "file",
+      "name": "test_p7_takeaway.py",
+      "filePath": "tests/regressions/test_p7_takeaway.py",
+      "summary": "Phase-7 regression tests for the takeaway_hooks router covering confirmation flow routing, accept/decline handling, payment cancellation, pickup time webhooks, background task scheduling, and display formatting.",
+      "tags": ["test", "api-handler", "event-handler"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/regressions/test_p7_wa_senders.py",
+      "type": "file",
+      "name": "test_p7_wa_senders.py",
+      "filePath": "tests/regressions/test_p7_wa_senders.py",
+      "summary": "Phase-7 regression tests for WhatsApp sender utilities (postcode flow, reservation links, delayed text, product sections, shift availability, admin notifications) using the fake async WhatsApp client.",
+      "tags": ["test", "utility", "service"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/utils_common/order_management/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/utils_common/order_management/__init__.py",
+      "summary": "Empty package initializer making tests/utils_common/order_management a Python package.",
+      "tags": ["entry-point", "test"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:tests/fixtures/fake_llm.py:FakeChatModel",
+      "type": "class",
+      "name": "FakeChatModel",
+      "filePath": "tests/fixtures/fake_llm.py",
+      "lineRange": [28, 60],
+      "summary": "Controllable LangChain chat model stub that pops pre-queued AIMessage responses and records all invocations; supports bind_tools and with_structured_output for compatibility with the real interface.",
+      "tags": ["test", "fixture", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/fixtures/fake_pool.py:FakeAsyncConnectionPool",
+      "type": "class",
+      "name": "FakeAsyncConnectionPool",
+      "filePath": "tests/fixtures/fake_pool.py",
+      "lineRange": [96, 125],
+      "summary": "In-memory async psycopg pool that issues FakeAsyncConnection objects, registers SQL pattern-to-response mappings, and exposes all recorded executions for test assertions.",
+      "tags": ["test", "fixture", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/fixtures/fake_pool.py:FakeAsyncCursor",
+      "type": "class",
+      "name": "FakeAsyncCursor",
+      "filePath": "tests/fixtures/fake_pool.py",
+      "lineRange": [31, 70],
+      "summary": "Async cursor stub that records SQL execution calls and returns rows pre-registered against the owning pool by SQL substring match.",
+      "tags": ["test", "fixture"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/fixtures/fake_supabase.py:FakeSupabaseClient",
+      "type": "class",
+      "name": "FakeSupabaseClient",
+      "filePath": "tests/fixtures/fake_supabase.py",
+      "lineRange": [172, 215],
+      "summary": "Top-level Supabase REST client mock exposing table, rpc, schema, and from_ methods that delegate to FakeSupabaseQuery/FakeSupabaseRPC and accumulate all call records for test inspection.",
+      "tags": ["test", "fixture", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/fixtures/fake_supabase.py:FakeSupabaseQuery",
+      "type": "class",
+      "name": "FakeSupabaseQuery",
+      "filePath": "tests/fixtures/fake_supabase.py",
+      "lineRange": [49, 169],
+      "summary": "Chainable Supabase query builder mock implementing the full fluent API (select, insert, update, upsert, delete, filter, order, limit, single, execute) and resolving pre-registered responses on execute.",
+      "tags": ["test", "fixture"],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:tests/fixtures/fake_supabase.py:FakeSupabaseRPC",
+      "type": "class",
+      "name": "FakeSupabaseRPC",
+      "filePath": "tests/fixtures/fake_supabase.py",
+      "lineRange": [232, 264],
+      "summary": "Supabase RPC call stub that records calls and returns pre-registered responses keyed by function name, supporting both static and callable response factories.",
+      "tags": ["test", "fixture"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/fixtures/fake_wa.py:FakeAsyncWhatsApp",
+      "type": "class",
+      "name": "FakeAsyncWhatsApp",
+      "filePath": "tests/fixtures/fake_wa.py",
+      "lineRange": [57, 93],
+      "summary": "Async WhatsApp client mock recording all send methods (message, template, interactive, location, contact, image, document, catalog, media) and returning indexed FakeSendResult objects.",
+      "tags": ["test", "fixture", "service"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/fixtures/fake_wa.py:FakeSyncWhatsApp",
+      "type": "class",
+      "name": "FakeSyncWhatsApp",
+      "filePath": "tests/fixtures/fake_wa.py",
+      "lineRange": [96, 115],
+      "summary": "Synchronous WhatsApp client stub recording send_message and send_template calls, used for testing synchronous senders and flow-trigger code paths.",
+      "tags": ["test", "fixture"],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:tests/fixtures/fake_wa.py:FakeMessage",
+      "type": "class",
+      "name": "FakeMessage",
+      "filePath": "tests/fixtures/fake_wa.py",
+      "lineRange": [123, 152],
+      "summary": "Simulated incoming WhatsApp message object with a MagicMock sender, reply_text/reply recording, and indicate_typing no-op for exercising message handler branches in tests.",
+      "tags": ["test", "fixture"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/ordelo/agents/test_agent_runner.py:_FakeGraph",
+      "type": "class",
+      "name": "_FakeGraph",
+      "filePath": "tests/ordelo/agents/test_agent_runner.py",
+      "lineRange": [28, 43],
+      "summary": "Minimal LangGraph compiled graph stub recording aupdate_state and ainvoke calls for testing agent_runner without a real PostgreSQL checkpointer.",
+      "tags": ["test", "fixture"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:tests/config/test_params.py",
+      "target": "file:tests/config/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/config/test_params.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/fixtures/fixtures_pkg.py",
+      "target": "file:tests/fixtures/builders.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/fixtures/fixtures_pkg.py",
+      "target": "file:tests/fixtures/fake_llm.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/fixtures/fixtures_pkg.py",
+      "target": "file:tests/fixtures/fake_pool.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/fixtures/fixtures_pkg.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/fixtures/fixtures_pkg.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo/agents/test_agent_runner.py",
+      "target": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo/agents/test_agent_runner.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo/agents/test_agent_runner.py",
+      "target": "file:tests/ordelo/agents/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo/agents/test_rider_agent.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo/agents/test_rider_agent.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo/agents/test_rider_agent.py",
+      "target": "file:tests/ordelo/agents/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo/test_agent_app_handlers.py",
+      "target": "file:ordelo_datamodels/delivery_pymodels.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo/test_agent_app_handlers.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo/test_agent_app_handlers.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/ordelo/test_agent_app_handlers.py",
+      "target": "file:tests/ordelo/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/regressions/test_p5_regressions.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/regressions/test_p5_regressions.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/regressions/test_p7_msg_handler.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/regressions/test_p7_rider_agent.py",
+      "target": "file:tests/ordelo/agents/__init__.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/regressions/test_p7_takeaway.py",
+      "target": "file:tests/fixtures/fake_supabase.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/regressions/test_p7_takeaway.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/regressions/test_p7_wa_senders.py",
+      "target": "file:tests/fixtures/fake_wa.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/fixtures/fake_llm.py",
+      "target": "class:tests/fixtures/fake_llm.py:FakeChatModel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/fixtures/fake_llm.py",
+      "target": "class:tests/fixtures/fake_llm.py:FakeChatModel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/fixtures/fake_pool.py",
+      "target": "class:tests/fixtures/fake_pool.py:FakeAsyncConnectionPool",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/fixtures/fake_pool.py",
+      "target": "class:tests/fixtures/fake_pool.py:FakeAsyncConnectionPool",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/fixtures/fake_pool.py",
+      "target": "class:tests/fixtures/fake_pool.py:FakeAsyncCursor",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/fixtures/fake_pool.py",
+      "target": "class:tests/fixtures/fake_pool.py:FakeAsyncCursor",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/fixtures/fake_supabase.py",
+      "target": "class:tests/fixtures/fake_supabase.py:FakeSupabaseClient",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/fixtures/fake_supabase.py",
+      "target": "class:tests/fixtures/fake_supabase.py:FakeSupabaseClient",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/fixtures/fake_supabase.py",
+      "target": "class:tests/fixtures/fake_supabase.py:FakeSupabaseQuery",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/fixtures/fake_supabase.py",
+      "target": "class:tests/fixtures/fake_supabase.py:FakeSupabaseQuery",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/fixtures/fake_supabase.py",
+      "target": "class:tests/fixtures/fake_supabase.py:FakeSupabaseRPC",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/fixtures/fake_supabase.py",
+      "target": "class:tests/fixtures/fake_supabase.py:FakeSupabaseRPC",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/fixtures/fake_wa.py",
+      "target": "class:tests/fixtures/fake_wa.py:FakeAsyncWhatsApp",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/fixtures/fake_wa.py",
+      "target": "class:tests/fixtures/fake_wa.py:FakeAsyncWhatsApp",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/fixtures/fake_wa.py",
+      "target": "class:tests/fixtures/fake_wa.py:FakeSyncWhatsApp",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/fixtures/fake_wa.py",
+      "target": "class:tests/fixtures/fake_wa.py:FakeSyncWhatsApp",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/fixtures/fake_wa.py",
+      "target": "class:tests/fixtures/fake_wa.py:FakeMessage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/fixtures/fake_wa.py",
+      "target": "class:tests/fixtures/fake_wa.py:FakeMessage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:tests/ordelo/agents/test_agent_runner.py",
+      "target": "class:tests/ordelo/agents/test_agent_runner.py:_FakeGraph",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/fixtures/fake_supabase.py",
+      "target": "file:tests/ordelo_datamodels/test_master_pymodels.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

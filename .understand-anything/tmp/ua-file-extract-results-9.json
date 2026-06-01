@@ -1,0 +1,251 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "notebooks/location_events_simulate.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 96,
+      "nonEmptyLines": 82,
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/location_pymodels.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 48,
+      "nonEmptyLines": 45,
+      "functions": [
+        {
+          "name": "short_uuid",
+          "startLine": 9,
+          "endLine": 10,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "Location",
+          "startLine": 12,
+          "endLine": 48,
+          "methods": [
+            "set_topic_fields"
+          ],
+          "properties": [
+            "topic",
+            "rider_id",
+            "recipient",
+            "order_number",
+            "acc",
+            "alt",
+            "batt",
+            "lat",
+            "lon",
+            "t",
+            "tst",
+            "tid",
+            "conn",
+            "inregions",
+            "inrids",
+            "SSID",
+            "created_at",
+            "m",
+            "dt",
+            "dtts",
+            "id"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "short_uuid",
+          "line": 9,
+          "isDefault": false
+        },
+        {
+          "name": "Location",
+          "line": 12,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "short_uuid",
+          "callee": "base64.urlsafe_b64encode(uuid4().bytes).rstrip(b'=').decode",
+          "lineNumber": 10
+        },
+        {
+          "caller": "short_uuid",
+          "callee": "base64.urlsafe_b64encode(uuid4().bytes).rstrip",
+          "lineNumber": 10
+        },
+        {
+          "caller": "short_uuid",
+          "callee": "base64.urlsafe_b64encode",
+          "lineNumber": 10
+        },
+        {
+          "caller": "short_uuid",
+          "callee": "uuid4",
+          "lineNumber": 10
+        },
+        {
+          "caller": "set_topic_fields",
+          "callee": "values.get",
+          "lineNumber": 37
+        },
+        {
+          "caller": "set_topic_fields",
+          "callee": "re.match",
+          "lineNumber": 38
+        },
+        {
+          "caller": "set_topic_fields",
+          "callee": "match.group",
+          "lineNumber": 40
+        },
+        {
+          "caller": "set_topic_fields",
+          "callee": "match.group",
+          "lineNumber": 41
+        },
+        {
+          "caller": "set_topic_fields",
+          "callee": "match.group",
+          "lineNumber": 42
+        },
+        {
+          "caller": "set_topic_fields",
+          "callee": "values.get",
+          "lineNumber": 43
+        },
+        {
+          "caller": "set_topic_fields",
+          "callee": "datetime.fromtimestamp",
+          "lineNumber": 45
+        },
+        {
+          "caller": "set_topic_fields",
+          "callee": "dt_obj.date",
+          "lineNumber": 46
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 2,
+        "functionCount": 1,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "tests/ordelo_datamodels/test_location_pymodels.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 76,
+      "nonEmptyLines": 60,
+      "functions": [
+        {
+          "name": "test_location_parses_topic_into_rider_recipient_order",
+          "startLine": 23,
+          "endLine": 37,
+          "params": []
+        },
+        {
+          "name": "test_location_sets_dt_and_dtts_from_tst",
+          "startLine": 40,
+          "endLine": 55,
+          "params": []
+        },
+        {
+          "name": "test_location_rejects_invalid_event_type_literal",
+          "startLine": 58,
+          "endLine": 70,
+          "params": []
+        },
+        {
+          "name": "test_short_uuid_returns_urlsafe_id",
+          "startLine": 73,
+          "endLine": 76,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "test_location_parses_topic_into_rider_recipient_order",
+          "line": 23,
+          "isDefault": false
+        },
+        {
+          "name": "test_location_sets_dt_and_dtts_from_tst",
+          "line": 40,
+          "isDefault": false
+        },
+        {
+          "name": "test_location_rejects_invalid_event_type_literal",
+          "line": 58,
+          "isDefault": false
+        },
+        {
+          "name": "test_short_uuid_returns_urlsafe_id",
+          "line": 73,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "test_location_parses_topic_into_rider_recipient_order",
+          "callee": "Location",
+          "lineNumber": 24
+        },
+        {
+          "caller": "test_location_sets_dt_and_dtts_from_tst",
+          "callee": "Location",
+          "lineNumber": 41
+        },
+        {
+          "caller": "test_location_sets_dt_and_dtts_from_tst",
+          "callee": "datetime.fromtimestamp",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_location_sets_dt_and_dtts_from_tst",
+          "callee": "expected.date",
+          "lineNumber": 53
+        },
+        {
+          "caller": "test_location_sets_dt_and_dtts_from_tst",
+          "callee": "isinstance",
+          "lineNumber": 55
+        },
+        {
+          "caller": "test_location_rejects_invalid_event_type_literal",
+          "callee": "pytest.raises",
+          "lineNumber": 59
+        },
+        {
+          "caller": "test_location_rejects_invalid_event_type_literal",
+          "callee": "Location",
+          "lineNumber": 60
+        },
+        {
+          "caller": "test_short_uuid_returns_urlsafe_id",
+          "callee": "short_uuid",
+          "lineNumber": 74
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 4,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    }
+  ]
+}

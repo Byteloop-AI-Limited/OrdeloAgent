@@ -1,0 +1,20 @@
+{
+  "scriptCompleted": true,
+  "stats": {
+    "filesScanned": 10,
+    "filesWithImports": 0,
+    "totalEdges": 0
+  },
+  "importMap": {
+    ".understand-anything/.understandignore": [],
+    "callback_handlers.md": [],
+    "delivery_process_explorer.html": [],
+    "delivery_process.md": [],
+    "dispatch_flow.md": [],
+    "get_restaurant_webhook_url_async_guide.md": [],
+    "location_overview.md": [],
+    "payment_and_order_flow.md": [],
+    "pickup_time_logic.md": [],
+    "takeaway_flow.md": []
+  }
+}

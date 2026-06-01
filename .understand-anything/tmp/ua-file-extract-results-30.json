@@ -1,0 +1,1223 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 25,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".claude/CLOUD_SESSION_SETUP.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 119,
+      "nonEmptyLines": 82,
+      "sections": [
+        {
+          "heading": "Cloud Session Setup",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Python Virtual Environment Setup",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Quick Setup",
+          "level": 3,
+          "line": 9
+        },
+        {
+          "heading": "Manual Setup (Alternative)",
+          "level": 3,
+          "line": 25
+        },
+        {
+          "heading": "Activating Existing Virtual Environment",
+          "level": 3,
+          "line": 48
+        },
+        {
+          "heading": "Verifying Setup",
+          "level": 3,
+          "line": 56
+        },
+        {
+          "heading": "Requirements",
+          "level": 3,
+          "line": 80
+        },
+        {
+          "heading": "Optional: Install Development Dependencies",
+          "level": 3,
+          "line": 91
+        },
+        {
+          "heading": "Notes for Claude Code Sessions",
+          "level": 2,
+          "line": 99
+        },
+        {
+          "heading": "Why UV?",
+          "level": 2,
+          "line": 108
+        },
+        {
+          "heading": "Created",
+          "level": 2,
+          "line": 117
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 11
+      }
+    },
+    {
+      "path": ".claude/proPlans/groovy-forging-peach.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 316,
+      "nonEmptyLines": 227,
+      "sections": [
+        {
+          "heading": "Takeaway Restaurant Confirmation Flow — Implementation Plan",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Context",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Step 1: Create `takeaway_summary` Table + Triggers",
+          "level": 2,
+          "line": 13
+        },
+        {
+          "heading": "Step 2: Create `init_takeaway()` SQL Function",
+          "level": 2,
+          "line": 68
+        },
+        {
+          "heading": "Step 3: Update `process_restaurant_confirmation.sql`",
+          "level": 2,
+          "line": 83
+        },
+        {
+          "heading": "Step 4: Create `takeaway_hooks.py` Router",
+          "level": 2,
+          "line": 97
+        },
+        {
+          "heading": "Step 5: Add `order_type` to Callback Button Payloads",
+          "level": 2,
+          "line": 154
+        },
+        {
+          "heading": "`send_restaurant_order_confirmation()` (line 545)",
+          "level": 3,
+          "line": 160
+        },
+        {
+          "heading": "`send_restaurant_pickup_time()` (line 89)",
+          "level": 3,
+          "line": 165
+        },
+        {
+          "heading": "Step 6: Update Shared Callback Handlers",
+          "level": 2,
+          "line": 171
+        },
+        {
+          "heading": "`_update_restaurant_order_status()` (line 213)",
+          "level": 3,
+          "line": 175
+        },
+        {
+          "heading": "`restaurant_order_accept_decline_handler()` (line 248)",
+          "level": 3,
+          "line": 180
+        },
+        {
+          "heading": "`handle_pickup_time_selection()` (line 275)",
+          "level": 3,
+          "line": 184
+        },
+        {
+          "heading": "Step 7: Branch Entry Points by Order Type + Payment Status",
+          "level": 2,
+          "line": 193
+        },
+        {
+          "heading": "Path A: Card payment (Stripe) — `payment_hooks.py`",
+          "level": 3,
+          "line": 197
+        },
+        {
+          "heading": "Path B: Pay at restaurant — `order_hooks.py`",
+          "level": 3,
+          "line": 212
+        },
+        {
+          "heading": "`init_takeaway_summary()` function",
+          "level": 3,
+          "line": 232
+        },
+        {
+          "heading": "Step 8: Register Router",
+          "level": 2,
+          "line": 238
+        },
+        {
+          "heading": "File Change Summary",
+          "level": 2,
+          "line": 247
+        },
+        {
+          "heading": "Test Cases",
+          "level": 2,
+          "line": 263
+        },
+        {
+          "heading": "Delivery Regression",
+          "level": 3,
+          "line": 265
+        },
+        {
+          "heading": "Takeaway Happy Path",
+          "level": 3,
+          "line": 269
+        },
+        {
+          "heading": "Takeaway Decline (card payment)",
+          "level": 3,
+          "line": 272
+        },
+        {
+          "heading": "Takeaway Decline (pay at restaurant)",
+          "level": 3,
+          "line": 275
+        },
+        {
+          "heading": "Takeaway Timeout",
+          "level": 3,
+          "line": 278
+        },
+        {
+          "heading": "Callback Idempotency",
+          "level": 3,
+          "line": 281
+        },
+        {
+          "heading": "Wrong-Mode Safety",
+          "level": 3,
+          "line": 284
+        },
+        {
+          "heading": "Payment Hook Branch",
+          "level": 3,
+          "line": 287
+        },
+        {
+          "heading": "Pay-at-Restaurant Path",
+          "level": 3,
+          "line": 291
+        },
+        {
+          "heading": "Acceptance Criteria",
+          "level": 2,
+          "line": 297
+        },
+        {
+          "heading": "Assumptions",
+          "level": 2,
+          "line": 308
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 31
+      }
+    },
+    {
+      "path": ".claude/SKILLS_SYMLINK.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 24,
+      "nonEmptyLines": 15,
+      "sections": [
+        {
+          "heading": "Skills Directory Symlink",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Setup",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Structure",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Purpose",
+          "level": 2,
+          "line": 18
+        },
+        {
+          "heading": "Created",
+          "level": 2,
+          "line": 22
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/evals/evals.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 26,
+      "nonEmptyLines": 26,
+      "sections": [
+        {
+          "heading": "skill_name",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "evals",
+          "level": 1,
+          "line": 3
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 2
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/iteration-1/eval_metadata.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 61,
+      "nonEmptyLines": 61,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/SKILL_OPTIMIZED.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 6,
+      "nonEmptyLines": 5,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/database-operations/SKILL.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 205,
+      "nonEmptyLines": 156,
+      "sections": [
+        {
+          "heading": "Database Operations",
+          "level": 1,
+          "line": 6
+        },
+        {
+          "heading": "Setup Priority (follow in order)",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Step 1 — Full venv via run_setup.sh (preferred)",
+          "level": 3,
+          "line": 13
+        },
+        {
+          "heading": "Step 2 — Lightweight bootstrap (no venv, quicker for one-off queries)",
+          "level": 3,
+          "line": 34
+        },
+        {
+          "heading": "Query Patterns",
+          "level": 2,
+          "line": 65
+        },
+        {
+          "heading": "SELECT",
+          "level": 3,
+          "line": 67
+        },
+        {
+          "heading": "UPDATE (always filter tightly)",
+          "level": 3,
+          "line": 79
+        },
+        {
+          "heading": "INSERT",
+          "level": 3,
+          "line": 87
+        },
+        {
+          "heading": "UPSERT",
+          "level": 3,
+          "line": 95
+        },
+        {
+          "heading": "DELETE (always filter tightly)",
+          "level": 3,
+          "line": 104
+        },
+        {
+          "heading": "RPC / Stored Procedures",
+          "level": 3,
+          "line": 112
+        },
+        {
+          "heading": "Raw SQL (joins, catalog queries)",
+          "level": 3,
+          "line": 123
+        },
+        {
+          "heading": "Using DataModels (preferred for lookups)",
+          "level": 2,
+          "line": 134
+        },
+        {
+          "heading": "Safety Rules for Writes",
+          "level": 2,
+          "line": 147
+        },
+        {
+          "heading": "Tables Reference",
+          "level": 2,
+          "line": 154
+        },
+        {
+          "heading": "Switching Test/Production Environments",
+          "level": 2,
+          "line": 170
+        },
+        {
+          "heading": "Reference Scripts",
+          "level": 2,
+          "line": 185
+        },
+        {
+          "heading": "Repo Pointers",
+          "level": 2,
+          "line": 199
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 18
+      }
+    },
+    {
+      "path": ".claude/skills/pyrun/evals/evals.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 26,
+      "nonEmptyLines": 26,
+      "sections": [
+        {
+          "heading": "skill_name",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "evals",
+          "level": 1,
+          "line": 3
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 2
+      }
+    },
+    {
+      "path": ".claude/skills/pyrun/iteration-1/eval_metadata.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 39,
+      "nonEmptyLines": 39,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/pyrun/iteration-1/eval-1/with_skill/outputs/check_active_riders.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 50,
+      "nonEmptyLines": 41,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": ".claude/skills/pyrun/iteration-1/eval-1/without_skill/outputs/README.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 122,
+      "nonEmptyLines": 96,
+      "sections": [
+        {
+          "heading": "Baseline Task: Query Active Riders for ELAS Restaurant",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Objective",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Execution Summary",
+          "level": 2,
+          "line": 6
+        },
+        {
+          "heading": "Task Completed",
+          "level": 3,
+          "line": 8
+        },
+        {
+          "heading": "Key Files Generated",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Results",
+          "level": 2,
+          "line": 24
+        },
+        {
+          "heading": "Restaurant Information",
+          "level": 3,
+          "line": 26
+        },
+        {
+          "heading": "Active Riders Count: 6",
+          "level": 3,
+          "line": 31
+        },
+        {
+          "heading": "Active Riders List (sorted by shift response time, newest first)",
+          "level": 3,
+          "line": 33
+        },
+        {
+          "heading": "Technical Details",
+          "level": 2,
+          "line": 70
+        },
+        {
+          "heading": "Database Queries Performed",
+          "level": 3,
+          "line": 72
+        },
+        {
+          "heading": "Implementation Approach",
+          "level": 3,
+          "line": 86
+        },
+        {
+          "heading": "Code Quality",
+          "level": 3,
+          "line": 92
+        },
+        {
+          "heading": "Database Schema Context",
+          "level": 2,
+          "line": 98
+        },
+        {
+          "heading": "rider_master Table Columns Used",
+          "level": 3,
+          "line": 100
+        },
+        {
+          "heading": "Key Observation",
+          "level": 3,
+          "line": 110
+        },
+        {
+          "heading": "Artifacts",
+          "level": 2,
+          "line": 113
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 17
+      }
+    },
+    {
+      "path": ".claude/skills/pyrun/SKILL.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 279,
+      "nonEmptyLines": 203,
+      "sections": [
+        {
+          "heading": "Pyrun",
+          "level": 1,
+          "line": 6
+        },
+        {
+          "heading": "Workflow",
+          "level": 2,
+          "line": 12
+        },
+        {
+          "heading": "Standard Imports & Clients",
+          "level": 2,
+          "line": 45
+        },
+        {
+          "heading": "Database (most common)",
+          "level": 3,
+          "line": 47
+        },
+        {
+          "heading": "DataModels (preferred for lookups)",
+          "level": 3,
+          "line": 57
+        },
+        {
+          "heading": "Config & Settings",
+          "level": 3,
+          "line": 67
+        },
+        {
+          "heading": "Utilities",
+          "level": 3,
+          "line": 77
+        },
+        {
+          "heading": "Fallback: Direct Supabase Client (when config module fails)",
+          "level": 2,
+          "line": 87
+        },
+        {
+          "heading": "Database Query Examples",
+          "level": 2,
+          "line": 121
+        },
+        {
+          "heading": "Lookup by Order Number",
+          "level": 3,
+          "line": 123
+        },
+        {
+          "heading": "Lookup by Rider ID",
+          "level": 3,
+          "line": 137
+        },
+        {
+          "heading": "Check Config Values",
+          "level": 3,
+          "line": 147
+        },
+        {
+          "heading": "Multiple Filters",
+          "level": 3,
+          "line": 157
+        },
+        {
+          "heading": "Insert/Update",
+          "level": 3,
+          "line": 172
+        },
+        {
+          "heading": "Call Stored Procedure (RPC)",
+          "level": 3,
+          "line": 183
+        },
+        {
+          "heading": "Tables Reference",
+          "level": 2,
+          "line": 194
+        },
+        {
+          "heading": "General Examples",
+          "level": 2,
+          "line": 211
+        },
+        {
+          "heading": "Check Webhook Config",
+          "level": 3,
+          "line": 213
+        },
+        {
+          "heading": "List Active Dispatches",
+          "level": 3,
+          "line": 222
+        },
+        {
+          "heading": "Inspect Project Settings",
+          "level": 3,
+          "line": 237
+        },
+        {
+          "heading": "Debug Thread Messages",
+          "level": 3,
+          "line": 246
+        },
+        {
+          "heading": "Environment Notes",
+          "level": 2,
+          "line": 259
+        },
+        {
+          "heading": "Iterative Development",
+          "level": 2,
+          "line": 271
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 23
+      }
+    },
+    {
+      "path": ".devcontainer/devcontainer.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 21,
+      "nonEmptyLines": 21,
+      "sections": [
+        {
+          "heading": "name",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "build",
+          "level": 1,
+          "line": 3
+        },
+        {
+          "heading": "workspaceFolder",
+          "level": 1,
+          "line": 7
+        },
+        {
+          "heading": "customizations",
+          "level": 1,
+          "line": 8
+        },
+        {
+          "heading": "postCreateCommand",
+          "level": 1,
+          "line": 16
+        },
+        {
+          "heading": "remoteUser",
+          "level": 1,
+          "line": 17
+        },
+        {
+          "heading": "appPort",
+          "level": 1,
+          "line": 18
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 7
+      }
+    },
+    {
+      "path": ".specify/memory/constitution.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 443,
+      "nonEmptyLines": 356,
+      "sections": [
+        {
+          "heading": "OrdeloAgent Constitution",
+          "level": 1,
+          "line": 14
+        },
+        {
+          "heading": "Core Principles",
+          "level": 2,
+          "line": 16
+        },
+        {
+          "heading": "I. Test-First Development (NON-NEGOTIABLE)",
+          "level": 3,
+          "line": 18
+        },
+        {
+          "heading": "II. API-First Architecture with FastAPI",
+          "level": 3,
+          "line": 30
+        },
+        {
+          "heading": "III. Database-Triggered Webhooks Pattern",
+          "level": 3,
+          "line": 42
+        },
+        {
+          "heading": "IV. Observability & Structured Logging",
+          "level": 3,
+          "line": 59
+        },
+        {
+          "heading": "V. Code Quality & Documentation Standards",
+          "level": 3,
+          "line": 76
+        },
+        {
+          "heading": "Module Architecture Map",
+          "level": 2,
+          "line": 109
+        },
+        {
+          "heading": "Core Agent System (`ordelo/`)",
+          "level": 3,
+          "line": 113
+        },
+        {
+          "heading": "`ordelo/agent_app_handlers.py`",
+          "level": 4,
+          "line": 115
+        },
+        {
+          "heading": "`ordelo/agents/agent_runner.py`",
+          "level": 4,
+          "line": 130
+        },
+        {
+          "heading": "`ordelo/agents/rider_agent.py`",
+          "level": 4,
+          "line": 142
+        },
+        {
+          "heading": "`ordelo/agents/byteloop_agent.py`",
+          "level": 4,
+          "line": 157
+        },
+        {
+          "heading": "WhatsApp Automation (`watomation/`)",
+          "level": 3,
+          "line": 164
+        },
+        {
+          "heading": "`watomation/fapp_ordelo_agent.py`",
+          "level": 4,
+          "line": 166
+        },
+        {
+          "heading": "`watomation/on_message_wa_handler.py`",
+          "level": 4,
+          "line": 178
+        },
+        {
+          "heading": "`watomation/routers/delivery_hooks.py`",
+          "level": 4,
+          "line": 191
+        },
+        {
+          "heading": "Data Models (`ordelo_datamodels/`)",
+          "level": 3,
+          "line": 204
+        },
+        {
+          "heading": "`ordelo_datamodels/delivery_pymodels.py`",
+          "level": 4,
+          "line": 206
+        },
+        {
+          "heading": "`ordelo_datamodels/location_pymodels.py`",
+          "level": 4,
+          "line": 212
+        },
+        {
+          "heading": "`ordelo_datamodels/customer_master_pymodel.py`",
+          "level": 4,
+          "line": 215
+        },
+        {
+          "heading": "`ordelo_datamodels/restaurant_master_pymodel.py`",
+          "level": 4,
+          "line": 218
+        },
+        {
+          "heading": "Utilities (`utils_common/`)",
+          "level": 3,
+          "line": 221
+        },
+        {
+          "heading": "`utils_common/lg_utils.py`",
+          "level": 4,
+          "line": 223
+        },
+        {
+          "heading": "`utils_common/thread_management/thread_handler.py`",
+          "level": 4,
+          "line": 235
+        },
+        {
+          "heading": "`utils_common/db_utils/sbase_rest_ops.py`",
+          "level": 4,
+          "line": 246
+        },
+        {
+          "heading": "`utils_common/waba_es/api_funcs.py`",
+          "level": 4,
+          "line": 252
+        },
+        {
+          "heading": "Configuration (`config/`)",
+          "level": 3,
+          "line": 262
+        },
+        {
+          "heading": "`config/pg_setting.py`",
+          "level": 4,
+          "line": 264
+        },
+        {
+          "heading": "`config/llm_setting.py`",
+          "level": 4,
+          "line": 271
+        },
+        {
+          "heading": "`config/waba_setting.py`",
+          "level": 4,
+          "line": 276
+        },
+        {
+          "heading": "`config/logger_setting.py`",
+          "level": 4,
+          "line": 281
+        },
+        {
+          "heading": "Performance & User Experience Standards",
+          "level": 2,
+          "line": 285
+        },
+        {
+          "heading": "Performance Requirements",
+          "level": 3,
+          "line": 287
+        },
+        {
+          "heading": "User Experience Consistency",
+          "level": 3,
+          "line": 308
+        },
+        {
+          "heading": "Code Quality Standards",
+          "level": 2,
+          "line": 330
+        },
+        {
+          "heading": "Code Organization",
+          "level": 3,
+          "line": 332
+        },
+        {
+          "heading": "Testing Standards",
+          "level": 3,
+          "line": 354
+        },
+        {
+          "heading": "Security Standards",
+          "level": 3,
+          "line": 374
+        },
+        {
+          "heading": "Version Control Standards",
+          "level": 3,
+          "line": 395
+        },
+        {
+          "heading": "Governance",
+          "level": 2,
+          "line": 410
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 41
+      }
+    },
+    {
+      "path": ".understand-anything/.understandignore",
+      "language": "unknown",
+      "fileCategory": "code",
+      "totalLines": 113,
+      "nonEmptyLines": 107,
+      "metrics": {}
+    },
+    {
+      "path": ".windsurf/rules/code-documentation-rules.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 28,
+      "nonEmptyLines": 25,
+      "sections": [
+        {
+          "heading": "Code Documentation Rules",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Module Doc String",
+          "level": 3,
+          "line": 7
+        },
+        {
+          "heading": "Example docstring:",
+          "level": 2,
+          "line": 15
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 3
+      }
+    },
+    {
+      "path": ".windsurf/settings.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 3,
+      "nonEmptyLines": 3,
+      "sections": [
+        {
+          "heading": "python.defaultInterpreterPath",
+          "level": 1,
+          "line": 2
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 1
+      }
+    },
+    {
+      "path": ".zed/tasks.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 9,
+      "nonEmptyLines": 9,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": "bkp_DockerfileBkp",
+      "language": "unknown",
+      "fileCategory": "code",
+      "totalLines": 28,
+      "nonEmptyLines": 21,
+      "metrics": {}
+    },
+    {
+      "path": "config/cat_con_setting.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 27,
+      "nonEmptyLines": 19,
+      "classes": [
+        {
+          "name": "CatConSettings",
+          "startLine": 15,
+          "endLine": 21,
+          "methods": [
+            "init_local_catalog"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "CatConSettings",
+          "line": 15,
+          "isDefault": false
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 0,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "config/temp_cache/test_cde",
+      "language": "unknown",
+      "fileCategory": "code",
+      "totalLines": 30,
+      "nonEmptyLines": 29,
+      "metrics": {}
+    },
+    {
+      "path": "Dockerfile_awslambda",
+      "language": "unknown",
+      "fileCategory": "code",
+      "totalLines": 35,
+      "nonEmptyLines": 27,
+      "metrics": {}
+    },
+    {
+      "path": "Dockerfile_UVBCKP",
+      "language": "unknown",
+      "fileCategory": "code",
+      "totalLines": 36,
+      "nonEmptyLines": 26,
+      "metrics": {}
+    },
+    {
+      "path": "gunicorn_conf.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 72,
+      "nonEmptyLines": 64,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "notebooks/App Review/app_review.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 63,
+      "nonEmptyLines": 47,
+      "sections": [
+        {
+          "heading": "Use Case Description",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Additional Notes for the `App Reviewer`:",
+          "level": 3,
+          "line": 13
+        },
+        {
+          "heading": "Demonstrate the use of permission `whatsapp_business_management`.",
+          "level": 1,
+          "line": 19
+        },
+        {
+          "heading": "Demostration of read, create and delete of WhatsApp Message Templates using the Facebook Graph API. All api calls are evidenced in the `logs`",
+          "level": 2,
+          "line": 21
+        },
+        {
+          "heading": "Show sending a template message",
+          "level": 2,
+          "line": 29
+        },
+        {
+          "heading": "The demo is based thorough review of documentation available. If anything is missed, kindly feedback and we will action.",
+          "level": 3,
+          "line": 32
+        },
+        {
+          "heading": "Video 1: Demonstrate Sending and receiving WhatsApp Message (whatsapp_business_messaging)",
+          "level": 1,
+          "line": 36
+        },
+        {
+          "heading": "Webhook Registration",
+          "level": 2,
+          "line": 37
+        },
+        {
+          "heading": "Sending and receiving a message via graph api",
+          "level": 2,
+          "line": 42
+        },
+        {
+          "heading": "The demo is based thorough review of documentation available. If anything is missed, kindly feedback and we will action.",
+          "level": 3,
+          "line": 58
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 10
+      }
+    }
+  ]
+}

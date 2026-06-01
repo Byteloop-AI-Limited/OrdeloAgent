@@ -1,0 +1,11 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "ordelo_datamodels/misc_sql/drop_dispatch_accept_func.sql", "language": "sql", "sizeLines": 22, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/misc_sql/get_ddl_for_table.sql", "language": "sql", "sizeLines": 14, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/misc_sql/result_export.json", "language": "json", "sizeLines": 6, "fileCategory": "config"},
+    {"path": "ordelo_datamodels/misc_sql/test_magic_link.sql", "language": "sql", "sizeLines": 322, "fileCategory": "data"},
+    {"path": "ordelo_datamodels/misc_sql/testing_scripts.sql", "language": "sql", "sizeLines": 9, "fileCategory": "data"}
+  ],
+  "batchImportData": {}
+}

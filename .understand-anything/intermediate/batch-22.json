@@ -1,0 +1,83 @@
+{
+  "nodes": [
+    {
+      "id": "file:notebooks/db_queries/test_delivery_summary.sql",
+      "type": "file",
+      "name": "test_delivery_summary.sql",
+      "filePath": "notebooks/db_queries/test_delivery_summary.sql",
+      "summary": "End-to-end delivery lifecycle test harness for a single order, providing SELECT queries against all four delivery tables (summary, detail, dispatch, inflight), cleanup DELETE/UPDATE statements, and manual calls to process_delivery(), job_create_dispatch(), job_assign_dispatch(), and dispatch_complete_func().",
+      "tags": ["database", "test", "delivery", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/db_queries/test_driverNotify.sql",
+      "type": "file",
+      "name": "test_driverNotify.sql",
+      "filePath": "notebooks/db_queries/test_driverNotify.sql",
+      "summary": "Test fixture for the rider notification and dispatch-assignment flow: seeds delivery_dispatch with accepted rows for multiple orders, calls assign_accepted_dispatch() and notify_missed_dispatches(), and includes cleanup statements to reset state between runs.",
+      "tags": ["database", "test", "dispatch", "riders"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/db_queries/test_jobs_sequentially.sql",
+      "type": "file",
+      "name": "test_jobs_sequentially.sql",
+      "filePath": "notebooks/db_queries/test_jobs_sequentially.sql",
+      "summary": "Sequential execution script for manually calling the pg_cron job stored procedures (job_create_dispatch, job_assign_dispatch, job_process_owntracks) in order to test the full dispatch pipeline step-by-step.",
+      "tags": ["database", "test", "dispatch", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/db_queries/test_location_setup.sql",
+      "type": "file",
+      "name": "test_location_setup.sql",
+      "filePath": "notebooks/db_queries/test_location_setup.sql",
+      "summary": "Setup and inspection queries for live location tracking tests, inserting rider_location rows and verifying delivery_inflight state to validate the OwnTracks ingestion pipeline.",
+      "tags": ["database", "test", "location-tracking", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/db_queries/test_manage_init_delivery_detail.sql",
+      "type": "file",
+      "name": "test_manage_init_delivery_detail.sql",
+      "filePath": "notebooks/db_queries/test_manage_init_delivery_detail.sql",
+      "summary": "Development test script for manage_delivery_detail() and job_assign_delivery() stored procedures, including inspection of delivery_detail status transitions, vehicle_type_timedout handling, and a debug CTE verifying the rank-based rider assignment logic.",
+      "tags": ["database", "test", "dispatch", "development"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:notebooks/db_queries/test_rider_agent.sql",
+      "type": "file",
+      "name": "test_rider_agent.sql",
+      "filePath": "notebooks/db_queries/test_rider_agent.sql",
+      "summary": "Targeted queries and state-reset statements for testing the LangGraph rider agent, including inspection of delivery_inflight, delivery_dispatch, and thread tables, plus reset procedures to re-run agent scenarios.",
+      "tags": ["database", "test", "rider-agent", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:notebooks/db_queries/test_takeaway.sql",
+      "type": "file",
+      "name": "test_takeaway.sql",
+      "filePath": "notebooks/db_queries/test_takeaway.sql",
+      "summary": "Takeaway-specific test harness mirroring test_delivery_summary.sql, providing takeaway_summary inspection, delivery table cleanup, and manual invocations of the process_delivery and dispatch job stored procedures for WREN restaurant orders.",
+      "tags": ["database", "test", "takeaway", "development"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:notebooks/db_queries/test_delivery_summary.sql",
+      "target": "file:notebooks/db_queries/test_takeaway.sql",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:notebooks/db_queries/test_driverNotify.sql",
+      "target": "file:notebooks/db_queries/test_jobs_sequentially.sql",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "nodes": [
+    {
+      "id": "table:ordelo_datamodels/jobs_n_functions/ordelo_post.sql:ordelo_post",
+      "type": "table",
+      "name": "ordelo_post",
+      "filePath": "ordelo_datamodels/jobs_n_functions/ordelo_post.sql",
+      "lineRange": [5, 35],
+      "summary": "PostgreSQL helper function that performs HTTP POST requests to URLs constructed from ordelo_config entries, acting as a reusable wrapper over the pg_net/http_post extension for calling FastAPI webhook endpoints from SQL.",
+      "tags": ["utility", "database", "http-client"],
+      "complexity": "simple",
+      "languageNotes": "Uses the pg_net/http extension (http_post) and reads base URLs from the ordelo_config table by config_key, enabling database-driven endpoint routing."
+    },
+    {
+      "id": "table:ordelo_datamodels/jobs_n_functions/process_delivery.sql:process_delivery",
+      "type": "table",
+      "name": "process_delivery",
+      "filePath": "ordelo_datamodels/jobs_n_functions/process_delivery.sql",
+      "lineRange": [33, 139],
+      "summary": "Core pg_cron scheduled function (every 5 seconds) that drives delivery status transitions by inserting the next eligible vehicle-type delivery_detail row when prior ones time out, and marking delivery_summary as 'timedout' when all vehicle types are exhausted, using restaurant-specific or global timeout config from ordelo_config.",
+      "tags": ["database", "data-pipeline", "schema-definition"],
+      "complexity": "complex",
+      "languageNotes": "Uses CTEs chained with UNION ALL to atomically compute vehicle ranking, detect all-timed-out orders, and INSERT next delivery_detail in a single query pass. Timeout is measured from redispatch_dtts when present (re-dispatch support) or dtts otherwise."
+    },
+    {
+      "id": "table:ordelo_datamodels/jobs_n_functions/process_restaurant_confirmation.sql:process_restaurant_confirmation",
+      "type": "table",
+      "name": "process_restaurant_confirmation",
+      "filePath": "ordelo_datamodels/jobs_n_functions/process_restaurant_confirmation.sql",
+      "lineRange": [43, 94],
+      "summary": "pg_cron scheduled function (every 5 seconds) that times out restaurant confirmations for both delivery_summary and takeaway_summary orders where restaurant_confirmation_status is 'restaurant_unconfirmed' or 'restaurant_accept' and no pickup_time has been set within the configured interval, transitioning them to 'restaurant_timedout' and triggering the delivery_hooks webhook.",
+      "tags": ["database", "data-pipeline", "schema-definition"],
+      "complexity": "moderate",
+      "languageNotes": "Handles both delivery and takeaway order flows in a single function using UNION ALL over two UPDATE CTEs. Timeout value cascades: restaurant-specific config key, then global key, then 5-minute fallback."
+    },
+    {
+      "id": "table:ordelo_datamodels/jobs_n_functions/test_reset_order_and_dispatch.sql:test_reset_order_and_dispatch",
+      "type": "table",
+      "name": "test_reset_order_and_dispatch",
+      "filePath": "ordelo_datamodels/jobs_n_functions/test_reset_order_and_dispatch.sql",
+      "lineRange": [2, 50],
+      "summary": "Test utility function that resets a delivery order back to 'restaurant_unconfirmed' status by deleting all associated inflight, dispatch, and detail rows and resetting the delivery_summary, intended for development and QA re-testing of the delivery workflow.",
+      "tags": ["database", "test", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:ordelo_datamodels/jobs_n_functions/test_reset_takeaway_order.sql:test_reset_takeaway_order",
+      "type": "table",
+      "name": "test_reset_takeaway_order",
+      "filePath": "ordelo_datamodels/jobs_n_functions/test_reset_takeaway_order.sql",
+      "lineRange": [2, 22],
+      "summary": "Test utility function that resets a takeaway order's confirmation status back to 'restaurant_unconfirmed' in takeaway_summary, enabling QA re-runs of the restaurant confirmation flow for takeaway orders.",
+      "tags": ["database", "test", "utility"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "table:ordelo_datamodels/jobs_n_functions/process_delivery.sql:process_delivery",
+      "target": "table:ordelo_datamodels/jobs_n_functions/ordelo_post.sql:ordelo_post",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

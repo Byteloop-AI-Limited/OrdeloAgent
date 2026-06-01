@@ -1,0 +1,899 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 25,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "notebooks/App Review/data_handling.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 43,
+      "nonEmptyLines": 28,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/claude-sdk/getting_started.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 35,
+      "nonEmptyLines": 28,
+      "functions": [
+        {
+          "name": "main",
+          "startLine": 8,
+          "endLine": 25,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "main",
+          "line": 8,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "main",
+          "callee": "query",
+          "lineNumber": 10
+        },
+        {
+          "caller": "main",
+          "callee": "ClaudeAgentOptions",
+          "lineNumber": 12
+        },
+        {
+          "caller": "main",
+          "callee": "isinstance",
+          "lineNumber": 18
+        },
+        {
+          "caller": "main",
+          "callee": "hasattr",
+          "lineNumber": 20
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 21
+        },
+        {
+          "caller": "main",
+          "callee": "hasattr",
+          "lineNumber": 22
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 23
+        },
+        {
+          "caller": "main",
+          "callee": "isinstance",
+          "lineNumber": 24
+        },
+        {
+          "caller": "main",
+          "callee": "print",
+          "lineNumber": 25
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "notebooks/docs/rider_terms_of_engagement.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 30,
+      "nonEmptyLines": 18,
+      "sections": [
+        {
+          "heading": "Rider Terms of Engagement",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Delivery Process",
+          "level": 2,
+          "line": 3
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 2
+      }
+    },
+    {
+      "path": "notebooks/getting_distance.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 49,
+      "nonEmptyLines": 38,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "notebooks/sql_test_scripts/rider_notify_test.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 75,
+      "nonEmptyLines": 58,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "notebooks/wa_adhoc_scripts/create_carousel_template.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "ordelo_datamodels/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "ordelo/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 8,
+      "nonEmptyLines": 8,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "ordelo/agents/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 7,
+      "nonEmptyLines": 7,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "ordelo/agents/rider_agent_prompt.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 184,
+      "nonEmptyLines": 146,
+      "sections": [
+        {
+          "heading": "AI Agent System Prompt for Managing Accepted Delivery Job",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "**Overview**",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "**User Journey Scenarios**",
+          "level": 2,
+          "line": 31
+        },
+        {
+          "heading": "**1. Delivery Initiation**",
+          "level": 3,
+          "line": 33
+        },
+        {
+          "heading": "**2. Pickup Confirmation (Restaurant)**",
+          "level": 3,
+          "line": 48
+        },
+        {
+          "heading": "**3. Job Completion (Customer Delivery)**",
+          "level": 3,
+          "line": 60
+        },
+        {
+          "heading": "**4. Pickup Time Adjustment (System-Triggered)**",
+          "level": 3,
+          "line": 73
+        },
+        {
+          "heading": "**Dynamic Detours**",
+          "level": 2,
+          "line": 84
+        },
+        {
+          "heading": "**Behavior Guidelines**",
+          "level": 2,
+          "line": 97
+        },
+        {
+          "heading": "**Example Conversation Flows**",
+          "level": 2,
+          "line": 130
+        },
+        {
+          "heading": "**Flow A: Full Delivery Process**",
+          "level": 3,
+          "line": 132
+        },
+        {
+          "heading": "**Flow B: Handling an Incorrect Confirmation Code**",
+          "level": 3,
+          "line": 152
+        },
+        {
+          "heading": "**Final Notes**",
+          "level": 2,
+          "line": 168
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 13
+      }
+    },
+    {
+      "path": "tests/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/conftest.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 165,
+      "nonEmptyLines": 131,
+      "functions": [
+        {
+          "name": "_ensure_project_root_on_path",
+          "startLine": 36,
+          "endLine": 41,
+          "params": []
+        },
+        {
+          "name": "_install_fake_aws_setting",
+          "startLine": 100,
+          "endLine": 129,
+          "params": []
+        },
+        {
+          "name": "_install_google_credentials_patch",
+          "startLine": 140,
+          "endLine": 153,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_ensure_project_root_on_path",
+          "line": 36,
+          "isDefault": false
+        },
+        {
+          "name": "_install_fake_aws_setting",
+          "line": 100,
+          "isDefault": false
+        },
+        {
+          "name": "_install_google_credentials_patch",
+          "line": 140,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "_ensure_project_root_on_path",
+          "callee": "Path(__file__).resolve",
+          "lineNumber": 37
+        },
+        {
+          "caller": "_ensure_project_root_on_path",
+          "callee": "Path",
+          "lineNumber": 37
+        },
+        {
+          "caller": "_ensure_project_root_on_path",
+          "callee": "str",
+          "lineNumber": 38
+        },
+        {
+          "caller": "_ensure_project_root_on_path",
+          "callee": "sys.path.insert",
+          "lineNumber": 40
+        },
+        {
+          "caller": "_install_fake_aws_setting",
+          "callee": "dict",
+          "lineNumber": 104
+        },
+        {
+          "caller": "_install_fake_aws_setting",
+          "callee": "types.ModuleType",
+          "lineNumber": 107
+        },
+        {
+          "caller": "_install_fake_aws_setting",
+          "callee": "dict",
+          "lineNumber": 109
+        },
+        {
+          "caller": "_install_fake_aws_setting",
+          "callee": "MagicMock",
+          "lineNumber": 111
+        },
+        {
+          "caller": "_install_fake_aws_setting",
+          "callee": "dict",
+          "lineNumber": 112
+        },
+        {
+          "caller": "secrets_client",
+          "callee": "MagicMock",
+          "lineNumber": 123
+        },
+        {
+          "caller": "_stub_from_service_account_info",
+          "callee": "MagicMock",
+          "lineNumber": 149
+        },
+        {
+          "caller": "_install_google_credentials_patch",
+          "callee": "staticmethod",
+          "lineNumber": 151
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 3,
+        "functionCount": 3,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/fixtures/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/ordelo_datamodels/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/regressions/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/test_smoke_imports.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 80,
+      "nonEmptyLines": 72,
+      "functions": [
+        {
+          "name": "test_import",
+          "startLine": 78,
+          "endLine": 80,
+          "params": [
+            "module_name"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "test_import",
+          "line": 20,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "test_import",
+          "callee": "importlib.import_module",
+          "lineNumber": 80
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/utils_common/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/utils_common/db_utils/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/utils_common/db_utils/test_sbase_rest_ops.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 103,
+      "nonEmptyLines": 75,
+      "functions": [
+        {
+          "name": "test_sql_to_supabase_rest_builds_supported_operators",
+          "startLine": 28,
+          "endLine": 35,
+          "params": []
+        },
+        {
+          "name": "test_get_sql_condition_new_builds_combined_condition",
+          "startLine": 38,
+          "endLine": 47,
+          "params": []
+        },
+        {
+          "name": "test_get_sql_condition_new_rejects_unsupported_values",
+          "startLine": 50,
+          "endLine": 55,
+          "params": []
+        },
+        {
+          "name": "test_sbase_call_function_posts_to_rpc_endpoint",
+          "startLine": 59,
+          "endLine": 67,
+          "params": []
+        },
+        {
+          "name": "test_sbase_get_returns_json_and_raises_supabase_error",
+          "startLine": 71,
+          "endLine": 82,
+          "params": []
+        },
+        {
+          "name": "test_sbase_insert_update_delete_success_paths",
+          "startLine": 86,
+          "endLine": 93,
+          "params": []
+        },
+        {
+          "name": "test_sbase_update_raises_value_error_on_error_response",
+          "startLine": 97,
+          "endLine": 103,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "test_sql_to_supabase_rest_builds_supported_operators",
+          "line": 28,
+          "isDefault": false
+        },
+        {
+          "name": "test_get_sql_condition_new_builds_combined_condition",
+          "line": 38,
+          "isDefault": false
+        },
+        {
+          "name": "test_get_sql_condition_new_rejects_unsupported_values",
+          "line": 50,
+          "isDefault": false
+        },
+        {
+          "name": "test_sbase_call_function_posts_to_rpc_endpoint",
+          "line": 58,
+          "isDefault": false
+        },
+        {
+          "name": "test_sbase_get_returns_json_and_raises_supabase_error",
+          "line": 70,
+          "isDefault": false
+        },
+        {
+          "name": "test_sbase_insert_update_delete_success_paths",
+          "line": 85,
+          "isDefault": false
+        },
+        {
+          "name": "test_sbase_update_raises_value_error_on_error_response",
+          "line": 96,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "test_sql_to_supabase_rest_builds_supported_operators",
+          "callee": "sbase_rest_ops.sql_to_supabase_rest",
+          "lineNumber": 29
+        },
+        {
+          "caller": "test_get_sql_condition_new_builds_combined_condition",
+          "callee": "sbase_rest_ops.get_sql_condition_new",
+          "lineNumber": 39
+        },
+        {
+          "caller": "test_get_sql_condition_new_rejects_unsupported_values",
+          "callee": "pytest.raises",
+          "lineNumber": 51
+        },
+        {
+          "caller": "test_get_sql_condition_new_rejects_unsupported_values",
+          "callee": "sbase_rest_ops.get_sql_condition_new",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_get_sql_condition_new_rejects_unsupported_values",
+          "callee": "object",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_get_sql_condition_new_rejects_unsupported_values",
+          "callee": "pytest.raises",
+          "lineNumber": 54
+        },
+        {
+          "caller": "test_get_sql_condition_new_rejects_unsupported_values",
+          "callee": "sbase_rest_ops.get_sql_condition_new",
+          "lineNumber": 55
+        },
+        {
+          "caller": "test_get_sql_condition_new_rejects_unsupported_values",
+          "callee": "object",
+          "lineNumber": 55
+        },
+        {
+          "caller": "test_sbase_call_function_posts_to_rpc_endpoint",
+          "callee": "respx.post(f\"{BASE_URL}/rest/v1/rpc/test_func\").mock",
+          "lineNumber": 60
+        },
+        {
+          "caller": "test_sbase_call_function_posts_to_rpc_endpoint",
+          "callee": "respx.post",
+          "lineNumber": 60
+        },
+        {
+          "caller": "test_sbase_call_function_posts_to_rpc_endpoint",
+          "callee": "httpx.Response",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_sbase_call_function_posts_to_rpc_endpoint",
+          "callee": "sbase_rest_ops.sbase_call_function",
+          "lineNumber": 64
+        },
+        {
+          "caller": "test_sbase_get_returns_json_and_raises_supabase_error",
+          "callee": "respx.get(f\"{BASE_URL}/rest/v1/orders?status=eq.new\").mock",
+          "lineNumber": 72
+        },
+        {
+          "caller": "test_sbase_get_returns_json_and_raises_supabase_error",
+          "callee": "respx.get",
+          "lineNumber": 72
+        },
+        {
+          "caller": "test_sbase_get_returns_json_and_raises_supabase_error",
+          "callee": "httpx.Response",
+          "lineNumber": 73
+        },
+        {
+          "caller": "test_sbase_get_returns_json_and_raises_supabase_error",
+          "callee": "sbase_rest_ops.sbase_get",
+          "lineNumber": 75
+        },
+        {
+          "caller": "test_sbase_get_returns_json_and_raises_supabase_error",
+          "callee": "respx.get(f\"{BASE_URL}/rest/v1/orders?id=eq.1\").mock",
+          "lineNumber": 78
+        },
+        {
+          "caller": "test_sbase_get_returns_json_and_raises_supabase_error",
+          "callee": "respx.get",
+          "lineNumber": 78
+        },
+        {
+          "caller": "test_sbase_get_returns_json_and_raises_supabase_error",
+          "callee": "httpx.Response",
+          "lineNumber": 79
+        },
+        {
+          "caller": "test_sbase_get_returns_json_and_raises_supabase_error",
+          "callee": "pytest.raises",
+          "lineNumber": 81
+        },
+        {
+          "caller": "test_sbase_get_returns_json_and_raises_supabase_error",
+          "callee": "sbase_rest_ops.sbase_get",
+          "lineNumber": 82
+        },
+        {
+          "caller": "test_sbase_insert_update_delete_success_paths",
+          "callee": "respx.post(f\"{BASE_URL}/rest/v1/orders\").mock",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_sbase_insert_update_delete_success_paths",
+          "callee": "respx.post",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_sbase_insert_update_delete_success_paths",
+          "callee": "httpx.Response",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_sbase_insert_update_delete_success_paths",
+          "callee": "respx.patch(f\"{BASE_URL}/rest/v1/orders?id=eq.1\").mock",
+          "lineNumber": 88
+        },
+        {
+          "caller": "test_sbase_insert_update_delete_success_paths",
+          "callee": "respx.patch",
+          "lineNumber": 88
+        },
+        {
+          "caller": "test_sbase_insert_update_delete_success_paths",
+          "callee": "httpx.Response",
+          "lineNumber": 88
+        },
+        {
+          "caller": "test_sbase_insert_update_delete_success_paths",
+          "callee": "respx.delete(f\"{BASE_URL}/rest/v1/orders\").mock",
+          "lineNumber": 89
+        },
+        {
+          "caller": "test_sbase_insert_update_delete_success_paths",
+          "callee": "respx.delete",
+          "lineNumber": 89
+        },
+        {
+          "caller": "test_sbase_insert_update_delete_success_paths",
+          "callee": "httpx.Response",
+          "lineNumber": 89
+        },
+        {
+          "caller": "test_sbase_insert_update_delete_success_paths",
+          "callee": "sbase_rest_ops.sbase_insert",
+          "lineNumber": 91
+        },
+        {
+          "caller": "test_sbase_insert_update_delete_success_paths",
+          "callee": "sbase_rest_ops.sbase_update",
+          "lineNumber": 92
+        },
+        {
+          "caller": "test_sbase_insert_update_delete_success_paths",
+          "callee": "sbase_rest_ops.sbase_delete",
+          "lineNumber": 93
+        },
+        {
+          "caller": "test_sbase_update_raises_value_error_on_error_response",
+          "callee": "respx.patch(f\"{BASE_URL}/rest/v1/orders?id=eq.1\").mock",
+          "lineNumber": 98
+        },
+        {
+          "caller": "test_sbase_update_raises_value_error_on_error_response",
+          "callee": "respx.patch",
+          "lineNumber": 98
+        },
+        {
+          "caller": "test_sbase_update_raises_value_error_on_error_response",
+          "callee": "httpx.Response",
+          "lineNumber": 99
+        },
+        {
+          "caller": "test_sbase_update_raises_value_error_on_error_response",
+          "callee": "pytest.raises",
+          "lineNumber": 102
+        },
+        {
+          "caller": "test_sbase_update_raises_value_error_on_error_response",
+          "callee": "sbase_rest_ops.sbase_update",
+          "lineNumber": 103
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 7,
+        "functionCount": 7,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/utils_common/thread_management/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 6,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/aws_misc/aws_runner_cost_calculator.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 69,
+      "nonEmptyLines": 61,
+      "functions": [
+        {
+          "name": "calculate_monthly_app_runner_cost",
+          "startLine": 1,
+          "endLine": 45,
+          "params": [
+            "vcpu",
+            "memory_gb",
+            "provisioned_hours_per_day",
+            "active_hours_per_day",
+            "cost_provisioned_per_gb_hour",
+            "cost_active_per_vcpu_hour",
+            "cost_active_per_gb_hour",
+            "days_per_month"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "calculate_monthly_app_runner_cost",
+          "line": 1,
+          "isDefault": false
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/aws_misc/lambda_deploy_steps.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 14,
+      "nonEmptyLines": 10,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": "utils_common/db_utils/dispatch_utils_tbd.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 54,
+      "nonEmptyLines": 42,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "utils_common/db_utils/queues/sbase_queues.sql",
+      "language": "sql",
+      "fileCategory": "data",
+      "totalLines": 30,
+      "nonEmptyLines": 26,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    }
+  ]
+}

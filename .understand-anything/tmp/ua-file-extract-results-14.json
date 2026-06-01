@@ -1,0 +1,931 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 4,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".specify/AI_PATTERNS_GUIDE.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 1006,
+      "nonEmptyLines": 805,
+      "sections": [
+        {
+          "heading": "OrdeloAgent Architecture Patterns Guide for AI",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Table of Contents",
+          "level": 2,
+          "line": 9
+        },
+        {
+          "heading": "Core Architecture Principles",
+          "level": 2,
+          "line": 24
+        },
+        {
+          "heading": "1. Database-First Design",
+          "level": 3,
+          "line": 26
+        },
+        {
+          "heading": "2. Event-Driven Architecture",
+          "level": 3,
+          "line": 32
+        },
+        {
+          "heading": "3. Configuration-Driven Behavior",
+          "level": 3,
+          "line": 38
+        },
+        {
+          "heading": "Database-Triggered Webhook Pattern",
+          "level": 2,
+          "line": 45
+        },
+        {
+          "heading": "Pattern Overview",
+          "level": 3,
+          "line": 47
+        },
+        {
+          "heading": "Implementation Steps",
+          "level": 3,
+          "line": 53
+        },
+        {
+          "heading": "Step 1: Create Webhook Function (SQL)",
+          "level": 4,
+          "line": 55
+        },
+        {
+          "heading": "Step 2: Create Trigger (SQL)",
+          "level": 4,
+          "line": 103
+        },
+        {
+          "heading": "Step 3: Create FastAPI Endpoint",
+          "level": 4,
+          "line": 123
+        },
+        {
+          "heading": "Real Examples in Codebase",
+          "level": 3,
+          "line": 165
+        },
+        {
+          "heading": "WhatsApp Integration Patterns",
+          "level": 2,
+          "line": 187
+        },
+        {
+          "heading": "Pattern 1: Callback Buttons",
+          "level": 3,
+          "line": 189
+        },
+        {
+          "heading": "Step 1: Send Message with Buttons (FastAPI)",
+          "level": 4,
+          "line": 193
+        },
+        {
+          "heading": "Step 2: Create Callback Handler",
+          "level": 4,
+          "line": 232
+        },
+        {
+          "heading": "Step 3: Register Callback Handler",
+          "level": 4,
+          "line": 286
+        },
+        {
+          "heading": "Pattern 2: Direct Messages",
+          "level": 3,
+          "line": 307
+        },
+        {
+          "heading": "Pattern 3: WhatsApp Flows",
+          "level": 3,
+          "line": 328
+        },
+        {
+          "heading": "PostgreSQL Patterns",
+          "level": 2,
+          "line": 334
+        },
+        {
+          "heading": "Pattern 1: CTE-Based Data Processing",
+          "level": 3,
+          "line": 336
+        },
+        {
+          "heading": "Pattern 2: Configuration Lookup with Fallback",
+          "level": 3,
+          "line": 382
+        },
+        {
+          "heading": "Pattern 3: Conditional Function Execution",
+          "level": 3,
+          "line": 399
+        },
+        {
+          "heading": "Pattern 4: Bulk Processing with Statement-Level Triggers",
+          "level": 3,
+          "line": 427
+        },
+        {
+          "heading": "FastAPI Endpoint Patterns",
+          "level": 2,
+          "line": 457
+        },
+        {
+          "heading": "Pattern 1: Webhook Endpoint Structure",
+          "level": 3,
+          "line": 459
+        },
+        {
+          "heading": "Pattern 2: Router Organization",
+          "level": 3,
+          "line": 521
+        },
+        {
+          "heading": "Pattern 3: Restaurant-Specific Webhooks",
+          "level": 3,
+          "line": 543
+        },
+        {
+          "heading": "Configuration Management",
+          "level": 2,
+          "line": 566
+        },
+        {
+          "heading": "Pattern 1: ordelo_config Table Structure",
+          "level": 3,
+          "line": 568
+        },
+        {
+          "heading": "Pattern 2: Configuration Naming Conventions",
+          "level": 3,
+          "line": 581
+        },
+        {
+          "heading": "Pattern 3: Config Lookup in SQL",
+          "level": 3,
+          "line": 603
+        },
+        {
+          "heading": "Pattern 4: Config Lookup in Python",
+          "level": 3,
+          "line": 624
+        },
+        {
+          "heading": "Data Model Patterns",
+          "level": 2,
+          "line": 644
+        },
+        {
+          "heading": "Pattern 1: Pydantic Models",
+          "level": 3,
+          "line": 646
+        },
+        {
+          "heading": "Pattern 2: Status Enums in SQL",
+          "level": 3,
+          "line": 680
+        },
+        {
+          "heading": "Pattern 3: Nullable vs Non-Nullable Fields",
+          "level": 3,
+          "line": 704
+        },
+        {
+          "heading": "Scheduled Jobs Pattern",
+          "level": 2,
+          "line": 732
+        },
+        {
+          "heading": "Pattern 1: pg_cron Job Function",
+          "level": 3,
+          "line": 734
+        },
+        {
+          "heading": "Pattern 2: Schedule Job",
+          "level": 3,
+          "line": 762
+        },
+        {
+          "heading": "Pattern 3: Job with Early Exit",
+          "level": 3,
+          "line": 787
+        },
+        {
+          "heading": "Module Documentation Standards",
+          "level": 2,
+          "line": 816
+        },
+        {
+          "heading": "Pattern: Module Docstring Format",
+          "level": 3,
+          "line": 818
+        },
+        {
+          "heading": "SQL Function Documentation",
+          "level": 3,
+          "line": 851
+        },
+        {
+          "heading": "Complete Implementation Checklist",
+          "level": 2,
+          "line": 894
+        },
+        {
+          "heading": "Phase 1: Design & Planning",
+          "level": 3,
+          "line": 898
+        },
+        {
+          "heading": "Phase 2: Database Layer",
+          "level": 3,
+          "line": 906
+        },
+        {
+          "heading": "Phase 3: Data Models",
+          "level": 3,
+          "line": 915
+        },
+        {
+          "heading": "Phase 4: FastAPI Endpoints",
+          "level": 3,
+          "line": 921
+        },
+        {
+          "heading": "Phase 5: WhatsApp Integration (if needed)",
+          "level": 3,
+          "line": 928
+        },
+        {
+          "heading": "Phase 6: Testing",
+          "level": 3,
+          "line": 935
+        },
+        {
+          "heading": "Phase 7: Documentation",
+          "level": 3,
+          "line": 943
+        },
+        {
+          "heading": "Quick Reference: File Locations",
+          "level": 2,
+          "line": 953
+        },
+        {
+          "heading": "SQL Files",
+          "level": 3,
+          "line": 955
+        },
+        {
+          "heading": "Python Files",
+          "level": 3,
+          "line": 960
+        },
+        {
+          "heading": "Documentation",
+          "level": 3,
+          "line": 968
+        },
+        {
+          "heading": "Common Pitfalls to Avoid",
+          "level": 2,
+          "line": 975
+        },
+        {
+          "heading": "Pattern Evolution",
+          "level": 2,
+          "line": 990
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 59
+      }
+    },
+    {
+      "path": ".specify/PATTERNS_CATALOG.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 336,
+      "nonEmptyLines": 260,
+      "sections": [
+        {
+          "heading": "OrdeloAgent Patterns Catalog",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "🗄️ Database Patterns",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "1. Database-Triggered Webhook",
+          "level": 3,
+          "line": 9
+        },
+        {
+          "heading": "2. CTE-Based Processing",
+          "level": 3,
+          "line": 15
+        },
+        {
+          "heading": "3. Configuration Lookup with Fallback",
+          "level": 3,
+          "line": 21
+        },
+        {
+          "heading": "4. Idempotent Functions",
+          "level": 3,
+          "line": 27
+        },
+        {
+          "heading": "5. Row-Level Triggers",
+          "level": 3,
+          "line": 33
+        },
+        {
+          "heading": "6. Statement-Level Triggers",
+          "level": 3,
+          "line": 39
+        },
+        {
+          "heading": "7. Scheduled Jobs",
+          "level": 3,
+          "line": 45
+        },
+        {
+          "heading": "📱 WhatsApp Patterns",
+          "level": 2,
+          "line": 53
+        },
+        {
+          "heading": "8. Callback Buttons",
+          "level": 3,
+          "line": 55
+        },
+        {
+          "heading": "9. Callback Handler Registration",
+          "level": 3,
+          "line": 61
+        },
+        {
+          "heading": "10. Direct Messages",
+          "level": 3,
+          "line": 67
+        },
+        {
+          "heading": "11. WhatsApp Flows",
+          "level": 3,
+          "line": 73
+        },
+        {
+          "heading": "🌐 FastAPI Patterns",
+          "level": 2,
+          "line": 81
+        },
+        {
+          "heading": "12. Webhook Endpoint Structure",
+          "level": 3,
+          "line": 83
+        },
+        {
+          "heading": "13. Router Organization",
+          "level": 3,
+          "line": 89
+        },
+        {
+          "heading": "14. Restaurant-Specific Webhooks",
+          "level": 3,
+          "line": 95
+        },
+        {
+          "heading": "📊 Data Model Patterns",
+          "level": 2,
+          "line": 103
+        },
+        {
+          "heading": "15. Pydantic Model Extension",
+          "level": 3,
+          "line": 105
+        },
+        {
+          "heading": "16. Status Enums",
+          "level": 3,
+          "line": 111
+        },
+        {
+          "heading": "17. Nullable vs Non-Nullable",
+          "level": 3,
+          "line": 117
+        },
+        {
+          "heading": "⚙️ Configuration Patterns",
+          "level": 2,
+          "line": 125
+        },
+        {
+          "heading": "18. ordelo_config Table",
+          "level": 3,
+          "line": 127
+        },
+        {
+          "heading": "19. Entity-Specific Config",
+          "level": 3,
+          "line": 133
+        },
+        {
+          "heading": "20. Config Lookup in SQL",
+          "level": 3,
+          "line": 139
+        },
+        {
+          "heading": "21. Config Lookup in Python",
+          "level": 3,
+          "line": 145
+        },
+        {
+          "heading": "📝 Documentation Patterns",
+          "level": 2,
+          "line": 153
+        },
+        {
+          "heading": "22. Module Docstrings",
+          "level": 3,
+          "line": 155
+        },
+        {
+          "heading": "23. SQL Function Documentation",
+          "level": 3,
+          "line": 161
+        },
+        {
+          "heading": "24. Implementation Progress Tracking",
+          "level": 3,
+          "line": 167
+        },
+        {
+          "heading": "🔧 Integration Patterns",
+          "level": 2,
+          "line": 175
+        },
+        {
+          "heading": "25. Supabase RPC Calls",
+          "level": 3,
+          "line": 177
+        },
+        {
+          "heading": "26. HTTP POST from SQL",
+          "level": 3,
+          "line": 183
+        },
+        {
+          "heading": "27. Async Background Tasks",
+          "level": 3,
+          "line": 189
+        },
+        {
+          "heading": "🎯 Workflow Patterns",
+          "level": 2,
+          "line": 197
+        },
+        {
+          "heading": "28. Status-Based State Machine",
+          "level": 3,
+          "line": 199
+        },
+        {
+          "heading": "29. Timeout with Default Action",
+          "level": 3,
+          "line": 205
+        },
+        {
+          "heading": "30. Function Chaining",
+          "level": 3,
+          "line": 211
+        },
+        {
+          "heading": "🛡️ Error Handling Patterns",
+          "level": 2,
+          "line": 219
+        },
+        {
+          "heading": "31. Try/Except in Python",
+          "level": 3,
+          "line": 221
+        },
+        {
+          "heading": "32. State Validation in SQL",
+          "level": 3,
+          "line": 227
+        },
+        {
+          "heading": "33. RAISE NOTICE Logging",
+          "level": 3,
+          "line": 233
+        },
+        {
+          "heading": "34. Python Logger Usage",
+          "level": 3,
+          "line": 239
+        },
+        {
+          "heading": "📈 Performance Patterns",
+          "level": 2,
+          "line": 247
+        },
+        {
+          "heading": "35. Early Exit in Jobs",
+          "level": 3,
+          "line": 249
+        },
+        {
+          "heading": "36. Batch Processing",
+          "level": 3,
+          "line": 255
+        },
+        {
+          "heading": "37. Async/Await",
+          "level": 3,
+          "line": 261
+        },
+        {
+          "heading": "Pattern Usage Matrix",
+          "level": 2,
+          "line": 269
+        },
+        {
+          "heading": "Pattern Combinations",
+          "level": 2,
+          "line": 283
+        },
+        {
+          "heading": "Common Combinations",
+          "level": 3,
+          "line": 285
+        },
+        {
+          "heading": "Anti-Patterns (Avoid These)",
+          "level": 2,
+          "line": 305
+        },
+        {
+          "heading": "Quick Pattern Lookup",
+          "level": 2,
+          "line": 318
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 53
+      }
+    },
+    {
+      "path": ".specify/QUICK_PATTERNS_REFERENCE.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 284,
+      "nonEmptyLines": 221,
+      "sections": [
+        {
+          "heading": "Quick Patterns Reference Card",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "🔄 Database → Webhook → FastAPI Flow",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "📱 WhatsApp Callback Flow",
+          "level": 2,
+          "line": 19
+        },
+        {
+          "heading": "⚙️ Configuration Lookup",
+          "level": 2,
+          "line": 32
+        },
+        {
+          "heading": "🗄️ CTE Pattern",
+          "level": 2,
+          "line": 45
+        },
+        {
+          "heading": "🎯 Trigger Types",
+          "level": 2,
+          "line": 64
+        },
+        {
+          "heading": "📝 Module Docstring",
+          "level": 2,
+          "line": 86
+        },
+        {
+          "heading": "🔐 Supabase RPC Call",
+          "level": 2,
+          "line": 102
+        },
+        {
+          "heading": "⏰ Scheduled Job",
+          "level": 2,
+          "line": 121
+        },
+        {
+          "heading": "🚀 FastAPI Endpoint Template",
+          "level": 2,
+          "line": 140
+        },
+        {
+          "heading": "📊 Pydantic Model",
+          "level": 2,
+          "line": 168
+        },
+        {
+          "heading": "🔘 WhatsApp Buttons",
+          "level": 2,
+          "line": 190
+        },
+        {
+          "heading": "🎯 Callback Handler Registration",
+          "level": 2,
+          "line": 222
+        },
+        {
+          "heading": "📂 File Locations",
+          "level": 2,
+          "line": 242
+        },
+        {
+          "heading": "✅ Implementation Checklist",
+          "level": 2,
+          "line": 256
+        },
+        {
+          "heading": "🚫 Common Mistakes",
+          "level": 2,
+          "line": 271
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 16
+      }
+    },
+    {
+      "path": ".specify/README.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 249,
+      "nonEmptyLines": 178,
+      "sections": [
+        {
+          "heading": "OrdeloAgent Documentation Index",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "📚 For AI Agents",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Start Here",
+          "level": 3,
+          "line": 9
+        },
+        {
+          "heading": "Real-World Example",
+          "level": 3,
+          "line": 13
+        },
+        {
+          "heading": "Project Architecture",
+          "level": 3,
+          "line": 16
+        },
+        {
+          "heading": "🎯 Pattern Categories",
+          "level": 2,
+          "line": 22
+        },
+        {
+          "heading": "Database Patterns",
+          "level": 3,
+          "line": 24
+        },
+        {
+          "heading": "Integration Patterns",
+          "level": 3,
+          "line": 31
+        },
+        {
+          "heading": "Code Patterns",
+          "level": 3,
+          "line": 38
+        },
+        {
+          "heading": "📖 Implementation Guides",
+          "level": 2,
+          "line": 47
+        },
+        {
+          "heading": "Recent Features",
+          "level": 3,
+          "line": 49
+        },
+        {
+          "heading": "Workflows (if using /workflows)",
+          "level": 3,
+          "line": 54
+        },
+        {
+          "heading": "🚀 Quick Start for New Features",
+          "level": 2,
+          "line": 63
+        },
+        {
+          "heading": "Step 1: Review Patterns",
+          "level": 3,
+          "line": 65
+        },
+        {
+          "heading": "Step 2: Check Examples",
+          "level": 3,
+          "line": 68
+        },
+        {
+          "heading": "Step 3: Use Checklist",
+          "level": 3,
+          "line": 71
+        },
+        {
+          "heading": "Step 4: Document",
+          "level": 3,
+          "line": 74
+        },
+        {
+          "heading": "📂 Directory Structure",
+          "level": 2,
+          "line": 79
+        },
+        {
+          "heading": "🔑 Key Principles",
+          "level": 2,
+          "line": 97
+        },
+        {
+          "heading": "1. Database-First",
+          "level": 3,
+          "line": 99
+        },
+        {
+          "heading": "2. Event-Driven",
+          "level": 3,
+          "line": 102
+        },
+        {
+          "heading": "3. Configuration-Driven",
+          "level": 3,
+          "line": 105
+        },
+        {
+          "heading": "4. Pattern-Based",
+          "level": 3,
+          "line": 108
+        },
+        {
+          "heading": "5. Documentation-First",
+          "level": 3,
+          "line": 111
+        },
+        {
+          "heading": "🛠️ Common Tasks",
+          "level": 2,
+          "line": 116
+        },
+        {
+          "heading": "Add a New Webhook Endpoint",
+          "level": 3,
+          "line": 118
+        },
+        {
+          "heading": "Add WhatsApp Callback",
+          "level": 3,
+          "line": 126
+        },
+        {
+          "heading": "Add Scheduled Job",
+          "level": 3,
+          "line": 134
+        },
+        {
+          "heading": "Extend Data Model",
+          "level": 3,
+          "line": 141
+        },
+        {
+          "heading": "📊 Code Locations",
+          "level": 2,
+          "line": 150
+        },
+        {
+          "heading": "🎓 Learning Path",
+          "level": 2,
+          "line": 166
+        },
+        {
+          "heading": "For New AI Agents",
+          "level": 3,
+          "line": 168
+        },
+        {
+          "heading": "For Implementing Features",
+          "level": 3,
+          "line": 174
+        },
+        {
+          "heading": "🔍 Finding Information",
+          "level": 2,
+          "line": 183
+        },
+        {
+          "heading": "\"How do I trigger a webhook from database?\"",
+          "level": 3,
+          "line": 185
+        },
+        {
+          "heading": "\"How do I send WhatsApp buttons?\"",
+          "level": 3,
+          "line": 188
+        },
+        {
+          "heading": "\"How do I handle configuration?\"",
+          "level": 3,
+          "line": 191
+        },
+        {
+          "heading": "\"How do I write SQL functions?\"",
+          "level": 3,
+          "line": 194
+        },
+        {
+          "heading": "\"What's the module docstring format?\"",
+          "level": 3,
+          "line": 197
+        },
+        {
+          "heading": "\"How do I schedule jobs?\"",
+          "level": 3,
+          "line": 200
+        },
+        {
+          "heading": "🤝 Contributing",
+          "level": 2,
+          "line": 205
+        },
+        {
+          "heading": "📞 Support",
+          "level": 2,
+          "line": 216
+        },
+        {
+          "heading": "🎯 Success Metrics",
+          "level": 2,
+          "line": 225
+        },
+        {
+          "heading": "Quick Links",
+          "level": 2,
+          "line": 244
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 44
+      }
+    }
+  ]
+}

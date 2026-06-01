@@ -1,0 +1,26 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "notebooks/db_queries/CommonQueries.sql", "language": "sql", "sizeLines": 406, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/adhoc_queries.sql", "language": "sql", "sizeLines": 37, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/clear_wren_test.sql", "language": "sql", "sizeLines": 0, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/config_updates.sql", "language": "sql", "sizeLines": 324, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/consume_queue.sql", "language": "sql", "sizeLines": 96, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/creating_new_schema.sql", "language": "sql", "sizeLines": 30, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/delivery_payouts.sql", "language": "sql", "sizeLines": 58, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/distance_travelled.sql", "language": "sql", "sizeLines": 95, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/elai_updates.sql", "language": "sql", "sizeLines": 23, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/elas_menu_updates.sql", "language": "sql", "sizeLines": 160, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/master_data_update.sql", "language": "sql", "sizeLines": 97, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/non_prod_init.sql", "language": "sql", "sizeLines": 14, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/overwatch_dashboard.sql", "language": "sql", "sizeLines": 221, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/overwatch_views.sql", "language": "sql", "sizeLines": 210, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/rest_master_updates.sql", "language": "sql", "sizeLines": 139, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/result_export.json", "language": "json", "sizeLines": 36, "fileCategory": "config"},
+    {"path": "notebooks/db_queries/rider_master_updates.sql", "language": "sql", "sizeLines": 52, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/settingup_QUEUE.SQL", "language": "sql", "sizeLines": 71, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/simulate_dispatches.sql", "language": "sql", "sizeLines": 10, "fileCategory": "data"},
+    {"path": "notebooks/db_queries/temp.json", "language": "json", "sizeLines": 0, "fileCategory": "config"}
+  ],
+  "batchImportData": {}
+}

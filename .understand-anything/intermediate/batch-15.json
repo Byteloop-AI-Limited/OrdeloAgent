@@ -1,0 +1,70 @@
+{
+  "nodes": [
+    {
+      "id": "document:.specify/design/restaurant_confirmation_implementation_progress.md",
+      "type": "document",
+      "name": "restaurant_confirmation_implementation_progress.md",
+      "filePath": ".specify/design/restaurant_confirmation_implementation_progress.md",
+      "summary": "Timestamped implementation progress log for the restaurant confirmation touchpoint feature, tracking completion of the three-phase rollout (database layer, application layer, documentation) with a status of COMPLETE and listing all created files and next steps for the operator.",
+      "tags": ["documentation", "deployment"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.specify/design/restaurant_confirmation_patterns_used.md",
+      "type": "document",
+      "name": "restaurant_confirmation_patterns_used.md",
+      "filePath": ".specify/design/restaurant_confirmation_patterns_used.md",
+      "summary": "Documents the eight architectural patterns applied while implementing the restaurant confirmation feature, showing concrete before/after code examples for each pattern (webhook trigger, WhatsApp callbacks, configuration fallback, CTE processing, idempotent functions, Pydantic models, scheduled jobs, and module docstrings) along with lessons learned.",
+      "tags": ["documentation", "schema-definition"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:.specify/design/restaurant_confirmation_summary.md",
+      "type": "document",
+      "name": "restaurant_confirmation_summary.md",
+      "filePath": ".specify/design/restaurant_confirmation_summary.md",
+      "summary": "Operator-facing summary of the restaurant confirmation touchpoint implementation covering the new workflow, schema changes to delivery_summary, action items for running migrations and scheduling the pg_cron timeout job, configuration reference, and monitoring/rollback SQL queries.",
+      "tags": ["documentation", "database", "deployment"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:.specify/design/restaurant_confirmation_touchpoint_proposal.md",
+      "type": "document",
+      "name": "restaurant_confirmation_touchpoint_proposal.md",
+      "filePath": ".specify/design/restaurant_confirmation_touchpoint_proposal.md",
+      "summary": "Original design proposal for the restaurant confirmation touchpoint, analyzing the existing delivery workflow, proposing a new status-based flow with 'restaurant_unconfirmed', detailing schema changes, new DB functions, FastAPI endpoints, WhatsApp callback handlers, and evaluating alternative approaches with risk and success metrics.",
+      "tags": ["documentation", "schema-definition", "deployment"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:.specify/design/restaurant_confirmation_summary.md",
+      "target": "document:.specify/design/restaurant_confirmation_touchpoint_proposal.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.specify/design/restaurant_confirmation_implementation_progress.md",
+      "target": "document:.specify/design/restaurant_confirmation_patterns_used.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.specify/design/restaurant_confirmation_patterns_used.md",
+      "target": "file:ordelo_datamodels/migrations/add_restaurant_confirmation_fields.sql",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.specify/design/restaurant_confirmation_summary.md",
+      "target": "file:ordelo_datamodels/migrations/add_restaurant_confirmation_fields.sql",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

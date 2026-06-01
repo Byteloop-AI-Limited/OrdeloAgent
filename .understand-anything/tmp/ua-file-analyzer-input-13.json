@@ -1,0 +1,21 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": ".claude/skills/database-operations/references/ordelo-datamodels.md", "language": "markdown", "sizeLines": 18, "fileCategory": "docs"},
+    {"path": ".claude/skills/database-operations/references/repo-db-helpers.md", "language": "markdown", "sizeLines": 19, "fileCategory": "docs"},
+    {"path": ".claude/skills/database-operations/references/run_setup.sh", "language": "shell", "sizeLines": 131, "fileCategory": "script"},
+    {"path": ".claude/skills/database-operations/references/switch_test_prod_config.sql", "language": "sql", "sizeLines": 25, "fileCategory": "data"},
+    {"path": ".claude/skills/database-operations/references/switch_test_prod_elas.sql", "language": "sql", "sizeLines": 60, "fileCategory": "data"},
+    {"path": ".claude/skills/database-operations/references/switch_test_prod_ordelo.sql", "language": "sql", "sizeLines": 32, "fileCategory": "data"},
+    {"path": ".claude/skills/database-operations/references/switch_test_prod_sfcs.sql", "language": "sql", "sizeLines": 79, "fileCategory": "data"}
+  ],
+  "batchImportData": {
+    ".claude/skills/database-operations/references/ordelo-datamodels.md": [],
+    ".claude/skills/database-operations/references/repo-db-helpers.md": [],
+    ".claude/skills/database-operations/references/run_setup.sh": [],
+    ".claude/skills/database-operations/references/switch_test_prod_config.sql": [],
+    ".claude/skills/database-operations/references/switch_test_prod_elas.sql": [],
+    ".claude/skills/database-operations/references/switch_test_prod_ordelo.sql": [],
+    ".claude/skills/database-operations/references/switch_test_prod_sfcs.sql": []
+  }
+}

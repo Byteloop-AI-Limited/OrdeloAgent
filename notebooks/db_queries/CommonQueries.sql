@@ -6,8 +6,7 @@ select * from cust_rest_map where rest_ref='SFCS';
 select * from thread where recipient='447341964134';
 exclude_list = ['447919202938', '447448440754', '447446933210'];
 
-
-update thread set is_active=False where is_active and recipient='447712439392';
+update thread set is_active=False where is_active and recipient='447759950226';
 -- 447919202938
 -- 447872936799
 select * from cust_rest_map where cust_id='447448440754';
@@ -18,8 +17,9 @@ update delivery_summary set status='timedout' where order_number='SFCS-TIGD-21';
 delete from cust_rest_map where cust_id='447448440754';
 delete from customer_master where cust_id='447448440754';
 
-
-select * from delivery_dispatch order by dtts desc;
+It’s too long to waiting
+SFCS-eee17ee8-b1f8-40e4-9bb6-a051d9ab52ac; SFCS-CJSR-23;
+select * from delivery_dispatch where order_number='SFCS-CJSR-23' order by dtts desc;
 update thread set is_active=false where is_active=True and dt<='2026-05-14' and agent='SFCS';
 select * from thread where is_active=True and dt<'2026-03-27' order by dt desc;;
 select * from food_order limit 1;
@@ -87,7 +87,7 @@ select * from delivery_dispatch where status='completed' and rider_id!='44744844
 
 select final_order_value - total_customer_charge as food_value, * from delivery_option where order_number='ELAS-MSPI-21' and vehicle_type='car';
 select total_price-rest_cost as rest_savings, * from food_order where order_number='ELAS-HCTZ-20' limit 10;
-select * from food_order where order_number='ELAS-OKKS-20' limit 10;
+select * from food_order order by order_dtts desc;
 select 47.4-55.8;
 
 select status,
@@ -370,11 +370,11 @@ select * from rider_master where rider_id='447448440754';
 delete from rider_master where rider_id='447448440754' and vehicle_type='bicycle';
 
 -- Check outlier orders
-select * from delivery_summary where status='assigned';
+select dtts, redispatch_dtts, * from delivery_summary where status='unassigned';
 -- update delivery_summary set status='completed' where status='assigned';
 -- update delivery_summary set status='completed' where order_number='ELAS-BYSW-21';
 
-select * from delivery_detail where status='assigned';
+select * from delivery_detail where status='unassigned';
 -- update delivery_detail set status='completed' where status='assigned';
 select * from delivery_dispatch where rider_id is not null and status='assigned';
 -- update delivery_dispatch set status='completed' where rider_id is not null and status='assigned';
@@ -390,3 +390,18 @@ select * from food_order where order_number like 'ELAS-%' and action='takeaway';
 
 
 select 10.55 - (10.55 * 0.04 + .25);
+
+
+SELECT pg_get_functiondef(oid)
+  FROM pg_proc
+  WHERE proname =
+  'delivery_summary_timedout_whook'
+    AND pronamespace = 'public'::regnamespace;
+
+SELECT config_key, config_value FROM
+  ordelo_config
+  WHERE config_key LIKE
+  '%DELIVERY_TIMEOUT_TIME';
+
+
+update ordelo_config set config_value = '' where config_key = 'DELIVERY_TIMEOUT_TIME';

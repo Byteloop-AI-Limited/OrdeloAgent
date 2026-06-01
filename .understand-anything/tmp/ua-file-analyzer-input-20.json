@@ -1,0 +1,15 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "docs/callback_handlers.md", "language": "markdown", "sizeLines": 203, "fileCategory": "docs"},
+    {"path": "docs/delivery_process.md", "language": "markdown", "sizeLines": 783, "fileCategory": "docs"},
+    {"path": "docs/delivery_process_explorer.html", "language": "html", "sizeLines": 1002, "fileCategory": "markup"},
+    {"path": "docs/dispatch_flow.md", "language": "markdown", "sizeLines": 276, "fileCategory": "docs"},
+    {"path": "docs/get_restaurant_webhook_url_async_guide.md", "language": "markdown", "sizeLines": 204, "fileCategory": "docs"},
+    {"path": "docs/location_overview.md", "language": "markdown", "sizeLines": 97, "fileCategory": "docs"},
+    {"path": "docs/payment_and_order_flow.md", "language": "markdown", "sizeLines": 407, "fileCategory": "docs"},
+    {"path": "docs/pickup_time_logic.md", "language": "markdown", "sizeLines": 154, "fileCategory": "docs"},
+    {"path": "docs/takeaway_flow.md", "language": "markdown", "sizeLines": 325, "fileCategory": "docs"}
+  ],
+  "batchImportData": {}
+}

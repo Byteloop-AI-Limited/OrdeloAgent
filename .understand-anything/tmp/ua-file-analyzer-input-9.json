@@ -1,0 +1,13 @@
+{
+  "projectRoot": "/Users/basavaraj/bloop/OrdeloAgent",
+  "batchFiles": [
+    {"path": "notebooks/location_events_simulate.py", "language": "python", "sizeLines": 96, "fileCategory": "code"},
+    {"path": "ordelo_datamodels/location_pymodels.py", "language": "python", "sizeLines": 47, "fileCategory": "code"},
+    {"path": "tests/ordelo_datamodels/test_location_pymodels.py", "language": "python", "sizeLines": 76, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    "notebooks/location_events_simulate.py": ["config/__init__.py", "ordelo_datamodels/location_pymodels.py"],
+    "ordelo_datamodels/location_pymodels.py": [],
+    "tests/ordelo_datamodels/test_location_pymodels.py": ["ordelo_datamodels/location_pymodels.py"]
+  }
+}

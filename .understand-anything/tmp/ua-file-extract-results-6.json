@@ -1,0 +1,5655 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 18,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "tests/utils_common/order_management/test_food_order_pymodel.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 150,
+      "nonEmptyLines": 114,
+      "functions": [
+        {
+          "name": "_food_order_row",
+          "startLine": 23,
+          "endLine": 41,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "_food_order",
+          "startLine": 44,
+          "endLine": 45,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "test_from_order_id_returns_model_without_pricing_update_when_final_value_exists",
+          "startLine": 48,
+          "endLine": 59,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_from_order_number_returns_none_for_missing_row",
+          "startLine": 62,
+          "endLine": 65,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_payment_uri_uses_test_url_for_overwatch_delivery_customer",
+          "startLine": 68,
+          "endLine": 74,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_rest_ref_derives_lowercase_prefix",
+          "startLine": 77,
+          "endLine": 78,
+          "params": []
+        },
+        {
+          "name": "test_update_final_order_value_in_db_updates_instance_fields",
+          "startLine": 81,
+          "endLine": 101,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_generate_order_summary_for_payment_intent_adds_nonzero_fees",
+          "startLine": 104,
+          "endLine": 115,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_generate_order_summary_for_automatic_payment_returns_items_and_total",
+          "startLine": 118,
+          "endLine": 132,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_gen_capture_and_payment_intent_payloads",
+          "startLine": 135,
+          "endLine": 150,
+          "params": [
+            "patch_supabase_client"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "_food_order_row",
+          "line": 23,
+          "isDefault": false
+        },
+        {
+          "name": "_food_order",
+          "line": 44,
+          "isDefault": false
+        },
+        {
+          "name": "test_from_order_id_returns_model_without_pricing_update_when_final_value_exists",
+          "line": 48,
+          "isDefault": false
+        },
+        {
+          "name": "test_from_order_number_returns_none_for_missing_row",
+          "line": 62,
+          "isDefault": false
+        },
+        {
+          "name": "test_payment_uri_uses_test_url_for_overwatch_delivery_customer",
+          "line": 68,
+          "isDefault": false
+        },
+        {
+          "name": "test_rest_ref_derives_lowercase_prefix",
+          "line": 77,
+          "isDefault": false
+        },
+        {
+          "name": "test_update_final_order_value_in_db_updates_instance_fields",
+          "line": 81,
+          "isDefault": false
+        },
+        {
+          "name": "test_generate_order_summary_for_payment_intent_adds_nonzero_fees",
+          "line": 104,
+          "isDefault": false
+        },
+        {
+          "name": "test_generate_order_summary_for_automatic_payment_returns_items_and_total",
+          "line": 118,
+          "isDefault": false
+        },
+        {
+          "name": "test_gen_capture_and_payment_intent_payloads",
+          "line": 135,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "_food_order_row",
+          "callee": "row.update",
+          "lineNumber": 40
+        },
+        {
+          "caller": "_food_order",
+          "callee": "FoodOrder",
+          "lineNumber": 45
+        },
+        {
+          "caller": "_food_order",
+          "callee": "_food_order_row",
+          "lineNumber": 45
+        },
+        {
+          "caller": "test_from_order_id_returns_model_without_pricing_update_when_final_value_exists",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 49
+        },
+        {
+          "caller": "test_from_order_id_returns_model_without_pricing_update_when_final_value_exists",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_from_order_id_returns_model_without_pricing_update_when_final_value_exists",
+          "callee": "_food_order_row",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_from_order_id_returns_model_without_pricing_update_when_final_value_exists",
+          "callee": "FoodOrder.from_order_id",
+          "lineNumber": 55
+        },
+        {
+          "caller": "test_from_order_number_returns_none_for_missing_row",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 63
+        },
+        {
+          "caller": "test_from_order_number_returns_none_for_missing_row",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 63
+        },
+        {
+          "caller": "test_from_order_number_returns_none_for_missing_row",
+          "callee": "FoodOrder.from_order_number",
+          "lineNumber": 65
+        },
+        {
+          "caller": "test_payment_uri_uses_test_url_for_overwatch_delivery_customer",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 71
+        },
+        {
+          "caller": "test_payment_uri_uses_test_url_for_overwatch_delivery_customer",
+          "callee": "_food_order",
+          "lineNumber": 73
+        },
+        {
+          "caller": "test_payment_uri_uses_test_url_for_overwatch_delivery_customer",
+          "callee": "_food_order",
+          "lineNumber": 74
+        },
+        {
+          "caller": "test_rest_ref_derives_lowercase_prefix",
+          "callee": "_food_order",
+          "lineNumber": 78
+        },
+        {
+          "caller": "test_update_final_order_value_in_db_updates_instance_fields",
+          "callee": "_food_order",
+          "lineNumber": 82
+        },
+        {
+          "caller": "test_update_final_order_value_in_db_updates_instance_fields",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 83
+        },
+        {
+          "caller": "test_update_final_order_value_in_db_updates_instance_fields",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 86
+        },
+        {
+          "caller": "test_update_final_order_value_in_db_updates_instance_fields",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 88
+        },
+        {
+          "caller": "test_update_final_order_value_in_db_updates_instance_fields",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 88
+        },
+        {
+          "caller": "test_update_final_order_value_in_db_updates_instance_fields",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 89
+        },
+        {
+          "caller": "test_update_final_order_value_in_db_updates_instance_fields",
+          "callee": "staticmethod",
+          "lineNumber": 92
+        },
+        {
+          "caller": "test_update_final_order_value_in_db_updates_instance_fields",
+          "callee": "order.update_final_order_value_in_db",
+          "lineNumber": 99
+        },
+        {
+          "caller": "test_generate_order_summary_for_payment_intent_adds_nonzero_fees",
+          "callee": "_food_order",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_generate_order_summary_for_payment_intent_adds_nonzero_fees",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_generate_order_summary_for_payment_intent_adds_nonzero_fees",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 109
+        },
+        {
+          "caller": "test_generate_order_summary_for_payment_intent_adds_nonzero_fees",
+          "callee": "order.generate_order_summary_for_payment_intent",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_generate_order_summary_for_automatic_payment_returns_items_and_total",
+          "callee": "_food_order",
+          "lineNumber": 119
+        },
+        {
+          "caller": "test_generate_order_summary_for_automatic_payment_returns_items_and_total",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 120
+        },
+        {
+          "caller": "test_generate_order_summary_for_automatic_payment_returns_items_and_total",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 123
+        },
+        {
+          "caller": "test_generate_order_summary_for_automatic_payment_returns_items_and_total",
+          "callee": "order.generate_order_summary_for_automatic_payment",
+          "lineNumber": 129
+        },
+        {
+          "caller": "test_generate_order_summary_for_automatic_payment_returns_items_and_total",
+          "callee": "len",
+          "lineNumber": 132
+        },
+        {
+          "caller": "test_gen_capture_and_payment_intent_payloads",
+          "callee": "_food_order",
+          "lineNumber": 136
+        },
+        {
+          "caller": "test_gen_capture_and_payment_intent_payloads",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 137
+        },
+        {
+          "caller": "test_gen_capture_and_payment_intent_payloads",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 140
+        },
+        {
+          "caller": "test_gen_capture_and_payment_intent_payloads",
+          "callee": "order.gen_capture_payload",
+          "lineNumber": 143
+        },
+        {
+          "caller": "test_gen_capture_and_payment_intent_payloads",
+          "callee": "order.gen_payment_intent_payload",
+          "lineNumber": 144
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 10,
+        "functionCount": 10,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/utils_common/order_management/test_order_db_ops_new.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 119,
+      "nonEmptyLines": 87,
+      "functions": [
+        {
+          "name": "_wa_order",
+          "startLine": 40,
+          "endLine": 46,
+          "params": []
+        },
+        {
+          "name": "test_get_order_total_multiplies_price_by_quantity",
+          "startLine": 49,
+          "endLine": 50,
+          "params": []
+        },
+        {
+          "name": "test_create_order_reference_is_deterministic_and_uppercase",
+          "startLine": 53,
+          "endLine": 59,
+          "params": []
+        },
+        {
+          "name": "test_create_order_items_from_order_preserves_modifications",
+          "startLine": 62,
+          "endLine": 73,
+          "params": []
+        },
+        {
+          "name": "test_insert_order_items_writes_model_dump_payloads",
+          "startLine": 76,
+          "endLine": 89,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "startLine": 92,
+          "endLine": 119,
+          "params": [
+            "patch_supabase_client"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "_Product",
+          "startLine": 23,
+          "endLine": 28,
+          "methods": [],
+          "properties": [
+            "sku",
+            "quantity",
+            "price",
+            "product_name",
+            "modifications"
+          ]
+        },
+        {
+          "name": "_Order",
+          "startLine": 32,
+          "endLine": 37,
+          "methods": [
+            "total_price"
+          ],
+          "properties": [
+            "products"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "_Product",
+          "line": 22,
+          "isDefault": false
+        },
+        {
+          "name": "_Order",
+          "line": 31,
+          "isDefault": false
+        },
+        {
+          "name": "_wa_order",
+          "line": 40,
+          "isDefault": false
+        },
+        {
+          "name": "test_get_order_total_multiplies_price_by_quantity",
+          "line": 49,
+          "isDefault": false
+        },
+        {
+          "name": "test_create_order_reference_is_deterministic_and_uppercase",
+          "line": 53,
+          "isDefault": false
+        },
+        {
+          "name": "test_create_order_items_from_order_preserves_modifications",
+          "line": 62,
+          "isDefault": false
+        },
+        {
+          "name": "test_insert_order_items_writes_model_dump_payloads",
+          "line": 76,
+          "isDefault": false
+        },
+        {
+          "name": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "line": 92,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "total_price",
+          "callee": "sum",
+          "lineNumber": 37
+        },
+        {
+          "caller": "_wa_order",
+          "callee": "_Order",
+          "lineNumber": 41
+        },
+        {
+          "caller": "_wa_order",
+          "callee": "_Product",
+          "lineNumber": 43
+        },
+        {
+          "caller": "_wa_order",
+          "callee": "_Product",
+          "lineNumber": 44
+        },
+        {
+          "caller": "test_get_order_total_multiplies_price_by_quantity",
+          "callee": "order_db_ops_new.get_order_total",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_get_order_total_multiplies_price_by_quantity",
+          "callee": "_wa_order",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_create_order_reference_is_deterministic_and_uppercase",
+          "callee": "order_db_ops_new.create_order_reference",
+          "lineNumber": 54
+        },
+        {
+          "caller": "test_create_order_reference_is_deterministic_and_uppercase",
+          "callee": "order_db_ops_new.create_order_reference",
+          "lineNumber": 55
+        },
+        {
+          "caller": "test_create_order_reference_is_deterministic_and_uppercase",
+          "callee": "first.isupper",
+          "lineNumber": 58
+        },
+        {
+          "caller": "test_create_order_reference_is_deterministic_and_uppercase",
+          "callee": "len",
+          "lineNumber": 59
+        },
+        {
+          "caller": "_run",
+          "callee": "items",
+          "lineNumber": 66
+        },
+        {
+          "caller": "_run",
+          "callee": "_wa_order",
+          "lineNumber": 66
+        },
+        {
+          "caller": "test_create_order_items_from_order_preserves_modifications",
+          "callee": "asyncio.run",
+          "lineNumber": 70
+        },
+        {
+          "caller": "test_create_order_items_from_order_preserves_modifications",
+          "callee": "_run",
+          "lineNumber": 70
+        },
+        {
+          "caller": "test_insert_order_items_writes_model_dump_payloads",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 77
+        },
+        {
+          "caller": "test_insert_order_items_writes_model_dump_payloads",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 80
+        },
+        {
+          "caller": "test_insert_order_items_writes_model_dump_payloads",
+          "callee": "order_db_ops_new.insert_order_items",
+          "lineNumber": 83
+        },
+        {
+          "caller": "test_insert_order_items_writes_model_dump_payloads",
+          "callee": "_wa_order",
+          "lineNumber": 83
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "patch_supabase_client.register_rpc",
+          "lineNumber": 93
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 93
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 94
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 97
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 99
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 102
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "order_db_ops_new.insert_wa_order",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "_wa_order",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "order_id.endswith",
+          "lineNumber": 107
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 110
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 113
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "order_db_ops_new.insert_wa_order",
+          "lineNumber": 115
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "_wa_order",
+          "lineNumber": 115
+        },
+        {
+          "caller": "test_insert_wa_order_success_and_rollback_on_item_failure",
+          "callee": "any",
+          "lineNumber": 119
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 8,
+        "functionCount": 6,
+        "classCount": 2
+      }
+    },
+    {
+      "path": "tests/utils_common/order_management/test_order_num_gen.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 68,
+      "nonEmptyLines": 44,
+      "functions": [
+        {
+          "name": "test_create_order_number_is_deterministic_for_same_day",
+          "startLine": 31,
+          "endLine": 40,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_create_order_number_uses_last_four_digits",
+          "startLine": 43,
+          "endLine": 46,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_create_order_number_rejects_non_four_digit_suffix",
+          "startLine": 49,
+          "endLine": 56,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_decode_order_number_round_trips_encoded_suffix",
+          "startLine": 59,
+          "endLine": 63,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_decode_order_number_rejects_wrong_length",
+          "startLine": 66,
+          "endLine": 68,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "_FrozenDateTime",
+          "startLine": 21,
+          "endLine": 28,
+          "methods": [
+            "now",
+            "strftime"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_FrozenDateTime",
+          "line": 21,
+          "isDefault": false
+        },
+        {
+          "name": "test_create_order_number_is_deterministic_for_same_day",
+          "line": 31,
+          "isDefault": false
+        },
+        {
+          "name": "test_create_order_number_uses_last_four_digits",
+          "line": 43,
+          "isDefault": false
+        },
+        {
+          "name": "test_create_order_number_rejects_non_four_digit_suffix",
+          "line": 49,
+          "isDefault": false
+        },
+        {
+          "name": "test_decode_order_number_round_trips_encoded_suffix",
+          "line": 59,
+          "isDefault": false
+        },
+        {
+          "name": "test_decode_order_number_rejects_wrong_length",
+          "line": 66,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "now",
+          "callee": "cls",
+          "lineNumber": 24
+        },
+        {
+          "caller": "test_create_order_number_is_deterministic_for_same_day",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 32
+        },
+        {
+          "caller": "test_create_order_number_is_deterministic_for_same_day",
+          "callee": "order_num_gen.create_order_number",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_create_order_number_is_deterministic_for_same_day",
+          "callee": "order_num_gen.create_order_number",
+          "lineNumber": 35
+        },
+        {
+          "caller": "test_create_order_number_is_deterministic_for_same_day",
+          "callee": "len",
+          "lineNumber": 38
+        },
+        {
+          "caller": "test_create_order_number_is_deterministic_for_same_day",
+          "callee": "first.islower",
+          "lineNumber": 39
+        },
+        {
+          "caller": "test_create_order_number_is_deterministic_for_same_day",
+          "callee": "first.isalpha",
+          "lineNumber": 40
+        },
+        {
+          "caller": "test_create_order_number_uses_last_four_digits",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 44
+        },
+        {
+          "caller": "test_create_order_number_uses_last_four_digits",
+          "callee": "order_num_gen.create_order_number",
+          "lineNumber": 46
+        },
+        {
+          "caller": "test_create_order_number_uses_last_four_digits",
+          "callee": "order_num_gen.create_order_number",
+          "lineNumber": 46
+        },
+        {
+          "caller": "test_create_order_number_rejects_non_four_digit_suffix",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_create_order_number_rejects_non_four_digit_suffix",
+          "callee": "pytest.raises",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_create_order_number_rejects_non_four_digit_suffix",
+          "callee": "order_num_gen.create_order_number",
+          "lineNumber": 53
+        },
+        {
+          "caller": "test_create_order_number_rejects_non_four_digit_suffix",
+          "callee": "pytest.raises",
+          "lineNumber": 55
+        },
+        {
+          "caller": "test_create_order_number_rejects_non_four_digit_suffix",
+          "callee": "order_num_gen.create_order_number",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_decode_order_number_round_trips_encoded_suffix",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 60
+        },
+        {
+          "caller": "test_decode_order_number_round_trips_encoded_suffix",
+          "callee": "order_num_gen.create_order_number",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_decode_order_number_round_trips_encoded_suffix",
+          "callee": "order_num_gen.decode_order_number",
+          "lineNumber": 63
+        },
+        {
+          "caller": "test_decode_order_number_rejects_wrong_length",
+          "callee": "pytest.raises",
+          "lineNumber": 67
+        },
+        {
+          "caller": "test_decode_order_number_rejects_wrong_length",
+          "callee": "order_num_gen.decode_order_number",
+          "lineNumber": 68
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 6,
+        "functionCount": 5,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "tests/utils_common/order_management/test_order_service.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 120,
+      "nonEmptyLines": 83,
+      "functions": [
+        {
+          "name": "_items",
+          "startLine": 40,
+          "endLine": 44,
+          "params": []
+        },
+        {
+          "name": "test_call_pricing_service_adds_order_number_and_returns_json",
+          "startLine": 47,
+          "endLine": 56,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_call_pricing_service_returns_none_on_request_error",
+          "startLine": 59,
+          "endLine": 62,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+          "startLine": 65,
+          "endLine": 77,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_get_min_order_value_for_location_returns_car_message",
+          "startLine": 80,
+          "endLine": 87,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_get_min_order_value_returns_minus_one_when_pricing_fails",
+          "startLine": 90,
+          "endLine": 93,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_create_order_with_items_success",
+          "startLine": 96,
+          "endLine": 107,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+          "startLine": 110,
+          "endLine": 120,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "_Response",
+          "startLine": 27,
+          "endLine": 37,
+          "methods": [
+            "__init__",
+            "raise_for_status",
+            "json"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_Response",
+          "line": 27,
+          "isDefault": false
+        },
+        {
+          "name": "_items",
+          "line": 40,
+          "isDefault": false
+        },
+        {
+          "name": "test_call_pricing_service_adds_order_number_and_returns_json",
+          "line": 47,
+          "isDefault": false
+        },
+        {
+          "name": "test_call_pricing_service_returns_none_on_request_error",
+          "line": 59,
+          "isDefault": false
+        },
+        {
+          "name": "test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+          "line": 65,
+          "isDefault": false
+        },
+        {
+          "name": "test_get_min_order_value_for_location_returns_car_message",
+          "line": 80,
+          "isDefault": false
+        },
+        {
+          "name": "test_get_min_order_value_returns_minus_one_when_pricing_fails",
+          "line": 90,
+          "isDefault": false
+        },
+        {
+          "name": "test_create_order_with_items_success",
+          "line": 96,
+          "isDefault": false
+        },
+        {
+          "name": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+          "line": 110,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "_items",
+          "callee": "OrderItem",
+          "lineNumber": 42
+        },
+        {
+          "caller": "_items",
+          "callee": "OrderItem",
+          "lineNumber": 43
+        },
+        {
+          "caller": "test_call_pricing_service_adds_order_number_and_returns_json",
+          "callee": "MagicMock",
+          "lineNumber": 48
+        },
+        {
+          "caller": "test_call_pricing_service_adds_order_number_and_returns_json",
+          "callee": "_Response",
+          "lineNumber": 48
+        },
+        {
+          "caller": "test_call_pricing_service_adds_order_number_and_returns_json",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 49
+        },
+        {
+          "caller": "test_call_pricing_service_adds_order_number_and_returns_json",
+          "callee": "order_service._call_pricing_service",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_call_pricing_service_adds_order_number_and_returns_json",
+          "callee": "post.assert_called_once",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_call_pricing_service_returns_none_on_request_error",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 60
+        },
+        {
+          "caller": "test_call_pricing_service_returns_none_on_request_error",
+          "callee": "MagicMock",
+          "lineNumber": 60
+        },
+        {
+          "caller": "test_call_pricing_service_returns_none_on_request_error",
+          "callee": "order_service.requests.exceptions.Timeout",
+          "lineNumber": 60
+        },
+        {
+          "caller": "test_call_pricing_service_returns_none_on_request_error",
+          "callee": "order_service._call_pricing_service",
+          "lineNumber": 62
+        },
+        {
+          "caller": "test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+          "callee": "order_service._resolve_restaurant_coordinates",
+          "lineNumber": 66
+        },
+        {
+          "caller": "test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 68
+        },
+        {
+          "caller": "test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 71
+        },
+        {
+          "caller": "test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+          "callee": "order_service._resolve_restaurant_coordinates",
+          "lineNumber": 73
+        },
+        {
+          "caller": "test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 75
+        },
+        {
+          "caller": "test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 75
+        },
+        {
+          "caller": "test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+          "callee": "pytest.raises",
+          "lineNumber": 76
+        },
+        {
+          "caller": "test_resolve_restaurant_coordinates_uses_explicit_or_rest_ref_lookup",
+          "callee": "order_service._resolve_restaurant_coordinates",
+          "lineNumber": 77
+        },
+        {
+          "caller": "test_get_min_order_value_for_location_returns_car_message",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 81
+        },
+        {
+          "caller": "test_get_min_order_value_for_location_returns_car_message",
+          "callee": "order_service.get_min_order_value_for_location",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_get_min_order_value_returns_minus_one_when_pricing_fails",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 91
+        },
+        {
+          "caller": "test_get_min_order_value_returns_minus_one_when_pricing_fails",
+          "callee": "order_service.get_min_order_value",
+          "lineNumber": 93
+        },
+        {
+          "caller": "test_create_order_with_items_success",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 97
+        },
+        {
+          "caller": "test_create_order_with_items_success",
+          "callee": "patch_supabase_client.register_rpc",
+          "lineNumber": 98
+        },
+        {
+          "caller": "test_create_order_with_items_success",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 98
+        },
+        {
+          "caller": "test_create_order_with_items_success",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 99
+        },
+        {
+          "caller": "test_create_order_with_items_success",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 99
+        },
+        {
+          "caller": "test_create_order_with_items_success",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 100
+        },
+        {
+          "caller": "test_create_order_with_items_success",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 100
+        },
+        {
+          "caller": "test_create_order_with_items_success",
+          "callee": "order_service.create_order_with_items",
+          "lineNumber": 102
+        },
+        {
+          "caller": "test_create_order_with_items_success",
+          "callee": "_items",
+          "lineNumber": 102
+        },
+        {
+          "caller": "test_create_order_with_items_success",
+          "callee": "next",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 111
+        },
+        {
+          "caller": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+          "callee": "patch_supabase_client.register_rpc",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 113
+        },
+        {
+          "caller": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 113
+        },
+        {
+          "caller": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 114
+        },
+        {
+          "caller": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 114
+        },
+        {
+          "caller": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+          "callee": "order_service.create_order_with_items",
+          "lineNumber": 116
+        },
+        {
+          "caller": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+          "callee": "_items",
+          "lineNumber": 116
+        },
+        {
+          "caller": "test_create_order_with_items_rolls_back_when_order_items_insert_empty",
+          "callee": "any",
+          "lineNumber": 120
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 9,
+        "functionCount": 8,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "tests/utils_common/waba_utils/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/utils_common/waba_utils/test_wa_senders.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 134,
+      "nonEmptyLines": 103,
+      "functions": [
+        {
+          "name": "test_callback_button_data_is_frozen_and_allows_extra_fields",
+          "startLine": 29,
+          "endLine": 35,
+          "params": []
+        },
+        {
+          "name": "test_send_restaurant_pickup_time_creates_interval_buttons",
+          "startLine": 38,
+          "endLine": 57,
+          "params": [
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_confirm_delivery_address_wa_sends_yes_update_buttons",
+          "startLine": 60,
+          "endLine": 72,
+          "params": [
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_send_request_payment_link_uses_request_payment_template",
+          "startLine": 75,
+          "endLine": 86,
+          "params": [
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_send_order_reciept_wa_uses_receipt_template",
+          "startLine": 89,
+          "endLine": 97,
+          "params": [
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_enquire_shift_availability_template_has_yes_no_callbacks",
+          "startLine": 100,
+          "endLine": 108,
+          "params": [
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_enquire_admin_availability_template_has_admin_callback",
+          "startLine": 111,
+          "endLine": 117,
+          "params": [
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_send_restaurant_order_confirmation_creates_accept_button",
+          "startLine": 120,
+          "endLine": 134,
+          "params": [
+            "patch_async_wa_client"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "test_callback_button_data_is_frozen_and_allows_extra_fields",
+          "line": 29,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_restaurant_pickup_time_creates_interval_buttons",
+          "line": 38,
+          "isDefault": false
+        },
+        {
+          "name": "test_confirm_delivery_address_wa_sends_yes_update_buttons",
+          "line": 60,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_request_payment_link_uses_request_payment_template",
+          "line": 75,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_order_reciept_wa_uses_receipt_template",
+          "line": 89,
+          "isDefault": false
+        },
+        {
+          "name": "test_enquire_shift_availability_template_has_yes_no_callbacks",
+          "line": 100,
+          "isDefault": false
+        },
+        {
+          "name": "test_enquire_admin_availability_template_has_admin_callback",
+          "line": 111,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_restaurant_order_confirmation_creates_accept_button",
+          "line": 120,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "test_callback_button_data_is_frozen_and_allows_extra_fields",
+          "callee": "wa_senders.CallbackButtonData",
+          "lineNumber": 30
+        },
+        {
+          "caller": "test_callback_button_data_is_frozen_and_allows_extra_fields",
+          "callee": "data.model_dump",
+          "lineNumber": 32
+        },
+        {
+          "caller": "test_callback_button_data_is_frozen_and_allows_extra_fields",
+          "callee": "pytest.raises",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_send_restaurant_pickup_time_creates_interval_buttons",
+          "callee": "int",
+          "lineNumber": 39
+        },
+        {
+          "caller": "test_send_restaurant_pickup_time_creates_interval_buttons",
+          "callee": "datetime(2026, 1, 15, 12, 0, tzinfo=timezone.utc).timestamp",
+          "lineNumber": 39
+        },
+        {
+          "caller": "test_send_restaurant_pickup_time_creates_interval_buttons",
+          "callee": "datetime",
+          "lineNumber": 39
+        },
+        {
+          "caller": "test_send_restaurant_pickup_time_creates_interval_buttons",
+          "callee": "wa_senders.send_restaurant_pickup_time",
+          "lineNumber": 41
+        },
+        {
+          "caller": "test_send_restaurant_pickup_time_creates_interval_buttons",
+          "callee": "len",
+          "lineNumber": 54
+        },
+        {
+          "caller": "test_send_restaurant_pickup_time_creates_interval_buttons",
+          "callee": "json.loads",
+          "lineNumber": 55
+        },
+        {
+          "caller": "test_confirm_delivery_address_wa_sends_yes_update_buttons",
+          "callee": "wa_senders.confirm_delivery_address_wa",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_confirm_delivery_address_wa_sends_yes_update_buttons",
+          "callee": "len",
+          "lineNumber": 68
+        },
+        {
+          "caller": "test_confirm_delivery_address_wa_sends_yes_update_buttons",
+          "callee": "json.loads",
+          "lineNumber": 69
+        },
+        {
+          "caller": "test_confirm_delivery_address_wa_sends_yes_update_buttons",
+          "callee": "json.loads",
+          "lineNumber": 70
+        },
+        {
+          "caller": "test_send_request_payment_link_uses_request_payment_template",
+          "callee": "wa_senders.send_request_payment_link",
+          "lineNumber": 76
+        },
+        {
+          "caller": "test_send_order_reciept_wa_uses_receipt_template",
+          "callee": "wa_senders.send_order_reciept_wa",
+          "lineNumber": 90
+        },
+        {
+          "caller": "test_enquire_shift_availability_template_has_yes_no_callbacks",
+          "callee": "wa_senders.enquire_shift_availability",
+          "lineNumber": 101
+        },
+        {
+          "caller": "test_enquire_shift_availability_template_has_yes_no_callbacks",
+          "callee": "hasattr",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_enquire_shift_availability_template_has_yes_no_callbacks",
+          "callee": "json.loads",
+          "lineNumber": 107
+        },
+        {
+          "caller": "test_enquire_admin_availability_template_has_admin_callback",
+          "callee": "wa_senders.enquire_admin_availability",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_enquire_admin_availability_template_has_admin_callback",
+          "callee": "hasattr",
+          "lineNumber": 116
+        },
+        {
+          "caller": "test_enquire_admin_availability_template_has_admin_callback",
+          "callee": "json.loads",
+          "lineNumber": 117
+        },
+        {
+          "caller": "test_send_restaurant_order_confirmation_creates_accept_button",
+          "callee": "wa_senders.send_restaurant_order_confirmation",
+          "lineNumber": 121
+        },
+        {
+          "caller": "test_send_restaurant_order_confirmation_creates_accept_button",
+          "callee": "len",
+          "lineNumber": 132
+        },
+        {
+          "caller": "test_send_restaurant_order_confirmation_creates_accept_button",
+          "callee": "json.loads",
+          "lineNumber": 133
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 8,
+        "functionCount": 8,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/watomation/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/watomation/routers/__init__.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 0,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/watomation/routers/test_customer_hooks.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 101,
+      "nonEmptyLines": 76,
+      "functions": [
+        {
+          "name": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "startLine": 28,
+          "endLine": 44,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_create_or_update_customer_updates_existing_customer",
+          "startLine": 47,
+          "endLine": 58,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "startLine": 62,
+          "endLine": 87,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_update_cust_rest_map_returns_model_dump",
+          "startLine": 90,
+          "endLine": 101,
+          "params": [
+            "monkeypatch"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "line": 28,
+          "isDefault": false
+        },
+        {
+          "name": "test_create_or_update_customer_updates_existing_customer",
+          "line": 47,
+          "isDefault": false
+        },
+        {
+          "name": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "line": 61,
+          "isDefault": false
+        },
+        {
+          "name": "test_update_cust_rest_map_returns_model_dump",
+          "line": 90,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 31
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "staticmethod",
+          "lineNumber": 31
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "(_ for _ in ()).throw",
+          "lineNumber": 31
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "ValueError",
+          "lineNumber": 31
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 32
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 33
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "staticmethod",
+          "lineNumber": 33
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "SimpleNamespace",
+          "lineNumber": 33
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "staticmethod",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "calls.append",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "SimpleNamespace",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 35
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "staticmethod",
+          "lineNumber": 35
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "calls.append",
+          "lineNumber": 35
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "customer_hooks.CreateOrUpdateCustomerRequest",
+          "lineNumber": 37
+        },
+        {
+          "caller": "test_create_or_update_customer_creates_new_customer_with_restaurant_city",
+          "callee": "customer_hooks.create_or_update_customer",
+          "lineNumber": 38
+        },
+        {
+          "caller": "test_create_or_update_customer_updates_existing_customer",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_create_or_update_customer_updates_existing_customer",
+          "callee": "staticmethod",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_create_or_update_customer_updates_existing_customer",
+          "callee": "SimpleNamespace",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_create_or_update_customer_updates_existing_customer",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 51
+        },
+        {
+          "caller": "test_create_or_update_customer_updates_existing_customer",
+          "callee": "staticmethod",
+          "lineNumber": 51
+        },
+        {
+          "caller": "test_create_or_update_customer_updates_existing_customer",
+          "callee": "calls.append",
+          "lineNumber": 51
+        },
+        {
+          "caller": "test_create_or_update_customer_updates_existing_customer",
+          "callee": "SimpleNamespace",
+          "lineNumber": 51
+        },
+        {
+          "caller": "test_create_or_update_customer_updates_existing_customer",
+          "callee": "customer_hooks.create_or_update_customer",
+          "lineNumber": 53
+        },
+        {
+          "caller": "test_create_or_update_customer_updates_existing_customer",
+          "callee": "customer_hooks.CreateOrUpdateCustomerRequest",
+          "lineNumber": 54
+        },
+        {
+          "caller": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 66
+        },
+        {
+          "caller": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 67
+        },
+        {
+          "caller": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 67
+        },
+        {
+          "caller": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "callee": "respx.post(\"https://rest.example.com/address-update/447400000000\").mock",
+          "lineNumber": 68
+        },
+        {
+          "caller": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "callee": "respx.post",
+          "lineNumber": 68
+        },
+        {
+          "caller": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "callee": "httpx.Response",
+          "lineNumber": 68
+        },
+        {
+          "caller": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "callee": "customer_hooks.UpdateAddressRequest",
+          "lineNumber": 69
+        },
+        {
+          "caller": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "callee": "customer_hooks.update_address",
+          "lineNumber": 80
+        },
+        {
+          "caller": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "callee": "pytest.raises",
+          "lineNumber": 85
+        },
+        {
+          "caller": "test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer",
+          "callee": "customer_hooks.update_address",
+          "lineNumber": 86
+        },
+        {
+          "caller": "test_update_cust_rest_map_returns_model_dump",
+          "callee": "datetime",
+          "lineNumber": 91
+        },
+        {
+          "caller": "test_update_cust_rest_map_returns_model_dump",
+          "callee": "SimpleNamespace",
+          "lineNumber": 92
+        },
+        {
+          "caller": "test_update_cust_rest_map_returns_model_dump",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 94
+        },
+        {
+          "caller": "test_update_cust_rest_map_returns_model_dump",
+          "callee": "staticmethod",
+          "lineNumber": 94
+        },
+        {
+          "caller": "test_update_cust_rest_map_returns_model_dump",
+          "callee": "calls.append",
+          "lineNumber": 94
+        },
+        {
+          "caller": "test_update_cust_rest_map_returns_model_dump",
+          "callee": "customer_hooks.update_cust_rest_map",
+          "lineNumber": 96
+        },
+        {
+          "caller": "test_update_cust_rest_map_returns_model_dump",
+          "callee": "customer_hooks.UpdateCustRestMapRequest",
+          "lineNumber": 97
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 4,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/watomation/routers/test_delivery_hooks.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 363,
+      "nonEmptyLines": 287,
+      "functions": [
+        {
+          "name": "_summary_row",
+          "startLine": 45,
+          "endLine": 73,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "_restaurant_payload",
+          "startLine": 76,
+          "endLine": 108,
+          "params": [
+            "trigger_reason",
+            "admins"
+          ]
+        },
+        {
+          "name": "test_wa_send_delivery_dispatch_request_to_rider_builds_accept_decline_buttons",
+          "startLine": 111,
+          "endLine": 118,
+          "params": [
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_delivery_dispatch_hook_empty_and_overwatch_scheduling",
+          "startLine": 121,
+          "endLine": 139,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_delivery_inflight_graph_init_hook_schedules_core_background_tasks",
+          "startLine": 142,
+          "endLine": 160,
+          "params": []
+        },
+        {
+          "name": "test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_messages",
+          "startLine": 163,
+          "endLine": 175,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_notify_food_ready_for_pickup_schedules_rider_agent",
+          "startLine": 178,
+          "endLine": 185,
+          "params": []
+        },
+        {
+          "name": "test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook",
+          "startLine": 188,
+          "endLine": 200,
+          "params": [
+            "monkeypatch",
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_check_rider_allocation_status_returns_summary_status",
+          "startLine": 203,
+          "endLine": 207,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_shift_and_admin_availability_hooks_schedule_background_processing",
+          "startLine": 210,
+          "endLine": 226,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_restaurant_confirmation_flow_routes_and_validates_payload",
+          "startLine": 229,
+          "endLine": 240,
+          "params": []
+        },
+        {
+          "name": "test_restaurant_confirmation_flow_routes_pickuptime_adjusted",
+          "startLine": 243,
+          "endLine": 249,
+          "params": []
+        },
+        {
+          "name": "test_handle_restaurant_pickuptime_adjusted_notifies_inflight_rider",
+          "startLine": 252,
+          "endLine": 273,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_handle_restaurant_pickuptime_adjusted_skips_when_no_inflight",
+          "startLine": 276,
+          "endLine": 295,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+          "startLine": 298,
+          "endLine": 320,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+          "startLine": 323,
+          "endLine": 345,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery",
+          "startLine": 348,
+          "endLine": 363,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "patch_async_wa_client"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "_FakeBackgroundTasks",
+          "startLine": 37,
+          "endLine": 42,
+          "methods": [
+            "__init__",
+            "add_task"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_FakeBackgroundTasks",
+          "line": 37,
+          "isDefault": false
+        },
+        {
+          "name": "_summary_row",
+          "line": 45,
+          "isDefault": false
+        },
+        {
+          "name": "_restaurant_payload",
+          "line": 76,
+          "isDefault": false
+        },
+        {
+          "name": "test_wa_send_delivery_dispatch_request_to_rider_builds_accept_decline_buttons",
+          "line": 111,
+          "isDefault": false
+        },
+        {
+          "name": "test_delivery_dispatch_hook_empty_and_overwatch_scheduling",
+          "line": 121,
+          "isDefault": false
+        },
+        {
+          "name": "test_delivery_inflight_graph_init_hook_schedules_core_background_tasks",
+          "line": 142,
+          "isDefault": false
+        },
+        {
+          "name": "test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_messages",
+          "line": 163,
+          "isDefault": false
+        },
+        {
+          "name": "test_notify_food_ready_for_pickup_schedules_rider_agent",
+          "line": 178,
+          "isDefault": false
+        },
+        {
+          "name": "test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook",
+          "line": 188,
+          "isDefault": false
+        },
+        {
+          "name": "test_check_rider_allocation_status_returns_summary_status",
+          "line": 203,
+          "isDefault": false
+        },
+        {
+          "name": "test_shift_and_admin_availability_hooks_schedule_background_processing",
+          "line": 210,
+          "isDefault": false
+        },
+        {
+          "name": "test_restaurant_confirmation_flow_routes_and_validates_payload",
+          "line": 229,
+          "isDefault": false
+        },
+        {
+          "name": "test_restaurant_confirmation_flow_routes_pickuptime_adjusted",
+          "line": 243,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_restaurant_pickuptime_adjusted_notifies_inflight_rider",
+          "line": 252,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_restaurant_pickuptime_adjusted_skips_when_no_inflight",
+          "line": 276,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+          "line": 298,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+          "line": 323,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery",
+          "line": 348,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "add_task",
+          "callee": "self.tasks.append",
+          "lineNumber": 42
+        },
+        {
+          "caller": "_summary_row",
+          "callee": "datetime",
+          "lineNumber": 63
+        },
+        {
+          "caller": "_summary_row",
+          "callee": "date",
+          "lineNumber": 64
+        },
+        {
+          "caller": "_summary_row",
+          "callee": "date",
+          "lineNumber": 66
+        },
+        {
+          "caller": "_summary_row",
+          "callee": "datetime",
+          "lineNumber": 67
+        },
+        {
+          "caller": "_summary_row",
+          "callee": "row.update",
+          "lineNumber": 72
+        },
+        {
+          "caller": "_restaurant_payload",
+          "callee": "_summary_row",
+          "lineNumber": 79
+        },
+        {
+          "caller": "test_wa_send_delivery_dispatch_request_to_rider_builds_accept_decline_buttons",
+          "callee": "delivery_hooks.wa_send_delivery_dispatch_request_to_rider",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_wa_send_delivery_dispatch_request_to_rider_builds_accept_decline_buttons",
+          "callee": "_summary_row",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_wa_send_delivery_dispatch_request_to_rider_builds_accept_decline_buttons",
+          "callee": "json.loads",
+          "lineNumber": 117
+        },
+        {
+          "caller": "test_delivery_dispatch_hook_empty_and_overwatch_scheduling",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 124
+        },
+        {
+          "caller": "test_delivery_dispatch_hook_empty_and_overwatch_scheduling",
+          "callee": "delivery_hooks.delivery_dispatch_hook",
+          "lineNumber": 125
+        },
+        {
+          "caller": "test_delivery_dispatch_hook_empty_and_overwatch_scheduling",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 127
+        },
+        {
+          "caller": "test_delivery_dispatch_hook_empty_and_overwatch_scheduling",
+          "callee": "_summary_row",
+          "lineNumber": 130
+        },
+        {
+          "caller": "test_delivery_dispatch_hook_empty_and_overwatch_scheduling",
+          "callee": "_summary_row",
+          "lineNumber": 131
+        },
+        {
+          "caller": "test_delivery_dispatch_hook_empty_and_overwatch_scheduling",
+          "callee": "_summary_row",
+          "lineNumber": 132
+        },
+        {
+          "caller": "test_delivery_dispatch_hook_empty_and_overwatch_scheduling",
+          "callee": "delivery_hooks.delivery_dispatch_hook",
+          "lineNumber": 136
+        },
+        {
+          "caller": "test_delivery_inflight_graph_init_hook_schedules_core_background_tasks",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 143
+        },
+        {
+          "caller": "test_delivery_inflight_graph_init_hook_schedules_core_background_tasks",
+          "callee": "_summary_row",
+          "lineNumber": 146
+        },
+        {
+          "caller": "test_delivery_inflight_graph_init_hook_schedules_core_background_tasks",
+          "callee": "delivery_hooks.delivery_inflight_graph_init_hook",
+          "lineNumber": 150
+        },
+        {
+          "caller": "test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_messages",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 164
+        },
+        {
+          "caller": "test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_messages",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 165
+        },
+        {
+          "caller": "test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_messages",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 165
+        },
+        {
+          "caller": "test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_messages",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 166
+        },
+        {
+          "caller": "test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_messages",
+          "callee": "delivery_hooks.notify_missed_dispatches_hook",
+          "lineNumber": 168
+        },
+        {
+          "caller": "test_notify_food_ready_for_pickup_schedules_rider_agent",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 179
+        },
+        {
+          "caller": "test_notify_food_ready_for_pickup_schedules_rider_agent",
+          "callee": "delivery_hooks.notify_food_ready_for_pickup",
+          "lineNumber": 181
+        },
+        {
+          "caller": "test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 192
+        },
+        {
+          "caller": "test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 193
+        },
+        {
+          "caller": "test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook",
+          "callee": "classmethod",
+          "lineNumber": 193
+        },
+        {
+          "caller": "test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 194
+        },
+        {
+          "caller": "test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook",
+          "callee": "delivery_hooks.delivery_timedout",
+          "lineNumber": 196
+        },
+        {
+          "caller": "test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook",
+          "callee": "_summary_row",
+          "lineNumber": 196
+        },
+        {
+          "caller": "test_check_rider_allocation_status_returns_summary_status",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 204
+        },
+        {
+          "caller": "test_check_rider_allocation_status_returns_summary_status",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 205
+        },
+        {
+          "caller": "test_check_rider_allocation_status_returns_summary_status",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 205
+        },
+        {
+          "caller": "test_check_rider_allocation_status_returns_summary_status",
+          "callee": "delivery_hooks.check_rider_allocation_status",
+          "lineNumber": 207
+        },
+        {
+          "caller": "test_shift_and_admin_availability_hooks_schedule_background_processing",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 211
+        },
+        {
+          "caller": "test_shift_and_admin_availability_hooks_schedule_background_processing",
+          "callee": "delivery_hooks.shift_availability_enquiry_hook",
+          "lineNumber": 212
+        },
+        {
+          "caller": "test_shift_and_admin_availability_hooks_schedule_background_processing",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 220
+        },
+        {
+          "caller": "test_shift_and_admin_availability_hooks_schedule_background_processing",
+          "callee": "delivery_hooks.admin_availability_enquiry_hook",
+          "lineNumber": 221
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_routes_and_validates_payload",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 230
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_routes_and_validates_payload",
+          "callee": "delivery_hooks.restaurant_confirmation_flow",
+          "lineNumber": 231
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_routes_and_validates_payload",
+          "callee": "_restaurant_payload",
+          "lineNumber": 231
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_routes_and_validates_payload",
+          "callee": "delivery_hooks.restaurant_confirmation_flow",
+          "lineNumber": 235
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_routes_and_validates_payload",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 235
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_routes_and_validates_payload",
+          "callee": "_restaurant_payload",
+          "lineNumber": 235
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_routes_and_validates_payload",
+          "callee": "delivery_hooks.restaurant_confirmation_flow",
+          "lineNumber": 239
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_routes_and_validates_payload",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 239
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_routes_and_validates_payload",
+          "callee": "_restaurant_payload",
+          "lineNumber": 239
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_routes_pickuptime_adjusted",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 244
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_routes_pickuptime_adjusted",
+          "callee": "delivery_hooks.restaurant_confirmation_flow",
+          "lineNumber": 245
+        },
+        {
+          "caller": "test_restaurant_confirmation_flow_routes_pickuptime_adjusted",
+          "callee": "_restaurant_payload",
+          "lineNumber": 246
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_notifies_inflight_rider",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 253
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_notifies_inflight_rider",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 254
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_notifies_inflight_rider",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 257
+        },
+        {
+          "caller": "_fake_run",
+          "callee": "calls.append",
+          "lineNumber": 262
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_notifies_inflight_rider",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 264
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_notifies_inflight_rider",
+          "callee": "DeliverySummaryData",
+          "lineNumber": 266
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_notifies_inflight_rider",
+          "callee": "_summary_row",
+          "lineNumber": 266
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_notifies_inflight_rider",
+          "callee": "delivery_hooks._handle_restaurant_pickuptime_adjusted",
+          "lineNumber": 268
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_skips_when_no_inflight",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 277
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_skips_when_no_inflight",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 278
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_skips_when_no_inflight",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 281
+        },
+        {
+          "caller": "_fake_run",
+          "callee": "calls.append",
+          "lineNumber": 286
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_skips_when_no_inflight",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 288
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_skips_when_no_inflight",
+          "callee": "DeliverySummaryData",
+          "lineNumber": 290
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_skips_when_no_inflight",
+          "callee": "_summary_row",
+          "lineNumber": 290
+        },
+        {
+          "caller": "test_handle_restaurant_pickuptime_adjusted_skips_when_no_inflight",
+          "callee": "delivery_hooks._handle_restaurant_pickuptime_adjusted",
+          "lineNumber": 292
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 301
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 302
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 305
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 307
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 310
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+          "callee": "DeliverySummaryData",
+          "lineNumber": 313
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+          "callee": "_summary_row",
+          "lineNumber": 313
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+          "callee": "delivery_hooks._handle_restaurant_timedout",
+          "lineNumber": 315
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config",
+          "callee": "next",
+          "lineNumber": 318
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 326
+        },
+        {
+          "caller": "config_response",
+          "callee": "call.filters.get",
+          "lineNumber": 329
+        },
+        {
+          "caller": "config_response",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 330
+        },
+        {
+          "caller": "config_response",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 331
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 333
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 334
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 337
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+          "callee": "DeliverySummaryData",
+          "lineNumber": 340
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+          "callee": "_summary_row",
+          "lineNumber": 340
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+          "callee": "delivery_hooks._handle_restaurant_timedout",
+          "lineNumber": 342
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config",
+          "callee": "next",
+          "lineNumber": 344
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 351
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 352
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 355
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery",
+          "callee": "DeliverySummaryData",
+          "lineNumber": 358
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery",
+          "callee": "_summary_row",
+          "lineNumber": 358
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery",
+          "callee": "delivery_hooks._handle_restaurant_timedout",
+          "lineNumber": 360
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery",
+          "callee": "next",
+          "lineNumber": 362
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 18,
+        "functionCount": 17,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "tests/watomation/routers/test_location_hooks.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 147,
+      "nonEmptyLines": 107,
+      "functions": [
+        {
+          "name": "_decode_href",
+          "startLine": 40,
+          "endLine": 41,
+          "params": [
+            "href"
+          ]
+        },
+        {
+          "name": "_summary_row",
+          "startLine": 44,
+          "endLine": 52,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "test_generate_config_href_round_trips_payload",
+          "startLine": 55,
+          "endLine": 59,
+          "params": []
+        },
+        {
+          "name": "test_process_location_transition_writes_expected_sql",
+          "startLine": 62,
+          "endLine": 75,
+          "params": [
+            "patch_pg_pool"
+          ]
+        },
+        {
+          "name": "test_process_location_transition_rejects_unknown_transition",
+          "startLine": 78,
+          "endLine": 82,
+          "params": [
+            "patch_pg_pool"
+          ]
+        },
+        {
+          "name": "test_live_location_map_validates_and_returns_url",
+          "startLine": 85,
+          "endLine": 102,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_notify_rider_location_event_restaurant_enter_notifies_admins",
+          "startLine": 105,
+          "endLine": 115,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_notify_rider_location_event_customer_enter_posts_webhook",
+          "startLine": 119,
+          "endLine": 133,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_notify_rider_null_or_outdated_location_sends_reason_messages",
+          "startLine": 136,
+          "endLine": 147,
+          "params": [
+            "patch_async_wa_client"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "_FakeRequest",
+          "startLine": 32,
+          "endLine": 37,
+          "methods": [
+            "__init__",
+            "json"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_FakeRequest",
+          "line": 32,
+          "isDefault": false
+        },
+        {
+          "name": "_decode_href",
+          "line": 40,
+          "isDefault": false
+        },
+        {
+          "name": "_summary_row",
+          "line": 44,
+          "isDefault": false
+        },
+        {
+          "name": "test_generate_config_href_round_trips_payload",
+          "line": 55,
+          "isDefault": false
+        },
+        {
+          "name": "test_process_location_transition_writes_expected_sql",
+          "line": 62,
+          "isDefault": false
+        },
+        {
+          "name": "test_process_location_transition_rejects_unknown_transition",
+          "line": 78,
+          "isDefault": false
+        },
+        {
+          "name": "test_live_location_map_validates_and_returns_url",
+          "line": 85,
+          "isDefault": false
+        },
+        {
+          "name": "test_notify_rider_location_event_restaurant_enter_notifies_admins",
+          "line": 105,
+          "isDefault": false
+        },
+        {
+          "name": "test_notify_rider_location_event_customer_enter_posts_webhook",
+          "line": 118,
+          "isDefault": false
+        },
+        {
+          "name": "test_notify_rider_null_or_outdated_location_sends_reason_messages",
+          "line": 136,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "_decode_href",
+          "callee": "json.loads",
+          "lineNumber": 41
+        },
+        {
+          "caller": "_decode_href",
+          "callee": "base64.b64decode(href.split(\"inline=\", 1)[1]).decode",
+          "lineNumber": 41
+        },
+        {
+          "caller": "_decode_href",
+          "callee": "base64.b64decode",
+          "lineNumber": 41
+        },
+        {
+          "caller": "_decode_href",
+          "callee": "href.split",
+          "lineNumber": 41
+        },
+        {
+          "caller": "_summary_row",
+          "callee": "row.update",
+          "lineNumber": 51
+        },
+        {
+          "caller": "test_generate_config_href_round_trips_payload",
+          "callee": "location_hooks.generate_config_href",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_generate_config_href_round_trips_payload",
+          "callee": "href.startswith",
+          "lineNumber": 58
+        },
+        {
+          "caller": "test_generate_config_href_round_trips_payload",
+          "callee": "_decode_href",
+          "lineNumber": 59
+        },
+        {
+          "caller": "test_process_location_transition_writes_expected_sql",
+          "callee": "location_hooks.process_location_transitionTBD",
+          "lineNumber": 70
+        },
+        {
+          "caller": "test_process_location_transition_rejects_unknown_transition",
+          "callee": "pytest.raises",
+          "lineNumber": 79
+        },
+        {
+          "caller": "test_process_location_transition_rejects_unknown_transition",
+          "callee": "location_hooks.process_location_transitionTBD",
+          "lineNumber": 80
+        },
+        {
+          "caller": "test_live_location_map_validates_and_returns_url",
+          "callee": "pytest.raises",
+          "lineNumber": 86
+        },
+        {
+          "caller": "test_live_location_map_validates_and_returns_url",
+          "callee": "location_hooks.live_location_map",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_live_location_map_validates_and_returns_url",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 93
+        },
+        {
+          "caller": "test_live_location_map_validates_and_returns_url",
+          "callee": "pytest.raises",
+          "lineNumber": 94
+        },
+        {
+          "caller": "test_live_location_map_validates_and_returns_url",
+          "callee": "location_hooks.live_location_map",
+          "lineNumber": 95
+        },
+        {
+          "caller": "test_live_location_map_validates_and_returns_url",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 101
+        },
+        {
+          "caller": "test_live_location_map_validates_and_returns_url",
+          "callee": "location_hooks.live_location_map",
+          "lineNumber": 102
+        },
+        {
+          "caller": "test_notify_rider_location_event_restaurant_enter_notifies_admins",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_notify_rider_location_event_restaurant_enter_notifies_admins",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_notify_rider_location_event_restaurant_enter_notifies_admins",
+          "callee": "_summary_row",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_notify_rider_location_event_restaurant_enter_notifies_admins",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 107
+        },
+        {
+          "caller": "test_notify_rider_location_event_restaurant_enter_notifies_admins",
+          "callee": "classmethod",
+          "lineNumber": 107
+        },
+        {
+          "caller": "test_notify_rider_location_event_restaurant_enter_notifies_admins",
+          "callee": "location_hooks.notify_rider_location_event",
+          "lineNumber": 109
+        },
+        {
+          "caller": "test_notify_rider_location_event_restaurant_enter_notifies_admins",
+          "callee": "_FakeRequest",
+          "lineNumber": 110
+        },
+        {
+          "caller": "test_notify_rider_location_event_customer_enter_posts_webhook",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 120
+        },
+        {
+          "caller": "test_notify_rider_location_event_customer_enter_posts_webhook",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 120
+        },
+        {
+          "caller": "test_notify_rider_location_event_customer_enter_posts_webhook",
+          "callee": "_summary_row",
+          "lineNumber": 120
+        },
+        {
+          "caller": "test_notify_rider_location_event_customer_enter_posts_webhook",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 125
+        },
+        {
+          "caller": "test_notify_rider_location_event_customer_enter_posts_webhook",
+          "callee": "respx.post(\"https://rest.example.com/customer-enter/ELAS-ABCD-1\").mock",
+          "lineNumber": 126
+        },
+        {
+          "caller": "test_notify_rider_location_event_customer_enter_posts_webhook",
+          "callee": "respx.post",
+          "lineNumber": 126
+        },
+        {
+          "caller": "test_notify_rider_location_event_customer_enter_posts_webhook",
+          "callee": "httpx.Response",
+          "lineNumber": 126
+        },
+        {
+          "caller": "test_notify_rider_location_event_customer_enter_posts_webhook",
+          "callee": "location_hooks.notify_rider_location_event",
+          "lineNumber": 128
+        },
+        {
+          "caller": "test_notify_rider_location_event_customer_enter_posts_webhook",
+          "callee": "_FakeRequest",
+          "lineNumber": 129
+        },
+        {
+          "caller": "test_notify_rider_null_or_outdated_location_sends_reason_messages",
+          "callee": "location_hooks.notify_rider_null_or_outdated_location",
+          "lineNumber": 137
+        },
+        {
+          "caller": "test_notify_rider_null_or_outdated_location_sends_reason_messages",
+          "callee": "_FakeRequest",
+          "lineNumber": 138
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 10,
+        "functionCount": 9,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "tests/watomation/routers/test_order_hooks.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 184,
+      "nonEmptyLines": 144,
+      "functions": [
+        {
+          "name": "_order_items",
+          "startLine": 30,
+          "endLine": 31,
+          "params": []
+        },
+        {
+          "name": "_food_order",
+          "startLine": 34,
+          "endLine": 45,
+          "params": [
+            "action"
+          ]
+        },
+        {
+          "name": "test_get_min_order_value_validates_inputs_and_returns_service_value",
+          "startLine": 48,
+          "endLine": 78,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_get_min_order_value_by_postcode_resolves_addresses",
+          "startLine": 81,
+          "endLine": 104,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "startLine": 107,
+          "endLine": 134,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_validate_postcode_returns_resolved_address",
+          "startLine": 137,
+          "endLine": 141,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_capture_address_upserts_customer_and_notifies_restaurant",
+          "startLine": 145,
+          "endLine": 168,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_get_active_thread_proxies_restaurant_response",
+          "startLine": 172,
+          "endLine": 184,
+          "params": [
+            "monkeypatch"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "_order_items",
+          "line": 30,
+          "isDefault": false
+        },
+        {
+          "name": "_food_order",
+          "line": 34,
+          "isDefault": false
+        },
+        {
+          "name": "test_get_min_order_value_validates_inputs_and_returns_service_value",
+          "line": 48,
+          "isDefault": false
+        },
+        {
+          "name": "test_get_min_order_value_by_postcode_resolves_addresses",
+          "line": 81,
+          "isDefault": false
+        },
+        {
+          "name": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "line": 107,
+          "isDefault": false
+        },
+        {
+          "name": "test_validate_postcode_returns_resolved_address",
+          "line": 137,
+          "isDefault": false
+        },
+        {
+          "name": "test_capture_address_upserts_customer_and_notifies_restaurant",
+          "line": 144,
+          "isDefault": false
+        },
+        {
+          "name": "test_get_active_thread_proxies_restaurant_response",
+          "line": 171,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "_order_items",
+          "callee": "OrderItem",
+          "lineNumber": 31
+        },
+        {
+          "caller": "_food_order",
+          "callee": "SimpleNamespace",
+          "lineNumber": 35
+        },
+        {
+          "caller": "test_get_min_order_value_validates_inputs_and_returns_service_value",
+          "callee": "pytest.raises",
+          "lineNumber": 49
+        },
+        {
+          "caller": "test_get_min_order_value_validates_inputs_and_returns_service_value",
+          "callee": "order_hooks.get_min_order_value",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_get_min_order_value_validates_inputs_and_returns_service_value",
+          "callee": "pytest.raises",
+          "lineNumber": 59
+        },
+        {
+          "caller": "test_get_min_order_value_validates_inputs_and_returns_service_value",
+          "callee": "order_hooks.get_min_order_value",
+          "lineNumber": 60
+        },
+        {
+          "caller": "test_get_min_order_value_validates_inputs_and_returns_service_value",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 69
+        },
+        {
+          "caller": "test_get_min_order_value_validates_inputs_and_returns_service_value",
+          "callee": "order_hooks.get_min_order_value",
+          "lineNumber": 71
+        },
+        {
+          "caller": "test_get_min_order_value_by_postcode_resolves_addresses",
+          "callee": "SimpleNamespace",
+          "lineNumber": 83
+        },
+        {
+          "caller": "test_get_min_order_value_by_postcode_resolves_addresses",
+          "callee": "SimpleNamespace",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_get_min_order_value_by_postcode_resolves_addresses",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 86
+        },
+        {
+          "caller": "test_get_min_order_value_by_postcode_resolves_addresses",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_get_min_order_value_by_postcode_resolves_addresses",
+          "callee": "order_hooks.get_min_order_value_by_postcode",
+          "lineNumber": 89
+        },
+        {
+          "caller": "test_get_min_order_value_by_postcode_resolves_addresses",
+          "callee": "SimpleNamespace",
+          "lineNumber": 97
+        },
+        {
+          "caller": "test_get_min_order_value_by_postcode_resolves_addresses",
+          "callee": "pytest.raises",
+          "lineNumber": 98
+        },
+        {
+          "caller": "test_get_min_order_value_by_postcode_resolves_addresses",
+          "callee": "order_hooks.get_min_order_value_by_postcode",
+          "lineNumber": 99
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 117
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 118
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "staticmethod",
+          "lineNumber": 118
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "_food_order",
+          "lineNumber": 118
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 119
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 120
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "order_hooks.create_order",
+          "lineNumber": 122
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "order_hooks.CreateOrderRequest",
+          "lineNumber": 124
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "_order_items",
+          "lineNumber": 124
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 129
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "staticmethod",
+          "lineNumber": 129
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "_food_order",
+          "lineNumber": 129
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "order_hooks.create_order",
+          "lineNumber": 130
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "order_hooks.CreateOrderRequest",
+          "lineNumber": 132
+        },
+        {
+          "caller": "test_create_order_returns_payment_url_for_delivery_and_takeaway",
+          "callee": "_order_items",
+          "lineNumber": 132
+        },
+        {
+          "caller": "test_validate_postcode_returns_resolved_address",
+          "callee": "SimpleNamespace",
+          "lineNumber": 138
+        },
+        {
+          "caller": "test_validate_postcode_returns_resolved_address",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 139
+        },
+        {
+          "caller": "test_validate_postcode_returns_resolved_address",
+          "callee": "order_hooks.validate_postcode",
+          "lineNumber": 141
+        },
+        {
+          "caller": "test_capture_address_upserts_customer_and_notifies_restaurant",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 150
+        },
+        {
+          "caller": "test_capture_address_upserts_customer_and_notifies_restaurant",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 151
+        },
+        {
+          "caller": "test_capture_address_upserts_customer_and_notifies_restaurant",
+          "callee": "staticmethod",
+          "lineNumber": 151
+        },
+        {
+          "caller": "test_capture_address_upserts_customer_and_notifies_restaurant",
+          "callee": "calls.append",
+          "lineNumber": 151
+        },
+        {
+          "caller": "test_capture_address_upserts_customer_and_notifies_restaurant",
+          "callee": "respx.post(\"https://rest.example.com/address-update/447400000000\").mock",
+          "lineNumber": 152
+        },
+        {
+          "caller": "test_capture_address_upserts_customer_and_notifies_restaurant",
+          "callee": "respx.post",
+          "lineNumber": 152
+        },
+        {
+          "caller": "test_capture_address_upserts_customer_and_notifies_restaurant",
+          "callee": "httpx.Response",
+          "lineNumber": 152
+        },
+        {
+          "caller": "test_capture_address_upserts_customer_and_notifies_restaurant",
+          "callee": "order_hooks.CaptureAddressRequest",
+          "lineNumber": 153
+        },
+        {
+          "caller": "test_capture_address_upserts_customer_and_notifies_restaurant",
+          "callee": "order_hooks.capture_address",
+          "lineNumber": 164
+        },
+        {
+          "caller": "test_get_active_thread_proxies_restaurant_response",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 176
+        },
+        {
+          "caller": "test_get_active_thread_proxies_restaurant_response",
+          "callee": "respx.get(\"https://rest.example.com/get-active-thread/ELAS/447400000000\").mock",
+          "lineNumber": 177
+        },
+        {
+          "caller": "test_get_active_thread_proxies_restaurant_response",
+          "callee": "respx.get",
+          "lineNumber": 177
+        },
+        {
+          "caller": "test_get_active_thread_proxies_restaurant_response",
+          "callee": "httpx.Response",
+          "lineNumber": 178
+        },
+        {
+          "caller": "test_get_active_thread_proxies_restaurant_response",
+          "callee": "order_hooks.get_active_thread",
+          "lineNumber": 181
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 8,
+        "functionCount": 8,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/watomation/routers/test_payment_hooks.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 118,
+      "nonEmptyLines": 88,
+      "functions": [
+        {
+          "name": "_food_order_row",
+          "startLine": 41,
+          "endLine": 50,
+          "params": [
+            "action"
+          ]
+        },
+        {
+          "name": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "startLine": 54,
+          "endLine": 66,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "startLine": 69,
+          "endLine": 83,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_payment_complete_test_path_schedules_expected_initializer",
+          "startLine": 86,
+          "endLine": 93,
+          "params": []
+        },
+        {
+          "name": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "startLine": 96,
+          "endLine": 118,
+          "params": [
+            "patch_supabase_client"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "_FakeBackgroundTasks",
+          "startLine": 25,
+          "endLine": 30,
+          "methods": [
+            "__init__",
+            "add_task"
+          ],
+          "properties": []
+        },
+        {
+          "name": "_FakeRequest",
+          "startLine": 33,
+          "endLine": 38,
+          "methods": [
+            "__init__",
+            "json"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_FakeBackgroundTasks",
+          "line": 25,
+          "isDefault": false
+        },
+        {
+          "name": "_FakeRequest",
+          "line": 33,
+          "isDefault": false
+        },
+        {
+          "name": "_food_order_row",
+          "line": 41,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "line": 53,
+          "isDefault": false
+        },
+        {
+          "name": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "line": 69,
+          "isDefault": false
+        },
+        {
+          "name": "test_payment_complete_test_path_schedules_expected_initializer",
+          "line": 86,
+          "isDefault": false
+        },
+        {
+          "name": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "line": 96,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "add_task",
+          "callee": "self.tasks.append",
+          "lineNumber": 30
+        },
+        {
+          "caller": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 58
+        },
+        {
+          "caller": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "callee": "respx.post(\"https://rest.example.com/payment-complete/447400000000/thread-1\").mock",
+          "lineNumber": 59
+        },
+        {
+          "caller": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "callee": "respx.post",
+          "lineNumber": 59
+        },
+        {
+          "caller": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "callee": "httpx.Response",
+          "lineNumber": 59
+        },
+        {
+          "caller": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "callee": "payment_hooks.FoodOrder",
+          "lineNumber": 60
+        },
+        {
+          "caller": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "callee": "_food_order_row",
+          "lineNumber": 60
+        },
+        {
+          "caller": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "callee": "payment_hooks.handle_payment_complete",
+          "lineNumber": 62
+        },
+        {
+          "caller": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "callee": "respx.post(\"https://rest.example.com/payment-complete/447400000000/thread-1\").mock",
+          "lineNumber": 65
+        },
+        {
+          "caller": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "callee": "respx.post",
+          "lineNumber": 65
+        },
+        {
+          "caller": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "callee": "httpx.Response",
+          "lineNumber": 65
+        },
+        {
+          "caller": "test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors",
+          "callee": "payment_hooks.handle_payment_complete",
+          "lineNumber": 66
+        },
+        {
+          "caller": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 70
+        },
+        {
+          "caller": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 70
+        },
+        {
+          "caller": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "callee": "_food_order_row",
+          "lineNumber": 70
+        },
+        {
+          "caller": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 71
+        },
+        {
+          "caller": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "callee": "payment_hooks.payment_complete_path",
+          "lineNumber": 74
+        },
+        {
+          "caller": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "callee": "_FakeRequest",
+          "lineNumber": 74
+        },
+        {
+          "caller": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 80
+        },
+        {
+          "caller": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 80
+        },
+        {
+          "caller": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "callee": "_food_order_row",
+          "lineNumber": 80
+        },
+        {
+          "caller": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 81
+        },
+        {
+          "caller": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "callee": "payment_hooks.payment_complete_path",
+          "lineNumber": 82
+        },
+        {
+          "caller": "test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway",
+          "callee": "_FakeRequest",
+          "lineNumber": 82
+        },
+        {
+          "caller": "test_payment_complete_test_path_schedules_expected_initializer",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_payment_complete_test_path_schedules_expected_initializer",
+          "callee": "payment_hooks.payment_complete_test_path",
+          "lineNumber": 88
+        },
+        {
+          "caller": "test_payment_complete_test_path_schedules_expected_initializer",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 91
+        },
+        {
+          "caller": "test_payment_complete_test_path_schedules_expected_initializer",
+          "callee": "payment_hooks.payment_complete_test_path",
+          "lineNumber": 92
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "payment_hooks.PayAtRest",
+          "lineNumber": 97
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "pytest.raises",
+          "lineNumber": 104
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "payment_hooks.pay_at_restaurant",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 109
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 109
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "pytest.raises",
+          "lineNumber": 110
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "payment_hooks.pay_at_restaurant",
+          "lineNumber": 111
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 111
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 114
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 114
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "_food_order_row",
+          "lineNumber": 114
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 115
+        },
+        {
+          "caller": "test_pay_at_restaurant_validates_action_and_schedules_takeaway",
+          "callee": "payment_hooks.pay_at_restaurant",
+          "lineNumber": 116
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 7,
+        "functionCount": 5,
+        "classCount": 2
+      }
+    },
+    {
+      "path": "tests/watomation/routers/test_takeaway_hooks.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 195,
+      "nonEmptyLines": 154,
+      "functions": [
+        {
+          "name": "_takeaway_summary_row",
+          "startLine": 42,
+          "endLine": 61,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "_restaurant_master_row",
+          "startLine": 64,
+          "endLine": 74,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins",
+          "startLine": 77,
+          "endLine": 90,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_handle_restaurant_timedout_skips_admin_notifications_when_update_matches_no_rows",
+          "startLine": 93,
+          "endLine": 102,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_pickup_time_updated_hook_schedules_background_processing",
+          "startLine": 105,
+          "endLine": 120,
+          "params": []
+        },
+        {
+          "name": "test_pickup_time_updated_hook_returns_error_for_invalid_payload",
+          "startLine": 123,
+          "endLine": 130,
+          "params": []
+        },
+        {
+          "name": "test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+          "startLine": 133,
+          "endLine": 154,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+          "startLine": 157,
+          "endLine": 178,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "patch_async_wa_client"
+          ]
+        },
+        {
+          "name": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes",
+          "startLine": 181,
+          "endLine": 195,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "patch_async_wa_client"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "_FakeBackgroundTasks",
+          "startLine": 34,
+          "endLine": 39,
+          "methods": [
+            "__init__",
+            "add_task"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_FakeBackgroundTasks",
+          "line": 34,
+          "isDefault": false
+        },
+        {
+          "name": "_takeaway_summary_row",
+          "line": 42,
+          "isDefault": false
+        },
+        {
+          "name": "_restaurant_master_row",
+          "line": 64,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins",
+          "line": 77,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_restaurant_timedout_skips_admin_notifications_when_update_matches_no_rows",
+          "line": 93,
+          "isDefault": false
+        },
+        {
+          "name": "test_pickup_time_updated_hook_schedules_background_processing",
+          "line": 105,
+          "isDefault": false
+        },
+        {
+          "name": "test_pickup_time_updated_hook_returns_error_for_invalid_payload",
+          "line": 123,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+          "line": 133,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+          "line": 157,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes",
+          "line": 181,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "add_task",
+          "callee": "self.tasks.append",
+          "lineNumber": 39
+        },
+        {
+          "caller": "_takeaway_summary_row",
+          "callee": "row.update",
+          "lineNumber": 60
+        },
+        {
+          "caller": "_restaurant_master_row",
+          "callee": "row.update",
+          "lineNumber": 73
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 78
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 79
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 79
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins",
+          "callee": "takeaway_hooks.TakeawaySummaryData",
+          "lineNumber": 80
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins",
+          "callee": "_takeaway_summary_row",
+          "lineNumber": 80
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins",
+          "callee": "takeaway_hooks._handle_restaurant_timedout",
+          "lineNumber": 82
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_skips_admin_notifications_when_update_matches_no_rows",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 94
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_skips_admin_notifications_when_update_matches_no_rows",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 95
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_skips_admin_notifications_when_update_matches_no_rows",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 95
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_skips_admin_notifications_when_update_matches_no_rows",
+          "callee": "takeaway_hooks.TakeawaySummaryData",
+          "lineNumber": 96
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_skips_admin_notifications_when_update_matches_no_rows",
+          "callee": "_takeaway_summary_row",
+          "lineNumber": 96
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_skips_admin_notifications_when_update_matches_no_rows",
+          "callee": "takeaway_hooks._handle_restaurant_timedout",
+          "lineNumber": 98
+        },
+        {
+          "caller": "test_pickup_time_updated_hook_schedules_background_processing",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_pickup_time_updated_hook_schedules_background_processing",
+          "callee": "_takeaway_summary_row",
+          "lineNumber": 108
+        },
+        {
+          "caller": "test_pickup_time_updated_hook_schedules_background_processing",
+          "callee": "_restaurant_master_row",
+          "lineNumber": 113
+        },
+        {
+          "caller": "test_pickup_time_updated_hook_schedules_background_processing",
+          "callee": "takeaway_hooks.pickup_time_updated_hook",
+          "lineNumber": 116
+        },
+        {
+          "caller": "test_pickup_time_updated_hook_returns_error_for_invalid_payload",
+          "callee": "takeaway_hooks.pickup_time_updated_hook",
+          "lineNumber": 124
+        },
+        {
+          "caller": "test_pickup_time_updated_hook_returns_error_for_invalid_payload",
+          "callee": "SimpleNamespace",
+          "lineNumber": 125
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 136
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 137
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 140
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 142
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 145
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+          "callee": "takeaway_hooks.TakeawaySummaryData",
+          "lineNumber": 147
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+          "callee": "_takeaway_summary_row",
+          "lineNumber": 147
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+          "callee": "takeaway_hooks._handle_restaurant_timedout",
+          "lineNumber": 149
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_uses_rest_specific_pickup_config",
+          "callee": "next",
+          "lineNumber": 152
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 160
+        },
+        {
+          "caller": "config_response",
+          "callee": "call.filters.get",
+          "lineNumber": 163
+        },
+        {
+          "caller": "config_response",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 164
+        },
+        {
+          "caller": "config_response",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 165
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 167
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 168
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 171
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+          "callee": "takeaway_hooks.TakeawaySummaryData",
+          "lineNumber": 173
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+          "callee": "_takeaway_summary_row",
+          "lineNumber": 173
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+          "callee": "takeaway_hooks._handle_restaurant_timedout",
+          "lineNumber": 175
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_global_pickup_config",
+          "callee": "next",
+          "lineNumber": 177
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 184
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 185
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 188
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes",
+          "callee": "takeaway_hooks.TakeawaySummaryData",
+          "lineNumber": 190
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes",
+          "callee": "_takeaway_summary_row",
+          "lineNumber": 190
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes",
+          "callee": "takeaway_hooks._handle_restaurant_timedout",
+          "lineNumber": 192
+        },
+        {
+          "caller": "test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes",
+          "callee": "next",
+          "lineNumber": 194
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 10,
+        "functionCount": 9,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "tests/watomation/routers/test_thread_hooks.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 133,
+      "nonEmptyLines": 94,
+      "functions": [
+        {
+          "name": "test_notify_restaurant_thread_termination_posts_and_swallows_errors",
+          "startLine": 38,
+          "endLine": 44,
+          "params": []
+        },
+        {
+          "name": "test_terminate_stale_active_threads_schedules_onboarded_restaurants",
+          "startLine": 47,
+          "endLine": 60,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_run_system_message_uses_recipient_or_fetches_active_thread",
+          "startLine": 63,
+          "endLine": 80,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_run_system_message_raises_when_thread_missing",
+          "startLine": 83,
+          "endLine": 88,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_debug_endpoint_wrappers_delegate_to_agent_runner",
+          "startLine": 91,
+          "endLine": 108,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_debug_state_by_thread_path_builds_graph_config",
+          "startLine": 111,
+          "endLine": 133,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "patch_pg_pool"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "_FakeBackgroundTasks",
+          "startLine": 29,
+          "endLine": 34,
+          "methods": [
+            "__init__",
+            "add_task"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_FakeBackgroundTasks",
+          "line": 29,
+          "isDefault": false
+        },
+        {
+          "name": "test_notify_restaurant_thread_termination_posts_and_swallows_errors",
+          "line": 37,
+          "isDefault": false
+        },
+        {
+          "name": "test_terminate_stale_active_threads_schedules_onboarded_restaurants",
+          "line": 47,
+          "isDefault": false
+        },
+        {
+          "name": "test_run_system_message_uses_recipient_or_fetches_active_thread",
+          "line": 63,
+          "isDefault": false
+        },
+        {
+          "name": "test_run_system_message_raises_when_thread_missing",
+          "line": 83,
+          "isDefault": false
+        },
+        {
+          "name": "test_debug_endpoint_wrappers_delegate_to_agent_runner",
+          "line": 91,
+          "isDefault": false
+        },
+        {
+          "name": "test_debug_state_by_thread_path_builds_graph_config",
+          "line": 111,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "add_task",
+          "callee": "self.tasks.append",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_notify_restaurant_thread_termination_posts_and_swallows_errors",
+          "callee": "respx.post(\"https://rest.example.com/terminate\").mock",
+          "lineNumber": 39
+        },
+        {
+          "caller": "test_notify_restaurant_thread_termination_posts_and_swallows_errors",
+          "callee": "respx.post",
+          "lineNumber": 39
+        },
+        {
+          "caller": "test_notify_restaurant_thread_termination_posts_and_swallows_errors",
+          "callee": "httpx.Response",
+          "lineNumber": 39
+        },
+        {
+          "caller": "test_notify_restaurant_thread_termination_posts_and_swallows_errors",
+          "callee": "thread_hooks.notify_restaurant_thread_termination",
+          "lineNumber": 40
+        },
+        {
+          "caller": "test_notify_restaurant_thread_termination_posts_and_swallows_errors",
+          "callee": "respx.post(\"https://rest.example.com/terminate\").mock",
+          "lineNumber": 43
+        },
+        {
+          "caller": "test_notify_restaurant_thread_termination_posts_and_swallows_errors",
+          "callee": "respx.post",
+          "lineNumber": 43
+        },
+        {
+          "caller": "test_notify_restaurant_thread_termination_posts_and_swallows_errors",
+          "callee": "httpx.Response",
+          "lineNumber": 43
+        },
+        {
+          "caller": "test_notify_restaurant_thread_termination_posts_and_swallows_errors",
+          "callee": "thread_hooks.notify_restaurant_thread_termination",
+          "lineNumber": 44
+        },
+        {
+          "caller": "test_terminate_stale_active_threads_schedules_onboarded_restaurants",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 48
+        },
+        {
+          "caller": "_webhook",
+          "callee": "rest_ref.lower",
+          "lineNumber": 51
+        },
+        {
+          "caller": "test_terminate_stale_active_threads_schedules_onboarded_restaurants",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 53
+        },
+        {
+          "caller": "test_terminate_stale_active_threads_schedules_onboarded_restaurants",
+          "callee": "_FakeBackgroundTasks",
+          "lineNumber": 54
+        },
+        {
+          "caller": "test_terminate_stale_active_threads_schedules_onboarded_restaurants",
+          "callee": "thread_hooks.terminate_stale_active_threads",
+          "lineNumber": 56
+        },
+        {
+          "caller": "_fake_run",
+          "callee": "calls.append",
+          "lineNumber": 67
+        },
+        {
+          "caller": "test_run_system_message_uses_recipient_or_fetches_active_thread",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 70
+        },
+        {
+          "caller": "test_run_system_message_uses_recipient_or_fetches_active_thread",
+          "callee": "thread_hooks.RunSystemMessageRequest",
+          "lineNumber": 71
+        },
+        {
+          "caller": "test_run_system_message_uses_recipient_or_fetches_active_thread",
+          "callee": "thread_hooks.run_system_message",
+          "lineNumber": 73
+        },
+        {
+          "caller": "test_run_system_message_uses_recipient_or_fetches_active_thread",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 77
+        },
+        {
+          "caller": "test_run_system_message_uses_recipient_or_fetches_active_thread",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 77
+        },
+        {
+          "caller": "test_run_system_message_uses_recipient_or_fetches_active_thread",
+          "callee": "thread_hooks.RunSystemMessageRequest",
+          "lineNumber": 78
+        },
+        {
+          "caller": "test_run_system_message_uses_recipient_or_fetches_active_thread",
+          "callee": "thread_hooks.run_system_message",
+          "lineNumber": 79
+        },
+        {
+          "caller": "test_run_system_message_raises_when_thread_missing",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_run_system_message_raises_when_thread_missing",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_run_system_message_raises_when_thread_missing",
+          "callee": "pytest.raises",
+          "lineNumber": 86
+        },
+        {
+          "caller": "test_run_system_message_raises_when_thread_missing",
+          "callee": "thread_hooks.run_system_message",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_run_system_message_raises_when_thread_missing",
+          "callee": "thread_hooks.RunSystemMessageRequest",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_debug_endpoint_wrappers_delegate_to_agent_runner",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 101
+        },
+        {
+          "caller": "test_debug_endpoint_wrappers_delegate_to_agent_runner",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 102
+        },
+        {
+          "caller": "test_debug_endpoint_wrappers_delegate_to_agent_runner",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 103
+        },
+        {
+          "caller": "test_debug_endpoint_wrappers_delegate_to_agent_runner",
+          "callee": "thread_hooks.debug_state_values_path",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_debug_endpoint_wrappers_delegate_to_agent_runner",
+          "callee": "thread_hooks.debug_state_path",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_debug_endpoint_wrappers_delegate_to_agent_runner",
+          "callee": "thread_hooks.debug_admin_state_path",
+          "lineNumber": 107
+        },
+        {
+          "caller": "test_debug_endpoint_wrappers_delegate_to_agent_runner",
+          "callee": "thread_hooks.debug_thread_path",
+          "lineNumber": 108
+        },
+        {
+          "caller": "test_debug_state_by_thread_path_builds_graph_config",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_debug_state_by_thread_path_builds_graph_config",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 112
+        },
+        {
+          "caller": "aget_state",
+          "callee": "SimpleNamespace",
+          "lineNumber": 118
+        },
+        {
+          "caller": "compile",
+          "callee": "_Graph",
+          "lineNumber": 123
+        },
+        {
+          "caller": "test_debug_state_by_thread_path_builds_graph_config",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 125
+        },
+        {
+          "caller": "test_debug_state_by_thread_path_builds_graph_config",
+          "callee": "_Builder",
+          "lineNumber": 125
+        },
+        {
+          "caller": "test_debug_state_by_thread_path_builds_graph_config",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 126
+        },
+        {
+          "caller": "test_debug_state_by_thread_path_builds_graph_config",
+          "callee": "SimpleNamespace",
+          "lineNumber": 126
+        },
+        {
+          "caller": "test_debug_state_by_thread_path_builds_graph_config",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 127
+        },
+        {
+          "caller": "test_debug_state_by_thread_path_builds_graph_config",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 128
+        },
+        {
+          "caller": "test_debug_state_by_thread_path_builds_graph_config",
+          "callee": "thread_hooks.debug_state_by_thread_path",
+          "lineNumber": 130
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 7,
+        "functionCount": 6,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "tests/watomation/test_flow_handlers.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 85,
+      "nonEmptyLines": 61,
+      "functions": [
+        {
+          "name": "test_customer_address_flow_init_and_error_ack",
+          "startLine": 30,
+          "endLine": 36,
+          "params": []
+        },
+        {
+          "name": "test_customer_address_flow_data_exchange_returns_error_message",
+          "startLine": 39,
+          "endLine": 44,
+          "params": []
+        },
+        {
+          "name": "test_customer_address_flow_completion_returns_none",
+          "startLine": 47,
+          "endLine": 53,
+          "params": []
+        },
+        {
+          "name": "test_postcode_search_init_and_error_ack",
+          "startLine": 56,
+          "endLine": 62,
+          "params": []
+        },
+        {
+          "name": "test_postcode_search_data_exchange_returns_address_or_error",
+          "startLine": 65,
+          "endLine": 85,
+          "params": [
+            "monkeypatch"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "_FlowRequest",
+          "startLine": 23,
+          "endLine": 27,
+          "methods": [
+            "__init__"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_FlowRequest",
+          "line": 23,
+          "isDefault": false
+        },
+        {
+          "name": "test_customer_address_flow_init_and_error_ack",
+          "line": 30,
+          "isDefault": false
+        },
+        {
+          "name": "test_customer_address_flow_data_exchange_returns_error_message",
+          "line": 39,
+          "isDefault": false
+        },
+        {
+          "name": "test_customer_address_flow_completion_returns_none",
+          "line": 47,
+          "isDefault": false
+        },
+        {
+          "name": "test_postcode_search_init_and_error_ack",
+          "line": 56,
+          "isDefault": false
+        },
+        {
+          "name": "test_postcode_search_data_exchange_returns_address_or_error",
+          "line": 65,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "test_customer_address_flow_init_and_error_ack",
+          "callee": "address_flow.on_customer_address_flow",
+          "lineNumber": 31
+        },
+        {
+          "caller": "test_customer_address_flow_init_and_error_ack",
+          "callee": "_FlowRequest",
+          "lineNumber": 31
+        },
+        {
+          "caller": "test_customer_address_flow_init_and_error_ack",
+          "callee": "address_flow.on_customer_address_flow",
+          "lineNumber": 35
+        },
+        {
+          "caller": "test_customer_address_flow_init_and_error_ack",
+          "callee": "_FlowRequest",
+          "lineNumber": 35
+        },
+        {
+          "caller": "test_customer_address_flow_data_exchange_returns_error_message",
+          "callee": "address_flow.on_customer_address_flow_data_exchange",
+          "lineNumber": 40
+        },
+        {
+          "caller": "test_customer_address_flow_data_exchange_returns_error_message",
+          "callee": "_FlowRequest",
+          "lineNumber": 40
+        },
+        {
+          "caller": "test_customer_address_flow_data_exchange_returns_error_message",
+          "callee": "response.data[\"customer_name\"].startswith",
+          "lineNumber": 44
+        },
+        {
+          "caller": "test_customer_address_flow_completion_returns_none",
+          "callee": "address_flow.on_customer_address_flow_completion",
+          "lineNumber": 48
+        },
+        {
+          "caller": "test_customer_address_flow_completion_returns_none",
+          "callee": "SimpleNamespace",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_postcode_search_init_and_error_ack",
+          "callee": "postcode_flow.on_pc_search_init",
+          "lineNumber": 57
+        },
+        {
+          "caller": "test_postcode_search_init_and_error_ack",
+          "callee": "_FlowRequest",
+          "lineNumber": 57
+        },
+        {
+          "caller": "test_postcode_search_init_and_error_ack",
+          "callee": "postcode_flow.on_pc_search_init",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_postcode_search_init_and_error_ack",
+          "callee": "_FlowRequest",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_postcode_search_data_exchange_returns_address_or_error",
+          "callee": "SimpleNamespace",
+          "lineNumber": 66
+        },
+        {
+          "caller": "test_postcode_search_data_exchange_returns_address_or_error",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 73
+        },
+        {
+          "caller": "test_postcode_search_data_exchange_returns_address_or_error",
+          "callee": "postcode_flow.on_ip_pc",
+          "lineNumber": 75
+        },
+        {
+          "caller": "test_postcode_search_data_exchange_returns_address_or_error",
+          "callee": "_FlowRequest",
+          "lineNumber": 75
+        },
+        {
+          "caller": "test_postcode_search_data_exchange_returns_address_or_error",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 83
+        },
+        {
+          "caller": "test_postcode_search_data_exchange_returns_address_or_error",
+          "callee": "SimpleNamespace",
+          "lineNumber": 83
+        },
+        {
+          "caller": "test_postcode_search_data_exchange_returns_address_or_error",
+          "callee": "postcode_flow.on_ip_pc",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_postcode_search_data_exchange_returns_address_or_error",
+          "callee": "_FlowRequest",
+          "lineNumber": 84
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 6,
+        "functionCount": 5,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "tests/watomation/test_on_callback_wa_handler.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 235,
+      "nonEmptyLines": 164,
+      "functions": [
+        {
+          "name": "_dispatch_payload",
+          "startLine": 45,
+          "endLine": 48,
+          "params": [
+            "**overrides"
+          ]
+        },
+        {
+          "name": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "startLine": 51,
+          "endLine": 63,
+          "params": [
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_dispatch_response_falls_through_to_initial_handler",
+          "startLine": 66,
+          "endLine": 78,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "startLine": 81,
+          "endLine": 98,
+          "params": [
+            "monkeypatch",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "startLine": 101,
+          "endLine": 115,
+          "params": [
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_handle_admin_availability_replies",
+          "startLine": 118,
+          "endLine": 123,
+          "params": []
+        },
+        {
+          "name": "test_update_restaurant_order_status_success_and_stale_tap",
+          "startLine": 126,
+          "endLine": 137,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_restaurant_order_accept_decline_schedules_update",
+          "startLine": 140,
+          "endLine": 157,
+          "params": [
+            "monkeypatch",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_handle_pickup_time_selection_success_and_already_updated",
+          "startLine": 160,
+          "endLine": 171,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_admin_adjust_pickup_time_updates_summary",
+          "startLine": 174,
+          "endLine": 193,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_admin_adjust_pickup_time_missing_data",
+          "startLine": 196,
+          "endLine": 201,
+          "params": [
+            "patch_supabase_client"
+          ]
+        },
+        {
+          "name": "test_admin_collection_ready_runs_rider_graph",
+          "startLine": 204,
+          "endLine": 216,
+          "params": [
+            "monkeypatch"
+          ]
+        },
+        {
+          "name": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "startLine": 220,
+          "endLine": 235,
+          "params": [
+            "monkeypatch"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "_FakeCallback",
+          "startLine": 35,
+          "endLine": 42,
+          "methods": [
+            "__init__",
+            "reply"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_FakeCallback",
+          "line": 35,
+          "isDefault": false
+        },
+        {
+          "name": "_dispatch_payload",
+          "line": 45,
+          "isDefault": false
+        },
+        {
+          "name": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "line": 51,
+          "isDefault": false
+        },
+        {
+          "name": "test_dispatch_response_falls_through_to_initial_handler",
+          "line": 66,
+          "isDefault": false
+        },
+        {
+          "name": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "line": 81,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "line": 101,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_admin_availability_replies",
+          "line": 118,
+          "isDefault": false
+        },
+        {
+          "name": "test_update_restaurant_order_status_success_and_stale_tap",
+          "line": 126,
+          "isDefault": false
+        },
+        {
+          "name": "test_restaurant_order_accept_decline_schedules_update",
+          "line": 140,
+          "isDefault": false
+        },
+        {
+          "name": "test_handle_pickup_time_selection_success_and_already_updated",
+          "line": 160,
+          "isDefault": false
+        },
+        {
+          "name": "test_admin_adjust_pickup_time_updates_summary",
+          "line": 174,
+          "isDefault": false
+        },
+        {
+          "name": "test_admin_adjust_pickup_time_missing_data",
+          "line": 196,
+          "isDefault": false
+        },
+        {
+          "name": "test_admin_collection_ready_runs_rider_graph",
+          "line": 204,
+          "isDefault": false
+        },
+        {
+          "name": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "line": 219,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "reply",
+          "callee": "self.replies.append",
+          "lineNumber": 42
+        },
+        {
+          "caller": "_dispatch_payload",
+          "callee": "payload.update",
+          "lineNumber": 47
+        },
+        {
+          "caller": "_dispatch_payload",
+          "callee": "json.dumps",
+          "lineNumber": 48
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "handler.dispatch_response",
+          "lineNumber": 53
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "FakeMessage",
+          "lineNumber": 53
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "_dispatch_payload",
+          "lineNumber": 53
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 57
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 57
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "handler.dispatch_response",
+          "lineNumber": 58
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "FakeMessage",
+          "lineNumber": 58
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "_dispatch_payload",
+          "lineNumber": 58
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "handler.dispatch_response",
+          "lineNumber": 62
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "FakeMessage",
+          "lineNumber": 62
+        },
+        {
+          "caller": "test_dispatch_response_handles_missing_and_inflight_orders",
+          "callee": "_dispatch_payload",
+          "lineNumber": 62
+        },
+        {
+          "caller": "test_dispatch_response_falls_through_to_initial_handler",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 67
+        },
+        {
+          "caller": "test_dispatch_response_falls_through_to_initial_handler",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 67
+        },
+        {
+          "caller": "test_dispatch_response_falls_through_to_initial_handler",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 68
+        },
+        {
+          "caller": "test_dispatch_response_falls_through_to_initial_handler",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 68
+        },
+        {
+          "caller": "_fake_initial",
+          "callee": "calls.append",
+          "lineNumber": 72
+        },
+        {
+          "caller": "test_dispatch_response_falls_through_to_initial_handler",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 74
+        },
+        {
+          "caller": "test_dispatch_response_falls_through_to_initial_handler",
+          "callee": "handler.dispatch_response",
+          "lineNumber": 76
+        },
+        {
+          "caller": "test_dispatch_response_falls_through_to_initial_handler",
+          "callee": "FakeMessage",
+          "lineNumber": 76
+        },
+        {
+          "caller": "test_dispatch_response_falls_through_to_initial_handler",
+          "callee": "_dispatch_payload",
+          "lineNumber": 76
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 82
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "classmethod",
+          "lineNumber": 82
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "(_ for _ in ()).throw",
+          "lineNumber": 82
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "ValueError",
+          "lineNumber": 82
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "handler.rider_request_location",
+          "lineNumber": 83
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "FakeMessage",
+          "lineNumber": 83
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "json.dumps",
+          "lineNumber": 83
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 86
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "classmethod",
+          "lineNumber": 86
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "SimpleNamespace",
+          "lineNumber": 86
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "handler.rider_request_location",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "FakeMessage",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "json.dumps",
+          "lineNumber": 87
+        },
+        {
+          "caller": "_fake_run",
+          "callee": "calls.append",
+          "lineNumber": 93
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 95
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "classmethod",
+          "lineNumber": 95
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "SimpleNamespace",
+          "lineNumber": 95
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 96
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "handler.rider_request_location",
+          "lineNumber": 97
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "FakeMessage",
+          "lineNumber": 97
+        },
+        {
+          "caller": "test_rider_request_location_handles_completed_missing_and_active_dispatch",
+          "callee": "json.dumps",
+          "lineNumber": 97
+        },
+        {
+          "caller": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "callee": "json.dumps",
+          "lineNumber": 102
+        },
+        {
+          "caller": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "callee": "handler.handle_shift_availability",
+          "lineNumber": 103
+        },
+        {
+          "caller": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "callee": "FakeMessage",
+          "lineNumber": 103
+        },
+        {
+          "caller": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 107
+        },
+        {
+          "caller": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 107
+        },
+        {
+          "caller": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "callee": "json.dumps",
+          "lineNumber": 108
+        },
+        {
+          "caller": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "callee": "handler.handle_shift_availability",
+          "lineNumber": 109
+        },
+        {
+          "caller": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "callee": "FakeMessage",
+          "lineNumber": 109
+        },
+        {
+          "caller": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "callee": "handler.handle_shift_availability",
+          "lineNumber": 113
+        },
+        {
+          "caller": "test_handle_shift_availability_yes_no_and_on_job_paths",
+          "callee": "FakeMessage",
+          "lineNumber": 113
+        },
+        {
+          "caller": "test_handle_admin_availability_replies",
+          "callee": "FakeMessage",
+          "lineNumber": 119
+        },
+        {
+          "caller": "test_handle_admin_availability_replies",
+          "callee": "json.dumps",
+          "lineNumber": 119
+        },
+        {
+          "caller": "test_handle_admin_availability_replies",
+          "callee": "handler.handle_admin_availability",
+          "lineNumber": 121
+        },
+        {
+          "caller": "test_handle_admin_availability_replies",
+          "callee": "FakeAsyncWhatsApp",
+          "lineNumber": 121
+        },
+        {
+          "caller": "test_update_restaurant_order_status_success_and_stale_tap",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 127
+        },
+        {
+          "caller": "test_update_restaurant_order_status_success_and_stale_tap",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 127
+        },
+        {
+          "caller": "test_update_restaurant_order_status_success_and_stale_tap",
+          "callee": "FakeMessage",
+          "lineNumber": 128
+        },
+        {
+          "caller": "test_update_restaurant_order_status_success_and_stale_tap",
+          "callee": "handler._update_restaurant_order_status",
+          "lineNumber": 130
+        },
+        {
+          "caller": "test_update_restaurant_order_status_success_and_stale_tap",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 135
+        },
+        {
+          "caller": "test_update_restaurant_order_status_success_and_stale_tap",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 135
+        },
+        {
+          "caller": "test_update_restaurant_order_status_success_and_stale_tap",
+          "callee": "handler._update_restaurant_order_status",
+          "lineNumber": 136
+        },
+        {
+          "caller": "_fake_create_task",
+          "callee": "scheduled.append",
+          "lineNumber": 144
+        },
+        {
+          "caller": "_fake_create_task",
+          "callee": "coro.close",
+          "lineNumber": 145
+        },
+        {
+          "caller": "_fake_create_task",
+          "callee": "SimpleNamespace",
+          "lineNumber": 146
+        },
+        {
+          "caller": "test_restaurant_order_accept_decline_schedules_update",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 151
+        },
+        {
+          "caller": "test_restaurant_order_accept_decline_schedules_update",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 152
+        },
+        {
+          "caller": "test_restaurant_order_accept_decline_schedules_update",
+          "callee": "json.dumps",
+          "lineNumber": 153
+        },
+        {
+          "caller": "test_restaurant_order_accept_decline_schedules_update",
+          "callee": "handler.restaurant_order_accept_decline_handler",
+          "lineNumber": 155
+        },
+        {
+          "caller": "test_restaurant_order_accept_decline_schedules_update",
+          "callee": "FakeMessage",
+          "lineNumber": 155
+        },
+        {
+          "caller": "test_restaurant_order_accept_decline_schedules_update",
+          "callee": "len",
+          "lineNumber": 157
+        },
+        {
+          "caller": "test_handle_pickup_time_selection_success_and_already_updated",
+          "callee": "json.dumps",
+          "lineNumber": 161
+        },
+        {
+          "caller": "test_handle_pickup_time_selection_success_and_already_updated",
+          "callee": "FakeMessage",
+          "lineNumber": 162
+        },
+        {
+          "caller": "test_handle_pickup_time_selection_success_and_already_updated",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 163
+        },
+        {
+          "caller": "test_handle_pickup_time_selection_success_and_already_updated",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 163
+        },
+        {
+          "caller": "test_handle_pickup_time_selection_success_and_already_updated",
+          "callee": "handler.handle_pickup_time_selection",
+          "lineNumber": 165
+        },
+        {
+          "caller": "test_handle_pickup_time_selection_success_and_already_updated",
+          "callee": "FakeAsyncWhatsApp",
+          "lineNumber": 165
+        },
+        {
+          "caller": "test_handle_pickup_time_selection_success_and_already_updated",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 169
+        },
+        {
+          "caller": "test_handle_pickup_time_selection_success_and_already_updated",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 169
+        },
+        {
+          "caller": "test_handle_pickup_time_selection_success_and_already_updated",
+          "callee": "handler.handle_pickup_time_selection",
+          "lineNumber": 170
+        },
+        {
+          "caller": "test_handle_pickup_time_selection_success_and_already_updated",
+          "callee": "FakeAsyncWhatsApp",
+          "lineNumber": 170
+        },
+        {
+          "caller": "test_admin_adjust_pickup_time_updates_summary",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 175
+        },
+        {
+          "caller": "test_admin_adjust_pickup_time_updates_summary",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 175
+        },
+        {
+          "caller": "test_admin_adjust_pickup_time_updates_summary",
+          "callee": "_FakeCallback",
+          "lineNumber": 176
+        },
+        {
+          "caller": "test_admin_adjust_pickup_time_updates_summary",
+          "callee": "json.dumps",
+          "lineNumber": 177
+        },
+        {
+          "caller": "test_admin_adjust_pickup_time_updates_summary",
+          "callee": "handler.admin_adjust_pickup_time",
+          "lineNumber": 185
+        },
+        {
+          "caller": "test_admin_adjust_pickup_time_updates_summary",
+          "callee": "FakeAsyncWhatsApp",
+          "lineNumber": 185
+        },
+        {
+          "caller": "test_admin_adjust_pickup_time_missing_data",
+          "callee": "_FakeCallback",
+          "lineNumber": 197
+        },
+        {
+          "caller": "test_admin_adjust_pickup_time_missing_data",
+          "callee": "json.dumps",
+          "lineNumber": 197
+        },
+        {
+          "caller": "test_admin_adjust_pickup_time_missing_data",
+          "callee": "handler.admin_adjust_pickup_time",
+          "lineNumber": 199
+        },
+        {
+          "caller": "test_admin_adjust_pickup_time_missing_data",
+          "callee": "FakeAsyncWhatsApp",
+          "lineNumber": 199
+        },
+        {
+          "caller": "_fake_run",
+          "callee": "calls.append",
+          "lineNumber": 208
+        },
+        {
+          "caller": "test_admin_collection_ready_runs_rider_graph",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 210
+        },
+        {
+          "caller": "test_admin_collection_ready_runs_rider_graph",
+          "callee": "_FakeCallback",
+          "lineNumber": 211
+        },
+        {
+          "caller": "test_admin_collection_ready_runs_rider_graph",
+          "callee": "json.dumps",
+          "lineNumber": 211
+        },
+        {
+          "caller": "test_admin_collection_ready_runs_rider_graph",
+          "callee": "handler.admin_collection_ready",
+          "lineNumber": 213
+        },
+        {
+          "caller": "test_admin_collection_ready_runs_rider_graph",
+          "callee": "FakeAsyncWhatsApp",
+          "lineNumber": 213
+        },
+        {
+          "caller": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "callee": "_FakeCallback",
+          "lineNumber": 221
+        },
+        {
+          "caller": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "callee": "json.dumps",
+          "lineNumber": 221
+        },
+        {
+          "caller": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "callee": "handler.admin_takeaway_ready",
+          "lineNumber": 222
+        },
+        {
+          "caller": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "callee": "FakeAsyncWhatsApp",
+          "lineNumber": 222
+        },
+        {
+          "caller": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 228
+        },
+        {
+          "caller": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "callee": "respx.post(\"https://rest.example.com/takeaway-ready/ABCD-1\").mock",
+          "lineNumber": 229
+        },
+        {
+          "caller": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "callee": "respx.post",
+          "lineNumber": 229
+        },
+        {
+          "caller": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "callee": "httpx.Response",
+          "lineNumber": 229
+        },
+        {
+          "caller": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "callee": "_FakeCallback",
+          "lineNumber": 230
+        },
+        {
+          "caller": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "callee": "json.dumps",
+          "lineNumber": 230
+        },
+        {
+          "caller": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "callee": "handler.admin_takeaway_ready",
+          "lineNumber": 232
+        },
+        {
+          "caller": "test_admin_takeaway_ready_validates_and_posts_webhook",
+          "callee": "FakeAsyncWhatsApp",
+          "lineNumber": 232
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 14,
+        "functionCount": 13,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "tests/watomation/test_on_message_wa_handler.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 140,
+      "nonEmptyLines": 95,
+      "functions": [
+        {
+          "name": "test_process_wa_msg_not_in_shift_enquires_availability",
+          "startLine": 40,
+          "endLine": 52,
+          "params": [
+            "monkeypatch",
+            "patch_pg_pool",
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery",
+          "startLine": 55,
+          "endLine": 63,
+          "params": [
+            "monkeypatch",
+            "patch_pg_pool",
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_process_wa_msg_with_active_thread_runs_rider_graph",
+          "startLine": 66,
+          "endLine": 80,
+          "params": [
+            "monkeypatch",
+            "patch_pg_pool",
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "startLine": 83,
+          "endLine": 107,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_reset_thread_closes_dispatch_and_thread",
+          "startLine": 110,
+          "endLine": 120,
+          "params": [
+            "monkeypatch",
+            "patch_pg_pool",
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        },
+        {
+          "name": "test_test_delivery_schedules_init_and_updates_summary",
+          "startLine": 123,
+          "endLine": 140,
+          "params": [
+            "monkeypatch",
+            "patch_supabase_client",
+            "fake_async_wa"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "_FakeThreadHandler",
+          "startLine": 25,
+          "endLine": 37,
+          "methods": [
+            "__init__",
+            "get_active_thread",
+            "make_threads_inactive"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "_FakeThreadHandler",
+          "line": 25,
+          "isDefault": false
+        },
+        {
+          "name": "test_process_wa_msg_not_in_shift_enquires_availability",
+          "line": 40,
+          "isDefault": false
+        },
+        {
+          "name": "test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery",
+          "line": 55,
+          "isDefault": false
+        },
+        {
+          "name": "test_process_wa_msg_with_active_thread_runs_rider_graph",
+          "line": 66,
+          "isDefault": false
+        },
+        {
+          "name": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "line": 83,
+          "isDefault": false
+        },
+        {
+          "name": "test_reset_thread_closes_dispatch_and_thread",
+          "line": 110,
+          "isDefault": false
+        },
+        {
+          "name": "test_test_delivery_schedules_init_and_updates_summary",
+          "line": 123,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "make_threads_inactive",
+          "callee": "self.inactive_calls.append",
+          "lineNumber": 36
+        },
+        {
+          "caller": "test_process_wa_msg_not_in_shift_enquires_availability",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 41
+        },
+        {
+          "caller": "test_process_wa_msg_not_in_shift_enquires_availability",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 41
+        },
+        {
+          "caller": "test_process_wa_msg_not_in_shift_enquires_availability",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 42
+        },
+        {
+          "caller": "_fake_enquire",
+          "callee": "calls.append",
+          "lineNumber": 46
+        },
+        {
+          "caller": "test_process_wa_msg_not_in_shift_enquires_availability",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 48
+        },
+        {
+          "caller": "test_process_wa_msg_not_in_shift_enquires_availability",
+          "callee": "handler.process_wa_msg",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_process_wa_msg_not_in_shift_enquires_availability",
+          "callee": "FakeMessage",
+          "lineNumber": 50
+        },
+        {
+          "caller": "test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 57
+        },
+        {
+          "caller": "test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 57
+        },
+        {
+          "caller": "test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 58
+        },
+        {
+          "caller": "test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 59
+        },
+        {
+          "caller": "test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery",
+          "callee": "SimpleNamespace",
+          "lineNumber": 59
+        },
+        {
+          "caller": "test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery",
+          "callee": "handler.process_wa_msg",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery",
+          "callee": "FakeMessage",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_process_wa_msg_with_active_thread_runs_rider_graph",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 68
+        },
+        {
+          "caller": "test_process_wa_msg_with_active_thread_runs_rider_graph",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 68
+        },
+        {
+          "caller": "test_process_wa_msg_with_active_thread_runs_rider_graph",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 69
+        },
+        {
+          "caller": "_fake_run",
+          "callee": "calls.append",
+          "lineNumber": 73
+        },
+        {
+          "caller": "test_process_wa_msg_with_active_thread_runs_rider_graph",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 75
+        },
+        {
+          "caller": "test_process_wa_msg_with_active_thread_runs_rider_graph",
+          "callee": "FakeMessage",
+          "lineNumber": 76
+        },
+        {
+          "caller": "test_process_wa_msg_with_active_thread_runs_rider_graph",
+          "callee": "handler.process_wa_msg",
+          "lineNumber": 78
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "handler.send_live_map_location",
+          "lineNumber": 85
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "FakeMessage",
+          "lineNumber": 85
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 88
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 88
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 93
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 98
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "handler.send_live_map_location",
+          "lineNumber": 99
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "FakeMessage",
+          "lineNumber": 99
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 105
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "handler.send_live_map_location",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_send_live_map_location_handles_no_inflight_missing_and_success",
+          "callee": "FakeMessage",
+          "lineNumber": 106
+        },
+        {
+          "caller": "test_reset_thread_closes_dispatch_and_thread",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_reset_thread_closes_dispatch_and_thread",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 112
+        },
+        {
+          "caller": "test_reset_thread_closes_dispatch_and_thread",
+          "callee": "patch_supabase_client.register_rpc",
+          "lineNumber": 113
+        },
+        {
+          "caller": "test_reset_thread_closes_dispatch_and_thread",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 113
+        },
+        {
+          "caller": "test_reset_thread_closes_dispatch_and_thread",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 114
+        },
+        {
+          "caller": "test_reset_thread_closes_dispatch_and_thread",
+          "callee": "handler.reset_thread",
+          "lineNumber": 116
+        },
+        {
+          "caller": "test_reset_thread_closes_dispatch_and_thread",
+          "callee": "FakeMessage",
+          "lineNumber": 116
+        },
+        {
+          "caller": "test_test_delivery_schedules_init_and_updates_summary",
+          "callee": "patch_supabase_client.register_rpc",
+          "lineNumber": 124
+        },
+        {
+          "caller": "test_test_delivery_schedules_init_and_updates_summary",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 124
+        },
+        {
+          "caller": "test_test_delivery_schedules_init_and_updates_summary",
+          "callee": "patch_supabase_client.register",
+          "lineNumber": 125
+        },
+        {
+          "caller": "test_test_delivery_schedules_init_and_updates_summary",
+          "callee": "FakeSupabaseResponse",
+          "lineNumber": 125
+        },
+        {
+          "caller": "_fake_create_task",
+          "callee": "tasks.append",
+          "lineNumber": 129
+        },
+        {
+          "caller": "_fake_create_task",
+          "callee": "coro.close",
+          "lineNumber": 130
+        },
+        {
+          "caller": "_fake_create_task",
+          "callee": "SimpleNamespace",
+          "lineNumber": 131
+        },
+        {
+          "caller": "test_test_delivery_schedules_init_and_updates_summary",
+          "callee": "monkeypatch.setattr",
+          "lineNumber": 133
+        },
+        {
+          "caller": "test_test_delivery_schedules_init_and_updates_summary",
+          "callee": "handler.test_delivery",
+          "lineNumber": 135
+        },
+        {
+          "caller": "test_test_delivery_schedules_init_and_updates_summary",
+          "callee": "FakeMessage",
+          "lineNumber": 135
+        },
+        {
+          "caller": "test_test_delivery_schedules_init_and_updates_summary",
+          "callee": "len",
+          "lineNumber": 140
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 7,
+        "functionCount": 6,
+        "classCount": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "nodes": [
+    {
+      "id": "document:.specify/templates/agent-file-template.md",
+      "type": "document",
+      "name": "agent-file-template.md",
+      "filePath": ".specify/templates/agent-file-template.md",
+      "summary": "Boilerplate template for generating AI agent context files (CLAUDE.md), with placeholder sections for project name, active technologies, directory structure, build commands, code style, and recent changes.",
+      "tags": ["documentation", "template", "development", "configuration"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.specify/templates/checklist-template.md",
+      "type": "document",
+      "name": "checklist-template.md",
+      "filePath": ".specify/templates/checklist-template.md",
+      "summary": "Reusable checklist template for the .specify workflow, providing category-grouped checklist items with metadata fields for status tracking and notes.",
+      "tags": ["documentation", "template", "development"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:.specify/templates/plan-template.md",
+      "type": "document",
+      "name": "plan-template.md",
+      "filePath": ".specify/templates/plan-template.md",
+      "summary": "Structured implementation plan template covering feature summary, technical context, constitution alignment checks, project structure mapping, and complexity tracking for the speckit workflow.",
+      "tags": ["documentation", "template", "development", "workflow"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.specify/templates/spec-template.md",
+      "type": "document",
+      "name": "spec-template.md",
+      "filePath": ".specify/templates/spec-template.md",
+      "summary": "Feature specification template enforcing user-story-driven structure with mandatory sections for scenarios, acceptance testing, functional requirements, key entities, and measurable success criteria.",
+      "tags": ["documentation", "template", "development", "specification"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:.specify/templates/tasks-template.md",
+      "type": "document",
+      "name": "tasks-template.md",
+      "filePath": ".specify/templates/tasks-template.md",
+      "summary": "Comprehensive task-breakdown template organising implementation work into phased user-story groups with dependency graphs, parallel execution opportunities, and MVP-first delivery strategy guidance.",
+      "tags": ["documentation", "template", "development", "workflow"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:.specify/templates/plan-template.md",
+      "target": "document:.specify/templates/spec-template.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.specify/templates/tasks-template.md",
+      "target": "document:.specify/templates/spec-template.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:.specify/templates/tasks-template.md",
+      "target": "document:.specify/templates/plan-template.md",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

@@ -1,0 +1,498 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 15,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".windsurf/workflows/analyze.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 101,
+      "nonEmptyLines": 82,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": ".windsurf/workflows/clarify.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 158,
+      "nonEmptyLines": 129,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": ".windsurf/workflows/constitution.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 73,
+      "nonEmptyLines": 56,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": ".windsurf/workflows/implement.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 56,
+      "nonEmptyLines": 45,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": ".windsurf/workflows/plan.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 43,
+      "nonEmptyLines": 33,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": ".windsurf/workflows/specify.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 21,
+      "nonEmptyLines": 14,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": ".windsurf/workflows/speckit.analyze.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 184,
+      "nonEmptyLines": 118,
+      "sections": [
+        {
+          "heading": "User Input",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Goal",
+          "level": 2,
+          "line": 13
+        },
+        {
+          "heading": "Operating Constraints",
+          "level": 2,
+          "line": 17
+        },
+        {
+          "heading": "Execution Steps",
+          "level": 2,
+          "line": 23
+        },
+        {
+          "heading": "1. Initialize Analysis Context",
+          "level": 3,
+          "line": 25
+        },
+        {
+          "heading": "2. Load Artifacts (Progressive Disclosure)",
+          "level": 3,
+          "line": 36
+        },
+        {
+          "heading": "3. Build Semantic Models",
+          "level": 3,
+          "line": 67
+        },
+        {
+          "heading": "4. Detection Passes (Token-Efficient Analysis)",
+          "level": 3,
+          "line": 76
+        },
+        {
+          "heading": "A. Duplication Detection",
+          "level": 4,
+          "line": 80
+        },
+        {
+          "heading": "B. Ambiguity Detection",
+          "level": 4,
+          "line": 85
+        },
+        {
+          "heading": "C. Underspecification",
+          "level": 4,
+          "line": 90
+        },
+        {
+          "heading": "D. Constitution Alignment",
+          "level": 4,
+          "line": 96
+        },
+        {
+          "heading": "E. Coverage Gaps",
+          "level": 4,
+          "line": 101
+        },
+        {
+          "heading": "F. Inconsistency",
+          "level": 4,
+          "line": 107
+        },
+        {
+          "heading": "5. Severity Assignment",
+          "level": 3,
+          "line": 114
+        },
+        {
+          "heading": "6. Produce Compact Analysis Report",
+          "level": 3,
+          "line": 123
+        },
+        {
+          "heading": "Specification Analysis Report",
+          "level": 2,
+          "line": 127
+        },
+        {
+          "heading": "7. Provide Next Actions",
+          "level": 3,
+          "line": 153
+        },
+        {
+          "heading": "8. Offer Remediation",
+          "level": 3,
+          "line": 161
+        },
+        {
+          "heading": "Operating Principles",
+          "level": 2,
+          "line": 165
+        },
+        {
+          "heading": "Context Efficiency",
+          "level": 3,
+          "line": 167
+        },
+        {
+          "heading": "Analysis Guidelines",
+          "level": 3,
+          "line": 174
+        },
+        {
+          "heading": "Context",
+          "level": 2,
+          "line": 182
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 23
+      }
+    },
+    {
+      "path": ".windsurf/workflows/speckit.checklist.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 287,
+      "nonEmptyLines": 230,
+      "sections": [
+        {
+          "heading": "Checklist Purpose: \"Unit Tests for English\"",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "User Input",
+          "level": 2,
+          "line": 24
+        },
+        {
+          "heading": "Execution Steps",
+          "level": 2,
+          "line": 32
+        },
+        {
+          "heading": "Example Checklist Types & Sample Items",
+          "level": 2,
+          "line": 220
+        },
+        {
+          "heading": "Anti-Examples: What NOT To Do",
+          "level": 2,
+          "line": 259
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": ".windsurf/workflows/speckit.clarify.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 176,
+      "nonEmptyLines": 146,
+      "sections": [
+        {
+          "heading": "User Input",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Outline",
+          "level": 2,
+          "line": 13
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 2
+      }
+    },
+    {
+      "path": ".windsurf/workflows/speckit.constitution.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 77,
+      "nonEmptyLines": 59,
+      "sections": [
+        {
+          "heading": "User Input",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Outline",
+          "level": 2,
+          "line": 13
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 2
+      }
+    },
+    {
+      "path": ".windsurf/workflows/speckit.implement.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 131,
+      "nonEmptyLines": 110,
+      "sections": [
+        {
+          "heading": "User Input",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Outline",
+          "level": 2,
+          "line": 13
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 2
+      }
+    },
+    {
+      "path": ".windsurf/workflows/speckit.plan.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 80,
+      "nonEmptyLines": 58,
+      "sections": [
+        {
+          "heading": "User Input",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Outline",
+          "level": 2,
+          "line": 13
+        },
+        {
+          "heading": "Phases",
+          "level": 2,
+          "line": 30
+        },
+        {
+          "heading": "Phase 0: Outline & Research",
+          "level": 3,
+          "line": 32
+        },
+        {
+          "heading": "Phase 1: Design & Contracts",
+          "level": 3,
+          "line": 54
+        },
+        {
+          "heading": "Key rules",
+          "level": 2,
+          "line": 77
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 6
+      }
+    },
+    {
+      "path": ".windsurf/workflows/speckit.specify.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 229,
+      "nonEmptyLines": 171,
+      "sections": [
+        {
+          "heading": "User Input",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Outline",
+          "level": 2,
+          "line": 13
+        },
+        {
+          "heading": "General Guidelines",
+          "level": 2,
+          "line": 168
+        },
+        {
+          "heading": "Quick Guidelines",
+          "level": 2,
+          "line": 170
+        },
+        {
+          "heading": "Section Requirements",
+          "level": 3,
+          "line": 177
+        },
+        {
+          "heading": "For AI Generation",
+          "level": 3,
+          "line": 183
+        },
+        {
+          "heading": "Success Criteria Guidelines",
+          "level": 3,
+          "line": 208
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 7
+      }
+    },
+    {
+      "path": ".windsurf/workflows/speckit.tasks.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 128,
+      "nonEmptyLines": 100,
+      "sections": [
+        {
+          "heading": "User Input",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Outline",
+          "level": 2,
+          "line": 13
+        },
+        {
+          "heading": "Task Generation Rules",
+          "level": 2,
+          "line": 58
+        },
+        {
+          "heading": "Checklist Format (REQUIRED)",
+          "level": 3,
+          "line": 64
+        },
+        {
+          "heading": "Task Organization",
+          "level": 3,
+          "line": 96
+        },
+        {
+          "heading": "Phase Structure",
+          "level": 3,
+          "line": 121
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 6
+      }
+    },
+    {
+      "path": ".windsurf/workflows/tasks.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 62,
+      "nonEmptyLines": 50,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    }
+  ]
+}
