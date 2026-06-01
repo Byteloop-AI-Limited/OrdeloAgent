@@ -214,8 +214,12 @@ Delivery Details:
     _pickup_dt = delivery_summary.pickup_time
     if isinstance(_pickup_dt, str):
         _pickup_dt = parse_db_iso(_pickup_dt)
-    adjust10_iso = (_pickup_dt + timedelta(minutes=10)).isoformat()
-    adjust20_iso = (_pickup_dt + timedelta(minutes=20)).isoformat()
+    _pickup_dt_10 = _pickup_dt + timedelta(minutes=10)
+    _pickup_dt_20 = _pickup_dt + timedelta(minutes=20)
+    adjust10_iso = _pickup_dt_10.isoformat()
+    adjust20_iso = _pickup_dt_20.isoformat()
+    adjust10_label = f"{fmt_uk_time(_pickup_dt_10)} (+10 mins)"
+    adjust20_label = f"{fmt_uk_time(_pickup_dt_20)} (+20 mins)"
 
     # get restaurant admins
     _restaurant_master = RestaurantMaster.from_rest_ref(rest_ref)
@@ -249,11 +253,11 @@ Delivery Details:
                     callback_data=food_ready_y.model_dump_json(),
                 ),
                 Button(
-                    title="PickupTime +10 mins",
+                    title=adjust10_label,
                     callback_data=adjust_pickup_10.model_dump_json(),
                 ),
                 Button(
-                    title="PickupTime +20 mins",
+                    title=adjust20_label,
                     callback_data=adjust_pickup_20.model_dump_json(),
                 ),
             ],

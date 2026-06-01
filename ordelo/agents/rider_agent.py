@@ -216,8 +216,8 @@ async def notify_pickup_time_adjusted(
     await ctx.wa_client.send_message(
         to=recipient,
         text=(
-            f"Heads up {rider_name}, the pickup time for order {order_number} "
-            f"has been updated to {pickup_time_display}."
+            f"⏰ Heads up {rider_name}, the pickup time for order *{order_number}* "
+            f"has been updated to *{pickup_time_display}*."
         ),
         reply_to_message_id=reply_to_msg_id,
     )
