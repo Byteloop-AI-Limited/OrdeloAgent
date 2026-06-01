@@ -87,7 +87,7 @@ select * from delivery_dispatch where status='completed' and rider_id!='44744844
 
 select final_order_value - total_customer_charge as food_value, * from delivery_option where order_number='ELAS-MSPI-21' and vehicle_type='car';
 select total_price-rest_cost as rest_savings, * from food_order where order_number='ELAS-HCTZ-20' limit 10;
-select * from food_order where order_number='ELAS-OKKS-20' limit 10;
+select * from food_order order by order_dtts desc;
 select 47.4-55.8;
 
 select status,

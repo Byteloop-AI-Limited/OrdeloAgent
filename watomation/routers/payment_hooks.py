@@ -147,19 +147,38 @@ async def payment_complete_path(request: Request, background_tasks: BackgroundTa
 # %%
 
 
-@router.post("/payment-complete-test/{order_number}")
+@router.post("/payment-complete-test/{order_id}")
 async def payment_complete_test_path(
-    order_number: str,
+    order_id: str,
     background_tasks: BackgroundTasks,
-    recipient: str = "447448440754",
-    action: str = "delivery",
 ):
-    # ELAS-KDDV-21 i want to highlight this example in the docstring
-    # Add RPC call to background tasks to avoid blocking and timeout
-    if action == "takeaway":
-        background_tasks.add_task(init_takeaway_summary, order_number, recipient)
+    """Test endpoint that replays the full payment-complete flow for a given order_id."""
+    logger.info(f"order_id:{order_id} - PaymentComplete test triggered")
+
+    response = (
+        client_ordelo.table("food_order")
+        .update({"payment_status": "requires_capture"})
+        .eq("order_id", order_id)
+        .execute()
+    )
+
+    food_order = FoodOrder(**response.data[0])
+
+    background_tasks.add_task(handle_payment_complete, food_order)
+
+    if food_order.action == "delivery":
+        background_tasks.add_task(
+            init_delivery_summary, food_order.order_number, food_order.recipient
+        )
+    elif food_order.action == "takeaway":
+        background_tasks.add_task(
+            init_takeaway_summary, food_order.order_number, food_order.recipient
+        )
     else:
-        background_tasks.add_task(init_delivery_summary, order_number, recipient)
+        logger.warning(
+            f"Unknown food_order.action={food_order.action} for order={food_order.order_number}; summary init skipped"
+        )
+
     return {"success": "success"}
 
 
