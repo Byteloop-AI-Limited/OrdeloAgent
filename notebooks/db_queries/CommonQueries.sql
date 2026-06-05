@@ -1,10 +1,14 @@
 select * from thread order by dtts desc;
 select * from thread where is_active order by dtts desc;
 
+select dtts, * from thread where agent='ELAS' and recipient not in ('447919202938', '447448440754', '447446933210') order by dtts desc;
+
 select dtts, * from thread where agent='SFCS' and recipient not in ('447919202938', '447448440754', '447446933210') order by dtts desc;
 select * from cust_rest_map where rest_ref='SFCS';
 select * from thread where recipient='447341964134';
 exclude_list = ['447919202938', '447448440754', '447446933210'];
+
+select count(*) from cust_rest_map where rest_ref='SFCS';
 
 update thread set is_active=False where is_active and recipient='447759950226';
 -- 447919202938

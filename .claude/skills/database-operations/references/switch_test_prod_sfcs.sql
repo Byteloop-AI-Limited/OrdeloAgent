@@ -2,7 +2,6 @@
 -- SFCS: Verification Queries
 -- ============================================================
 
-select admins, city, * from restaurant_master where rest_ref = 'SFCS';
 
 select * from ordelo_config where config_key like '%_APP_URL';
 
