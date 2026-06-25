@@ -86,7 +86,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-drop table delivery_dispatch; -- Dont forget to recreate the trigger
+-- drop table delivery_dispatch; -- Dont forget to recreate the trigger
 -- Table definition
 CREATE TABLE delivery_dispatch (
     dispatch_id SERIAL PRIMARY KEY,
