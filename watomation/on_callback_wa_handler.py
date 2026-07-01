@@ -58,6 +58,7 @@ async def dispatch_response(wa: WhatsApp, msg: Message):
     recipient = msg.sender
 
     # Callback created in @delivery_hooks (/delivery-dispatch) -> wa_send_delivery_dispatch_request ->
+    logger.info("Callback data: {}, recipient: {}".format(msg.data, recipient))
     callback_data: dict = json.loads(msg.data)
     # remove command from callback data and add rider_id
     callback_data.pop("command")

@@ -1,16 +1,34 @@
 ## Test checkpoint
-Memory Database: Memory ID 9e32eda3-141a-4a87-ba00-fc9b13c62b5a (tag: checkpoint)
+On no driver found, retain_thread should be set to False:
+SFCS-0cd2215c-4501-4c82-baed-f7a8c1660f8d
 
-Local File: toDo.md (lines 1-11)
-lan checkpoint saved. The P7 plan is stored in two locations:
+Users ignore waiting for marketing consent, at this point, retain_thread should be set to False. 
+SFCS-719e2da9-d19b-4e96-86a9-c19971ee2fb9
+SFCS-efb54f9a-69dc-4234-895f-41b4b3c40388
 
-TODO List - Current task status tracked in the memory database (accessed via the todo_list tool)
-Checkpoint Memory - Detailed state saved as memory ID 9e32eda3-141a-4a87-ba00-fc9b13c62b5a with tag checkpoint
+Need to deploy latest changes on dev; Create fake order, need to capture dispatch webhook response.
+SFCS-719e2da9-d19b-4e96-86a9-c19971ee2fb9 - thread is active
 To revisit, you can:
 
 Ask me to "show the P7 TODO list" or "load the P7 checkpoint memory"
 Reference the checkpoint by memory ID or tag when resuming
 Current status: 5 of 7 tasks completed. One test failing (test_send_product_sections in test_p7_wa_senders.py).
+
+
+
+## New design for terminating threads:
+-- Get the latest checkpoint for a thread
+SELECT
+    thread_id,
+    checkpoint_id,
+    checkpoint -> 'channel_values' AS state
+FROM checkpoints
+WHERE thread_id = 'SFCS-9c0d987a-c772-4439-8511-a011344ceb65'
+  AND checkpoint_ns = ''
+ORDER BY checkpoint_id DESC
+LIMIT 1;
+
+<!-- utils_common/thread_management/thread_mgmnt_ddl.sql (get_stale_active_threads) -->
 
 ## SFCS go live changes
 
