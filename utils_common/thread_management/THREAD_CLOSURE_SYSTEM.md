@@ -35,7 +35,7 @@ This endpoint does **not** accept an external payload of threads to close. It is
 - `thread_id` (text) - Primary key
 - `recipient` (varchar(12)) - Phone number
 - `is_active` (boolean) - Thread status
-- `retain_thread` (boolean) - Prevents automatic closure (default: false)
+- `retain_thread` (boolean) - Intended to prevent automatic closure (default: false). **Currently dormant — no runtime code sets it (see "Retention" below).**
 - `dt` (date) - Creation date
 - `dtts` (timestamp) - Creation timestamp
 - `last_access_dtts` (timestamp) - Last access timestamp
@@ -77,9 +77,13 @@ This endpoint does **not** accept an external payload of threads to close. It is
    - `elai/agent_runner.py` compiles the Delivery graph with `AsyncPostgresSaver(pool)`.
    - The checkpointer persists graph state keyed by `configurable.thread_id`.
 
-3. **Retention**
-   - A thread can be protected from automated termination by setting `retain_thread` in persisted graph state (key: `retain_thread`).
-   - The termination job reads graph state via `debug_state_values(config=...)` and skips termination when `retain_thread` is true.
+3. **Retention (`thread.retain_thread`) — currently dormant**
+   - The `thread.retain_thread` column was designed as a manual override that exempts a thread from automatic closure: the cleanup queries (`job_close_thread()`, `get_stale_active_threads()`) only act on rows where `retain_thread` is `FALSE`/`IS NOT TRUE`.
+   - **No runtime code currently sets it.** The writer path — the SQL function `retain_thread(p_agent, p_recipient)`, `ThreadHandler.retain_thread()`, and `lg_utils.retain_thread()` — is no longer invoked by the application. The former caller in `ordelo/agents/agent_runner.py::init_ordelo_graph()` was removed when termination moved to the LangGraph-driven flow. As a result the column always stays at its `false` default and the read-side filters are effectively no-ops.
+   - These wrappers are kept for potential reuse but should be treated as dead code until a setter is wired back in. (See the open items in `notebooks/toDo.md`.)
+
+4. **Runtime stale-thread handling lives in `watomation/routers/thread_hooks.py`**
+   - Stale active threads are handled at runtime by the endpoints in `watomation/routers/thread_hooks.py` — notably `POST /thread-hooks/terminate-stale-active-threads` — rather than via the `retain_thread` column.
 
 4. **Termination**
    - Termination is performed by the Delivery agent tool `terminate_conversation` (`elai/agents/delivery.py`).
