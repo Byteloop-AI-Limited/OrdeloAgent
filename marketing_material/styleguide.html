@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ordelo Design System · Style Guide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
+    rel="stylesheet">
+
+  <!-- The design system under test -->
+  <link rel="stylesheet" href="ordelo-ds.css">
+
+  <!-- Style-guide page layout only (not part of the DS) -->
+  <style>
+    /* Override the deck's fixed/hidden body for a scrollable doc page. */
+    body.sg {
+      overflow: auto;
+      background:
+        radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 28px 28px,
+        var(--bg);
+      min-height: 100vh;
+      padding: 64px 40px 120px;
+    }
+
+    .sg-wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .sg-head {
+      border-bottom: 1px solid var(--b);
+      padding-bottom: 34px;
+      margin-bottom: 20px;
+    }
+
+    .sg-logo {
+      font-family: var(--fd);
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -.02em;
+      color: var(--g);
+      line-height: 1;
+    }
+
+    .sg-head p {
+      font-size: 15px;
+      color: var(--tm);
+      margin-top: 14px;
+      line-height: 1.7;
+      max-width: 680px;
+    }
+
+    .sg-head code {
+      color: var(--t);
+      background: var(--c1);
+      border: 1px solid var(--b);
+      border-radius: 5px;
+      padding: 1px 7px;
+      font-size: 12.5px;
+    }
+
+    section.sg-sec {
+      padding: 40px 0;
+      border-bottom: 1px solid var(--b);
+    }
+
+    .sg-sec > h2 {
+      font-family: var(--fd);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--t);
+      letter-spacing: -.01em;
+      margin: 6px 0 4px;
+    }
+
+    .sg-sec > .sg-note {
+      font-size: 13px;
+      color: var(--tm);
+      line-height: 1.6;
+      margin-bottom: 24px;
+      max-width: 680px;
+    }
+
+    /* Live demo surface */
+    .sg-demo {
+      background: var(--c1);
+      border: 1px solid var(--b);
+      border-radius: 14px;
+      padding: 30px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .sg-demo--dark {
+      background: var(--bg);
+    }
+
+    .sg-demo--col {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    /* Class-name caption under a demo */
+    .sg-cap {
+      font-family: 'DM Sans', monospace;
+      font-size: 12px;
+      color: var(--td);
+      margin-top: 12px;
+      letter-spacing: .02em;
+    }
+
+    .sg-cap b {
+      color: var(--g);
+      font-weight: 600;
+    }
+
+    /* Token swatches */
+    .sg-swatches {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+      gap: 14px;
+    }
+
+    .sg-sw {
+      background: var(--c1);
+      border: 1px solid var(--b);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .sg-sw-chip {
+      height: 64px;
+      border-bottom: 1px solid var(--b);
+    }
+
+    .sg-sw-meta {
+      padding: 11px 14px;
+    }
+
+    .sg-sw-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--t);
+    }
+
+    .sg-sw-val {
+      font-family: 'DM Sans', monospace;
+      font-size: 11px;
+      color: var(--tm);
+      margin-top: 3px;
+    }
+
+    /* Checkerboard so transparent tints read correctly */
+    .sg-alpha {
+      background-image:
+        linear-gradient(45deg, #1c1c1c 25%, transparent 25%),
+        linear-gradient(-45deg, #1c1c1c 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1c1c1c 75%),
+        linear-gradient(-45deg, transparent 75%, #1c1c1c 75%);
+      background-size: 14px 14px;
+      background-position: 0 0, 0 7px, 7px -7px, -7px 0;
+    }
+
+    .sg-type-row {
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+    }
+
+    .sg-mini {
+      font-size: 11px;
+      color: var(--tm);
+      letter-spacing: .04em;
+    }
+  </style>
+</head>
+
+<body class="sg">
+  <div class="sg-wrap">
+
+    <!-- ── Masthead ── -->
+    <header class="sg-head">
+      <div class="sg-logo">ordelo <span style="color:var(--td);font-weight:400">/ design system</span></div>
+      <p>
+        The visual language of Ordelo marketing material — dark canvas, one signal-green accent with a glow system,
+        DM&nbsp;Sans, and hairline structure. Everything below is rendered live from
+        <code>ordelo-ds.css</code>. Link that stylesheet (plus the DM&nbsp;Sans font) and use these classes.
+      </p>
+    </header>
+
+    <!-- ── Colour tokens ── -->
+    <section class="sg-sec">
+      <div class="ey">Tokens</div>
+      <h2>Colour</h2>
+      <div class="sg-note">CSS custom properties on <code style="color:var(--t)">:root</code>. Alphas are preserved
+        exactly from the source deck — several are load-bearing (glows, the dot-grid texture) and must not be rounded.
+      </div>
+
+      <div class="sg-mini" style="margin-bottom:10px">Brand &amp; surfaces</div>
+      <div class="sg-swatches" style="margin-bottom:22px">
+        <div class="sg-sw"><div class="sg-sw-chip" style="background:var(--g)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--g</div><div class="sg-sw-val">#00E676</div></div></div>
+        <div class="sg-sw"><div class="sg-sw-chip" style="background:var(--r)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--r</div><div class="sg-sw-val">#FF5252</div></div></div>
+        <div class="sg-sw"><div class="sg-sw-chip" style="background:var(--bg)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--bg</div><div class="sg-sw-val">#0A0A0A</div></div></div>
+        <div class="sg-sw"><div class="sg-sw-chip" style="background:var(--c1)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--c1</div><div class="sg-sw-val">#111</div></div></div>
+        <div class="sg-sw"><div class="sg-sw-chip" style="background:var(--c2)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--c2</div><div class="sg-sw-val">#1a1a1a</div></div></div>
+      </div>
+
+      <div class="sg-mini" style="margin-bottom:10px">Text</div>
+      <div class="sg-swatches" style="margin-bottom:22px">
+        <div class="sg-sw"><div class="sg-sw-chip" style="background:var(--t)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--t</div><div class="sg-sw-val">#F0F0F0 · primary</div></div>
+        </div>
+        <div class="sg-sw"><div class="sg-sw-chip" style="background:var(--tm)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--tm</div><div class="sg-sw-val">#717171 · muted</div></div>
+        </div>
+        <div class="sg-sw"><div class="sg-sw-chip" style="background:var(--td)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--td</div><div class="sg-sw-val">#383838 · dim</div></div></div>
+      </div>
+
+      <div class="sg-mini" style="margin-bottom:10px">Green tints &amp; lines (alpha over checkerboard)</div>
+      <div class="sg-swatches">
+        <div class="sg-sw"><div class="sg-sw-chip sg-alpha" style="background:var(--g-fill)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--g-fill</div><div class="sg-sw-val">rgba(0,230,118,.07)</div>
+          </div></div>
+        <div class="sg-sw"><div class="sg-sw-chip sg-alpha" style="background:var(--g-line)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--g-line</div><div class="sg-sw-val">rgba(0,230,118,.22)</div>
+          </div></div>
+        <div class="sg-sw"><div class="sg-sw-chip sg-alpha" style="background:var(--g-line-2)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--g-line-2</div><div class="sg-sw-val">rgba(0,230,118,.3)</div>
+          </div></div>
+        <div class="sg-sw"><div class="sg-sw-chip sg-alpha" style="background:var(--b)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--b</div><div class="sg-sw-val">rgba(255,255,255,.07)</div>
+          </div></div>
+        <div class="sg-sw"><div class="sg-sw-chip sg-alpha" style="background:var(--r2)"></div>
+          <div class="sg-sw-meta"><div class="sg-sw-name">--r2</div><div class="sg-sw-val">rgba(255,82,82,.10)</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Typography ── -->
+    <section class="sg-sec">
+      <div class="ey">Tokens</div>
+      <h2>Typography</h2>
+      <div class="sg-note">One family: DM&nbsp;Sans (<code style="color:var(--t)">--fd</code> display /
+        <code style="color:var(--t)">--fb</code> body). The eyebrow and headline carry the deck's voice.</div>
+
+      <div class="sg-demo sg-demo--col sg-demo--dark">
+        <div class="sg-type-row">
+          <div>
+            <div class="ey">Eyebrow label</div>
+            <div class="sg-cap"><b>.ey</b> — uppercase, tracked, leading dash rule</div>
+          </div>
+          <div>
+            <div class="h1">Restaurants keep more. <em>Riders earn fairer pay.</em></div>
+            <div class="sg-cap"><b>.h1</b> + <b>&lt;em&gt;</b> for the green-emphasised phrase</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Buttons ── -->
+    <section class="sg-sec">
+      <div class="ey">Components</div>
+      <h2>Buttons</h2>
+      <div class="sg-demo">
+        <button class="btn">Save as PDF</button>
+        <button class="nb">‹</button>
+        <button class="nb">›</button>
+        <button class="nb" disabled>‹</button>
+      </div>
+      <div class="sg-cap"><b>.btn</b> — primary green pill &nbsp;·&nbsp; <b>.nb</b> — round outline nav button
+        (<b>:disabled</b> dims to .14)</div>
+    </section>
+
+    <!-- ── Badges ── -->
+    <section class="sg-sec">
+      <div class="ey">Components</div>
+      <h2>Badges</h2>
+      <div class="sg-demo">
+        <span class="badge badge--red">Status Quo</span>
+        <span class="badge badge--green">Better Way</span>
+      </div>
+      <div class="sg-cap"><b>.badge</b> + <b>.badge--red</b> / <b>.badge--green</b></div>
+    </section>
+
+    <!-- ── Icon tiles ── -->
+    <section class="sg-sec">
+      <div class="ey">Components</div>
+      <h2>Icon tiles</h2>
+      <div class="sg-demo">
+        <div class="icon-tile">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--g)" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        </div>
+        <div class="icon-tile icon-tile--sm">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--g)" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+        </div>
+        <div class="icon-tile icon-tile--active">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--g)" stroke-width="2.5"
+            stroke-linecap="round">
+            <line x1="19" y1="5" x2="5" y2="19" />
+            <circle cx="6.5" cy="6.5" r="2.5" />
+            <circle cx="17.5" cy="17.5" r="2.5" />
+          </svg>
+        </div>
+      </div>
+      <div class="sg-cap"><b>.icon-tile</b> (48px) &nbsp;·&nbsp; <b>.icon-tile--sm</b> (36px) &nbsp;·&nbsp;
+        <b>.icon-tile--active</b> (2px border + glow)</div>
+    </section>
+
+    <!-- ── Cards ── -->
+    <section class="sg-sec">
+      <div class="ey">Components</div>
+      <h2>Cards</h2>
+
+      <div class="sg-demo sg-demo--dark" style="gap:16px">
+        <div class="stat-card" style="min-width:220px;flex:1">
+          <div class="stat-num">22%</div>
+          <div style="font-size:13px;color:var(--tm);margin-top:14px;line-height:1.55">average rider earnings uplift</div>
+        </div>
+        <div class="ask-card" style="min-width:260px;flex:1">
+          <div class="ask-num">01</div>
+          <div style="flex:1">
+            <div class="step-title">Make introductions</div>
+            <div class="step-desc">Introduce us to local restaurant owners and business associations.</div>
+          </div>
+        </div>
+        <div class="pillar" style="min-width:220px;flex:1">
+          <div class="pillar-head">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--g)" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            <div class="pillar-title">Independent Restaurants</div>
+          </div>
+          <div class="pillar-body">More margin means owners invest in staff, quality and growth.</div>
+        </div>
+      </div>
+      <div class="sg-cap"><b>.stat-card</b> / <b>.stat-num</b> &nbsp;·&nbsp; <b>.ask-card</b> / <b>.ask-num</b>
+        &nbsp;·&nbsp; <b>.pillar</b> / <b>.pillar-head</b> / <b>.pillar-title</b> / <b>.pillar-body</b></div>
+    </section>
+
+    <!-- ── Glowing pills ── -->
+    <section class="sg-sec">
+      <div class="ey">Components</div>
+      <h2>Glowing pills</h2>
+      <div class="sg-demo sg-demo--dark">
+        <div class="gpill">
+          <div style="font-family:var(--fd);font-size:28px;font-weight:700;color:var(--g)">0</div>
+          <div style="font-size:9.5px;color:rgba(0,230,118,.58);letter-spacing:.08em;margin-top:3px;text-transform:uppercase">downloads</div>
+        </div>
+        <div class="gpill">
+          <div style="font-family:var(--fd);font-size:28px;font-weight:700;color:var(--g)">0</div>
+          <div style="font-size:9.5px;color:rgba(0,230,118,.58);letter-spacing:.08em;margin-top:3px;text-transform:uppercase">logins</div>
+        </div>
+        <div class="gpill">
+          <div style="font-family:var(--fd);font-size:28px;font-weight:700;color:var(--g)">0</div>
+          <div style="font-size:9.5px;color:rgba(0,230,118,.58);letter-spacing:.08em;margin-top:3px;text-transform:uppercase">learning curve</div>
+        </div>
+      </div>
+      <div class="sg-cap"><b>.gpill</b> — pulsing capsule; <b>:nth-child</b> staggers the glow animation</div>
+    </section>
+
+    <!-- ── Money bars ── -->
+    <section class="sg-sec">
+      <div class="ey">Components</div>
+      <h2>Money bars</h2>
+      <div class="sg-note">Segments animate to their <code style="color:var(--t)">--w</code> width once an ancestor gains
+        the <code style="color:var(--t)">.bars-on</code> class (added by the deck JS; added here for preview).</div>
+      <div class="sg-demo sg-demo--col sg-demo--dark bars-on">
+        <div class="anim-bar">
+          <div class="abar-seg ab-red" style="--w:35%">35%</div>
+          <div class="abar-seg ab-dim" style="--w:65%">65%</div>
+        </div>
+        <div class="anim-bar">
+          <div class="abar-seg ab-gdim" style="--w:15%">15%</div>
+          <div class="abar-seg ab-grn" style="--w:85%">85%</div>
+        </div>
+      </div>
+      <div class="sg-cap"><b>.anim-bar</b> &gt; <b>.abar-seg</b> · tones <b>.ab-red</b> <b>.ab-dim</b> <b>.ab-gdim</b>
+        <b>.ab-grn</b></div>
+    </section>
+
+    <!-- ── Step rows ── -->
+    <section class="sg-sec">
+      <div class="ey">Components</div>
+      <h2>Step rows</h2>
+      <div class="sg-demo sg-demo--col">
+        <div class="step">
+          <div class="icon-tile">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--g)" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </div>
+          <div>
+            <div class="step-title">Customer messages restaurant on WhatsApp</div>
+            <div class="step-desc">No app download. No account. No friction.</div>
+          </div>
+        </div>
+      </div>
+      <div class="sg-cap"><b>.step</b> &gt; <b>.icon-tile</b> + (<b>.step-title</b> / <b>.step-desc</b>)</div>
+    </section>
+
+    <!-- ── CTA ── -->
+    <section class="sg-sec" style="border-bottom:none">
+      <div class="ey">Components</div>
+      <h2>Call to action</h2>
+      <div class="cta">
+        <div>
+          <div class="cta-title">Let's talk.</div>
+          <div style="font-size:12px;color:var(--tm);margin-top:4px">Lohith B &amp; Rahul P · Founders, Byteloop AI Ltd
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:600;color:var(--t)">admin@byteloop.ai</div>
+          <div style="font-size:13px;color:var(--g);margin-top:3px">byteloop.ai</div>
+        </div>
+      </div>
+      <div class="sg-cap"><b>.cta</b> / <b>.cta-title</b></div>
+    </section>
+
+  </div>
+</body>
+
+</html>

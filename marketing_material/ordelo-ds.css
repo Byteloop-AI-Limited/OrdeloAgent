@@ -1,0 +1,654 @@
+/* ============================================================================
+   ORDELO DESIGN SYSTEM  ·  ordelo-ds.css
+   ----------------------------------------------------------------------------
+   The visual language of Ordelo marketing material, extracted from the
+   Chelsfield councillor pitch deck. Dark canvas, signal-green accent with a
+   glow system, DM Sans, hairline structure.
+
+   Usage:
+     <link rel="stylesheet" href="ordelo-ds.css">
+     <!-- DM Sans must be loaded by the host page (Google Fonts link). -->
+
+   Layers (in source order):
+     1. Tokens          – :root design tokens
+     2. Base            – reset + document defaults
+     3. Deck & slide    – 1122x794 slide scaffolding, dot-grid, footer, nav
+     4. Typography       – eyebrow, headline
+     5. Buttons          – nav buttons, primary pill
+     6. Components       – badge, icon-tile, stat/ask cards, gpill, money bars,
+                           step, pillar, track, cta, comparison, phone/chat
+     7. Utilities        – text tones, glow, layout helpers
+     8. Print            – A4 landscape export rules
+
+   NOTE ON FIDELITY: token values (especially the ad-hoc alphas that drive the
+   glows and the dot-grid texture) are preserved exactly. Do not "round" them
+   into a tidy scale — several are load-bearing (e.g. --dot at .042).
+   ============================================================================ */
+
+/* ── 1. Tokens ────────────────────────────────────────────────────────────── */
+:root {
+  /* Brand */
+  --g: #00E676;                      /* signal green — the one accent          */
+  --r: #FF5252;                      /* alert red — the "status quo" / loss     */
+
+  /* Green tints (named, not rounded — exact alphas from the source) */
+  --g2: rgba(0, 230, 118, .18);      /* legacy: strong green wash               */
+  --g3: rgba(0, 230, 118, .07);      /* legacy: faint green fill                */
+  --g-fill-soft: rgba(0, 230, 118, .05); /* card / track surface                */
+  --g-fill: rgba(0, 230, 118, .07);  /* icon-tile & subtle fill                 */
+  --g-fill-strong: rgba(0, 230, 118, .14);/* active tile fill / badge line       */
+  --g-line: rgba(0, 230, 118, .22);  /* default green border (cards, tiles)     */
+  --g-line-2: rgba(0, 230, 118, .3); /* stronger green border (pills)           */
+  --g-line-3: rgba(0, 230, 118, .35);/* CTA border                              */
+
+  /* Red tints */
+  --r2: rgba(255, 82, 82, .10);      /* red wash                                */
+  --r-hair: rgba(255, 82, 82, .2);   /* red border                             */
+  --r-fill: rgba(255, 82, 82, .09);  /* red badge fill                          */
+
+  /* Glow */
+  --glow: 0 0 28px rgba(0, 230, 118, .18);       /* standard green glow         */
+  --glow-sm: 0 0 20px rgba(0, 230, 118, .15);    /* small glow (active tile)    */
+  --glow-cta: 0 0 40px rgba(0, 230, 118, .06);   /* wide diffuse CTA glow       */
+
+  /* Surfaces */
+  --bg: #0A0A0A;                     /* slide background                        */
+  --c1: #111;                        /* card surface 1                          */
+  --c2: #1a1a1a;                     /* card surface 2 / track fill             */
+
+  /* Text */
+  --t: #F0F0F0;                      /* primary text                            */
+  --tm: #717171;                     /* muted text                              */
+  --td: #383838;                     /* dim / disabled text                     */
+
+  /* Lines & texture */
+  --b: rgba(255, 255, 255, .07);     /* hairline border                         */
+  --dot: rgba(255, 255, 255, .042);  /* dot-grid texture dot (do not round)     */
+
+  /* Radii */
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-pill: 40px;
+
+  /* Type */
+  --fd: 'DM Sans', -apple-system, system-ui, sans-serif;  /* display */
+  --fb: 'DM Sans', -apple-system, system-ui, sans-serif;  /* body    */
+}
+
+/* ── 2. Base ──────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body {
+  background: #000;
+  font-family: var(--fb);
+  color: var(--t);
+  overflow: hidden;
+}
+
+/* ── 3. Deck & slide scaffolding ──────────────────────────────────────────── */
+/* Fullscreen deck wrapper + centered, scaled stage (scaled from JS). */
+#dw {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+#ds {
+  transform-origin: center center;
+}
+
+/* Slide: fixed A4-landscape canvas. `.active` is toggled by the deck JS. */
+.slide {
+  width: 1122px;
+  height: 794px;
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+}
+
+.slide.active {
+  display: flex;
+  animation: sIn .28s ease both;
+}
+
+@keyframes sIn {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dot-grid texture layer behind every slide. */
+.slide::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Slide content column. */
+.sc {
+  flex: 1;
+  padding: 34px 90px 42px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+}
+
+/* Slide footer (org line + page number). */
+.sf {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 90px;
+  border-top: 1px solid var(--b);
+  font-size: 9.5px;
+  color: #353535;
+  letter-spacing: .06em;
+  font-family: var(--fb);
+  z-index: 2;
+}
+
+.sf b {
+  color: var(--g);
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+/* Deck navigation pill (hidden in print). */
+#nav {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 99;
+  background: rgba(8, 8, 8, .97);
+  border: 1px solid rgba(0, 230, 118, .14);
+  border-radius: var(--radius-pill);
+  padding: 6px 16px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 2px 24px rgba(0, 0, 0, .6), 0 0 40px rgba(0, 230, 118, .04);
+}
+
+#sc2 {
+  font-size: 11px;
+  color: var(--tm);
+  min-width: 40px;
+  text-align: center;
+  font-weight: 500;
+  letter-spacing: .04em;
+}
+
+/* ── 4. Typography ────────────────────────────────────────────────────────── */
+/* Eyebrow: uppercase label with a leading dash. */
+.ey {
+  font-family: var(--fb);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--g);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ey::before {
+  content: '';
+  display: block;
+  width: 22px;
+  height: 1.5px;
+  background: var(--g);
+  flex-shrink: 0;
+}
+
+/* Headline. Use <em> for the green-emphasised phrase. */
+.h1 {
+  font-family: var(--fd);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -.02em;
+  color: var(--t);
+  margin-bottom: 18px;
+}
+
+.h1 em {
+  color: var(--g);
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* ── 5. Buttons ───────────────────────────────────────────────────────────── */
+/* Round outline nav button. */
+.nb {
+  background: none;
+  border: 1px solid rgba(0, 230, 118, .22);
+  color: var(--g);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .14s;
+  font-family: var(--fb);
+}
+
+.nb:hover {
+  background: rgba(0, 230, 118, .07);
+  border-color: rgba(0, 230, 118, .45);
+}
+
+.nb:disabled {
+  opacity: .14;
+  cursor: default;
+}
+
+/* Primary solid-green pill button. */
+.btn,
+#pb {
+  background: var(--g);
+  color: #000;
+  border: none;
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: .06em;
+  font-family: var(--fb);
+  transition: opacity .12s;
+}
+
+.btn:hover,
+#pb:hover {
+  opacity: .85;
+}
+
+/* ── 6. Components ────────────────────────────────────────────────────────── */
+
+/* Badge / status chip. */
+.badge {
+  border-radius: var(--radius-lg);
+  padding: 2px 10px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: normal;
+}
+
+.badge--red {
+  background: var(--r-fill);
+  border: 1px solid var(--r-hair);
+  color: var(--r);
+}
+
+.badge--green {
+  background: rgba(0, 230, 118, .09);
+  border: 1px solid rgba(0, 230, 118, .26);
+  color: var(--g);
+}
+
+/* Icon tile: rounded green square holding a line icon. */
+.icon-tile {
+  width: 48px;
+  height: 48px;
+  background: var(--g-fill);
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.icon-tile--sm {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+}
+
+/* Emphasised / final-step tile. */
+.icon-tile--active {
+  background: var(--g-fill-strong);
+  border: 2px solid var(--g);
+  box-shadow: var(--glow-sm);
+}
+
+/* Stat card: big green number with a top gradient rule. */
+.stat-card {
+  background: var(--c1);
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-xl);
+  padding: 28px 26px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 60px rgba(0, 230, 118, .04);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--g) 50%, transparent 100%);
+}
+
+.stat-num {
+  font-family: var(--fd);
+  font-size: 72px;
+  font-weight: 700;
+  color: var(--g);
+  line-height: 1;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ask card: numbered card with a left green gradient rule. */
+.ask-card {
+  background: var(--c1);
+  border: 1px solid var(--b);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+
+.ask-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, var(--g), transparent);
+  opacity: .5;
+}
+
+.ask-num {
+  font-family: var(--fd);
+  font-size: 28px;
+  font-weight: 700;
+  color: rgba(0, 230, 118, .12);
+  line-height: 1;
+  letter-spacing: -.02em;
+  flex-shrink: 0;
+  width: 40px;
+  margin-top: 2px;
+}
+
+/* Glowing pill: pulsing stat capsule. */
+@keyframes pg {
+
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(0, 230, 118, .18);
+  }
+
+  50% {
+    box-shadow: 0 0 22px rgba(0, 230, 118, .38);
+  }
+}
+
+.gpill {
+  background: rgba(0, 230, 118, .06);
+  border: 1px solid var(--g-line-2);
+  border-radius: 36px;
+  padding: 12px 22px;
+  text-align: center;
+  animation: pg 2.5s ease infinite;
+}
+
+.gpill:nth-child(2) {
+  animation-delay: .85s;
+}
+
+.gpill:nth-child(3) {
+  animation-delay: 1.7s;
+}
+
+/* Animated money bar (segments grow to their --w width when `.bars-on`
+   is added to the slide by the deck JS). */
+.anim-bar {
+  display: flex;
+  height: 26px;
+  border-radius: 5px;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.abar-seg {
+  height: 100%;
+  width: 0;
+  transition: width 1.15s cubic-bezier(.22, .84, .39, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  font-family: var(--fb);
+  letter-spacing: .02em;
+}
+
+.bars-on .abar-seg {
+  width: var(--w);
+}
+
+.ab-red {
+  background: rgba(255, 82, 82, .36);
+  color: #ff8080;
+}
+
+.ab-dim {
+  background: rgba(255, 255, 255, .07);
+  color: var(--tm);
+}
+
+.ab-gdim {
+  background: rgba(0, 230, 118, .14);
+  color: rgba(0, 230, 118, .58);
+}
+
+.ab-grn {
+  background: rgba(0, 230, 118, .50);
+  color: #003d20;
+}
+
+/* Step row: icon tile + title + description. */
+.step {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.step-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--t);
+}
+
+.step-desc {
+  font-size: 14px;
+  color: var(--tm);
+  margin-top: 2px;
+}
+
+/* Pillar card: small feature card with a green top rule. */
+.pillar {
+  background: var(--c1);
+  border: 1px solid var(--b);
+  border-top: 2px solid var(--g);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+}
+
+.pillar-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.pillar-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t);
+}
+
+.pillar-body {
+  font-size: 13.5px;
+  color: var(--tm);
+  line-height: 1.62;
+}
+
+/* Track: full-width money-flow lane (red = status quo, green = ordelo). */
+.track {
+  flex: 1;
+  border-radius: var(--radius-lg);
+  padding: 17px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.track--red {
+  background: var(--r2);
+  border: 1px solid var(--r-hair);
+}
+
+.track--green {
+  background: var(--g-fill-soft);
+  border: 1px solid var(--g-line);
+}
+
+/* CTA block: bordered green call-to-action band. */
+.cta {
+  background: var(--g-fill);
+  border: 1px solid var(--g-line-3);
+  border-radius: var(--radius-lg);
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--glow-cta);
+}
+
+.cta-title {
+  font-family: var(--fd);
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--g);
+  letter-spacing: -.02em;
+  line-height: 1;
+}
+
+/* Comparison table shell (cells stay bespoke per column tone). */
+.cmp {
+  border: 1px solid var(--b);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* ── 7. Utilities ─────────────────────────────────────────────────────────── */
+.t-g { color: var(--g); }
+.t-r { color: var(--r); }
+.t-t { color: var(--t); }
+.t-m { color: var(--tm); }
+.t-d { color: var(--td); }
+
+.fw6 { font-weight: 600; }
+.fw7 { font-weight: 700; }
+
+.glow { box-shadow: var(--glow); }
+
+/* ── 8. Print (A4 landscape) ──────────────────────────────────────────────── */
+@media print {
+  body {
+    background: var(--bg);
+    overflow: visible;
+  }
+
+  #dw {
+    position: static;
+    display: block;
+  }
+
+  #ds {
+    transform: none !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  #nav {
+    display: none !important;
+  }
+
+  .slide {
+    display: flex !important;
+    animation: none !important;
+    width: 297mm;
+    height: 210mm;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .gpill {
+    animation: none !important;
+  }
+}
+
+@page {
+  size: A4 landscape;
+  margin: 0;
+}
