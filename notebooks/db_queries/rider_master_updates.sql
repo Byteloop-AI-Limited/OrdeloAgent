@@ -1,12 +1,13 @@
 -- Master data maintenance for restaurant_master, rider_master, and customer_master.
 -- Consolidated from CommonQueries.sql and config_updates.sql.
-select * from rider_registrations;
+select * from rider_registrations order by id desc;
 select * from rider_master;
 select * from ordelo_config where config_key like '%_APP_URL';
 
 select admins,* from restaurant_master where rest_ref='ELAS';
 select admins,* from restaurant_master where rest_ref='SFCS';
 select * from rider_master;
+
 select * from rider_master where date_trunc('second', shift_response_dtts)::time > time '11:00:00' order by is_in_shift desc, shift_response_dtts desc, status asc;
 
 select * from cust_rest_map;

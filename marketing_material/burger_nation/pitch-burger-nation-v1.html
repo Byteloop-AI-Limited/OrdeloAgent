@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ordelo × Burger Nation · Orpington Pitch</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&family=Caveat:wght@600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
+    rel="stylesheet">
+  <style>
+/* ============================================================================
+   ORDELO × BURGER NATION · pitch deck theme
+   Deck scaffolding derived from ordelo-ds.css; visual language re-skinned to
+   Burger Nation's release poster: warm black canvas, gold accent, condensed
+   uppercase display type (Anton), script accents (Caveat), camera-HUD frame
+   motifs. Red is retained as the "status quo / aggregator" contrast tone.
+   ============================================================================ */
+
+:root {
+  /* Brand */
+  --gold: #F2B21B;                    /* Burger Nation gold — the one accent   */
+  --gold-2: #E8A317;                  /* deeper gold for gradients             */
+  --r: #FF5252;                       /* alert red — status quo / cons         */
+
+  /* Gold tints */
+  --gd-fill-soft: rgba(242, 178, 27, .05);
+  --gd-fill: rgba(242, 178, 27, .08);
+  --gd-fill-strong: rgba(242, 178, 27, .15);
+  --gd-line: rgba(242, 178, 27, .25);
+  --gd-line-2: rgba(242, 178, 27, .35);
+  --gd-dim: rgba(242, 178, 27, .55);
+
+  /* Red tints */
+  --r2: rgba(255, 82, 82, .10);
+  --r-hair: rgba(255, 82, 82, .2);
+  --r-fill: rgba(255, 82, 82, .09);
+
+  /* Glow */
+  --glow: 0 0 28px rgba(242, 178, 27, .20);
+  --glow-cta: 0 0 40px rgba(242, 178, 27, .08);
+
+  /* Surfaces — warm blacks */
+  --bg: #0C0A06;
+  --c1: #14110a;
+  --c2: #1b170d;
+
+  /* Text — warm whites */
+  --t: #F5F1E6;
+  --tm: #8d8674;
+  --td: #454032;
+
+  /* Lines & texture */
+  --b: rgba(245, 241, 230, .08);
+  --dot: rgba(245, 241, 230, .04);
+
+  /* Type */
+  --fd: 'Anton', 'Oswald', sans-serif;          /* display — condensed caps  */
+  --fh: 'Oswald', sans-serif;                    /* subheads / labels         */
+  --fs: 'Caveat', cursive;                       /* script accents            */
+  --fb: 'DM Sans', -apple-system, system-ui, sans-serif;  /* body            */
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body { background: #000; font-family: var(--fb); color: var(--t); overflow: hidden; }
+
+/* ── Deck & slide scaffolding ── */
+#dw { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; }
+#ds { transform-origin: center center; }
+
+.slide {
+  width: 1122px; height: 794px;
+  background: var(--bg);
+  position: relative; overflow: hidden;
+  display: none; flex-direction: column;
+}
+.slide.active { display: flex; animation: sIn .28s ease both; }
+@keyframes sIn { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+
+/* dot-grid + warm vignette texture */
+.slide::before {
+  content: ''; position: absolute; inset: 0;
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none; z-index: 0;
+}
+.slide::after {
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 90% 60% at 78% -10%, rgba(242,178,27,.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 45% at 8% 110%, rgba(242,178,27,.035) 0%, transparent 65%);
+  pointer-events: none; z-index: 0;
+}
+
+/* camera-HUD corner brackets on every slide */
+.frame { position: absolute; inset: 22px; pointer-events: none; z-index: 2; }
+.frame i { position: absolute; width: 26px; height: 26px; border: 2px solid rgba(242,178,27,.4); }
+.frame i:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.frame i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.frame i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+.frame i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+
+/* HUD chips (RAW · ISO · battery) */
+.hud-chip {
+  font-family: var(--fh); font-size: 11px; font-weight: 600; letter-spacing: .22em;
+  color: rgba(242,178,27,.55); text-transform: uppercase;
+}
+.hud-batt { display: flex; align-items: center; gap: 5px; }
+.hud-batt .cell { width: 7px; height: 9px; background: rgba(242,178,27,.55); }
+.hud-batt .cell.off { background: rgba(242,178,27,.16); }
+.hud-batt .shell { border: 1.5px solid rgba(242,178,27,.4); padding: 2px 3px; display: flex; gap: 2px; }
+
+.sc { flex: 1; padding: 40px 90px 46px; display: flex; flex-direction: column; position: relative; z-index: 1; }
+
+.sf {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 34px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 90px; border-top: 1px solid var(--b);
+  font-size: 11.5px; color: #4a4438; letter-spacing: .06em; font-family: var(--fh); z-index: 2;
+}
+.sf b { color: var(--gold); font-weight: 600; letter-spacing: .08em; }
+
+#nav {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px; z-index: 99;
+  background: rgba(10, 8, 4, .97);
+  border: 1px solid rgba(242, 178, 27, .18);
+  border-radius: 40px; padding: 6px 16px; backdrop-filter: blur(20px);
+  box-shadow: 0 2px 24px rgba(0,0,0,.6), 0 0 40px rgba(242,178,27,.05);
+}
+#sc2 { font-size: 13px; color: var(--tm); min-width: 40px; text-align: center; font-weight: 500; letter-spacing: .04em; }
+
+/* ── Typography ── */
+.ey {
+  font-family: var(--fh); font-size: 13px; font-weight: 600; letter-spacing: .26em;
+  text-transform: uppercase; color: var(--gold); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.ey::before { content: ''; display: block; width: 22px; height: 2px; background: var(--gold); flex-shrink: 0; }
+
+.h1 {
+  font-family: var(--fd); font-size: 48px; font-weight: 400; line-height: 1.08;
+  letter-spacing: .015em; text-transform: uppercase; color: var(--t); margin-bottom: 16px;
+}
+.h1 em { color: var(--gold); font-style: normal; }
+
+/* script accent word (the poster's "for") */
+.scr { font-family: var(--fs); font-weight: 700; color: var(--gold); text-transform: none; letter-spacing: 0; }
+
+/* gold ribbon banner (poster "OPENING SOON" style) */
+.ribbon {
+  display: inline-block; background: linear-gradient(180deg, var(--gold), var(--gold-2));
+  color: #14100a; font-family: var(--fh); font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; padding: 7px 22px; font-size: 15px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 50%, 100% 100%, 0 100%, 12px 50%);
+}
+
+/* ── Buttons ── */
+.nb {
+  background: none; border: 1px solid rgba(242, 178, 27, .3); color: var(--gold);
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center; transition: all .14s; font-family: var(--fb);
+}
+.nb:hover { background: rgba(242, 178, 27, .08); border-color: rgba(242, 178, 27, .5); }
+.nb:disabled { opacity: .14; cursor: default; }
+#pb {
+  background: var(--gold); color: #14100a; border: none; border-radius: 20px;
+  padding: 5px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  letter-spacing: .06em; font-family: var(--fb); transition: opacity .12s;
+}
+#pb:hover { opacity: .85; }
+
+/* ── Components ── */
+.badge {
+  border-radius: 14px; padding: 2px 10px; font-size: 11.5px; font-weight: 700; letter-spacing: normal; font-family: var(--fb);
+}
+.badge--red { background: var(--r-fill); border: 1px solid var(--r-hair); color: var(--r); }
+.badge--gold { background: rgba(242, 178, 27, .1); border: 1px solid rgba(242, 178, 27, .3); color: var(--gold); }
+
+.icon-tile {
+  width: 46px; height: 46px; background: var(--gd-fill); border: 1px solid var(--gd-line);
+  border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+
+/* money-flow track */
+.track { border-radius: 12px; padding: 15px 22px; }
+.track--red { background: var(--r2); border: 1px solid var(--r-hair); }
+.track--gold { background: var(--gd-fill-soft); border: 1px solid var(--gd-line); }
+
+.anim-bar { display: flex; height: 26px; border-radius: 5px; overflow: hidden; gap: 2px; }
+.abar-seg {
+  height: 100%; width: 0; transition: width 1.15s cubic-bezier(.22, .84, .39, 1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12.5px; font-weight: 700; border-radius: 4px; white-space: nowrap; overflow: hidden;
+  font-family: var(--fb); letter-spacing: .02em;
+}
+.bars-on .abar-seg { width: var(--w); }
+.ab-red { background: rgba(255, 82, 82, .36); color: #ff8080; }
+.ab-dim { background: rgba(255, 255, 255, .07); color: var(--tm); }
+.ab-gdim { background: rgba(242, 178, 27, .18); color: rgba(242, 178, 27, .62); }
+.ab-gold { background: rgba(242, 178, 27, .55); color: #241a04; }
+
+/* offer card */
+.offer {
+  background: var(--c1); border: 1px solid var(--b); border-top: 3px solid var(--gold);
+  border-radius: 12px; padding: 22px 24px; display: flex; flex-direction: column; position: relative; overflow: hidden;
+}
+.offer::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 90px;
+  background: radial-gradient(ellipse 70% 100% at 50% -30%, rgba(242,178,27,.09) 0%, transparent 70%);
+  pointer-events: none;
+}
+.offer-num {
+  font-family: var(--fd); font-size: 42px; color: rgba(242, 178, 27, .16); line-height: 1; letter-spacing: .02em;
+}
+.offer-title {
+  font-family: var(--fh); font-size: 22px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--t); line-height: 1.25;
+}
+.offer-title em { color: var(--gold); font-style: normal; }
+.oli { display: flex; gap: 12px; align-items: flex-start; }
+.oli svg { flex-shrink: 0; margin-top: 2px; }
+.oli-t { font-size: 16px; font-weight: 600; color: var(--t); }
+.oli-d { font-size: 14.5px; color: var(--tm); line-height: 1.55; margin-top: 1px; }
+
+/* chip pill row */
+.chip {
+  background: var(--gd-fill); border: 1px solid var(--gd-line-2); border-radius: 36px;
+  padding: 10px 20px; text-align: center;
+}
+.chip-big { font-family: var(--fd); font-size: 26px; color: var(--gold); letter-spacing: .02em; }
+.chip-sub { font-family: var(--fh); font-size: 11px; color: var(--gd-dim); letter-spacing: .16em; margin-top: 3px; text-transform: uppercase; }
+
+/* comparison table */
+.cmp { border: 1px solid var(--b); border-radius: 10px; overflow: hidden; }
+.cmp-row { display: grid; grid-template-columns: 216px 1fr 1fr; }
+.cmp-lbl { padding: 8px 18px; border-bottom: 1px solid var(--b); font-size: 15px; color: var(--tm); display: flex; align-items: center; }
+.cmp-agg {
+  background: rgba(255, 82, 82, .03); padding: 8px 14px; border-bottom: 1px solid rgba(255, 82, 82, .09);
+  border-left: 1px solid var(--b); text-align: center; font-size: 15px; color: rgba(255, 150, 150, .72);
+  display: flex; align-items: center; justify-content: center;
+}
+.cmp-ord {
+  background: rgba(242, 178, 27, .045); padding: 8px 14px; border-bottom: 1px solid rgba(242, 178, 27, .1);
+  border-left: 1px solid rgba(242, 178, 27, .12); text-align: center; font-size: 15px; color: var(--gold);
+  box-shadow: inset 0 0 40px rgba(242, 178, 27, .04);
+  display: flex; align-items: center; justify-content: center;
+}
+.cmp .last > div { border-bottom: none; }
+
+/* CTA */
+.cta {
+  background: var(--gd-fill); border: 1px solid var(--gd-line-2); border-radius: 12px;
+  padding: 14px 26px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--glow-cta);
+}
+.cta-title { font-family: var(--fd); font-size: 36px; text-transform: uppercase; color: var(--gold); letter-spacing: .02em; line-height: 1; }
+
+/* proof strip */
+.proof {
+  background: var(--c1); border: 1px solid var(--gd-line); border-radius: 12px;
+  padding: 14px 24px; display: flex; align-items: center; gap: 26px; box-shadow: inset 0 0 50px rgba(242,178,27,.04);
+  position: relative; overflow: hidden;
+}
+.proof::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--gold) 50%, transparent 100%);
+}
+.pf-num { font-family: var(--fd); font-size: 36px; color: var(--gold); line-height: 1; letter-spacing: .01em; white-space: nowrap; }
+.pf-lbl { font-size: 13px; color: var(--tm); line-height: 1.45; margin-top: 4px; }
+
+.t-g { color: var(--gold); } .t-r { color: var(--r); } .t-m { color: var(--tm); } .t-d { color: var(--td); }
+.fw6 { font-weight: 600; } .fw7 { font-weight: 700; }
+
+/* ── Print (A4 landscape) ── */
+@media print {
+  body { background: var(--bg); overflow: visible; }
+  #dw { position: static; display: block; }
+  #ds { transform: none !important; width: auto !important; height: auto !important; }
+  #nav { display: none !important; }
+  .slide { display: flex !important; animation: none !important; width: 297mm; height: 210mm; page-break-after: always; break-after: page; }
+  .no-print { display: none !important; }
+}
+@page { size: A4 landscape; margin: 0; }
+  </style>
+</head>
+
+<body>
+
+  <div id="nav" class="no-print">
+    <button class="nb" id="pv" onclick="go(-1)">‹</button>
+    <span id="sc2">1 / 4</span>
+    <button class="nb" id="nx" onclick="go(1)">›</button>
+    <button id="pb" onclick="window.print()">Save as PDF</button>
+  </div>
+
+  <div id="dw">
+    <div id="ds">
+
+      <!-- ══ SLIDE 1 · COVER ══ -->
+      <div class="slide active" id="s1">
+        <div class="frame"><i></i><i></i><i></i><i></i></div>
+
+        <div class="sc" style="justify-content:space-between;padding-top:52px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-family:'DM Sans';font-size:36px;font-weight:700;letter-spacing:-.02em;color:var(--gold);line-height:1">ordelo</div>
+              <div style="font-size:13px;color:var(--tm);margin-top:5px;letter-spacing:.04em">by Byteloop AI Ltd</div>
+            </div>
+            <div style="background:var(--gd-fill-soft);border:1px solid var(--gd-line);border-radius:12px;padding:12px 20px;text-align:right">
+              <div style="font-family:var(--fh);font-size:11px;color:var(--tm);letter-spacing:.18em;text-transform:uppercase;margin-bottom:5px">Prepared for</div>
+              <div style="font-family:var(--fh);font-size:19px;font-weight:600;color:var(--t);letter-spacing:.03em">Babu · Burger Nation</div>
+              <div style="font-size:15px;color:var(--tm);margin-top:4px">Orpington · July 2026</div>
+            </div>
+          </div>
+
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
+            <div style="font-family:var(--fh);font-size:15px;font-weight:600;letter-spacing:.4em;color:var(--gd-dim);text-transform:uppercase;margin-bottom:18px">
+              Smashed to Perfection · Delivered Fairly
+            </div>
+            <div style="font-family:var(--fd);font-size:70px;line-height:1.08;letter-spacing:.015em;text-transform:uppercase;color:var(--t)">
+              Ordelo <span style="color:var(--gold)">×</span> Burger Nation
+            </div>
+            <div style="font-family:var(--fh);font-size:22px;font-weight:500;letter-spacing:.5em;color:var(--tm);text-transform:uppercase;margin-top:14px">Orpington</div>
+            <div style="margin-top:28px"><span class="ribbon">WhatsApp ordering + delivery · 15% commission</span></div>
+          </div>
+
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;border-top:1px solid var(--b);padding-top:16px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:34px;height:34px;border:1.5px solid var(--gd-line-2);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--gold)"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+              </div>
+              <div>
+                <div style="font-family:var(--fh);font-size:15px;font-weight:600;letter-spacing:.08em;color:var(--t);text-transform:uppercase">261 High Street · Orpington</div>
+                <div style="font-family:var(--fh);font-size:13px;color:var(--tm);letter-spacing:.14em;margin-top:2px">BR6 0NW · OPENING SOON</div>
+              </div>
+            </div>
+            <div style="font-size:15px;color:var(--td);text-align:right">admin@byteloop.ai · +44 7448 440754</div>
+          </div>
+        </div>
+        <div class="sf"><span>ORDELO × BURGER NATION · STAY TUNED. STAY HUNGRY.</span><b>1 / 4</b></div>
+      </div>
+
+      <!-- ══ SLIDE 2 · PROBLEM → DIFFERENCE → INSIGHT ══ -->
+      <div class="slide" id="s2">
+        <div class="frame"><i></i><i></i><i></i><i></i></div>
+        <div class="sc">
+          <div class="ey">The Problem → The Difference</div>
+          <div class="h1" style="font-size:42px">£35–37 of every £100 <span class="scr" style="font-size:46px">leaves</span> your till.</div>
+
+          <div style="display:flex;flex-direction:column;gap:11px">
+            <!-- Aggregator track -->
+            <div class="track track--red">
+              <div style="display:flex;align-items:center;margin-bottom:10px">
+                <div style="font-family:var(--fh);font-size:12px;font-weight:600;letter-spacing:.18em;color:var(--r);text-transform:uppercase">Aggregators · Deliveroo / Just Eat / Uber Eats</div>
+                <div class="badge badge--red" style="margin-left:auto">The Others</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px">
+                <div style="background:#1a0808;border:1px solid rgba(255,82,82,.26);border-radius:10px;padding:7px 13px;text-align:center;flex-shrink:0;min-width:90px">
+                  <div style="font-size:11px;color:rgba(255,82,82,.5);letter-spacing:.04em;margin-bottom:2px">Customer pays</div>
+                  <div style="font-family:var(--fd);font-size:28px;color:var(--t);line-height:1">£100</div>
+                </div>
+                <svg width="18" height="12" viewBox="0 0 18 12" fill="none" style="flex-shrink:0"><path d="M0 6h15M10 1l6 5-6 5" stroke="rgba(255,82,82,.32)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div style="flex:1">
+                  <div class="anim-bar" style="margin-bottom:8px">
+                    <div class="abar-seg ab-red" style="--w:36%">35–37%</div>
+                    <div class="abar-seg ab-dim" style="--w:64%">63–65%</div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px">
+                    <span><span class="t-r fw7">35–37%</span> <span class="t-d">→ platform commission</span></span>
+                    <span><span class="t-m">63–65%</span> <span class="t-d">→ Burger Nation</span></span>
+                  </div>
+                </div>
+                <div style="background:rgba(255,82,82,.07);border:1px solid rgba(255,82,82,.2);border-radius:10px;padding:7px 13px;flex-shrink:0;text-align:center;min-width:110px">
+                  <div style="font-family:var(--fd);font-size:26px;color:var(--r)">£35–37</div>
+                  <div style="font-size:11px;color:rgba(255,82,82,.58);margin-top:2px;line-height:1.4">gone — plus<br>subscription fees</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ordelo track -->
+            <div class="track track--gold">
+              <div style="display:flex;align-items:center;margin-bottom:10px">
+                <div style="font-family:var(--fh);font-size:12px;font-weight:600;letter-spacing:.18em;color:var(--gold);text-transform:uppercase">Ordelo · WhatsApp-Native</div>
+                <div class="badge badge--gold" style="margin-left:auto">The Better Way</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px">
+                <div style="background:#1c1508;border:1px solid rgba(242,178,27,.3);border-radius:10px;padding:7px 13px;text-align:center;flex-shrink:0;min-width:90px">
+                  <div style="font-size:11px;color:var(--gd-dim);letter-spacing:.04em;margin-bottom:2px">Customer pays</div>
+                  <div style="font-family:var(--fd);font-size:28px;color:var(--t);line-height:1">£100</div>
+                </div>
+                <svg width="18" height="12" viewBox="0 0 18 12" fill="none" style="flex-shrink:0"><path d="M0 6h15M10 1l6 5-6 5" stroke="rgba(242,178,27,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div style="flex:1">
+                  <div class="anim-bar" style="margin-bottom:8px">
+                    <div class="abar-seg ab-gdim" style="--w:15%">15%</div>
+                    <div class="abar-seg ab-gold" style="--w:85%">85%</div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px">
+                    <span><span style="color:var(--gd-dim)" class="fw6">15%</span> <span class="t-d">→ Ordelo — all-in</span></span>
+                    <span><span class="t-g fw7">85%</span> <span style="color:rgba(242,178,27,.7)">→ Burger Nation</span></span>
+                  </div>
+                </div>
+                <div style="background:rgba(242,178,27,.09);border:1px solid rgba(242,178,27,.32);border-radius:10px;padding:7px 13px;flex-shrink:0;text-align:center;min-width:110px;box-shadow:var(--glow)">
+                  <div style="font-family:var(--fd);font-size:26px;color:var(--gold)">£85</div>
+                  <div style="font-size:11px;color:rgba(242,178,27,.68);margin-top:2px;line-height:1.4">stays with<br>Burger Nation</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Difference chips -->
+          <div style="display:flex;gap:12px;margin-top:14px">
+            <div class="chip" style="flex:1"><div class="chip-big">15%</div><div class="chip-sub">commission · vs 35–37%</div></div>
+            <div class="chip" style="flex:1"><div class="chip-big">£0</div><div class="chip-sub">subscription · ever</div></div>
+            <div class="chip" style="flex:1"><div class="chip-big">£80</div><div class="chip-sub">one-time printer setup</div></div>
+          </div>
+
+          <!-- Insight strip -->
+          <div style="margin-top:14px;border-left:3px solid var(--gold);background:var(--gd-fill-soft);border-radius:0 10px 10px 0;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:20px">
+            <div>
+              <div style="font-family:var(--fh);font-size:12px;font-weight:600;letter-spacing:.22em;color:var(--gold);text-transform:uppercase;margin-bottom:4px">Why WhatsApp?</div>
+              <div style="font-size:17px;color:var(--t);font-weight:600">WhatsApp is already on every customer's phone <span class="t-m" style="font-weight:400">— nothing to download, nothing to learn.</span></div>
+            </div>
+            <div style="display:flex;gap:8px;flex-shrink:0">
+              <span class="badge badge--gold">0 installs</span>
+              <span class="badge badge--gold">0 setup</span>
+              <span class="badge badge--gold">0 learning curve</span>
+            </div>
+          </div>
+        </div>
+        <div class="sf"><span>ORDELO × BURGER NATION · admin@byteloop.ai</span><b>2 / 4</b></div>
+      </div>
+
+      <!-- ══ SLIDE 3 · THE TWO OFFERINGS + PROOF ══ -->
+      <div class="slide" id="s3">
+        <div class="frame"><i></i><i></i><i></i><i></i></div>
+        <div class="sc">
+          <div class="ey">What Ordelo Offers</div>
+          <div class="h1" style="font-size:42px">What is Ordelo offering <span class="scr" style="font-size:46px">for</span> Burger Nation?</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;margin-bottom:14px">
+
+            <!-- Offering 1 -->
+            <div class="offer">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+                <div>
+                  <div class="offer-num">01</div>
+                  <div class="offer-title" style="margin-top:6px">AI-Powered<br><em>WhatsApp Agent</em></div>
+                </div>
+                <div class="icon-tile">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:13px">
+                <div class="oli">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <div><div class="oli-t">An additional ordering channel</div>
+                    <div class="oli-d">Replaces nothing — adds a direct line on the app customers already use every day.</div></div>
+                </div>
+                <div class="oli">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <div><div class="oli-t">Not just delivery — takeaways too</div>
+                    <div class="oli-d">Collection orders flow through the same WhatsApp agent, straight to your printer.</div></div>
+                </div>
+                <div class="oli">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <div><div class="oli-t">Your customers, your data</div>
+                    <div class="oli-d">Names, numbers, order history — every order builds <span class="t-g fw6">your</span> list, not an aggregator's. Re-engage them with offers and new menu drops.</div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Offering 2 -->
+            <div class="offer">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+                <div>
+                  <div class="offer-num">02</div>
+                  <div class="offer-title" style="margin-top:6px">Complete<br><em>Last-Mile Delivery</em></div>
+                </div>
+                <div class="icon-tile">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/><path d="M8 17.5H1.5V9L6 4h8l3 3h1.5l2 3v7.5H20"/></svg>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:13px">
+                <div class="oli">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <div><div class="oli-t">Riders handled end-to-end</div>
+                    <div class="oli-d">Ordelo riders collect from your kitchen and deliver to the doorstep — customers track live via a WhatsApp link.</div></div>
+                </div>
+                <div class="oli">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <div><div class="oli-t">15% commission — all-in</div>
+                    <div class="oli-d">Delivery included. No hidden fees, no subscription stacked on top.</div></div>
+                </div>
+                <div style="margin-top:auto;background:var(--gd-fill);border:1px solid var(--gd-line);border-radius:10px;padding:10px 16px;text-align:center">
+                  <span style="font-family:var(--fh);font-size:14px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)">Order → Dispatch → Deliver — all in one chat</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Proof strip -->
+          <div class="proof">
+            <div style="font-family:var(--fh);font-size:14px;font-weight:600;letter-spacing:.2em;color:var(--gold);text-transform:uppercase;flex-shrink:0">Already<br>Live</div>
+            <div style="flex:1;display:flex;align-items:center;gap:30px">
+              <div><div class="pf-num" id="statOrders">0</div><div class="pf-lbl">orders fulfilled<br><span class="t-g fw6">370 delivery · 117 takeaway</span></div></div>
+              <div style="width:1px;height:44px;background:var(--b)"></div>
+              <div><div class="pf-num" id="stat22">0%</div><div class="pf-lbl">avg rider earnings uplift<br>vs aggregators</div></div>
+              <div style="width:1px;height:44px;background:var(--b)"></div>
+              <div><div class="pf-num" id="stat20">0%</div><div class="pf-lbl">avg discount passed to<br>customers via WhatsApp</div></div>
+              <div style="margin-left:auto;text-align:right;font-size:12.5px;color:var(--td);line-height:1.5">as of<br><span class="t-m fw6">July 2026</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="sf"><span>ORDELO × BURGER NATION · admin@byteloop.ai</span><b>3 / 4</b></div>
+      </div>
+
+      <!-- ══ SLIDE 4 · IN SUMMARY ══ -->
+      <div class="slide" id="s4">
+        <div class="frame"><i></i><i></i><i></i><i></i></div>
+        <div class="sc">
+          <div class="ey">In Summary</div>
+          <div class="h1" style="font-size:44px;margin-bottom:6px">The whole <span class="scr" style="font-size:50px">beef.</span></div>
+          <div style="font-size:16px;color:var(--tm);margin-bottom:14px">Ordelo vs aggregators — everything on the table, cons included.</div>
+
+          <div class="cmp" style="margin-bottom:14px">
+            <div class="cmp-row">
+              <div style="background:var(--c1);padding:10px 18px;border-bottom:1px solid var(--b)"></div>
+              <div style="background:#190808;padding:10px 16px;border-bottom:1px solid rgba(255,82,82,.16);border-left:1px solid var(--b);text-align:center">
+                <div style="font-family:var(--fh);font-size:16px;font-weight:600;color:var(--r);letter-spacing:.06em">AGGREGATORS</div>
+                <div style="font-size:10.5px;color:rgba(255,82,82,.44);margin-top:2px;letter-spacing:.1em">DELIVEROO · JUST EAT · UBER EATS</div>
+              </div>
+              <div style="background:#181205;padding:10px 16px;border-bottom:1px solid rgba(242,178,27,.28);border-left:1px solid rgba(242,178,27,.14);text-align:center;border-top:2px solid var(--gold);box-shadow:inset 0 0 60px rgba(242,178,27,.07)">
+                <div style="font-family:var(--fh);font-size:16px;font-weight:600;color:var(--gold);letter-spacing:.06em">ORDELO</div>
+                <div style="font-size:10.5px;color:var(--gd-dim);margin-top:2px;letter-spacing:.1em">WHATSAPP-NATIVE</div>
+              </div>
+            </div>
+            <div class="cmp-row">
+              <div class="cmp-lbl">Commission</div>
+              <div class="cmp-agg"><span style="font-family:var(--fd);font-size:17px;color:var(--r)">35–37%</span></div>
+              <div class="cmp-ord"><span style="font-family:var(--fd);font-size:17px">15%</span></div>
+            </div>
+            <div class="cmp-row">
+              <div class="cmp-lbl">Subscription fee</div>
+              <div class="cmp-agg">Recurring fees</div>
+              <div class="cmp-ord">None — £80 one-time printer setup</div>
+            </div>
+            <div class="cmp-row">
+              <div class="cmp-lbl">Ordering channel</div>
+              <div class="cmp-agg">Their app, their rules</div>
+              <div class="cmp-ord">WhatsApp — already on every phone</div>
+            </div>
+            <div class="cmp-row">
+              <div class="cmp-lbl">Takeaway orders</div>
+              <div class="cmp-agg">Delivery-focused</div>
+              <div class="cmp-ord">Delivery <b>and</b> takeaway</div>
+            </div>
+            <div class="cmp-row">
+              <div class="cmp-lbl">Customer data</div>
+              <div class="cmp-agg">Platform owns it</div>
+              <div class="cmp-ord fw7">Your customers, your data</div>
+            </div>
+            <div class="cmp-row">
+              <div class="cmp-lbl">Potential to bring new customers</div>
+              <div class="cmp-agg" style="color:#c8c8c8">✓ Marketplace exposure</div>
+              <div class="cmp-ord" style="color:var(--r);background:rgba(255,82,82,.05);border-left-color:rgba(255,82,82,.14);box-shadow:none">Marketing by restaurant</div>
+            </div>
+            <div class="cmp-row last">
+              <div class="cmp-lbl">Running offers &amp; ads</div>
+              <div class="cmp-agg">Pay the platform for visibility</div>
+              <div class="cmp-ord fw6">Cheaper — you own the data, run offers directly</div>
+            </div>
+          </div>
+
+          <div class="cta">
+            <div>
+              <div style="font-family:var(--fh);font-size:19px;font-weight:600;color:var(--t);letter-spacing:.03em">Sign up before opening day —</div>
+              <div style="font-size:15px;color:var(--tm);margin-top:5px">go live with WhatsApp ordering + delivery from day one.</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:15.5px;font-weight:600;color:var(--t)">admin@byteloop.ai</div>
+              <div style="font-size:15.5px;color:var(--tm);margin-top:2px">+44 7448 440754</div>
+              <div style="font-size:15.5px;color:var(--gold);margin-top:2px">byteloop.ai</div>
+            </div>
+          </div>
+        </div>
+        <div class="sf"><span>ORDELO × BURGER NATION · STAY TUNED. STAY HUNGRY.</span><b>4 / 4</b></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let cur = 0; const tot = 4;
+    const slides = document.querySelectorAll('.slide');
+    const sc2 = document.getElementById('sc2');
+    const pv = document.getElementById('pv');
+    const nx = document.getElementById('nx');
+
+    function animCounter(el, to, sfx, dur) {
+      const t0 = performance.now();
+      (function step(ts) {
+        const p = Math.min((ts - t0) / dur, 1);
+        const e = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(to * e) + sfx;
+        if (p < 1) requestAnimationFrame(step);
+      })(performance.now());
+    }
+
+    function activateSlide(idx) {
+      if (idx === 1) {
+        const s2el = document.getElementById('s2');
+        s2el.classList.remove('bars-on');
+        void s2el.offsetWidth;
+        setTimeout(() => s2el.classList.add('bars-on'), 80);
+      }
+      if (idx === 2) {
+        setTimeout(() => {
+          animCounter(document.getElementById('statOrders'), 487, '', 1300);
+          animCounter(document.getElementById('stat22'), 22, '%', 1300);
+          animCounter(document.getElementById('stat20'), 20, '%', 1300);
+        }, 200);
+      }
+    }
+
+    function show(n) {
+      slides[cur].classList.remove('active');
+      cur = Math.max(0, Math.min(tot - 1, n));
+      slides[cur].classList.add('active');
+      sc2.textContent = (cur + 1) + ' / ' + tot;
+      pv.disabled = cur === 0;
+      nx.disabled = cur === tot - 1;
+      activateSlide(cur);
+      scale();
+    }
+    function go(d) { show(cur + d); }
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') go(1);
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') go(-1);
+    });
+    function scale() {
+      const ds = document.getElementById('ds');
+      const pw = window.innerWidth - 24, ph = window.innerHeight - 72;
+      const s = Math.min(pw / 1122, ph / 794, 1);
+      ds.style.transform = 'scale(' + s + ')';
+      ds.style.width = '1122px'; ds.style.height = '794px';
+    }
+    window.addEventListener('resize', scale);
+    scale(); pv.disabled = true;
+    // print: ensure bars visible on paper
+    window.addEventListener('beforeprint', () => document.getElementById('s2').classList.add('bars-on'));
+  </script>
+</body>
+
+</html>

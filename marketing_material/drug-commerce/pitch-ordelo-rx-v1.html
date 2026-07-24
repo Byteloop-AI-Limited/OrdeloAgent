@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ordelo Rx · Opportunity Deck v1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
+    rel="stylesheet">
+  <!-- Ordelo design system, inlined from ordelo-ds.css for standalone distribution.
+       Source of truth: ../ordelo-ds.css + ../styleguide.html.
+       All facts on these slides are sourced in ordelo-rx/evidence-log.md.
+       Figures marked ASSUMPTION are design choices, not researched facts. -->
+  <style>
+:root {
+  --g: #00E676; --r: #FF5252;
+  --g2: rgba(0, 230, 118, .18); --g3: rgba(0, 230, 118, .07);
+  --g-fill-soft: rgba(0, 230, 118, .05); --g-fill: rgba(0, 230, 118, .07);
+  --g-fill-strong: rgba(0, 230, 118, .14); --g-line: rgba(0, 230, 118, .22);
+  --g-line-2: rgba(0, 230, 118, .3); --g-line-3: rgba(0, 230, 118, .35);
+  --r2: rgba(255, 82, 82, .10); --r-hair: rgba(255, 82, 82, .2); --r-fill: rgba(255, 82, 82, .09);
+  --glow: 0 0 28px rgba(0, 230, 118, .18); --glow-sm: 0 0 20px rgba(0, 230, 118, .15);
+  --glow-cta: 0 0 40px rgba(0, 230, 118, .06);
+  --bg: #0A0A0A; --c1: #111; --c2: #1a1a1a;
+  --t: #F0F0F0; --tm: #717171; --td: #383838;
+  --b: rgba(255, 255, 255, .07); --dot: rgba(255, 255, 255, .042);
+  --radius-sm: 10px; --radius-md: 12px; --radius-lg: 14px; --radius-xl: 18px; --radius-pill: 40px;
+  --fd: 'DM Sans', -apple-system, system-ui, sans-serif;
+  --fb: 'DM Sans', -apple-system, system-ui, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { background: #000; font-family: var(--fb); color: var(--t); overflow: hidden; }
+#dw { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; }
+#ds { transform-origin: center center; }
+.slide { width: 1122px; height: 794px; background: var(--bg); position: relative; overflow: hidden; display: none; flex-direction: column; }
+.slide.active { display: flex; animation: sIn .28s ease both; }
+@keyframes sIn { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+.slide::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(var(--dot) 1px, transparent 1px); background-size: 28px 28px; pointer-events: none; z-index: 0; }
+.sc { flex: 1; padding: 34px 90px 42px; display: flex; flex-direction: column; position: relative; z-index: 1; }
+.sf { position: absolute; bottom: 0; left: 0; right: 0; height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 90px; border-top: 1px solid var(--b); font-size: 9.5px; color: #353535; letter-spacing: .06em; font-family: var(--fb); z-index: 2; }
+.sf b { color: var(--g); font-weight: 600; letter-spacing: .02em; }
+#nav { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; z-index: 99; background: rgba(8, 8, 8, .97); border: 1px solid rgba(0, 230, 118, .14); border-radius: var(--radius-pill); padding: 6px 16px; backdrop-filter: blur(20px); box-shadow: 0 2px 24px rgba(0, 0, 0, .6), 0 0 40px rgba(0, 230, 118, .04); }
+#sc2 { font-size: 11px; color: var(--tm); min-width: 40px; text-align: center; font-weight: 500; letter-spacing: .04em; }
+.ey { font-family: var(--fb); font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--g); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+.ey::before { content: ''; display: block; width: 22px; height: 1.5px; background: var(--g); flex-shrink: 0; }
+.h1 { font-family: var(--fd); font-size: 48px; font-weight: 700; line-height: 1.15; letter-spacing: -.02em; color: var(--t); margin-bottom: 18px; }
+.h1 em { color: var(--g); font-style: normal; font-weight: 700; }
+.nb { background: none; border: 1px solid rgba(0, 230, 118, .22); color: var(--g); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all .14s; font-family: var(--fb); }
+.nb:hover { background: rgba(0, 230, 118, .07); border-color: rgba(0, 230, 118, .45); }
+.nb:disabled { opacity: .14; cursor: default; }
+.btn, #pb { background: var(--g); color: #000; border: none; border-radius: 20px; padding: 5px 14px; font-size: 10.5px; font-weight: 700; cursor: pointer; letter-spacing: .06em; font-family: var(--fb); transition: opacity .12s; }
+.btn:hover, #pb:hover { opacity: .85; }
+.badge { border-radius: var(--radius-lg); padding: 2px 10px; font-size: 9.5px; font-weight: 700; letter-spacing: normal; }
+.badge--red { background: var(--r-fill); border: 1px solid var(--r-hair); color: var(--r); }
+.badge--green { background: rgba(0, 230, 118, .09); border: 1px solid rgba(0, 230, 118, .26); color: var(--g); }
+.icon-tile { width: 48px; height: 48px; background: var(--g-fill); border: 1px solid var(--g-line); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.icon-tile--sm { width: 36px; height: 36px; border-radius: 9px; }
+.icon-tile--active { background: var(--g-fill-strong); border: 2px solid var(--g); box-shadow: var(--glow-sm); }
+.stat-card { background: var(--c1); border: 1px solid var(--g-line); border-radius: var(--radius-xl); padding: 28px 26px; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; box-shadow: inset 0 0 60px rgba(0, 230, 118, .04); }
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent 0%, var(--g) 50%, transparent 100%); }
+.stat-num { font-family: var(--fd); font-size: 72px; font-weight: 700; color: var(--g); line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ask-card { background: var(--c1); border: 1px solid var(--b); border-radius: var(--radius-lg); padding: 18px 20px; display: flex; gap: 16px; align-items: flex-start; position: relative; overflow: hidden; transition: border-color .2s; }
+.ask-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: linear-gradient(180deg, var(--g), transparent); opacity: .5; }
+.ask-num { font-family: var(--fd); font-size: 28px; font-weight: 700; color: rgba(0, 230, 118, .12); line-height: 1; letter-spacing: -.02em; flex-shrink: 0; width: 40px; margin-top: 2px; }
+@keyframes pg { 0%, 100% { box-shadow: 0 0 10px rgba(0, 230, 118, .18); } 50% { box-shadow: 0 0 22px rgba(0, 230, 118, .38); } }
+.gpill { background: rgba(0, 230, 118, .06); border: 1px solid var(--g-line-2); border-radius: 36px; padding: 12px 22px; text-align: center; animation: pg 2.5s ease infinite; }
+.gpill:nth-child(2) { animation-delay: .85s; }
+.gpill:nth-child(3) { animation-delay: 1.7s; }
+.anim-bar { display: flex; height: 26px; border-radius: 5px; overflow: hidden; gap: 2px; }
+.abar-seg { height: 100%; width: 0; transition: width 1.15s cubic-bezier(.22, .84, .39, 1); display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; border-radius: 4px; white-space: nowrap; overflow: hidden; font-family: var(--fb); letter-spacing: .02em; }
+.bars-on .abar-seg { width: var(--w); }
+.ab-red { background: rgba(255, 82, 82, .36); color: #ff8080; }
+.ab-dim { background: rgba(255, 255, 255, .07); color: var(--tm); }
+.ab-gdim { background: rgba(0, 230, 118, .14); color: rgba(0, 230, 118, .58); }
+.ab-grn { background: rgba(0, 230, 118, .50); color: #003d20; }
+.step { display: flex; align-items: center; gap: 18px; }
+.step-title { font-size: 15px; font-weight: 600; color: var(--t); }
+.step-desc { font-size: 14px; color: var(--tm); margin-top: 2px; }
+.pillar { background: var(--c1); border: 1px solid var(--b); border-top: 2px solid var(--g); border-radius: var(--radius-sm); padding: 14px 16px; }
+.pillar-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.pillar-title { font-size: 13px; font-weight: 700; color: var(--t); }
+.pillar-body { font-size: 13.5px; color: var(--tm); line-height: 1.62; }
+.track { flex: 1; border-radius: var(--radius-lg); padding: 17px 22px; display: flex; flex-direction: column; justify-content: space-between; }
+.track--red { background: var(--r2); border: 1px solid var(--r-hair); }
+.track--green { background: var(--g-fill-soft); border: 1px solid var(--g-line); }
+.cta { background: var(--g-fill); border: 1px solid var(--g-line-3); border-radius: var(--radius-lg); padding: 16px 28px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--glow-cta); }
+.cta-title { font-family: var(--fd); font-size: 36px; font-weight: 700; color: var(--g); letter-spacing: -.02em; line-height: 1; }
+.cmp { border: 1px solid var(--b); border-radius: var(--radius-md); overflow: hidden; }
+.t-g { color: var(--g); } .t-r { color: var(--r); } .t-t { color: var(--t); } .t-m { color: var(--tm); } .t-d { color: var(--td); }
+.fw6 { font-weight: 600; } .fw7 { font-weight: 700; }
+.glow { box-shadow: var(--glow); }
+.src { font-size: 9px; color: #3a3a3a; letter-spacing: .03em; margin-top: auto; padding-top: 10px; line-height: 1.5; }
+.asm { display: inline-block; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .1); border-radius: 8px; padding: 1px 7px; font-size: 8.5px; font-weight: 700; letter-spacing: .08em; color: #6a6a6a; text-transform: uppercase; vertical-align: middle; }
+@media print {
+  body { background: var(--bg); overflow: visible; }
+  #dw { position: static; display: block; }
+  #ds { transform: none !important; width: auto !important; height: auto !important; }
+  #nav { display: none !important; }
+  .slide { display: flex !important; animation: none !important; width: 297mm; height: 210mm; page-break-after: always; break-after: page; }
+  .no-print { display: none !important; }
+  .gpill { animation: none !important; }
+}
+@page { size: A4 landscape; margin: 0; }
+  </style>
+</head>
+
+<body>
+
+  <div id="nav" class="no-print">
+    <button class="nb" id="pv" onclick="go(-1)">‹</button>
+    <span id="sc2">1 / 8</span>
+    <button class="nb" id="nx" onclick="go(1)">›</button>
+    <button id="pb" onclick="window.print()">Save as PDF</button>
+  </div>
+
+  <div id="dw">
+    <div id="ds">
+
+      <!-- ══ SLIDE 1 · COVER ══ -->
+      <div class="slide active" id="s1">
+        <div style="position:absolute;top:-200px;right:-120px;width:720px;height:720px;background:radial-gradient(circle,rgba(0,230,118,.065) 0%,transparent 60%);pointer-events:none;z-index:0"></div>
+        <div style="position:absolute;bottom:-80px;left:-40px;width:360px;height:360px;background:radial-gradient(circle,rgba(0,230,118,.025) 0%,transparent 70%);pointer-events:none;z-index:0"></div>
+        <div class="sc" style="justify-content:space-between">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-family:var(--fd);font-size:36px;font-weight:700;letter-spacing:-.02em;color:var(--g);line-height:1">ordelo<span style="color:var(--t)"> rx</span></div>
+              <div style="font-size:11px;color:var(--tm);margin-top:5px;letter-spacing:.04em">by Byteloop AI Ltd</div>
+            </div>
+            <div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.14);border-radius:12px;padding:12px 20px;text-align:right">
+              <div style="font-size:9px;color:var(--tm);letter-spacing:.14em;text-transform:uppercase;margin-bottom:5px">Opportunity deck</div>
+              <div style="font-family:var(--fd);font-size:17px;font-weight:700;color:var(--t)">Internal · v1</div>
+              <div style="font-size:13.5px;color:var(--tm);margin-top:4px">July 2026 · every fact sourced</div>
+            </div>
+          </div>
+          <div style="flex:1;display:flex;align-items:center">
+            <div>
+              <div style="font-family:var(--fd);font-size:54px;font-weight:700;line-height:1.12;letter-spacing:-.02em;color:var(--t)">
+                We turned WhatsApp into a<br>delivery channel for dinner.<br>
+                <span style="color:var(--g)">The pharmacy counter is next.</span>
+              </div>
+              <div style="font-size:17px;color:var(--tm);margin-top:22px;line-height:1.65">
+                A WhatsApp front door + same-day delivery rail for Britain's 4,900 independent pharmacies —<br>
+                on the dispatch engine Ordelo already runs.
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--b);padding-top:14px">
+            <div style="font-size:14px;color:var(--tm)"><span style="color:var(--t);font-weight:600">Byteloop AI Ltd</span></div>
+            <div style="font-size:14px;color:var(--td)">admin@byteloop.ai · +44 7448 440754</div>
+          </div>
+        </div>
+        <div class="sf"><span>Byteloop AI · Ordelo Rx opportunity deck · sources: evidence-log.md</span><b>1 / 8</b></div>
+      </div>
+
+      <!-- ══ SLIDE 2 · THE PROBLEM ══ -->
+      <div class="slide" id="s2">
+        <div class="sc">
+          <div class="ey">The Problem</div>
+          <div class="h1" style="font-size:40px">England is losing pharmacies at the<br>fastest rate in <em>twenty years.</em></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;flex:1">
+            <div class="stat-card">
+              <div class="stat-num" style="font-size:58px">650+</div>
+              <div style="font-size:14px;color:var(--tm);margin-top:12px;line-height:1.55">closures in England in the last 12 months — the worst in two decades</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-num" style="font-size:58px">65%</div>
+              <div style="font-size:14px;color:var(--tm);margin-top:12px;line-height:1.55">of the pharmacies still open traded at a loss in 2025</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-num" style="font-size:58px">+83.5m</div>
+              <div style="font-size:14px;color:var(--tm);margin-top:12px;line-height:1.55">extra prescription items per year since 2022 — 1.26bn in 2025, on a shrinking base</div>
+            </div>
+          </div>
+          <div class="track track--red" style="flex:0 0 auto">
+            <div style="display:flex;align-items:center;margin-bottom:8px">
+              <div style="font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--r);text-transform:uppercase">Worst-hit region in England: the South East — our operating area</div>
+              <div class="badge badge--red" style="margin-left:auto">Pharmacy deserts</div>
+            </div>
+            <div style="display:flex;gap:28px;align-items:center">
+              <div><span style="font-family:var(--fd);font-size:30px;font-weight:700;color:var(--r)">6,138</span><div style="font-size:11px;color:rgba(255,120,120,.6);margin-top:2px">people per pharmacy — highest in England</div></div>
+              <div><span style="font-family:var(--fd);font-size:30px;font-weight:700;color:var(--r)">95</span><div style="font-size:11px;color:rgba(255,120,120,.6);margin-top:2px">closures, Mar 2022 – Oct 2025</div></div>
+              <div><span style="font-family:var(--fd);font-size:30px;font-weight:700;color:var(--r)">+10.2m</span><div style="font-size:11px;color:rgba(255,120,120,.6);margin-top:2px">additional items dispensed in the same period</div></div>
+              <div style="margin-left:auto;font-size:13px;color:var(--tm);max-width:250px;line-height:1.6">Queues grow, staff shrink — <span class="t-t fw6">81% of pharmacy teams report longer waiting times.</span></div>
+            </div>
+          </div>
+          <div class="src">Sources: Commons Library CBP-9854 · London Loves Business · Pharmacy Business / Gophr research, 30 Jun 2026 · Healthcare Management. Full citations: evidence-log.md §1.</div>
+        </div>
+        <div class="sf"><span>Byteloop AI · Ordelo Rx opportunity deck</span><b>2 / 8</b></div>
+      </div>
+
+      <!-- ══ SLIDE 3 · THE GAP ══ -->
+      <div class="slide" id="s3">
+        <div class="sc">
+          <div class="ey">The Gap</div>
+          <div class="h1" style="font-size:38px">Patients want delivery. Only the <em>independents' rivals</em> offer it.</div>
+          <div style="display:flex;gap:16px;margin-bottom:14px">
+            <div class="stat-card" style="flex:1;padding:20px 24px">
+              <div style="display:flex;align-items:baseline;gap:14px">
+                <span class="stat-num" style="font-size:54px" id="stat40">40%</span>
+                <span style="font-size:14px;color:var(--tm)">of Britons would have prescriptions delivered if available</span>
+              </div>
+              <div class="anim-bar" style="margin-top:12px"><div class="abar-seg ab-grn" style="--w:40%">want it</div><div class="abar-seg ab-dim" style="--w:60%"></div></div>
+              <div class="anim-bar" style="margin-top:6px"><div class="abar-seg ab-gdim" style="--w:18%">18% get it</div><div class="abar-seg ab-dim" style="--w:82%"></div></div>
+              <div style="font-size:11.5px;color:var(--tm);margin-top:8px">YouGov, via Gophr research published 30 June 2026</div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+              <div style="background:var(--r2);border:1px solid var(--r-hair);border-radius:var(--radius-md);padding:12px 16px">
+                <div style="font-size:12px;font-weight:700;color:var(--r)">Pharmacy2U — PE-backed, £500m continuation fund</div>
+                <div style="font-size:12.5px;color:var(--tm);margin-top:3px;line-height:1.55">2m+ patients · 3.5m items/month · mail order, typically 3–5 days. Takes patients <i>from</i> the high street.</div>
+              </div>
+              <div style="background:var(--r2);border:1px solid var(--r-hair);border-radius:var(--radius-md);padding:12px 16px">
+                <div style="font-size:12px;font-weight:700;color:var(--r)">Phlo — "the Deliveroo of digital pharmacy"</div>
+                <div style="font-size:12.5px;color:var(--tm);margin-top:3px;line-height:1.55">Same-day 4-hour windows, live tracking · £19m raised. A vertically integrated pharmacy — also the independents' competitor.</div>
+              </div>
+              <div style="background:var(--g-fill-soft);border:1px solid var(--g-line);border-radius:var(--radius-md);padding:12px 16px">
+                <div style="font-size:12px;font-weight:700;color:var(--g)">Independents — 49% of the market, 4,910 small owners</div>
+                <div style="font-size:12.5px;color:var(--tm);margin-top:3px;line-height:1.55">No digital front door, no delivery rail. <span class="t-g fw6">Nobody is arming them.</span></div>
+              </div>
+            </div>
+          </div>
+          <div style="border-left:3px solid var(--g);padding:12px 20px;background:rgba(0,230,118,.04);border-radius:0 10px 10px 0">
+            <div style="font-size:15px;color:var(--t);line-height:1.65">This is the restaurant story again: VC/PE platforms extracting the high street's customers — <span class="fw7 t-g">and Ordelo already built the counter-weapon once.</span></div>
+          </div>
+          <div class="src">Sources: Pharmacy Business / Gophr (YouGov) · Investors in Healthcare · Tech Funding News · Medino · Christie &amp; Co · Hutchings 2025. Full citations: evidence-log.md §1, §3.</div>
+        </div>
+        <div class="sf"><span>Byteloop AI · Ordelo Rx opportunity deck</span><b>3 / 8</b></div>
+      </div>
+
+      <!-- ══ SLIDE 4 · THE INSIGHT ══ -->
+      <div class="slide" id="s4">
+        <div class="sc" style="flex-direction:row;gap:52px">
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-width:0">
+            <div class="ey">The Insight</div>
+            <div style="font-family:var(--fd);font-size:50px;font-weight:700;line-height:1.12;letter-spacing:-.02em;margin-bottom:12px">
+              The patients who need this most<br><span style="color:var(--g)">won't download an app.</span>
+            </div>
+            <div style="font-size:16.5px;color:var(--tm);line-height:1.65;margin-bottom:24px;max-width:470px">
+              Every incumbent — Healthera, Charac, Hey Pharmacist, the NHS App — needs a download and an account. The heaviest prescription users are the least app-willing. But:
+            </div>
+            <div style="display:flex;gap:12px;margin-bottom:26px">
+              <div class="gpill">
+                <div style="font-family:var(--fd);font-size:28px;font-weight:700;color:var(--g)">63%</div>
+                <div style="font-size:9.5px;color:rgba(0,230,118,.58);letter-spacing:.08em;margin-top:3px;text-transform:uppercase">reach — WhatsApp is the No.1 app for UK 55+</div>
+              </div>
+              <div class="gpill">
+                <div style="font-family:var(--fd);font-size:28px;font-weight:700;color:var(--g)">92%</div>
+                <div style="font-size:9.5px;color:rgba(0,230,118,.58);letter-spacing:.08em;margin-top:3px;text-transform:uppercase">of UK adult smartphone users</div>
+              </div>
+              <div class="gpill">
+                <div style="font-family:var(--fd);font-size:28px;font-weight:700;color:var(--g)">0</div>
+                <div style="font-size:9.5px;color:rgba(0,230,118,.58);letter-spacing:.08em;margin-top:3px;text-transform:uppercase">installs · setup · learning curve</div>
+              </div>
+            </div>
+            <div style="font-size:14.5px;color:var(--tm);line-height:1.75;border-left:2px solid var(--g);padding-left:18px">
+              Meta's rules are strict — and workable: no selling medicines in chat, ever.<br>
+              But <span class="t-t fw6">"your prescription is ready" is Meta's own example of an allowed message</span>,<br>
+              and consultations, jabs and delivery booking are explicitly permitted services.
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;width:252px;flex-shrink:0">
+            <div style="position:relative">
+              <div style="position:absolute;inset:-28px;border-radius:64px;background:radial-gradient(ellipse,rgba(0,230,118,.12) 0%,transparent 68%);pointer-events:none"></div>
+              <div style="width:200px;height:400px;background:#111;border:2px solid #242424;border-radius:42px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;box-shadow:0 0 60px rgba(0,230,118,.14),0 24px 56px rgba(0,0,0,.45)">
+                <div style="position:absolute;top:16px;left:50%;transform:translateX(-50%);width:56px;height:8px;background:#222;border-radius:4px"></div>
+                <div style="text-align:center;padding:0 18px">
+                  <div style="width:82px;height:82px;background:var(--g);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:0 0 32px rgba(0,230,118,.4)">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 2v20M2 12h20" transform="rotate(45 12 12)"/>
+                      <path d="M10.5 3.5l10 10-7 7-10-10a4.95 4.95 0 1 1 7-7z" fill="none"/>
+                    </svg>
+                  </div>
+                  <div style="font-family:var(--fd);font-size:16px;font-weight:700;color:var(--g);margin-top:14px">Your pharmacy,<br>on WhatsApp</div>
+                  <div style="font-size:11.5px;color:var(--tm);margin-top:8px;line-height:1.65">Already installed.<br>Already trusted.</div>
+                </div>
+                <div style="position:absolute;bottom:13px;width:58px;height:4px;background:#2c2c2c;border-radius:2px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sf"><span>Byteloop AI · Ordelo Rx opportunity deck · Sources: UKOM · SQ Magazine · Ofcom · WhatsApp Business Policy — evidence-log.md §1</span><b>4 / 8</b></div>
+      </div>
+
+      <!-- ══ SLIDE 5 · THE PRODUCT ══ -->
+      <div class="slide" id="s5">
+        <div class="sc" style="flex-direction:row;gap:42px">
+          <div style="display:flex;align-items:center;justify-content:center;width:272px;flex-shrink:0">
+            <div style="width:240px;height:470px;background:#0d0d0d;border:2px solid #212121;border-radius:46px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 0 50px rgba(0,230,118,.10),0 28px 64px rgba(0,0,0,.5)">
+              <div style="height:44px;background:#111;display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0">
+                <div style="width:48px;height:7px;background:#222;border-radius:4px"></div>
+                <div style="font-size:12px;color:#4a4a4a;font-weight:600;font-family:var(--fb)">9:41</div>
+                <div style="display:flex;gap:3px;align-items:flex-end;height:11px">
+                  <div style="width:2.5px;height:5px;background:#3a3a3a;border-radius:1px"></div>
+                  <div style="width:2.5px;height:7px;background:#3a3a3a;border-radius:1px"></div>
+                  <div style="width:2.5px;height:10px;background:#3a3a3a;border-radius:1px"></div>
+                  <div style="width:2.5px;height:10px;background:#3a3a3a;border-radius:1px"></div>
+                </div>
+              </div>
+              <div style="background:#111;padding:10px 16px;border-bottom:1px solid #191919;display:flex;align-items:center;gap:10px;flex-shrink:0">
+                <div style="width:36px;height:36px;background:var(--g);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:15px;font-weight:700;color:#000;flex-shrink:0">H</div>
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:var(--t);font-family:var(--fb)">High St Pharmacy</div>
+                  <div style="font-size:10px;color:var(--g);margin-top:1px">● online</div>
+                </div>
+              </div>
+              <div style="flex:1;padding:14px 12px;display:flex;flex-direction:column;gap:10px;background:#0d0d0d;overflow:hidden">
+                <div style="display:flex">
+                  <div style="background:#1c1c1c;border:1px solid rgba(0,230,118,.15);border-radius:16px 16px 16px 4px;padding:8px 12px;max-width:185px">
+                    <div style="font-size:11.5px;color:var(--t);line-height:1.5;font-family:var(--fb)">Your prescription is ready for collection ✓</div>
+                    <div style="font-size:8.5px;color:rgba(255,255,255,.28);text-align:right;margin-top:4px">10:02</div>
+                  </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end">
+                  <div style="background:#005C4B;border-radius:16px 16px 4px 16px;padding:8px 12px;max-width:175px">
+                    <div style="font-size:11.5px;color:#e0e0e0;line-height:1.5;font-family:var(--fb)">Can you deliver it? Mum can't get out today</div>
+                    <div style="font-size:8.5px;color:rgba(255,255,255,.33);text-align:right;margin-top:4px">10:04 ✓✓</div>
+                  </div>
+                </div>
+                <div style="display:flex">
+                  <div style="background:#1c1c1c;border:1px solid rgba(0,230,118,.11);border-radius:16px 16px 16px 4px;padding:8px 12px;max-width:185px">
+                    <div style="font-size:10.5px;color:var(--tm);line-height:1.55;font-family:var(--fb)">Of course — today 12–2pm, £3.50. Track it live: <span style="color:var(--g)">ordelo.ai/track</span></div>
+                    <div style="font-size:8.5px;color:rgba(255,255,255,.28);text-align:right;margin-top:4px">10:04</div>
+                  </div>
+                </div>
+                <div style="display:flex">
+                  <div style="background:#0d1f16;border:1px solid rgba(0,230,118,.26);border-radius:16px 16px 16px 4px;padding:8px 12px;max-width:175px">
+                    <div style="font-size:11.5px;color:var(--g);font-weight:600;line-height:1.5;font-family:var(--fb)">✅ Delivered &amp; verified, 13:12</div>
+                    <div style="font-size:8.5px;color:rgba(0,230,118,.4);text-align:right;margin-top:4px">13:12</div>
+                  </div>
+                </div>
+              </div>
+              <div style="height:42px;background:#111;border-top:1px solid #191919;display:flex;align-items:center;padding:0 12px;gap:10px;flex-shrink:0">
+                <div style="flex:1;background:#1c1c1c;border-radius:20px;height:28px;padding:0 14px;display:flex;align-items:center">
+                  <span style="font-size:10px;color:#2c2c2c;font-family:var(--fb)">Message</span>
+                </div>
+                <div style="width:28px;height:28px;background:var(--g);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-width:0">
+            <div class="ey">The Product</div>
+            <div style="font-family:var(--fd);font-size:46px;font-weight:700;line-height:1.12;letter-spacing:-.02em;margin-bottom:16px">
+              Three modules.<br><span style="color:var(--g)">One rail. Zero installs.</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:15px">
+              <div class="step">
+                <div class="icon-tile">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--g)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                </div>
+                <div>
+                  <div class="step-title">Patient front door — WhatsApp agent</div>
+                  <div class="step-desc">Ready alerts · delivery booking · Pharmacy First &amp; jab bookings · repeat nudges. Never sells or promotes medicines — hard-coded compliance guard.</div>
+                </div>
+              </div>
+              <div class="step">
+                <div class="icon-tile">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--g)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" /><path d="M8 17.5H1.5V9L6 4h8l3 3h1.5l2 3v7.5H20" /></svg>
+                </div>
+                <div>
+                  <div class="step-title">Delivery rail — the live Ordelo dispatch engine</div>
+                  <div class="step-desc">Shared local rider pool · code/photo ePOD, time &amp; geo-stamped — the audit trail GPhC inspectors cite as notable practice · return-to-pharmacy on failure · flagged handling for fridge &amp; CD lines.</div>
+                </div>
+              </div>
+              <div class="step">
+                <div class="icon-tile icon-tile--active">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--g)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                </div>
+                <div>
+                  <div style="font-size:15px;font-weight:700;color:var(--g)">Pharmacy console — also on WhatsApp</div>
+                  <div style="font-size:14px;color:rgba(0,230,118,.55);margin-top:2px">Mark-ready, dispatch, audit exports. No new software for a team that's already short-staffed.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sf"><span>Byteloop AI · Ordelo Rx opportunity deck · GPhC knowledge hub, WhatsApp Business Policy — evidence-log.md §1</span><b>5 / 8</b></div>
+      </div>
+
+      <!-- ══ SLIDE 6 · WHY US ══ -->
+      <div class="slide" id="s6">
+        <div class="sc">
+          <div class="ey">Why Us · Why Now</div>
+          <div class="h1" style="font-size:38px">The hard part is <em>already in production.</em></div>
+          <div class="cmp" style="margin-bottom:14px;flex-shrink:0">
+            <div style="display:grid;grid-template-columns:1fr 1fr">
+              <div style="background:#081808;padding:11px 16px;border-bottom:1px solid rgba(0,230,118,.26);text-align:center;border-top:2px solid var(--g)">
+                <div style="font-family:var(--fd);font-size:14px;font-weight:700;color:var(--g)">Ordelo — live today</div>
+              </div>
+              <div style="background:var(--c1);padding:11px 16px;border-bottom:1px solid var(--b);border-left:1px solid var(--b);text-align:center">
+                <div style="font-family:var(--fd);font-size:14px;font-weight:700;color:var(--t)">Ordelo Rx — the delta</div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;font-size:13.5px">
+              <div style="padding:9px 18px;border-bottom:1px solid var(--b);color:var(--tm)">Agent-driven dispatch: offer → accept → verify → complete</div>
+              <div style="padding:9px 18px;border-bottom:1px solid var(--b);border-left:1px solid var(--b);color:var(--t)">Same graph — new cargo type, stricter exception states</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;font-size:13.5px">
+              <div style="padding:9px 18px;border-bottom:1px solid var(--b);color:var(--tm)">Code-verified handover + live tracking links</div>
+              <div style="padding:9px 18px;border-bottom:1px solid var(--b);border-left:1px solid var(--b);color:var(--t)">Becomes GPhC-grade ePOD: time/geo-stamped, exportable</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;font-size:13.5px">
+              <div style="padding:9px 18px;border-bottom:1px solid var(--b);color:var(--tm)">Riders busy at lunch &amp; dinner peaks</div>
+              <div style="padding:9px 18px;border-bottom:1px solid var(--b);border-left:1px solid var(--b);color:var(--t)">Pharmacy drops fill the 10:00–16:00 trough <span class="asm">hypothesis — pilot metric</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;font-size:13.5px">
+              <div style="padding:9px 18px;color:var(--tm)">487 orders fulfilled · community & councillor relationships</div>
+              <div style="padding:9px 18px;border-left:1px solid var(--b);color:var(--t)">Same high-street story: "keep the chemist alive" — warmer than takeaways</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+            <div class="pillar">
+              <div class="pillar-head"><div class="pillar-title">New build #1 — compliance guard</div></div>
+              <div class="pillar-body">Intent classifier that hard-blocks medicine-commerce conversations before they start. The agent books services and logistics; the pharmacist decides everything clinical.</div>
+            </div>
+            <div class="pillar">
+              <div class="pillar-head"><div class="pillar-title">New build #2 — audit exports</div></div>
+              <div class="pillar-body">Per-patient, per-month delivery evidence packs mapped to GPhC inspection expectations and diversion-safeguard standards.</div>
+            </div>
+            <div class="pillar">
+              <div class="pillar-head"><div class="pillar-title">New build #3 — flagged cargo</div></div>
+              <div class="pillar-body">Fridge lines and controlled drugs carry stricter handover: ID or signature where the pharmacist requires it, mandatory return-to-pharmacy on failure.</div>
+            </div>
+          </div>
+          <div class="src">Engineering reuse is an internal estimate, not a researched fact. GPhC ePOD practice: inspections.pharmacyregulation.org — evidence-log.md §1.</div>
+        </div>
+        <div class="sf"><span>Byteloop AI · Ordelo Rx opportunity deck</span><b>6 / 8</b></div>
+      </div>
+
+      <!-- ══ SLIDE 7 · THE MONEY ══ -->
+      <div class="slide" id="s7">
+        <div class="sc">
+          <div class="ey">The Money</div>
+          <div class="h1" style="font-size:38px">It pays for itself with <em>NHS money pharmacies already lose.</em></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px">
+            <div class="stat-card" style="padding:22px 24px">
+              <div class="stat-num" style="font-size:46px">£71.7m</div>
+              <div style="font-size:13.5px;color:var(--tm);margin-top:10px;line-height:1.55">Pharmacy First threshold payments missed — 62% of England's pharmacies missed the monthly payment in May 2025</div>
+            </div>
+            <div class="stat-card" style="padding:22px 24px">
+              <div class="stat-num" style="font-size:46px">£115m/yr</div>
+              <div style="font-size:13.5px;color:var(--tm);margin-top:10px;line-height:1.55">lost to informal, unlogged referrals — 2+ hours/day of unfunded consultations</div>
+            </div>
+            <div class="stat-card" style="padding:22px 24px">
+              <div class="stat-num" style="font-size:46px">£17<span style="font-size:22px;color:rgba(0,230,118,.6)"> +£1,000/mo</span></div>
+              <div style="font-size:13.5px;color:var(--tm);margin-top:10px;line-height:1.55">per consultation + threshold payment at 30/month (£500 band at 20–29). Every booking the agent formalises is recovered revenue</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:16px;flex:1">
+            <div class="track track--green" style="justify-content:center">
+              <div style="font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--g);text-transform:uppercase;margin-bottom:10px">Revenue model</div>
+              <div style="font-size:14px;color:var(--t);line-height:1.9">
+                <span class="fw7 t-g">£79/mo</span> agent + console subscription <span class="asm">assumption</span><br>
+                <span class="fw7 t-g">~£3.50</span> per drop, patient-paid, same-day local <span class="asm">assumption</span><br>
+                <span class="fw7 t-g">£0</span> per Pharmacy First booking — retention hook, never a skim of NHS clinical fees
+              </div>
+            </div>
+            <div class="track track--green" style="justify-content:center">
+              <div style="font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--g);text-transform:uppercase;margin-bottom:10px">Scale of the prize</div>
+              <div style="font-size:14px;color:var(--t);line-height:1.9">
+                <span class="fw7 t-g">4,910</span> small independent operators — 49% of the market, growing as chains divest<br>
+                <span class="fw7 t-g">≈£4.6m ARR</span> at full penetration of that tier alone — before delivery margin &amp; medium groups<br>
+                <span class="fw7 t-g">~7,000</span> items/month per average pharmacy; 3% to paid delivery ≈ 210 drops/mo <span class="asm">assumption</span>
+              </div>
+            </div>
+          </div>
+          <div class="src">Sources: Pharmaceutical Journal · The Pharmacist · Christie &amp; Co · Hutchings · NHSBSA — evidence-log.md §1. Marked figures are pricing/adoption assumptions, not researched facts.</div>
+        </div>
+        <div class="sf"><span>Byteloop AI · Ordelo Rx opportunity deck</span><b>7 / 8</b></div>
+      </div>
+
+      <!-- ══ SLIDE 8 · PLAN & RISKS ══ -->
+      <div class="slide" id="s8">
+        <div class="sc">
+          <div class="ey">The Plan — and the Honest Risks</div>
+          <div class="h1" style="font-size:34px;margin-bottom:14px">Two chemists in Bromley first. <em>Then the worst desert in England.</em></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+            <div class="ask-card">
+              <div class="ask-num">P0</div>
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:700;color:var(--t);margin-bottom:5px">Weeks 1–6 · Pilot, existing zone</div>
+                <div style="font-size:13.5px;color:var(--tm);line-height:1.6">2 pharmacies, riders already on the road. Prove: delivery uptake, trough-fill, one inspection-ready audit export, ≥1 threshold payment attributable to agent bookings within 90 days.</div>
+              </div>
+            </div>
+            <div class="ask-card">
+              <div class="ask-num">P1</div>
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:700;color:var(--t);margin-bottom:5px">Months 2–6 · Bromley borough</div>
+                <div style="font-size:13.5px;color:var(--tm);line-height:1.6">15–25 pharmacies via the pilot pharmacists' LPC network. Density before breadth — a town opens only when 3+ pharmacies and a rider pool commit together.</div>
+              </div>
+            </div>
+            <div class="ask-card">
+              <div class="ask-num">P2</div>
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:700;color:var(--t);margin-bottom:5px">Months 6–18 · South East corridor</div>
+                <div style="font-size:13.5px;color:var(--tm);line-height:1.6">England's worst pharmacy-desert region is our back yard: 6,138 people per pharmacy and rising. Then the same rail unlocks vertical #2 — home-care shift cover (111k vacancies).</div>
+              </div>
+            </div>
+            <div class="ask-card" style="border-color:var(--r-hair)">
+              <div class="ask-num" style="color:rgba(255,82,82,.18)">R</div>
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:700;color:var(--r);margin-bottom:5px">Kill risks — tracked, not hidden</div>
+                <div style="font-size:13.5px;color:var(--tm);line-height:1.6"><span class="t-r fw6">R1</span> Meta policy reading on delivery booking → legal review + BSP before build; SMS fallback. <span class="t-r fw6">R2</span> Broke buyers → ROI must show in 90 days or reprice. <span class="t-r fw6">R3</span> Gophr/Healthera move → speed; neither has both sides. Full table in the plan.</div>
+              </div>
+            </div>
+          </div>
+          <div class="cta">
+            <div>
+              <div class="cta-title">Ordelo for dinner.<br><span style="font-size:26px">Ordelo Rx for everything the high street dispenses.</span></div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:14px;font-weight:600;color:var(--t)">admin@byteloop.ai</div>
+              <div style="font-size:14px;color:var(--tm);margin-top:3px">+44 7448 440754</div>
+              <div style="font-size:14px;color:var(--g);margin-top:3px">byteloop.ai</div>
+            </div>
+          </div>
+        </div>
+        <div class="sf"><span>Byteloop AI · Ordelo Rx opportunity deck · full sourcing: evidence-log.md · decisions: decision-log.md</span><b>8 / 8</b></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let cur = 0; const tot = 8;
+    const slides = document.querySelectorAll('.slide');
+    const sc2 = document.getElementById('sc2');
+    const pv = document.getElementById('pv');
+    const nx = document.getElementById('nx');
+
+    function activateSlide(idx) {
+      const s = slides[idx];
+      if (s.querySelector('.anim-bar')) {
+        s.classList.remove('bars-on');
+        void s.offsetWidth;
+        setTimeout(() => s.classList.add('bars-on'), 80);
+      }
+    }
+    function show(n) {
+      slides[cur].classList.remove('active');
+      cur = Math.max(0, Math.min(tot - 1, n));
+      slides[cur].classList.add('active');
+      sc2.textContent = (cur + 1) + ' / ' + tot;
+      pv.disabled = cur === 0;
+      nx.disabled = cur === tot - 1;
+      activateSlide(cur);
+      scale();
+    }
+    function go(d) { show(cur + d); }
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') go(1);
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') go(-1);
+    });
+    function scale() {
+      const ds = document.getElementById('ds');
+      const pw = window.innerWidth - 24, ph = window.innerHeight - 72;
+      const s = Math.min(pw / 1122, ph / 794, 1);
+      ds.style.transform = 'scale(' + s + ')';
+      ds.style.width = '1122px'; ds.style.height = '794px';
+    }
+    window.addEventListener('resize', scale);
+    scale(); pv.disabled = true;
+  </script>
+</body>
+
+</html>

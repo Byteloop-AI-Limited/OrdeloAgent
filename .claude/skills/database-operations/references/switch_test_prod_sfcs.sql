@@ -2,11 +2,11 @@
 -- SFCS: Verification Queries
 -- ============================================================
 
+select admins, city, * from restaurant_master where rest_ref = 'SFCS';
 
 select * from ordelo_config where config_key like '%_APP_URL';
 
-select * from rider_master where rider_name in ('Lohith', 'Rahul', 'Bloop');
-select * from rider_master where is_in_shift = true;
+select * from rider_master where rider_name = 'Lohith';
 -- ============================================================
 -- SFCS: Test Setup
 -- ============================================================
@@ -17,13 +17,13 @@ set admins = Array['447919202938'],
     rest_stale_active_threads_minutes = 10,
     city='dummy',
     service_hours_json = '{
-  "mon": [["18:00", "24:00"]],
-  "tue": [["18:00", "24:00"]],
-  "wed": [["18:00", "24:00"]],
-  "thu": [["18:00", "24:00"]],
-  "fri": [["18:00", "24:00"]],
-  "sat": [["18:00", "25:00"]],
-  "sun": [["18:00", "21:00"]]
+  "mon": [["11:30", "13:45"], ["16:00", "22:45"]],
+  "tue": [["11:30", "13:45"], ["16:00", "22:45"]],
+  "wed": [["11:30", "13:45"], ["16:00", "22:45"]],
+  "thu": [["11:30", "13:45"], ["16:00", "22:45"]],
+  "fri": [["11:30", "13:45"], ["16:00", "23:45"]],
+  "sat": [["11:30", "13:45"], ["16:00", "23:45"]],
+  "sun": [["11:30", "13:45"], ["16:00", "22:45"]]
 }'::jsonb
 where rest_ref='SFCS';
 
@@ -37,21 +37,8 @@ SELECT * FROM ordelo_post('SFCS_APP_URL', '/restaurant-master-cache/reset');
 update rider_master
 set is_in_shift = true,
     town = 'dummy',
-    vehicle_type = 'car'
+    vehicle_type = 'bicycle'
 where rider_name = 'Lohith';
-
-update rider_master
-set is_in_shift = true,
-    town = 'dummy',
-    vehicle_type = 'car'
-where rider_name = 'Rahul';
-
-update rider_master
-set is_in_shift = true,
-    town = 'dummy',
-    vehicle_type = 'car'
-where rider_name = 'Bloop';
-
 
 select enquire_admin_availability(ARRAY['SFCS']);
 -- ============================================================
@@ -69,13 +56,13 @@ set admins = Array[ '447446933210','447919202938','447827180109', '447769081769'
     rest_stale_active_threads_minutes = 10,
     city='Salisbury',
     service_hours_json = '{
-  "mon": [["16:00", "24:00"]],
-  "tue": [["16:00", "24:00"]],
-  "wed": [["16:00", "24:00"]],
-  "thu": [["16:00", "24:00"]],
-  "fri": [["16:00", "24:00"]],
-  "sat": [["16:00", "25:00"]],
-  "sun": [["16:00", "25:00"]]
+  "mon": [["11:30", "13:45"], ["16:00", "22:45"]],
+  "tue": [["11:30", "13:45"], ["16:00", "22:45"]],
+  "wed": [["11:30", "13:45"], ["16:00", "22:45"]],
+  "thu": [["11:30", "13:45"], ["16:00", "22:45"]],
+  "fri": [["11:30", "13:45"], ["16:00", "23:45"]],
+  "sat": [["11:30", "13:45"], ["16:00", "23:45"]],
+  "sun": [["11:30", "13:45"], ["16:00", "22:45"]]
 }'::jsonb
 where rest_ref = 'SFCS';
 
@@ -86,13 +73,6 @@ set is_in_shift = true,
     town = 'Salisbury',
     vehicle_type = 'bicycle'
 where rider_name = 'Lohith';
-
-update rider_master
-set is_in_shift = true,
-    town = 'Salisbury',
-    vehicle_type = 'bicycle'
-where rider_name = 'Bloop';
-
 
 
 -- Cache reset calls, Should be run everytime after changing the app URL

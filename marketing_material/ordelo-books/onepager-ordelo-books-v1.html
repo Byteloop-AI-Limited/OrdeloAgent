@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ordelo Books · One-Pager v1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+  <!-- Ordelo design system tokens (subset), inlined for standalone distribution.
+       Source of truth: ../ordelo-ds.css. Facts sourced in ordelo-books/evidence-log.md. -->
+  <style>
+:root {
+  --g:#00E676; --r:#FF5252;
+  --g-fill-soft:rgba(0,230,118,.05); --g-fill:rgba(0,230,118,.07); --g-line:rgba(0,230,118,.22); --g-line-3:rgba(0,230,118,.35);
+  --r2:rgba(255,82,82,.10); --r-hair:rgba(255,82,82,.2);
+  --glow-cta:0 0 40px rgba(0,230,118,.06);
+  --bg:#0A0A0A; --c1:#111; --c2:#1a1a1a;
+  --t:#F0F0F0; --tm:#717171; --td:#383838;
+  --b:rgba(255,255,255,.07); --dot:rgba(255,255,255,.042);
+  --fd:'DM Sans',-apple-system,system-ui,sans-serif; --fb:'DM Sans',-apple-system,system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{background:#000;font-family:var(--fb);color:var(--t);display:flex;align-items:center;justify-content:center;min-height:100vh}
+.page{width:1122px;height:794px;background:var(--bg);position:relative;overflow:hidden;display:flex;flex-direction:column}
+.page::before{content:'';position:absolute;inset:0;background-image:radial-gradient(var(--dot) 1px,transparent 1px);background-size:28px 28px;pointer-events:none}
+.sc{flex:1;padding:34px 70px 40px;display:flex;flex-direction:column;position:relative;z-index:1}
+.ey{font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--g);margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.ey::before{content:'';display:block;width:22px;height:1.5px;background:var(--g)}
+.pillar{background:var(--c1);border:1px solid var(--b);border-top:2px solid var(--g);border-radius:10px;padding:12px 14px}
+.pillar-title{font-size:12.5px;font-weight:700;color:var(--t);margin-bottom:5px}
+.pillar-body{font-size:12.5px;color:var(--tm);line-height:1.6}
+.sf{position:absolute;bottom:0;left:0;right:0;height:32px;display:flex;align-items:center;justify-content:space-between;padding:0 70px;border-top:1px solid var(--b);font-size:9.5px;color:#353535;letter-spacing:.06em;z-index:2}
+.sf b{color:var(--g);font-weight:600}
+.asm{display:inline-block;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:0 6px;font-size:8px;font-weight:700;letter-spacing:.08em;color:#6a6a6a;text-transform:uppercase;vertical-align:middle}
+@media print{ body{background:var(--bg)} .page{width:297mm;height:210mm} }
+@page{size:A4 landscape;margin:0}
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <div style="position:absolute;top:-200px;right:-120px;width:640px;height:640px;background:radial-gradient(circle,rgba(0,230,118,.06) 0%,transparent 60%);pointer-events:none"></div>
+    <div class="sc">
+
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+        <div>
+          <div style="font-family:var(--fd);font-size:30px;font-weight:700;letter-spacing:-.02em;color:var(--g);line-height:1">ordelo<span style="color:var(--t)"> books</span></div>
+          <div style="font-size:10.5px;color:var(--tm);margin-top:4px;letter-spacing:.04em">by Byteloop AI Ltd · round-3 opportunity · July 2026</div>
+        </div>
+        <div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.14);border-radius:10px;padding:8px 16px;text-align:right">
+          <div style="font-size:8.5px;color:var(--tm);letter-spacing:.14em;text-transform:uppercase;margin-bottom:3px">Built for the constraint</div>
+          <div style="font-family:var(--fd);font-size:14px;font-weight:700;color:var(--t)">Two people · one practice at a time · WhatsApp-native</div>
+        </div>
+      </div>
+
+      <!-- Headline -->
+      <div style="font-family:var(--fd);font-size:33px;font-weight:700;line-height:1.16;letter-spacing:-.02em;margin-bottom:6px">
+        MTD is live. Britain's first-ever quarterly tax deadline is 7 August.<br>
+        Clients still send blurry receipt photos on WhatsApp. <span style="color:var(--g)">We make that thread the record.</span>
+      </div>
+      <div style="font-size:13.5px;color:var(--tm);line-height:1.6;margin-bottom:14px;max-width:940px">
+        A WhatsApp quarter-close agent sold to accountancy practices: photos, PDF statements and voice notes → per-transaction digital records → gap-aware chasing in waves → exceptions escalated to humans → a review-ready cumulative quarter pushed into the practice's MTD software. Runs on the dispatch engine Ordelo already operates in Bromley.
+      </div>
+
+      <!-- Stats row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px">
+        <div style="background:var(--c1);border:1px solid var(--g-line);border-radius:12px;padding:14px 16px">
+          <div style="font-family:var(--fd);font-size:30px;font-weight:700;color:var(--g);line-height:1">780,000</div>
+          <div style="font-size:11px;color:var(--tm);margin-top:6px;line-height:1.5">sole traders &amp; landlords mandated since 6 Apr 2026 — +970,000 more in Apr 2027 (gov.uk)</div>
+        </div>
+        <div style="background:var(--c1);border:1px solid var(--g-line);border-radius:12px;padding:14px 16px">
+          <div style="font-family:var(--fd);font-size:30px;font-weight:700;color:var(--g);line-height:1">7 Aug</div>
+          <div style="font-size:11px;color:var(--tm);margin-top:6px;line-height:1.5">first quarterly update deadline — then every quarter, forever; January now happens 4× a year</div>
+        </div>
+        <div style="background:var(--c1);border:1px solid var(--g-line);border-radius:12px;padding:14px 16px">
+          <div style="font-family:var(--fd);font-size:30px;font-weight:700;color:var(--g);line-height:1">59%</div>
+          <div style="font-size:11px;color:var(--tm);margin-top:6px;line-height:1.5">of accountants say half+ of their income-tax clients still aren't digital (Wolters Kluwer, Apr 2026)</div>
+        </div>
+        <div style="background:var(--c1);border:1px solid var(--g-line);border-radius:12px;padding:14px 16px">
+          <div style="font-family:var(--fd);font-size:30px;font-weight:700;color:var(--g);line-height:1">20 hrs<span style="font-size:15px">/mo</span></div>
+          <div style="font-size:11px;color:var(--tm);margin-top:6px;line-height:1.5">lost by professionals chasing clients for missing records <span class="asm">vendor stat</span></div>
+        </div>
+      </div>
+
+      <!-- Middle: gap vs win -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div style="background:var(--r2);border:1px solid var(--r-hair);border-radius:12px;padding:13px 16px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--r);text-transform:uppercase;margin-bottom:6px">The gap today</div>
+          <div style="font-size:12.5px;color:var(--tm);line-height:1.65">Dext's WhatsApp channel is a <i>letterbox</i> — receives, never chases. ClientWindow is a <i>pipe</i> — routes chats to office inboxes where humans still read every image. Snyp &amp; Receiptor sell <i>scanners</i> to the client. Practice tools send email reminders (~20% open <span class="asm">vendor stat</span>). The trade press's answer — published 10 July — is to <span style="color:var(--t);font-weight:600">surcharge "WhatsApp-habit" clients premium fees</span>. Nobody built the clerk.</div>
+        </div>
+        <div style="background:var(--g-fill-soft);border:1px solid var(--g-line);border-radius:12px;padding:13px 16px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--g);text-transform:uppercase;margin-bottom:6px">Why Byteloop wins the wedge</div>
+          <div style="font-size:12.5px;color:var(--tm);line-height:1.65">A quarter-close is mechanically a dispatch cycle: offer → confirm → verify → escalate → complete — <span style="color:var(--t);font-weight:600">the exact production loop of the live Ordelo rider agent</span>, with thread-per-client state and timer-driven chase waves. Multimodality is the whole point: photo receipts, 100MB PDF statements, voice notes — GenAI extracts, flags low confidence, and leaves judgment with the accountant. No Meta-policy exposure.</div>
+        </div>
+      </div>
+
+      <!-- Plan row -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
+        <div class="pillar">
+          <div class="pillar-title">Aug–Sep · Discovery, zero code</div>
+          <div class="pillar-body">Let the 7 Aug cycle generate the horror stories, then 5–8 SE-London practice conversations. Kill criterion: chasing must be a top-3 pain unprompted — or this dies cheaply.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-title">Oct–Nov · One design partner</div>
+          <div class="pillar-body">Concierge quarter: their 10 worst "WhatsApp-habit" clients run through the agent for the 7 Nov deadline, extractions hand-reviewed. Token pilot fee tests willingness to pay.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-title">2027 · Practices #2–#5</div>
+          <div class="pillar-body">Productise into January's double-workload panic. £99/mo per practice + £4 per active client <span class="asm">assumption</span> — priced under the surcharge norm. Apr 2027 adds 970k prospects on the same rails.</div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div style="background:var(--g-fill);border:1px solid var(--g-line-3);border-radius:12px;padding:12px 22px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--glow-cta)">
+        <div style="font-family:var(--fd);font-size:20px;font-weight:700;color:var(--g);letter-spacing:-.01em">Ordelo moves food. Books moves the paperwork everyone's drowning in.</div>
+        <div style="text-align:right;font-size:12px;line-height:1.6">
+          <span style="color:var(--t);font-weight:600">admin@byteloop.ai</span><br>
+          <span style="color:var(--tm)">+44 7448 440754 · byteloop.ai</span>
+        </div>
+      </div>
+
+    </div>
+    <div class="sf"><span>Byteloop AI · sources: ordelo-books/evidence-log.md (gov.uk, AccountingWEB, HMRC dev guide) · decisions: decision-log.md</span><b>Ordelo Books · 1 / 1</b></div>
+  </div>
+</body>
+
+</html>

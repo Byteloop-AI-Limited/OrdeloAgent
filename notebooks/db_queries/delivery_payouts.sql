@@ -1,5 +1,6 @@
 select * from delivery_dispatch; 
 
+select * from rider_registrations order by id desc;
 
 with riderMaster AS (
     select rider_id, rider_name, vehicle_type from rider_master
@@ -23,7 +24,7 @@ join riderMaster r on d.rider_id = r.rider_id
 join riderRegistration rr on r.rider_id = rr.rider_id
 join delivery_option dOption on d.order_number = dOption.order_number and dOption.vehicle_type = r.vehicle_type
 where d.status='completed' and d.rider_id !='447448440754' 
-and d.dtts >= '2026-05-23' and d.dtts <= date('2026-06-01');
+and d.dtts >= '2026-07-07' and d.dtts <= date('2026-07-13');
 ORDER BY d.dtts DESC;
 
 -- Aggregated view

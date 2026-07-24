@@ -1,5 +1,15 @@
 select dt, * from thread order by dtts desc;
+
+
+select * from rider_registrations order by id desc;
+
+
+447469849539
+dispatch_id=937
+
+select * from delivery_inflight;
 select * from thread where is_active order by dtts desc;
+update thread set is_active=False where is_active and recipient='447960700323';
 
 select dtts, * from thread where agent='ELAS' and recipient not in ('447919202938', '447448440754', '447446933210') order by dtts desc;
 
@@ -9,9 +19,8 @@ select * from thread where recipient='447341964134';
 exclude_list = ['447919202938', '447448440754', '447446933210'];
 
 select count(*) from cust_rest_map where rest_ref='SFCS';
-select count(*) from delivery_summary;
+select count(*) from delivery_inflight;
 select count(*) from takeaway_summary;
-update thread set is_active=False where is_active and recipient='447759950226';
 -- 447919202938
 -- 447872936799
 select * from cust_rest_map where cust_id='447448440754';
@@ -22,8 +31,6 @@ update delivery_summary set status='timedout' where order_number='SFCS-TIGD-21';
 delete from cust_rest_map where cust_id='447448440754';
 delete from customer_master where cust_id='447448440754';
 
-It’s too long to waiting
-SFCS-eee17ee8-b1f8-40e4-9bb6-a051d9ab52ac; SFCS-CJSR-23;
 select * from delivery_dispatch where order_number='SFCS-CJSR-23' order by dtts desc;
 update thread set is_active=false where is_active=True and dt<='2026-05-14' and agent='SFCS';
 select * from thread where is_active=True and dt<'2026-03-27' order by dt desc;;
@@ -38,7 +45,7 @@ WHERE order_number='ELAS-ETXF-27';
 
 select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
 
-select * from delivery_dispatch where status='completed' and rider_id!='447448440754' order by dtts desc ;
+select * from delivery_dispatch where status='complted' and rider_id!='447448440754' order by dtts desc ;
 select * from delivery_summary order by dtts desc;
 select SUBSTRING(phone, 2, LENGTH(phone)) as rider_id,* from rider_registrations;
 447853175864
