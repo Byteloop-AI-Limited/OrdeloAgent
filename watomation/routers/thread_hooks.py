@@ -1,17 +1,12 @@
 """
 Thread webhook handler module for the Ordelo rider agent.
     . Processes thread lifecycle webhook events from database triggers
-    . Handles thread closure for inactive conversations with background webhook fan-out
     . Runs system message injections for a thread
     . Sends goodbye messages to users via WhatsApp
     . Implements FastAPI router endpoints for thread management
-    . Triggered by Supabase cron job running job_close_thread() function
-    . Queues restaurant webhook notifications using FastAPI background tasks
     . Provides debug endpoints for state inspection by recipient or thread_id
   Functions/Classes:
     . RunSystemMessageRequest - Input model for system message execution
-    . notify_restaurant_thread_termination - Background task for stale thread webhook delivery
-    . terminate_stale_active_threads - Processes thread closure requests from scheduled job
     . run_system_message - Executes rider graph with a system message
     . debug_state_values_path - Debug endpoint to view conversation state values
     . debug_state_path - Debug endpoint to view complete conversation state
@@ -21,11 +16,9 @@ Thread webhook handler module for the Ordelo rider agent.
 
 # %%
 from typing import Optional
-import httpx
 
-from config.params import ONBOARDED_REST_REFS
-from config import get_restaurant_webhook_url_async, logger
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from config import logger
+from fastapi import APIRouter, HTTPException
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from pydantic import BaseModel
 
@@ -53,70 +46,6 @@ class RunSystemMessageRequest(BaseModel):
     recipient: Optional[str] = None
     update_message: str
     state_update_dict: Optional[dict] = None
-
-
-async def notify_restaurant_thread_termination(rest_ref: str, webhook_url: str):
-    """Deliver a stale-thread termination webhook notification in the background."""
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url=webhook_url)
-            response.raise_for_status()
-    except httpx.HTTPError as exc:
-        logger.error(
-            f"Failed stale thread termination notification for rest_ref={rest_ref}: {exc}"
-        )
-    except Exception as exc:
-        logger.error(
-            f"Unexpected stale thread termination error for rest_ref={rest_ref}: {exc}"
-        )
-
-
-# Check if this port endpoint is still required.
-@router.post(
-    "/terminate-stale-active-threads",
-    summary="Close inactive threads. Called by job_close_thread() PostgreSQL function via Supabase cron",
-    description="""
-    Processes thread closure requests from the scheduled job_close_thread() function.
-
-    Triggered by: Ordelo endpoint /thread-hooks/terminate-stale-active-threads, triggered by Supabase cron job every 5 minutes
-    Source Function: job_close_thread() in ordelo_datamodels/jobs_n_functions/job_close_thread.sql
-
-    Workflow:
-    1. Receives JSON array of thread records to close
-    2. For each thread:
-       - Marks thread as inactive using ThreadHandler.make_threads_inactive()
-       - Sends goodbye message to recipient via WhatsApp
-    3. Returns success status with count of processed threads
-
-    Payload Structure:
-    [
-        {
-            "thread_id": "uuid",
-            "recipient": "phone_number",
-            "last_access_dtts": "timestamp",
-            "is_active": boolean,
-            "minutes_since_last_access": number
-        }
-    ]
-    """,
-)
-async def terminate_stale_active_threads(background_tasks: BackgroundTasks):
-    """Trigger restaurant webhook for stale thread termination.
-
-    Returns:
-        dict with success status and queued notification count
-    """
-    queued_notifications = 0
-    for rest_ref in ONBOARDED_REST_REFS:
-        webhook_url = await get_restaurant_webhook_url_async(
-            rest_ref, "terminate-stale-active-threads"
-        )
-        background_tasks.add_task(
-            notify_restaurant_thread_termination, rest_ref, webhook_url
-        )
-        queued_notifications += 1
-
-    return {"success": True, "queued_notifications": queued_notifications}
 
 
 @router.post(

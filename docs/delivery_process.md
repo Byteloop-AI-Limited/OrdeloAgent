@@ -494,7 +494,7 @@ Called as a background task from `delivery_inflight_graph_init_hook()`:
 ##### Thread Management
 
 - **Thread-per-rider mapping**: Each rider phone number maps to one active LangGraph thread via `ThreadHandler`. A new thread is created on graph init if no active thread exists.
-- **Stale thread cleanup**: `job_terminate_stale_active_threads` (pg_cron) and the `/thread-hooks/terminate-stale-active-threads` endpoint detect threads inactive for >5 minutes and close them via `terminate_delivery_job`.
+- **Restaurant stale-thread cleanup**: `job_terminate_stale_active_threads` runs in PostgreSQL, applies each restaurant's timeout, reads `retain_thread` from the latest root checkpoint, and posts eligible batches directly to restaurant services. Ordelo no longer exposes a stale-thread fan-out endpoint.
 - **Manual intervention**: The `/thread-hooks/run-system-message` endpoint allows injecting a system message into an active thread (e.g., to trigger a tool call or update state), useful for operational support.
 
 #### 5e. Live Location Tracking
@@ -776,7 +776,6 @@ flowchart TD
 | `/delivery-hooks/check-rider-allocation-status/{order_number}` | GET | External services | `check_rider_allocation_status()` |
 | `/location-hooks/null-or-outdated-location` | POST | `job_null_or_outdated_location()` | Location hooks router |
 | `/thread-hooks/run-system-message` | POST | Operational support | `run_system_message()` |
-| `/thread-hooks/terminate-stale-active-threads` | POST | `job_terminate_stale_active_threads()` | `terminate_stale_active_threads()` |
 
 ---
 

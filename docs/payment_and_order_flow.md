@@ -307,11 +307,13 @@ Proxies the request to the restaurant's `get-active-thread` webhook. Returns the
 
 ### Stale Thread Termination
 
-**Endpoint:** `POST /thread-hooks/terminate-stale-active-threads`
+**Database function:** `job_terminate_stale_active_threads()`
 
-Triggered by a database job to notify the restaurant system to clean up stale threads. POSTs to the restaurant's `terminate-stale-active-threads` webhook using background tasks to fan out notifications to all onboarded restaurants.
-
-**Source:** `watomation/routers/thread_hooks.py:78-122` (`terminate_stale_active_threads`)
+The five-minute PostgreSQL job derives `rest_ref` from each stale active thread,
+uses the latest root checkpoint to exclude retained conversations, and sends one
+batch directly to each restaurant's
+`POST /thread-hooks/{rest_ref}/terminate-stale-active-threads` endpoint. The
+Ordelo application is not part of this dispatch path.
 
 ### Payment Complete Test
 
@@ -391,7 +393,6 @@ requires_payment (initial, set at order creation)
 
 | Endpoint | Method | Trigger Source | Purpose | Source |
 |----------|--------|----------------|---------|--------|
-| `/thread-hooks/terminate-stale-active-threads` | POST | `job_terminate_stale_active_threads()` | Fan out stale thread cleanup to all restaurants | `thread_hooks.py:78` |
 | `/thread-hooks/run-system-message` | POST | Operational support | Inject system message into active thread | `thread_hooks.py:125` |
 
 ### External Webhooks Called

@@ -74,7 +74,6 @@ WEBHOOK_PATHS = {
     "order-pickup-time-updated": "order-event-hooks/{rest_ref}/takeaway-pickup-time-updated",
     "order-takeaway-ready": "order-event-hooks/{rest_ref}/takeaway-ready",
     "order-address-update": "order-event-hooks/{rest_ref}/address-update",
-    "terminate-stale-active-threads": "thread-hooks/{rest_ref}/terminate-stale-active-threads",
     "get-active-thread": "thread-hooks/get-active-thread",  # Already has rest_ref in existing path
 }
 
