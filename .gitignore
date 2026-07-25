@@ -180,3 +180,5 @@ graphify-out/
 elai_env_json.json
 .gitignore
 .gitignore
+ordelo_agent_env.json
+env_json.json
