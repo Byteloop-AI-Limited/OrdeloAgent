@@ -63,7 +63,8 @@ $$;
 REVOKE EXECUTE ON FUNCTION fly_post(text, text) FROM public, anon, authenticated;
 GRANT  EXECUTE ON FUNCTION fly_post(text, text) TO service_role;
 
--- Usage:
--- SELECT * FROM fly_post('sfcs-agent', 'stop');    -- nightly shutdown
--- SELECT * FROM fly_post('sfcs-agent', 'start');   -- morning boot
+-- -- Usage:
+-- -- SELECT * FROM fly_post('sfcs-agent', 'stop');    -- nightly shutdown
+-- -- SELECT * FROM fly_post('sfcs-agent', 'start');   -- morning boot
 -- SELECT * FROM fly_post('sfcs-agent', 'stop');
+-- SELECT * FROM fly_post('bnat-agent', 'stop');

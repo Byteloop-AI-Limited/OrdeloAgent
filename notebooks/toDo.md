@@ -1,3 +1,8 @@
+## Thread changes - tested
+## Sync the secrets manager - Complete test of each agent
+## Test the deploye of these apps as well
+## mono repo testing should continue - Need to find out the webhook efficiency
+
 ## Test checkpoint
 On no driver found, retain_thread should be set to False:
 SFCS-0cd2215c-4501-4c82-baed-f7a8c1660f8d
@@ -5,6 +10,10 @@ SFCS-0cd2215c-4501-4c82-baed-f7a8c1660f8d
 Users ignore waiting for marketing consent, at this point, retain_thread should be set to False. 
 SFCS-719e2da9-d19b-4e96-86a9-c19971ee2fb9
 SFCS-efb54f9a-69dc-4234-895f-41b4b3c40388
+
+
+This doesnt close the thread, need to check why.
+SFCS-f4eb506b-aa1b-4f2a-a92c-0aa029fffa1d
 
 Need to deploy latest changes on dev; Create fake order, need to capture dispatch webhook response.
 SFCS-719e2da9-d19b-4e96-86a9-c19971ee2fb9 - thread is active
