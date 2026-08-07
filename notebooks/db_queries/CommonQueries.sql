@@ -1,4 +1,5 @@
 select * from thread order by dtts desc;
+select * from thread where is_active=True order by dtts desc;
 
 select dtts, * from thread where agent='SFCS' and recipient not in ('447919202938', '447448440754', '447446933210') order by dtts desc;
 select * from cust_rest_map where rest_ref='SFCS';
@@ -9,8 +10,7 @@ select * from customer_master;
 select rest_ref, count(*) from cust_rest_map where has_consent group by rest_ref;
 -- Check and close thread
 select * from thread where is_active order by dtts desc;
-update thread set is_active=False where is_active and recipient='447405492492';
-
+update thread set is_active=False where is_active and recipient='919701709638';
 -- 447919202938
 -- 447872936799
 select * from cust_rest_map where cust_id='447448440754';
@@ -22,8 +22,6 @@ delete from cust_rest_map where cust_id='447448440754';
 delete from customer_master where cust_id='447448440754';
 
 
-SFCS-eee17ee8-b1f8-40e4-9bb6-a051d9ab52ac; SFCS-CJSR-23;
-select * from delivery_dispatch where order_number='SFCS-CJSR-23' order by dtts desc;
 update thread set is_active=false where is_active=True and dt<='2026-05-14' and agent='SFCS';
 select * from thread where is_active=True and dt<'2026-03-27' order by dt desc;;
 select * from food_order limit 1;
@@ -112,8 +110,18 @@ limit 10;
 
 select *
 from delivery_detail
+where dispatch_id=937
 order by dtts desc
 limit 10;
+
+update delivery_detail
+set status='completed'
+where dispatch_id=937;
+
+-- Update delivery_summary status
+UPDATE delivery_summary
+SET status = 'completed'
+WHERE order_number = 'ELAS-BBCH-21';
 
 
 select *
@@ -136,6 +144,10 @@ select *
 from delivery_dispatch
 order by dtts desc
 limit 10;
+
+-- Update delivery_inflight status
+DELETE FROM delivery_inflight  
+WHERE delivery_inflight.dispatch_id = 937;
 
 
 select *

@@ -20,7 +20,7 @@ is_in_shift=false
 -- where town='Salisbury';
 
 update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='car' where rider_name='Lohith';
-update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='car' where rider_name='Rahul';
+update rider_master set is_in_shift=true, town ='dummy', vehicle_type='car' where rider_name='Rahul';
 
 SELECT public.enquire_shift_availability();
 select enquire_admin_availability(ARRAY['ELAS']);

@@ -1,3 +1,5 @@
+#
+#
 # %%
 """
 Utilities for WhatsApp Business Account (WABA) Graph API interactions
@@ -30,6 +32,8 @@ import requests
 
 # %%
 
+# %%
+from aws_setting import agent_env as ordelo_agent_env
 (
     waba_business_settings,
     # waba_business_settings.business_account_id,
@@ -38,7 +42,7 @@ import requests
 
 # %%
 
-token = "EAAjaBvMpTDABRAHuS9BXsss0ZAI6P2jTGE1NbcrPtTvyEnoP1dizaOTgZBIH7vT4sETiWxfPB3W9DqIEVRE1rryHUJTdosh4nRCfFYQsNF9N0tZBvfCy5DKvYWaIczZCzSUEa1GCiReM5sGFEJazoIxrRerJfBgGcDDBIpvRzN1biJZBFZCexsXI94ZBteVcssqpbYjLtjXsihJF9gzStfg5zDs1hoppKKpIqUF8GJzHAeJAOeYRyV8oO3DTSjPbSoCbYWZCZCDeJZCgRKW5igZAgYJvskC7Ov0lB1RiA3F"
+token = ordelo_agent_env['waba_provider_token']
 phone_number_id = "813532365168347"
 waba_id = "1237005775267990"
 # %%
@@ -57,10 +61,9 @@ wa = WhatsApp(
 # )
 # wa.get_business_phone_number()
 # wa.get_business_profile()
-waba_business_settings
 
-
-# %% Get onboarded wabas
+# %% Supporting funtions: 
+# get assigned wabas, 
 def get_assigned_wabas() -> Dict[str, Any]:
     """
     Note the business_id is the business_protfolio_id from the business profile
@@ -91,7 +94,6 @@ def get_assigned_wabas() -> Dict[str, Any]:
         }
 
 
-# %%
 
 
 def get_wabas_with_phone_numbers() -> Dict[str, Any]:
@@ -176,7 +178,7 @@ def list_phone_numbers_for_waba(waba_id: str) -> Dict[str, Any]:
 
 # Example manual calls (avoid running on import)
 # get_assigned_wabas()
-# get_wabas_with_phone_numbers()
+get_wabas_with_phone_numbers()
 # list_phone_numbers_for_waba(waba_id="2335277966870509")
 # get_wabas_with_phone_numbers()
 # %% IMPORTANT: Once the emebedded signup is complete, do the number registration. Dont forget, the token is from the business account, stored in the db
