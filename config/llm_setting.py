@@ -8,7 +8,7 @@ Google API settings and client configuration for OrdeloAgent.
 
 # %%
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from aws_setting import ordelo_agent_env
+from aws_setting import agent_env
 from pydantic import Field
 from langchain_openai import ChatOpenAI
 
@@ -35,7 +35,7 @@ class LLMSettings(BaseSettings):
         )
 
 
-llm_settings = LLMSettings(**ordelo_agent_env)
+llm_settings = LLMSettings(**agent_env)
 # %% Usage
 # sheet =g_client.open("elai_takeaway_menu").sheet1
 # sheet.get_all_records()

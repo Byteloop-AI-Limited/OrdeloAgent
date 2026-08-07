@@ -12,7 +12,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from google.oauth2.service_account import Credentials
 import json
 import base64
-from aws_setting import ordelo_agent_env
+from aws_setting import agent_env
 from pydantic import Field
 
 
@@ -47,7 +47,7 @@ class GoogleSettings(BaseSettings):
         return client
 
 
-google_settings = GoogleSettings(**ordelo_agent_env)
+google_settings = GoogleSettings(**agent_env)
 g_client = google_settings.get_client()
 
 # %% Usage

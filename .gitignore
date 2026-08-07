@@ -177,3 +177,8 @@ env_with_key.json
 temp_store.pkl
 .claude/hook_log.txt
 graphify-out/
+elai_env_json.json
+.gitignore
+.gitignore
+ordelo_agent_env.json
+env_json.json

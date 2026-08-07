@@ -178,6 +178,31 @@ async def admin_delivery_complete_notification(
     return
 
 
+async def send_restaurant_feedback_notification(
+    *,
+    admin: str,
+    feedback_id: str,
+    restaurant_name: str,
+    cust_id: str,
+    cust_name: str | None,
+    order_reference: str | None,
+    description: str,
+    received_at: datetime,
+) -> None:
+    """Send one Ordelo-owned restaurant-admin feedback notification."""
+    await _async_wa_client.send_message(
+        to=admin,
+        text=(
+            f"Customer feedback {feedback_id}\n"
+            f"Restaurant: {restaurant_name}\n"
+            f"Customer: {cust_name or 'Not provided'} ({cust_id})\n"
+            f"Order reference: {order_reference or 'Not provided'}\n"
+            f"Description: {description}\n"
+            f"Received (UTC): {received_at.strftime('%Y-%m-%d %H:%M UTC')}"
+        ),
+    )
+
+
 # %% Admin notification
 
 

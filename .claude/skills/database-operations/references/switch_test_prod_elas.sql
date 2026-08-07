@@ -4,7 +4,7 @@
 
 select admins, city, restaurant_start_time, * from restaurant_master where rest_ref in ('ELAS', 'CHKS');
 
-select * from ordelo_config where config_key like '%_APP_URL';
+select * from ordelo_config where config_key like 'ELAS_APP_URL';
 
 select * from rider_master where rider_name in ('Lohith', 'Bloop', 'Rahul');
 -- ============================================================
@@ -23,8 +23,7 @@ set admins = Array['447919202938'],
   "fri": [["00:00", "24:00"]],
   "sat": [["18:00", "25:00"]],
   "sun": [["18:00", "21:00"]]
-}'::jsonb
-    -- restaurant_end_time = 21.30,
+}'::jsonb,
     restaurant_end_time = 24,
     city='dummy'
 where rest_ref in ('ELAS', 'CHKS');

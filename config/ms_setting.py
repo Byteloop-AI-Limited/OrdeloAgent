@@ -9,7 +9,7 @@ Microsoft API settings and client configuration for OrdeloAgent.
 # %%
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from msal import ConfidentialClientApplication
-from aws_setting import ordelo_agent_env
+from aws_setting import agent_env
 from pydantic import Field
 
 
@@ -46,4 +46,4 @@ class MsSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="allow")
 
 
-ms_settings = MsSettings(**ordelo_agent_env)
+ms_settings = MsSettings(**agent_env)

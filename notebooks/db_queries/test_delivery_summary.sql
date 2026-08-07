@@ -1,22 +1,11 @@
-select pickup_time, dtts, restaurant_confirmation_status, status, * from delivery_summary where order_number='ELAS-XUDU-22' ;
+"BNAT-REZF-20";
+select pickup_time, dtts, restaurant_confirmation_status, status, * from delivery_summary where order_number='BNAT-REZF-20' ;
 order_number='WREN-AEHO-21';
 -- order_number='ELAS-OOLX-24';
 select * from delivery_option where order_number='SFCS-JKRO-22';
 select dtts, redispatch_dtts, status, * from delivery_summary where order_number='SFCS-JKRO-22';
--- 2026-05-31 22:26:44.261924+00	NULL	assignebyT3100p@id
-select * from delivery_detail where order_number='SFCS-JKRO-22';
-select * from delivery_dispatch where order_number='SFCS-JKRO-22';
-select * from delivery_inflight;
--- select * from delivery_inflight;
-
--- Cleanup
-delete from delivery_dispatch where order_number='SFCS-JKRO-22';
-delete from delivery_detail where order_number='SFCS-JKRO-22';
-update delivery_summary 
-set status='unassigned', dtts=now(), redispatch_dtts=null
-where order_number = 'SFCS-JKRO-22';
-
-select * from job_create_dispatch();
+-- 2026-05-31 22:26:44.261924+00	NULL	assignebyT
+select * from delivery_summary order by dtts desc limit 10;
 
 update delivery_detail set status='unassigned' where order_number='ELAS-XUDU-22';
 
@@ -62,22 +51,6 @@ select * from delivery_dispatch where order_number = 'ELAS-XUDU-22';
     AND allRiders.is_in_shift;
     AND NOT EXISTS 
     (SELECT 1 FROM ridersToExclude WHERE ridersToExclude.rider_id = allRiders.rider_id);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 select status, restaurant_confirmation_status, * from delivery_summary 
 where order_number like 'WREN-%';

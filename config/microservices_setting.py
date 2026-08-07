@@ -16,7 +16,7 @@ from typing import Dict
 from pydantic import Field
 
 # from utils.aws_setting import env_ssm
-from aws_setting import ordelo_agent_env
+from aws_setting import agent_env
 
 
 # %%
@@ -39,7 +39,7 @@ class MicroServicesSettings(BaseSettings):
 
 
 # ms_settings = MicroServicesSettings(**env_ssm)
-ms_settings = MicroServicesSettings(**ordelo_agent_env)
+ms_settings = MicroServicesSettings(**agent_env)
 
 # %%
 ms_settings.stripe_url_test
