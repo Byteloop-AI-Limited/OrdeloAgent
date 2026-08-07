@@ -2,12 +2,12 @@
 Load named AWS Secrets Manager values for application configuration.
   . Builds a Secrets Manager client from AWS_SETTINGS_* credentials outside Lambda
   . Uses the Lambda execution role and AWS_REGION when running in Lambda
-  . Fetches the exact secret_name passed to get_ordelo_agent_env
+  . Fetches the exact secret_name passed to get_agent_env
   . Falls back to AwsSettings.secret_name locally only when secret_name is not provided
-  . Falls back to ORDELO_AGENT_SECRET_NAME or ordelo-agent-env in Lambda only when secret_name is not provided
+  . Falls back to AGENT_SECRET_NAME or agent-env in Lambda only when secret_name is not provided
   . Parses SecretString as JSON and returns the resulting dictionary
-  . Returns None and reports the AWS error when secret retrieval fails
-  . Loads elai-agent-env into ordelo_agent_env when this module is imported
+  . Fails fast with a RuntimeError when secret retrieval or JSON parsing fails
+  . Loads restaurant-agents-env into agent_env when this module is imported
   . Includes operational reference text for Secrets Manager and Lambda uploads
 Functions/Classes
   . AwsSettings
@@ -15,9 +15,9 @@ Functions/Classes
     . get_secret
   . is_running_on_lambda
   . get_secrets_client
-  . get_ordelo_agent_env
+  . get_agent_env
 Module Values
-  . ordelo_agent_env
+  . agent_env
 """
 
 # %%
@@ -79,35 +79,43 @@ def get_secrets_client():
         return aws_settings.secrets_client
 
 
-def get_ordelo_agent_env(secret_name=None):
-    """Fetch and parse the secret string for ordelo_agent_env."""
+def get_agent_env(secret_name: str | None = None) -> dict:
+    """Fetch and parse the application secret string."""
+    client = get_secrets_client()
     # Use provided secret_name, or try to get from AwsSettings/environment
     if secret_name is not None:
         use_secret_name = secret_name
     elif not is_running_on_lambda():
         use_secret_name = AwsSettings().secret_name
     else:
-        use_secret_name = os.environ.get("ORDELO_AGENT_SECRET_NAME", "ordelo-agent-env")
-    client = get_secrets_client()
+        use_secret_name = os.environ.get("AGENT_SECRET_NAME", "agent-env")
     try:
         response = client.get_secret_value(SecretId=use_secret_name)
         return json.loads(response["SecretString"])
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "ResourceNotFoundException":
-            print(f"Secret {use_secret_name} not found.")
-        else:
-            print(f"Error retrieving secret {use_secret_name}: {e}")
-        return None
+    except ClientError as exc:
+        error_code = exc.response.get("Error", {}).get("Code", "Unknown")
+        raise RuntimeError(
+            f"Unable to read AWS secret '{use_secret_name}': {error_code}"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"AWS secret '{use_secret_name}' does not contain valid JSON"
+        ) from exc
 
 
-ordelo_agent_env = get_ordelo_agent_env("elai-agent-env")
-ordelo_agent_env.keys()
-# ordelo_agent_env.keys()
+# Secret name is resolved from the argument so it is configurable per
+# environment. Fail fast with a clear error if the loaded env is empty.
+agent_env = get_agent_env(secret_name="ordelo-agent-env")
+if not agent_env:
+    raise RuntimeError(
+        "Unable to load application settings from AWS Secrets Manager. "
+        "Check AWS_SETTINGS_* configuration and IAM permissions."
+    )
 # %%
 """ How to upload secrets to aws secrets manager
-# 1. Convert the ordelo_agent_env dictionary to ordelo_agent_env.json
+# 1. Convert the agent_env dictionary to agent_env.json
 
-env_dict = get_ordelo_agent_env("elai-agent-env")
+env_dict = get_agent_env("restaurant-agents-env")
 
 # %%
 
@@ -118,14 +126,13 @@ with open("elai_env_json.json", "w", encoding="utf-8") as json_file:
 
 2. Create or update secrets
 
-aws secretsmanager update-secret \
-  --region eu-west-2 \
+aws secretsmanager update-secret \ --region eu-west-2 \
   --secret-id restaurant-agents-env \
-  --secret-string file://env_json.json
+  --secret-string file://restaurant_agents-env.json
 
 aws secretsmanager create-secret \
   --region eu-west-2 \
-  --name restaurant-agents-env \
+  --name ordelo-agent-env \
   --secret-string file://env_json.json
 
 3. Add policy to IAM role

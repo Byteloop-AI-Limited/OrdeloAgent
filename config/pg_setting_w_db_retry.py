@@ -18,7 +18,7 @@ from supabase.client import ClientOptions
 from psycopg_pool import AsyncConnectionPool
 from typing import Optional
 from loguru import logger
-from aws_setting import ordelo_agent_env
+from aws_setting import agent_env
 from pydantic import Field
 
 
@@ -126,7 +126,7 @@ class PgSetting(BaseSettings):
         )
 
 
-pg_settings = PgSetting(**ordelo_agent_env)
+pg_settings = PgSetting(**agent_env)
 client_ordelo = pg_settings.client
 client_elas = create_client(
     pg_settings.rest_url,

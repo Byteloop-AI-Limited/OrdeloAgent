@@ -21,7 +21,7 @@ REVOKE ALL ON fly_config FROM anon, authenticated;
 -- in docs/fly.io-deploy-guide.md, machine id from `fly machine list -a sfcs-agent`):
 -- INSERT INTO fly_config (app_name, machine_id, region, api_token, description)
 -- VALUES ('sfcs-agent', '<FLY_MACHINE_ID>', 'lhr', '<FLY_API_TOKEN>', 'nightly stop/start');
-
+-- Token below has ot be generated for each app
 
 INSERT INTO fly_config (app_name, machine_id, region, api_token, description)
 VALUES (

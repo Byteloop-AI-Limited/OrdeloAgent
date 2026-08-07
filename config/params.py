@@ -105,7 +105,6 @@ async def get_restaurant_base_url_async(rest_ref: str) -> str:
     if cached:
         cached_value, expires_at = cached
         if expires_at > now:
-            logger.debug(f"Using cached base URL for {rest_ref_upper}: {cached_value}")
             return cached_value
         _BASE_URL_CACHE.pop(cache_key, None)
 

@@ -1,7 +1,7 @@
 select admins, * from restaurant_master where rest_ref='ELAS';
 select admins, * from restaurant_master where rest_ref='CHKS';
 select admins, * from restaurant_master where rest_ref='SFCS';
-select admins, * from restaurant_master where rest_ref='INDI';
+select admins, * from restaurant_master where rest_ref='BNAT';
 
 select admins,* from restaurant_master where rest_ref='ELAS';
 select admins,* from restaurant_master where rest_ref='SFCS';

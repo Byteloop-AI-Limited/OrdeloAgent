@@ -38,7 +38,7 @@ SELECT * FROM ordelo_post('SFCS_APP_URL', '/restaurant-master-cache/reset');
 update rider_master
 set is_in_shift = true,
     town = 'dummy',
-    vehicle_type = 'car'
+    vehicle_type = 'scooter'
 where rider_name = 'Lohith';
 
 update rider_master

@@ -25,7 +25,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from aws_setting import ordelo_agent_env
+from aws_setting import agent_env
 
 
 class WabaCatalogSettings(BaseSettings):
@@ -108,7 +108,7 @@ class WabaCatalogSettings(BaseSettings):
         return all_products
 
 
-waba_cat_settings = WabaCatalogSettings(**ordelo_agent_env)
+waba_cat_settings = WabaCatalogSettings(**agent_env)
 
 
 def search_available_items(search_item: str) -> List[dict]:

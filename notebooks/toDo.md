@@ -1,6 +1,5 @@
-## Thread changes - tested
-## Sync the secrets manager - Complete test of each agent
-## Test the deploye of these apps as well
+## Test the deploye of these apps on fly.io
+## INFO:     2a00:23c8:47bd:b201:9528:5ae4:7210:5f25:0 - "GET /location-hooks/live-location-map/SFCS-CORT-21 HTTP/1.1" 404 Not Found - Called when asked about location, this will be part of the redesign
 ## mono repo testing should continue - Need to find out the webhook efficiency
 
 ## Test checkpoint
@@ -11,6 +10,11 @@ Users ignore waiting for marketing consent, at this point, retain_thread should 
 SFCS-719e2da9-d19b-4e96-86a9-c19971ee2fb9
 SFCS-efb54f9a-69dc-4234-895f-41b4b3c40388
 
+// Need to check why the thread is not closing
+SFCS-7c8471ba-f4e2-49b2-bd9d-10a12c21b037
+
+Callback update of pickup time should not be sent to drive if the
+order has been picked up. (rider ageent change)
 
 This doesnt close the thread, need to check why.
 SFCS-f4eb506b-aa1b-4f2a-a92c-0aa029fffa1d

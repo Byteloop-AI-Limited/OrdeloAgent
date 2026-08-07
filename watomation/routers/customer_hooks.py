@@ -4,22 +4,27 @@ Customer webhook handler module for OrdeloAgent.
   . Creates or updates customers in customer_master
   . Updates customer delivery address and notifies restaurant
   . Upserts cust_rest_map consent records
+  . Schedules restaurant-admin notifications for customer feedback submissions
   . Includes manual curl examples for endpoint checks
 Functions/Classes:
   . CreateOrUpdateCustomerRequest - Pydantic request model for customer create-or-update
   . UpdateAddressRequest - Pydantic request model for address updates
   . UpdateCustRestMapRequest - Pydantic request model for consent map updates
+  . RestaurantFeedbackRequest - Pydantic request model for customer feedback
   . create_or_update_customer - POST /create-or-update-customer
   . update_address - POST /update-address
   . update_cust_rest_map - POST /update-cust-rest-map
+  . submit_restaurant_feedback - POST /restaurant-feedback
 """
 
 # %%
+import asyncio
 import datetime
+import uuid
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from pydantic import BaseModel
 
 from config import client_ordelo
@@ -29,10 +34,12 @@ from ordelo_datamodels.customer_master_pymodel import (
     CreateOrUpdateCustomerRequest,
     UpdateAddressRequest,
     UpdateCustRestMapRequest,
+    RestaurantFeedbackRequest,
 )
 from ordelo_datamodels.cust_rest_map_pymodel import CustRestMap
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from loguru import logger
+from utils_common.waba_utils.wa_senders import send_restaurant_feedback_notification
 
 # %%
 router = APIRouter(tags=["customer-hooks"])
@@ -153,6 +160,84 @@ async def update_cust_rest_map(request: UpdateCustRestMapRequest):
         f"cust_rest_map upserted: cust_id={request.cust_id} rest_ref={request.rest_ref} has_consent={request.has_consent}"
     )
     return {"success": True, "record": record.model_dump()}
+
+
+async def _notify_feedback_admins(
+    *,
+    admins: list[str],
+    feedback_id: str,
+    restaurant,
+    request: RestaurantFeedbackRequest,
+    received_at: datetime.datetime,
+) -> None:
+    results = await asyncio.gather(
+        *(
+            send_restaurant_feedback_notification(
+                admin=admin,
+                feedback_id=feedback_id,
+                restaurant_name=restaurant.rest_name,
+                cust_id=request.cust_id,
+                cust_name=request.cust_name,
+                order_reference=request.order_reference,
+                description=request.description,
+                received_at=received_at,
+            )
+            for admin in admins
+        ),
+        return_exceptions=True,
+    )
+    for admin, result in zip(admins, results, strict=True):
+        if isinstance(result, Exception):
+            logger.warning(
+                "Feedback notification failed for feedback_id={} admin={}",
+                feedback_id,
+                admin,
+            )
+
+
+@router.post(
+    "/restaurant-feedback",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Schedule restaurant-admin notifications for customer feedback",
+)
+async def submit_restaurant_feedback(
+    request: RestaurantFeedbackRequest,
+    background_tasks: BackgroundTasks,
+):
+    """Validate feedback and return without waiting for WhatsApp delivery."""
+    try:
+        restaurant = RestaurantMaster.from_rest_ref(request.rest_ref)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Restaurant not found") from exc
+
+    admins = list(
+        dict.fromkeys(admin for admin in restaurant.get_admins() or [] if admin)
+    )
+    if not admins:
+        raise HTTPException(status_code=503, detail="Restaurant administrators unavailable")
+
+    feedback_id = f"FDB-{uuid.uuid4().hex[:12].upper()}"
+    received_at = datetime.datetime.now(datetime.timezone.utc)
+    background_tasks.add_task(
+        _notify_feedback_admins,
+        admins=admins,
+        feedback_id=feedback_id,
+        restaurant=restaurant,
+        request=request,
+        received_at=received_at,
+    )
+    logger.info(
+        "Feedback notification scheduled feedback_id={} rest_ref={} admins={}",
+        feedback_id,
+        restaurant.rest_ref,
+        len(admins),
+    )
+    return {
+        "status": "accepted",
+        "feedback_id": feedback_id,
+        "rest_ref": restaurant.rest_ref,
+        "admins_scheduled": len(admins),
+    }
 
 
 # %%

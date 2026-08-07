@@ -9,6 +9,7 @@ Functions/Classes:
       . from_cust_id
       . from_customer_id
       . upsert
+  . RestaurantFeedbackRequest
 """
 
 # %%
@@ -157,6 +158,16 @@ class UpdateCustRestMapRequest(BaseModel):
     rest_ref: str
     has_consent: bool
     consent_dtts: Optional[datetime.datetime] = None
+
+
+class RestaurantFeedbackRequest(BaseModel):
+    """Validated, ephemeral customer feedback submitted to Ordelo."""
+
+    rest_ref: str = Field(..., min_length=1, max_length=32)
+    cust_id: str = Field(..., min_length=3, max_length=32)
+    cust_name: Optional[str] = Field(default=None, max_length=160)
+    order_reference: Optional[str] = Field(default=None, max_length=80)
+    description: str = Field(..., min_length=5, max_length=2000)
 
 
 # %%

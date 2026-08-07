@@ -253,9 +253,9 @@ SELECT job_terminate_stale_active_threads_new();
 
 -- 1. Evaluate both threads exactly against the dispatcher criteria.
 WITH target_threads(thread_id) AS (
-    VALUES
-        ('ELAS-afc17354-3048-4393-b0ea-76c7eabce0a5'::text),
-        ('SFCS-96d245b9-0647-43e4-a4a7-f42a4febdcca'::text)
+    SELECT DISTINCT thread_id
+    FROM public.thread
+    WHERE is_active = TRUE
 ),
 evaluated AS (
     SELECT

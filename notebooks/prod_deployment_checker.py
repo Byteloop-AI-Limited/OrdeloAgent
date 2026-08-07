@@ -21,7 +21,7 @@ Functions/Classes
   . apply_ordelo_app_url
   . check_waba_webhook
   . apply_waba_webhook
-  . reset_restaurant_base_url_cache
+  . reset_runtime_caches
   . run_check
   . run_apply
   . parse_args
@@ -277,27 +277,52 @@ def apply_waba_webhook(mode: str) -> None:
     )
 
 
-def reset_restaurant_base_url_cache(rest_ref: str) -> None:
+def reset_runtime_caches(rest_ref: str) -> None:
+    """Reset Ordelo routing and the selected Restaurant Application caches."""
     import requests
 
-    base_url = "https://rider-agent.ordelo.app"
     normalized_rest_ref = _normalize_rest_ref(rest_ref)
     if not _should_handle_restaurant(normalized_rest_ref):
         print(f"Cache reset skipped for backend rest_ref={normalized_rest_ref}")
         return
-    url = f"{base_url}/restaurant-base-url-cache/reset"
-    try:
-        response = requests.post(
-            url,
-            params={"rest_ref": normalized_rest_ref.lower()},
-            headers={"accept": "application/json"},
-            timeout=10,
-        )
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        print(f"Cache reset failed for {normalized_rest_ref}: {exc}")
-    else:
-        print(f"Cache reset OK for {normalized_rest_ref}")
+
+    ordelo_url = _get_single_row(
+        "ordelo_config", "config_value", "config_key", "ORDELO_APP_URL"
+    ).get("config_value")
+    restaurant_url = _get_single_row(
+        "ordelo_config",
+        "config_value",
+        "config_key",
+        f"{normalized_rest_ref}_APP_URL",
+    ).get("config_value")
+    reset_requests = (
+        (
+            "Ordelo routing",
+            f"{ordelo_url}/restaurant-base-url-cache/reset",
+            {"rest_ref": normalized_rest_ref.lower()},
+        ),
+        (
+            "Restaurant operational",
+            f"{restaurant_url}/internal/cache/reset",
+            {"scope": "all"},
+        ),
+    )
+    for label, url, params in reset_requests:
+        if not url.startswith(("http://", "https://")):
+            print(f"{label} cache reset skipped for {normalized_rest_ref}: URL missing")
+            continue
+        try:
+            response = requests.post(
+                url,
+                params=params,
+                headers={"accept": "application/json"},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            print(f"{label} cache reset failed for {normalized_rest_ref}: {exc}")
+        else:
+            print(f"{label} cache reset OK for {normalized_rest_ref}")
 
 
 def run_check(mode: str, skip_waba: bool, rest_ref: str) -> bool:
@@ -345,7 +370,7 @@ def run_apply(mode: str, skip_waba: bool, rest_ref: str) -> None:
     apply_ordelo_app_url(mode)
     if not skip_waba:
         apply_waba_webhook(mode)
-    reset_restaurant_base_url_cache(normalized_rest_ref)
+    reset_runtime_caches(normalized_rest_ref)
 
 
 def parse_args() -> argparse.Namespace:
