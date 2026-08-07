@@ -188,7 +188,7 @@ async def test_delivery(wa: WhatsApp, msg: Message):
         "Testing delivery for user %s with order %s", msg.sender, "WREN-AEHO-21"
     )
     recipient = msg.sender
-    order_number = "WREN-AEHO-21"
+    order_number = "BNAT-EEMF-24"
 
     # order_number = f"WREN-TEST-{random.randint(10, 99)}"
 

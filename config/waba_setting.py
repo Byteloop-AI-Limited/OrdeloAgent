@@ -25,7 +25,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pywa import WhatsApp as WhatsAppSync
 from pywa_async import WhatsApp
 
-from aws_setting import ordelo_agent_env
+from aws_setting import agent_env
 
 # from config.logger_setting import logger
 
@@ -112,20 +112,30 @@ class WabaBusinessSettings(BaseSettings):
 
 
 # %%
-waba_business_settings = WabaBusinessSettings(**ordelo_agent_env)
-# waba_business_settings = WabaBusinessSettings.with_env_prefix("BLOOP_WAA_")
+waba_business_settings = WabaBusinessSettings(**agent_env)
+# waba_business_settings = WabaBusinessSettings.with_env_prefix("BLOOP")
 _async_wa_client = waba_business_settings.create_wa()
 _sync_wa_client = waba_business_settings.create_wa_sync()
 waba_business_settings.phone_id, waba_business_settings.account_id
 
-# %%
+
+# %
 
 # business_phone_number = _sync_wa_client.get_business_phone_number()
-# business_phone_number.verified_name, business_phone_number.webhook_configuration['whatsapp_business_account'] # Should output ('Byteloop Ai', 'https://rider-agent.ordelo.app/)
+# business_phone_number.verified_name, business_phone_number.webhook_configuration['whatsapp_business_account'] # Should output ('Byteloop Ai', 'https://rider-agent.ordelo.app/')
+
+# business_phone_number = _sync_wa_client.get_business_phone_number()
+# (
+#     business_phone_number.verified_name,
+#     business_phone_number.webhook_configuration,
+# )
+
+# %%
+
 
 # _sync_wa_client.override_waba_callback_url(
-#     callback_url="https://rider-agent.ordelo.app/",
-# #    callback_url="https://rider-agent-test.ordelo.app/",
+#     # callback_url="https://rider-agent.ordelo.app/",
+#    callback_url="https://rider-agent-test.ordelo.app/",
 #     verify_token="123456",
 #     waba_id=waba_business_settings.account_id,
 # )
@@ -171,7 +181,7 @@ class WabaProviderSettings(BaseSettings):
 
 # %%
 
-waba_provider_settings = WabaProviderSettings(**ordelo_agent_env)
+waba_provider_settings = WabaProviderSettings(**agent_env)
 
 
 # %%

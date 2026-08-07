@@ -39,7 +39,6 @@ async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> 
 | `order-pickup-time-updated` | `order-event-hooks/{rest_ref}/takeaway-pickup-time-updated/` | Pickup time updated |
 | `order-takeaway-ready` | `order-event-hooks/{rest_ref}/takeaway-ready/` | Takeaway marked ready by admin |
 | `order-address-update` | `order-event-hooks/{rest_ref}/address-update` | Customer address updated |
-| `terminate-stale-active-threads` | `thread-hooks/{rest_ref}/terminate-stale-active-threads` | Terminate stale active threads |
 | `get-active-thread` | `thread-hooks/get-active-thread` | Get active thread |
 
 ### Returns

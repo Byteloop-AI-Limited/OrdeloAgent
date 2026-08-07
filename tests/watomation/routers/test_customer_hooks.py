@@ -9,6 +9,7 @@ Key Functions:
   - test_create_or_update_customer_updates_existing_customer
   - test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer
   - test_update_cust_rest_map_returns_model_dump
+  - test_submit_restaurant_feedback_schedules_admin_notification
 """
 
 from __future__ import annotations
@@ -99,3 +100,38 @@ async def test_update_cust_rest_map_returns_model_dump(monkeypatch) -> None:
 
     assert result == {"success": True, "record": {"cust_id": "4474", "rest_ref": "ELAS", "has_consent": True}}
     assert calls == [{"cust_id": "4474", "rest_ref": "ELAS", "has_consent": True, "consent_dtts": consent_dtts}]
+
+
+async def test_submit_restaurant_feedback_schedules_admin_notification(monkeypatch) -> None:
+    restaurant = SimpleNamespace(
+        rest_ref="ELAS",
+        rest_name="Eastern Lounge",
+        get_admins=lambda: ["447111111111"],
+    )
+    monkeypatch.setattr(customer_hooks.RestaurantMaster, "from_rest_ref", staticmethod(lambda rest_ref: restaurant))
+
+    added_tasks = []
+
+    class FakeBackgroundTasks:
+        def add_task(self, func, /, **kwargs):
+            added_tasks.append((func, kwargs))
+
+    request = customer_hooks.RestaurantFeedbackRequest(
+        rest_ref="ELAS",
+        cust_id="447400000000",
+        cust_name="Bas",
+        order_reference="ORD-1",
+        description="Great service, thank you!",
+    )
+
+    result = await customer_hooks.submit_restaurant_feedback(request, FakeBackgroundTasks())
+
+    assert result["status"] == "accepted"
+    assert result["feedback_id"].startswith("FDB-")
+    assert result["rest_ref"] == "ELAS"
+    assert result["admins_scheduled"] == 1
+    assert len(added_tasks) == 1
+    scheduled_func, scheduled_kwargs = added_tasks[0]
+    assert scheduled_func is customer_hooks._notify_feedback_admins
+    assert scheduled_kwargs["feedback_id"] == result["feedback_id"]
+    assert scheduled_kwargs["admins"] == ["447111111111"]

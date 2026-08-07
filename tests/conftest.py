@@ -1,13 +1,13 @@
 """Global pytest configuration and autouse fakes for OrdeloAgent.
 
 This conftest must run before any production module is imported because the
-real `aws_setting.ordelo_agent_env` triggers a live boto3 SecretsManager call
+real `aws_setting.agent_env` triggers a live boto3 SecretsManager call
 at module import time, and many `config/*.py` modules instantiate clients
 (supabase, pywa, langchain) directly off that env dict.
 
 The strategy:
   - Inject a fake `aws_setting` module into ``sys.modules`` exposing a stub
-    ``ordelo_agent_env`` dict with every key the production ``BaseSettings``
+    ``agent_env`` dict with every key the production ``BaseSettings``
     classes look for.
   - Patch ``google.oauth2.service_account.Credentials.from_service_account_info``
     so ``config.google_setting`` does not need a real PEM key.
@@ -48,9 +48,9 @@ PROJECT_ROOT = _ensure_project_root_on_path()
 # Step 2: stub `aws_setting` BEFORE any production module imports it
 # ---------------------------------------------------------------------------
 
-#: Every key any production ``BaseSettings`` class reads off ``ordelo_agent_env``.
+#: Every key any production ``BaseSettings`` class reads off ``agent_env``.
 #: Discovered from the ``Field(..., alias=...)`` declarations in ``config/*.py``.
-_STUB_ORDELO_AGENT_ENV: dict = {
+_STUB_AGENT_ENV: dict = {
     # Project
     "project_settings_salt": "test-salt",
     "project_settings_rest_ref": "TEST",
@@ -101,15 +101,15 @@ def _install_fake_aws_setting() -> None:
     """Pre-populate ``sys.modules['aws_setting']`` so production imports skip boto3."""
     if "aws_setting" in sys.modules:
         # Already imported (e.g. user's editor pre-imported). Replace its env.
-        sys.modules["aws_setting"].ordelo_agent_env = dict(_STUB_ORDELO_AGENT_ENV)
+        sys.modules["aws_setting"].agent_env = dict(_STUB_AGENT_ENV)
         return
 
     fake = types.ModuleType("aws_setting")
     fake.__doc__ = "Pytest stub for aws_setting; bypasses boto3 at import time."
-    fake.ordelo_agent_env = dict(_STUB_ORDELO_AGENT_ENV)
+    fake.agent_env = dict(_STUB_AGENT_ENV)
     fake.is_running_on_lambda = lambda: False
     fake.get_secrets_client = lambda: MagicMock(name="FakeSecretsClient")
-    fake.get_ordelo_agent_env = lambda *_a, **_kw: dict(_STUB_ORDELO_AGENT_ENV)
+    fake.get_agent_env = lambda *_a, **_kw: dict(_STUB_AGENT_ENV)
 
     # Minimal AwsSettings stub so ``from aws_setting import AwsSettings`` works.
     class _AwsSettings:

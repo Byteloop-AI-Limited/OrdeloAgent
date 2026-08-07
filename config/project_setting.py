@@ -10,7 +10,7 @@ Project-level configuration for OrdeloAgent.
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
-from aws_setting import ordelo_agent_env
+from aws_setting import agent_env
 
 # %%
 
@@ -32,7 +32,7 @@ class ProjectSetting(BaseSettings):
     )
 
 
-project_settings = ProjectSetting(**ordelo_agent_env)
+project_settings = ProjectSetting(**agent_env)
 
 # %%
 project_settings

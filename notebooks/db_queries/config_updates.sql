@@ -6,10 +6,13 @@ select * from ordelo_config where config_key like '%ORDELO%';
 select * from ordelo_config where config_key like '%ELAS%';
 select * from ordelo_config where config_key like '%SFCS%';
 select * from ordelo_config where config_key like '%MENU%';
+select * from ordelo_config where config_key like '%BNAT%';
 
+-- Reset cache
 SELECT * FROM ordelo_post('ORDELO_APP_URL', '/restaurant-base-url-cache/reset');
 
-update ordelo_config set config_value = 'https://rider-agent-test.ordelo.app' where config_key = 'ORDELO_APP_URL';
+update ordelo_config set config_value = 'https://rider-agent-test.ordelo.app' where config_key = 'ORDELO_APP_URL'; 
+update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'BNAT_APP_URL';
 update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'ELAS_APP_URL';
 update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'SFCS_APP_URL';
 update ordelo_config set config_value = 'https://wren-agg-test.ordelo.app' where config_key = 'WREN_APP_URL';
@@ -19,9 +22,12 @@ update ordelo_config set config_value = 'https://restaurant-test.ordelo.app' whe
 https://rider-agent.ordelo.app/docs#/default/reset_restaurant_base_url_cache_endpoint_restaurant_base_url_cache_reset_post
 ;
 update ordelo_config set config_value = 'https://rider-agent.ordelo.app' where config_key = 'ORDELO_APP_URL';
+update ordelo_config set config_value = 'https://bnat-agent.fly.dev/' where config_key = 'BNAT_APP_URL';
 update ordelo_config set config_value = 'https://elas-agg.ordelo.app' where config_key = 'ELAS_APP_URL';
-update ordelo_config set config_value = 'https://sfcs-agg.ordelo.app' where config_key = 'SFCS_APP_URL';
+update ordelo_config set config_value = 'https://sfcs-agent.fly.dev' where config_key = 'SFCS_APP_URL';
 update ordelo_config set config_value = 'https://restaurant.ordelo.app' where config_key = 'RESTAURANT_MENU_APP_URL'; 
+
+SELECT * FROM ordelo_post('ORDELO_APP_URL', '/restaurant-base-url-cache/reset', 'rest_ref=ELAS');
 
 select * from ordelo_config where config_key like 'ELAS_MENU_URL';
 
@@ -54,8 +60,11 @@ DO UPDATE SET config_value = '123';
 -- DO UPDATE SET config_value = '447446933210';
 -- DO UPDATE SET config_value = '447448440754,447446933210';
 
-SELECT * FROM ordelo_post('SFCS_APP_URL', '/restaurant-base-url-cache/reset');
-SELECT * FROM ordelo_post('SFCS_APP_URL', '/restaurant-master-cache/reset');
+SELECT * FROM ordelo_post('SFCS_APP_URL', '/internal/cache/reset', 'scope=all');
+
+-- After changing overwatch_list, reset each deployed Restaurant Application.
+SELECT * FROM ordelo_post('SFCS_APP_URL', '/internal/cache/reset', 'scope=overwatch');
+SELECT * FROM ordelo_post('BNAT_APP_URL', '/internal/cache/reset', 'scope=overwatch');
 
 select * from ordelo_config where config_key = 'overwatch_list';
 

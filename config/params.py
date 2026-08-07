@@ -74,7 +74,6 @@ WEBHOOK_PATHS = {
     "order-pickup-time-updated": "order-event-hooks/{rest_ref}/takeaway-pickup-time-updated",
     "order-takeaway-ready": "order-event-hooks/{rest_ref}/takeaway-ready",
     "order-address-update": "order-event-hooks/{rest_ref}/address-update",
-    "terminate-stale-active-threads": "thread-hooks/{rest_ref}/terminate-stale-active-threads",
     "get-active-thread": "thread-hooks/get-active-thread",  # Already has rest_ref in existing path
 }
 
@@ -106,7 +105,6 @@ async def get_restaurant_base_url_async(rest_ref: str) -> str:
     if cached:
         cached_value, expires_at = cached
         if expires_at > now:
-            logger.debug(f"Using cached base URL for {rest_ref_upper}: {cached_value}")
             return cached_value
         _BASE_URL_CACHE.pop(cache_key, None)
 
