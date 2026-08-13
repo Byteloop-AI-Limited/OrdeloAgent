@@ -97,6 +97,7 @@ class PgSetting(BaseSettings):
                 min_size=self.pool_kwargs["min_size"],
                 max_size=self.pool_kwargs["max_size"],
                 max_idle=float(self.pool_kwargs["max_idle"]),
+                check=AsyncConnectionPool.check_connection,
                 timeout=float(self.pool_kwargs["timeout"]),
                 reconnect_timeout=float(self.pool_kwargs["reconnect_timeout"]),
                 open=False,  # Initialize with open=False
