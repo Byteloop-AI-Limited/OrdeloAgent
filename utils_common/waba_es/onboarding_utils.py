@@ -35,7 +35,7 @@ waba_es_pin = waba_provider_settings.pin
 waba_business_protfolio_id = waba_provider_settings.business_portfolio_id
 
 # %% UPDATE THIS FOR EVERY ONBOARDING PROCES
-TEMP_STORE = {"phone_num": "00441722433714", "business_ref": "elas"}
+TEMP_STORE = {"phone_num": "00441689637476", "business_ref": "bnat"}
 # %%
 # register_phone_number(phone_number_id="", business_token="")
 
