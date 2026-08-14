@@ -121,3 +121,15 @@ COMMENT ON COLUMN public.wa_location_request.wa_location_res_time IS
     'Time this request was paired with an observation.';
 
 -- COMMIT;
+-- 
+
+ALTER TABLE public.wa_location_request
+    ADD COLUMN IF NOT EXISTS callback_url TEXT;
+
+ALTER TABLE public.wa_location_request
+    ADD CONSTRAINT wa_location_request_callback_url_length_ck
+    CHECK (callback_url IS NULL OR length(callback_url) <= 2048)
+    NOT VALID;
+    
+
+

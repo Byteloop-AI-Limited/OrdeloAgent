@@ -37,6 +37,7 @@ from datetime import datetime, timezone
 from pywa.types import ButtonUrl
 from ordelo.agent_app_handlers import get_live_map_location_url
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
+from config.wa_location_setting import wa_location_settings
 
 
 # %% Define Dependancies and routes
@@ -373,6 +374,10 @@ async def notify_rider_null_or_outdated_location(request: Request):
     """
     Post requests are made via db webhooks based on the updates made in `process_location_transition`
     """
+    if not wa_location_settings.legacy_owntracks_prompts_enabled:
+        logger.info("Ignoring legacy OwnTracks rider-prompt job; feature flag is disabled")
+        return {"status": "disabled"}
+
     payloadinflight_rows = await request.json()
     logger.info(payloadinflight_rows)
     for row in payloadinflight_rows:

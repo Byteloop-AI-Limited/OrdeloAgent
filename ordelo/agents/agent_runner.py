@@ -35,7 +35,6 @@ from ordelo.agents.rider_agent import builder, ContextSchema
 
 # from ordelo.agents.byteloop_agent import graph as bloop_agent
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
-from ordelo.agent_app_handlers import create_start_job_config
 from utils_common.lg_utils import (
     get_state_values,
     shorten_state_messages,
@@ -150,8 +149,6 @@ async def init_ordelo_graph(
     checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
     graph = builder.compile(checkpointer=checkpointer)
 
-    start_live_tracking_url = await create_start_job_config(delivery_summary, rider_id)
-
     # update graph state
     # Setup context
     ip_msgs = {
@@ -168,7 +165,6 @@ async def init_ordelo_graph(
         {
             "dispatch_id": dispatch_id,
             "order_number": delivery_summary.order_number,
-            "start_live_tracking_url": start_live_tracking_url,
             "delivery_start_dtts": delivery_start_dtts,
             "rider_name": rider_name,
             "pickup_time": delivery_summary.pickup_time,
