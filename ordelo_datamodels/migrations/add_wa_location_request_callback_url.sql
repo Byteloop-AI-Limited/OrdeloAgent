@@ -14,3 +14,6 @@ ALTER TABLE public.wa_location_request
     NOT VALID;
 
 COMMIT;
+
+
+select *, callback_url from wa_location_request;

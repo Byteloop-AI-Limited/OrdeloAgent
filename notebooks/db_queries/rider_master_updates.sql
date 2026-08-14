@@ -54,3 +54,6 @@ update rider_master set status='inactive' where rider_name in ('Lohith', 'Suraj'
 update rider_master set is_in_shift=true where rider_name in ('Rishi', 'Abubakar', 'Bokul', 'Mohammed Hoque', 'Rangaswamy');
 
 select * from rider_master where rider_name = 'Marian';
+
+
+35, 30, 23, 
