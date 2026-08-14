@@ -36,6 +36,7 @@ The FastAPI app lives in `watomation/fapp_ordelo_agent.py`. It initializes the W
 
 - `watomation/routers/delivery_hooks.py` — delivery webhook endpoints (triggered by DB events)
 - `watomation/routers/location_hooks.py` — live location tracking
+- `watomation/routers/wa_location_hooks.py` — open on-demand rider-location requests
 - `watomation/routers/takeaway_hooks.py` — takeaway restaurant flow
 - `watomation/routers/order_hooks.py` — order management
 - `watomation/routers/payment_hooks.py` — payment integration
@@ -50,7 +51,7 @@ PostgreSQL triggers fire webhook calls to FastAPI endpoints. Example: a `deliver
 The core agent is in `ordelo/agents/rider_agent.py`. It manages the inflight delivery workflow using a `StateGraph` with:
 
 - **State** (`AgentState`): messages, dispatch_id, rider_name, confirmation codes, cancel state
-- **Tools**: `send_delivery_instructions`, `send_start_live_tracking_link`, `verify_restaurant_confirmation_code`, `verify_customer_confirmation_code`, `cancel_delivery_before_pickup`, `terminate_delivery_job`
+- **Tools**: `send_delivery_instructions`, `verify_restaurant_confirmation_code`, `verify_customer_confirmation_code`, `cancel_delivery_before_pickup`, `terminate_delivery_job`
 - **Nodes**: `agent_node` → `ToolNode` → `respond_node`
 - **Persistence**: `AsyncPostgresSaver` (PostgreSQL checkpointer), thread-per-rider mapping
 
@@ -59,7 +60,10 @@ The core agent is in `ordelo/agents/rider_agent.py`. It manages the inflight del
 ### WhatsApp Message Flow
 
 ```
-WhatsApp Message → on_message_wa_handler.process_wa_msg()
+WhatsApp current location → on_wa_location_handler.handle_wa_location_message()
+  → WaLocation correlation and routing (only for a pending authorised request)
+
+Other WhatsApp Message → on_message_wa_handler.process_wa_msg()
   → ThreadHandler.get_thread() (LangGraph thread lookup)
   → run_rider_agent_w_custom_msg(recipient, human_msg)
   → rider_agent graph invocation

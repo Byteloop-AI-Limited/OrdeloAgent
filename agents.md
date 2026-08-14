@@ -27,12 +27,11 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 - Rider Agent orchestration:
   - Graph + Tools: `ordelo/agents/rider_agent.py` — tools and graph for the inflight rider journey.
     - `send_delivery_instructions` — initial pickup/dropoff instructions.
-    - `send_start_live_tracking_link` — OwnTracks start/config link.
     - `verify_restaurant_confirmation_code` — confirms pickup and marks `delivery_dispatch.status='pickedup'`.
     - `verify_customer_confirmation_code` — completes delivery and calls `dispatch_complete_func`.
     - `notify_pickup_time_adjusted` — notifies the inflight rider when the restaurant adjusts the pickup time (reads `pickup_time` from graph state, refreshed via `state_update_dict`).
     - `cancel_delivery_before_pickup` — rolls back an assigned dispatch pre‑pickup and reopens dispatching.
-    - `terminate_delivery_job` — closes the delivery job/thread and sends stop‑tracking link.
+    - `terminate_delivery_job` — closes the delivery job/thread without a tracking link.
     - Graph control nodes: `agent_node`, `respond_node`, `ToolNode`.
   - Runner helpers: `ordelo/agents/agent_runner.py` —
     - Invoke graph per message: `:71` (`run_rider_graph`)
@@ -122,17 +121,16 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 - The route schedules:
   - Restaurant notification webhook (`post_rider_event_inflight`).
   - LangGraph init (`init_ordelo_graph`) which:
-    - Generates an OwnTracks start link (`create_start_job_config`) and stores it in graph state.
-    - Seeds messages so the agent chooses tools appropriately (send instructions → live tracking link).
+    - Seeds messages so the agent sends delivery instructions; it does not create a tracking checkpoint.
 
 3) The Rider Agent Flow in Practice
 - Tools available:
   - Send instructions (pickup/drop + meta), and offer “Pickup/Dropoff Location” buttons which round‑trip back to agent via callback.
-  - Send “Start live tracking” link (OwnTracks config). Send “Stop live tracking” at the end.
+  - Native WhatsApp current-location responses are handled by `on_wa_location_handler` only when an authorised WaLocation request is pending.
   - Verify restaurant and customer confirmation codes; on success the customer/restaurant webhooks fire and DB status is updated (`dispatch_complete_func`).
   - Pre‑pickup cancellation:
     - `cancel_delivery_before_pickup` calls `dispatch_cancel_before_pickup`, reopens dispatching, and asks the rider for a reason.
-    - `capture_reason_for_cancel_before_pickup` writes `reason_for_decline` and sends a stop‑tracking link.
+    - `capture_reason_for_cancel_before_pickup` writes `reason_for_decline` and closes the rider job.
 - On each incoming rider message, the WA handler `process_wa_msg` locates the active thread for that rider and runs `run_rider_graph(recipient, human_msg=...)`.
 - The agent responds either directly (respond node → WhatsApp) or by executing tools (ToolNode), which themselves perform WhatsApp sends and DB operations.
 

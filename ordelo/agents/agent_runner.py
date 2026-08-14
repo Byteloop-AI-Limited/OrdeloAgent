@@ -7,7 +7,9 @@ Core agent runner for Ordelo's delivery workflow system
     . Coordinates with rider_agent for workflow execution
     . Seeds pickup_time into graph state at init for adjusted-pickup-time notifications
     . Supports refreshing graph state via state_update_dict (e.g. updated pickup_time on adjust)
+    . Retries only initial thread acquisition on transient PostgreSQL connection loss
   Functions/Classes:
+    . _get_config_for_recipient_with_retry - Reconciles one uncertain thread acquisition
     . run_rider_agent_w_custom_msg - Executes rider graph with custom messages and returns AI response
     . init_ordelo_graph - Initializes delivery workflow for given detail
     . debug_state - Returns shortened graph state for debugging
@@ -18,18 +20,21 @@ Core agent runner for Ordelo's delivery workflow system
 
 # %%
 
-from typing import Optional
+import asyncio
 from datetime import datetime
+from typing import Optional
+
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg import OperationalError
 from psycopg_pool import AsyncConnectionPool
+
 from config import logger, pg_settings, _async_wa_client, client_ordelo
 from utils_common.lg_utils import get_config_for_recipient
 from ordelo.agents.rider_agent import builder, ContextSchema
 
 # from ordelo.agents.byteloop_agent import graph as bloop_agent
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
-from ordelo.agent_app_handlers import create_start_job_config
 from utils_common.lg_utils import (
     get_state_values,
     shorten_state_messages,
@@ -44,6 +49,39 @@ from utils_common.lg_utils import (
 
 
 # %%
+
+
+_THREAD_ACQUISITION_ATTEMPTS = 2
+_THREAD_ACQUISITION_RETRY_DELAY_SECONDS = 0.5
+
+
+async def _get_config_for_recipient_with_retry(
+    recipient: str, pool: AsyncConnectionPool
+) -> tuple[dict, bool]:
+    """Acquire or reconcile a rider thread after one connection failure.
+
+    The retry boundary intentionally contains only ``get_config_for_recipient``.
+    Graph state updates, graph invocation, tools, and external messages must stay
+    outside this helper so they are never replayed by this recovery path.
+    """
+    for attempt in range(1, _THREAD_ACQUISITION_ATTEMPTS + 1):
+        try:
+            return await get_config_for_recipient(recipient, pool)
+        except OperationalError:
+            if attempt >= _THREAD_ACQUISITION_ATTEMPTS:
+                logger.error(
+                    f"Thread acquisition failed after {attempt} attempts "
+                    f"for recipient={recipient}"
+                )
+                raise
+
+            logger.warning(
+                f"Thread acquisition connection failure for recipient={recipient} "
+                f"(attempt {attempt}/{_THREAD_ACQUISITION_ATTEMPTS}); retrying once"
+            )
+            await asyncio.sleep(_THREAD_ACQUISITION_RETRY_DELAY_SECONDS)
+
+    raise RuntimeError("Thread acquisition retry loop exited unexpectedly")
 
 
 async def run_rider_agent_w_custom_msg(
@@ -98,7 +136,7 @@ async def init_ordelo_graph(
     delivery_summary: DeliverySummary, rider_id: str, rider_name: str, dispatch_id: int
 ):
     pool: AsyncConnectionPool = await pg_settings.get_pool()
-    # recipient = d_detail.rider_id
+    config, _ = await _get_config_for_recipient_with_retry(rider_id, pool)
 
     context_schema = ContextSchema(
         pool=pool,
@@ -110,9 +148,6 @@ async def init_ordelo_graph(
     # Setup Graph
     checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
     graph = builder.compile(checkpointer=checkpointer)
-    config, _ = await get_config_for_recipient(rider_id, pool)
-
-    start_live_tracking_url = await create_start_job_config(delivery_summary, rider_id)
 
     # update graph state
     # Setup context
@@ -130,7 +165,6 @@ async def init_ordelo_graph(
         {
             "dispatch_id": dispatch_id,
             "order_number": delivery_summary.order_number,
-            "start_live_tracking_url": start_live_tracking_url,
             "delivery_start_dtts": delivery_start_dtts,
             "rider_name": rider_name,
             "pickup_time": delivery_summary.pickup_time,

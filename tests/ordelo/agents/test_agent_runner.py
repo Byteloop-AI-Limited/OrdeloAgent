@@ -7,6 +7,9 @@ is required.
 Key Functions:
   - test_run_rider_agent_w_custom_msg_builds_messages_updates_state_and_returns_ai_content
   - test_init_ordelo_graph_updates_initial_state_and_invokes_graph
+  - test_init_ordelo_graph_retries_only_thread_acquisition
+  - test_init_ordelo_graph_propagates_second_thread_acquisition_failure
+  - test_init_ordelo_graph_does_not_retry_non_operational_error
   - test_debug_state_values_returns_shortened_state_values
   - test_debug_thread_fetches_recipient_and_uses_thread_config
   - test_job_end_stale_conversations_uses_supplied_handler
@@ -19,6 +22,7 @@ from types import SimpleNamespace
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
+from psycopg import OperationalError
 
 from ordelo.agents import agent_runner
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
@@ -117,20 +121,94 @@ async def test_run_rider_agent_w_custom_msg_builds_messages_updates_state_and_re
 
 async def test_init_ordelo_graph_updates_initial_state_and_invokes_graph(monkeypatch, patched_runner) -> None:
     graph, _builder = patched_runner
+    retry_delays = []
 
-    async def _fake_start_config(summary, rider_id):
-        return "https://track.example.com/start"
+    async def _record_retry_delay(delay):
+        retry_delays.append(delay)
 
-    monkeypatch.setattr(agent_runner, "create_start_job_config", _fake_start_config)
+    monkeypatch.setattr(agent_runner.asyncio, "sleep", _record_retry_delay)
 
     await agent_runner.init_ordelo_graph(_summary(), "RIDER01", "Bas", 10)
 
     update = graph.updates[-1]
     assert update["values"]["dispatch_id"] == 10
     assert update["values"]["order_number"] == "ELAS-ABCD-1"
-    assert update["values"]["start_live_tracking_url"] == "https://track.example.com/start"
+    assert "start_live_tracking_url" not in update["values"]
     assert update["values"]["rider_name"] == "Bas"
     assert graph.invocations[-1]["config"] == {"configurable": {"thread_id": "thread-1", "recipient": "RIDER01"}}
+    assert retry_delays == []
+
+
+async def test_init_ordelo_graph_retries_only_thread_acquisition(monkeypatch, patched_runner) -> None:
+    graph, _builder = patched_runner
+    acquisition_attempts = 0
+    retry_delays = []
+
+    async def _flaky_config(recipient, pool):
+        nonlocal acquisition_attempts
+        acquisition_attempts += 1
+        if acquisition_attempts == 1:
+            raise OperationalError("SSL connection has been closed unexpectedly")
+        return {"configurable": {"thread_id": "thread-1", "recipient": recipient}}, False
+
+    async def _record_retry_delay(delay):
+        retry_delays.append(delay)
+
+    monkeypatch.setattr(agent_runner, "get_config_for_recipient", _flaky_config)
+    monkeypatch.setattr(agent_runner.asyncio, "sleep", _record_retry_delay)
+
+    await agent_runner.init_ordelo_graph(_summary(), "RIDER01", "Bas", 10)
+
+    assert acquisition_attempts == 2
+    assert retry_delays == [agent_runner._THREAD_ACQUISITION_RETRY_DELAY_SECONDS]
+    assert len(graph.updates) == 1
+    assert len(graph.invocations) == 1
+
+
+async def test_init_ordelo_graph_propagates_second_thread_acquisition_failure(
+    monkeypatch, patched_runner
+) -> None:
+    graph, _builder = patched_runner
+    acquisition_attempts = 0
+
+    async def _failing_config(recipient, pool):
+        nonlocal acquisition_attempts
+        acquisition_attempts += 1
+        raise OperationalError("SSL connection has been closed unexpectedly")
+
+    async def _skip_retry_delay(delay):
+        return None
+
+    monkeypatch.setattr(agent_runner, "get_config_for_recipient", _failing_config)
+    monkeypatch.setattr(agent_runner.asyncio, "sleep", _skip_retry_delay)
+
+    with pytest.raises(OperationalError, match="SSL connection has been closed unexpectedly"):
+        await agent_runner.init_ordelo_graph(_summary(), "RIDER01", "Bas", 10)
+
+    assert acquisition_attempts == 2
+    assert graph.updates == []
+    assert graph.invocations == []
+
+
+async def test_init_ordelo_graph_does_not_retry_non_operational_error(
+    monkeypatch, patched_runner
+) -> None:
+    graph, _builder = patched_runner
+    acquisition_attempts = 0
+
+    async def _failing_config(recipient, pool):
+        nonlocal acquisition_attempts
+        acquisition_attempts += 1
+        raise RuntimeError("thread function failed")
+
+    monkeypatch.setattr(agent_runner, "get_config_for_recipient", _failing_config)
+
+    with pytest.raises(RuntimeError, match="thread function failed"):
+        await agent_runner.init_ordelo_graph(_summary(), "RIDER01", "Bas", 10)
+
+    assert acquisition_attempts == 1
+    assert graph.updates == []
+    assert graph.invocations == []
 
 
 async def test_debug_state_values_returns_shortened_state_values(monkeypatch, patched_runner) -> None:

@@ -53,9 +53,12 @@ update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' whe
 -- ============================================================
 -- ELAS: Production Setup
 -- ============================================================
-
+--  447901518136 - Bineesh
+--  447914844933 - Unni
+--  447770114931 - Raj
+--  447424792533 - Muthukumaran
 update restaurant_master
-set admins = Array['447448440754', '447446933210','447901518136','447914844933', '447917912646', '447909488602'],
+set admins = Array['447448440754', '447446933210','447901518136','447914844933', '447770114931', '447424792533'],
     rest_stale_active_threads_minutes = 10,
     city='Salisbury',
     service_hours_json = '{

@@ -343,9 +343,12 @@ async def post_rider_event_inflight(delivery_summary: DeliverySummary):
 
 
 # %% post delivery timedout
-async def post_delivery_timedout(delivery_summary: dict):
+async def post_delivery_timedout(
+    delivery_summary: dict, *, payment_cancelled: bool
+):
     """
-    Posts the delivery summary for a given order_number to the delivery-timedout webhook.
+    Posts the delivery summary and verified payment-cancellation outcome to the
+    delivery-timedout webhook.
 
     Args:
         delivery_summary (dict): The payload for the delivery-timedout webhook.
@@ -359,7 +362,7 @@ async def post_delivery_timedout(delivery_summary: dict):
     async with httpx.AsyncClient() as client:
         response = await client.post(
             webhook_url,
-            json=delivery_summary,
+            json={**delivery_summary, "payment_cancelled": payment_cancelled},
         )
     logger.info("Restaurant notified of delivery timeout")
     logger.info("Status code:", response.status_code)
@@ -724,9 +727,13 @@ async def delivery_timedout(
     delivery_summary = delivery_summary_lst[0]
     rest_id = delivery_summary["rest_id"]
 
-    # 1. Cancel payment
+    # 1. Cancel payment. A successful cancellation endpoint response is the
+    # only condition that allows the restaurant runtime to confirm a refund.
+    payment_cancelled = False
     try:
-        await cancel_payment(order_number=delivery_summary["order_number"])
+        payment_cancelled = (
+            await cancel_payment(order_number=delivery_summary["order_number"])
+        ) is not None
     except Exception:
         logger.exception(
             "Payment cancellation failed during delivery_timedout",
@@ -744,11 +751,15 @@ async def delivery_timedout(
         )
 
     if "test" not in delivery_summary["order_number"].lower():  # skip test orders
-        background_tasks.add_task(post_delivery_timedout, delivery_summary)
+        background_tasks.add_task(
+            post_delivery_timedout,
+            delivery_summary,
+            payment_cancelled=payment_cancelled,
+        )
     return {"status": "success"}
 
 
-# %% Check rider allocation status
+# %% Check rider allocation status - with location handled in waLoction, this can go. To Be Deleted
 @router.get(
     "/check-rider-allocation-status/{order_number}",
     summary="Check rider allocation status",

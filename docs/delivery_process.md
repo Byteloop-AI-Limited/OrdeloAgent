@@ -416,7 +416,6 @@ The rider agent is a LangGraph `StateGraph` that manages the rider through the e
 | `dispatch_id` | `int` | Active dispatch ID |
 | `order_number` | `str` | Order being delivered |
 | `reply_to_msg_id` | `str` | WhatsApp message ID for reply threading |
-| `start_live_tracking_url` | `str` | OwnTracks config URL for this delivery |
 | `delivery_start_dtts` | `str` | ISO timestamp when delivery started |
 | `is_restaurant_confirmation_code_verified` | `bool` | Whether restaurant CC has been verified |
 | `is_customer_confirmation_code_verified` | `bool` | Whether customer CC has been verified |
@@ -431,27 +430,26 @@ START → riderAgent → toolNode → riderAgent → respondNode → END
 ```
 
 - **`riderAgent`** (`agent_node`): Main decision node. Invokes the LLM-backed rider agent, routes to `toolNode` if a tool call is produced, or to `respondNode` for a plain text reply. Also handles the `awaiting_cancel_reason` shortcut: when the agent is waiting for a cancel reason and the rider replies, it synthesizes a `terminate_delivery_job` tool call with the rider's message as `reason_for_decline`.
-- **`toolNode`** (`ToolNode`): Executes tool calls against the 12 registered tools, then returns to `riderAgent`.
+- **`toolNode`** (`ToolNode`): Executes tool calls against the 11 registered tools, then returns to `riderAgent`.
 - **`respondNode`** (`respond_node`): Sends the final `AIMessage` content to the rider via WhatsApp, then ends the turn.
 
 **Persistence:** `AsyncPostgresSaver` (PostgreSQL checkpointer). Each rider has a LangGraph thread managed via `ThreadHandler`, keyed by recipient phone number.
 
-##### Agent Tools (12 total)
+##### Agent Tools (11 total)
 
 | # | Tool | Arguments | Description |
 |---|------|-----------|-------------|
-| 1 | `send_delivery_instructions` | *(none)* | Sends pickup/dropoff addresses + live tracking URL to the rider. Sets `reply_to_msg_id` in state. |
-| 2 | `send_start_live_tracking_link` | *(none)* | Sends a WhatsApp button-URL message to enable OwnTracks live location tracking. |
-| 3 | `notify_food_ready_for_pickup` | `restaurant_name: str` | Notifies the rider that food is ready for pickup at the restaurant and sends the pickup location. |
-| 4 | `notify_pickup_time_adjusted` | *(none)* | Notifies the rider that the restaurant has updated the pickup time. Reads the new `pickup_time` from agent state (patched in by the webhook handler before invocation) and sends it formatted to UK local time. |
-| 5 | `send_pickup_location` | *(none)* | Re-sends the pickup (restaurant) location to the rider via WhatsApp. |
-| 6 | `send_dropoff_location` | *(none)* | Re-sends the dropoff (customer) location to the rider via WhatsApp. |
-| 7 | `send_customer_contact` | *(none)* | Sends the customer's WhatsApp contact card to the rider. Used when the rider cannot reach the customer at the door. |
-| 8 | `cancel_delivery_before_pickup` | *(none)* | Cancels an assigned dispatch before pickup. Calls `dispatch_cancel_before_pickup(p_dispatch_id)` RPC to revert statuses. Only allowed when `delivery_dispatch.status = 'assigned'` (before restaurant CC verification marks it `pickedup`). Sets `awaiting_cancel_reason = True`. |
-| 9 | `capture_reason_for_cancel_before_pickup` | `reason_for_decline: str` | Persists the rider's cancel reason on `delivery_dispatch.reason_for_decline`. Should be called after tool #8. Sets `awaiting_cancel_reason = False`. |
-| 10 | `verify_restaurant_confirmation_code` | `restaurant_confirmation_code: int` | Verifies the 2-digit restaurant code. On success: marks `delivery_dispatch.status = 'pickedup'`, sets `is_restaurant_confirmation_code_verified = True`, and posts a customer notification via `post_rider_event_restaurant_cc`. |
-| 11 | `verify_customer_confirmation_code` | `customer_confirmation_code: int` | Verifies the 2-digit customer code. On success: calls `dispatch_complete_func(p_dispatch_id)` RPC, notifies customer and restaurant admins, makes the thread inactive, and sets `is_customer_confirmation_code_verified = True`. |
-| 12 | `terminate_delivery_job` | `reason_for_decline: str (optional)` | Closes the delivery job. If `awaiting_cancel_reason` is true and a reason is provided, persists it first. Makes the thread inactive, then sends a stop-tracking button-URL to the rider. |
+| 1 | `send_delivery_instructions` | *(none)* | Sends pickup/dropoff delivery details and sets `reply_to_msg_id` in state. |
+| 2 | `notify_food_ready_for_pickup` | `restaurant_name: str` | Notifies the rider that food is ready for pickup at the restaurant and sends the pickup location. |
+| 3 | `notify_pickup_time_adjusted` | *(none)* | Notifies the rider that the restaurant has updated the pickup time. Reads the new `pickup_time` from agent state (patched in by the webhook handler before invocation) and sends it formatted to UK local time. |
+| 4 | `send_pickup_location` | *(none)* | Re-sends the pickup (restaurant) location to the rider via WhatsApp. |
+| 5 | `send_dropoff_location` | *(none)* | Re-sends the dropoff (customer) location to the rider via WhatsApp. |
+| 6 | `send_customer_contact` | *(none)* | Sends the customer's WhatsApp contact card to the rider. Used when the rider cannot reach the customer at the door. |
+| 7 | `cancel_delivery_before_pickup` | *(none)* | Cancels an assigned dispatch before pickup. Calls `dispatch_cancel_before_pickup(p_dispatch_id)` RPC to revert statuses. Only allowed when `delivery_dispatch.status = 'assigned'` (before restaurant CC verification marks it `pickedup`). Sets `awaiting_cancel_reason = True`. |
+| 8 | `capture_reason_for_cancel_before_pickup` | `reason_for_decline: str` | Persists the rider's cancel reason on `delivery_dispatch.reason_for_decline`. Should be called after tool #7. Sets `awaiting_cancel_reason = False`. |
+| 9 | `verify_restaurant_confirmation_code` | `restaurant_confirmation_code: int` | Verifies the 2-digit restaurant code. On success: marks `delivery_dispatch.status = 'pickedup'`, records an approximate restaurant-confirmation WaLocation observation, sets `is_restaurant_confirmation_code_verified = True`, and posts a customer notification. |
+| 10 | `verify_customer_confirmation_code` | `customer_confirmation_code: int` | Verifies the 2-digit customer code. On success: calls `dispatch_complete_func(p_dispatch_id)` RPC, notifies customer and restaurant admins, makes the thread inactive, and sets `is_customer_confirmation_code_verified = True`. |
+| 11 | `terminate_delivery_job` | `reason_for_decline: str (optional)` | Closes the delivery job. If `awaiting_cancel_reason` is true and a reason is provided, persists it first. It does not send a tracking link. |
 
 > **Note:** `end_delivery` is defined in `rider_agent.py` but is **not** in the registered `_rider_agent_tools` list. It is effectively dead code — `terminate_delivery_job` (tool #12) handles job closure.
 
@@ -459,13 +457,12 @@ START → riderAgent → toolNode → riderAgent → respondNode → END
 
 The rider agent follows this flow during a normal delivery:
 
-1. **Delivery Instructions** — `init_ordelo_graph()` seeds the graph state (`dispatch_id`, `order_number`, `rider_name`, `start_live_tracking_url`, `delivery_start_dtts`) and invokes the graph. The LLM calls `send_delivery_instructions` to send pickup/dropoff details plus the live tracking link.
-2. **Start Live Tracking** — The agent calls `send_start_live_tracking_link` to send the OwnTracks URL via a WhatsApp button.
-3. **Pickup Verification** — When the rider provides a 2-digit number, the agent calls `verify_restaurant_confirmation_code`. On success, `delivery_dispatch.status` transitions to `pickedup` and the customer is notified that food has been picked up.
-4. **Dropoff Verification** — After delivery, the rider provides the customer confirmation code. The agent calls `verify_customer_confirmation_code`. On success, `dispatch_complete_func` is called (see Phase 6) and the thread is closed.
-5. **Job Closure** — The agent calls `terminate_delivery_job` to send the stop-tracking URL and end the conversation.
+1. **Delivery Instructions** — `init_ordelo_graph()` seeds the graph state (`dispatch_id`, `order_number`, `rider_name`, `delivery_start_dtts`) and invokes the graph. The LLM calls `send_delivery_instructions` to send pickup/dropoff details.
+2. **Pickup Verification** — When the rider provides a 2-digit number, the agent calls `verify_restaurant_confirmation_code`. On success, `delivery_dispatch.status` transitions to `pickedup`, an approximate restaurant-confirmation observation is recorded for WaLocation, and the customer is notified that food has been picked up.
+3. **Dropoff Verification** — After delivery, the rider provides the customer confirmation code. The agent calls `verify_customer_confirmation_code`. On success, `dispatch_complete_func` is called (see Phase 6) and the thread is closed.
+4. **Job Closure** — The agent calls `terminate_delivery_job` after a cancellation reason; it closes the conversation without a tracking link.
 
-During the delivery, the rider may request re-sends of pickup/dropoff locations or the tracking link at any time (dynamic detours). The agent handles these and returns to the main flow.
+During the delivery, the rider may request re-sends of pickup/dropoff locations or customer contact details. The dedicated WaLocation handler separately processes an authorised WhatsApp current-location request when needed.
 
 ##### Pre-Pickup Cancellation Flow
 
@@ -475,7 +472,7 @@ If the rider indicates they cannot complete pickup **before** restaurant code ve
 2. RPC sets `delivery_dispatch.status = 'declined'`, deletes the `delivery_inflight` row, and reverts `delivery_detail` + `delivery_summary` to `unassigned`.
 3. Agent sets `awaiting_cancel_reason = True` and asks the rider for a reason.
 4. When the rider replies, `agent_node` detects `awaiting_cancel_reason` and synthesizes a `terminate_delivery_job` tool call with `reason_for_decline` set to the rider's message.
-5. `terminate_delivery_job` persists the reason on `delivery_dispatch.reason_for_decline`, closes the thread, and sends the stop-tracking link.
+5. `terminate_delivery_job` persists the reason on `delivery_dispatch.reason_for_decline` and closes the thread.
 6. The order is now `unassigned` and eligible for re-dispatch. The cancelled rider already has a `delivery_dispatch` row with `status = 'declined'`, so `get_available_riders()` excludes them from future batches for this order.
 
 ##### Graph Initialization (`init_ordelo_graph`)
@@ -487,9 +484,8 @@ Called as a background task from `delivery_inflight_graph_init_hook()`:
 1. Creates `ContextSchema` with async pool, WhatsApp client, recipient, and Supabase client.
 2. Compiles the graph with `AsyncPostgresSaver` checkpointer.
 3. Looks up (or creates) the LangGraph thread for the rider via `get_config_for_recipient()`.
-4. Generates the OwnTracks start-tracking URL via `create_start_job_config()`.
-5. Seeds state: `dispatch_id`, `order_number`, `start_live_tracking_url`, `delivery_start_dtts`, `rider_name`.
-6. Invokes the graph with a system message ("Rider X has accepted the delivery job, call `send_delivery_instructions`") and a human message ("I have accepted the delivery job.").
+4. Seeds state: `dispatch_id`, `order_number`, `delivery_start_dtts`, `rider_name`.
+5. Invokes the graph with a system message ("Rider X has accepted the delivery job, call `send_delivery_instructions`") and a human message ("I have accepted the delivery job.").
 
 ##### Thread Management
 
@@ -505,7 +501,8 @@ Called as a background task from `delivery_inflight_graph_init_hook()`:
 
 **Schedule:** Periodic via pg_cron
 
-**Purpose:** Identifies inflight deliveries with missing or stale location data
+**Purpose:** Retained legacy OwnTracks reminder job. It returns without sending
+any prompt unless `LEGACY_OWNTRACKS_PROMPTS_ENABLED` is explicitly true.
 
 **Webhook:** POST `/location-hooks/null-or-outdated-location`
 
@@ -554,7 +551,7 @@ Called as a background task from `delivery_inflight_graph_init_hook()`:
 | `assign_delivery_for_accepted_jobs` | `job_assign_dispatch()` | Every 5s | Assign accepted dispatches to deliveries |
 | `process_restaurant_confirmation` | `process_restaurant_confirmation()` | Every 5s | Timeout unconfirmed restaurant orders |
 | `job_close_thread` | `job_close_thread()` | Every 5 min | Close inactive rider chat threads |
-| `job_null_or_outdated_location` | `job_null_or_outdated_location()` | Periodic | Alert on missing live tracking |
+| `job_null_or_outdated_location` | `job_null_or_outdated_location()` | Periodic | Legacy OwnTracks reminder; disabled by default |
 | `job_terminate_stale_active_threads` | `job_terminate_stale_active_threads()` | Periodic | Cleanup stale threads |
 
  Availability enquiry jobs (non-critical workflow support):
@@ -745,7 +742,7 @@ flowchart TD
 | `enquire_shift_availability.sql` | Scheduled rider shift availability enquiry (DB → webhook → WhatsApp template) |
 | `enquire_admin_availability.sql` | Scheduled restaurant admin availability enquiry (DB → webhook → WhatsApp template) |
 | `job_restaurant_confirmation_timeout.sql` | Alternative timeout handler with auto-accept |
-| `job_null_or_outdated_location.sql` | Alerts on missing live tracking |
+| `job_null_or_outdated_location.sql` | Legacy OwnTracks reminder, feature-gated off by default |
 | `job_close_thread.sql` | Closes inactive rider chat threads |
 | `job_terminate_stale_active_threads.sql` | Cleanup stale threads via webhook |
 | `cleanupDeliveryOrder.sql` | Testing utility to delete order records |
