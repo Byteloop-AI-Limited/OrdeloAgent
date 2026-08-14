@@ -123,13 +123,9 @@ async def test_init_ordelo_graph_updates_initial_state_and_invokes_graph(monkeyp
     graph, _builder = patched_runner
     retry_delays = []
 
-    async def _fake_start_config(summary, rider_id):
-        return "https://track.example.com/start"
-
     async def _record_retry_delay(delay):
         retry_delays.append(delay)
 
-    monkeypatch.setattr(agent_runner, "create_start_job_config", _fake_start_config)
     monkeypatch.setattr(agent_runner.asyncio, "sleep", _record_retry_delay)
 
     await agent_runner.init_ordelo_graph(_summary(), "RIDER01", "Bas", 10)
@@ -137,7 +133,7 @@ async def test_init_ordelo_graph_updates_initial_state_and_invokes_graph(monkeyp
     update = graph.updates[-1]
     assert update["values"]["dispatch_id"] == 10
     assert update["values"]["order_number"] == "ELAS-ABCD-1"
-    assert update["values"]["start_live_tracking_url"] == "https://track.example.com/start"
+    assert "start_live_tracking_url" not in update["values"]
     assert update["values"]["rider_name"] == "Bas"
     assert graph.invocations[-1]["config"] == {"configurable": {"thread_id": "thread-1", "recipient": "RIDER01"}}
     assert retry_delays == []
@@ -158,12 +154,8 @@ async def test_init_ordelo_graph_retries_only_thread_acquisition(monkeypatch, pa
     async def _record_retry_delay(delay):
         retry_delays.append(delay)
 
-    async def _fake_start_config(summary, rider_id):
-        return "https://track.example.com/start"
-
     monkeypatch.setattr(agent_runner, "get_config_for_recipient", _flaky_config)
     monkeypatch.setattr(agent_runner.asyncio, "sleep", _record_retry_delay)
-    monkeypatch.setattr(agent_runner, "create_start_job_config", _fake_start_config)
 
     await agent_runner.init_ordelo_graph(_summary(), "RIDER01", "Bas", 10)
 
