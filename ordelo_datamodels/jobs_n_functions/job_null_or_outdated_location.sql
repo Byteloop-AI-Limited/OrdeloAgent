@@ -19,7 +19,17 @@ DECLARE
     notified BOOLEAN := FALSE;
     ordelo_app_url TEXT;
     webhook_url TEXT;
+    legacy_prompts_enabled BOOLEAN := FALSE;
 BEGIN
+    SELECT COALESCE(config_value::boolean, FALSE)
+      INTO legacy_prompts_enabled
+      FROM ordelo_config
+     WHERE config_key = 'LEGACY_OWNTRACKS_PROMPTS_ENABLED';
+    IF NOT legacy_prompts_enabled THEN
+        RAISE NOTICE 'Legacy OwnTracks rider prompts are disabled.';
+        RETURN FALSE;
+    END IF;
+
     -- Get the interval in minutes from config
     SELECT config_value::int INTO interval_minutes FROM ordelo_config WHERE config_key = 'LOCATION_ENABLE_TIME_INTERVAL';
     IF interval_minutes IS NULL THEN

@@ -48,6 +48,7 @@ from watomation.routers import (
     order_hooks,
     payment_hooks,
     thread_hooks,
+    wa_location_hooks,
 )
 
 from watomation.on_message_wa_handler import (
@@ -89,6 +90,7 @@ from watomation.on_callback_wa_handler import (
     IS_ADMIN_ADJUST_PICKUP_TIME,
     IS_ADMIN_TAKEAWAY_READY,
 )
+from watomation.on_wa_location_handler import handle_wa_location_message
 from watomation.on_flow_request_wa_handler import (
     on_customer_address_flow,
     on_customer_address_flow_data_exchange,
@@ -139,6 +141,7 @@ app.include_router(thread_hooks.router, prefix="/thread-hooks")
 app.include_router(twilio_webhook.router, prefix="/twilio-webhook")
 app.include_router(order_hooks.router, prefix="/order-hooks")
 app.include_router(payment_hooks.router, prefix="/payment-hooks")
+app.include_router(wa_location_hooks.router)
 
 # %% DEFINE WA
 wa: WhatsApp = WhatsApp(
@@ -181,6 +184,7 @@ wa.add_handlers(
     handlers.MessageHandler(
         callback=enquire_shift_availability_non_template, filters=SHIFT_UPDATE
     ),
+    handlers.MessageHandler(callback=handle_wa_location_message, filters=filters.location),
     # handlers.MessageHandler(callback=process_byteloop_agent),
     handlers.MessageHandler(callback=process_wa_msg),
     handlers.CallbackButtonHandler(

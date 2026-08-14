@@ -394,7 +394,6 @@ async def enquire_shift_availability(wa: WhatsApp, recipient: str, name: str):
 
 async def _send_delivery_instructions(
     dispatch_id: int,
-    start_live_tracking_url: str,
     recipient: str,
     rider_name: str,
     client_ordelo: Client,
@@ -578,7 +577,6 @@ async def debug_state_by_thread(recipient: str, thread_id: str, graph, pool) -> 
 dispatch_id = 432
 await _send_delivery_instructions(
     dispatch_id=dispatch_id,
-    start_live_tracking_url="https://agent.ordelo.co.uk",
     recipient="447448440754",
     rider_name="dummy",
     client_ordelo=pg_settings.client,
