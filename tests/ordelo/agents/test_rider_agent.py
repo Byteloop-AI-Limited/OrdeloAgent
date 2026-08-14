@@ -109,6 +109,10 @@ async def test_send_start_live_tracking_link_sends_button_url(fake_async_wa: Fak
     assert "live location tracking" in result.update["messages"][0].content
 
 
+def test_legacy_start_tracking_helper_is_not_exposed_to_the_rider_agent() -> None:
+    assert rider_agent.send_start_live_tracking_link not in rider_agent._rider_agent_tools
+
+
 async def test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
     patch_supabase_client.register_rpc("dispatch_cancel_before_pickup", FakeSupabaseResponse(data={"ok": True}))
 
@@ -140,8 +144,8 @@ async def test_capture_reason_for_cancel_before_pickup_updates_dispatch(patch_su
 async def test_verify_restaurant_confirmation_code_wrong_and_success_paths(monkeypatch, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
     patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[_summary_row()]))
     patch_supabase_client.register(table="delivery_dispatch", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
-    monkeypatch.setattr(rider_agent, "is_live_location_enabled", lambda order_number: True)
     webhook_calls = []
+    observations = []
 
     async def _fake_rest_webhook(order_number, customer_id):
         webhook_calls.append((order_number, customer_id))
@@ -153,8 +157,17 @@ async def test_verify_restaurant_confirmation_code_wrong_and_success_paths(monke
     async def _fake_wa_logger():
         return _Logger()
 
+    class _FakeWaLocation:
+        def __init__(self, *, wa_client):
+            self.wa_client = wa_client
+
+        async def observe_restaurant_confirmation(self, observation):
+            observations.append(observation)
+            return 0
+
     monkeypatch.setattr(rider_agent, "post_rider_event_restaurant_cc", _fake_rest_webhook)
     monkeypatch.setattr(rider_agent, "get_wa_logger", _fake_wa_logger)
+    monkeypatch.setattr(rider_agent, "WaLocation", _FakeWaLocation)
     state = {"dispatch_id": 10, "order_number": "ELAS-ABCD-1", "latest_wa_msg_id": "wa-msg"}
     runtime = _runtime(client=patch_supabase_client, wa=fake_async_wa)
 
@@ -165,6 +178,8 @@ async def test_verify_restaurant_confirmation_code_wrong_and_success_paths(monke
     success = await rider_agent.verify_restaurant_confirmation_code(11, state, "tool-2", runtime)
     assert success.update["is_restaurant_confirmation_code_verified"] is True
     assert ("ELAS-ABCD-1", "447400000000") in webhook_calls
+    assert observations[0].latitude == 51.5074
+    assert observations[0].longitude == -0.1278
     assert patch_supabase_client.calls[-1].payload["status"] == "pickedup"
 
 
@@ -186,11 +201,6 @@ async def test_terminate_delivery_job_records_cancel_reason_and_closes_thread(mo
     patch_pg_pool.register_sql("make_threads_inactive", [(1,)])
     patch_supabase_client.register(table="delivery_dispatch", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
 
-    async def _fake_stop_config():
-        return "https://track.example.com/stop"
-
-    monkeypatch.setattr(rider_agent, "create_stop_job_config", _fake_stop_config)
-
     result = await rider_agent.terminate_delivery_job(
         {"dispatch_id": 10, "awaiting_cancel_reason": True, "reply_to_msg_id": "msg-1"},
         "tool-1",
@@ -200,7 +210,8 @@ async def test_terminate_delivery_job_records_cancel_reason_and_closes_thread(mo
 
     assert result.update["awaiting_cancel_reason"] is False
     assert patch_supabase_client.calls[-1].payload["reason_for_decline"] == "Bike puncture"
-    assert fake_async_wa.sent[-1].kwargs["buttons"].url == "https://track.example.com/stop"
+    assert fake_async_wa.sent[-1].kwargs["text"] == "Delivery job completed ✅, thank you."
+    assert "buttons" not in fake_async_wa.sent[-1].kwargs
 
 
 def test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages() -> None:

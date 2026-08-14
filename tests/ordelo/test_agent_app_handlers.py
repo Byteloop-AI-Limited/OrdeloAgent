@@ -162,7 +162,6 @@ async def test_send_delivery_instructions_composes_buttons_and_returns_message_i
 
     msg_id, body = await agent_app_handlers._send_delivery_instructions(
         10,
-        "https://track.example.com/start",
         "RIDER01",
         "Bas",
         patch_supabase_client,
@@ -172,7 +171,7 @@ async def test_send_delivery_instructions_composes_buttons_and_returns_message_i
     assert msg_id == "wamid.send_message.1"
     assert "Hi Bas" in body
     assert "£5.5" in body
-    sent = fake_async_wa.sent[-1]
+    sent = fake_async_wa.sent[0]
     assert sent.kwargs["header"] == "🌟 ELAS-ABCD-1 🌟"
     assert [button.title for button in sent.kwargs["buttons"]] == ["Pickup Location", "Dropoff Location", "Contact Customer"]
 

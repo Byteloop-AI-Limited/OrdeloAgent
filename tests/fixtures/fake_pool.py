@@ -80,6 +80,10 @@ class FakeAsyncConnection:
     def cursor(self, *args: Any, **kwargs: Any) -> FakeAsyncCursor:
         return FakeAsyncCursor(self)
 
+    def transaction(self) -> "FakeAsyncConnection":
+        """Mirror psycopg's async transaction context for service tests."""
+        return self
+
     async def commit(self) -> None:
         return None
 

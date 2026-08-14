@@ -69,6 +69,9 @@ class FakeAsyncWhatsApp(_FakeWhatsAppBase):
     async def send_location(self, **kwargs: Any) -> dict[str, Any]:
         return self._record("send_location", **kwargs)
 
+    async def request_location(self, **kwargs: Any) -> dict[str, Any]:
+        return self._record("request_location", **kwargs)
+
     async def send_contact(self, **kwargs: Any) -> dict[str, Any]:
         return self._record("send_contact", **kwargs)
 

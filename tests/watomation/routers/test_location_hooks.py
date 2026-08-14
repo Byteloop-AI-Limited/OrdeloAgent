@@ -133,7 +133,14 @@ async def test_notify_rider_location_event_customer_enter_posts_webhook(monkeypa
     assert route.called
 
 
-async def test_notify_rider_null_or_outdated_location_sends_reason_messages(patch_async_wa_client: FakeAsyncWhatsApp) -> None:
+async def test_notify_rider_null_or_outdated_location_sends_reason_messages(
+    monkeypatch, patch_async_wa_client: FakeAsyncWhatsApp
+) -> None:
+    monkeypatch.setattr(
+        location_hooks.wa_location_settings,
+        "legacy_owntracks_prompts_enabled",
+        True,
+    )
     await location_hooks.notify_rider_null_or_outdated_location(
         _FakeRequest(
             [
@@ -145,3 +152,22 @@ async def test_notify_rider_null_or_outdated_location_sends_reason_messages(patc
 
     assert patch_async_wa_client.sent[-2].kwargs["text"] == "Please enable live tracking to receive updates on your delivery."
     assert patch_async_wa_client.sent[-1].kwargs["text"] == "How is the delivery going? you seemed to have stopped."
+
+
+async def test_notify_rider_null_or_outdated_location_is_disabled_by_default(
+    monkeypatch, patch_async_wa_client: FakeAsyncWhatsApp
+) -> None:
+    monkeypatch.setattr(
+        location_hooks.wa_location_settings,
+        "legacy_owntracks_prompts_enabled",
+        False,
+    )
+
+    response = await location_hooks.notify_rider_null_or_outdated_location(
+        _FakeRequest([
+            {"rider_id": "RIDER01", "order_number": "ELAS-ABCD-1", "reason": "NO_LOCATION_DATA"},
+        ])
+    )
+
+    assert response == {"status": "disabled"}
+    assert patch_async_wa_client.sent == []

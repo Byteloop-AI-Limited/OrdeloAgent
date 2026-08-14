@@ -43,6 +43,10 @@ def test_is_onboarded_rest_ref_resolves_alias() -> None:
     assert params.is_onboarded_rest_ref("unknown") is False
 
 
+def test_wa_location_response_webhook_path_is_not_used_for_open_callbacks() -> None:
+    assert "wa-location-response" not in params.WEBHOOK_PATHS
+
+
 async def test_get_restaurant_base_url_async_caches_by_resolved_ref(patch_supabase_client) -> None:
     patch_supabase_client.register(
         table="ordelo_config",
@@ -105,5 +109,3 @@ def test_reset_overwatch_list_cache() -> None:
 
     assert params.reset_overwatch_list_cache() == 1
     assert params.reset_overwatch_list_cache() == 0
-
-

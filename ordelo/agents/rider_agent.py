@@ -2,7 +2,7 @@
 LangGraph agent implementation for rider delivery workflow
     . Implements rider agent nodes and tools using LangGraph and LangChain
     . Manages delivery workflow from instructions to completion
-    . Handles live tracking, confirmation codes, and delivery status
+    . Handles delivery instructions, confirmation codes, and delivery status
     . Marks dispatch as picked up on restaurant code verification
     . Supports rider cancellation before pickup to resume dispatching using state rider metadata
     . Uses LangGraph for state management and LangChain for tool definitions
@@ -17,12 +17,11 @@ LangGraph agent implementation for rider delivery workflow
     . send_pickup_location - Sends restaurant location to rider
     . send_dropoff_location - Sends customer location to rider
     . send_delivery_instructions - Provides delivery instructions
-    . send_start_live_tracking_link - Initiates live tracking
     . cancel_delivery_before_pickup - Cancels assigned job pre‑pickup
     . capture_reason_for_cancel_before_pickup - Stores cancel reason
     . verify_restaurant_confirmation_code - Validates restaurant code
     . verify_customer_confirmation_code - Validates customer code
-    . terminate_delivery_job - Stops live tracking and closes thread (alias)
+    . terminate_delivery_job - Closes thread (alias)
     . end_delivery - Terminates delivery and tracking
     . agent_node - Main agent processing node
     . respond_node - Handles responses to user
@@ -72,10 +71,11 @@ from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from ordelo.agent_app_handlers import (
     _send_delivery_instructions,
     create_stop_job_config,
-    is_live_location_enabled,
     post_rider_event_customer_cc,
     post_rider_event_restaurant_cc,
 )
+from ordelo.wa_location import WaLocation
+from ordelo_datamodels.wa_location_pymodels import RestaurantConfirmationObservation
 from utils_common.lg_utils import create_agent_w_sys_prompt_n_tools
 from utils_common.thread_management import ThreadHandler
 
@@ -87,7 +87,6 @@ class AgentState(TypedDict):
     dispatch_id: int
     order_number: str
     reply_to_msg_id: str
-    start_live_tracking_url: str
     delivery_start_dtts: str
     is_restaurant_confirmation_code_verified: bool
     is_customer_confirmation_code_verified: bool
@@ -454,9 +453,7 @@ async def send_delivery_instructions(
     recipient = ctx.recipient
     client_ordelo = ctx.client_ordelo
 
-    # url updated in init
     dispatch_id = state.get("dispatch_id", None)
-    live_tracking_url = state.get("start_live_tracking_url", None)
     rider_name = state.get("rider_name", None)
 
     (
@@ -464,7 +461,6 @@ async def send_delivery_instructions(
         delivery_instructions_str,
     ) = await _send_delivery_instructions(
         dispatch_id,
-        live_tracking_url,
         recipient,
         rider_name,
         client_ordelo,
@@ -475,7 +471,7 @@ async def send_delivery_instructions(
             "reply_to_msg_id": reply_to_msg_id,
             "messages": [
                 ToolMessage(
-                    f"Delivery instructions sent to user. {delivery_instructions_str}. Request rider to start live location tracking by calling `send_start_live_tracking_link` tool.",
+                    f"Delivery instructions sent to user. {delivery_instructions_str}",
                     tool_call_id=tool_call_id,
                 ),
             ],
@@ -579,7 +575,7 @@ async def verify_restaurant_confirmation_code(
 
     delivery_summary: dict = (
         client_ordelo.table("delivery_summary")
-        .select("rest_confirmation_code", "customer_id")
+        .select("rest_confirmation_code", "customer_id", "rest_lat", "rest_lon")
         .eq("order_number", order_number)
         .execute()
         .data[0]
@@ -614,27 +610,9 @@ async def verify_restaurant_confirmation_code(
             }
         )
 
-    #  If corrent restaurant confirmation code
-    # send reaction to
-    if latest_wa_msg_id is not None:
-        await wa_client.send_reaction(
-            to=recipient, emoji="✅", message_id=latest_wa_msg_id
-        )
-    # Check if the live location is turned on
-    if is_live_location_enabled(order_number):
-        append_to_ai_msg = "Live location is enabled. Only prompt again if live location is *not* up to date."
-    else:
-        append_to_ai_msg = (
-            "Live tracking is not enabled. Call tool `send_start_live_tracking_link`"
-        )
-
-    # Notify the customer that food has been picked up from the restaurat
-    # if "test" not in order_number.lower():
-    await post_rider_event_restaurant_cc(order_number, customer_id)
-
-    # Persist pickup in DB so cancellation can be gated
+    # Persist pickup before emitting any event or inferred location observation.
+    # This makes the delivery state authoritative for every downstream consumer.
     try:
-        # notify overwatch
         wa_logger = await get_wa_logger()
         await wa_logger.info(f"{order_number} picked up from the restaurant.")
         client_ordelo.table("delivery_dispatch").update(
@@ -643,18 +621,54 @@ async def verify_restaurant_confirmation_code(
                 "status_update_dtts": datetime.now(timezone.utc).isoformat(),
             }
         ).eq("dispatch_id", dispatch_id).execute()
-        logger.info("Marked dispatch %s as pickedup", dispatch_id)
-    except Exception as e:
-        logger.error("Failed to mark dispatch %s as pickedup: %s", dispatch_id, e)
+    except Exception as exc:
+        logger.error("Failed to mark dispatch %s as pickedup: %s", dispatch_id, exc)
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "Unable to confirm pickup right now. Please try again shortly.",
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
 
-    # Add get_journey_instructions to the agent
+    # The restaurant point is deliberately approximate and never represents
+    # current rider GPS.  WaLocation also verifies the matching inflight row.
+    try:
+        await WaLocation(wa_client=wa_client).observe_restaurant_confirmation(
+            RestaurantConfirmationObservation(
+                order_number=order_number,
+                dispatch_id=dispatch_id,
+                rider_id=recipient,
+                latitude=delivery_summary["rest_lat"],
+                longitude=delivery_summary["rest_lon"],
+                observed_at=datetime.now(timezone.utc),
+            )
+        )
+    except Exception as exc:
+        # A supplemental location observation must not block the authoritative
+        # pickup transition or customer/restaurant delivery notifications.
+        logger.exception(
+            "Unable to record WaLocation restaurant observation for order={} error={}",
+            order_number,
+            type(exc).__name__,
+        )
+
+    # If correct restaurant confirmation code, send reaction and notify customer.
+    if latest_wa_msg_id is not None:
+        await wa_client.send_reaction(
+            to=recipient, emoji="✅", message_id=latest_wa_msg_id
+        )
+    await post_rider_event_restaurant_cc(order_number, customer_id)
+
     return Command(
         update={
             "is_restaurant_confirmation_code_verified": True,
             "messages": [
                 ToolMessage(
-                    "✅ Restaurant confirmation code accepted. Rider is on the way to the customer.\n\n"
-                    + append_to_ai_msg,
+                    "✅ Restaurant confirmation code accepted. Rider is on the way to the customer.",
                     tool_call_id=tool_call_id,
                 )
             ],
@@ -923,7 +937,7 @@ async def verify_customer_confirmation_code(
             "is_customer_confirmation_code_verified": True,
             "messages": [
                 ToolMessage(
-                    "✅ Customer confirmation code accepted. Delivery completed. Stop live tracking and close the job (tool: `terminate_delivery_job`).",
+                    "✅ Customer confirmation code accepted. Delivery completed.",
                     tool_call_id=tool_call_id,
                 )
             ],
@@ -991,7 +1005,7 @@ async def terminate_delivery_job(
     reason_for_decline: str | None = None,
 ) -> dict:
     """
-    Closes the current delivery job and stops live tracking.
+    Closes the current delivery job without requiring a tracking action.
 
     If the agent is currently waiting for a cancel reason (pre-pickup),
     the provided `reason_for_decline` will be persisted before closing the job.
@@ -1019,15 +1033,10 @@ async def terminate_delivery_job(
     thread_handler = ThreadHandler(pool)
     await thread_handler.make_threads_inactive(recipient=recipient)
 
-    stop_job_url = await create_stop_job_config()
-
     await ctx.wa_client.send_message(
         to=recipient,
-        text=(
-            """Delivery job completed ✅, thank you. \nClick the link below to stop live tracking."""
-        ),
+        text="Delivery job completed ✅, thank you.",
         reply_to_message_id=reply_to_msg_id,
-        buttons=ButtonUrl(title="Stop live tracking", url=stop_job_url),
     )
 
     return Command(
@@ -1035,7 +1044,7 @@ async def terminate_delivery_job(
             "awaiting_cancel_reason": False,
             "messages": [
                 ToolMessage(
-                    "Delivery job closed and stop-tracking link sent.",
+                    "Delivery job closed.",
                     tool_call_id=tool_call_id,
                 ),
                 AIMessage("/dontRespond: Delivery job closed."),
@@ -1054,7 +1063,6 @@ with open(
 # %%
 _rider_agent_tools = [
     send_delivery_instructions,
-    send_start_live_tracking_link,
     notify_food_ready_for_pickup,
     notify_pickup_time_adjusted,
     send_pickup_location,

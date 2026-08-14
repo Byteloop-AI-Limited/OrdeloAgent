@@ -15,6 +15,7 @@ __all__ = [
     "get_restaurant_webhook_url_async",
     "get_restaurant_base_url_async",
     "llm_settings",
+    "wa_location_settings",
 ]
 from .project_setting import project_settings, get_project_root
 from .waba_setting import (
@@ -37,3 +38,4 @@ from .params import (
     get_restaurant_base_url_async,
 )
 from .llm_setting import llm_settings
+from .wa_location_setting import wa_location_settings

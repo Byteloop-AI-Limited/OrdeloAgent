@@ -29,6 +29,9 @@ import json
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
+import httpx
+import respx
+
 from watomation.routers import delivery_hooks
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
 from tests.fixtures.fake_wa import FakeAsyncWhatsApp
@@ -198,6 +201,41 @@ async def test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook(
     assert result == {"status": "success"}
     assert [sent.kwargs["to"] for sent in patch_async_wa_client.sent[-2:]] == ["ADMIN01", "ADMIN02"]
     assert bg.tasks[0]["func"] == delivery_hooks.post_delivery_timedout
+    assert bg.tasks[0]["kwargs"]["payment_cancelled"] is True
+
+
+async def test_delivery_timedout_forwards_unconfirmed_cancellation(monkeypatch, patch_async_wa_client: FakeAsyncWhatsApp) -> None:
+    async def _fake_cancel(order_number):
+        return None
+
+    monkeypatch.setattr(delivery_hooks, "cancel_payment", _fake_cancel)
+    monkeypatch.setattr(delivery_hooks.RestaurantMaster, "get_admins_for", classmethod(lambda cls, rest_ref: []))
+    bg = _FakeBackgroundTasks()
+
+    await delivery_hooks.delivery_timedout(
+        bg, payload={"delivery_summary": [_summary_row(order_number="ELAS-ABCD-1")]}
+    )
+
+    assert bg.tasks[0]["kwargs"]["payment_cancelled"] is False
+
+
+@respx.mock
+async def test_timeout_webhook_serialises_verified_payment_cancellation(monkeypatch) -> None:
+    async def _webhook_url(rest_ref, webhook_type):
+        assert (rest_ref, webhook_type) == ("ELAS", "delivery-timedout")
+        return "https://rest.example.com/delivery-timedout"
+
+    monkeypatch.setattr(delivery_hooks, "get_restaurant_webhook_url_async", _webhook_url)
+    route = respx.post("https://rest.example.com/delivery-timedout").mock(
+        return_value=httpx.Response(200, json={"ok": True})
+    )
+
+    await delivery_hooks.post_delivery_timedout(
+        {"order_number": "ELAS-ABCD-1"}, payment_cancelled=True
+    )
+
+    assert route.called
+    assert json.loads(route.calls.last.request.content)["payment_cancelled"] is True
 
 
 async def test_check_rider_allocation_status_returns_summary_status(monkeypatch, patch_supabase_client) -> None:

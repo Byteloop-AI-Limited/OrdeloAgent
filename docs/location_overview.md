@@ -2,6 +2,16 @@
 
 This guide explains how OwnTracks location events travel from the queue into database tables and out to webhooks. It ties together `ordelo_datamodels/location.sql`, `ordelo_datamodels/jobs_n_functions/job_process_owntracks.sql`, and `watomation/routers/location_hooks.py`.
 
+## On-demand WhatsApp location
+
+OwnTracks remains a legacy ingestion and map path; it is no longer a required
+rider workflow. The separate `WaLocation` flow accepts open
+`POST /wa-request-location` demands with public HTTPS callback URLs, validates the exact active
+`delivery_inflight(order_number, dispatch_id, rider_id)` assignment, and asks
+the rider for a native WhatsApp current location only when an authorised
+request needs one. Its durable request/observation schema and rollout boundary
+are documented in [WaLocation Implementation Plan](wa_location_implementation_plan.md).
+
 ## End-to-End Flow
 
 ```mermaid
@@ -51,7 +61,11 @@ Rendered SVG (offline-friendly): ![Location flow](location_overview_flow.svg)
 
 ### Null or Outdated Location Endpoint
 
-- `POST /location-hooks/null-or-outdated-location` → receives an array of inflight rows, each containing `rider_id`, `order_number`, and `reason`. Sends a WhatsApp message to the rider based on `reason`:
+- `POST /location-hooks/null-or-outdated-location` → retained legacy endpoint.
+  It is a successful no-op unless `legacy_owntracks_prompts_enabled` is true.
+  When explicitly enabled, it receives an array of inflight rows, each
+  containing `rider_id`, `order_number`, and `reason`, and sends a WhatsApp
+  message based on `reason`:
   - `NO_LOCATION_DATA`: prompts the rider to enable live tracking.
   - `OUTDATED_LOCATION_DATA`: asks the rider how the delivery is going (indicates the rider has stopped sending location updates).
 
