@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
@@ -32,7 +32,9 @@ def _http_error_for(exc: Exception) -> HTTPException:
 
 
 @router.post("/wa-request-location")
-async def request_location(request: Request) -> JSONResponse:
+async def request_location(
+    request: Request, background_tasks: BackgroundTasks
+) -> JSONResponse:
     """Create one open, authority-checked WaLocation demand."""
 
     raw_body = await request.body()
@@ -42,7 +44,9 @@ async def request_location(request: Request) -> JSONResponse:
         raise HTTPException(status_code=422, detail={"code": "invalid_payload"}) from exc
 
     try:
-        outcome = await WaLocation(wa_client=_async_wa_client).request(demand)
+        outcome = await WaLocation(wa_client=_async_wa_client).request(
+            demand, schedule=background_tasks.add_task
+        )
     except Exception as exc:
         http_error = _http_error_for(exc)
         if http_error.status_code == 500:

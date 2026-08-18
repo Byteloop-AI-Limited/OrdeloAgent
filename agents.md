@@ -32,6 +32,7 @@ This document maps the codebase structure and explains how agents, webhooks, mes
     - `notify_pickup_time_adjusted` — notifies the inflight rider when the restaurant adjusts the pickup time (reads `pickup_time` from graph state, refreshed via `state_update_dict`).
     - `cancel_delivery_before_pickup` — rolls back an assigned dispatch pre‑pickup and reopens dispatching.
     - `terminate_delivery_job` — closes the delivery job/thread without a tracking link.
+    - `request_rider_current_location` — sends the WhatsApp current-location prompt; only called when `wa_location_request_id` is set in graph state (see `ordelo/wa_location.py`'s `WaLocation._prompt_rider_via_agent`), so every location ask stays in the agent's thread history.
     - Graph control nodes: `agent_node`, `respond_node`, `ToolNode`.
   - Runner helpers: `ordelo/agents/agent_runner.py` —
     - Invoke graph per message: `:71` (`run_rider_graph`)
@@ -296,6 +297,7 @@ INSTALL_DEV=1 source run_setup.sh
 - Verify restaurant/customer confirmation codes: `ordelo/agents/rider_agent.py:322`, `:419`
 - Pre‑pickup cancel + reason capture: `ordelo/agents/rider_agent.py` tools `cancel_delivery_before_pickup` and `capture_reason_for_cancel_before_pickup`
 - Mark job complete and stop tracking: `ordelo/agents/rider_agent.py:560`
+- Rider location prompt (agent tool): `ordelo/agents/rider_agent.py` tool `request_rider_current_location`, invoked from `ordelo/wa_location.py`'s `WaLocation._prompt_rider_via_agent`
 - Generate OwnTracks config link: `ordelo/agent_app_handlers.py:148`
 - Live map URL (server URL to maps page): `watomation/routers/location_hooks.py:74`
 - Rider zone event → restaurant webhook: `watomation/routers/location_hooks.py:229`

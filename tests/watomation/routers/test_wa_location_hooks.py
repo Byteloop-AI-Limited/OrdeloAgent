@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 
 from ordelo.wa_location import WaLocationCallbackDeliveryFailed, WaLocationConflict
 from watomation.routers import wa_location_hooks
@@ -23,23 +23,26 @@ class _Request:
 
 async def test_open_endpoint_accepts_unsigned_valid_demand(monkeypatch) -> None:
     captured = []
+    schedules_seen = []
 
     class _WaLocation:
         def __init__(self, **_kwargs) -> None:
             pass
 
-        async def request(self, demand):
+        async def request(self, demand, *, schedule=None):
             captured.append(demand)
+            schedules_seen.append(schedule)
             return SimpleNamespace(
-                status="rider_prompted",
+                status="waiting_for_rider",
                 model_dump=lambda **_kwargs: {
                     "request_id": str(uuid4()),
-                    "status": "rider_prompted",
+                    "status": "waiting_for_rider",
                     "source": None,
                 },
             )
 
     monkeypatch.setattr(wa_location_hooks, "WaLocation", _WaLocation)
+    background_tasks = BackgroundTasks()
     response = await wa_location_hooks.request_location(
         _Request(
             {
@@ -49,11 +52,13 @@ async def test_open_endpoint_accepts_unsigned_valid_demand(monkeypatch) -> None:
                 "requester_id": "447700900000",
                 "callback_url": "https://service.example.com/wa-location",
             }
-        )
+        ),
+        background_tasks,
     )
 
     assert response.status_code == 202
     assert captured[0].callback_url == "https://service.example.com/wa-location"
+    assert schedules_seen[0] == background_tasks.add_task
 
 
 def test_callback_delivery_failure_maps_to_gateway_error() -> None:
@@ -93,7 +98,7 @@ async def test_unhandled_exception_is_logged_with_order_context(monkeypatch) -> 
         def __init__(self, **_kwargs) -> None:
             pass
 
-        async def request(self, demand):
+        async def request(self, demand, *, schedule=None):
             raise RuntimeError("boom")
 
     fake_logger = _FakeLogger()
@@ -101,7 +106,7 @@ async def test_unhandled_exception_is_logged_with_order_context(monkeypatch) -> 
     monkeypatch.setattr(wa_location_hooks, "logger", fake_logger)
 
     with pytest.raises(HTTPException) as exc_info:
-        await wa_location_hooks.request_location(_Request(_DEMAND_PAYLOAD))
+        await wa_location_hooks.request_location(_Request(_DEMAND_PAYLOAD), BackgroundTasks())
 
     assert exc_info.value.status_code == 500
     assert len(fake_logger.exception_calls) == 1
@@ -120,7 +125,7 @@ async def test_typed_conflict_does_not_trigger_unexpected_error_logging(
         def __init__(self, **_kwargs) -> None:
             pass
 
-        async def request(self, demand):
+        async def request(self, demand, *, schedule=None):
             raise WaLocationConflict("food_not_picked_up")
 
     fake_logger = _FakeLogger()
@@ -128,7 +133,7 @@ async def test_typed_conflict_does_not_trigger_unexpected_error_logging(
     monkeypatch.setattr(wa_location_hooks, "logger", fake_logger)
 
     with pytest.raises(HTTPException) as exc_info:
-        await wa_location_hooks.request_location(_Request(_DEMAND_PAYLOAD))
+        await wa_location_hooks.request_location(_Request(_DEMAND_PAYLOAD), BackgroundTasks())
 
     assert exc_info.value.status_code == 409
     assert fake_logger.exception_calls == []

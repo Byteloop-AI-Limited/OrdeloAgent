@@ -31,8 +31,9 @@ WITH availableRiders AS (
         gar.priority)
   select * from availableRiders;
 
+select * from delivery_inflight;
 
-select * from delivery_dispatch where order_number = 'ELAS-XUDU-22';
+select * from delivery_dispatch where order_number = 'ELAS-ZMZL-21';
     WITH ridersToExclude AS (
         SELECT DISTINCT dDispatch.rider_id, dDispatch.vehicle_type
         FROM delivery_dispatch dDispatch
