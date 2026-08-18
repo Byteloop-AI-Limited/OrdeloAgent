@@ -12,6 +12,40 @@ the rider for a native WhatsApp current location only when an authorised
 request needs one. Its durable request/observation schema and rollout boundary
 are documented in [WaLocation Implementation Plan](wa_location_implementation_plan.md).
 
+**The prompt is sent through the rider agent, not directly.** `WaLocation.request()`
+validates and persists the demand synchronously, then schedules
+`_prompt_rider_via_agent()` as a FastAPI background task (`schedule=background_tasks.add_task`
+from `watomation/routers/wa_location_hooks.py`) and returns `202 waiting_for_rider`
+immediately. `_prompt_rider_via_agent()`:
+
+1. Probes `ThreadHandler.get_active_thread()` (non-mutating). If the rider has no
+   active agent thread, it falls back to a direct `wa_client.request_location()`
+   send — the pre-agent behavior — since the graph has no useful context to
+   hydrate a brand-new thread with.
+2. Otherwise it runs the rider graph with a system message ("Rider's location
+   requested by the customer/restaurant...") and `wa_location_request_id` set in
+   graph state. The rider agent's `request_rider_current_location` tool
+   (`ordelo/agents/rider_agent.py`) sends a short intro line naming the requester,
+   then the native WhatsApp location request, and records the resulting message
+   id via `WaLocation.record_prompt_sent()` — this id is the primary correlation
+   key for the rider's reply (see below).
+3. If the LLM did not call the tool, one deterministic retry runs
+   (`agent_node` forces the tool call, mirroring the existing
+   `awaiting_cancel_reason` pattern). If that still fails, the request is marked
+   `failed` via `WaLocation.mark_prompt_failed()`, which clears
+   `wa_location_prompt_time` so the cooldown does not block a later retry.
+
+This keeps the location ask inside the rider agent's LangGraph thread, so the
+conversation history matches what actually happened operationally — a project-wide
+requirement that all delivery-flow interactions go through the agent.
+
+When the rider replies with their current location, `handle_wa_location_message`
+(`watomation/on_wa_location_handler.py`) persists the observation and routes it to
+the requester's callback as before, then — if it correlated to a pending request —
+runs the rider graph once more with a system message so the agent can acknowledge
+the rider briefly; an unsolicited or ambiguous location reply does not invoke the
+agent.
+
 ## End-to-End Flow
 
 ```mermaid

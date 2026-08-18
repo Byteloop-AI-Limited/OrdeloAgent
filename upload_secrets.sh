@@ -28,6 +28,12 @@ aws secretsmanager update-secret \
   --secret-id ordelo-agent-env \
   --secret-string file://env.json
 
+
+aws secretsmanager update-secret \
+  --region eu-west-2 \
+  --secret-id restaurant-agents-env \
+  --secret-string file://restaurant_agents-env.json
+
 if [ $? -ne 0 ]; then
   log_error "Failed to upload secret to AWS Secrets Manager."
   exit 1

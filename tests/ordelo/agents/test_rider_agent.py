@@ -13,7 +13,11 @@ Key Functions:
   - test_verify_restaurant_confirmation_code_wrong_and_success_paths
   - test_verify_customer_confirmation_code_wrong_path
   - test_terminate_delivery_job_records_cancel_reason_and_closes_thread
+  - test_request_rider_current_location_sends_intro_and_request_and_records_id
+  - test_request_rider_current_location_noop_without_pending_request
+  - test_request_rider_current_location_marks_failed_on_send_error
   - test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages
+  - test_agent_node_forces_location_tool_call_when_flagged
   - test_respond_node_sends_last_ai_message
 """
 
@@ -214,6 +218,86 @@ async def test_terminate_delivery_job_records_cancel_reason_and_closes_thread(mo
     assert "buttons" not in fake_async_wa.sent[-1].kwargs
 
 
+async def test_request_rider_current_location_sends_intro_and_request_and_records_id(
+    monkeypatch, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp
+) -> None:
+    recorded = []
+
+    class _FakeWaLocation:
+        def __init__(self, *, wa_client):
+            self.wa_client = wa_client
+
+        async def record_prompt_sent(self, request_id, message_id):
+            recorded.append((request_id, message_id))
+
+        async def mark_prompt_failed(self, request_id, reason):
+            raise AssertionError("mark_prompt_failed should not be called on success")
+
+    monkeypatch.setattr(rider_agent, "WaLocation", _FakeWaLocation)
+
+    result = await rider_agent.request_rider_current_location(
+        "Your customer is asking where you are.",
+        {"wa_location_request_id": "req-1"},
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert fake_async_wa.sent[0].method == "send_message"
+    assert fake_async_wa.sent[0].kwargs["text"] == "Your customer is asking where you are."
+    assert fake_async_wa.sent[1].method == "request_location"
+    assert recorded[0][0] == "req-1"
+    assert result.update["wa_location_request_id"] is None
+    assert result.update["force_wa_location_prompt"] is False
+    assert "/dontRespond" in result.update["messages"][-1].content
+
+
+async def test_request_rider_current_location_noop_without_pending_request(
+    patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp
+) -> None:
+    result = await rider_agent.request_rider_current_location(
+        "Your customer is asking where you are.",
+        {},
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert fake_async_wa.sent == []
+    assert "No pending location request" in result.update["messages"][0].content
+
+
+async def test_request_rider_current_location_marks_failed_on_send_error(
+    monkeypatch, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp
+) -> None:
+    failed = []
+
+    class _FakeWaLocation:
+        def __init__(self, *, wa_client):
+            self.wa_client = wa_client
+
+        async def record_prompt_sent(self, request_id, message_id):
+            raise AssertionError("record_prompt_sent should not be called on failure")
+
+        async def mark_prompt_failed(self, request_id, reason):
+            failed.append((request_id, reason))
+
+    async def _boom(**_kwargs):
+        raise RuntimeError("wa down")
+
+    monkeypatch.setattr(rider_agent, "WaLocation", _FakeWaLocation)
+    monkeypatch.setattr(fake_async_wa, "request_location", _boom)
+
+    result = await rider_agent.request_rider_current_location(
+        "Your customer is asking where you are.",
+        {"wa_location_request_id": "req-1"},
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert failed == [("req-1", "RuntimeError")]
+    assert result.update["wa_location_request_id"] is None
+    assert "Failed to send" in result.update["messages"][0].content
+
+
 def test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages() -> None:
     tool_result = rider_agent.agent_node({"awaiting_cancel_reason": True, "messages": [ToolMessage("Why?", tool_call_id="tool-1")]})
     assert tool_result.goto == "respondNode"
@@ -227,6 +311,24 @@ def test_agent_node_routes_awaiting_cancel_reason_tool_and_human_messages() -> N
 
     end_result = rider_agent.agent_node({"messages": [AIMessage("done")]})
     assert end_result.goto == END
+
+
+def test_agent_node_forces_location_tool_call_when_flagged() -> None:
+    # Preceded by a plain AIMessage, mirroring the state after the LLM missed
+    # the tool -- the deterministic branch must still fire, not hit the
+    # trailing-AIMessage END guard.
+    result = rider_agent.agent_node(
+        {
+            "force_wa_location_prompt": True,
+            "wa_location_request_id": "req-1",
+            "messages": [AIMessage("some earlier reply")],
+        }
+    )
+
+    assert result.goto == "toolNode"
+    call = result.update["messages"][0].tool_calls[0]
+    assert call["name"] == "request_rider_current_location"
+    assert "intro_message" in call["args"]
 
 
 async def test_respond_node_sends_last_ai_message(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
