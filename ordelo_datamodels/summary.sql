@@ -22,7 +22,11 @@ CREATE TABLE delivery_summary (
     rest_confirmation_code INTEGER NOT NULL,
     cust_confirmation_code INTEGER NOT NULL,
     rest_prep_time_minutes INTEGER,
-    rest_confirmation_method VARCHAR(20),
+    rest_confirmation_method VARCHAR(20)
+        CHECK (
+            rest_confirmation_method IS NULL
+            OR rest_confirmation_method IN ('manual', 'timeout', 'configured_auto')
+        ),
     -- WhatsApp message IDs for tracking communications
     restaurant_msg_id VARCHAR(255), -- nullable, stores WA message ID for restaurant communications
     rider_msg_id VARCHAR(255), -- nullable, stores WA message ID for rider communications
