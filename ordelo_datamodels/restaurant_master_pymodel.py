@@ -6,6 +6,7 @@ Pydantic model for restaurant_master table
     . Models the restaurant_master table structure
     . Provides from_rest_ref to instantiate from DB (cached, alias-aware)
     . Provides get_admins to return admins from cached object
+    . Exposes auto_accept for restaurant-level order initialization policy
   Functions/Classes:
     . RestaurantMaster
         . from_rest_ref
@@ -42,6 +43,7 @@ class RestaurantMaster(BaseModel):
     collection_commission: Optional[float] = None  # e.g. 0.04 for 4%
     delivery_order_cutoff_minutes: int = 0
     takeaway_order_cutoff_minutes: int = 0
+    auto_accept: bool = False
 
     @classmethod
     def from_rest_ref(cls, rest_ref: str):

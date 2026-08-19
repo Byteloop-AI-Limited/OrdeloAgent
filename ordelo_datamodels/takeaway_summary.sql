@@ -430,3 +430,13 @@ AFTER UPDATE OF pickup_time ON public.takeaway_summary
 FOR EACH ROW
 WHEN (OLD.pickup_time IS NULL AND NEW.pickup_time IS NOT NULL)
 EXECUTE FUNCTION takeaway_pickup_time_whook();
+
+-- Configured auto-accept sets pickup_time during INSERT, so it needs the
+-- same pickup-finalized workflow without waiting for a follow-up UPDATE.
+DROP TRIGGER IF EXISTS trigger_takeaway_pickup_time_insert ON public.takeaway_summary;
+
+CREATE TRIGGER trigger_takeaway_pickup_time_insert
+AFTER INSERT ON public.takeaway_summary
+FOR EACH ROW
+WHEN (NEW.pickup_time IS NOT NULL)
+EXECUTE FUNCTION takeaway_pickup_time_whook();
