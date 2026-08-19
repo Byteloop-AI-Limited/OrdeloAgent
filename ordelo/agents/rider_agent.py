@@ -21,6 +21,7 @@ LangGraph agent implementation for rider delivery workflow
     . capture_reason_for_cancel_before_pickup - Stores cancel reason
     . verify_restaurant_confirmation_code - Validates restaurant code
     . verify_customer_confirmation_code - Validates customer code
+    . request_rider_current_location - Sends the WhatsApp current-location prompt, cued by wa_location_request_id in state
     . terminate_delivery_job - Closes thread (alias)
     . end_delivery - Terminates delivery and tracking
     . agent_node - Main agent processing node
@@ -93,6 +94,8 @@ class AgentState(TypedDict):
     awaiting_cancel_reason: bool
     latest_wa_msg_id: str
     pickup_time: str
+    wa_location_request_id: str
+    force_wa_location_prompt: bool
 
 
 # %% Static Runtime Context
@@ -349,6 +352,81 @@ async def send_dropoff_location(
                     f"/dontRespond: Dropoff location is {summary['customer_address']}. Location is sent to rider on WhatsApp."
                 ),
             ]
+        }
+    )
+
+
+# %%
+async def request_rider_current_location(
+    intro_message: str,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
+) -> dict:
+    """
+    Requests the rider's current WhatsApp location. Only call this tool when
+    the system message explicitly says a location was requested by the
+    customer or restaurant. Never call it on your own initiative or because
+    the rider mentions their location.
+
+    Args:
+        intro_message (str): One short line telling the rider who is asking
+            for their location (e.g. "Your customer is asking where you are.").
+
+    Returns:
+        dict: Agent to respond as instructed by the tool message.
+    """
+    ctx = runtime.context
+    recipient = ctx.recipient
+
+    request_id = state.get("wa_location_request_id")
+    if not request_id:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "No pending location request for this rider.",
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+
+    try:
+        await ctx.wa_client.send_message(to=recipient, text=intro_message)
+        sent = await ctx.wa_client.request_location(
+            to=recipient, text="Please share your current location."
+        )
+        await WaLocation(wa_client=ctx.wa_client).record_prompt_sent(
+            request_id, sent.id
+        )
+    except Exception as exc:
+        await WaLocation(wa_client=ctx.wa_client).mark_prompt_failed(
+            request_id, type(exc).__name__
+        )
+        return Command(
+            update={
+                "wa_location_request_id": None,
+                "force_wa_location_prompt": False,
+                "messages": [
+                    ToolMessage(
+                        "Failed to send the location request to the rider.",
+                        tool_call_id=tool_call_id,
+                    )
+                ],
+            }
+        )
+
+    return Command(
+        update={
+            "wa_location_request_id": None,
+            "force_wa_location_prompt": False,
+            "messages": [
+                ToolMessage(
+                    "Location request sent to rider.", tool_call_id=tool_call_id
+                ),
+                AIMessage("/dontRespond: Location request sent to rider."),
+            ],
         }
     )
 
@@ -1067,6 +1145,7 @@ _rider_agent_tools = [
     notify_pickup_time_adjusted,
     send_pickup_location,
     send_dropoff_location,
+    request_rider_current_location,
     send_customer_contact,
     cancel_delivery_before_pickup,
     capture_reason_for_cancel_before_pickup,
@@ -1092,6 +1171,23 @@ rider_agent = create_agent_w_sys_prompt_n_tools(
 
 # %% rider_agent_node
 def agent_node(state: AgentState) -> Command[Literal["toolNode", "respondNode", END]]:
+    if state.get("force_wa_location_prompt") and state.get("wa_location_request_id"):
+        tool_call_id = f"wa_location_{uuid4().hex}"
+        ai_msg = AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "request_rider_current_location",
+                    "args": {
+                        "intro_message": "Please share your current location — "
+                        "someone is waiting on your delivery."
+                    },
+                    "id": tool_call_id,
+                }
+            ],
+        )
+        return Command(update={"messages": [ai_msg]}, goto="toolNode")
+
     if state.get("awaiting_cancel_reason") and isinstance(
         state["messages"][-1], ToolMessage
     ):

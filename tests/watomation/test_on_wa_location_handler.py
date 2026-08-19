@@ -29,7 +29,18 @@ async def test_manual_pin_is_rejected_without_calling_wa_location(monkeypatch) -
     assert "Share current location" in wa.sent[-1].kwargs["text"]
 
 
-async def test_current_location_is_forwarded_with_reply_correlation(monkeypatch) -> None:
+def _thread_handler_factory(*, active: bool):
+    class _FakeThreadHandler:
+        def __init__(self, _pool):
+            pass
+
+        async def get_active_thread(self, _recipient):
+            return {"thread_id": "t1"} if active else None
+
+    return _FakeThreadHandler
+
+
+async def test_current_location_is_forwarded_and_acknowledged_via_agent(monkeypatch, patch_pg_pool) -> None:
     wa = FakeAsyncWhatsApp()
     msg = FakeMessage(sender="RIDER01", timestamp=1_700_000_000)
     msg.location = SimpleNamespace(
@@ -39,6 +50,7 @@ async def test_current_location_is_forwarded_with_reply_correlation(monkeypatch)
     )
     msg.reply_to_message = SimpleNamespace(id="wamid.request")
     received = []
+    agent_calls = []
 
     class _WaLocation:
         def __init__(self, **_kwargs):
@@ -48,7 +60,16 @@ async def test_current_location_is_forwarded_with_reply_correlation(monkeypatch)
             received.append(receipt)
             return 1
 
+    async def _fake_run(**kwargs):
+        agent_calls.append(kwargs)
+
     monkeypatch.setattr(on_wa_location_handler, "WaLocation", _WaLocation)
+    monkeypatch.setattr(
+        on_wa_location_handler, "ThreadHandler", _thread_handler_factory(active=True)
+    )
+    monkeypatch.setattr(
+        "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run
+    )
 
     await on_wa_location_handler.handle_wa_location_message(wa, msg)
 
@@ -57,3 +78,77 @@ async def test_current_location_is_forwarded_with_reply_correlation(monkeypatch)
     assert received[0].reply_to_message_id == "wamid.request"
     assert received[0].latitude == 51.5
     assert wa.sent == []
+    assert len(agent_calls) == 1
+    assert agent_calls[0]["recipient"] == "RIDER01"
+    assert "shared their current location" in agent_calls[0]["system_msg"]
+
+
+async def test_uncorrelated_location_does_not_invoke_agent(monkeypatch, patch_pg_pool) -> None:
+    wa = FakeAsyncWhatsApp()
+    msg = FakeMessage(sender="RIDER01", timestamp=1_700_000_000)
+    msg.location = SimpleNamespace(
+        current_location=True,
+        latitude=51.5,
+        longitude=-0.12,
+    )
+    msg.reply_to_message = None
+    agent_calls = []
+
+    class _WaLocation:
+        def __init__(self, **_kwargs):
+            pass
+
+        async def receive_whatsapp_location(self, receipt):
+            return 0
+
+    async def _fake_run(**kwargs):
+        agent_calls.append(kwargs)
+
+    monkeypatch.setattr(on_wa_location_handler, "WaLocation", _WaLocation)
+    monkeypatch.setattr(
+        on_wa_location_handler, "ThreadHandler", _thread_handler_factory(active=True)
+    )
+    monkeypatch.setattr(
+        "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run
+    )
+
+    await on_wa_location_handler.handle_wa_location_message(wa, msg)
+
+    assert agent_calls == []
+
+
+async def test_correlated_location_without_active_thread_skips_agent(monkeypatch, patch_pg_pool) -> None:
+    """The rider was prompted via the direct-send fallback (no thread existed);
+    the ack must not silently create one -- that would flip the request-side
+    fallback decision for the rider's very next location ask."""
+    wa = FakeAsyncWhatsApp()
+    msg = FakeMessage(sender="RIDER01", timestamp=1_700_000_000)
+    msg.location = SimpleNamespace(
+        current_location=True,
+        latitude=51.5,
+        longitude=-0.12,
+    )
+    msg.reply_to_message = SimpleNamespace(id="wamid.request")
+    agent_calls = []
+
+    class _WaLocation:
+        def __init__(self, **_kwargs):
+            pass
+
+        async def receive_whatsapp_location(self, receipt):
+            return 1
+
+    async def _fake_run(**kwargs):
+        agent_calls.append(kwargs)
+
+    monkeypatch.setattr(on_wa_location_handler, "WaLocation", _WaLocation)
+    monkeypatch.setattr(
+        on_wa_location_handler, "ThreadHandler", _thread_handler_factory(active=False)
+    )
+    monkeypatch.setattr(
+        "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run
+    )
+
+    await on_wa_location_handler.handle_wa_location_message(wa, msg)
+
+    assert agent_calls == []

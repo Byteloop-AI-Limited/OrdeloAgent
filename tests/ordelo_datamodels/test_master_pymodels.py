@@ -6,6 +6,7 @@ client so tests assert both model validation and query intent.
 Key Functions:
   - test_restaurant_master_from_rest_ref_uppercases_lookup
   - test_restaurant_master_get_admins_fetches_live_column
+  - test_restaurant_master_auto_accept_defaults_false_and_accepts_true
   - test_customer_master_defaults_missing_address_bits
   - test_customer_master_from_customer_id_alias
   - test_customer_master_upsert_filters_unknown_fields
@@ -93,6 +94,11 @@ def test_restaurant_master_get_admins_fetches_live_column(patch_supabase_client)
     rest = RestaurantMaster(**_restaurant_row(admins=[]))
 
     assert rest.get_admins() == ["447400000001"]
+
+
+def test_restaurant_master_auto_accept_defaults_false_and_accepts_true() -> None:
+    assert RestaurantMaster(**_restaurant_row()).auto_accept is False
+    assert RestaurantMaster(**_restaurant_row(auto_accept=True)).auto_accept is True
 
 
 def test_customer_master_defaults_missing_address_bits() -> None:

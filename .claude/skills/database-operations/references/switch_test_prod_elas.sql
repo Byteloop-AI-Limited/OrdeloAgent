@@ -10,6 +10,7 @@ select * from rider_master where rider_name in ('Lohith', 'Bloop', 'Rahul');
 -- ============================================================
 -- ELAS: Test Setup
 -- ============================================================
+update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'ELAS_APP_URL';
 
 update restaurant_master
 set admins = Array['447919202938'],
@@ -25,13 +26,14 @@ set admins = Array['447919202938'],
   "sun": [["18:00", "21:00"]]
 }'::jsonb,
     restaurant_end_time = 24,
+    auto_accept = true,
     city='dummy'
 where rest_ref in ('ELAS', 'CHKS');
 
 update rider_master
 set is_in_shift = true,
     town = 'dummy',
-    vehicle_type = 'scooter'
+    vehicle_type = 'car'
 where rider_name = 'Lohith';
 
 update rider_master
@@ -48,7 +50,6 @@ set is_in_shift = true,
 where rider_name in ('Bloop');
 
 
-update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'ELAS_APP_URL';
 
 -- ============================================================
 -- ELAS: Production Setup
@@ -71,6 +72,12 @@ set admins = Array['447448440754', '447446933210','447901518136','447914844933',
         "sun": [["12:00", "21:00"]]
     }'::jsonb
 where rest_ref in ('ELAS', 'CHKS');
+
+update rider_master
+set is_in_shift = true,
+    town = 'Salisbury',
+    vehicle_type = 'car'
+where rider_name = 'Rahul';
 
 update rider_master
 set is_in_shift = true,

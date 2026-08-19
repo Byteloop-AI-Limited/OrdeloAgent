@@ -7,9 +7,10 @@ from datetime import datetime, timezone
 from pywa.types import Message
 from pywa_async import WhatsApp
 
-from config import logger
+from config import logger, pg_settings
 from ordelo.wa_location import WaLocation
 from ordelo_datamodels.wa_location_pymodels import WhatsAppLocationReceipt
+from utils_common.thread_management import ThreadHandler
 
 
 def _observed_at(value: object) -> datetime:
@@ -38,7 +39,7 @@ async def handle_wa_location_message(wa: WhatsApp, msg: Message) -> None:
 
     reply_to = getattr(msg, "reply_to_message", None)
     try:
-        await WaLocation(wa_client=wa).receive_whatsapp_location(
+        correlated = await WaLocation(wa_client=wa).receive_whatsapp_location(
             WhatsAppLocationReceipt(
                 rider_id=recipient,
                 latitude=location.latitude,
@@ -48,6 +49,18 @@ async def handle_wa_location_message(wa: WhatsApp, msg: Message) -> None:
                 reply_to_message_id=getattr(reply_to, "id", None),
             )
         )
+        if correlated:
+            pool = await pg_settings.get_pool()
+            if await ThreadHandler(pool).get_active_thread(recipient):
+                from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
+
+                await run_rider_agent_w_custom_msg(
+                    recipient=recipient,
+                    system_msg=(
+                        "Rider shared their current location and it has been "
+                        "sent to the requester. Acknowledge briefly in one line."
+                    ),
+                )
     except Exception as exc:
         # The message is intentionally consumed: sending it to the rider graph
         # would create an unrelated conversational response to coordinates.

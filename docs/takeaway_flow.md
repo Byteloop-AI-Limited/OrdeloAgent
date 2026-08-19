@@ -1,7 +1,7 @@
 # Ordelo Takeaway Flow
 
-**Version:** 1.0
-**Last Updated:** 2026-02-14
+**Version:** 1.1
+**Last Updated:** 2026-08-18
 
 This document covers the takeaway order lifecycle within OrdeloAgent, from initialization through restaurant confirmation to pickup time confirmation. For delivery-specific flows, see `docs/delivery_process.md`.
 
@@ -37,6 +37,11 @@ Order Created → Payment (Stripe or pay-at-restaurant) → init_takeaway() RPC
   → Restaurant Accept → Pickup Time Selection → pickup_confirmed
   → DB trigger → External Restaurant Notification
 ```
+
+For `restaurant_master.auto_accept=true`, initialization resolves a configured
+pickup time and inserts the order as `auto_accept` / `pickup_confirmed`. The
+insert-time pickup trigger retains payment/print, restaurant webhook, and
+overwatch work, but skips the restaurant-admin takeaway receipt.
 
 ---
 

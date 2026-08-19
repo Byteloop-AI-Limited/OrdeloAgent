@@ -1,7 +1,7 @@
 # Ordelo Delivery Process
 
-**Version:** 3.1
-**Last Updated:** 2026-02-14
+**Version:** 3.2
+**Last Updated:** 2026-08-18
 
 This document provides a comprehensive reference for the Ordelo delivery workflow, covering the complete journey from order creation through delivery completion, including all database triggers, scheduled jobs, and webhook integrations.
 
@@ -43,6 +43,12 @@ The Ordelo delivery workflow orchestrates food delivery from order placement to 
 Order Created → Restaurant Confirms → Dispatch to Riders → Rider Accepts → 
 Rider Assigned → Delivery Inflight → Delivery Completed
 ```
+
+Restaurants with `restaurant_master.auto_accept=true` bypass the restaurant
+confirmation phase: initialization resolves the configured pickup time, records
+`configured_auto`, and enters dispatch as `unassigned`. Their no-rider admin
+notification is suppressed; rider-assigned and later operational notifications
+remain enabled.
 
 ---
 

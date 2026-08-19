@@ -11,6 +11,7 @@ Core agent runner for Ordelo's delivery workflow system
   Functions/Classes:
     . _get_config_for_recipient_with_retry - Reconciles one uncertain thread acquisition
     . run_rider_agent_w_custom_msg - Executes rider graph with custom messages and returns AI response
+    . clear_wa_location_request - Clears a stale wa_location request id from graph state after a failed prompt
     . init_ordelo_graph - Initializes delivery workflow for given detail
     . debug_state - Returns shortened graph state for debugging
     . debug_state_values - Returns state values for debugging
@@ -129,6 +130,24 @@ async def run_rider_agent_w_custom_msg(
     ai_msg_content: str = ai_msg["messages"][-1].content
 
     return ai_msg_content
+
+
+# %% Clear a stale wa_location request from graph state
+async def clear_wa_location_request(recipient: str) -> None:
+    """Clears wa_location_request_id/force_wa_location_prompt after a failed prompt attempt.
+
+    Prevents a later, unrelated turn from firing the location tool against a
+    request that was already marked failed.
+    """
+    pool: AsyncConnectionPool = await pg_settings.get_pool()
+    checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
+    graph = builder.compile(checkpointer=checkpointer)
+    config, _ = await get_config_for_recipient(recipient, pool)
+    await graph.aupdate_state(
+        config,
+        {"wa_location_request_id": None, "force_wa_location_prompt": False},
+        as_node="toolNode",
+    )
 
 
 # %% Init Ordelo graph

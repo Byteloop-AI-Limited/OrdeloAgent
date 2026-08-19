@@ -19,6 +19,7 @@ Key Functions:
   - test_format_pickup_time_display_delegates_to_fmt_uk_time
   - test_pickup_time_updated_hook_schedules_background_processing
   - test_pickup_time_updated_hook_returns_error_for_invalid_payload
+  - test_pickup_time_updated_hook_skips_admin_receipt_for_configured_auto_accept
 """
 
 from __future__ import annotations
@@ -128,6 +129,28 @@ async def test_pickup_time_updated_hook_returns_error_for_invalid_payload() -> N
 
     assert result["status"] == "error"
     assert result["order_number"] == "ELAS-ABCD-1"
+
+
+async def test_pickup_time_updated_hook_skips_admin_receipt_for_configured_auto_accept() -> None:
+    bg = _FakeBackgroundTasks()
+    payload = {
+        "takeaway_summary": _takeaway_summary_row(
+            status="pickup_confirmed",
+            restaurant_confirmation_status="auto_accept",
+            rest_confirmation_method="configured_auto",
+            pickup_time="2026-05-09T12:30:00+00:00",
+        ),
+        "restaurant_master": _restaurant_master_row(),
+    }
+
+    result = await takeaway_hooks.pickup_time_updated_hook(bg, payload=payload)
+
+    assert result == {"status": "success"}
+    assert [task["func"] for task in bg.tasks] == [
+        takeaway_hooks.capture_takeaway_payment,
+        takeaway_hooks._post_pickup_time_event,
+        takeaway_hooks.notify_overwatch,
+    ]
 
 
 async def test_handle_restaurant_timedout_uses_rest_specific_pickup_config(

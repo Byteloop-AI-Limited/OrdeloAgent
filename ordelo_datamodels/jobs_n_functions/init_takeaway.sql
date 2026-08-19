@@ -44,6 +44,10 @@ DECLARE
     v_customer_name TEXT;
     v_salt_number INTEGER;
     v_rest_confirmation_code INTEGER;
+    v_created_at TIMESTAMP WITH TIME ZONE := CURRENT_TIMESTAMP;
+    v_auto_accept BOOLEAN;
+    v_pickup_minutes INTEGER;
+    v_pickup_time TIMESTAMP WITH TIME ZONE;
 BEGIN
     v_rest_ref := COALESCE(p_rest_ref, SPLIT_PART(p_order_number, '-', 1));
 
@@ -89,6 +93,20 @@ BEGIN
         random() * (90 - (v_salt_number - 100) + 1) + (v_salt_number - 100)
     )::INT;
 
+    SELECT
+        acceptance.auto_accept,
+        acceptance.pickup_minutes,
+        acceptance.pickup_time
+    INTO
+        v_auto_accept,
+        v_pickup_minutes,
+        v_pickup_time
+    FROM public.resolve_initial_restaurant_acceptance(
+        v_rest_ref,
+        'takeaway',
+        v_created_at
+    ) AS acceptance;
+
     RETURN QUERY
     INSERT INTO takeaway_summary (
         order_number,
@@ -99,8 +117,13 @@ BEGIN
         customer_id,
         customer_name,
         restaurant_confirmation_status,
+        restaurant_update_dtts,
         status,
-        rest_confirmation_code
+        rest_confirmation_code,
+        rest_prep_time_minutes,
+        rest_confirmation_method,
+        pickup_time,
+        dtts
     ) VALUES (
         p_order_number,
         v_rest_id,
@@ -109,9 +132,14 @@ BEGIN
         v_town,
         p_cust_id,
         v_customer_name,
-        'restaurant_unconfirmed',
-        'restaurant_unconfirmed',
-        v_rest_confirmation_code
+        CASE WHEN v_auto_accept THEN 'auto_accept' ELSE 'restaurant_unconfirmed' END,
+        CASE WHEN v_auto_accept THEN v_created_at ELSE NULL END,
+        CASE WHEN v_auto_accept THEN 'pickup_confirmed' ELSE 'restaurant_unconfirmed' END,
+        v_rest_confirmation_code,
+        v_pickup_minutes,
+        CASE WHEN v_auto_accept THEN 'configured_auto' ELSE NULL END,
+        v_pickup_time,
+        v_created_at
     )
     RETURNING *;
 END;
