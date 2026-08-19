@@ -26,6 +26,7 @@ set admins = Array['447919202938'],
   "sun": [["18:00", "21:00"]]
 }'::jsonb,
     restaurant_end_time = 24,
+    auto_accept = true,
     city='dummy'
 where rest_ref in ('ELAS', 'CHKS');
 

@@ -10,13 +10,19 @@ def _read(relative_path: str) -> str:
     return (ROOT / relative_path).read_text()
 
 
-def test_auto_accept_migration_installs_schema_policy_and_takeaway_insert_trigger() -> None:
-    migration = _read("ordelo_datamodels/migrations/add_restaurant_auto_accept.sql")
+def test_canonical_sql_installs_auto_accept_schema_policy_and_takeaway_insert_trigger() -> None:
+    masterdata = _read("ordelo_datamodels/masterdata.sql")
+    delivery_summary = _read("ordelo_datamodels/summary.sql")
+    resolver = _read(
+        "ordelo_datamodels/jobs_n_functions/resolve_initial_restaurant_acceptance.sql"
+    )
+    takeaway_summary = _read("ordelo_datamodels/takeaway_summary.sql")
 
-    assert "ADD COLUMN IF NOT EXISTS auto_accept BOOLEAN NOT NULL DEFAULT FALSE" in migration
-    assert "resolve_initial_restaurant_acceptance" in migration
-    assert "'configured_auto'" in migration
-    assert "trigger_takeaway_pickup_time_insert" in migration
+    assert "auto_accept BOOLEAN NOT NULL DEFAULT FALSE" in masterdata
+    assert "rest_confirmation_method IS NULL" in delivery_summary
+    assert "'manual', 'timeout', 'configured_auto'" in delivery_summary
+    assert "CREATE OR REPLACE FUNCTION public.resolve_initial_restaurant_acceptance" in resolver
+    assert "trigger_takeaway_pickup_time_insert" in takeaway_summary
 
 
 def test_initializers_map_configured_auto_to_dispatch_ready_states() -> None:
@@ -31,16 +37,19 @@ def test_initializers_map_configured_auto_to_dispatch_ready_states() -> None:
     assert "CASE WHEN v_auto_accept THEN 'configured_auto' ELSE NULL END" in takeaway
 
 
-def test_migration_qualifies_acceptance_result_columns() -> None:
-    migration = _read("ordelo_datamodels/migrations/add_restaurant_auto_accept.sql")
-
+def test_initializers_qualify_acceptance_result_columns() -> None:
     qualified_select = (
         "acceptance.auto_accept,\n"
         "        acceptance.pickup_minutes,\n"
         "        acceptance.pickup_time"
     )
-    assert migration.count(qualified_select) == 2
-    assert migration.count(") AS acceptance;") == 2
+    for relative_path in (
+        "ordelo_datamodels/jobs_n_functions/init_delivery.sql",
+        "ordelo_datamodels/jobs_n_functions/init_takeaway.sql",
+    ):
+        initializer = _read(relative_path)
+        assert qualified_select in initializer
+        assert ") AS acceptance;" in initializer
 
 
 def test_acceptance_policy_uses_restaurant_config_before_global_fallback() -> None:
