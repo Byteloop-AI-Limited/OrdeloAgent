@@ -157,8 +157,7 @@ VALUES
   ('RESTAURANT_CONFIRMATION_TIMEOUT', '5', 'Default minutes to wait for restaurant confirmation before defaulting to max prep time')
 ON CONFLICT (config_key) DO NOTHING;
 
-select *
-from ordelo_config;
+select * from ordelo_config where config_key like '%SFCS%';
 
 -- update restaurant master
 update restaurant_master 
@@ -261,7 +260,14 @@ SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
 
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('SFCS_DELIVERY_TIMEOUT_TIME', '5', 'Timeout in minutes for delivery_summary status transition to timedout') ON CONFLICT (config_key) DO
+VALUES ('SFCS_DEFAULT_DELIVERY_PICKUP_TIME', '30', 'SFCS delivery pickup default override') ON CONFLICT (config_key) DO
+UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description,
+    updated_at = CURRENT_TIMESTAMP;
+
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('SFCS_DEFAULT_COLLECTION_PICKUP_TIME', '30', 'SFCS takeaway pickup default override') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;

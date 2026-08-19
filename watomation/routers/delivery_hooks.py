@@ -5,6 +5,7 @@ Delivery webhook handlers for Ordelo delivery system
     . Cancels payments for timed out deliveries via the payment microservice
     . Implements function chaining pattern for complex workflows
     . Handles missed dispatch notifications and rider communications
+    . Suppresses no-rider admin messages for configured auto-accept orders
     . Provides FastAPI endpoints for delivery operations
     . Uses PostgreSQL CTEs for conditional database operations
     . Follows webhook pattern where database triggers call FastAPI endpoints
@@ -740,14 +741,21 @@ async def delivery_timedout(
             extra={"order_number": delivery_summary.get("order_number")},
         )
 
-    # 2. Notify restaurant admins
-    rest_ref = delivery_summary["order_number"].split("-")[0]
-    rest_admins = RestaurantMaster.get_admins_for(rest_ref)
+    # 2. Configured auto-accept orders intentionally suppress the noisy
+    # no-rider message. Timeout auto-accepts retain their existing message.
+    if delivery_summary.get("rest_confirmation_method") != "configured_auto":
+        rest_ref = delivery_summary["order_number"].split("-")[0]
+        rest_admins = RestaurantMaster.get_admins_for(rest_ref)
 
-    for admin_phone in rest_admins:
-        await _async_wa_client.send_message(
-            to=admin_phone,
-            text="No Rider Found for order number: " + delivery_summary["order_number"],
+        for admin_phone in rest_admins:
+            await _async_wa_client.send_message(
+                to=admin_phone,
+                text="No Rider Found for order number: " + delivery_summary["order_number"],
+            )
+    else:
+        logger.info(
+            "Skipping no-rider admin notification for configured auto-accept order %s",
+            delivery_summary["order_number"],
         )
 
     if "test" not in delivery_summary["order_number"].lower():  # skip test orders

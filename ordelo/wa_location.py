@@ -12,7 +12,7 @@ import ipaddress
 import socket
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -27,6 +27,7 @@ from ordelo_datamodels.wa_location_pymodels import (
     WaLocationRequestOutcome,
     WhatsAppLocationReceipt,
 )
+from utils_common.thread_management import ThreadHandler
 
 FRESHNESS = timedelta(minutes=5)
 PROMPT_COOLDOWN = timedelta(minutes=5)
@@ -82,8 +83,18 @@ class WaLocation:
     def __init__(self, *, wa_client: Any) -> None:
         self._wa_client = wa_client
 
-    async def request(self, demand: WaLocationDemand) -> WaLocationRequestOutcome:
-        """Validate demand, persist it, route fresh data, or prompt one rider."""
+    async def request(
+        self,
+        demand: WaLocationDemand,
+        *,
+        schedule: Callable[..., None] | None = None,
+    ) -> WaLocationRequestOutcome:
+        """Validate demand, persist it, route fresh data, or prompt one rider.
+
+        ``schedule`` (e.g. FastAPI's ``BackgroundTasks.add_task``) defers the
+        rider prompt so the caller gets an immediate response. When omitted,
+        the prompt is awaited inline (used by tests and direct callers).
+        """
 
         self._validate_rest_ref(demand)
         await self._validate_public_callback_url(demand.callback_url)
@@ -216,20 +227,105 @@ class WaLocation:
             await self._expire(request_id, "delivery_not_inflight")
             raise WaLocationConflict("delivery_not_inflight")
 
-        try:
-            sent = await self._wa_client.request_location(
-                to=context.rider_id,
-                text=(
-                    "Please share your current location so we can update the "
-                    "person waiting for your delivery."
-                ),
-            )
-        except Exception as exc:
-            await self._mark_prompt_failed(request_id, type(exc).__name__)
-            raise
+        if schedule is not None:
+            schedule(self._prompt_rider_via_agent, request_id, context, demand)
+        else:
+            await self._prompt_rider_via_agent(request_id, context, demand)
 
-        await self._save_prompt_message_id(request_id, sent.id)
-        return WaLocationRequestOutcome(request_id=request_id, status="rider_prompted")
+        return WaLocationRequestOutcome(request_id=request_id, status="waiting_for_rider")
+
+    async def _prompt_rider_via_agent(
+        self, request_id: UUID, context: _DeliveryContext, demand: WaLocationDemand
+    ) -> None:
+        """Ask the rider agent to send the location prompt, keeping the thread coherent.
+
+        Falls back to a direct WhatsApp send when the rider has no active
+        agent thread, and self-contains all failures since this may run
+        detached from any HTTP caller (as a background task).
+        """
+        agent_invoked = False
+        try:
+            if not await ThreadHandler(await pg_settings.get_pool()).get_active_thread(
+                context.rider_id
+            ):
+                sent = await self._wa_client.request_location(
+                    to=context.rider_id,
+                    text=(
+                        "Please share your current location so we can update the "
+                        "person waiting for your delivery."
+                    ),
+                )
+                await self.record_prompt_sent(request_id, sent.id)
+                return
+
+            from ordelo.agents.agent_runner import (
+                clear_wa_location_request,
+                run_rider_agent_w_custom_msg,
+            )
+
+            agent_invoked = True
+
+            requester = (
+                "customer"
+                if demand.location_requested_by == "customer"
+                else "restaurant"
+            )
+            await run_rider_agent_w_custom_msg(
+                recipient=context.rider_id,
+                system_msg=(
+                    f"Rider's location requested by the {requester}. "
+                    "Call `request_rider_current_location`."
+                ),
+                state_update_dict={"wa_location_request_id": str(request_id)},
+            )
+
+            # If the tool itself already failed and recorded a reason (e.g. the
+            # WhatsApp send raised), the request is already 'failed' and its
+            # wa_location_request_id was cleared -- the forced retry below
+            # cannot fire (agent_node's deterministic branch requires both
+            # force_wa_location_prompt and wa_location_request_id), so skip it
+            # rather than run a no-op turn and overwrite the real failure reason.
+            if (
+                await self._prompt_message_id(request_id) is None
+                and await self._request_status(request_id) != "failed"
+            ):
+                await run_rider_agent_w_custom_msg(
+                    recipient=context.rider_id,
+                    system_msg="Location prompt was not sent; send it now.",
+                    state_update_dict={"force_wa_location_prompt": True},
+                )
+
+            if (
+                await self._prompt_message_id(request_id) is None
+                and await self._request_status(request_id) != "failed"
+            ):
+                logger.error(
+                    "Rider agent did not send the location prompt for request_id={}",
+                    request_id,
+                )
+                await self.mark_prompt_failed(request_id, "prompt_not_sent")
+                await clear_wa_location_request(context.rider_id)
+        except Exception as exc:
+            logger.exception(
+                "Failed to prompt rider via agent for request_id={} error={}",
+                request_id,
+                type(exc).__name__,
+            )
+            await self.mark_prompt_failed(request_id, type(exc).__name__)
+            if agent_invoked:
+                # Only clear graph state if the graph was actually run -- the
+                # direct-send fallback path never touched a thread, and
+                # get_or_create_thread() would spawn one just to clear state
+                # nothing wrote to, undoing the very fallback this method has.
+                try:
+                    from ordelo.agents.agent_runner import clear_wa_location_request
+
+                    await clear_wa_location_request(context.rider_id)
+                except Exception:
+                    logger.exception(
+                        "Failed to clear wa_location_request state for rider={}",
+                        context.rider_id,
+                    )
 
     async def receive_whatsapp_location(self, receipt: WhatsAppLocationReceipt) -> int:
         """Persist one correlated current location and route all pending demands."""
@@ -469,6 +565,43 @@ class WaLocation:
             return "failed"
         await self._mark_delivered(request_id)
         return "delivered"
+
+    async def record_prompt_sent(self, request_id: UUID | str, message_id: str) -> None:
+        """Persist the WhatsApp message id of a sent location prompt.
+
+        Load-bearing for inbound correlation: ``receive_whatsapp_location``
+        matches on this id first, falling back to a fragile "exactly one
+        pending candidate" heuristic when it is NULL. ``request_id`` may
+        arrive as a ``str`` here -- it round-trips through LangGraph state
+        (``wa_location_request_id``), which is not UUID-typed.
+        """
+        await self._save_prompt_message_id(UUID(str(request_id)), message_id)
+
+    async def mark_prompt_failed(self, request_id: UUID | str, reason: str) -> None:
+        """Mark a prompt attempt failed and clear its cooldown so retries aren't blocked."""
+        await self._mark_prompt_failed(UUID(str(request_id)), reason)
+
+    async def _prompt_message_id(self, request_id: UUID) -> str | None:
+        pool = await pg_settings.get_pool()
+        async with pool.connection() as conn:
+            async with conn.cursor(row_factory=dict_row) as cur:
+                await cur.execute(
+                    "SELECT wa_request_message_id FROM wa_location_request WHERE request_id = %s",
+                    (request_id,),
+                )
+                row = await cur.fetchone()
+        return row["wa_request_message_id"] if row else None
+
+    async def _request_status(self, request_id: UUID) -> str | None:
+        pool = await pg_settings.get_pool()
+        async with pool.connection() as conn:
+            async with conn.cursor(row_factory=dict_row) as cur:
+                await cur.execute(
+                    "SELECT status FROM wa_location_request WHERE request_id = %s",
+                    (request_id,),
+                )
+                row = await cur.fetchone()
+        return row["status"] if row else None
 
     async def _validate_public_callback_url(self, callback_url: str) -> None:
         """Reject local/private callback targets before each outbound delivery."""

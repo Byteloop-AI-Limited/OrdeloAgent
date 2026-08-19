@@ -4,6 +4,7 @@ Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . Handles restaurant_unconfirmed, restaurant_accept, restaurant_decline, restaurant_timedout
     . Returns pickup_time trigger webhooks quickly and runs print/notification work in background
     . Guards timeout auto-accept updates so stale timeout work cannot overwrite selected pickup times
+    . Preserves pickup-finalized operations while suppressing configured auto-accept admin receipts
     . Initializes takeaway_summary via RPC for pay-at-restaurant orders
     . Uses BackgroundTasks to avoid DB trigger HTTP timeouts
   Functions/Classes:
@@ -502,17 +503,24 @@ async def pickup_time_updated_hook(
     logger.info("step2: call restaurant webhook - pickup-time-updated")
     background_tasks.add_task(_post_pickup_time_event, takeaway_summary, restaurant_master)
 
-    # 3. Send admin order receipt
-    logger.info("step3: send admin order receipt")
-    background_tasks.add_task(
-        takeaway_admin_order_receipt,
-        order_number=takeaway_summary.order_number,
-        pickup_time=takeaway_summary.pickup_time,
-        rest_name=takeaway_summary.rest_name or restaurant_master.rest_name,
-        admins=restaurant_master.admins,
-        restaurant_msg_id=takeaway_summary.restaurant_msg_id,
-        rest_ref=takeaway_summary.rest_ref or restaurant_master.rest_ref,
-    )
+    # 3. Configured auto-accept orders preserve payment and restaurant webhook
+    # handling, but intentionally omit the restaurant-admin receipt.
+    if takeaway_summary.rest_confirmation_method != "configured_auto":
+        logger.info("step3: send admin order receipt")
+        background_tasks.add_task(
+            takeaway_admin_order_receipt,
+            order_number=takeaway_summary.order_number,
+            pickup_time=takeaway_summary.pickup_time,
+            rest_name=takeaway_summary.rest_name or restaurant_master.rest_name,
+            admins=restaurant_master.admins,
+            restaurant_msg_id=takeaway_summary.restaurant_msg_id,
+            rest_ref=takeaway_summary.rest_ref or restaurant_master.rest_ref,
+        )
+    else:
+        logger.info(
+            "step3: skipping admin receipt for configured auto-accept takeaway %s",
+            takeaway_summary.order_number,
+        )
 
     # 4. Notify overwatch
     logger.info("step4: notify overwatch")
