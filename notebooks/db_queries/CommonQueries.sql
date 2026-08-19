@@ -1,4 +1,6 @@
 select * from thread order by dtts desc;
+select * from restaurant_master;
+commit;
 select * from thread where is_active=True order by dtts desc;
 
 select * from wa_location_observation;
@@ -23,7 +25,7 @@ select * from thread where recipient='447427558868' order by dtts desc;
 
 select * from cust_rest_map where cust_id='447448440754';
 select * from customer_master where cust_id='447919202938';
-select * from delivery_summary where order_number='ELAS-LIYF-22' order by dtts desc;
+select * from delivery_summary where order_number like 'BNAT%' order by dtts desc;
 select * from delivery_summary order by dtts desc;
 update delivery_summary set status='timedout' where order_number='SFCS-TIGD-21';
 delete from cust_rest_map where cust_id='447448440754';

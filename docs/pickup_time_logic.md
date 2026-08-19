@@ -4,6 +4,30 @@ Runtime flow for `pickup_time` in `delivery_summary` and `takeaway_summary`.
 
 ---
 
+## Configured Restaurant Auto-Accept
+
+`restaurant_master.auto_accept` defaults to `false`. When enabled, the shared
+database policy resolves a positive whole-minute pickup duration from the
+restaurant-specific key, falling back to the corresponding global key:
+
+- Delivery: `{REST_REF}_DEFAULT_DELIVERY_PICKUP_TIME` then
+  `DEFAULT_DELIVERY_PICKUP_TIME`
+- Takeaway: `{REST_REF}_DEFAULT_COLLECTION_PICKUP_TIME` then
+  `DEFAULT_COLLECTION_PICKUP_TIME`
+
+The initializer inserts the pickup time and marks the order with
+`restaurant_confirmation_status='auto_accept'` and
+`rest_confirmation_method='configured_auto'`. Delivery starts `unassigned`;
+takeaway starts `pickup_confirmed`. This skips the restaurant confirmation
+webhooks and cron timeout flow. Invalid/missing global configuration fails the
+auto-accept initialization instead of inventing a pickup time.
+
+Configured auto-accept suppresses delivery's "No Rider Found" admin message
+and takeaway's admin receipt. It retains payment/print work, restaurant
+webhooks, overwatch, customer/rider messages, and delivery operational receipts.
+
+---
+
 ## A. Delivery Orders (`delivery_summary`)
 
 ### Trigger chain (DB → API handler)

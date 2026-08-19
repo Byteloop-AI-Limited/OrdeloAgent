@@ -12,6 +12,7 @@ Key Functions:
   - test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_messages
   - test_notify_food_ready_for_pickup_schedules_rider_agent
   - test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook
+  - test_delivery_timedout_skips_no_rider_admin_message_for_configured_auto_accept
   - test_check_rider_allocation_status_returns_summary_status
   - test_shift_and_admin_availability_hooks_schedule_background_processing
   - test_restaurant_confirmation_flow_routes_and_validates_payload
@@ -217,6 +218,34 @@ async def test_delivery_timedout_forwards_unconfirmed_cancellation(monkeypatch, 
     )
 
     assert bg.tasks[0]["kwargs"]["payment_cancelled"] is False
+
+
+async def test_delivery_timedout_skips_no_rider_admin_message_for_configured_auto_accept(
+    monkeypatch, patch_async_wa_client: FakeAsyncWhatsApp
+) -> None:
+    async def _fake_cancel(order_number):
+        return "cancelled"
+
+    monkeypatch.setattr(delivery_hooks, "cancel_payment", _fake_cancel)
+    monkeypatch.setattr(
+        delivery_hooks.RestaurantMaster,
+        "get_admins_for",
+        classmethod(lambda cls, rest_ref: (_ for _ in ()).throw(AssertionError("must not load admins"))),
+    )
+    bg = _FakeBackgroundTasks()
+
+    result = await delivery_hooks.delivery_timedout(
+        bg,
+        payload={
+            "delivery_summary": [
+                _summary_row(rest_confirmation_method="configured_auto")
+            ]
+        },
+    )
+
+    assert result == {"status": "success"}
+    assert patch_async_wa_client.sent == []
+    assert bg.tasks[0]["func"] == delivery_hooks.post_delivery_timedout
 
 
 @respx.mock

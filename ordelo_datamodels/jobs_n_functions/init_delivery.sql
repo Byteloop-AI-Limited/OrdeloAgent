@@ -76,6 +76,10 @@ DECLARE
     v_salt_number INTEGER;
     v_rest_confirmation_code INTEGER;
     v_cust_confirmation_code INTEGER;
+    v_created_at TIMESTAMP WITH TIME ZONE := CURRENT_TIMESTAMP;
+    v_auto_accept BOOLEAN;
+    v_pickup_minutes INTEGER;
+    v_pickup_time TIMESTAMP WITH TIME ZONE;
 BEGIN
     -- Derive rest_ref from order_number, or use provided value
     v_rest_ref := COALESCE(p_rest_ref, SPLIT_PART(p_order_number, '-', 1));
@@ -135,8 +139,23 @@ BEGIN
     v_rest_confirmation_code := floor(random() * (90 - (v_salt_number - 100) + 1) + (v_salt_number - 100))::INT;
     v_cust_confirmation_code := v_salt_number - v_rest_confirmation_code;
 
+    SELECT
+        acceptance.auto_accept,
+        acceptance.pickup_minutes,
+        acceptance.pickup_time
+    INTO
+        v_auto_accept,
+        v_pickup_minutes,
+        v_pickup_time
+    FROM public.resolve_initial_restaurant_acceptance(
+        v_rest_ref,
+        'delivery',
+        v_created_at
+    ) AS acceptance;
+
     -- Insert summary record and return the complete record
-    -- Both restaurant_confirmation_status and status start as 'restaurant_unconfirmed'
+    -- Configured auto-accept orders bypass the confirmation workflow with a
+    -- non-null pickup_time; all other orders retain the existing flow.
     RETURN QUERY
     INSERT INTO delivery_summary (
         order_number,
@@ -152,9 +171,14 @@ BEGIN
         customer_lat,
         customer_address,
         restaurant_confirmation_status,
+        restaurant_update_dtts,
         status,
         rest_confirmation_code,
-        cust_confirmation_code
+        cust_confirmation_code,
+        rest_prep_time_minutes,
+        rest_confirmation_method,
+        pickup_time,
+        dtts
     ) VALUES (
         p_order_number,
         v_rest_id,
@@ -168,10 +192,15 @@ BEGIN
         v_customer_lon,
         v_customer_lat,
         v_customer_address,
-        'restaurant_unconfirmed',
-        'restaurant_unconfirmed',
+        CASE WHEN v_auto_accept THEN 'auto_accept' ELSE 'restaurant_unconfirmed' END,
+        CASE WHEN v_auto_accept THEN v_created_at ELSE NULL END,
+        CASE WHEN v_auto_accept THEN 'unassigned' ELSE 'restaurant_unconfirmed' END,
         v_rest_confirmation_code,
-        v_cust_confirmation_code
+        v_cust_confirmation_code,
+        v_pickup_minutes,
+        CASE WHEN v_auto_accept THEN 'configured_auto' ELSE NULL END,
+        v_pickup_time,
+        v_created_at
     )
     RETURNING *;
     

@@ -30,6 +30,7 @@ CREATE TABLE restaurant_master (
     postcode     TEXT NOT NULL,
     lat        FLOAT NOT NULL,
     lon        FLOAT NOT NULL,
+    auto_accept BOOLEAN NOT NULL DEFAULT FALSE,
     dt          DATE NOT NULL DEFAULT CURRENT_DATE,
     dtts        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
