@@ -17,7 +17,7 @@ update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' whe
 update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'SFCS_APP_URL';
 update ordelo_config set config_value = 'https://wren-agg-test.ordelo.app' where config_key = 'WREN_APP_URL';
 update ordelo_config set config_value = 'https://restaurant-test.ordelo.app' where config_key = 'RESTAURANT_MENU_APP_URL'; 
-3xxgnrawmh.eu-west-2.awsapprunner.com
+--
 -- Dont forget to reset cache 
 https://rider-agent.ordelo.app/docs#/default/reset_restaurant_base_url_cache_endpoint_restaurant_base_url_cache_reset_post
 ;

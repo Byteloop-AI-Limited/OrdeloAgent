@@ -43,3 +43,15 @@ update ordelo_config
 set config_key = 'Z_ELAS_PICKUP_DEFAULT_TIME'
 where config_key = 'ELAS_PICKUP_DEFAULT_TIME';
 
+
+SELECT
+    rm.rest_ref,
+    rm.auto_accept,
+    specific.config_value AS restaurant_delivery_pickup_minutes,
+    global.config_value AS global_delivery_pickup_minutes
+  FROM restaurant_master rm
+  LEFT JOIN ordelo_config specific
+    ON specific.config_key = rm.rest_ref || '_DEFAULT_DELIVERY_PICKUP_TIME'
+  LEFT JOIN ordelo_config global
+    ON global.config_key = 'DEFAULT_DELIVERY_PICKUP_TIME'
+  WHERE rm.rest_ref = 'BNAT';
