@@ -431,3 +431,4 @@ SELECT config_key, config_value FROM
 
 
 update ordelo_config set config_value = '' where config_key = 'DELIVERY_TIMEOUT_TIME';
+select * from waba_es order by dtts desc;
