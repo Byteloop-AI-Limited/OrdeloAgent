@@ -5,7 +5,9 @@ Latest LangGraph state readers - expose the most recent persisted graph state as
       (sub-graph namespaces also exist and are deliberately ignored here)
     . primitive channel values (text / number / boolean / null) are INLINED at
       checkpoint -> 'channel_values' - this covers rider_agent AgentState fields such as
-      dispatch_id, order_number, pickup_time, retain_thread, wa_location_request_id
+      dispatch_id, order_number, pickup_time, wa_location_request_id
+      (retain_thread is NOT an AgentState field -- it's a public.thread column, exposed
+      separately in the envelope as 'thread_retain_thread'; see Behaviour below)
     . non-primitive channels (messages, customer_address, dicts, models) are serialised into
       public.checkpoint_blobs as msgpack BYTEA, which SQL cannot decode; they are therefore
       reported as metadata only (channel / type / size_bytes) under 'blob_channels'
@@ -200,7 +202,7 @@ SELECT
     gs.state_env IS NOT NULL AS has_root_checkpoint,
     gs.state_env ->> 'checkpoint_id' AS checkpoint_id,
     gs.state_env ->> 'checkpoint_ts' AS checkpoint_ts,
-    gs.state_env -> 'state' -> 'retain_thread' AS retain_thread_state_value,
+    t.retain_thread AS retain_thread,  -- thread column, not an AgentState channel; see header
     jsonb_pretty(gs.state_env -> 'state') AS inline_state,
     gs.state_env -> 'blob_channels' AS blob_channels
 FROM public.thread AS t

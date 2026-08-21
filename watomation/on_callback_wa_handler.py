@@ -12,7 +12,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . Uses asyncio.create_task for long-running RPC calls to avoid timeouts
     . Guards pickup-time updates so stale or repeated button taps cannot overwrite existing pickup times
     . Supports admin pickup-time adjustment after pickup_time is set, flagging restaurant_pickuptime_adjusted to notify the inflight rider
-    . Skips the food-ready nudge once the rider verified the restaurant confirmation code, so a late tap never runs the agent
+    . Gates admin_collection_ready and admin_adjust_pickup_time on ordelo.delivery_progress.check_delivery_progress, so a stale WhatsApp button (order no longer inflight, or food already picked up) never runs the agent or writes to delivery_summary
   Functions/Classes:
     . dispatch_response - Processes rider responses to delivery dispatch assignments
     . rider_request_location - Handles rider requests for location information
@@ -36,9 +36,11 @@ import json
 # project modules
 from ordelo.agent_app_handlers import initial_handle_of_rider_response
 from config import client_ordelo
-from ordelo.agents.agent_runner import (
-    is_food_already_picked_up,
-    run_rider_agent_w_custom_msg,
+from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
+from ordelo.delivery_progress import (
+    GATE_REPLIES,
+    DeliveryProgress,
+    check_delivery_progress,
 )
 from ordelo_datamodels.delivery_pymodels import DeliveryDispatch
 from utils_common.waba_utils.wa_senders import CallbackButtonData
@@ -382,17 +384,23 @@ async def admin_collection_ready(
     Handles the admin "Ready - Notify Rider" tap by nudging the rider agent.
 
     The receipt message keeps its buttons forever, so an admin can tap this long
-    after the rider has collected the order. Once the restaurant confirmation code
-    is verified the food is already picked up, so the agent is not run at all.
+    after the delivery has finished. Checks check_delivery_progress() first: if
+    the rider's order is no longer inflight, or the food is already picked up,
+    the agent is not run at all. Buttons sent before order_number was added to
+    this callback fall back to matching on rider_id alone.
     """
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
 
-    if await is_food_already_picked_up(callback_data.rider_id):
+    progress, _row = await check_delivery_progress(
+        rider_id=callback_data.rider_id,
+        order_number=getattr(callback_data, "order_number", None),
+    )
+    if progress is not DeliveryProgress.AWAITING_PICKUP:
         logger.info(
-            f"Rider {callback_data.rider_id} already picked up the food; "
+            f"Rider {callback_data.rider_id} food-ready tap while {progress}; "
             "skipping admin food-ready notification"
         )
-        await callback.reply(text="Rider has already collected this order.")
+        await callback.reply(text=GATE_REPLIES[progress])
         return
 
     await run_rider_agent_w_custom_msg(
@@ -415,24 +423,38 @@ async def admin_adjust_pickup_time(
     Handles a restaurant admin adjusting an already-set delivery pickup time.
 
     The button callback (created in admin_order_reciept) carries a precomputed
-    new pickup_time (+10/+20 mins) and the order_number. This updates
-    delivery_summary.pickup_time and sets restaurant_confirmation_status to
-    'restaurant_pickuptime_adjusted', which fires trigger_restaurant_updates ->
-    /delivery-hooks/restaurant-confirmation-request -> _handle_restaurant_pickuptime_adjusted
-    so the inflight rider is notified. Lifecycle 'status' is left unchanged.
+    new pickup_time (+10/+20 mins) and the order_number. The buttons never
+    expire, so this first checks check_delivery_progress(): if the order is no
+    longer inflight, or the food has already been picked up, no write happens
+    at all -- no delivery_summary update, no trigger_restaurant_updates fire,
+    no rider notification, no success acknowledgement. Only when the delivery
+    is still awaiting pickup does this update delivery_summary.pickup_time and
+    set restaurant_confirmation_status to 'restaurant_pickuptime_adjusted',
+    which fires trigger_restaurant_updates -> /delivery-hooks/restaurant-confirmation-request
+    -> _handle_restaurant_pickuptime_adjusted so the inflight rider is notified.
+    Lifecycle 'status' is left unchanged.
     """
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
 
     order_number = getattr(callback_data, "order_number", None)
     pickup_time = getattr(callback_data, "pickup_time", None)
     recipient = callback.sender
-    
+
     if not order_number or not pickup_time:
         await callback.reply("Missing order or pickup time in callback. Please retry.")
         logger.error(
             "AdminAdjustPickupTime callback missing order_number/pickup_time",
             extra={"order_number": order_number},
         )
+        return
+
+    progress, _row = await check_delivery_progress(order_number=order_number)
+    if progress is not DeliveryProgress.AWAITING_PICKUP:
+        logger.info(
+            f"Admin {recipient} tapped adjust pickup time for {order_number} "
+            f"while {progress}; no update applied"
+        )
+        await callback.reply(text=GATE_REPLIES[progress])
         return
 
     try:
