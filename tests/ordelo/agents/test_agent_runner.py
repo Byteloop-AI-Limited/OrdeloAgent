@@ -5,6 +5,9 @@ patched with lightweight fakes so no Postgres checkpointer or LangGraph runtime
 is required.
 
 Key Functions:
+  - test_is_food_already_picked_up_reads_state_key_via_rpc
+  - test_is_food_already_picked_up_false_when_absent_or_not_verified
+  - test_is_food_already_picked_up_false_when_rpc_fails
   - test_run_rider_agent_w_custom_msg_builds_messages_updates_state_and_returns_ai_content
   - test_init_ordelo_graph_updates_initial_state_and_invokes_graph
   - test_init_ordelo_graph_retries_only_thread_acquisition
@@ -95,6 +98,32 @@ def patched_runner(monkeypatch, patch_pg_pool):
 
     monkeypatch.setattr(agent_runner, "get_config_for_recipient", _fake_config)
     return graph, builder
+
+
+async def test_is_food_already_picked_up_reads_state_key_via_rpc(patch_supabase_client) -> None:
+    patch_supabase_client.register_rpc("get_latest_state", FakeSupabaseResponse(data=True))
+
+    assert await agent_runner.is_food_already_picked_up("RIDER01") is True
+
+    args = patch_supabase_client.rpc_calls[-1].payload["args"]
+    assert args["p_recipient"] == "RIDER01"
+    assert args["p_state_key"] == "is_restaurant_confirmation_code_verified"
+    assert args["p_agent"] == agent_runner.project_settings.rest_ref
+
+
+@pytest.mark.parametrize("state_value", [False, None])
+async def test_is_food_already_picked_up_false_when_absent_or_not_verified(
+    patch_supabase_client, state_value
+) -> None:
+    patch_supabase_client.register_rpc("get_latest_state", FakeSupabaseResponse(data=state_value))
+
+    assert await agent_runner.is_food_already_picked_up("RIDER01") is False
+
+
+async def test_is_food_already_picked_up_false_when_rpc_fails(patch_supabase_client) -> None:
+    patch_supabase_client.register_rpc("get_latest_state", RuntimeError("db down"))
+
+    assert await agent_runner.is_food_already_picked_up("RIDER01") is False
 
 
 async def test_run_rider_agent_w_custom_msg_builds_messages_updates_state_and_returns_ai_content(patched_runner) -> None:

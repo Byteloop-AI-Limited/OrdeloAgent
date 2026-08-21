@@ -2,7 +2,8 @@ select * from thread order by dtts desc;
 select * from restaurant_master;
 commit;
 select * from thread where is_active=True order by dtts desc;
-
+select * from get_latest_state_by_thread('ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d');
+select * from get_latest_state('447448440754', 'ORDELO');
 select * from wa_location_observation;
 
 select dtts, * from thread where agent='SFCS' and recipient not in ('447919202938', '447448440754', '447446933210') order by dtts desc;
@@ -17,7 +18,7 @@ select * from customer_master;
 select rest_ref, count(*) from cust_rest_map where has_consent group by rest_ref;
 -- Check and close thread
 select * from thread where is_active order by dtts desc;
-update thread set is_active=False where is_active and recipient='447448440754';
+update thread set is_active=False where is_active and recipient='16465894168';
 --ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d 
 --ORDELO-7006a159-8f54-4615-ac0e-6fe58fed32c6
 

@@ -241,3 +241,6 @@ WHERE n.nspname = 'public'
   AND p.proname IN ('get_latest_state', 'get_latest_state_by_thread')
 ORDER BY p.proname;
 ----------------------------- END DEBUG QUERY -----------------------------
+----------------------------- TEST QUERY -----------------------------
+select * from get_latest_state_by_thread('ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d');
+select * from get_latest_state('447448440754', 'ORDELO');
