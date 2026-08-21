@@ -14,9 +14,14 @@ Key Functions:
   - test_restaurant_order_accept_decline_schedules_update
   - test_handle_pickup_time_selection_success_and_already_updated
   - test_admin_collection_ready_runs_rider_graph
+  - test_admin_collection_ready_skips_once_food_is_picked_up
+  - test_admin_collection_ready_skips_when_no_longer_in_progress
   - test_admin_takeaway_ready_validates_and_posts_webhook
   - test_admin_adjust_pickup_time_updates_summary
   - test_admin_adjust_pickup_time_missing_data
+  - test_admin_adjust_pickup_time_skips_when_picked_up
+  - test_admin_adjust_pickup_time_skips_when_not_in_progress
+  - test_admin_adjust_pickup_time_skips_when_progress_unknown
 """
 
 from __future__ import annotations
@@ -28,6 +33,7 @@ import httpx
 import respx
 
 from watomation import on_callback_wa_handler as handler
+from ordelo.delivery_progress import GATE_REPLIES, DeliveryProgress
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
 from tests.fixtures.fake_wa import FakeAsyncWhatsApp, FakeMessage
 
@@ -40,6 +46,13 @@ class _FakeCallback:
 
     async def reply(self, text: str):
         self.replies.append(text)
+
+
+def _progress(state: DeliveryProgress, row: dict | None = None):
+    async def _check(**_kwargs):
+        return state, row
+
+    return _check
 
 
 def _dispatch_payload(**overrides) -> str:
@@ -171,16 +184,20 @@ async def test_handle_pickup_time_selection_success_and_already_updated(patch_su
     assert msg.replies[-1] == {"text": "Pickup time already updated"}
 
 
-async def test_admin_adjust_pickup_time_updates_summary(patch_supabase_client) -> None:
+def _adjust_callback(**overrides) -> _FakeCallback:
+    payload = {
+        "action": "/AdminAdjustPickupTime10",
+        "order_number": "ELAS-ABCD-1",
+        "pickup_time": "2026-05-09T11:40:00+00:00",
+    }
+    payload.update(overrides)
+    return _FakeCallback(data=json.dumps(payload), sender="ADMIN01")
+
+
+async def test_admin_adjust_pickup_time_updates_summary(monkeypatch, patch_supabase_client) -> None:
+    monkeypatch.setattr(handler, "check_delivery_progress", _progress(DeliveryProgress.AWAITING_PICKUP))
     patch_supabase_client.register(table="delivery_summary", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
-    callback = _FakeCallback(
-        data=json.dumps({
-            "action": "/AdminAdjustPickupTime10",
-            "order_number": "ELAS-ABCD-1",
-            "pickup_time": "2026-05-09T11:40:00+00:00",
-        }),
-        sender="ADMIN01",
-    )
+    callback = _adjust_callback()
 
     await handler.admin_adjust_pickup_time(FakeAsyncWhatsApp(), callback)
 
@@ -201,6 +218,48 @@ async def test_admin_adjust_pickup_time_missing_data(patch_supabase_client) -> N
     assert callback.replies[-1] == "Missing order or pickup time in callback. Please retry."
 
 
+async def test_admin_adjust_pickup_time_skips_when_picked_up(monkeypatch, patch_supabase_client) -> None:
+    monkeypatch.setattr(handler, "check_delivery_progress", _progress(DeliveryProgress.PICKED_UP))
+    callback = _adjust_callback()
+
+    await handler.admin_adjust_pickup_time(FakeAsyncWhatsApp(), callback)
+
+    assert not [c for c in patch_supabase_client.calls if c.table == "delivery_summary"]
+    assert callback.replies[-1] == GATE_REPLIES[DeliveryProgress.PICKED_UP]
+    assert callback.replies[-1] == "Invalid, food already pickedup"
+
+
+async def test_admin_adjust_pickup_time_skips_when_not_in_progress(monkeypatch, patch_supabase_client) -> None:
+    monkeypatch.setattr(handler, "check_delivery_progress", _progress(DeliveryProgress.NOT_IN_PROGRESS))
+    callback = _adjust_callback()
+
+    await handler.admin_adjust_pickup_time(FakeAsyncWhatsApp(), callback)
+
+    assert not [c for c in patch_supabase_client.calls if c.table == "delivery_summary"]
+    assert callback.replies[-1] == GATE_REPLIES[DeliveryProgress.NOT_IN_PROGRESS]
+
+
+async def test_admin_adjust_pickup_time_skips_when_progress_unknown(monkeypatch, patch_supabase_client) -> None:
+    monkeypatch.setattr(handler, "check_delivery_progress", _progress(DeliveryProgress.UNKNOWN))
+    callback = _adjust_callback()
+
+    await handler.admin_adjust_pickup_time(FakeAsyncWhatsApp(), callback)
+
+    assert not [c for c in patch_supabase_client.calls if c.table == "delivery_summary"]
+    assert callback.replies[-1] == GATE_REPLIES[DeliveryProgress.UNKNOWN]
+
+
+def _collection_ready_callback(**overrides) -> _FakeCallback:
+    payload = {
+        "action": "/AdminCollectionReady",
+        "rider_id": "RIDER01",
+        "restaurant_name": "Elai",
+        "order_number": "ELAS-ABCD-1",
+    }
+    payload.update(overrides)
+    return _FakeCallback(data=json.dumps(payload))
+
+
 async def test_admin_collection_ready_runs_rider_graph(monkeypatch) -> None:
     calls = []
 
@@ -208,12 +267,46 @@ async def test_admin_collection_ready_runs_rider_graph(monkeypatch) -> None:
         calls.append(kwargs)
 
     monkeypatch.setattr(handler, "run_rider_agent_w_custom_msg", _fake_run)
-    callback = _FakeCallback(data=json.dumps({"action": "/AdminCollectionReady", "rider_id": "RIDER01", "restaurant_name": "Elai"}))
+    monkeypatch.setattr(handler, "check_delivery_progress", _progress(DeliveryProgress.AWAITING_PICKUP))
+    callback = _collection_ready_callback()
 
     await handler.admin_collection_ready(FakeAsyncWhatsApp(), callback)
 
     assert calls[0]["recipient"] == "RIDER01"
     assert "notify_food_ready_for_pickup" in calls[0]["human_msg"]
+
+
+async def test_admin_collection_ready_skips_once_food_is_picked_up(monkeypatch) -> None:
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(handler, "run_rider_agent_w_custom_msg", _fake_run)
+    monkeypatch.setattr(handler, "check_delivery_progress", _progress(DeliveryProgress.PICKED_UP))
+    callback = _collection_ready_callback()
+
+    await handler.admin_collection_ready(FakeAsyncWhatsApp(), callback)
+
+    assert calls == []
+    assert callback.replies[-1] == GATE_REPLIES[DeliveryProgress.PICKED_UP]
+    assert callback.replies[-1] == "Invalid, food already pickedup"
+
+
+async def test_admin_collection_ready_skips_when_no_longer_in_progress(monkeypatch) -> None:
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(handler, "run_rider_agent_w_custom_msg", _fake_run)
+    monkeypatch.setattr(handler, "check_delivery_progress", _progress(DeliveryProgress.NOT_IN_PROGRESS))
+    callback = _collection_ready_callback()
+
+    await handler.admin_collection_ready(FakeAsyncWhatsApp(), callback)
+
+    assert calls == []
+    assert callback.replies[-1] == GATE_REPLIES[DeliveryProgress.NOT_IN_PROGRESS]
 
 
 @respx.mock

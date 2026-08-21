@@ -131,14 +131,15 @@ See `docs/pickup_time_logic.md` for the full pickup time flow including timeout 
 ### `admin_collection_ready` -- Admin Notifies Food Ready for Pickup
 
 - **Filter:** `filters.contains("/AdminCollectionReady")` (inline in `fapp_ordelo_agent.py`, not a module-level constant)
-- **Callback data fields:** `action`, `rider_id`, `restaurant_name`, `order_id`
+- **Callback data fields:** `action`, `rider_id`, `restaurant_name`, `order_number`
 - **Source:** `admin_order_reciept()` in `utils_common/waba_utils/wa_senders.py`. The "Ready - Notify Rider" button is sent to restaurant admins as part of the inflight order receipt.
 
 Behavior:
 
 1. Parses callback data into `CallbackButtonData`.
-2. Invokes `run_rider_agent_w_custom_msg()` with the `rider_id` from callback data and a message instructing the agent to call `notify_food_ready_for_pickup`.
-3. The rider agent notifies the rider to hurry to the restaurant for pickup.
+2. Calls `check_delivery_progress(rider_id=..., order_number=...)` (`ordelo/delivery_progress.py`). The receipt message keeps its buttons forever, so an admin can tap this long after the delivery finished. Unless the result is `AWAITING_PICKUP`, the handler replies with the matching `GATE_REPLIES` message and returns **without running the agent** -- covers the order no longer being inflight, the food already being picked up, and a stale button for a different job the rider has since moved past. See `docs/pickup_time_logic.md` section C and `CONTEXT.md`'s "Delivery progress" entry.
+3. Otherwise invokes `run_rider_agent_w_custom_msg()` with the `rider_id` from callback data and a message instructing the agent to call `notify_food_ready_for_pickup`.
+4. The rider agent notifies the rider to hurry to the restaurant for pickup.
 
 ### `admin_adjust_pickup_time` -- Admin Adjusts Pickup Time (Inflight Delivery)
 
@@ -149,13 +150,14 @@ Behavior:
 Behavior:
 
 1. Parses callback JSON to get `order_number` and `pickup_time`.
-2. Updates `delivery_summary`:
+2. Calls `check_delivery_progress(order_number=order_number)`. Unless the result is `AWAITING_PICKUP`, replies with the matching `GATE_REPLIES` message (e.g. `"Invalid, food already pickedup"`) and returns **without touching `delivery_summary`** -- these buttons never expire, so a stale tap must not overwrite a finished order.
+3. Only when awaiting pickup, updates `delivery_summary`:
    - `pickup_time` = new value from callback
    - `restaurant_confirmation_status` = `'restaurant_pickuptime_adjusted'`
    - `restaurant_admin` = callback sender
    - `restaurant_update_dtts` = now (UTC)
-3. Replies to admin with the formatted UK local time.
-4. The DB update fires `trigger_restaurant_updates` → `_handle_restaurant_pickuptime_adjusted()` → rider agent `notify_pickup_time_adjusted` tool. See `docs/pickup_time_logic.md` section C for the full chain.
+4. Replies to admin with the formatted UK local time.
+5. The DB update fires `trigger_restaurant_updates` → `_handle_restaurant_pickuptime_adjusted()` → rider agent `notify_pickup_time_adjusted` tool. That handler re-checks `check_delivery_progress()` as defence-in-depth for any other path that can set `restaurant_pickuptime_adjusted`. See `docs/pickup_time_logic.md` section C for the full chain.
 
 Only updates pickup time; does **not** change `delivery_summary.status` (the delivery remains inflight).
 
