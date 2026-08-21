@@ -1,19 +1,19 @@
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ELAS_APP_URL', 'https://elas-agg.ordelo.app', 'URL for ELAS app') ON CONFLICT (config_key) DO
+VALUES ('BNAT_APP_URL', 'https://elas-agg.ordelo.app', 'URL for ELAS app') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description,
     updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ELAS_DEFAULT_COLLECTION_PICKUP_TIME', '30', 'ELAS collection pickup default override') ON CONFLICT (config_key) DO
+VALUES ('BNAT_DEFAULT_COLLECTION_PICKUP_TIME', '30', 'BNAT collection pickup default override') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description,
     updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ELAS_DEFAULT_DELIVERY_PICKUP_TIME', '30', 'ELAS delivery pickup default override') ON CONFLICT (config_key) DO
+VALUES ('BNAT_DEFAULT_DELIVERY_PICKUP_TIME', '30', 'BNAT delivery pickup default override') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description,
@@ -21,14 +21,14 @@ SET config_value = EXCLUDED.config_value,
 
 
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ELAS_DELIVERY_TIMEOUT_TIME', '5', 'Timeout in minutes for delivery_summary status transition to timedout') ON CONFLICT (config_key) DO
+VALUES ('BNAT_DELIVERY_TIMEOUT_TIME', '10', 'Timeout in minutes for delivery_summary status transition to timedout') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description,
     updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME', '0.5', 'Timeout in minutes for restaurant confirmation') ON CONFLICT (config_key) DO
+VALUES ('BNAT_RESTAURANT_CONFIRMATION_TIMEOUT_TIME', '0.5', 'Timeout in minutes for restaurant confirmation') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description,

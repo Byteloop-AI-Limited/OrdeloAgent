@@ -89,6 +89,7 @@ Admin taps "Adjust Pickup Time" button (+10 or +20 min)
   → restaurant_updates_whook() → POST /delivery-hooks/restaurant-confirmation-request
   → restaurant_confirmation_flow() dispatches to _handle_restaurant_pickuptime_adjusted()
   → looks up rider_id from delivery_inflight by order_number
+  → is_food_already_picked_up(rider_id)? → yes: log + return, agent never runs
   → run_rider_agent_w_custom_msg(state_update_dict={'pickup_time': <new>})
   → agent calls notify_pickup_time_adjusted tool
   → rider receives WhatsApp message with updated time
@@ -96,11 +97,13 @@ Admin taps "Adjust Pickup Time" button (+10 or +20 min)
 
 **Key point:** `run_rider_agent_w_custom_msg()` accepts an optional `state_update_dict` that patches values into the agent's LangGraph state **before** the LLM turn runs. This is how `notify_pickup_time_adjusted` reads the fresh `pickup_time` from state rather than re-querying the DB. If no rider is currently inflight for the order, `_handle_restaurant_pickuptime_adjusted()` logs and skips silently.
 
+**Post-pickup guard:** `is_food_already_picked_up()` (in `ordelo/agents/agent_runner.py`) reads `is_restaurant_confirmation_code_verified` off the latest checkpoint via the `get_latest_state` SQL function. A `true` value means the rider already collected the order, so pre-pickup-only updates (pickup time adjusted, food ready) return early instead of running the agent. Any read failure returns `false`, so a transient DB problem never silently swallows a rider notification.
+
 ### 6) Downstream use
 
 - `pickup_time` is included in rider dispatch payload/message flow (see `docs/dispatch_flow.md`).
 - SQL payload wiring for restaurant webhook includes `pickup_time` in `ordelo_datamodels/summary.sql` (`restaurant_updates_whook()` JSON build).
-- Once inflight, the admin receives an order receipt (`admin_order_reciept()` in `wa_senders.py`) with a "Ready - Notify Rider" button (`/AdminCollectionReady`). Tapping it invokes `admin_collection_ready()` in `on_callback_wa_handler.py`, which calls `run_rider_agent_w_custom_msg()` to trigger `notify_food_ready_for_pickup` on the rider agent. See `docs/callback_handlers.md` for details.
+- Once inflight, the admin receives an order receipt (`admin_order_reciept()` in `wa_senders.py`) with a "Ready - Notify Rider" button (`/AdminCollectionReady`). Tapping it invokes `admin_collection_ready()` in `on_callback_wa_handler.py`, which calls `run_rider_agent_w_custom_msg()` to trigger `notify_food_ready_for_pickup` on the rider agent — unless the post-pickup guard above reports the food is already collected. The same guard protects the `/delivery-hooks/notify-food-ready-for-pickup/{recipient}` webhook used by the restaurant admin agent. See `docs/callback_handlers.md` for details.
 
 ---
 

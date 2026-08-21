@@ -12,6 +12,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . Uses asyncio.create_task for long-running RPC calls to avoid timeouts
     . Guards pickup-time updates so stale or repeated button taps cannot overwrite existing pickup times
     . Supports admin pickup-time adjustment after pickup_time is set, flagging restaurant_pickuptime_adjusted to notify the inflight rider
+    . Skips the food-ready nudge once the rider verified the restaurant confirmation code, so a late tap never runs the agent
   Functions/Classes:
     . dispatch_response - Processes rider responses to delivery dispatch assignments
     . rider_request_location - Handles rider requests for location information
@@ -21,6 +22,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . restaurant_order_accept_decline_handler - Handles restaurant accept/decline responses
     . _update_restaurant_order_status - Background task for updating restaurant order status
     . handle_pickup_time_selection - Handles restaurant pickup-time selection callbacks
+    . admin_collection_ready - Nudges the rider agent that food is ready (skipped after pickup)
     . admin_adjust_pickup_time - Handles admin pickup-time adjustment callbacks (sets restaurant_pickuptime_adjusted)
 """
 
@@ -34,7 +36,10 @@ import json
 # project modules
 from ordelo.agent_app_handlers import initial_handle_of_rider_response
 from config import client_ordelo
-from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
+from ordelo.agents.agent_runner import (
+    is_food_already_picked_up,
+    run_rider_agent_w_custom_msg,
+)
 from ordelo_datamodels.delivery_pymodels import DeliveryDispatch
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 from datetime import datetime, timezone
@@ -373,7 +378,22 @@ IS_ADMIN_COLLECTION_READY = filters.contains("/AdminCollectionReady", ignore_cas
 async def admin_collection_ready(
     msg: WhatsApp, callback: CallbackButton[CallbackButtonData]
 ):
+    """
+    Handles the admin "Ready - Notify Rider" tap by nudging the rider agent.
+
+    The receipt message keeps its buttons forever, so an admin can tap this long
+    after the rider has collected the order. Once the restaurant confirmation code
+    is verified the food is already picked up, so the agent is not run at all.
+    """
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
+
+    if await is_food_already_picked_up(callback_data.rider_id):
+        logger.info(
+            f"Rider {callback_data.rider_id} already picked up the food; "
+            "skipping admin food-ready notification"
+        )
+        await callback.reply(text="Rider has already collected this order.")
+        return
 
     await run_rider_agent_w_custom_msg(
         recipient=callback_data.rider_id,

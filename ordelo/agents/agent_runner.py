@@ -8,8 +8,10 @@ Core agent runner for Ordelo's delivery workflow system
     . Seeds pickup_time into graph state at init for adjusted-pickup-time notifications
     . Supports refreshing graph state via state_update_dict (e.g. updated pickup_time on adjust)
     . Retries only initial thread acquisition on transient PostgreSQL connection loss
+    . Exposes a cheap post-pickup guard so callers can skip agent runs for pre-pickup-only updates
   Functions/Classes:
     . _get_config_for_recipient_with_retry - Reconciles one uncertain thread acquisition
+    . is_food_already_picked_up - Reads is_restaurant_confirmation_code_verified via get_latest_state RPC
     . run_rider_agent_w_custom_msg - Executes rider graph with custom messages and returns AI response
     . clear_wa_location_request - Clears a stale wa_location request id from graph state after a failed prompt
     . init_ordelo_graph - Initializes delivery workflow for given detail
@@ -30,7 +32,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg import OperationalError
 from psycopg_pool import AsyncConnectionPool
 
-from config import logger, pg_settings, _async_wa_client, client_ordelo
+from config import logger, pg_settings, project_settings, _async_wa_client, client_ordelo
 from utils_common.lg_utils import get_config_for_recipient
 from ordelo.agents.rider_agent import builder, ContextSchema
 
@@ -83,6 +85,42 @@ async def _get_config_for_recipient_with_retry(
             await asyncio.sleep(_THREAD_ACQUISITION_RETRY_DELAY_SECONDS)
 
     raise RuntimeError("Thread acquisition retry loop exited unexpectedly")
+
+
+# %% Post-pickup guard
+PICKED_UP_STATE_KEY = "is_restaurant_confirmation_code_verified"
+
+
+async def is_food_already_picked_up(recipient: str) -> bool:
+    """Reports whether the rider has already collected the food from the restaurant.
+
+    Reads ``is_restaurant_confirmation_code_verified`` straight off the latest
+    persisted checkpoint via the ``get_latest_state`` SQL function, so callers can
+    suppress pre-pickup-only notifications (food ready, pickup time adjusted)
+    without compiling the graph or spending an LLM turn.
+
+    Returns False when there is no active thread, no checkpoint, or the read
+    fails, so a transient DB problem degrades to the previous behaviour rather
+    than silently swallowing a rider notification.
+    """
+    try:
+        response = await asyncio.to_thread(
+            lambda: client_ordelo.rpc(
+                "get_latest_state",
+                {
+                    "p_recipient": recipient,
+                    "p_agent": project_settings.rest_ref,
+                    "p_state_key": PICKED_UP_STATE_KEY,
+                },
+            ).execute()
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to read {PICKED_UP_STATE_KEY} for recipient={recipient}: {e}"
+        )
+        return False
+
+    return response.data is True
 
 
 async def run_rider_agent_w_custom_msg(

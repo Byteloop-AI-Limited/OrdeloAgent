@@ -14,6 +14,7 @@ Key Functions:
   - test_restaurant_order_accept_decline_schedules_update
   - test_handle_pickup_time_selection_success_and_already_updated
   - test_admin_collection_ready_runs_rider_graph
+  - test_admin_collection_ready_skips_once_food_is_picked_up
   - test_admin_takeaway_ready_validates_and_posts_webhook
   - test_admin_adjust_pickup_time_updates_summary
   - test_admin_adjust_pickup_time_missing_data
@@ -40,6 +41,13 @@ class _FakeCallback:
 
     async def reply(self, text: str):
         self.replies.append(text)
+
+
+def _picked_up(value: bool):
+    async def _check(recipient):
+        return value
+
+    return _check
 
 
 def _dispatch_payload(**overrides) -> str:
@@ -208,12 +216,29 @@ async def test_admin_collection_ready_runs_rider_graph(monkeypatch) -> None:
         calls.append(kwargs)
 
     monkeypatch.setattr(handler, "run_rider_agent_w_custom_msg", _fake_run)
+    monkeypatch.setattr(handler, "is_food_already_picked_up", _picked_up(False))
     callback = _FakeCallback(data=json.dumps({"action": "/AdminCollectionReady", "rider_id": "RIDER01", "restaurant_name": "Elai"}))
 
     await handler.admin_collection_ready(FakeAsyncWhatsApp(), callback)
 
     assert calls[0]["recipient"] == "RIDER01"
     assert "notify_food_ready_for_pickup" in calls[0]["human_msg"]
+
+
+async def test_admin_collection_ready_skips_once_food_is_picked_up(monkeypatch) -> None:
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(handler, "run_rider_agent_w_custom_msg", _fake_run)
+    monkeypatch.setattr(handler, "is_food_already_picked_up", _picked_up(True))
+    callback = _FakeCallback(data=json.dumps({"action": "/AdminCollectionReady", "rider_id": "RIDER01", "restaurant_name": "Elai"}))
+
+    await handler.admin_collection_ready(FakeAsyncWhatsApp(), callback)
+
+    assert calls == []
+    assert callback.replies[-1] == "Rider has already collected this order."
 
 
 @respx.mock

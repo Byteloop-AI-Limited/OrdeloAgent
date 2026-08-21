@@ -11,6 +11,7 @@ Key Functions:
   - test_delivery_inflight_graph_init_hook_schedules_core_background_tasks
   - test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_messages
   - test_notify_food_ready_for_pickup_schedules_rider_agent
+  - test_notify_food_ready_for_pickup_skips_once_food_is_picked_up
   - test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook
   - test_delivery_timedout_skips_no_rider_admin_message_for_configured_auto_accept
   - test_check_rider_allocation_status_returns_summary_status
@@ -19,6 +20,7 @@ Key Functions:
   - test_restaurant_confirmation_flow_routes_pickuptime_adjusted
   - test_handle_restaurant_pickuptime_adjusted_notifies_inflight_rider
   - test_handle_restaurant_pickuptime_adjusted_skips_when_no_inflight
+  - test_handle_restaurant_pickuptime_adjusted_skips_once_food_is_picked_up
   - test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config
   - test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config
   - test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery
@@ -44,6 +46,13 @@ class _FakeBackgroundTasks:
 
     def add_task(self, func, *args, **kwargs):
         self.tasks.append({"func": func, "args": args, "kwargs": kwargs})
+
+
+def _picked_up(value: bool):
+    async def _check(recipient):
+        return value
+
+    return _check
 
 
 def _summary_row(**overrides):
@@ -179,14 +188,26 @@ async def test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_me
     assert patch_supabase_client.calls[-1].filters["in:dispatch_id"] == [10]
 
 
-async def test_notify_food_ready_for_pickup_schedules_rider_agent() -> None:
+async def test_notify_food_ready_for_pickup_schedules_rider_agent(monkeypatch) -> None:
     bg = _FakeBackgroundTasks()
+    monkeypatch.setattr(delivery_hooks, "is_food_already_picked_up", _picked_up(False))
 
     result = await delivery_hooks.notify_food_ready_for_pickup("RIDER01", bg, payload={"restaurant_name": "Elai"})
 
     assert result["status"] == "success"
     assert bg.tasks[0]["func"] == delivery_hooks.run_rider_agent_w_custom_msg
     assert "Elai" in bg.tasks[0]["kwargs"]["system_msg"]
+
+
+async def test_notify_food_ready_for_pickup_skips_once_food_is_picked_up(monkeypatch) -> None:
+    bg = _FakeBackgroundTasks()
+    monkeypatch.setattr(delivery_hooks, "is_food_already_picked_up", _picked_up(True))
+
+    result = await delivery_hooks.notify_food_ready_for_pickup("RIDER01", bg, payload={"restaurant_name": "Elai"})
+
+    assert result["status"] == "skipped"
+    assert result["action"] == "already_picked_up"
+    assert bg.tasks == []
 
 
 async def test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook(monkeypatch, patch_async_wa_client: FakeAsyncWhatsApp) -> None:
@@ -329,6 +350,7 @@ async def test_handle_restaurant_pickuptime_adjusted_notifies_inflight_rider(mon
         calls.append(kwargs)
 
     monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+    monkeypatch.setattr(delivery_hooks, "is_food_already_picked_up", _picked_up(False))
     from watomation.routers.delivery_hooks import DeliverySummaryData
     summary = DeliverySummaryData(**{**_summary_row(), "pickup_time": "2026-05-09T11:40:00+00:00", "pickup_date": "2026-05-09", "dt": "2026-05-09", "dtts": "2026-05-09T10:00:00+00:00"})
 
@@ -359,6 +381,30 @@ async def test_handle_restaurant_pickuptime_adjusted_skips_when_no_inflight(monk
     result = await delivery_hooks._handle_restaurant_pickuptime_adjusted(summary)
 
     assert result["status"] == "skipped"
+    assert calls == []
+
+
+async def test_handle_restaurant_pickuptime_adjusted_skips_once_food_is_picked_up(monkeypatch, patch_supabase_client) -> None:
+    monkeypatch.setattr(delivery_hooks, "client_ordelo", patch_supabase_client)
+    patch_supabase_client.register(
+        table="delivery_inflight",
+        verb="select",
+        response=FakeSupabaseResponse(data=[{"rider_id": "RIDER01"}]),
+    )
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+    monkeypatch.setattr(delivery_hooks, "is_food_already_picked_up", _picked_up(True))
+    from watomation.routers.delivery_hooks import DeliverySummaryData
+    summary = DeliverySummaryData(**{**_summary_row(), "pickup_time": "2026-05-09T11:40:00+00:00", "pickup_date": "2026-05-09", "dt": "2026-05-09", "dtts": "2026-05-09T10:00:00+00:00"})
+
+    result = await delivery_hooks._handle_restaurant_pickuptime_adjusted(summary)
+
+    assert result["status"] == "skipped"
+    assert result["action"] == "already_picked_up"
     assert calls == []
 
 

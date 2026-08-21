@@ -137,8 +137,9 @@ See `docs/pickup_time_logic.md` for the full pickup time flow including timeout 
 Behavior:
 
 1. Parses callback data into `CallbackButtonData`.
-2. Invokes `run_rider_agent_w_custom_msg()` with the `rider_id` from callback data and a message instructing the agent to call `notify_food_ready_for_pickup`.
-3. The rider agent notifies the rider to hurry to the restaurant for pickup.
+2. Calls `is_food_already_picked_up(rider_id)`. The receipt message keeps its buttons forever, so an admin can tap this after collection. If the rider's latest graph state has `is_restaurant_confirmation_code_verified = true`, the handler replies "Rider has already collected this order." and returns **without running the agent**.
+3. Otherwise invokes `run_rider_agent_w_custom_msg()` with the `rider_id` from callback data and a message instructing the agent to call `notify_food_ready_for_pickup`.
+4. The rider agent notifies the rider to hurry to the restaurant for pickup.
 
 ### `admin_adjust_pickup_time` -- Admin Adjusts Pickup Time (Inflight Delivery)
 
@@ -155,7 +156,7 @@ Behavior:
    - `restaurant_admin` = callback sender
    - `restaurant_update_dtts` = now (UTC)
 3. Replies to admin with the formatted UK local time.
-4. The DB update fires `trigger_restaurant_updates` → `_handle_restaurant_pickuptime_adjusted()` → rider agent `notify_pickup_time_adjusted` tool. See `docs/pickup_time_logic.md` section C for the full chain.
+4. The DB update fires `trigger_restaurant_updates` → `_handle_restaurant_pickuptime_adjusted()` → rider agent `notify_pickup_time_adjusted` tool, unless `is_food_already_picked_up(rider_id)` reports the rider has collected the order, in which case the agent is not run. See `docs/pickup_time_logic.md` section C for the full chain.
 
 Only updates pickup time; does **not** change `delivery_summary.status` (the delivery remains inflight).
 
