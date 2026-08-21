@@ -5,6 +5,7 @@ headers, button callback data, and target recipients without contacting pywa.
 
 Key Functions:
   - test_callback_button_data_is_frozen_and_allows_extra_fields
+  - test_food_ready_y_callback_carries_order_number_within_button_payload_limit
   - test_send_restaurant_pickup_time_creates_interval_buttons
   - test_confirm_delivery_address_wa_sends_yes_update_buttons
   - test_send_request_payment_link_uses_request_payment_template
@@ -33,6 +34,36 @@ def test_callback_button_data_is_frozen_and_allows_extra_fields() -> None:
 
     with pytest.raises(ValidationError):
         data.action = "/y"
+
+
+def test_food_ready_y_callback_carries_order_number_within_button_payload_limit() -> None:
+    """admin_order_reciept's food_ready_y callback (wa_senders.py:254-259) was changed from
+    order_id to order_number so ordelo.delivery_progress.check_delivery_progress() can match
+    on it directly, without reverse-engineering order_number from the order_id suffix.
+
+    Mirrors the construction at that call site (rider_id, restaurant_name, order_number)
+    rather than exercising the full admin_order_reciept, which needs a live DeliverySummary
+    and RestaurantMaster. WhatsApp interactive button payloads are capped at 256 bytes; the
+    swap is roughly size-neutral, but restaurant_name is the variable-length field, so this
+    checks a long, realistic name stays inside budget.
+    """
+    long_restaurant_name = "The Great British Curry House & Tandoori Grill Restaurant"
+    food_ready_y = wa_senders.CallbackButtonData(
+        action="/AdminCollectionReady",
+        rider_id="RIDER0123456789",
+        restaurant_name=long_restaurant_name,
+        order_number="ELAS-ABCDEFGH-999999",
+    )
+    payload = food_ready_y.model_dump()
+
+    assert payload["order_number"] == "ELAS-ABCDEFGH-999999"
+    assert "order_id" not in payload
+
+    encoded = food_ready_y.model_dump_json().encode("utf-8")
+    assert len(encoded) <= 256, (
+        f"food_ready_y callback_data is {len(encoded)} bytes, over WhatsApp's 256-byte "
+        "button payload limit"
+    )
 
 
 async def test_send_restaurant_pickup_time_creates_interval_buttons(patch_async_wa_client: FakeAsyncWhatsApp) -> None:
