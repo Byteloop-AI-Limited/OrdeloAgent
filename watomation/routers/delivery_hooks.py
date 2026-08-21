@@ -12,6 +12,9 @@ Delivery webhook handlers for Ordelo delivery system
     . Handles empty payloads gracefully in endpoints
     . Manages thread lifecycle including automatic closure for inactive threads
     . Implements restaurant confirmation touchpoint before rider dispatch
+    . Suppresses pre-pickup-only rider updates (food ready, pickup time adjusted) unless the
+      order is still inflight and not yet picked up, via ordelo.delivery_progress.check_delivery_progress,
+      so a late admin button tap never runs the rider agent or writes to delivery_summary
     . Uses module-level WhatsApp client for confirmation workflow
     . Uses DeliverySummaryData, RestaurantMasterData, FoodOrder and OrderItem Pydantic models for restaurant confirmation payload
     . Trigger fires on restaurant_confirmation_status changes (not status)
@@ -28,7 +31,7 @@ Delivery webhook handlers for Ordelo delivery system
     . delivery_dispatch_hook - Processes dispatch assignments
     . delivery_inflight_graph_init_hook - Initializes inflight tracking
     . notify_missed_dispatches_hook - Handles missed dispatch cases
-    . notify_food_ready_for_pickup - Notifies rider about food readiness
+    . notify_food_ready_for_pickup - Notifies rider about food readiness (skipped after pickup)
     . delivery_timedout - Handles delivery timeout events
     . check_rider_allocation_status - Checks rider allocation status
     . shift_availability_enquiry_hook - Processes shift availability enquiries
@@ -38,7 +41,7 @@ Delivery webhook handlers for Ordelo delivery system
     . _handle_restaurant_accept - Sends pickup time selection to restaurant
     . _handle_restaurant_decline - Updates status to unassigned on decline
     . _handle_restaurant_timedout - Logs restaurant confirmation timeout event
-    . _handle_restaurant_pickuptime_adjusted - Notifies the inflight rider when an admin adjusts the pickup time
+    . _handle_restaurant_pickuptime_adjusted - Notifies the inflight rider when an admin adjusts the pickup time (skipped after pickup)
     . close_threads - Closes inactive threads and sends goodbye messages
 """
 
@@ -69,7 +72,11 @@ from utils_common.waba_utils.wa_senders import (
     enquire_shift_availability,
     enquire_admin_availability,
 )
-from ordelo.agents.agent_runner import init_ordelo_graph, run_rider_agent_w_custom_msg
+from ordelo.agents.agent_runner import (
+    init_ordelo_graph,
+    run_rider_agent_w_custom_msg,
+)
+from ordelo.delivery_progress import DeliveryProgress, check_delivery_progress
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
@@ -685,6 +692,19 @@ async def notify_food_ready_for_pickup(
     """
     Notify food ready for pickup to a specific rider. Schedules notification as a background task.
 
+    Skipped once the rider's order is no longer inflight, or the food is already
+    collected: a late "Ready - Notify Rider" tap or delayed restaurant-agent call
+    must not run the agent. Checked via check_delivery_progress(), keyed on
+    rider_id only since this webhook receives no order_number.
+
+    A progress read failure (DeliveryProgress.UNKNOWN) also returns "skipped"
+    rather than raising: the only caller (the restaurant-agent runtime's
+    admin_collection_ready, in the sibling restaurant-agents repo) fires this
+    with a bare ``await client.post(...)`` and never inspects the response, so
+    a 5xx would be silently dropped anyway -- it would only show up as a
+    spurious server-error log entry for what is, by design, a correctly
+    blocked action.
+
     Args:
         recipient (str): The WhatsApp phone number or unique identifier of the rider.
         background_tasks (BackgroundTasks): FastAPI background task manager
@@ -694,6 +714,18 @@ async def notify_food_ready_for_pickup(
         dict: Status of the notification operation.
     """
     restaurant_name = payload.get("restaurant_name", None)
+
+    progress, _row = await check_delivery_progress(rider_id=recipient)
+    if progress is not DeliveryProgress.AWAITING_PICKUP:
+        logger.info(
+            f"Rider {recipient} food-ready webhook while {progress}; skipping notification"
+        )
+        return {
+            "status": "skipped",
+            "action": progress.value,
+            "recipient": recipient,
+            "payload": payload,
+        }
 
     background_tasks.add_task(
         run_rider_agent_w_custom_msg,
@@ -1218,10 +1250,15 @@ async def _handle_restaurant_pickuptime_adjusted(
     Handle restaurant_pickuptime_adjusted trigger: notify the inflight rider of the
     updated pickup time.
 
-    Resolves the assigned rider from delivery_inflight by order_number. If no rider is
-    currently on the job, logs and skips silently. Otherwise drives the rider agent to
-    call the notify_pickup_time_adjusted tool, refreshing the graph state pickup_time
-    with the new value before the tool reads it.
+    Resolves the assigned rider and checks progress in one call via
+    check_delivery_progress(order_number=...). If the order is no longer inflight,
+    or the rider has already picked up the food, logs and skips silently -- a
+    pickup time is meaningless after collection. This is defence-in-depth: the
+    write that fires this trigger is already gated at the source in
+    admin_adjust_pickup_time, but this also covers any other path that sets
+    restaurant_pickuptime_adjusted (e.g. manual SQL). Otherwise drives the rider
+    agent to call the notify_pickup_time_adjusted tool, refreshing the graph
+    state pickup_time with the new value before the tool reads it.
 
     Args:
         delivery_summary: Delivery summary data (carries the new pickup_time)
@@ -1231,26 +1268,28 @@ async def _handle_restaurant_pickuptime_adjusted(
     """
     order_number = delivery_summary.order_number
 
-    inflight = await asyncio.to_thread(
-        lambda: (
-            client_ordelo.table("delivery_inflight")
-            .select("rider_id")
-            .eq("order_number", order_number)
-            .execute()
-        )
-    )
+    progress, row = await check_delivery_progress(order_number=order_number)
 
-    if not inflight.data:
+    if progress is not DeliveryProgress.AWAITING_PICKUP:
+        action = {
+            DeliveryProgress.NOT_IN_PROGRESS: "no_inflight_rider",
+            DeliveryProgress.PICKED_UP: "already_picked_up",
+            DeliveryProgress.UNKNOWN: "progress_unknown",
+        }[progress]
         logger.info(
-            f"No inflight rider for order {order_number}; skipping pickup-time-adjusted notification"
+            f"Order {order_number} pickup-time-adjusted trigger while {progress}; "
+            "skipping notification"
         )
-        return {
+        result = {
             "status": "skipped",
-            "action": "no_inflight_rider",
+            "action": action,
             "order_number": order_number,
         }
+        if row:
+            result["rider_id"] = row["rider_id"]
+        return result
 
-    rider_id = inflight.data[0]["rider_id"]
+    rider_id = row["rider_id"]
 
     await run_rider_agent_w_custom_msg(
         recipient=rider_id,

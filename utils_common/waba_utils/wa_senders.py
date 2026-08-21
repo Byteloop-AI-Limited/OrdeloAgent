@@ -255,7 +255,7 @@ Delivery Details:
             action="/AdminCollectionReady",
             rider_id=rider_master["rider_id"],
             restaurant_name=_restaurant_master.rest_name,
-            order_id=order_id,
+            order_number=order_number,
         )
         adjust_pickup_10 = CallbackButtonData(
             action="/AdminAdjustPickupTime10",
