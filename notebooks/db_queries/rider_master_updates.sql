@@ -50,10 +50,9 @@ VALUEr
 ('447555687794', 'Marian', 'bike', 'Salisbury', 'active', FALSE, 1)
 ;
 -- ('447555687794', 'Marian', 'bike', 'Salisbury', 'active', FALSE, 1)
-update rider_master set status='inactive' where rider_name in ('Lohith', 'Suraj', 'Jamie', 'Ganesh');
+update rider_master set status='inactive' where rider_name in ('Marian', 'Luis', 'Suraj', 'Jamie', 'Ganesh', 'Ain', 'Agam');
 update rider_master set is_in_shift=true where rider_name in ('Rishi', 'Abubakar', 'Bokul', 'Mohammed Hoque', 'Rangaswamy');
 
 select * from rider_master where rider_name = 'Marian';
 
 
-35, 30, 23, 
