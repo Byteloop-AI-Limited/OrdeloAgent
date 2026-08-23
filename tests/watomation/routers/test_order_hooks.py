@@ -105,13 +105,17 @@ async def test_get_min_order_value_by_postcode_resolves_addresses(monkeypatch) -
 
 
 async def test_create_order_returns_payment_url_for_delivery_and_takeaway(monkeypatch) -> None:
+    payment_builders_called: list[str] = []
+
     async def _create_order(**kwargs):
         return {"success": True, "order_id": "ABCD-1", "order_number": "ELAS-ABCD-1"}
 
     async def _delivery_url(food_order):
+        payment_builders_called.append("delivery")
         return "https://pay.example.com/intent"
 
     async def _takeaway_url(food_order):
+        payment_builders_called.append("takeaway")
         return "https://pay.example.com/auto"
 
     monkeypatch.setattr(order_hooks, "create_order_with_items", _create_order)
@@ -125,6 +129,7 @@ async def test_create_order_returns_payment_url_for_delivery_and_takeaway(monkey
     )
     assert delivery["payment_intent_url"] == "https://pay.example.com/intent"
     assert delivery["service_charge"] == 1.0
+    assert payment_builders_called == ["delivery"]
 
     monkeypatch.setattr(order_hooks.FoodOrder, "from_order_id", staticmethod(lambda order_id: _food_order("takeaway")))
     takeaway = await order_hooks.create_order(
@@ -132,6 +137,7 @@ async def test_create_order_returns_payment_url_for_delivery_and_takeaway(monkey
         order_hooks.CreateOrderRequest(recipient="447400000000", thread_id="thread-1", order_items=_order_items(), order_type="takeaway"),
     )
     assert takeaway["payment_intent_url"] == "https://pay.example.com/auto"
+    assert payment_builders_called == ["delivery", "takeaway"]
 
 
 async def test_validate_postcode_returns_resolved_address(monkeypatch) -> None:

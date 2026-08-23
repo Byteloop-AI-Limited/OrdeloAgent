@@ -19,7 +19,7 @@ Key Functions:
   - test_format_pickup_time_display_delegates_to_fmt_uk_time
   - test_pickup_time_updated_hook_schedules_background_processing
   - test_pickup_time_updated_hook_returns_error_for_invalid_payload
-  - test_pickup_time_updated_hook_skips_admin_receipt_for_configured_auto_accept
+  - test_pickup_time_updated_hook_schedules_admin_receipt_for_configured_auto_accept
 """
 
 from __future__ import annotations
@@ -131,7 +131,7 @@ async def test_pickup_time_updated_hook_returns_error_for_invalid_payload() -> N
     assert result["order_number"] == "ELAS-ABCD-1"
 
 
-async def test_pickup_time_updated_hook_skips_admin_receipt_for_configured_auto_accept() -> None:
+async def test_pickup_time_updated_hook_schedules_admin_receipt_for_configured_auto_accept() -> None:
     bg = _FakeBackgroundTasks()
     payload = {
         "takeaway_summary": _takeaway_summary_row(
@@ -149,6 +149,7 @@ async def test_pickup_time_updated_hook_skips_admin_receipt_for_configured_auto_
     assert [task["func"] for task in bg.tasks] == [
         takeaway_hooks.capture_takeaway_payment,
         takeaway_hooks._post_pickup_time_event,
+        takeaway_hooks.takeaway_admin_order_receipt,
         takeaway_hooks.notify_overwatch,
     ]
 

@@ -21,7 +21,7 @@ Functions/Classes:
 
 # %%
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query, Response
@@ -41,6 +41,7 @@ from utils_common.order_management.order_service import (
     get_min_order_value as fetch_min_order_value,
 )
 from utils_common.payment_ms.payment import (
+    generate_automatic_payment_url,
     generate_payment_intent_url,
 )
 
@@ -204,7 +205,7 @@ class CreateOrderRequest(BaseModel):
     recipient: str
     thread_id: str
     order_items: List[OrderItem]
-    order_type: str
+    order_type: Literal["delivery", "takeaway"]
     notes: Optional[str] = None
 
 
@@ -278,13 +279,15 @@ async def create_order(
     order_id = order_result["order_id"]
     order_number = order_result["order_number"]
 
-    # thread_id = food_order.thread_id
-    payment_intent_url = await generate_payment_intent_url(food_order)
-
-    # if food_order.action == "delivery":
-    #     payment_intent_url = await generate_payment_intent_url(food_order)
-    # else:
-    #     payment_intent_url = await generate_automatic_payment_url(food_order)
+    if food_order.action == "delivery":
+        payment_intent_url = await generate_payment_intent_url(food_order)
+    elif food_order.action == "takeaway":
+        payment_intent_url = await generate_automatic_payment_url(food_order)
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported order type: {food_order.action}",
+        )
 
     return {
         "status": "success",
