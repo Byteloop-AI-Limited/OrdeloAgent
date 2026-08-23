@@ -4,7 +4,7 @@
 
 select admins, city, * from restaurant_master where rest_ref = 'SFCS';
 
-select * from ordelo_config where config_key like '%_APP_URL';
+select * from ordelo_config where config_key like '%SFCS_APP_URL';
 
 select * from rider_master where rider_name in ('Lohith', 'Rahul', 'Bloop');
 select * from rider_master where is_in_shift = true;
@@ -38,7 +38,7 @@ SELECT * FROM ordelo_post('SFCS_APP_URL', '/restaurant-master-cache/reset');
 update rider_master
 set is_in_shift = true,
     town = 'dummy',
-    vehicle_type = 'scooter'
+    vehicle_type = 'car'
 where rider_name = 'Lohith';
 
 update rider_master
@@ -49,7 +49,7 @@ where rider_name = 'Rahul';
 
 update rider_master
 set is_in_shift = true,
-    town = 'dummy',
+    town = 'Orpington',
     vehicle_type = 'car'
 where rider_name = 'Bloop';
 
@@ -80,7 +80,10 @@ set admins = Array[ '447446933210','447919202938','447827180109', '447769081769'
 }'::jsonb
 where rest_ref = 'SFCS';
 
-update ordelo_config set config_value = 'https://sfcs-agg.ordelo.app' where config_key = 'SFCS_APP_URL';
+-- update ordelo_config set config_value = 'https://sfcs-agg.ordelo.app' where config_key = 'SFCS_APP_URL';
+update ordelo_config set config_value = 'https://sfcs-agent.fly.dev' where config_key = 'SFCS_APP_URL';
+
+
 
 update rider_master
 set is_in_shift = true,

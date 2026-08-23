@@ -22,9 +22,10 @@ takeaway starts `pickup_confirmed`. This skips the restaurant confirmation
 webhooks and cron timeout flow. Invalid/missing global configuration fails the
 auto-accept initialization instead of inventing a pickup time.
 
-Configured auto-accept suppresses delivery's "No Rider Found" admin message
-and takeaway's admin receipt. It retains payment/print work, restaurant
-webhooks, overwatch, customer/rider messages, and delivery operational receipts.
+Configured auto-accept suppresses delivery's "No Rider Found" admin message.
+It retains payment/print work, restaurant webhooks, overwatch,
+customer/rider messages, delivery operational receipts, and the takeaway admin
+receipt.
 
 ---
 
