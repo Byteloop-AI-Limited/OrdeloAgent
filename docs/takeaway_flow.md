@@ -41,7 +41,7 @@ Order Created → Payment (Stripe or pay-at-restaurant) → init_takeaway() RPC
 For `restaurant_master.auto_accept=true`, initialization resolves a configured
 pickup time and inserts the order as `auto_accept` / `pickup_confirmed`. The
 insert-time pickup trigger retains payment/print, restaurant webhook, and
-overwatch work, but skips the restaurant-admin takeaway receipt.
+overwatch work, and sends the restaurant-admin takeaway receipt.
 
 ---
 
