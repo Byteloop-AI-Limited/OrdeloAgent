@@ -8,6 +8,7 @@ FoodOrder pydantic model for food_order table
   . On instantiation via from_order_id, ensures final_order_value is up-to-date
   . Provides a payment_uri property to generate payment URL for Stripe (test URL only for overwatch + delivery action)
   . gen_capture_payload logs the capture split (total_amount, rest_payout, ordelo_take, commission_rate) for verification
+  . update_takeaway_financials_in_db logs the takeaway split (total_amount, rest_payout, ordelo_take, commission_rate) for verification
 Functions/Classes:
   . FoodOrder
     . get_final_order_value
@@ -320,11 +321,17 @@ class FoodOrder(BaseModel):
             self.final_order_value = final_order_value
             self.rest_cost = rest_cost
             self.commission_rate = commission
-            logger.info("Successfully updated takeaway financials for order %s", self.order_id)
+            ordelo_take = round(final_order_value - rest_cost, 2)
+            logger.info(
+                f"Takeaway financials split for order {self.order_number}: "
+                f"total_amount=£{final_order_value:.2f}, rest_payout=£{rest_cost:.2f}, "
+                f"ordelo_take=£{ordelo_take:.2f} (commission_rate={commission})"
+            )
+            logger.info(f"Successfully updated takeaway financials for order {self.order_id}")
             return True
         except Exception as e:
             logger.error(
-                "Error updating takeaway financials for order %s: %s", self.order_id, e
+                f"Error updating takeaway financials for order {self.order_id}: {e}"
             )
             return False
 
@@ -338,12 +345,9 @@ class FoodOrder(BaseModel):
         order_summary = await self.generate_order_summary_for_payment_intent()
         ordelo_take = round((self.final_order_value or 0) - (self.rest_cost or 0), 2)
         logger.info(
-            "Capture payload split for order %s: total_amount=£%.2f, rest_payout=£%.2f, ordelo_take=£%.2f (commission_rate=%s)",
-            self.order_number,
-            self.final_order_value or 0,
-            self.rest_cost or 0,
-            ordelo_take,
-            self.commission_rate,
+            f"Capture payload split for order {self.order_number}: "
+            f"total_amount=£{(self.final_order_value or 0):.2f}, rest_payout=£{(self.rest_cost or 0):.2f}, "
+            f"ordelo_take=£{ordelo_take:.2f} (commission_rate={self.commission_rate})"
         )
         return {
             "items": order_summary.get("items"),

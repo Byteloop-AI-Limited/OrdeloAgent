@@ -298,7 +298,7 @@ def reset_runtime_caches(rest_ref: str) -> None:
     reset_requests = (
         (
             "Ordelo routing",
-            f"{ordelo_url}/restaurant-base-url-cache/reset",
+            f"{ordelo_url}/internal/cache/reset",
             {"rest_ref": normalized_rest_ref.lower()},
         ),
         (
