@@ -7,6 +7,7 @@ FoodOrder pydantic model for food_order table
   . Now supports generating a capture payload for payment processing
   . On instantiation via from_order_id, ensures final_order_value is up-to-date
   . Provides a payment_uri property to generate payment URL for Stripe (test URL only for overwatch + delivery action)
+  . gen_capture_payload logs the capture split (total_amount, rest_payout, ordelo_take, commission_rate) for verification
 Functions/Classes:
   . FoodOrder
     . get_final_order_value
@@ -335,6 +336,15 @@ class FoodOrder(BaseModel):
             dict: A payload with action, payment_mode, rest_payout, and total_amount.
         """
         order_summary = await self.generate_order_summary_for_payment_intent()
+        ordelo_take = round((self.final_order_value or 0) - (self.rest_cost or 0), 2)
+        logger.info(
+            "Capture payload split for order %s: total_amount=£%.2f, rest_payout=£%.2f, ordelo_take=£%.2f (commission_rate=%s)",
+            self.order_number,
+            self.final_order_value or 0,
+            self.rest_cost or 0,
+            ordelo_take,
+            self.commission_rate,
+        )
         return {
             "items": order_summary.get("items"),
             "action": self.action,
