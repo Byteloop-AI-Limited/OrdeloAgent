@@ -4,7 +4,7 @@ FoodOrder pydantic model for food_order table
   . Provides model for food order records
   . Supports fetching from DB by order_id
   . Supports updating final order value using the model rest_ref and bubbles failures to the caller
-  . Now supports generating a capture payload for payment processing
+  . Now supports generating capture payloads with fee-free receipt items
   . On instantiation via from_order_id, ensures final_order_value is up-to-date
   . Provides a payment_uri property to generate payment URL for Stripe (test URL only for overwatch + delivery action)
   . gen_capture_payload logs the capture split (total_amount, rest_payout, ordelo_take, commission_rate) for verification
@@ -342,7 +342,9 @@ class FoodOrder(BaseModel):
         Returns:
             dict: A payload with action, payment_mode, rest_payout, and total_amount.
         """
-        order_summary = await self.generate_order_summary_for_payment_intent()
+        order_summary = await self.generate_order_summary_for_payment_intent(
+            include_fee_items=False
+        )
         ordelo_take = round((self.final_order_value or 0) - (self.rest_cost or 0), 2)
         logger.info(
             f"Capture payload split for order {self.order_number}: "
@@ -359,12 +361,19 @@ class FoodOrder(BaseModel):
             "restRef": self.rest_ref,
         }
 
-    async def generate_order_summary_for_payment_intent(self) -> dict:
+    async def generate_order_summary_for_payment_intent(
+        self, include_fee_items: bool = True
+    ) -> dict:
         """
-        Generates an order summary dictionary for payment intent, including product and fee items.
+        Generates an order summary dictionary for payment processing.
+
+        Args:
+            include_fee_items: Whether to include non-zero service, delivery,
+                and small-order fee items in the summary.
 
         Returns:
-            dict: Order summary with all items for payment intent.
+            dict: Order summary containing order items and, when enabled,
+                applicable fee items.
         """
         order_items = (
             client_ordelo.table("order_item")
@@ -378,27 +387,29 @@ class FoodOrder(BaseModel):
             .execute()
         )
 
-        fee_items = [
-            {
-                "product_name": "Service Charge",
-                "quantity": 1,
-                "price": self.service_charge,
-            },
-            {
-                "product_name": "Delivery Fee",
-                "quantity": 1,
-                "price": self.delivery_fee,
-            },
-            {
-                "product_name": "Small Order Fee",
-                "quantity": 1,
-                "price": self.small_order_fee,
-            },
-        ]
+        all_items = order_items.data
+        if include_fee_items:
+            fee_items = [
+                {
+                    "product_name": "Service Charge",
+                    "quantity": 1,
+                    "price": self.service_charge,
+                },
+                {
+                    "product_name": "Delivery Fee",
+                    "quantity": 1,
+                    "price": self.delivery_fee,
+                },
+                {
+                    "product_name": "Small Order Fee",
+                    "quantity": 1,
+                    "price": self.small_order_fee,
+                },
+            ]
 
-        # Filter out fees with a price of 0 or None
-        fee_items = [item for item in fee_items if item["price"] and item["price"] > 0]
-        all_items = order_items.data + fee_items
+            # Filter out fees with a price of 0 or None
+            fee_items = [item for item in fee_items if item["price"] and item["price"] > 0]
+            all_items = order_items.data + fee_items
         order_summary = {"items": all_items}
         return order_summary
 
