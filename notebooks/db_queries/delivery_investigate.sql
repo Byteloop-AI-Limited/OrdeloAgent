@@ -17,3 +17,5 @@ select * from delivery_detail where order_number = 'ELAS-JEJK-20';
 update delivery_detail set status='vehicle_type_timedout' where order_number='ELAS-JEJK-20';
 
 select * from delivery_inflight;
+
+select * from food_order order by order_dtts desc;
