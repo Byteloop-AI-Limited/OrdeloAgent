@@ -153,6 +153,24 @@ reset_restaurant_base_url_cache("ELAS")  # returns 1 if entry existed, 0 otherwi
 reset_restaurant_base_url_cache()  # returns number of entries removed
 ```
 
+### HTTP operational cache reset
+
+The Ordelo service exposes the same reset URL as the Restaurant Applications:
+`POST /internal/cache/reset`. It clears only process-local entries, so call it
+on every Ordelo instance after changing `ordelo_config` or wait for the normal
+TTL. The former `POST /restaurant-base-url-cache/reset` path remains available
+for compatibility.
+
+```bash
+# Clear every Ordelo operational lookup cache in the target process
+curl --fail --request POST 'https://rider-agent.example/internal/cache/reset'
+
+# Clear one restaurant's base-URL and RestaurantMaster entries; shared
+# Overwatch and dashboard URL entries are also cleared.
+curl --fail --request POST \
+  'https://rider-agent.example/internal/cache/reset?rest_ref=SFCS'
+```
+
 ### `get_restaurant_admins`
 
 Fetches admin phone numbers for a restaurant from `restaurant_master`. Accepts either `rest_ref` or `rest_id`.
@@ -171,7 +189,7 @@ This function replaces the deprecated `get_webhook_url` (sync) function. Key dif
 | Old (Deprecated) | New |
 |------------------|-----|
 | `get_webhook_url(rest_ref, type)` | `await get_restaurant_webhook_url_async(rest_ref, webhook_type)` |
-| Cached base URLs at startup | 5-minute TTL cached DB lookup |
+| Cached base URLs at startup | One-hour TTL cached DB lookup |
 | Required `RESTAURANT_CONFIG` dict | Uses `WEBHOOK_PATHS` + DB lookup |
 | Sync function | Async function |
 
@@ -187,8 +205,8 @@ url = await get_restaurant_webhook_url_async(rest_ref, "rider-inflight")
 
 ## Performance Considerations
 
-- **5-minute TTL cache**: Base URL lookups are cached in-memory per restaurant for 5 minutes (`_BASE_URL_CACHE_TTL_SECS = 300`). Subsequent calls for the same `rest_ref` within the TTL window return the cached value without a DB query.
-- **Cache invalidation**: Call `reset_restaurant_base_url_cache(rest_ref)` to clear a single restaurant's cached URL, or `reset_restaurant_base_url_cache()` with no arguments to clear all entries. This is useful after updating `ordelo_config` values.
+- **One-hour TTL cache**: Base URL lookups are cached in-memory per restaurant for one hour (`_BASE_URL_CACHE_TTL_SECS = 3600`). Subsequent calls for the same `rest_ref` within the TTL window return the cached value without a DB query.
+- **Cache invalidation**: Call `reset_restaurant_base_url_cache(rest_ref)` to clear a single restaurant's cached URL, or `reset_restaurant_base_url_cache()` with no arguments to clear all entries. For an operational HTTP call, use `POST /internal/cache/reset` as documented above.
 - **Path substitution**: `WEBHOOK_PATHS` templates contain `{rest_ref}` placeholders that are substituted at call time via `str.format()`, so paths are always constructed with the correct restaurant reference.
 
 ## Files Using This Function

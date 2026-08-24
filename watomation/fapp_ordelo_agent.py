@@ -308,15 +308,27 @@ async def get_restaurant_details(rest_ref: str):
     }
 
 
-# %% Reset base URL cache (diagnostic)
-@app.post("/restaurant-base-url-cache/reset")
+# %% Reset operational lookup caches (diagnostic)
+@app.post("/internal/cache/reset")
+@app.post("/restaurant-base-url-cache/reset", include_in_schema=False)
 async def reset_restaurant_base_url_cache_endpoint(
     rest_ref: Optional[str] = None,
 ):
-    """Reset all in-memory caches (base URL, overwatch list, restaurant master).
+    """Reset Ordelo's process-local operational lookup caches.
 
-    If rest_ref is provided, clears only that restaurant's cached entries.
-    If not, clears all caches entirely.
+    ``/internal/cache/reset`` is the shared operational endpoint used by the
+    Restaurant Applications, which post here with no ``rest_ref`` and expect
+    the same response shape their own reset routes use:
+    ``{"scope": "all", "removed_entries": {...}}``.  The former
+    ``/restaurant-base-url-cache/reset`` path remains available for existing
+    callers.
+
+    If ``rest_ref`` is provided, it limits the base-URL and RestaurantMaster
+    eviction to that restaurant, and the response's ``scope`` reports the
+    restaurant reference instead of ``"all"``.  The shared Overwatch and
+    dashboard URL entries are always cleared.  Without ``rest_ref``, every
+    entry in each cache is cleared.  This affects only the current Ordelo
+    process.
     """
     from config.params import (
         reset_app_url_cache,
@@ -325,16 +337,18 @@ async def reset_restaurant_base_url_cache_endpoint(
     )
     from ordelo_datamodels.restaurant_master_pymodel import reset_restaurant_master_cache
 
-    removed_entries = reset_restaurant_base_url_cache(rest_ref)
+    removed_base_url = reset_restaurant_base_url_cache(rest_ref)
     removed_overwatch = reset_overwatch_list_cache()
     removed_rest_master = reset_restaurant_master_cache(rest_ref)
     removed_app_url = reset_app_url_cache()
     return {
-        "scope": rest_ref.upper() if rest_ref else "ALL",
-        "removed_base_url_entries": removed_entries,
-        "removed_overwatch_list_entries": removed_overwatch,
-        "removed_rest_master_entries": removed_rest_master,
-        "removed_app_url_entries": removed_app_url,
+        "scope": rest_ref.upper() if rest_ref else "all",
+        "removed_entries": {
+            "base_url": removed_base_url,
+            "overwatch_list": removed_overwatch,
+            "restaurant_master": removed_rest_master,
+            "app_url": removed_app_url,
+        },
     }
 
 
