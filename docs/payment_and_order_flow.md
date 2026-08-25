@@ -155,7 +155,7 @@ After the order is created, a payment URL is generated based on the order type:
 | Order Type | Function | Payment Mode | Fees Included |
 |------------|----------|--------------|---------------|
 | `delivery` | `generate_payment_intent_url()` | Manual capture (`manual_mode_capture: true`) | Service charge, delivery fee, small order fee |
-| `takeaway` | `generate_automatic_payment_url()` | Automatic capture (`manual_mode_capture: false`) | Product items only (no delivery fees) |
+| `takeaway` | `generate_takeaway_manual_payment_url()` | Manual authorization (`manual_mode_capture: true`) | Product items only; capture receipts exclude fee rows |
 
 Both functions POST to the Stripe payment service at the `payment_uri` derived from `FoodOrder.payment_uri`, which constructs the URL as:
 ```
@@ -202,15 +202,20 @@ Payment is captured later during the inflight phase (when a rider is assigned) v
 ### Stripe Payment (Takeaway)
 
 ```
-Customer → Stripe Checkout (automatic capture) → Stripe webhook
+Customer → Stripe Checkout (manual authorization, action=collection) → Stripe webhook
   → POST /payment-hooks/payment-complete
   → food_order.payment_status = 'requires_capture'
   → handle_payment_complete() → restaurant webhook notification
   → init_takeaway_summary() → init_takeaway RPC
   → takeaway_summary created → DB triggers → restaurant confirmation flow
+  → pickup_time first becomes non-null → capture_takeaway_payment()
+  → Stripe capture, restaurant payout, one COLLECTION receipt
 ```
 
-For takeaway, Stripe captures the payment automatically (no manual capture needed later).
+Authorization stores the PaymentIntent and does not print. Capture happens only
+when pickup time is finalized, including configured auto-accept inserts. The
+payment-service wire action is `collection`; the Ordelo `food_order.action`
+remains `takeaway`.
 
 ### Pay-at-Restaurant (Takeaway Only)
 

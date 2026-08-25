@@ -116,12 +116,12 @@ async def test_create_order_returns_payment_url_for_delivery_and_takeaway(monkey
 
     async def _takeaway_url(food_order):
         payment_builders_called.append("takeaway")
-        return "https://pay.example.com/auto"
+        return "https://pay.example.com/manual"
 
     monkeypatch.setattr(order_hooks, "create_order_with_items", _create_order)
     monkeypatch.setattr(order_hooks.FoodOrder, "from_order_id", staticmethod(lambda order_id: _food_order("delivery")))
     monkeypatch.setattr(order_hooks, "generate_payment_intent_url", _delivery_url)
-    monkeypatch.setattr(order_hooks, "generate_automatic_payment_url", _takeaway_url)
+    monkeypatch.setattr(order_hooks, "generate_takeaway_manual_payment_url", _takeaway_url)
 
     delivery = await order_hooks.create_order(
         "ELAS",
@@ -136,7 +136,7 @@ async def test_create_order_returns_payment_url_for_delivery_and_takeaway(monkey
         "ELAS",
         order_hooks.CreateOrderRequest(recipient="447400000000", thread_id="thread-1", order_items=_order_items(), order_type="takeaway"),
     )
-    assert takeaway["payment_intent_url"] == "https://pay.example.com/auto"
+    assert takeaway["payment_intent_url"] == "https://pay.example.com/manual"
     assert payment_builders_called == ["delivery", "takeaway"]
 
 

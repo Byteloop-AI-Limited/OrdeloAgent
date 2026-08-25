@@ -1,6 +1,10 @@
 """P7 takeaway hook branch coverage."""
 from __future__ import annotations
 from types import SimpleNamespace
+
+import httpx
+import respx
+
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
 from tests.fixtures.fake_wa import FakeAsyncWhatsApp
 from watomation.routers import takeaway_hooks
@@ -86,25 +90,42 @@ async def test_confirmation_flow_no_admins():
     assert r == {"status": "error", "message": "No restaurant contacts", "order_number": "ELAS-ABCD-1"}
 
 
+@respx.mock
 async def test_pickup_time_set_posts_webhook(monkeypatch):
     async def _wh(*a, **kw): return "https://r.example.com/pt"
-    async def _rec(**kw): return None
     monkeypatch.setattr(takeaway_hooks, "get_restaurant_webhook_url_async", _wh)
-    monkeypatch.setattr(takeaway_hooks, "takeaway_admin_order_receipt", _rec)
+    route = respx.post("https://r.example.com/pt").mock(
+        return_value=httpx.Response(200, json={"ok": True})
+    )
     s = takeaway_hooks.TakeawaySummaryData(**_ts(pickup_time="2026-05-09T12:30:00+00:00"))
     rm = takeaway_hooks.RestaurantMasterData(**_rm())
-    r = await takeaway_hooks._handle_pickup_time_set(s, rm)
-    assert r["action"] == "pickup_time_notified"
+    assert await takeaway_hooks._post_pickup_time_event(s, rm) is None
+    assert route.called
 
 
-async def test_pickup_time_background_generates_print_url(monkeypatch):
-    async def _pu(*a, **kw): return "https://p.example.com/print"
-    async def _pts(s, rm): return {"status": "success", "action": "pickup_time_notified", "order_number": s.order_number}
+async def test_pay_at_rest_pickup_time_generates_print_only_job(monkeypatch):
+    calls = []
+
+    async def _pu(*args, **kwargs):
+        calls.append((args, kwargs))
+        return "https://p.example.com/print"
+
     monkeypatch.setattr(takeaway_hooks, "generate_automatic_payment_url", _pu)
-    monkeypatch.setattr(takeaway_hooks, "_handle_pickup_time_set", _pts)
-    monkeypatch.setattr(takeaway_hooks.FoodOrder, "from_order_number", staticmethod(lambda on: takeaway_hooks.FoodOrder(**_fo())))
-    r = await takeaway_hooks._handle_pickup_time_updated_background(takeaway_hooks.TakeawaySummaryData(**_ts(pickup_time="2026-05-09T12:30:00+00:00")), takeaway_hooks.RestaurantMasterData(**_rm()))
-    assert r["action"] == "pickup_time_notified"
+    monkeypatch.setattr(
+        takeaway_hooks.FoodOrder,
+        "from_order_number",
+        staticmethod(
+            lambda **_: SimpleNamespace(
+                order_id="ABCD-1",
+                payment_uri="https://payment.example.com/print",
+                payment_status="pay_at_rest",
+            )
+        ),
+    )
+
+    assert await takeaway_hooks.capture_takeaway_payment("ELAS-ABCD-1") is None
+    assert len(calls) == 1
+    assert calls[0][1] == {"is_print_only": True}
 
 
 async def test_init_takeaway_order_requires_customer_id():
