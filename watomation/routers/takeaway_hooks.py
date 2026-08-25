@@ -29,7 +29,7 @@ from typing import List, Optional
 
 from utils_common.tz_utils import UK_TZ, fmt_uk_time, parse_db_iso, to_uk_epoch
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 import httpx
 
 from config import (
@@ -49,8 +49,11 @@ from utils_common.waba_utils.wa_senders import (
 from watomation.routers.delivery_hooks import cancel_payment, notify_overwatch
 from utils_common.payment_ms.payment import (
     generate_automatic_payment_url,
-    generate_payment_intent_url,
 )
+
+
+_CAPTURE_LOOKUP_RETRY_DELAYS_SECONDS = (2, 5)
+_PAYMENT_INTENT_LOOKUP_FAILURE = "failed to retrieve paymentintent from order number"
 
 
 async def get_payload(request: Request):
@@ -430,6 +433,7 @@ async def capture_takeaway_payment(order_number: str):
     food_order = FoodOrder.from_order_number(order_number=order_number)
     if not food_order:
         logger.error(f"FoodOrder not found for order_id: {order_number}")
+        await _notify_capture_reconciliation(order_number, "food order was not found")
         return None
 
     order_id = food_order.order_id
@@ -448,28 +452,81 @@ async def capture_takeaway_payment(order_number: str):
     # Validate payment status
     if payment_status != "requires_capture":
         logger.error(f"Invalid payment status for order {order_id}: {payment_status}")
-        return None
-    
-    # if payment_status == 'requires_capture', capture the payment
-    async with httpx.AsyncClient() as _client:
-        logger.info(
-            f"Capturing payment for order {order_id} with payment URI: {payment_uri}"
+        await _notify_capture_reconciliation(
+            order_number,
+            f"payment status was {payment_status!r}, not requires_capture",
         )
-        try:
-            capture_payload = await food_order.gen_capture_payload()
-            logger.info(f"Capture payload: {capture_payload}")
-            res = await _client.post(
-                payment_uri,
-                json=capture_payload,
-                headers=ms_settings.stripe_headers,
+        return None
+
+    # Configured auto-accept can set pickup_time immediately after Stripe
+    # authorization. The payment-service webhook may still be persisting the
+    # PaymentIntent, so only its explicit pre-capture lookup error is retried.
+    # Every other failure may be ambiguous and needs reconciliation instead.
+    async with httpx.AsyncClient() as _client:
+        for attempt, retry_delay in enumerate(
+            (*_CAPTURE_LOOKUP_RETRY_DELAYS_SECONDS, None), start=1
+        ):
+            res = None
+            logger.info(
+                f"Capturing takeaway payment for order {order_id} (attempt {attempt}) "
+                f"with payment URI: {payment_uri}"
             )
-            res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
-            return res.text
-        except httpx.HTTPError as e:
-            logger.error(f"Error during payment capture for order {order_id}: {e}")
-            if "res" in locals():
-                logger.error(res.text)
-            return None
+            try:
+                capture_payload = await food_order.gen_capture_payload()
+                capture_payload["restaurant_confirmation_code"] = "N/A"
+                logger.info(f"Capture payload: {capture_payload}")
+                res = await _client.post(
+                    payment_uri,
+                    json=capture_payload,
+                    headers=ms_settings.stripe_headers,
+                )
+                res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+                return res.text
+            except httpx.HTTPStatusError as error:
+                response_text = res.text if res is not None else ""
+                is_safe_lookup_retry = (
+                    res is not None
+                    and res.status_code == 500
+                    and _PAYMENT_INTENT_LOOKUP_FAILURE in response_text.lower()
+                    and retry_delay is not None
+                )
+                if is_safe_lookup_retry:
+                    logger.warning(
+                        f"PaymentIntent is not stored yet for order {order_id}; "
+                        f"retrying capture in {retry_delay} seconds"
+                    )
+                    await asyncio.sleep(retry_delay)
+                    continue
+
+                logger.error(
+                    f"Payment capture failed for order {order_id}: {error}; "
+                    f"response={response_text}"
+                )
+                await _notify_capture_reconciliation(
+                    order_number,
+                    response_text or str(error),
+                )
+                return None
+            except httpx.HTTPError as error:
+                logger.error(
+                    f"Payment capture transport failure for order {order_id}: {error}"
+                )
+                await _notify_capture_reconciliation(order_number, str(error))
+                return None
+
+
+async def _notify_capture_reconciliation(order_number: str, reason: str) -> None:
+    """Alerts Overwatch without aborting later pickup-time background tasks."""
+    try:
+        await notify_overwatch(
+            log_msg=(
+                f"{order_number} takeaway payment capture requires reconciliation: {reason}"
+            )
+        )
+    except Exception:
+        logger.exception(
+            f"Failed to send capture reconciliation alert for takeaway order {order_number}"
+        )
 
 # %%
 
@@ -487,8 +544,22 @@ async def pickup_time_updated_hook(
         logger.error("No takeaway_summary found: from pickup_time_updated_hook")
         return {"status": "error", "data": payload}
 
-    takeaway_summary = TakeawaySummaryData(**payload["takeaway_summary"])
-    restaurant_master = RestaurantMasterData(**payload["restaurant_master"])
+    try:
+        takeaway_summary = TakeawaySummaryData(**payload["takeaway_summary"])
+        restaurant_master = RestaurantMasterData(**payload["restaurant_master"])
+    except (KeyError, TypeError, ValidationError) as error:
+        summary_payload = payload.get("takeaway_summary")
+        order_number = (
+            summary_payload.get("order_number", "unknown")
+            if isinstance(summary_payload, dict)
+            else "unknown"
+        )
+        logger.error(f"Invalid pickup-time webhook payload for order {order_number}: {error}")
+        return {
+            "status": "error",
+            "message": "Invalid pickup-time webhook payload",
+            "order_number": order_number,
+        }
 
     logger.info(
         f"Takeaway pickup time webhook triggered: order={takeaway_summary.order_number}, "

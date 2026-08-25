@@ -38,6 +38,127 @@ Then reboot:
 sudo reboot
 ```
 
+### 1c. Connect to Wi-Fi
+
+Raspberry Pi OS (Bullseye and later) uses NetworkManager, so `nmcli` works
+purely from the terminal — no desktop needed.
+
+Check you're on NetworkManager:
+
+```bash
+nmcli --version
+```
+
+List visible networks:
+
+```bash
+sudo nmcli device wifi list
+```
+
+Connect:
+
+```bash
+sudo nmcli device wifi connect "XLN_Small_Biz_J5s3" password "YOUR_PASSWORD"
+```
+
+> If the password contains `!`, bash tries to expand it as a history event
+> even inside quotes and fails with `bash: !...: event not found`. Read the
+> password into a variable instead of typing it inline:
+> ```bash
+> read -s -p "Wi-Fi password: " WIFI_PASS; echo
+> sudo nmcli device wifi connect "YOUR_SSID" password "$WIFI_PASS"
+> unset WIFI_PASS
+> ```
+> This also keeps the password out of shell history. Alternatively, disable
+> history expansion for the session with `set +H` before running the
+> original command.
+
+Verify:
+
+```bash
+nmcli device status
+ip a show wlan0
+ping -c 3 8.8.8.8
+```
+
+`nmcli device status` should show `wlan0` as `connected`. The connection
+persists across reboots automatically — no extra step needed.
+
+> **Older Raspberry Pi OS (pre-Bullseye, `dhcpcd`-based) instead:**
+> ```bash
+> sudo raspi-config nonint do_wifi_ssid_passphrase "YOUR_SSID" "YOUR_PASSWORD"
+> sudo systemctl restart dhcpcd
+> ```
+> Or edit `/etc/wpa_supplicant/wpa_supplicant.conf` directly and add:
+> ```
+> network={
+>     ssid="YOUR_SSID"
+>     psk="YOUR_PASSWORD"
+> }
+> ```
+> then `sudo wpa_cli -i wlan0 reconfigure`.
+
+### Pre-configure a network that isn't in range yet
+
+`nmcli device wifi connect` only works against networks currently visible in
+a scan — if the SSID isn't broadcasting yet, it fails with `No network with
+SSID found` and **nothing is saved**. To save the profile ahead of time,
+create it directly instead of scanning for it:
+
+```bash
+sudo nmcli connection add type wifi ifname wlan0 con-name "YOUR_SSID" ssid "YOUR_SSID"
+sudo nmcli connection modify "YOUR_SSID" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "YOUR_PASSWORD"
+```
+
+Confirm it saved:
+
+```bash
+nmcli connection show
+```
+
+It'll appear in the list even though it's not active yet. `autoconnect` is
+`yes` by default, so once that SSID comes into range the Pi joins it
+automatically — no need to run `connection up` yourself.
+
+If the network is hidden (doesn't broadcast its SSID at all, as opposed to
+just being off right now), also add:
+
+```bash
+sudo nmcli connection modify "YOUR_SSID" 802-11-wireless.hidden yes
+```
+
+### Switch between already-connected Wi-Fi networks
+
+`nmcli` saves a connection profile for every network you've ever connected
+to, so switching back doesn't need the password again.
+
+List saved profiles:
+
+```bash
+nmcli connection show
+```
+
+Check which one is currently active:
+
+```bash
+nmcli -t -f active,ssid dev wifi | grep '^yes'
+```
+
+Switch to a saved network by name:
+
+```bash
+sudo nmcli connection up "OTHER_SSID"
+```
+
+This brings down the current Wi-Fi connection and brings the named one up —
+no need to disconnect manually first.
+
+To forget a saved network entirely (deletes the stored password too):
+
+```bash
+sudo nmcli connection delete "OLD_SSID"
+```
+
 ---
 
 ## 2. Install git
@@ -263,8 +384,8 @@ curl https://bnat-print.byteloop.ai/healthz
 ```bash
 curl -i -X POST https://bnat-print.byteloop.ai/ \
   -H 'Content-Type: application/json' \
-  -H 'X-Authorization: Bearer jUo7Wsc****' \
-  -d '{"order_id":"TUNNEL-001","restaurant":"Burger Nation","status":"collection",
+  -H 'X-Authorization: Bearer jUo7WsyYySxi71GwieuFPBfbWj8xR6DaXjUHW7gccT1EaX0DCCm3R3qTmJ3FWh2cFRI7jKOCBodFAvp' \
+  -d '{"order_id":"TUNNEL-001","restaurant":"arna is the best","status":"collection",
        "total":"8.99","items":[{"name":"Chicken Popcorn","price":"8.99","quantity":1}]}'
 ```
 

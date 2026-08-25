@@ -10,8 +10,10 @@ Key Functions:
   - test_rest_ref_derives_lowercase_prefix
   - test_update_final_order_value_in_db_updates_instance_fields
   - test_generate_order_summary_for_payment_intent_adds_nonzero_fees
+  - test_generate_order_summary_for_payment_intent_can_exclude_fees
   - test_generate_order_summary_for_automatic_payment_returns_items_and_total
   - test_gen_capture_and_payment_intent_payloads
+  - test_takeaway_capture_payload_uses_collection_product_items
 """
 
 from __future__ import annotations
@@ -115,6 +117,19 @@ async def test_generate_order_summary_for_payment_intent_adds_nonzero_fees(patch
     assert {item["product_name"] for item in summary["items"]} == {"Burger", "Service Charge", "Delivery Fee"}
 
 
+async def test_generate_order_summary_for_payment_intent_can_exclude_fees(patch_supabase_client) -> None:
+    order = _food_order()
+    patch_supabase_client.register(
+        table="order_item",
+        verb="select",
+        response=FakeSupabaseResponse(data=[{"product_name": "Burger", "quantity": 1, "price": 10.0, "modifications": []}]),
+    )
+
+    summary = await order.generate_order_summary_for_payment_intent(include_fee_items=False)
+
+    assert summary["items"] == [{"product_name": "Burger", "quantity": 1, "price": 10.0, "modifications": []}]
+
+
 async def test_generate_order_summary_for_automatic_payment_returns_items_and_total(patch_supabase_client) -> None:
     order = _food_order()
     patch_supabase_client.register(
@@ -133,7 +148,7 @@ async def test_generate_order_summary_for_automatic_payment_returns_items_and_to
 
 
 async def test_gen_capture_and_payment_intent_payloads(patch_supabase_client) -> None:
-    order = _food_order()
+    order = _food_order(small_order_fee=2.0)
     patch_supabase_client.register(
         table="order_item",
         verb="select",
@@ -144,7 +159,45 @@ async def test_gen_capture_and_payment_intent_payloads(patch_supabase_client) ->
     intent = await order.gen_payment_intent_payload()
 
     assert capture["payment_mode"] == "capture"
+    assert [item["product_name"] for item in capture["items"]] == ["Burger"]
     assert capture["rest_payout"] == 18.0
     assert capture["restRef"] == "elas"
     assert intent["currency"] == "GBP"
     assert intent["manual_mode_capture"] is True
+    assert {item["product_name"] for item in intent["items"]} == {
+        "Burger",
+        "Service Charge",
+        "Delivery Fee",
+        "Small Order Fee",
+    }
+
+
+async def test_takeaway_capture_payload_uses_collection_product_items(
+    patch_supabase_client,
+) -> None:
+    order = _food_order(
+        action="takeaway",
+        total_price=23.96,
+        final_order_value=23.96,
+        rest_cost=20.0,
+    )
+    item = {
+        "product_name": "Matilda Cake",
+        "quantity": 4,
+        "price": 5.99,
+        "modifications": [],
+    }
+    patch_supabase_client.register(
+        table="order_item",
+        verb="select",
+        response=FakeSupabaseResponse(data=[item]),
+    )
+
+    capture = await order.gen_capture_payload()
+    product_summary = await order.generate_product_order_summary()
+
+    assert capture["action"] == "collection"
+    assert capture["items"] == [item]
+    assert product_summary["items"] == capture["items"]
+    assert product_summary["total"] == 23.96
+    assert capture["total_amount"] == 23.96
