@@ -123,7 +123,7 @@ A `takeaway_summary` row is created by `init_takeaway_summary()`, which is calle
 
 ### Trigger chain (DB → API handler)
 
-Two triggers exist on `takeaway_summary` in `ordelo_datamodels/takeaway_summary.sql`:
+Three triggers exist on `takeaway_summary` in `ordelo_datamodels/takeaway_summary.sql`:
 
 1. **`trigger_takeaway_restaurant_updates`** — fires on `INSERT OR UPDATE OF restaurant_confirmation_status`
    - trigger function `takeaway_restaurant_updates_whook()` posts to `/takeaway-hooks/restaurant-confirmation-request`
@@ -132,6 +132,9 @@ Two triggers exist on `takeaway_summary` in `ordelo_datamodels/takeaway_summary.
 2. **`trigger_takeaway_pickup_time_set`** — fires on `UPDATE OF pickup_time` when `OLD.pickup_time IS NULL AND NEW.pickup_time IS NOT NULL`
    - trigger function `takeaway_pickup_time_whook()` posts to `/takeaway-hooks/pickup-time-updated`
    - Handled by `watomation/routers/takeaway_hooks.py` → `pickup_time_updated_hook()`
+
+3. **`trigger_takeaway_pickup_time_insert`** — fires on INSERT when configured auto-accept creates the row with a non-null `pickup_time`
+   - uses the same webhook and handler, so configured-auto orders capture at the same boundary
 
 ### 1) Restaurant accepts order → pickup options sent
 
@@ -175,12 +178,15 @@ UPDATE takeaway_summary SET pickup_time = '...'
     → builds payload: { takeaway_summary, restaurant_master }
     → HTTP POST → /takeaway-hooks/pickup-time-updated
   → pickup_time_updated_hook() (responds 200 immediately)
-    → BackgroundTask: _handle_pickup_time_set()
+    → BackgroundTask: capture_takeaway_payment()
+      → payment_mode=capture, action=collection
+      → retries only an explicit pre-capture PaymentIntent lookup failure after 2s and 5s
+    → BackgroundTask: _post_pickup_time_event()
       → get_restaurant_webhook_url_async(rest_ref, 'order-pickup-time-updated')
       → HTTP POST → external restaurant service
 ```
 
-- Trigger condition: `OLD.pickup_time IS NULL AND NEW.pickup_time IS NOT NULL` — fires exactly once per order.
+- Trigger condition: NULL-to-non-NULL UPDATE, or a non-null INSERT for configured auto-accept — fires once per order.
 - Payload: full `takeaway_summary` row + `restaurant_master` data (no `food_order`/`order_items`).
 - URL resolution: restaurant-specific via `get_restaurant_webhook_url_async(rest_ref, 'order-pickup-time-updated')`.
 - Debug logging: entries written to `debug_log` table at each step (controlled by `ENABLE_TRIGGER_DEBUG_LOG` config).

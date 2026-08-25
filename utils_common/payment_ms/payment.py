@@ -9,6 +9,7 @@ Payment microservice utilities for Stripe integration
   Functions/Classes:
     . get_payment_uri
     . generate_payment_intent
+    . generate_takeaway_manual_payment_url
     . generate_automatic_payment_url
     . cancel_payment
     . capture_payment
@@ -52,7 +53,7 @@ async def generate_automatic_payment_url(
     food_order: FoodOrder, is_print_only: bool = False
 ):
     """
-    Generates a Stripe payment URL for automatic capture (No manual_mode, instant capture on stripe for takeaways.).
+    Generates a Stripe payment URL for automatic capture or a print-only job.
 
     Args:
         food_order: A FoodOrder instance containing order details.
@@ -60,8 +61,31 @@ async def generate_automatic_payment_url(
     Returns:
         A string representing the Stripe payment URL, or None if an error occurred.
     """
+    return await _generate_takeaway_payment_url(
+        food_order,
+        manual_mode_capture=False,
+        is_print_only=is_print_only,
+    )
+
+
+async def generate_takeaway_manual_payment_url(food_order: FoodOrder):
+    """Creates a manual-capture Checkout Session for an online takeaway order."""
+    return await _generate_takeaway_payment_url(
+        food_order,
+        manual_mode_capture=True,
+        is_print_only=False,
+    )
+
+
+async def _generate_takeaway_payment_url(
+    food_order: FoodOrder,
+    *,
+    manual_mode_capture: bool,
+    is_print_only: bool,
+):
+    """Posts the shared product-only takeaway payment payload."""
     payment_uri = food_order.payment_uri
-    order_summary = await food_order.generate_order_summary_for_automatic_payment()
+    order_summary = await food_order.generate_product_order_summary()
 
     intent_payload = {
         "total_amount": order_summary.get("total"),
@@ -69,7 +93,7 @@ async def generate_automatic_payment_url(
         "currency": "GBP",
         "action": "collection",
         "restaurant_confirmation_code": "N/A",
-        "manual_mode_capture": False,
+        "manual_mode_capture": manual_mode_capture,
         "notes": food_order.notes,
         "printonlyjob": is_print_only,
         "restRef": food_order.rest_ref,
@@ -83,7 +107,7 @@ async def generate_automatic_payment_url(
             res.raise_for_status()
             return res.json()["url"]
         except httpx.HTTPError as e:
-            logger.error(f"Error during automatic payment intent creation: {e}")
+            logger.error(f"Error during takeaway payment intent creation: {e}")
             return None
 
 
