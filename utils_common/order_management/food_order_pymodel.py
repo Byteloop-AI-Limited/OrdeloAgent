@@ -17,6 +17,7 @@ Functions/Classes:
     . gen_capture_payload
     . generate_order_summary_for_payment_intent
     . generate_order_summary_for_automatic_payment
+    . generate_product_order_summary
     . payment_uri (property)
     . gen_payment_intent_payload
 """
@@ -342,9 +343,7 @@ class FoodOrder(BaseModel):
         Returns:
             dict: A payload with action, payment_mode, rest_payout, and total_amount.
         """
-        order_summary = await self.generate_order_summary_for_payment_intent(
-            include_fee_items=False
-        )
+        order_summary = await self.generate_product_order_summary()
         ordelo_take = round((self.final_order_value or 0) - (self.rest_cost or 0), 2)
         logger.info(
             f"Capture payload split for order {self.order_number}: "
@@ -353,7 +352,7 @@ class FoodOrder(BaseModel):
         )
         return {
             "items": order_summary.get("items"),
-            "action": self.action,
+            "action": "collection" if self.action == "takeaway" else self.action,
             "payment_mode": "capture",
             "rest_payout": self.rest_cost,
             "total_amount": self.final_order_value,
@@ -415,12 +414,21 @@ class FoodOrder(BaseModel):
 
     async def generate_order_summary_for_automatic_payment(self) -> dict:
         """
-        Generates an order summary dictionary for automatic payment capture.
-        Only includes order items without any additional fees (no service charge,
-        delivery fee, or small order fee).
+        Backward-compatible alias for the product-only payment summary.
 
         Returns:
-            dict: Order summary with only product items for automatic payment.
+            dict: Order summary with product items only.
+        """
+        return await self.generate_product_order_summary()
+
+    async def generate_product_order_summary(self) -> dict:
+        """Builds the product-only summary shared by takeaway and capture flows.
+
+        Capture receipts intentionally omit fee rows. The captured amount remains
+        ``final_order_value`` and is therefore independent of receipt lines.
+
+        Returns:
+            dict: Product items and their product-only total.
         """
         order_items = (
             client_ordelo.table("order_item")

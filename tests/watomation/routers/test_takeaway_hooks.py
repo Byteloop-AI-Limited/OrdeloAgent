@@ -13,8 +13,9 @@ Key Functions:
   - test_restaurant_confirmation_flow_routes_to_correct_handler
   - test_restaurant_confirmation_flow_unknown_trigger_returns_error
   - test_restaurant_confirmation_flow_no_admins_returns_error
-  - test_handle_pickup_time_set_posts_webhook_and_sends_receipt
-  - test_handle_pickup_time_updated_background_generates_print_url
+  - test_capture_takeaway_payment_retries_only_pending_payment_intent_lookup
+  - test_capture_takeaway_payment_does_not_retry_ambiguous_failure
+  - test_capture_takeaway_payment_does_not_retry_transport_timeout
   - test_init_takeaway_order_requires_customer_id
   - test_format_pickup_time_display_delegates_to_fmt_uk_time
   - test_pickup_time_updated_hook_schedules_background_processing
@@ -24,8 +25,12 @@ Key Functions:
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
+
+import httpx
+import respx
 
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
 from tests.fixtures.fake_wa import FakeAsyncWhatsApp
@@ -75,6 +80,31 @@ def _restaurant_master_row(**overrides):
     return row
 
 
+class _CaptureFoodOrder:
+    order_id = "ABCD-1"
+    order_number = "ELAS-ABCD-1"
+    payment_uri = "https://payment.example.com/threads/thread-1/orders/ABCD-1/payment-url"
+    payment_status = "requires_capture"
+
+    async def gen_capture_payload(self) -> dict:
+        return {
+            "action": "collection",
+            "payment_mode": "capture",
+            "rest_payout": 20.0,
+            "total_amount": 23.96,
+            "notes": "No onions",
+            "restRef": "elas",
+            "items": [
+                {
+                    "product_name": "Matilda Cake",
+                    "quantity": 4,
+                    "price": 5.99,
+                    "modifications": [],
+                }
+            ],
+        }
+
+
 async def test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins(monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp) -> None:
     monkeypatch.setattr(takeaway_hooks, "client_ordelo", patch_supabase_client)
     patch_supabase_client.register(table="takeaway_summary", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
@@ -116,9 +146,13 @@ async def test_pickup_time_updated_hook_schedules_background_processing() -> Non
 
     result = await takeaway_hooks.pickup_time_updated_hook(bg, payload=payload)
 
-    assert result == {"status": "accepted", "message": "pickup_time_set handler scheduled", "order_number": "ELAS-ABCD-1"}
-    assert bg.tasks[0]["func"] == takeaway_hooks._handle_pickup_time_updated_background
-    assert bg.tasks[0]["args"][0].pickup_time == "2026-05-09T12:30:00+00:00"
+    assert result == {"status": "success"}
+    assert [task["func"] for task in bg.tasks] == [
+        takeaway_hooks.capture_takeaway_payment,
+        takeaway_hooks._post_pickup_time_event,
+        takeaway_hooks.takeaway_admin_order_receipt,
+        takeaway_hooks.notify_overwatch,
+    ]
 
 
 async def test_pickup_time_updated_hook_returns_error_for_invalid_payload() -> None:
@@ -129,6 +163,117 @@ async def test_pickup_time_updated_hook_returns_error_for_invalid_payload() -> N
 
     assert result["status"] == "error"
     assert result["order_number"] == "ELAS-ABCD-1"
+
+
+@respx.mock
+async def test_capture_takeaway_payment_retries_only_pending_payment_intent_lookup(
+    monkeypatch,
+) -> None:
+    order = _CaptureFoodOrder()
+    monkeypatch.setattr(
+        takeaway_hooks.FoodOrder,
+        "from_order_number",
+        staticmethod(lambda **_: order),
+    )
+    sleeps: list[int] = []
+    alerts: list[str] = []
+
+    async def _sleep(delay: int) -> None:
+        sleeps.append(delay)
+
+    async def _notify(*, log_msg: str) -> None:
+        alerts.append(log_msg)
+
+    monkeypatch.setattr(takeaway_hooks.asyncio, "sleep", _sleep)
+    monkeypatch.setattr(takeaway_hooks, "notify_overwatch", _notify)
+    route = respx.post(order.payment_uri).mock(
+        side_effect=[
+            httpx.Response(
+                500,
+                json={
+                    "error": "Failed to capture payment: failed to retrieve PaymentIntent from order number ABCD-1"
+                },
+            ),
+            httpx.Response(
+                500,
+                json={
+                    "error": "Failed to capture payment: failed to retrieve PaymentIntent from order number ABCD-1"
+                },
+            ),
+            httpx.Response(200, text=""),
+        ]
+    )
+
+    assert await takeaway_hooks.capture_takeaway_payment(order.order_number) == ""
+    assert sleeps == [2, 5]
+    assert len(route.calls) == 3
+    assert alerts == []
+    payload = json.loads(route.calls[0].request.content)
+    assert payload["restaurant_confirmation_code"] == "N/A"
+    assert payload["action"] == "collection"
+    assert payload["items"][0] == {
+        "product_name": "Matilda Cake",
+        "quantity": 4,
+        "price": 5.99,
+        "modifications": [],
+    }
+
+
+@respx.mock
+async def test_capture_takeaway_payment_does_not_retry_ambiguous_failure(monkeypatch) -> None:
+    order = _CaptureFoodOrder()
+    monkeypatch.setattr(
+        takeaway_hooks.FoodOrder,
+        "from_order_number",
+        staticmethod(lambda **_: order),
+    )
+    alerts: list[str] = []
+
+    async def _notify(*, log_msg: str) -> None:
+        alerts.append(log_msg)
+
+    monkeypatch.setattr(takeaway_hooks, "notify_overwatch", _notify)
+    route = respx.post(order.payment_uri).mock(
+        return_value=httpx.Response(
+            500,
+            json={"error": "Failed to capture payment: transfer to restaurant failed"},
+        )
+    )
+
+    assert await takeaway_hooks.capture_takeaway_payment(order.order_number) is None
+    assert len(route.calls) == 1
+    assert len(alerts) == 1
+    assert "requires reconciliation" in alerts[0]
+
+
+async def test_capture_takeaway_payment_does_not_retry_transport_timeout(monkeypatch) -> None:
+    order = _CaptureFoodOrder()
+    monkeypatch.setattr(
+        takeaway_hooks.FoodOrder,
+        "from_order_number",
+        staticmethod(lambda **_: order),
+    )
+    alerts: list[str] = []
+
+    class _TimeoutClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        async def post(self, *_args, **_kwargs):
+            raise httpx.ReadTimeout("gateway timeout")
+
+    async def _notify(*, log_msg: str) -> None:
+        alerts.append(log_msg)
+
+    monkeypatch.setattr(takeaway_hooks.httpx, "AsyncClient", _TimeoutClient)
+    monkeypatch.setattr(takeaway_hooks, "notify_overwatch", _notify)
+
+    assert await takeaway_hooks.capture_takeaway_payment(order.order_number) is None
+    assert len(alerts) == 1
+    assert "gateway timeout" in alerts[0]
 
 
 async def test_pickup_time_updated_hook_schedules_admin_receipt_for_configured_auto_accept() -> None:

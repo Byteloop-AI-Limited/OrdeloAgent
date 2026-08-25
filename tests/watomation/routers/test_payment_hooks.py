@@ -83,14 +83,32 @@ async def test_payment_complete_path_updates_order_and_schedules_delivery_or_tak
     assert [task["func"] for task in bg.tasks] == [payment_hooks.handle_payment_complete, payment_hooks.init_takeaway_summary]
 
 
-async def test_payment_complete_test_path_schedules_expected_initializer() -> None:
+async def test_payment_complete_test_path_schedules_expected_initializer(
+    patch_supabase_client,
+) -> None:
+    patch_supabase_client.register(
+        table="food_order",
+        verb="update",
+        response=FakeSupabaseResponse(data=[_food_order_row("delivery")]),
+    )
     delivery_bg = _FakeBackgroundTasks()
-    assert await payment_hooks.payment_complete_test_path("ELAS-ABCD-1", delivery_bg, recipient="4474", action="delivery") == {"success": "success"}
-    assert delivery_bg.tasks[0]["func"] == payment_hooks.init_delivery_summary
+    assert await payment_hooks.payment_complete_test_path("ABCD-1", delivery_bg) == {"success": "success"}
+    assert [task["func"] for task in delivery_bg.tasks] == [
+        payment_hooks.handle_payment_complete,
+        payment_hooks.init_delivery_summary,
+    ]
 
+    patch_supabase_client.register(
+        table="food_order",
+        verb="update",
+        response=FakeSupabaseResponse(data=[_food_order_row("takeaway")]),
+    )
     takeaway_bg = _FakeBackgroundTasks()
-    await payment_hooks.payment_complete_test_path("ELAS-ABCD-1", takeaway_bg, recipient="4474", action="takeaway")
-    assert takeaway_bg.tasks[0]["func"] == payment_hooks.init_takeaway_summary
+    assert await payment_hooks.payment_complete_test_path("ABCD-1", takeaway_bg) == {"success": "success"}
+    assert [task["func"] for task in takeaway_bg.tasks] == [
+        payment_hooks.handle_payment_complete,
+        payment_hooks.init_takeaway_summary,
+    ]
 
 
 async def test_pay_at_restaurant_validates_action_and_schedules_takeaway(patch_supabase_client) -> None:

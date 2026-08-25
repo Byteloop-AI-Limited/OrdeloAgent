@@ -58,7 +58,7 @@ sudo nmcli device wifi list
 Connect:
 
 ```bash
-sudo nmcli device wifi connect "YOUR_SSID" password "YOUR_PASSWORD"
+sudo nmcli device wifi connect "XLN_Small_Biz_J5s3" password "YOUR_PASSWORD"
 ```
 
 > If the password contains `!`, bash tries to expand it as a history event

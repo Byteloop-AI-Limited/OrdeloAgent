@@ -120,12 +120,13 @@ For customers paying online via Stripe.
 **Flow:**
 
 1. Order is created via `POST /order-hooks/create-order/{rest_ref}` with `order_type = "takeaway"`
-2. Payment URL is generated using `generate_automatic_payment_url()` (instant capture, no manual mode)
-3. Customer completes payment on Stripe checkout
+2. Payment URL is generated using `generate_takeaway_manual_payment_url()` with `action="collection"` and manual capture
+3. Customer authorizes payment on Stripe checkout; the payment service stores the PaymentIntent and does not print
 4. Stripe calls `POST /payment-hooks/payment-complete`
 5. Handler updates `food_order.payment_status` to `requires_capture`
 6. Since `food_order.action == "takeaway"`, the handler calls `init_takeaway_summary()` as a background task
 7. `init_takeaway_summary()` invokes the `init_takeaway` RPC
+8. The first finalized `pickup_time` triggers capture, payout, and one collection receipt
 
 **Source:** `watomation/routers/payment_hooks.py:96-135` (`payment_complete_path`)
 
@@ -216,19 +217,19 @@ When an admin selects a pickup time:
    - Sets `status` to `pickup_confirmed`
    - Sets `restaurant_confirmation_status` to `restaurant_accept`
 2. Customer receives a pickup confirmation message via `_send_customer_pickup_confirmation()` with the pickup time, restaurant name, and address
-3. A DB trigger (`trigger_takeaway_pickup_time_set`) fires when `pickup_time` changes from NULL to a value
+3. A DB trigger (`trigger_takeaway_pickup_time_set`) fires when `pickup_time` changes from NULL to a value. Configured auto-accept uses the companion INSERT trigger when summary creation already has a pickup time.
 
 ### Pickup Time Webhook (External Restaurant Notification)
 
-**Trigger:** `trigger_takeaway_pickup_time_set` on `takeaway_summary` (when `pickup_time` transitions from NULL to non-NULL)
+**Triggers:** `trigger_takeaway_pickup_time_set` on NULL-to-non-NULL UPDATE and `trigger_takeaway_pickup_time_insert` on configured-auto non-null INSERT.
 
 **Source Function:** `takeaway_pickup_time_whook()` in `ordelo_datamodels/takeaway_summary.sql`
 
 **Webhook:** `POST /takeaway-hooks/pickup-time-updated`
 
-**Handler:** `pickup_time_updated_hook()` schedules `_handle_pickup_time_set()` as a background task
+**Handler:** `pickup_time_updated_hook()` schedules manual capture, the external pickup-time webhook, the operational admin receipt, and Overwatch notification as background tasks.
 
-**Action:** POSTs the pickup time event to the external restaurant service at the `order-pickup-time-updated` webhook URL:
+**Actions:** the first task captures an online payment with `payment_mode=capture` and `action=collection`; it retries only an explicit missing-PaymentIntent lookup after 2 and 5 seconds. The pickup-time event is then posted to the external restaurant service:
 
 ```
 POST {restaurant_webhook_url}/order-pickup-time-updated
@@ -238,7 +239,7 @@ POST {restaurant_webhook_url}/order-pickup-time-updated
 }
 ```
 
-**Source:** `watomation/routers/takeaway_hooks.py:390-427` (`_handle_pickup_time_set`)
+**Source:** `watomation/routers/takeaway_hooks.py` (`pickup_time_updated_hook`, `capture_takeaway_payment`, and `_post_pickup_time_event`)
 
 ---
 

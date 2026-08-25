@@ -13,6 +13,7 @@ Key Functions:
   - test_generate_order_summary_for_payment_intent_can_exclude_fees
   - test_generate_order_summary_for_automatic_payment_returns_items_and_total
   - test_gen_capture_and_payment_intent_payloads
+  - test_takeaway_capture_payload_uses_collection_product_items
 """
 
 from __future__ import annotations
@@ -169,3 +170,34 @@ async def test_gen_capture_and_payment_intent_payloads(patch_supabase_client) ->
         "Delivery Fee",
         "Small Order Fee",
     }
+
+
+async def test_takeaway_capture_payload_uses_collection_product_items(
+    patch_supabase_client,
+) -> None:
+    order = _food_order(
+        action="takeaway",
+        total_price=23.96,
+        final_order_value=23.96,
+        rest_cost=20.0,
+    )
+    item = {
+        "product_name": "Matilda Cake",
+        "quantity": 4,
+        "price": 5.99,
+        "modifications": [],
+    }
+    patch_supabase_client.register(
+        table="order_item",
+        verb="select",
+        response=FakeSupabaseResponse(data=[item]),
+    )
+
+    capture = await order.gen_capture_payload()
+    product_summary = await order.generate_product_order_summary()
+
+    assert capture["action"] == "collection"
+    assert capture["items"] == [item]
+    assert product_summary["items"] == capture["items"]
+    assert product_summary["total"] == 23.96
+    assert capture["total_amount"] == 23.96
