@@ -9,8 +9,12 @@ rider workflow. The separate `WaLocation` flow accepts open
 `POST /wa-request-location` demands with public HTTPS callback URLs, validates the exact active
 `delivery_inflight(order_number, dispatch_id, rider_id)` assignment, and asks
 the rider for a native WhatsApp current location only when an authorised
-request needs one. Its durable request/observation schema and rollout boundary
-are documented in [WaLocation Implementation Plan](wa_location_implementation_plan.md).
+request needs one. Its durable request/observation schema lives in
+`ordelo_datamodels/wa_location.sql` (tables) and
+`ordelo_datamodels/wa_location_pymodels.py` (models); the request/observation
+lifecycle is implemented in `ordelo/wa_location.py`, exposed by
+`watomation/routers/wa_location_hooks.py`, and the rider's reply is handled by
+`watomation/on_wa_location_handler.py`.
 
 **The prompt is sent through the rider agent, not directly.** `WaLocation.request()`
 validates and persists the demand synchronously, then schedules

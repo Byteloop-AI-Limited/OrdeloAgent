@@ -1,7 +1,7 @@
 # Ordelo Delivery Process
 
-**Version:** 3.2
-**Last Updated:** 2026-08-18
+**Version:** 3.3
+**Last Updated:** 2026-09-03
 
 This document provides a comprehensive reference for the Ordelo delivery workflow, covering the complete journey from order creation through delivery completion, including all database triggers, scheduled jobs, and webhook integrations.
 
@@ -234,6 +234,8 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 3. Insert `delivery_detail` if none exists for that vehicle type
 4. If all vehicle types timed out and grace period elapsed → mark `delivery_summary.status = 'timedout'`
 
+**Timeout clock:** The elapsed time is measured from `COALESCE(delivery_summary.redispatch_dtts, delivery_summary.dtts)`. `redispatch_dtts` is set by `dispatch_cancel_before_pickup` on a pre-pickup decline, so a re-dispatched order gets a fresh timeout window rather than inheriting the original order's clock. When `redispatch_dtts` is NULL the timeout runs from `dtts` (order creation), which is the behaviour for orders that have never been re-dispatched.
+
 **Configuration (timeout resolution order):**
 1. `{rest_ref}_DELIVERY_TIMEOUT_TIME` — restaurant-specific timeout (minutes)
 2. `DELIVERY_TIMEOUT_TIME` — global fallback (minutes)
@@ -259,10 +261,10 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 4. If no riders available → update `delivery_detail.status = 'vehicle_type_timedout'`
 
 **Helper Function:** `get_available_riders(p_order_number, p_town, p_vehicle_type)`
-- Returns riders in the specified town with matching vehicle type
-- Excludes riders already dispatched for this order
-- Excludes riders currently inflight on other deliveries
-- Orders by priority
+- Returns `(rider_id, priority)` for in-shift riders in the specified town with matching vehicle type
+- Excludes riders who already have a `delivery_dispatch` row for this order (any status)
+- Excludes riders currently inflight on any delivery
+- **Applies no `ORDER BY` of its own.** Ranking happens in the caller: `job_create_dispatch()` wraps the result in `row_number() OVER (PARTITION BY order_number, vehicle_type ORDER BY priority ASC)` and takes the first `DISPATCH_BATCH_SIZE_{VEHICLE_TYPE}` rows. Note that `rider_master.priority` currently defaults to `1` for every rider and nothing in the codebase writes it, so the ranking is effectively an arbitrary tie-break today.
 
 **Configuration:**
 - `DISPATCH_BATCH_SIZE_{VEHICLE_TYPE}` (e.g., `DISPATCH_BATCH_SIZE_BICYCLE`)
@@ -386,8 +388,8 @@ FOR EACH ROW
 
 **Handler:** `delivery_inflight_graph_init_hook()`
 
-**Actions (Background Tasks):**
-1. `capture_payment()` - Captures Stripe payment
+**Actions (Background Tasks), in scheduling order:**
+1. `capture_delivery_payment()` - Captures Stripe payment (this also issues the receipt print job)
 2. `post_rider_event_inflight()` - Notifies restaurant webhook of rider assignment
 3. `admin_order_reciept()` - Sends admin notification
 4. `init_ordelo_graph()` - Initializes LangGraph rider agent with delivery state
@@ -428,6 +430,8 @@ The rider agent is a LangGraph `StateGraph` that manages the rider through the e
 | `awaiting_cancel_reason` | `bool` | Whether agent is waiting for rider's cancel reason |
 | `latest_wa_msg_id` | `str` | ID of the most recent WhatsApp message in this thread |
 | `pickup_time` | `str` | ISO timestamp of the scheduled pickup time; patched into state by `run_rider_agent_w_custom_msg()` when an admin adjusts it mid-delivery so `notify_pickup_time_adjusted` can read the fresh value |
+| `wa_location_request_id` | `str` | Id of the pending `WaLocation` request the agent is prompting the rider for; set by `_prompt_rider_via_agent()` before the graph runs |
+| `force_wa_location_prompt` | `bool` | Set on the deterministic retry when the LLM failed to call `request_rider_current_location`; makes `agent_node` synthesise the tool call |
 
 ##### Graph Structure
 
@@ -436,12 +440,12 @@ START → riderAgent → toolNode → riderAgent → respondNode → END
 ```
 
 - **`riderAgent`** (`agent_node`): Main decision node. Invokes the LLM-backed rider agent, routes to `toolNode` if a tool call is produced, or to `respondNode` for a plain text reply. Also handles the `awaiting_cancel_reason` shortcut: when the agent is waiting for a cancel reason and the rider replies, it synthesizes a `terminate_delivery_job` tool call with the rider's message as `reason_for_decline`.
-- **`toolNode`** (`ToolNode`): Executes tool calls against the 11 registered tools, then returns to `riderAgent`.
+- **`toolNode`** (`ToolNode`): Executes tool calls against the 12 registered tools, then returns to `riderAgent`.
 - **`respondNode`** (`respond_node`): Sends the final `AIMessage` content to the rider via WhatsApp, then ends the turn.
 
 **Persistence:** `AsyncPostgresSaver` (PostgreSQL checkpointer). Each rider has a LangGraph thread managed via `ThreadHandler`, keyed by recipient phone number.
 
-##### Agent Tools (11 total)
+##### Agent Tools (12 total)
 
 | # | Tool | Arguments | Description |
 |---|------|-----------|-------------|
@@ -450,14 +454,15 @@ START → riderAgent → toolNode → riderAgent → respondNode → END
 | 3 | `notify_pickup_time_adjusted` | *(none)* | Notifies the rider that the restaurant has updated the pickup time. Reads the new `pickup_time` from agent state (patched in by the webhook handler before invocation) and sends it formatted to UK local time. |
 | 4 | `send_pickup_location` | *(none)* | Re-sends the pickup (restaurant) location to the rider via WhatsApp. |
 | 5 | `send_dropoff_location` | *(none)* | Re-sends the dropoff (customer) location to the rider via WhatsApp. |
-| 6 | `send_customer_contact` | *(none)* | Sends the customer's WhatsApp contact card to the rider. Used when the rider cannot reach the customer at the door. |
-| 7 | `cancel_delivery_before_pickup` | *(none)* | Cancels an assigned dispatch before pickup. Calls `dispatch_cancel_before_pickup(p_dispatch_id)` RPC to revert statuses. Only allowed when `delivery_dispatch.status = 'assigned'` (before restaurant CC verification marks it `pickedup`). Sets `awaiting_cancel_reason = True`. |
-| 8 | `capture_reason_for_cancel_before_pickup` | `reason_for_decline: str` | Persists the rider's cancel reason on `delivery_dispatch.reason_for_decline`. Should be called after tool #7. Sets `awaiting_cancel_reason = False`. |
-| 9 | `verify_restaurant_confirmation_code` | `restaurant_confirmation_code: int` | Verifies the 2-digit restaurant code. On success: marks `delivery_dispatch.status = 'pickedup'`, records an approximate restaurant-confirmation WaLocation observation, sets `is_restaurant_confirmation_code_verified = True`, and posts a customer notification. |
-| 10 | `verify_customer_confirmation_code` | `customer_confirmation_code: int` | Verifies the 2-digit customer code. On success: calls `dispatch_complete_func(p_dispatch_id)` RPC, notifies customer and restaurant admins, makes the thread inactive, and sets `is_customer_confirmation_code_verified = True`. |
-| 11 | `terminate_delivery_job` | `reason_for_decline: str (optional)` | Closes the delivery job. If `awaiting_cancel_reason` is true and a reason is provided, persists it first. It does not send a tracking link. |
+| 6 | `request_rider_current_location` | `intro_message: str` | Sends one short intro line naming who is asking, then a native WhatsApp current-location request. Records the resulting message id via `WaLocation.record_prompt_sent()`. Only called when a system message says the customer or restaurant requested the location — never on the agent's own initiative. |
+| 7 | `send_customer_contact` | *(none)* | Sends the customer's WhatsApp contact card to the rider. Used when the rider cannot reach the customer at the door. |
+| 8 | `cancel_delivery_before_pickup` | *(none)* | Cancels an assigned dispatch before pickup. Calls the `dispatch_cancel_before_pickup(p_dispatch_id)` RPC, which reopens the order for a fresh dispatch round (see Pre-Pickup Cancellation Flow below). Only allowed when `delivery_dispatch.status = 'assigned'` (before restaurant CC verification marks it `pickedup`). Sets `awaiting_cancel_reason = True`. |
+| 9 | `capture_reason_for_cancel_before_pickup` | `reason_for_decline: str` | Persists the rider's cancel reason on `delivery_dispatch.reason_for_decline`. Should be called after tool #8. Sets `awaiting_cancel_reason = False`. |
+| 10 | `verify_restaurant_confirmation_code` | `restaurant_confirmation_code: int` | Verifies the 2-digit restaurant code. On success: marks `delivery_dispatch.status = 'pickedup'`, records an approximate restaurant-confirmation WaLocation observation, sets `is_restaurant_confirmation_code_verified = True`, and posts a customer notification. |
+| 11 | `verify_customer_confirmation_code` | `customer_confirmation_code: int` | Verifies the 2-digit customer code. On success: calls `dispatch_complete_func(p_dispatch_id)` RPC, notifies customer and restaurant admins, makes the thread inactive, and sets `is_customer_confirmation_code_verified = True`. |
+| 12 | `terminate_delivery_job` | `reason_for_decline: str (optional)` | Closes the delivery job. If `awaiting_cancel_reason` is true and a reason is provided, persists it first. Sends a plain "Delivery job completed" text — no tracking link, no buttons. |
 
-> **Note:** `end_delivery` is defined in `rider_agent.py` but is **not** in the registered `_rider_agent_tools` list. It is effectively dead code — `terminate_delivery_job` (tool #12) handles job closure.
+> **Note:** `end_delivery` and `send_start_live_tracking_link` are defined in `rider_agent.py` but neither is in the registered `_rider_agent_tools` list, so the LLM can never call them. `terminate_delivery_job` (tool #12) handles job closure.
 
 ##### Agent Workflow
 
@@ -475,11 +480,16 @@ During the delivery, the rider may request re-sends of pickup/dropoff locations 
 If the rider indicates they cannot complete pickup **before** restaurant code verification:
 
 1. Agent calls `cancel_delivery_before_pickup` → Supabase RPC `dispatch_cancel_before_pickup(p_dispatch_id)`.
-2. RPC sets `delivery_dispatch.status = 'declined'`, deletes the `delivery_inflight` row, and reverts `delivery_detail` + `delivery_summary` to `unassigned`.
+2. RPC guards on `delivery_dispatch.status = 'assigned'`, then rebuilds the order's dispatch state from scratch:
+   - Sets the cancelling rider's `delivery_dispatch.status = 'declined'` (this row is **kept**, which is what permanently excludes them).
+   - Deletes the `delivery_inflight` row, freeing the rider.
+   - **Deletes every other `delivery_dispatch` row for the order**, so riders previously notified (`missed`/`unassigned`) become eligible again.
+   - **Deletes every `delivery_detail` row for the order**, so `process_delivery()` rebuilds the vehicle-type cascade from rank 1.
+   - Sets `delivery_summary.status = 'unassigned'` and stamps `redispatch_dtts = NOW()`, giving the re-dispatch a full timeout window.
 3. Agent sets `awaiting_cancel_reason = True` and asks the rider for a reason.
 4. When the rider replies, `agent_node` detects `awaiting_cancel_reason` and synthesizes a `terminate_delivery_job` tool call with `reason_for_decline` set to the rider's message.
 5. `terminate_delivery_job` persists the reason on `delivery_dispatch.reason_for_decline` and closes the thread.
-6. The order is now `unassigned` and eligible for re-dispatch. The cancelled rider already has a `delivery_dispatch` row with `status = 'declined'`, so `get_available_riders()` excludes them from future batches for this order.
+6. The order is now `unassigned` and eligible for re-dispatch, starting again from the highest-rank vehicle type. The **only** rider excluded is the one who cancelled — their `delivery_dispatch` row survives with `status = 'declined'`, and `get_available_riders()` excludes any rider holding a dispatch row for the order. Every other rider's row was deleted in step 2, so riders who previously declined, missed, or never answered are all eligible again.
 
 ##### Graph Initialization (`init_ordelo_graph`)
 
@@ -714,10 +724,11 @@ any prompt unless `LEGACY_OWNTRACKS_PROMPTS_ENABLED` is explicitly true.
        └── Delete delivery_inflight
 
 8a. (Alternative) cancel_delivery_before_pickup → dispatch_cancel_before_pickup()
-    └── delivery_dispatch.status = 'declined'
-        delivery_detail.status = 'unassigned' (rider_id/dispatch_id cleared)
-        delivery_summary.status = 'unassigned'
-        └── Delete delivery_inflight → order re-enters dispatch cycle
+    └── delivery_dispatch.status = 'declined'   (cancelling rider's row, kept)
+        delivery_dispatch                        → all OTHER rows for the order deleted
+        delivery_detail                          → all rows for the order deleted
+        delivery_summary.status = 'unassigned', redispatch_dtts = NOW()
+        └── Delete delivery_inflight → order re-enters dispatch cycle from rank 1
 ```
 
 ---
@@ -730,12 +741,12 @@ any prompt unless `LEGACY_OWNTRACKS_PROMPTS_ENABLED` is explicitly true.
 | `CONFIRMATION_CODE_SALT` | - | Salt for generating confirmation codes |
 | `RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | 5 | Minutes before restaurant confirmation times out |
 | `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | - | Restaurant-specific timeout override |
-| `DELIVERY_TIMEOUT_TIME` | 5 | Minutes before delivery times out (all vehicles exhausted) |
+| `DELIVERY_TIMEOUT_TIME` | 10 | Minutes before delivery times out (all vehicles exhausted) |
 | `{rest_ref}_DELIVERY_TIMEOUT_TIME` | - | Restaurant-specific delivery timeout |
-| `PICKUP_DEFAULT_TIME` | 30 | Minutes after order time used as pickup time when restaurant confirmation times out (takeaway only) |
-| `{rest_ref}_PICKUP_DEFAULT_TIME` | - | Restaurant-specific override for `PICKUP_DEFAULT_TIME` |
-| `DELIVERY_PICKUP_DEFAULT_TIME` | 30 | Minutes after order time used as pickup time when restaurant confirmation times out (delivery orders) |
-| `{rest_ref}_DELIVERY_PICKUP_DEFAULT_TIME` | - | Restaurant-specific override for `DELIVERY_PICKUP_DEFAULT_TIME` |
+| `DEFAULT_DELIVERY_PICKUP_TIME` | 30 | Minutes after order time used as pickup time for delivery orders, on both restaurant-confirmation timeout and configured auto-accept |
+| `{REST_REF}_DEFAULT_DELIVERY_PICKUP_TIME` | - | Restaurant-specific override for `DEFAULT_DELIVERY_PICKUP_TIME` |
+| `DEFAULT_COLLECTION_PICKUP_TIME` | 30 | Same, for takeaway/collection orders |
+| `{REST_REF}_DEFAULT_COLLECTION_PICKUP_TIME` | - | Restaurant-specific override for `DEFAULT_COLLECTION_PICKUP_TIME` |
 | `DISPATCH_BATCH_SIZE_{VEHICLE_TYPE}` | 1 | Number of riders to dispatch per batch |
 | `LOCATION_ENABLE_TIME_INTERVAL` | 1 | Minutes before location is considered outdated |
 | `THREAD_INACTIVE_TIME_INTERVAL` | 5 | Minutes of inactivity before thread closure |
@@ -782,7 +793,7 @@ flowchart TD
         T -->|trigger| U[/delivery-inflight-graph-init]
         U --> V[init_ordelo_graph]
         U --> W[post_rider_event_inflight]
-        U --> X[capture_payment]
+        U --> X[capture_delivery_payment]
         T --> Y[notify_missed_dispatches]
         V --> Z[Rider Agent Flow]
     end
@@ -804,16 +815,19 @@ flowchart TD
 | `detail.sql` | `delivery_detail` table definition |
 | `dispatch.sql` | `delivery_dispatch` table, `delivery_dispatch_whook_statement()` trigger |
 | `inflight.sql` | `delivery_inflight` table, `delivery_inflight_whook()` trigger, `notify_missed_dispatches()` |
+| `takeaway_summary.sql` | `takeaway_summary` table and its three triggers (see `docs/takeaway_flow.md`) |
 
 ### Jobs and Functions
 | File | Description |
 |------|-------------|
-| `init_delivery.sql` | Entry point function for new orders |
+| `init_delivery.sql` | Entry point function for new delivery orders |
+| `init_takeaway.sql` | Entry point function for new takeaway orders |
+| `resolve_initial_restaurant_acceptance.sql` | Shared acceptance-policy helper. Reads `restaurant_master.auto_accept`, resolves the configured pickup duration, and returns the pickup timestamp used by both `init_delivery` and `init_takeaway` (see ADR 0001) |
 | `process_delivery.sql` | Manages delivery_detail records and vehicle type iteration |
 | `job_create_dispatch.sql` | Creates dispatch records, `get_available_riders()` helper |
 | `job_assign_dispatch.sql` | Assigns accepted dispatches, `assign_accepted_dispatch()` helper |
 | `dispatch_complete_func.sql` | Marks delivery as completed |
-| `dispatch_cancel_before_pickup.sql` | Cancels assigned dispatch before pickup, reverts order to `unassigned` for re-dispatch |
+| `dispatch_cancel_before_pickup.sql` | Cancels an assigned dispatch before pickup; clears the order's dispatch/detail rows (keeping the declining rider's) and reopens `delivery_summary` for a fresh dispatch round |
 | `process_restaurant_confirmation.sql` | Times out unconfirmed restaurant orders |
 | `enquire_shift_availability.sql` | Scheduled rider shift availability enquiry (DB → webhook → WhatsApp template) |
 | `enquire_admin_availability.sql` | Scheduled restaurant admin availability enquiry (DB → webhook → WhatsApp template) |
@@ -830,6 +844,8 @@ flowchart TD
 | `masterdata.sql` | `restaurant_master`, `customer_master`, `rider_master` tables |
 | `location.sql` | `rider_location`, `rider_location_event` tables |
 | `delivery_option.sql` | Vehicle type options per order |
+| `wa_location.sql` | `WaLocation` on-demand location request/observation tables |
+| `get_latest_state.sql` | Reads a LangGraph checkpoint's state from SQL (see `docs/get_latest_state_guide.md`) |
 
 ---
 

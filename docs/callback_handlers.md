@@ -1,7 +1,7 @@
 # Callback Button Handlers
 
-**Version:** 1.0
-**Last Updated:** 2026-02-14
+**Version:** 1.1
+**Last Updated:** 2026-09-03
 
 WhatsApp callback button handlers registered in `watomation/fapp_ordelo_agent.py`. Each handler responds to a specific button tap from a rider, restaurant admin, or system admin.
 
@@ -130,14 +130,14 @@ See `docs/pickup_time_logic.md` for the full pickup time flow including timeout 
 
 ### `admin_collection_ready` -- Admin Notifies Food Ready for Pickup
 
-- **Filter:** `filters.contains("/AdminCollectionReady")` (inline in `fapp_ordelo_agent.py`, not a module-level constant)
+- **Filter:** `IS_ADMIN_COLLECTION_READY` -- `filters.contains("/AdminCollectionReady", ignore_case=False)`
 - **Callback data fields:** `action`, `rider_id`, `restaurant_name`, `order_number`
 - **Source:** `admin_order_reciept()` in `utils_common/waba_utils/wa_senders.py`. The "Ready - Notify Rider" button is sent to restaurant admins as part of the inflight order receipt.
 
 Behavior:
 
 1. Parses callback data into `CallbackButtonData`.
-2. Calls `check_delivery_progress(rider_id=..., order_number=...)` (`ordelo/delivery_progress.py`). The receipt message keeps its buttons forever, so an admin can tap this long after the delivery finished. Unless the result is `AWAITING_PICKUP`, the handler replies with the matching `GATE_REPLIES` message and returns **without running the agent** -- covers the order no longer being inflight, the food already being picked up, and a stale button for a different job the rider has since moved past. See `docs/pickup_time_logic.md` section C and `CONTEXT.md`'s "Delivery progress" entry.
+2. Calls `check_delivery_progress(rider_id=..., order_number=...)` (`ordelo/delivery_progress.py`). The receipt message keeps its buttons forever, so an admin can tap this long after the delivery finished. Unless the result is `AWAITING_PICKUP`, the handler replies with the matching `GATE_REPLIES` message and returns **without running the agent** -- covers the order no longer being inflight, the food already being picked up, and a stale button for a different job the rider has since moved past. See `docs/pickup_time_logic.md` section A.5 and `CONTEXT.md`'s "Delivery progress" entry.
 3. Otherwise invokes `run_rider_agent_w_custom_msg()` with the `rider_id` from callback data and a message instructing the agent to call `notify_food_ready_for_pickup`.
 4. The rider agent notifies the rider to hurry to the restaurant for pickup.
 
@@ -157,7 +157,7 @@ Behavior:
    - `restaurant_admin` = callback sender
    - `restaurant_update_dtts` = now (UTC)
 4. Replies to admin with the formatted UK local time.
-5. The DB update fires `trigger_restaurant_updates` → `_handle_restaurant_pickuptime_adjusted()` → rider agent `notify_pickup_time_adjusted` tool. That handler re-checks `check_delivery_progress()` as defence-in-depth for any other path that can set `restaurant_pickuptime_adjusted`. See `docs/pickup_time_logic.md` section C for the full chain.
+5. The DB update fires `trigger_restaurant_updates` → `_handle_restaurant_pickuptime_adjusted()` → rider agent `notify_pickup_time_adjusted` tool. That handler re-checks `check_delivery_progress()` as defence-in-depth for any other path that can set `restaurant_pickuptime_adjusted`. See `docs/pickup_time_logic.md` section A.5 for the full chain.
 
 Only updates pickup time; does **not** change `delivery_summary.status` (the delivery remains inflight).
 
@@ -182,24 +182,36 @@ This is a pass-through to the restaurant's own service — no `takeaway_summary`
 
 ## Handler Signature Differences
 
-Most handlers follow the signature `(wa: WhatsApp, msg: Message)`. The exception is:
+Two shapes are in use.
 
-- `admin_collection_ready(msg: WhatsApp, callback: CallbackButton[CallbackButtonData])` -- uses the `CallbackButton` type directly, with parameter names `msg` (WhatsApp client) and `callback` (the button event).
+Most handlers take `(wa: WhatsApp, msg: Message)` and parse `msg.data` themselves:
+`dispatch_response`, `rider_request_location`, `handle_shift_availability`,
+`handle_admin_availability`, `restaurant_order_accept_decline_handler`,
+`handle_pickup_time_selection`.
+
+Three take the typed `CallbackButton` event directly:
+
+- `admin_collection_ready(msg: WhatsApp, callback: CallbackButton[CallbackButtonData])`
+- `admin_adjust_pickup_time(msg: WhatsApp, callback: CallbackButton[CallbackButtonData])`
+- `admin_takeaway_ready(wa: WhatsApp, callback: CallbackButton[CallbackButtonData])`
+
+Note the first parameter is the WhatsApp client in every case, despite being named
+`msg` in two of the three.
 
 ---
 
 ## Registration Order
 
-Handlers are registered in `wa.add_handlers()` in the following order. PyWA evaluates handlers in registration order and stops at the first match:
+Handlers are registered in `wa.add_handlers()` in the following order. PyWA evaluates handlers in registration order and stops at the first match. The three admin button handlers are registered ahead of the message handlers; the rest come after:
 
-1. `admin_collection_ready` -- `/AdminCollectionReady`
-2. `dispatch_response` -- `/dispatchResponse`
-3. `rider_request_location` -- `/riderLocationRequest`
-4. `handle_shift_availability` -- `/shiftAvailability`
-5. `handle_admin_availability` -- `/adminAvailability`
-6. `restaurant_order_accept_decline_handler` -- `/RestaurantOrder`
-7. `handle_pickup_time_selection` -- `/PickupTime`
-8. `admin_adjust_pickup_time` -- `/AdminAdjustPickupTime`
-9. `admin_takeaway_ready` -- `/AdminTakeawayReady`
+1. `admin_adjust_pickup_time` -- `/AdminAdjustPickupTime`
+2. `admin_collection_ready` -- `/AdminCollectionReady`
+3. `admin_takeaway_ready` -- `/AdminTakeawayReady`
+4. `dispatch_response` -- `/dispatchResponse`
+5. `rider_request_location` -- `/riderLocationRequest`
+6. `handle_shift_availability` -- `/shiftAvailability`
+7. `handle_admin_availability` -- `/adminAvailability`
+8. `restaurant_order_accept_decline_handler` -- `/RestaurantOrder`
+9. `handle_pickup_time_selection` -- `/PickupTime`
 
-All filters use `filters.contains()` with `ignore_case=False` (except `admin_collection_ready` which uses the default). Since each callback action string is unique, registration order does not affect routing.
+All nine filters use `filters.contains()` with `ignore_case=False`. Since each callback action string is unique, registration order does not affect routing.

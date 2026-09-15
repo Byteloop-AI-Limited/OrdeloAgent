@@ -2,7 +2,7 @@
 
 ## Overview
 
-`get_restaurant_webhook_url_async` is an async function that constructs full webhook URLs by fetching the restaurant's base URL from the database with a 5-minute TTL in-memory cache. This ensures webhook URLs reflect the current configuration without requiring application restarts, while avoiding repeated DB lookups for the same restaurant.
+`get_restaurant_webhook_url_async` is an async function that constructs full webhook URLs by fetching the restaurant's base URL from the database with a one-hour TTL in-memory cache. This ensures webhook URLs reflect the current configuration without requiring application restarts, while avoiding repeated DB lookups for the same restaurant.
 
 ## Location
 
@@ -35,9 +35,9 @@ async def get_restaurant_webhook_url_async(rest_ref: str, webhook_type: str) -> 
 | `rider-rest-enter` | `rider-event-hooks/{rest_ref}/on-restaurant-enter` | Rider entered restaurant zone |
 | `rider-cust-enter` | `rider-event-hooks/{rest_ref}/on-customer-enter` | Rider entered customer zone |
 | `delivery-timedout` | `rider-event-hooks/{rest_ref}/delivery-timedout` | Delivery timed out |
-| `order-payment-complete` | `order-event-hooks/{rest_ref}/payment-complete/` | Payment completed |
-| `order-pickup-time-updated` | `order-event-hooks/{rest_ref}/takeaway-pickup-time-updated/` | Pickup time updated |
-| `order-takeaway-ready` | `order-event-hooks/{rest_ref}/takeaway-ready/` | Takeaway marked ready by admin |
+| `order-payment-complete` | `order-event-hooks/{rest_ref}/payment-complete` | Payment completed |
+| `order-pickup-time-updated` | `order-event-hooks/{rest_ref}/takeaway-pickup-time-updated` | Pickup time updated |
+| `order-takeaway-ready` | `order-event-hooks/{rest_ref}/takeaway-ready` | Takeaway marked ready by admin |
 | `order-address-update` | `order-event-hooks/{rest_ref}/address-update` | Customer address updated |
 | `get-active-thread` | `thread-hooks/get-active-thread` | Get active thread |
 

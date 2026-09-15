@@ -590,13 +590,13 @@ rebooting.
 
 ## 10. Point payment-service at it
 
-In the payment-service repo, [config.go:213](payment-service/internal/config/config.go#L213):
+In the payment-service repo, `internal/config/config.go` (around line 213):
 
 ```go
 PrintURL: "https://bnat-print.byteloop.ai",
 ```
 
-Same value in [config.yaml:39](payment-service/internal/config/config.yaml#L39),
+Same value in `internal/config/config.yaml` (around line 39),
 then redeploy the Lambda.
 
 > `config.go` is what takes effect in production. `config.yaml` is only read

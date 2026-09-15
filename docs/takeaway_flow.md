@@ -1,7 +1,7 @@
 # Ordelo Takeaway Flow
 
-**Version:** 1.1
-**Last Updated:** 2026-08-18
+**Version:** 1.2
+**Last Updated:** 2026-09-03
 
 This document covers the takeaway order lifecycle within OrdeloAgent, from initialization through restaurant confirmation to pickup time confirmation. For delivery-specific flows, see `docs/delivery_process.md`.
 
@@ -52,9 +52,9 @@ overwatch work, and sends the restaurant-admin takeaway receipt.
 | Summary table | `delivery_summary` | `takeaway_summary` |
 | Init RPC | `init_delivery()` | `init_takeaway()` |
 | Rider dispatch | Yes (Phases 3-5) | No |
-| Live tracking | Yes (OwnTracks) | No |
+| Live tracking | Yes (legacy OwnTracks path; on-demand WhatsApp location otherwise) | No |
 | Terminal success status | `completed` | `pickup_confirmed` |
-| Payment capture | Manual capture at inflight (rider assigned) | Automatic capture at payment (no manual mode) |
+| Payment capture | Manual capture at inflight (rider assigned) | Manual capture at the first finalized `pickup_time` (see ADR 0002) |
 | Pay-at-restaurant option | Not supported | Supported (`payment_status = 'pay_at_rest'`) |
 | Confirmation code verification | Restaurant + customer codes via rider agent | Not applicable |
 
@@ -128,7 +128,7 @@ For customers paying online via Stripe.
 7. `init_takeaway_summary()` invokes the `init_takeaway` RPC
 8. The first finalized `pickup_time` triggers capture, payout, and one collection receipt
 
-**Source:** `watomation/routers/payment_hooks.py:96-135` (`payment_complete_path`)
+**Source:** `watomation/routers/payment_hooks.py` (`payment_complete_path`)
 
 ### Pay-at-Restaurant Path
 
@@ -143,11 +143,11 @@ For customers who will pay at the restaurant counter.
 5. `init_takeaway_summary()` is called as a background task
 6. `init_takeaway_summary()` invokes the `init_takeaway` RPC
 
-**Source:** `watomation/routers/payment_hooks.py:171-215` (`pay_at_restaurant`)
+**Source:** `watomation/routers/payment_hooks.py` (`pay_at_restaurant`)
 
 There is also a direct entrypoint at `POST /takeaway-hooks/init-takeaway-order` that accepts `order_number` and `customer_id` and calls `init_takeaway_summary()` directly.
 
-**Source:** `watomation/routers/takeaway_hooks.py:477-489` (`init_takeaway_order`)
+**Source:** `watomation/routers/takeaway_hooks.py` (`init_takeaway_order`)
 
 ---
 
@@ -188,7 +188,7 @@ All handlers run as background tasks to avoid DB trigger HTTP timeouts.
 | `restaurant_unconfirmed` | `_handle_restaurant_unconfirmed()` | Sends Accept/Decline order confirmation to all restaurant admins via WhatsApp |
 | `restaurant_accept` | `_handle_restaurant_accept()` | Sends pickup time selection (5/15/25 min intervals) to all restaurant admins |
 | `restaurant_decline` | `_handle_restaurant_decline()` | Updates status to `declined`, cancels payment if applicable, notifies customer |
-| `restaurant_timedout` | `_handle_restaurant_timedout()` | Auto-accepts with pickup time set from `PICKUP_DEFAULT_TIME` config (default 30 mins from order time), notifies admins and customer |
+| `restaurant_timedout` | `_handle_restaurant_timedout()` | Auto-accepts with pickup time set from `DEFAULT_COLLECTION_PICKUP_TIME` config (default 30 mins from order time), notifies admins and customer |
 
 ### WhatsApp Callback Handlers
 
@@ -200,7 +200,7 @@ Restaurant admins respond to the confirmation request via WhatsApp interactive b
 | `/RestaurantOrder-Decline` | `restaurant_order_accept_decline_handler()` | Updates `takeaway_summary.restaurant_confirmation_status` to `restaurant_decline` |
 | `/PickupTime` | `handle_pickup_time_selection()` | Updates `takeaway_summary.pickup_time` and sets `status` to `pickup_confirmed` |
 
-**Source:** `watomation/on_callback_wa_handler.py:226`, `watomation/on_callback_wa_handler.py:294`
+**Source:** `watomation/on_callback_wa_handler.py` (`restaurant_order_accept_decline_handler`, `handle_pickup_time_selection`)
 
 ---
 
@@ -208,14 +208,15 @@ Restaurant admins respond to the confirmation request via WhatsApp interactive b
 
 When the restaurant accepts the order, admins receive a WhatsApp message with pickup time options at 5, 15, and 25 minute intervals from the order time.
 
-**Source:** `watomation/routers/takeaway_hooks.py:176-206` (`_handle_restaurant_accept`)
+**Source:** `watomation/routers/takeaway_hooks.py` (`_handle_restaurant_accept`)
 
 When an admin selects a pickup time:
 
 1. `handle_pickup_time_selection()` in `on_callback_wa_handler.py` updates `takeaway_summary`:
    - Sets `pickup_time` to the selected ISO timestamp
    - Sets `status` to `pickup_confirmed`
-   - Sets `restaurant_confirmation_status` to `restaurant_accept`
+   - Sets `restaurant_admin` and `restaurant_update_dtts`
+   - Does **not** write `restaurant_confirmation_status` — it only *gates* on it. The update matches `restaurant_confirmation_status = 'restaurant_accept'` **and** `pickup_time IS NULL`, so a second tap on the same button set is a no-op and replies "Pickup time already updated".
 2. Customer receives a pickup confirmation message via `_send_customer_pickup_confirmation()` with the pickup time, restaurant name, and address
 3. A DB trigger (`trigger_takeaway_pickup_time_set`) fires when `pickup_time` changes from NULL to a value. Configured auto-accept uses the companion INSERT trigger when summary creation already has a pickup time.
 
@@ -229,7 +230,7 @@ When an admin selects a pickup time:
 
 **Handler:** `pickup_time_updated_hook()` schedules manual capture, the external pickup-time webhook, the operational admin receipt, and Overwatch notification as background tasks.
 
-**Actions:** the first task captures an online payment with `payment_mode=capture` and `action=collection`; it retries only an explicit missing-PaymentIntent lookup after 2 and 5 seconds. The pickup-time event is then posted to the external restaurant service:
+**Actions:** the first task, `capture_takeaway_payment()`, branches on `food_order.payment_status`. A `pay_at_rest` order takes the print-only path (`generate_automatic_payment_url(is_print_only=True)`) and no capture happens. A `requires_capture` order is captured with `payment_mode=capture` and `action=collection`; any other status is sent straight to reconciliation. Capture is retried **only** when the payment service returns HTTP 500 containing its explicit "failed to retrieve PaymentIntent from order number" error — three attempts in total, waiting 2 then 5 seconds. Timeouts, transport errors, and every other failure notify Overwatch for reconciliation instead of retrying. The pickup-time event is then posted to the external restaurant service:
 
 ```
 POST {restaurant_webhook_url}/order-pickup-time-updated
@@ -254,7 +255,7 @@ When a restaurant declines a takeaway order:
 3. If `payment_status == "pay_at_rest"`:
    - Sends customer message without payment cancellation notice
 
-**Source:** `watomation/routers/takeaway_hooks.py:209-250` (`_handle_restaurant_decline`)
+**Source:** `watomation/routers/takeaway_hooks.py` (`_handle_restaurant_decline`)
 
 ---
 
@@ -265,13 +266,13 @@ When a restaurant does not respond within the configured timeout period:
 1. A `pg_cron` job (similar to delivery's `process_restaurant_confirmation`) updates `restaurant_confirmation_status` to `restaurant_timedout`
 2. The DB trigger fires the webhook with `trigger_reason = "restaurant_timedout"`
 3. `_handle_restaurant_timedout()` auto-accepts the order:
-   - Sets pickup time to **`PICKUP_DEFAULT_TIME` minutes after order time** (restaurant-specific `{rest_ref}_PICKUP_DEFAULT_TIME` checked first, then global `PICKUP_DEFAULT_TIME`, then hardcoded fallback of 30 minutes)
+   - Sets pickup time to **`DEFAULT_COLLECTION_PICKUP_TIME` minutes after order time** (restaurant-specific `{REST_REF}_DEFAULT_COLLECTION_PICKUP_TIME` checked first, then global `DEFAULT_COLLECTION_PICKUP_TIME`, then hardcoded fallback of 30 minutes)
    - Updates `takeaway_summary.status` to `pickup_confirmed`
    - Updates `restaurant_confirmation_status` to `auto_accept`
    - Notifies all restaurant admins that the order was auto-accepted
    - Sends customer a pickup confirmation with the auto-set pickup time
 
-**Source:** `watomation/routers/takeaway_hooks.py:253-300` (`_handle_restaurant_timedout`)
+**Source:** `watomation/routers/takeaway_hooks.py` (`_handle_restaurant_timedout`)
 
 ---
 
@@ -299,7 +300,7 @@ When a restaurant does not respond within the configured timeout period:
    └── Timeout → restaurant_confirmation_status = 'restaurant_timedout'
        └── restaurant_confirmation_status = 'auto_accept'
            └── status = 'pickup_confirmed'
-               ├── pickup_time = order_time + PICKUP_DEFAULT_TIME min
+               ├── pickup_time = order_time + DEFAULT_COLLECTION_PICKUP_TIME min
                ├── [Admin auto-accept notification]
                ├── [Customer pickup confirmation message]
                └── [Trigger: pickup_time_updated → external restaurant notification]
@@ -311,8 +312,9 @@ When a restaurant does not respond within the configured timeout period:
 
 | Trigger | Table | Condition | Function | Webhook |
 |---------|-------|-----------|----------|---------|
-| (restaurant confirmation trigger) | `takeaway_summary` | INSERT or UPDATE of `restaurant_confirmation_status` | (takeaway equivalent of `restaurant_updates_whook()`) | `/takeaway-hooks/restaurant-confirmation-request` |
+| `trigger_takeaway_restaurant_updates` | `takeaway_summary` | INSERT or UPDATE of `restaurant_confirmation_status` | `takeaway_restaurant_updates_whook()` | `/takeaway-hooks/restaurant-confirmation-request` |
 | `trigger_takeaway_pickup_time_set` | `takeaway_summary` | UPDATE `pickup_time` from NULL to non-NULL | `takeaway_pickup_time_whook()` | `/takeaway-hooks/pickup-time-updated` |
+| `trigger_takeaway_pickup_time_insert` | `takeaway_summary` | INSERT with a non-NULL `pickup_time` (configured auto-accept) | `takeaway_pickup_time_whook()` | `/takeaway-hooks/pickup-time-updated` |
 
 ---
 
@@ -320,11 +322,11 @@ When a restaurant does not respond within the configured timeout period:
 
 | Endpoint | Method | Trigger Source | Handler | Source File |
 |----------|--------|----------------|---------|-------------|
-| `/takeaway-hooks/restaurant-confirmation-request` | POST | DB trigger on `takeaway_summary` | `restaurant_confirmation_flow()` | `watomation/routers/takeaway_hooks.py:303` |
-| `/takeaway-hooks/pickup-time-updated` | POST | `trigger_takeaway_pickup_time_set` | `pickup_time_updated_hook()` | `watomation/routers/takeaway_hooks.py:431` |
-| `/takeaway-hooks/init-takeaway-order` | POST | Direct call (pay-at-restaurant) | `init_takeaway_order()` | `watomation/routers/takeaway_hooks.py:477` |
-| `/payment-hooks/payment-complete` | POST | Stripe webhook | `payment_complete_path()` | `watomation/routers/payment_hooks.py:96` |
-| `/payment-hooks/pay-at-restaurant/{rest_ref}` | POST | Restaurant frontend | `pay_at_restaurant()` | `watomation/routers/payment_hooks.py:171` |
+| `/takeaway-hooks/restaurant-confirmation-request` | POST | DB trigger on `takeaway_summary` | `restaurant_confirmation_flow()` | `watomation/routers/takeaway_hooks.py` |
+| `/takeaway-hooks/pickup-time-updated` | POST | `trigger_takeaway_pickup_time_set` | `pickup_time_updated_hook()` | `watomation/routers/takeaway_hooks.py` |
+| `/takeaway-hooks/init-takeaway-order` | POST | Direct call (pay-at-restaurant) | `init_takeaway_order()` | `watomation/routers/takeaway_hooks.py` |
+| `/payment-hooks/payment-complete` | POST | Stripe webhook | `payment_complete_path()` | `watomation/routers/payment_hooks.py` |
+| `/payment-hooks/pay-at-restaurant/{rest_ref}` | POST | Restaurant frontend | `pay_at_restaurant()` | `watomation/routers/payment_hooks.py` |
 
 ---
 

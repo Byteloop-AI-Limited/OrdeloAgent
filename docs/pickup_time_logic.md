@@ -68,9 +68,13 @@ receipt.
 
 - `watomation/routers/delivery_hooks.py` in `_handle_restaurant_timedout()` sets:
   - `pickup_time = dtts + N minutes` where N comes from `ordelo_config` (Europe/London timezone handling):
-    1. `{rest_ref}_DELIVERY_PICKUP_DEFAULT_TIME` (restaurant-specific override)
-    2. `DELIVERY_PICKUP_DEFAULT_TIME` (global default)
+    1. `{REST_REF}_DEFAULT_DELIVERY_PICKUP_TIME` (restaurant-specific override)
+    2. `DEFAULT_DELIVERY_PICKUP_TIME` (global default)
     3. hardcoded fallback `30` minutes
+
+    These are the same two keys the configured auto-accept path resolves (see
+    the section above), so a restaurant's pickup duration is configured once and
+    applies to both the timeout and the auto-accept route.
   - `restaurant_confirmation_status = 'auto_accept'`
   - `status = 'unassigned'`
 - Admins are notified with the auto-assigned pickup time.
@@ -160,8 +164,8 @@ Three triggers exist on `takeaway_summary` in `ordelo_datamodels/takeaway_summar
 
 - `watomation/routers/takeaway_hooks.py` in `_handle_restaurant_timedout()` sets:
   - `pickup_time = dtts + N minutes` where N comes from `ordelo_config` (Europe/London timezone handling):
-    1. `{rest_ref}_PICKUP_DEFAULT_TIME` (restaurant-specific override)
-    2. `PICKUP_DEFAULT_TIME` (global default)
+    1. `{REST_REF}_DEFAULT_COLLECTION_PICKUP_TIME` (restaurant-specific override)
+    2. `DEFAULT_COLLECTION_PICKUP_TIME` (global default)
     3. Hardcoded fallback: `30`
   - `restaurant_confirmation_status = 'auto_accept'`
   - `status = 'pickup_confirmed'`

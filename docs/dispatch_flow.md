@@ -1,7 +1,7 @@
 # Ordelo Dispatch Flow
 
-**Version:** 1.1
-**Last Updated:** 2026-02-14
+**Version:** 1.2
+**Last Updated:** 2026-09-03
 
 This document focuses on the **dispatch portion** of the Ordelo delivery workflow: from dispatch creation, through rider accept/decline, to inflight initialization and missed‑dispatch notifications.
 
@@ -160,11 +160,12 @@ Payload includes:
 
 The receiving handler is `delivery_inflight_graph_init_hook()` in `watomation/routers/delivery_hooks.py`:
 
-- Background tasks:
+- Background tasks, in scheduling order:
+  - `capture_delivery_payment()` → Stripe capture (also issues the receipt print job).
   - `post_rider_event_inflight()` → restaurant webhook “rider‑inflight”.
   - `admin_order_reciept()` → admin notification.
-  - `capture_payment()` → Stripe capture.
   - `init_ordelo_graph()` → LangGraph rider agent/tracking initialization.
+  - `notify_overwatch()` → logs the inflight event to the overwatch channel.
 
 ### 8. Missed Dispatch Notifications (DB → API → WhatsApp)
 
@@ -214,31 +215,35 @@ The rider tells the agent they cannot pick up. The agent calls the `cancel_deliv
 
 2. **RPC execution** (`ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql`):
    - Guards: dispatch must exist and `delivery_dispatch.status` must be `'assigned'` (if already `'pickedup'`, cancellation is rejected).
-   - Sets `delivery_dispatch.status = 'declined'` and `status_update_dtts = CURRENT_TIMESTAMP`.
+   - Sets the cancelling rider's `delivery_dispatch.status = 'declined'` and `status_update_dtts = CURRENT_TIMESTAMP`. **This row is deliberately kept** — it is what excludes that rider from the next round.
    - Deletes the `delivery_inflight` row for this dispatch (frees the rider).
-   - Reverts `delivery_detail.status = 'unassigned'` and clears `dispatch_id`/`rider_id`.
-   - Reverts `delivery_summary.status = 'unassigned'`.
+   - **Deletes all other `delivery_dispatch` rows for the order.** Without this, `get_available_riders()` would keep excluding every previously-notified rider and the re-dispatch would find nobody.
+   - **Deletes all `delivery_detail` rows for the order** — not just the cancelled one — so `process_delivery()` rebuilds the vehicle-type cascade from rank 1 instead of resuming mid-cascade.
+   - Sets `delivery_summary.status = 'unassigned'` and `redispatch_dtts = NOW()`.
 
 3. **Reason capture** — The tool sets `awaiting_cancel_reason = True` in agent state and asks the rider for a reason. When the rider replies:
    - `agent_node` detects `awaiting_cancel_reason` and synthesizes a `terminate_delivery_job` tool call with `reason_for_decline` set to the rider's message.
    - `terminate_delivery_job` persists the reason on `delivery_dispatch.reason_for_decline`.
 
-4. **Thread closure** — `terminate_delivery_job` makes the thread inactive via `ThreadHandler.make_threads_inactive()` and sends a stop‑tracking button‑URL to the rider.
+4. **Thread closure** — `terminate_delivery_job` makes the thread inactive via `ThreadHandler.make_threads_inactive()` and sends the rider a plain “Delivery job completed ✅, thank you.” text. No tracking link or button is sent.
 
 ### Effect on Re‑Dispatch
 
 Once `delivery_summary.status` is back to `unassigned`:
 
-- `process_delivery()` (pg_cron, every 5s) picks up the order and ensures a `delivery_detail` row exists.
+- `process_delivery()` (pg_cron, every 5s) picks up the order. Because the RPC deleted every `delivery_detail` row, the vehicle-type cascade is rebuilt from rank 1 — a vehicle type that had already timed out gets another chance.
+- The delivery timeout is measured from `COALESCE(delivery_summary.redispatch_dtts, delivery_summary.dtts)`, and the RPC stamped `redispatch_dtts = NOW()`, so the re-dispatch gets a full timeout window rather than inheriting the original order's elapsed clock.
 - `job_create_dispatch()` (pg_cron, every 5s) creates new dispatch offers for available riders.
-- The cancelled rider is **excluded** from future dispatch batches for this order because they already have a `delivery_dispatch` row (with `status = 'declined'`), and `get_available_riders()` excludes any rider with an existing dispatch row for the same order.
+- The cancelled rider is **excluded** from future dispatch batches for this order: their `delivery_dispatch` row survives with `status = 'declined'`, and `get_available_riders()` excludes any rider with an existing dispatch row for the same order.
+- Every **other** rider becomes eligible again, because the RPC deleted their dispatch rows. This is what makes the re-offer round actually reach riders who were previously notified.
 
 ### Status Transitions
 
 ```
-delivery_dispatch:   assigned → declined  (cancel before pickup)
-delivery_detail:     assigned → unassigned (dispatch_id/rider_id cleared)
-delivery_summary:    assigned → unassigned (re-enters dispatch cycle)
+delivery_dispatch:   assigned → declined   (cancelling rider's row, KEPT)
+delivery_dispatch:   all other rows for the order → deleted
+delivery_detail:     all rows for the order → deleted (cascade rebuilt from rank 1)
+delivery_summary:    assigned → unassigned, redispatch_dtts = NOW()
 delivery_inflight:   row deleted
 ```
 
@@ -248,29 +253,35 @@ delivery_inflight:   row deleted
 
 - Multiple riders can accept; **only the first accepted dispatch is assigned**. Others are transitioned to `missed` after inflight insert.
 - If the assigned rider cancels before pickup, the system reverts to `unassigned` and re‑dispatches.
-- **Current behavior (no re‑offers):** `get_available_riders()` excludes any rider who already has a `delivery_dispatch` row for the order, regardless of status. This prevents repeated offers on every cron tick while a `delivery_detail` remains `unassigned`.
+- **No repeat offers within a round:** `get_available_riders()` excludes any rider who already has a `delivery_dispatch` row for the order, regardless of status. This prevents repeated offers on every cron tick while a `delivery_detail` remains `unassigned`. A *new* round is opened only by an explicit event that clears those rows — today, `dispatch_cancel_before_pickup`.
 - Acceptance is ignored if the order has already moved to `completed`/`timedout` (rider gets a “no longer available” message).
 - The dispatch webhook is **statement‑level**, so a batch insert results in a single API call.
 
 ---
 
-## Re‑Offer Approach (Not Enabled)
+## Re‑Offer Approach
 
 Re‑offering the same order to riders is useful after pre‑pickup cancellation or long timeouts, but **must be explicit** to avoid infinite re‑dispatching.
 
 The naive change (exclude only `status='declined'` riders) makes *all* previous offers eligible again. Since `job_create_dispatch()` runs every ~5s and `delivery_detail.status` stays `unassigned` until assignment, that would recreate dispatch rows and send WhatsApp offers on every tick.
 
-If we want re‑offers in the future, use one of these safe patterns:
+### Implemented: explicit redispatch window (pre‑pickup cancellation only)
 
-1. **Explicit redispatch window**
-   - Keep current exclusion by default.
-   - On a resume event (e.g., `dispatch_cancel_before_pickup`), **clear or expire** old dispatch rows for that order (except explicit `declined`), then set `delivery_summary.status='unassigned'`.
-   - Next cron tick creates a *fresh* batch once, not repeatedly.
+`dispatch_cancel_before_pickup` is the one resume event wired up today. It follows the explicit‑window pattern:
 
-2. **Dispatch attempt state**
-   - Add a `delivery_detail.status='dispatched'` (or a `last_dispatch_dtts` + attempt counter).
-   - `job_create_dispatch()` moves details from `unassigned` → `dispatched` after inserting a batch.
-   - A separate timeout/resume job moves `dispatched` → `unassigned` when it’s time to re‑offer.
-   - `get_available_riders()` can then exclude only `declined` riders *within that attempt*.
+- The default exclusion is kept — `get_available_riders()` still excludes every rider with a dispatch row for the order.
+- The RPC **deletes** the order's dispatch rows (keeping only the cancelling rider's `declined` row) and all its `delivery_detail` rows, then sets `delivery_summary.status='unassigned'` and `redispatch_dtts=NOW()`.
+- The next cron tick therefore creates *one* fresh batch, not a new batch every tick.
 
-Either approach allows re‑offers while keeping dispatch creation bounded and predictable.
+Note the difference from the original sketch: the implementation keeps only the **declining** rider's row rather than all `declined` rows, so a rider who declined an earlier round can be offered the job again.
+
+### Not implemented: dispatch attempt state (for timeout‑driven re‑offers)
+
+There is still no re‑offer path for orders that simply time out without a cancellation. That would need:
+
+- A `delivery_detail.status='dispatched'` (or a `last_dispatch_dtts` + attempt counter).
+- `job_create_dispatch()` moving details from `unassigned` → `dispatched` after inserting a batch.
+- A separate timeout/resume job moving `dispatched` → `unassigned` when it's time to re‑offer.
+- `get_available_riders()` excluding only `declined` riders *within that attempt*.
+
+This keeps re‑offers bounded and predictable without relying on a delete‑and‑rebuild.

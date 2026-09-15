@@ -1,7 +1,7 @@
 # Ordelo Payment and Order Flow
 
-**Version:** 1.0
-**Last Updated:** 2026-02-14
+**Version:** 1.1
+**Last Updated:** 2026-09-03
 
 This document covers the order creation and payment lifecycle within OrdeloAgent, from pre-order validation through payment completion and routing to either delivery or takeaway initialization. For delivery-specific phases, see `docs/delivery_process.md`. For takeaway-specific phases, see `docs/takeaway_flow.md`.
 
@@ -76,7 +76,7 @@ The endpoint calls the pricing microservice (`_call_pricing_service`) and return
 }
 ```
 
-**Source:** `watomation/routers/order_hooks.py:52-124` (`get_min_order_value`)
+**Source:** `watomation/routers/order_hooks.py` (`get_min_order_value`)
 
 ### Minimum Order Value by Postcode
 
@@ -92,7 +92,7 @@ The endpoint calls the pricing microservice (`_call_pricing_service`) and return
 
 Resolves postcodes to coordinates via `address_resolver.get_address_from_postcode()` before delegating to the same pricing service lookup. Either `restaurant_postcode` or `rest_ref` must be provided.
 
-**Source:** `watomation/routers/order_hooks.py:127-199` (`get_min_order_value_by_postcode`)
+**Source:** `watomation/routers/order_hooks.py` (`get_min_order_value_by_postcode`)
 
 ### Postcode Validator
 
@@ -100,7 +100,7 @@ Resolves postcodes to coordinates via `address_resolver.get_address_from_postcod
 
 Validates a UK postcode using the address resolver and returns the resolved address data.
 
-**Source:** `watomation/routers/order_hooks.py:304-317` (`validate_postcode`)
+**Source:** `watomation/routers/order_hooks.py` (`validate_postcode`)
 
 ---
 
@@ -138,7 +138,7 @@ Validates a UK postcode using the address resolver and returns the resolved addr
 
 ### Order Creation Logic
 
-**Source:** `utils_common/order_management/order_service.py:174-306` (`create_order_with_items`)
+**Source:** `utils_common/order_management/order_service.py` (`create_order_with_items`)
 
 1. **Sequence number**: Calls `get_next_daily_seq` RPC to get the daily sequence counter
 2. **Order reference**: Generates a 4-character hashed reference from the last 4 digits of the recipient phone number, a salt, and the order date via `create_order_reference()`
@@ -180,7 +180,7 @@ Overwatch customers (configured test accounts) use `stripe_url_test` instead.
 }
 ```
 
-**Source:** `watomation/routers/order_hooks.py:212-300` (`create_order`)
+**Source:** `watomation/routers/order_hooks.py` (`create_order`)
 
 ---
 
@@ -197,7 +197,7 @@ Customer → Stripe Checkout (manual capture) → Stripe webhook
   → delivery_summary created → DB triggers → restaurant confirmation flow
 ```
 
-Payment is captured later during the inflight phase (when a rider is assigned) via `capture_payment()`.
+Payment is captured later during the inflight phase (when a rider is assigned) via `capture_delivery_payment()` in `watomation/routers/delivery_hooks.py`.
 
 ### Stripe Payment (Takeaway)
 
@@ -230,7 +230,7 @@ Restaurant frontend → POST /payment-hooks/pay-at-restaurant/{rest_ref}
 
 Pay-at-restaurant is restricted to takeaway orders only. The endpoint returns HTTP 400 if `order_type != "takeaway"`.
 
-**Source:** `watomation/routers/payment_hooks.py:171-215` (`pay_at_restaurant`)
+**Source:** `watomation/routers/payment_hooks.py` (`pay_at_restaurant`)
 
 ---
 
@@ -240,7 +240,7 @@ Pay-at-restaurant is restricted to takeaway orders only. The endpoint returns HT
 
 **Trigger:** Stripe success webhook
 
-**Source:** `watomation/routers/payment_hooks.py:96-135` (`payment_complete_path`)
+**Source:** `watomation/routers/payment_hooks.py` (`payment_complete_path`)
 
 ### Processing Steps
 
@@ -259,8 +259,8 @@ Pay-at-restaurant is restricted to takeaway orders only. The endpoint returns HT
 
 | Function | RPC Called | Creates | Source |
 |----------|-----------|---------|--------|
-| `init_delivery_summary()` | `init_delivery(p_cust_id, p_order_number)` | `delivery_summary` record | `watomation/routers/payment_hooks.py:80-90` |
-| `init_takeaway_summary()` | `init_takeaway(p_cust_id, p_order_number)` | `takeaway_summary` record | `watomation/routers/takeaway_hooks.py:132-142` |
+| `init_delivery_summary()` | `init_delivery(p_cust_id, p_order_number)` | `delivery_summary` record | `watomation/routers/payment_hooks.py` |
+| `init_takeaway_summary()` | `init_takeaway(p_cust_id, p_order_number)` | `takeaway_summary` record | `watomation/routers/takeaway_hooks.py` |
 
 Both are synchronous functions run as background tasks via `BackgroundTasks.add_task()`.
 
@@ -296,7 +296,7 @@ Both are synchronous functions run as background tasks via `BackgroundTasks.add_
    {restaurant_webhook_url}/order-address-update/{recipient}
    ```
 
-**Source:** `watomation/routers/order_hooks.py:321-382` (`capture_address`)
+**Source:** `watomation/routers/order_hooks.py` (`capture_address`)
 
 ---
 
@@ -308,7 +308,7 @@ Both are synchronous functions run as background tasks via `BackgroundTasks.add_
 
 Proxies the request to the restaurant's `get-active-thread` webhook. Returns the upstream response content and status directly.
 
-**Source:** `watomation/routers/order_hooks.py:413-440` (`get_active_thread`)
+**Source:** `watomation/routers/order_hooks.py` (`get_active_thread`)
 
 ### Stale Thread Termination
 
@@ -322,11 +322,11 @@ Ordelo application is not part of this dispatch path.
 
 ### Payment Complete Test
 
-**Endpoint:** `POST /payment-hooks/payment-complete-test/{order_number}`
+**Endpoint:** `POST /payment-hooks/payment-complete-test/{order_id}`
 
-A test endpoint that directly triggers `init_delivery_summary` or `init_takeaway_summary` without requiring a Stripe webhook. Accepts `recipient` and `action` query parameters.
+A test endpoint that replays the full payment-complete flow for a given `order_id` without requiring a Stripe webhook: it sets `food_order.payment_status = 'requires_capture'`, loads the `FoodOrder`, and routes to `init_delivery_summary` or `init_takeaway_summary` by `food_order.action`. The path parameter is the bare `order_id` (e.g. `KDDV-21`), not the full `order_number`. It takes no query parameters — `recipient` and `action` are read from the `food_order` row.
 
-**Source:** `watomation/routers/payment_hooks.py:141-154` (`payment_complete_test_path`)
+**Source:** `watomation/routers/payment_hooks.py` (`payment_complete_test_path`)
 
 ---
 
@@ -379,26 +379,26 @@ requires_payment (initial, set at order creation)
 
 | Endpoint | Method | Purpose | Source |
 |----------|--------|---------|--------|
-| `/order-hooks/get-min-order-value` | GET | Minimum order value by coordinates | `order_hooks.py:52` |
-| `/order-hooks/get-min-order-value-by-postcode` | GET | Minimum order value by postcode | `order_hooks.py:127` |
-| `/order-hooks/create-order/{rest_ref}` | POST | Create order and return payment URL | `order_hooks.py:212` |
-| `/order-hooks/postcode-validator/{postcode}` | GET | Validate UK postcode | `order_hooks.py:304` |
-| `/order-hooks/capture-address` | POST | Capture customer address and notify restaurant | `order_hooks.py:338` |
-| `/order-hooks/get-active-thread/{rest_ref}/{recipient}` | GET | Proxy active thread lookup to restaurant | `order_hooks.py:413` |
+| `/order-hooks/get-min-order-value` | GET | Minimum order value by coordinates | `order_hooks.py` |
+| `/order-hooks/get-min-order-value-by-postcode` | GET | Minimum order value by postcode | `order_hooks.py` |
+| `/order-hooks/create-order/{rest_ref}` | POST | Create order and return payment URL | `order_hooks.py` |
+| `/order-hooks/postcode-validator/{postcode}` | GET | Validate UK postcode | `order_hooks.py` |
+| `/order-hooks/capture-address` | POST | Capture customer address and notify restaurant | `order_hooks.py` |
+| `/order-hooks/get-active-thread/{rest_ref}/{recipient}` | GET | Proxy active thread lookup to restaurant | `order_hooks.py` |
 
 ### Payment Hooks (`/payment-hooks/`)
 
 | Endpoint | Method | Trigger Source | Purpose | Source |
 |----------|--------|----------------|---------|--------|
-| `/payment-hooks/payment-complete` | POST | Stripe webhook | Process payment, route to delivery/takeaway init | `payment_hooks.py:96` |
-| `/payment-hooks/payment-complete-test/{order_number}` | POST | Manual/test | Test init without Stripe | `payment_hooks.py:141` |
-| `/payment-hooks/pay-at-restaurant/{rest_ref}` | POST | Restaurant frontend | Pay-at-restaurant takeaway orders | `payment_hooks.py:171` |
+| `/payment-hooks/payment-complete` | POST | Stripe webhook | Process payment, route to delivery/takeaway init | `payment_hooks.py` |
+| `/payment-hooks/payment-complete-test/{order_id}` | POST | Manual/test | Test init without Stripe | `payment_hooks.py` |
+| `/payment-hooks/pay-at-restaurant/{rest_ref}` | POST | Restaurant frontend | Pay-at-restaurant takeaway orders | `payment_hooks.py` |
 
 ### Thread Hooks (`/thread-hooks/`)
 
 | Endpoint | Method | Trigger Source | Purpose | Source |
 |----------|--------|----------------|---------|--------|
-| `/thread-hooks/run-system-message` | POST | Operational support | Inject system message into active thread | `thread_hooks.py:125` |
+| `/thread-hooks/run-system-message` | POST | Operational support | Inject system message into active thread | `thread_hooks.py` |
 
 ### External Webhooks Called
 

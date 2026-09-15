@@ -4,7 +4,7 @@
 
 `get_latest_state` is a Postgres function that exposes the most recently persisted LangGraph checkpoint state for a recipient as JSONB, without going through `AsyncPostgresSaver` or compiling the graph. It's the cheapest way to answer "what does the agent currently believe about this rider's delivery?" from SQL, Supabase REST, or a Python script.
 
-Full storage mechanics (checkpoint tables, inline vs. blob-backed channels, thread resolution) are documented in the header comment of `ordelo_datamodels/get_latest_state.sql:1-27` — read that first if you need the "why", not just the "how". This guide covers what a caller actually needs: which fields are readable, the one caveat that catches people out, and worked examples.
+Full storage mechanics (checkpoint tables, inline vs. blob-backed channels, thread resolution) are documented in the header comment of `ordelo_datamodels/get_latest_state.sql:1-29` — read that first if you need the "why", not just the "how". This guide covers what a caller actually needs: which fields are readable, the one caveat that catches people out, and worked examples.
 
 ## Location
 
@@ -35,7 +35,7 @@ get_latest_state_by_thread(p_thread_id TEXT, p_state_key TEXT DEFAULT NULL) RETU
 | Parameter | Type | Description |
 |---|---|---|
 | `p_recipient` | `VARCHAR` | WhatsApp phone number / rider or customer identifier |
-| `p_agent` | `TEXT`, optional | Agent name (e.g. `"ORDELO"`). Matched case-insensitively. **`NULL` means "any agent" — and so does a `NULL` value stored on the thread row itself** (`get_latest_state.sql:145`, `OR t.agent IS NULL`). Passing an agent name is not a hard filter if some threads have no agent recorded. |
+| `p_agent` | `TEXT`, optional | Agent name (e.g. `"ORDELO"`). Matched case-insensitively. **`NULL` means "any agent" — and so does a `NULL` value stored on the thread row itself** (`get_latest_state.sql:147`, `OR t.agent IS NULL`). Passing an agent name is not a hard filter if some threads have no agent recorded. |
 | `p_state_key` | `TEXT`, optional | A single `AgentState` channel name. When given, the return value is the bare JSONB for that key rather than the full envelope. |
 | `p_thread_id` | `TEXT` | A known thread id, for `get_latest_state_by_thread` |
 
@@ -59,7 +59,7 @@ Rule of thumb: primitives (`str` / `int` / `bool` / `None`) are inlined into `ch
 
 ## The active-thread caveat
 
-`get_latest_state` resolves only threads with `is_active IS TRUE` (`get_latest_state.sql:142`). Once a thread is closed — by an explicit close (e.g. `verify_customer_confirmation_code` on delivery completion) or by `job_terminate_stale_active_threads` — every key reads back `NULL`, indistinguishable from "this was never true".
+`get_latest_state` resolves only threads with `is_active IS TRUE` (`get_latest_state.sql:144`). Once a thread is closed — by an explicit close (e.g. `verify_customer_confirmation_code` on delivery completion) or by `job_terminate_stale_active_threads` — every key reads back `NULL`, indistinguishable from "this was never true".
 
 This is exactly why `ordelo/delivery_progress.check_delivery_progress()` does **not** use this function to answer "has the food been picked up?" post-completion: it reads `delivery_inflight` / `delivery_dispatch.status` instead, which stay correct after the thread closes. Reach for `get_latest_state` for *in-flight* questions; reach for the delivery tables for anything that needs to stay answerable after completion. See `docs/pickup_time_logic.md` and `CONTEXT.md`'s "Delivery progress" entry.
 
@@ -124,5 +124,5 @@ Both are safe to run ad hoc; neither mutates anything.
 
 - `ordelo_datamodels/get_latest_state.sql` — full source, storage-mechanics header, debug queries
 - `ordelo/delivery_progress.py` — the delivery-tables-based check that supersedes `is_food_already_picked_up` for post-pickup questions
-- `docs/pickup_time_logic.md` — section C, where this history is discussed in context
+- `docs/pickup_time_logic.md` — section A.5, where this history is discussed in context
 - `utils_common/thread_management/thread_mgmnt.sql` — `retain_thread` and thread lifecycle functions

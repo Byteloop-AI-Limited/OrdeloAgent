@@ -2,7 +2,27 @@
 
 Practical runbook for deploying this FastAPI app (the ELAI WhatsApp agent) to Fly.io.
 
-**Target shape** (already encoded in `fly.toml`): one always-on `shared-cpu-1x` / `1gb` Machine in London (`lhr`), one Gunicorn worker, Dockerfile-based build, app listens on port **8080**, health check at **`/healthz`**. Application state stays in the external Supabase/Postgres — no Fly volume.
+> ⚠️ **Status check (verified 2026-09-03): two prerequisites this guide assumes are
+> not present in the OrdeloAgent repo.**
+>
+> - **There is no `fly.toml` in this repo.** Sections below that say the repo
+>   "already ships a `fly.toml`" (§2, §3) are not true here — you must author one
+>   before `fly deploy` will work. Treat §3 as a specification for the file to
+>   create, not a description of an existing one.
+> - **There is no `/healthz` route.** `watomation/fapp_ordelo_agent.py` exposes
+>   `/details`, `/restaurant-details/{rest_ref}`, `/internal/cache/reset`,
+>   `/threads`, `/echo`, `/debug-state` and `/debug-state-by-thread` — no liveness
+>   endpoint. A `[[http_service.checks]]` block pointing at `/healthz` will fail
+>   its health check until such a route is added.
+>
+> `Dockerfile`, `start.sh`, `gunicorn_conf.py`, `utils/aws_setting.py`,
+> `ordelo_datamodels/fly_config.sql` and
+> `ordelo_datamodels/jobs_n_functions/fly_post.sql` **do** exist as described.
+> Note also that this runbook is written for an app named `sfcs-agent` / "the ELAI
+> WhatsApp agent"; adapt the app name and the `AWS_SETTINGS_SECRET_NAME` value
+> before using it for a different deployment.
+
+**Target shape** (to be encoded in a `fly.toml` you create — see §3): one always-on `shared-cpu-1x` / `1gb` Machine in London (`lhr`), one Gunicorn worker, Dockerfile-based build, app listens on port **8080**, health check at **`/healthz`** (route not yet implemented, see the note above). Application state stays in the external Supabase/Postgres — no Fly volume.
 
 ---
 
