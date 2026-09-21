@@ -1,5 +1,9 @@
 # Ops escalation for late pickups and slow deliveries
 
+> **Superseded in part by `rider-alert-rest-admins.md`**: restaurant admins are
+> now their own `rest_admins` audience with their own schedule and wording.
+> `ops` (below) is overwatch-only as of that change.
+
 ## Context
 
 The rider alert system (`.plans/rider-alert.md`, implemented) nudges the **rider**

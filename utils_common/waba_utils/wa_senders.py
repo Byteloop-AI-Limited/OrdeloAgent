@@ -23,7 +23,8 @@ WhatsApp messaging utilities for order management and address confirmation flows
     . send_delayed_text - Sends text with delay
     . send_product_sections - Sends product sections from catalog
     . enquire_admin_availability - Sends admin availability template with callback
-    . notify_ops_rider_alert - Escalates a late pickup / slow delivery to overwatch and restaurant admins
+    . notify_ops_rider_alert - Escalates a late pickup / slow delivery to overwatch
+    . notify_rest_admins_rider_alert - Tells the restaurant's admins about a late pickup / slow delivery
 """
 
 # %%
@@ -688,24 +689,26 @@ async def notify_ops_rider_alert(
     rider_name: Optional[str] = None,
     rest_name: Optional[str] = None,
     rest_ref: Optional[str] = None,
-    rest_admins: Optional[List[str]] = None,
 ) -> dict:
     """
-    Escalates a late pickup or slow delivery to overwatch and the restaurant's admins.
+    Escalates a late pickup or slow delivery to overwatch.
 
     Driven by job_rider_pickup_alerts() for alerts whose audience is 'ops'. Unlike the
-    rider-facing alerts these never reach the rider, so they are direct WhatsApp sends
+    rider-facing alerts these never reach the rider, so this is a direct WhatsApp send
     rather than a run of the rider graph -- there is no agent thread to keep faithful.
 
     The wording is derived from the *actual* minutes past pickup, recomputed here, not
     from the configured offset that triggered the checkpoint: the background task can
     lag the sweep, and a checkpoint can fire later than its nominal moment.
 
-    The two audiences are isolated from each other. By the time this runs the SQL has
-    already marked the checkpoint 'sent' on the 2xx, so anything that escapes is an
-    escalation lost permanently rather than retried on the next tick. In particular
-    get_overwatch_list() *raises* when the config row is missing, which would otherwise
-    take the admin fan-out down with it.
+    By the time this runs the SQL has already marked the checkpoint 'sent' on the 2xx,
+    so anything that escapes here is an escalation lost permanently rather than retried
+    on the next tick. get_overwatch_list() *raises* when the config row is missing;
+    that is caught below so a missing overwatch_list degrades to a logged error rather
+    than an unhandled exception reaching the router.
+
+    Restaurant admins are a separate audience (see notify_rest_admins_rider_alert) with
+    their own schedule and wording -- this function no longer messages them.
 
     Args:
         phase: 'awaiting_pickup' (not collected) or 'picked_up' (collected, undelivered)
@@ -714,11 +717,10 @@ async def notify_ops_rider_alert(
         rider_id: Assigned rider, used as the label when rider_name is unavailable
         rider_name: Rider's display name, if the rider_master row resolved
         rest_name: Restaurant name for the message
-        rest_ref: Restaurant reference, used when warning about missing admins
-        rest_admins: Restaurant admin phone numbers; may be None or empty
+        rest_ref: Restaurant reference, used as a label fallback
 
     Returns:
-        dict: {"overwatch": "sent" | "failed", "admins_notified": int, "admins_failed": int}
+        dict: {"overwatch": "sent" | "failed"}
     """
     # pickup_time originates from a timestamptz column, so parse_db_iso yields an
     # aware datetime and this subtraction is safe.
@@ -747,10 +749,10 @@ async def notify_ops_rider_alert(
             f"not collected — {when}."
         )
 
-    result = {"overwatch": "failed", "admins_notified": 0, "admins_failed": 0}
+    result = {"overwatch": "failed"}
 
-    # Overwatch. WALogger fans out to every number in ordelo_config.overwatch_list
-    # and prefixes the 🔴 level marker.
+    # WALogger fans out to every number in ordelo_config.overwatch_list and
+    # prefixes the 🔴 level marker.
     try:
         wa_logger = await get_wa_logger()
         await wa_logger.critical(text)
@@ -758,23 +760,96 @@ async def notify_ops_rider_alert(
     except Exception as e:
         logger.error(f"Ops escalation for {order_number} did not reach overwatch: {e}")
 
-    # Restaurant admins, isolated per number so one bad contact cannot cost the
-    # others their alert.
-    if not rest_admins:
-        logger.warning(
-            f"Ops escalation for {order_number}: no admins on record for "
-            f"rest_ref={rest_ref}; overwatch only"
+    logger.info(f"Ops escalation sent for {order_number} (phase {phase}): {result}")
+    return result
+
+
+async def notify_rest_admins_rider_alert(
+    *,
+    phase: str,
+    order_number: str,
+    pickup_time: str,
+    rider_id: str,
+    rider_name: Optional[str] = None,
+    rest_ref: Optional[str] = None,
+    rest_admins: Optional[List[str]] = None,
+) -> dict:
+    """
+    Tells the restaurant's admins about a rider heading their way or running late.
+
+    Driven by job_rider_pickup_alerts() for alerts whose audience is 'rest_admins'.
+    Like the ops escalation, this never reaches the rider, so it is a direct WhatsApp
+    send rather than a run of the rider graph.
+
+    Unlike ops, this bucket is signed: a negative offset (default -10) is a heads-up
+    before pickup so the kitchen has the order ready; a non-negative offset is a chase
+    after pickup, mirroring notify_pickup_reminder's rider-facing wording. The wording
+    is derived from the *actual* minutes to/past pickup, recomputed here, not from the
+    configured offset -- the background task can lag the sweep.
+
+    Recipients are isolated from each other so one bad contact cannot cost the others
+    their message. By the time this runs the SQL has already marked the checkpoint
+    'sent' on the 2xx, so a failed send here is lost permanently rather than retried.
+
+    Args:
+        phase: 'awaiting_pickup' (not yet collected) or 'picked_up' (collected,
+            undelivered -- wired but inactive by default; see
+            rider_alert_to_rest_admins_delivery_intervals)
+        order_number: The order being escalated
+        pickup_time: Scheduled pickup time, ISO string from a timestamptz column
+        rider_id: Assigned rider, used as the label when rider_name is unavailable
+        rider_name: Rider's display name, if the rider_master row resolved
+        rest_ref: Restaurant reference, used when warning about missing admins
+        rest_admins: Restaurant admin phone numbers; may be None or empty
+
+    Returns:
+        dict: {"admins_notified": int, "admins_failed": int}
+    """
+    # pickup_time originates from a timestamptz column, so parse_db_iso yields an
+    # aware datetime and this subtraction is safe.
+    minutes_past = round(
+        (datetime.now(timezone.utc) - parse_db_iso(pickup_time)).total_seconds() / 60
+    )
+    pickup_time_display = fmt_uk_time(pickup_time)
+    rider_label = rider_name or rider_id
+
+    if phase == "picked_up":
+        text = (
+            f"🛵 Order *{order_number}*: rider {rider_label} collected but has not "
+            f"delivered — {minutes_past} min past the {pickup_time_display} pickup time."
+        )
+    elif minutes_past < 0:
+        text = (
+            f"🛵 Order *{order_number}*: rider {rider_label} is due to collect at "
+            f"{pickup_time_display} (in ~{abs(minutes_past)} min). Please have it ready."
         )
     else:
-        for admin in rest_admins:
-            try:
-                await _async_wa_client.send_message(to=admin, text=text)
-                result["admins_notified"] += 1
-            except Exception as e:
-                result["admins_failed"] += 1
-                logger.error(
-                    f"Ops escalation for {order_number} failed for admin {admin}: {e}"
-                )
+        text = (
+            f"⏰ Order *{order_number}*: rider {rider_label} has not yet collected — "
+            f"{minutes_past} min past the {pickup_time_display} pickup time."
+        )
 
-    logger.info(f"Ops escalation sent for {order_number} (phase {phase}): {result}")
+    result = {"admins_notified": 0, "admins_failed": 0}
+
+    # Dedupe the same way customer_hooks._notify_feedback_admins does.
+    admins = list(dict.fromkeys(a for a in (rest_admins or []) if a))
+
+    if not admins:
+        logger.warning(
+            f"Rest-admins pickup alert for {order_number}: no admins on record for "
+            f"rest_ref={rest_ref}; nothing sent"
+        )
+        return result
+
+    for admin in admins:
+        try:
+            await _async_wa_client.send_message(to=admin, text=text)
+            result["admins_notified"] += 1
+        except Exception as e:
+            result["admins_failed"] += 1
+            logger.error(
+                f"Rest-admins pickup alert for {order_number} failed for admin {admin}: {e}"
+            )
+
+    logger.info(f"Rest-admins pickup alert sent for {order_number} (phase {phase}): {result}")
     return result

@@ -61,11 +61,12 @@ discovered late.
   - `picked_up` - dispatch is `pickedup`, rider is carrying the food but has
     not delivered.
 - **Audience** - who hears about it. `rider` alerts run through the rider agent
-  so the thread stays faithful; `ops` alerts go to the overwatch list and the
-  restaurant's admins by direct WhatsApp send, and never reach the rider - so
-  the "everything through the agent" rule does not apply to them.
+  so the thread stays faithful; `ops` alerts go to the overwatch list, and
+  `rest_admins` alerts go to the restaurant's admins - both of the latter by
+  direct WhatsApp send, never reaching the rider, so the "everything through
+  the agent" rule does not apply to them.
 
-Phase x audience gives four buckets, each with its own `ordelo_config` key and
+Phase x audience gives six buckets, each with its own `ordelo_config` key and
 its own kill switch:
 
 | Audience | Phase | Config key | Default |
@@ -74,6 +75,8 @@ its own kill switch:
 | `rider` | `picked_up` | `ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS` | `30,45` |
 | `ops` | `awaiting_pickup` | `rider_alert_to_overwatch_pickup_intervals` | `10` |
 | `ops` | `picked_up` | `rider_alert_to_overwatch_delivery_intervals` | `30` |
+| `rest_admins` | `awaiting_pickup` | `rider_alert_to_rest_admins_pickup_intervals` | `-10,2,7` |
+| `rest_admins` | `picked_up` | `rider_alert_to_rest_admins_delivery_intervals` | *(blank = off)* |
 
 The two ops buckets are the escalation path: ops hears once when nobody has
 collected 10 minutes past the pickup time, and once when a collected order is
@@ -81,19 +84,27 @@ still undelivered 30 minutes past it. An order the rider never collects
 escalates at `+10` and then goes quiet, because the second point requires
 collection.
 
-**All four buckets share one anchor**, `pickup_time` - the post-collection
+The two `rest_admins` buckets are a separate, restaurant-facing schedule with
+its own wording (no 🚨 siren): a heads-up at `-10` so the kitchen has the
+order ready, then chases at `+2`/`+7`. The `picked_up` bucket ships with a
+**blank** default - wired end to end but inactive until someone sets it, since
+a "still not delivered" nudge to the restaurant is judged less useful than one
+to ops or the rider.
+
+**All six buckets share one anchor**, `pickup_time` - the post-collection
 checkpoints are *not* measured from the moment of collection. So a rider who
 collects very late finds those checkpoints already passed and gets one
 immediate "you are well past pickup" nudge rather than a fresh ladder.
 
 Scheduling is entirely in `job_rider_pickup_alerts()`
-(`ordelo_datamodels/migrations/add_rider_pickup_alerts.sql`); the FastAPI
+(`ordelo_datamodels/jobs_n_functions/job_rider_pickup_alerts.sql`); the FastAPI
 endpoint is only called when a checkpoint is actually due. When several are due
 at once - a cron outage, or a rider who collected long after the pickup time - only
 the **largest** fires and the rest are marked `superseded`, because the largest
 is the most-recently-passed checkpoint and therefore the truest description of
-now. That collapse happens **per audience**, so a rider alert and an ops
-escalation can fire on the same tick without suppressing each other. Alert
+now. That collapse happens **per audience**, so a rider alert, an ops
+escalation, and a rest_admins message can all fire on the same tick without
+suppressing each other - even when two of them share the same offset. Alert
 wording is derived from the real time to pickup, never from the offset that
 triggered it.
 
