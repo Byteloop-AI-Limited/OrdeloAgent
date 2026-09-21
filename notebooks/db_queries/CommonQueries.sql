@@ -443,3 +443,12 @@ SELECT config_key, config_value FROM
 
 update ordelo_config set config_value = '' where config_key = 'DELIVERY_TIMEOUT_TIME';
 select * from waba_es order by dtts desc;
+
+
+select dispatch_complete_func(1159);
+
+
+select * from delivery_summary where order_number='SFCS-TVUC-20';
+
+select * from delivery_dispatch where dispatch_id=1159;
+select * from delivery_inflight;
