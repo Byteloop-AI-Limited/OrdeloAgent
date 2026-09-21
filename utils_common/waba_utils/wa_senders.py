@@ -23,6 +23,7 @@ WhatsApp messaging utilities for order management and address confirmation flows
     . send_delayed_text - Sends text with delay
     . send_product_sections - Sends product sections from catalog
     . enquire_admin_availability - Sends admin availability template with callback
+    . notify_ops_rider_alert - Escalates a late pickup / slow delivery to overwatch and restaurant admins
 """
 
 # %%
@@ -30,7 +31,9 @@ from config import (
     _async_wa_client,
     # waba_cat_settings,
     get_restaurant_base_url_async,
+    logger,
 )
+from config.params import get_wa_logger
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText, URLButton
 from pywa.types import (
@@ -45,7 +48,7 @@ import uuid
 
 from pywa_async import WhatsApp
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from utils_common.tz_utils import UK_TZ, fmt_uk_time, parse_db_iso
 import asyncio
 from utils_common.order_management.delivery_pymodels import (
@@ -673,3 +676,105 @@ async def send_restaurant_order_confirmation(
 
 # %%
 # await enquire_admin_availability("447446933210")
+
+
+# %% Ops escalation for late pickups / slow deliveries
+async def notify_ops_rider_alert(
+    *,
+    phase: str,
+    order_number: str,
+    pickup_time: str,
+    rider_id: str,
+    rider_name: Optional[str] = None,
+    rest_name: Optional[str] = None,
+    rest_ref: Optional[str] = None,
+    rest_admins: Optional[List[str]] = None,
+) -> dict:
+    """
+    Escalates a late pickup or slow delivery to overwatch and the restaurant's admins.
+
+    Driven by job_rider_pickup_alerts() for alerts whose audience is 'ops'. Unlike the
+    rider-facing alerts these never reach the rider, so they are direct WhatsApp sends
+    rather than a run of the rider graph -- there is no agent thread to keep faithful.
+
+    The wording is derived from the *actual* minutes past pickup, recomputed here, not
+    from the configured offset that triggered the checkpoint: the background task can
+    lag the sweep, and a checkpoint can fire later than its nominal moment.
+
+    The two audiences are isolated from each other. By the time this runs the SQL has
+    already marked the checkpoint 'sent' on the 2xx, so anything that escapes is an
+    escalation lost permanently rather than retried on the next tick. In particular
+    get_overwatch_list() *raises* when the config row is missing, which would otherwise
+    take the admin fan-out down with it.
+
+    Args:
+        phase: 'awaiting_pickup' (not collected) or 'picked_up' (collected, undelivered)
+        order_number: The order being escalated
+        pickup_time: Scheduled pickup time, ISO string from a timestamptz column
+        rider_id: Assigned rider, used as the label when rider_name is unavailable
+        rider_name: Rider's display name, if the rider_master row resolved
+        rest_name: Restaurant name for the message
+        rest_ref: Restaurant reference, used when warning about missing admins
+        rest_admins: Restaurant admin phone numbers; may be None or empty
+
+    Returns:
+        dict: {"overwatch": "sent" | "failed", "admins_notified": int, "admins_failed": int}
+    """
+    # pickup_time originates from a timestamptz column, so parse_db_iso yields an
+    # aware datetime and this subtraction is safe.
+    minutes_past = round(
+        (datetime.now(timezone.utc) - parse_db_iso(pickup_time)).total_seconds() / 60
+    )
+    pickup_time_display = fmt_uk_time(pickup_time)
+
+    rider_label = rider_name or rider_id
+    rest_label = rest_name or rest_ref or "the restaurant"
+
+    # Stay truthful if a negative offset is ever configured for an ops bucket.
+    if minutes_past >= 0:
+        when = f"{minutes_past} min past the {pickup_time_display} pickup time"
+    else:
+        when = f"{abs(minutes_past)} min before the {pickup_time_display} pickup time"
+
+    if phase == "picked_up":
+        text = (
+            f"🚨 Order *{order_number}* at {rest_label}: {rider_label} collected but "
+            f"has not delivered — {when}."
+        )
+    else:
+        text = (
+            f"🚨 Order *{order_number}* at {rest_label}: rider {rider_label} has still "
+            f"not collected — {when}."
+        )
+
+    result = {"overwatch": "failed", "admins_notified": 0, "admins_failed": 0}
+
+    # Overwatch. WALogger fans out to every number in ordelo_config.overwatch_list
+    # and prefixes the 🔴 level marker.
+    try:
+        wa_logger = await get_wa_logger()
+        await wa_logger.critical(text)
+        result["overwatch"] = "sent"
+    except Exception as e:
+        logger.error(f"Ops escalation for {order_number} did not reach overwatch: {e}")
+
+    # Restaurant admins, isolated per number so one bad contact cannot cost the
+    # others their alert.
+    if not rest_admins:
+        logger.warning(
+            f"Ops escalation for {order_number}: no admins on record for "
+            f"rest_ref={rest_ref}; overwatch only"
+        )
+    else:
+        for admin in rest_admins:
+            try:
+                await _async_wa_client.send_message(to=admin, text=text)
+                result["admins_notified"] += 1
+            except Exception as e:
+                result["admins_failed"] += 1
+                logger.error(
+                    f"Ops escalation for {order_number} failed for admin {admin}: {e}"
+                )
+
+    logger.info(f"Ops escalation sent for {order_number} (phase {phase}): {result}")
+    return result

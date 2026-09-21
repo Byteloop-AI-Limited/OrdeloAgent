@@ -6,6 +6,15 @@ LangGraph/checkpointer while still exercising DB, WA, and Command updates.
 Key Functions:
   - test_notify_pickup_time_adjusted_sends_message
   - test_notify_pickup_time_adjusted_no_pickup_time
+  - test_notify_pickup_reminder_before_pickup_uses_real_minutes_not_the_offset
+  - test_notify_pickup_reminder_past_pickup_warns_rider
+  - test_notify_pickup_reminder_without_offset_cue_sends_nothing
+  - test_notify_pickup_reminder_no_pickup_time
+  - test_notify_pickup_reminder_in_transit_chases_the_delivery
+  - test_notify_pickup_reminder_clears_phase_with_offset
+  - test_notify_pickup_reminder_in_transit_never_claims_a_future_time_has_passed
+  - test_notify_pickup_reminder_accepts_a_datetime_from_graph_state
+  - test_notify_pickup_reminder_accepts_a_naive_datetime_from_graph_state
   - test_send_pickup_and_dropoff_location_send_whatsapp_locations
   - test_send_start_live_tracking_link_sends_button_url
   - test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason
@@ -23,6 +32,7 @@ Key Functions:
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -83,6 +93,203 @@ async def test_notify_pickup_time_adjusted_no_pickup_time(fake_async_wa: FakeAsy
 
     assert fake_async_wa.sent == []
     assert "/dontRespond" in result.update["messages"][-1].content
+
+
+def _pickup_time_in(minutes: float) -> str:
+    """Pickup time `minutes` from now. Keep callers off .5 boundaries: the tool
+    rounds to whole minutes, and a boundary value can flip the before/after
+    branch under a slow test run."""
+    return (datetime.now(timezone.utc) + timedelta(minutes=minutes)).isoformat()
+
+
+async def test_notify_pickup_reminder_accepts_a_datetime_from_graph_state(
+    fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client
+) -> None:
+    """State holds pickup_time as a datetime on the normal path, not an ISO string.
+
+    init_ordelo_graph (agent_runner.py) writes DeliverySummary.pickup_time, typed
+    Optional[datetime]. Parsing that with parse_db_iso raises TypeError, ToolNode
+    swallows it, and the router still logs "Pickup alert sent" while the SQL has
+    already marked the checkpoint sent -- the alert is lost for good. Every other
+    test here passes a string, which is why the suite was green while the normal
+    path was broken.
+    """
+    result = await rider_agent.notify_pickup_reminder(
+        {
+            "rider_name": "Bas",
+            "order_number": "ELAS-ABCD-1",
+            "pickup_time": datetime.now(timezone.utc) + timedelta(minutes=4.2),
+            "pickup_alert_offset": -5,
+        },
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert fake_async_wa.sent, "a datetime in state must still produce a message"
+    assert "in about 4 min" in fake_async_wa.sent[-1].kwargs["text"]
+    assert result.update["pickup_alert_offset"] is None
+
+
+async def test_notify_pickup_reminder_accepts_a_naive_datetime_from_graph_state(
+    fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client
+) -> None:
+    """to_utc_aware promises a naive value is treated as UTC, so the subtraction
+    against an aware now() cannot raise 'can't subtract offset-naive and
+    offset-aware datetimes'."""
+    naive_pickup = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=7.2)
+
+    await rider_agent.notify_pickup_reminder(
+        {
+            "rider_name": "Bas",
+            "order_number": "ELAS-ABCD-1",
+            "pickup_time": naive_pickup,
+            "pickup_alert_offset": 5,
+        },
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert "7 min past the pickup time" in fake_async_wa.sent[-1].kwargs["text"]
+
+
+async def test_notify_pickup_reminder_before_pickup_uses_real_minutes_not_the_offset(
+    fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client
+) -> None:
+    """The -5 checkpoint can fire at 1 minute to pickup; the text must say 1, not 5."""
+    result = await rider_agent.notify_pickup_reminder(
+        {
+            "rider_name": "Bas",
+            "order_number": "ELAS-ABCD-1",
+            "reply_to_msg_id": "msg-1",
+            # 1.2 min sits mid-bucket (0.5..1.5 rounds to 1), so elapsed test
+            # time cannot tip this onto a rounding boundary and flip the branch.
+            "pickup_time": _pickup_time_in(1.2),
+            "pickup_alert_offset": -5,
+        },
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    text = fake_async_wa.sent[-1].kwargs["text"]
+    assert "in about" in text and "past the pickup time" not in text
+    assert "in about 1 min" in text
+    assert "5 min" not in text
+    # The cue is cleared so a later, unrelated turn cannot re-fire the alert.
+    assert result.update["pickup_alert_offset"] is None
+
+
+async def test_notify_pickup_reminder_past_pickup_warns_rider(
+    fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client
+) -> None:
+    await rider_agent.notify_pickup_reminder(
+        {
+            "rider_name": "Bas",
+            "order_number": "ELAS-ABCD-1",
+            "pickup_time": _pickup_time_in(-7.2),
+            "pickup_alert_offset": 5,
+        },
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    text = fake_async_wa.sent[-1].kwargs["text"]
+    assert "past the pickup time" in text and "in about" not in text
+    assert "7 min past the pickup time" in text
+
+
+async def test_notify_pickup_reminder_without_offset_cue_sends_nothing(
+    fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client
+) -> None:
+    """Guards against the LLM calling this on its own initiative."""
+    result = await rider_agent.notify_pickup_reminder(
+        {
+            "rider_name": "Bas",
+            "order_number": "ELAS-ABCD-1",
+            "pickup_time": _pickup_time_in(3),
+        },
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert fake_async_wa.sent == []
+    assert "/dontRespond" in result.update["messages"][-1].content
+
+
+async def test_notify_pickup_reminder_no_pickup_time(
+    fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client
+) -> None:
+    result = await rider_agent.notify_pickup_reminder(
+        {"rider_name": "Bas", "order_number": "ELAS-ABCD-1", "pickup_time": None, "pickup_alert_offset": 2},
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert fake_async_wa.sent == []
+    assert result.update["pickup_alert_offset"] is None
+
+
+async def test_notify_pickup_reminder_in_transit_chases_the_delivery(
+    fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client
+) -> None:
+    """picked_up phase must chase the delivery, not send the rider to collect again."""
+    await rider_agent.notify_pickup_reminder(
+        {
+            "rider_name": "Bas",
+            "order_number": "ELAS-ABCD-1",
+            "pickup_time": _pickup_time_in(-31.2),
+            "pickup_alert_offset": 30,
+            "pickup_alert_phase": "picked_up",
+        },
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    text = fake_async_wa.sent[-1].kwargs["text"]
+    assert "you collected order" in text
+    assert "31 min past the pickup time" in text
+    assert "Please collect ASAP" not in text
+    assert "head over now" not in text
+
+
+async def test_notify_pickup_reminder_in_transit_never_claims_a_future_time_has_passed(
+    fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client
+) -> None:
+    """A negative offset in the delivery config must not produce a false statement."""
+    await rider_agent.notify_pickup_reminder(
+        {
+            "rider_name": "Bas",
+            "order_number": "ELAS-ABCD-1",
+            "pickup_time": _pickup_time_in(9.2),
+            "pickup_alert_offset": -10,
+            "pickup_alert_phase": "picked_up",
+        },
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    text = fake_async_wa.sent[-1].kwargs["text"]
+    assert "past the pickup time" not in text
+    assert "still about 9 min away" in text
+
+
+async def test_notify_pickup_reminder_clears_phase_with_offset(
+    fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client
+) -> None:
+    """A stale phase left in state would pick the wrong message next time."""
+    result = await rider_agent.notify_pickup_reminder(
+        {
+            "rider_name": "Bas",
+            "order_number": "ELAS-ABCD-1",
+            "pickup_time": _pickup_time_in(-31.2),
+            "pickup_alert_offset": 30,
+            "pickup_alert_phase": "picked_up",
+        },
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert result.update["pickup_alert_offset"] is None
+    assert result.update["pickup_alert_phase"] is None
 
 
 async def test_send_pickup_and_dropoff_location_send_whatsapp_locations(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:

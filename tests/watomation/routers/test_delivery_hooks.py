@@ -23,6 +23,21 @@ Key Functions:
   - test_handle_restaurant_pickuptime_adjusted_skips_when_no_inflight
   - test_handle_restaurant_pickuptime_adjusted_skips_once_food_is_picked_up
   - test_handle_restaurant_pickuptime_adjusted_skips_when_progress_unknown
+  - test_rider_pickup_alerts_hook_schedules_background_processing
+  - test_rider_pickup_alerts_hook_ignores_empty_payload
+  - test_process_rider_pickup_alerts_drives_agent_with_offset_cue
+  - test_process_rider_pickup_alerts_skips_once_food_is_picked_up
+  - test_process_rider_pickup_alerts_skips_when_progress_unknown
+  - test_process_rider_pickup_alerts_isolates_a_failing_alert
+  - test_process_rider_pickup_alerts_in_transit_runs_agent_when_picked_up
+  - test_process_rider_pickup_alerts_in_transit_skipped_while_awaiting_pickup
+  - test_process_rider_pickup_alerts_unknown_phase_is_skipped
+  - test_process_rider_pickup_alerts_missing_phase_defaults_to_awaiting_pickup
+  - test_process_rider_pickup_alerts_ops_audience_escalates_instead_of_running_agent
+  - test_process_rider_pickup_alerts_ops_audience_skipped_on_phase_mismatch
+  - test_process_rider_pickup_alerts_unknown_audience_is_skipped
+  - test_process_rider_pickup_alerts_missing_audience_defaults_to_rider
+  - test_process_rider_pickup_alerts_sends_to_the_rider_on_the_live_inflight_row
   - test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config
   - test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config
   - test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery
@@ -35,12 +50,29 @@ from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
 import httpx
+import pytest
 import respx
 
 from watomation.routers import delivery_hooks
 from ordelo.delivery_progress import DeliveryProgress
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
 from tests.fixtures.fake_wa import FakeAsyncWhatsApp
+
+
+@pytest.fixture(autouse=True)
+def cue_clears(monkeypatch):
+    """Records clear_pickup_alert_cue calls and keeps them off the real DB pool.
+
+    The router disarms the single-use pickup-alert cue after every rider run, which
+    otherwise opens a live graph checkpointer and hangs the suite.
+    """
+    calls = []
+
+    async def _clear(recipient):
+        calls.append(recipient)
+
+    monkeypatch.setattr(delivery_hooks, "clear_pickup_alert_cue", _clear)
+    return calls
 
 
 class _FakeBackgroundTasks:
@@ -54,6 +86,21 @@ class _FakeBackgroundTasks:
 def _progress(state: DeliveryProgress, row: dict | None = None):
     async def _check(**_kwargs):
         return state, row
+
+    return _check
+
+
+def _progress_by_order(state: DeliveryProgress, rows_by_order: dict):
+    """Progress stub that resolves a different inflight row per order.
+
+    The flat _progress() helper returns one fixed row for every call, which
+    papers over a distinction the router now depends on: it takes the recipient
+    from the live progress row rather than the payload, so an order re-dispatched
+    between the sweep and the background task reaches the new rider.
+    """
+
+    async def _check(**kwargs):
+        return state, rows_by_order.get(kwargs.get("order_number"))
 
     return _check
 
@@ -325,11 +372,22 @@ async def test_shift_and_admin_availability_hooks_schedule_background_processing
 
     bg2 = _FakeBackgroundTasks()
     result = await delivery_hooks.admin_availability_enquiry_hook(
-        payload={"event_type": "admin", "restaurant_admins": {"ELAS": ["ADMIN01", "ADMIN02"]}},
+        payload={
+            "event_type": "admin",
+            "restaurant_admins": {
+                "ELAS": ["ADMIN01", "ADMIN02"],
+                "BNAT": ["ADMIN02", "ADMIN03"],
+            },
+        },
         background_tasks=bg2,
     )
-    assert result == {"status": "success", "admins_scheduled": 2}
+    assert result == {"status": "success", "admins_scheduled": 3}
     assert bg2.tasks[-1]["func"] == delivery_hooks._process_admin_availability
+    assert bg2.tasks[-1]["args"][0] == {
+        "ADMIN01": ["ELAS"],
+        "ADMIN02": ["ELAS", "BNAT"],
+        "ADMIN03": ["BNAT"],
+    }
 
 
 async def test_restaurant_confirmation_flow_routes_and_validates_payload() -> None:
@@ -511,3 +569,352 @@ async def test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_del
 
     update_call = next(c for c in patch_supabase_client.calls if c.table == "delivery_summary")
     assert update_call.payload["pickup_time"] == "2026-05-09T11:30:00+01:00"
+
+
+def _alert(**overrides):
+    alert = {
+        "order_number": "ELAS-ABCD-1",
+        "rider_id": "RIDER01",
+        "dispatch_id": 11,
+        "phase": "awaiting_pickup",
+        "audience": "rider",
+        "offset_minutes": -5,
+        "pickup_time": "2026-05-09T11:40:00+00:00",
+        "minutes_since_pickup": -4.2,
+        "rider_name": "Bas",
+        "rest_name": "Elai",
+        "rest_ref": "ELAS",
+        "rest_admins": ["ADMIN01"],
+    }
+    alert.update(overrides)
+    return alert
+
+
+async def test_rider_pickup_alerts_hook_schedules_background_processing() -> None:
+    bg = _FakeBackgroundTasks()
+    alerts = [_alert(), _alert(order_number="ELAS-ABCD-2", rider_id="RIDER02")]
+
+    result = await delivery_hooks.rider_pickup_alerts_hook(
+        payload={"event_type": "rider_pickup_alerts", "alerts": alerts},
+        background_tasks=bg,
+    )
+
+    assert result == {"status": "success", "alerts_scheduled": 2}
+    assert bg.tasks[0]["func"] == delivery_hooks._process_rider_pickup_alerts
+    assert bg.tasks[0]["args"][0] == alerts
+
+
+async def test_rider_pickup_alerts_hook_ignores_empty_payload() -> None:
+    bg = _FakeBackgroundTasks()
+
+    result = await delivery_hooks.rider_pickup_alerts_hook(payload={}, background_tasks=bg)
+
+    assert result == {"status": "success", "alerts_scheduled": 0}
+    assert bg.tasks == []
+
+
+async def test_process_rider_pickup_alerts_drives_agent_with_offset_cue(monkeypatch, cue_clears) -> None:
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress(DeliveryProgress.AWAITING_PICKUP, {"rider_id": "RIDER01"}),
+    )
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    await delivery_hooks._process_rider_pickup_alerts([_alert(offset_minutes=5)])
+
+    assert len(calls) == 1
+    assert calls[0]["recipient"] == "RIDER01"
+    assert calls[0]["state_update_dict"] == {
+        "pickup_alert_offset": 5,
+        "pickup_alert_phase": "awaiting_pickup",
+        # Sourced from the payload, not from whatever the thread last stored.
+        "order_number": "ELAS-ABCD-1",
+        "pickup_time": "2026-05-09T11:40:00+00:00",
+    }
+    assert cue_clears == ["RIDER01"]
+    assert "notify_pickup_reminder" in calls[0]["system_msg"]
+
+
+async def test_process_rider_pickup_alerts_skips_once_food_is_picked_up(monkeypatch) -> None:
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress(DeliveryProgress.PICKED_UP, {"rider_id": "RIDER01"}),
+    )
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    await delivery_hooks._process_rider_pickup_alerts([_alert()])
+
+    assert calls == []
+
+
+async def test_process_rider_pickup_alerts_skips_when_progress_unknown(monkeypatch) -> None:
+    monkeypatch.setattr(
+        delivery_hooks, "check_delivery_progress", _progress(DeliveryProgress.UNKNOWN)
+    )
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    await delivery_hooks._process_rider_pickup_alerts([_alert()])
+
+    assert calls == []
+
+
+async def test_process_rider_pickup_alerts_isolates_a_failing_alert(monkeypatch) -> None:
+    """One rider's alert blowing up must not cost the other riders theirs."""
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress_by_order(
+            DeliveryProgress.AWAITING_PICKUP,
+            {
+                "ELAS-ABCD-1": {"rider_id": "RIDER01"},
+                "ELAS-ABCD-2": {"rider_id": "RIDER02"},
+            },
+        ),
+    )
+    calls = []
+
+    async def _fake_run(**kwargs):
+        if kwargs["recipient"] == "RIDER01":
+            raise RuntimeError("graph unavailable")
+        calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    await delivery_hooks._process_rider_pickup_alerts(
+        [_alert(), _alert(order_number="ELAS-ABCD-2", rider_id="RIDER02")]
+    )
+
+    assert [c["recipient"] for c in calls] == ["RIDER02"]
+
+
+async def test_process_rider_pickup_alerts_in_transit_runs_agent_when_picked_up(monkeypatch) -> None:
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress(DeliveryProgress.PICKED_UP, {"rider_id": "RIDER01"}),
+    )
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    await delivery_hooks._process_rider_pickup_alerts(
+        [_alert(phase="picked_up", offset_minutes=30)]
+    )
+
+    assert len(calls) == 1
+    assert calls[0]["state_update_dict"] == {
+        "pickup_alert_offset": 30,
+        "pickup_alert_phase": "picked_up",
+        # Sourced from the payload, not from whatever the thread last stored.
+        "order_number": "ELAS-ABCD-1",
+        "pickup_time": "2026-05-09T11:40:00+00:00",
+    }
+
+
+async def test_process_rider_pickup_alerts_in_transit_skipped_while_awaiting_pickup(monkeypatch) -> None:
+    """The inverse of the awaiting-pickup case: a delivery-phase alert must not
+    reach a rider who has not collected yet."""
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress(DeliveryProgress.AWAITING_PICKUP, {"rider_id": "RIDER01"}),
+    )
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    await delivery_hooks._process_rider_pickup_alerts(
+        [_alert(phase="picked_up", offset_minutes=30)]
+    )
+
+    assert calls == []
+
+
+async def test_process_rider_pickup_alerts_unknown_phase_is_skipped(monkeypatch) -> None:
+    """An unrecognised phase must not silently fall back to a real one."""
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress(DeliveryProgress.AWAITING_PICKUP, {"rider_id": "RIDER01"}),
+    )
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    await delivery_hooks._process_rider_pickup_alerts([_alert(phase="in_the_air")])
+
+    assert calls == []
+
+
+async def test_process_rider_pickup_alerts_missing_phase_defaults_to_awaiting_pickup(monkeypatch) -> None:
+    """Keeps a pre-phase payload working if the app is deployed ahead of the migration."""
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress(DeliveryProgress.AWAITING_PICKUP, {"rider_id": "RIDER01"}),
+    )
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    alert = _alert()
+    del alert["phase"]
+    await delivery_hooks._process_rider_pickup_alerts([alert])
+
+    assert len(calls) == 1
+    assert calls[0]["state_update_dict"]["pickup_alert_phase"] == "awaiting_pickup"
+
+
+def _capture_escalations(monkeypatch) -> list:
+    calls = []
+
+    async def _fake_escalate(**kwargs):
+        calls.append(kwargs)
+        return {"overwatch": "sent", "admins_notified": 1, "admins_failed": 0}
+
+    monkeypatch.setattr(delivery_hooks, "notify_ops_rider_alert", _fake_escalate)
+    return calls
+
+
+async def test_process_rider_pickup_alerts_ops_audience_escalates_instead_of_running_agent(monkeypatch) -> None:
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress(DeliveryProgress.PICKED_UP, {"rider_id": "RIDER01"}),
+    )
+    escalations = _capture_escalations(monkeypatch)
+    agent_calls = []
+
+    async def _fake_run(**kwargs):
+        agent_calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    await delivery_hooks._process_rider_pickup_alerts(
+        [_alert(audience="ops", phase="picked_up", offset_minutes=30)]
+    )
+
+    assert agent_calls == [], "ops escalations must never run the rider graph"
+    assert len(escalations) == 1
+    assert escalations[0]["phase"] == "picked_up"
+    assert escalations[0]["order_number"] == "ELAS-ABCD-1"
+    assert escalations[0]["rest_admins"] == ["ADMIN01"]
+
+
+async def test_process_rider_pickup_alerts_ops_audience_skipped_on_phase_mismatch(monkeypatch) -> None:
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress(DeliveryProgress.PICKED_UP, {"rider_id": "RIDER01"}),
+    )
+    escalations = _capture_escalations(monkeypatch)
+
+    # An awaiting-pickup escalation must not fire once the food is collected.
+    await delivery_hooks._process_rider_pickup_alerts(
+        [_alert(audience="ops", phase="awaiting_pickup", offset_minutes=10)]
+    )
+
+    assert escalations == []
+
+
+async def test_process_rider_pickup_alerts_unknown_audience_is_skipped(monkeypatch) -> None:
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress(DeliveryProgress.AWAITING_PICKUP, {"rider_id": "RIDER01"}),
+    )
+    escalations = _capture_escalations(monkeypatch)
+    agent_calls = []
+
+    async def _fake_run(**kwargs):
+        agent_calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    await delivery_hooks._process_rider_pickup_alerts([_alert(audience="carrier_pigeon")])
+
+    assert escalations == []
+    assert agent_calls == []
+
+
+async def test_process_rider_pickup_alerts_missing_audience_defaults_to_rider(monkeypatch) -> None:
+    """Keeps a pre-audience payload working if the app is deployed ahead of the migration."""
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress(DeliveryProgress.AWAITING_PICKUP, {"rider_id": "RIDER01"}),
+    )
+    escalations = _capture_escalations(monkeypatch)
+    agent_calls = []
+
+    async def _fake_run(**kwargs):
+        agent_calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    alert = _alert()
+    del alert["audience"]
+    await delivery_hooks._process_rider_pickup_alerts([alert])
+
+    assert escalations == []
+    assert len(agent_calls) == 1
+
+
+async def test_process_rider_pickup_alerts_sends_to_the_rider_on_the_live_inflight_row(
+    monkeypatch, cue_clears
+) -> None:
+    """The payload's rider can be stale by the time the background task runs.
+
+    If the original rider declines pre-pickup between the sweep's POST and this
+    task, dispatch_cancel_before_pickup deletes the dispatch and the order is
+    re-dispatched. The gate then reports AWAITING_PICKUP for the *new* rider, and
+    sending to the payload's rider would nag someone about a job they no longer
+    have.
+    """
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress_by_order(
+            DeliveryProgress.AWAITING_PICKUP, {"ELAS-ABCD-1": {"rider_id": "RIDER_NEW"}}
+        ),
+    )
+    calls = []
+
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    await delivery_hooks._process_rider_pickup_alerts([_alert(rider_id="RIDER_OLD")])
+
+    assert [c["recipient"] for c in calls] == ["RIDER_NEW"]
+    assert cue_clears == ["RIDER_NEW"]
