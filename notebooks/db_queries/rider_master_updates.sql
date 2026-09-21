@@ -19,6 +19,8 @@ select * from public.bnat_menu;
 update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='car' where rider_name='Lohith';
 update rider_master set is_in_shift=true, town ='Dummy', vehicle_type='car' where rider_name='Rahul';
 
+update rider_registrations set bank_account_name='REHAN ALI AWAN'
+where id=42;
 -- make this riders status=inactive
 update rider_master set status='inactive', is_in_shift=false where rider_name in ('Steven', 'Dhruva', 'Rakesh');
 
