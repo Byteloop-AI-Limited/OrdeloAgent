@@ -545,6 +545,7 @@ any prompt unless `LEGACY_OWNTRACKS_PROMPTS_ENABLED` is explicitly true.
 | `trigger_delivery_summary_timedout` | `delivery_summary` | UPDATE `status` to `timedout` | `delivery_summary_timedout_whook()` | `/delivery-hooks/delivery-timedout` |
 | `trigger_delivery_dispatch_whook` | `delivery_dispatch` | INSERT (statement-level) | `delivery_dispatch_whook_statement()` | `/delivery-hooks/delivery-dispatch` |
 | `trigger_delivery_inflight_whook` | `delivery_inflight` | INSERT | `delivery_inflight_whook()` | `/delivery-hooks/delivery-inflight-graph-init` |
+| `trigger_pickup_time_reschedule` | `delivery_summary` | UPDATE OF `pickup_time` | `rider_pickup_alert_reschedule()` | *(none — updates `rider_pickup_alert` in-place)* |
 
 ---
 
@@ -559,6 +560,7 @@ any prompt unless `LEGACY_OWNTRACKS_PROMPTS_ENABLED` is explicitly true.
 | `job_close_thread` | `job_close_thread()` | Every 5 min | Close inactive rider chat threads |
 | `job_null_or_outdated_location` | `job_null_or_outdated_location()` | Periodic | Legacy OwnTracks reminder; disabled by default |
 | `job_terminate_stale_active_threads` | `job_terminate_stale_active_threads()` | Periodic | Cleanup stale threads |
+| `job_rider_pickup_alerts` | `job_rider_pickup_alerts()` | Every 2 min | Alert riders — and escalate to ops — at checkpoints around `pickup_time` |
 
  Availability enquiry jobs (non-critical workflow support):
  
@@ -591,6 +593,74 @@ any prompt unless `LEGACY_OWNTRACKS_PROMPTS_ENABLED` is explicitly true.
      }
      ```
  
+ - **Rider, ops & restaurant-admin alerts**
+   - Function: `job_rider_pickup_alerts()` (`ordelo_datamodels/jobs_n_functions/job_rider_pickup_alerts.sql`)
+   - Schedule: Every 2 minutes via pg_cron. The cadence must be **≤ the smallest
+     gap between consecutive configured offsets, in any phase**, or two
+     adjacent checkpoints collapse into one alert.
+   - Two phases x three audiences = six buckets, all measured against the same
+     `delivery_summary.pickup_time` anchor, each with its own config key and its
+     own kill switch:
+
+     | Audience | Phase | Dispatch status | Config key | Default |
+     |---|---|---|---|---|
+     | `rider` | `awaiting_pickup` | `assigned` | `ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS` | `-15,-5,2,5,7` |
+     | `rider` | `picked_up` | `pickedup` | `ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS` | `30,45` |
+     | `ops` | `awaiting_pickup` | `assigned` | `rider_alert_to_overwatch_pickup_intervals` | `10` |
+     | `ops` | `picked_up` | `pickedup` | `rider_alert_to_overwatch_delivery_intervals` | `30` |
+     | `rest_admins` | `awaiting_pickup` | `assigned` | `rider_alert_to_rest_admins_pickup_intervals` | `-10,2,7` |
+     | `rest_admins` | `picked_up` | `pickedup` | `rider_alert_to_rest_admins_delivery_intervals` | *(blank = off)* |
+
+     Offsets are signed minutes (negative = before pickup). Phase names are the
+     `DeliveryProgress` values, so the SQL gate and the router's gate are the
+     same check. Blank all six keys and the job returns `false` with no HTTP
+     call. `rest_admins`/`picked_up` ships blank on purpose — wired end to end,
+     inactive until someone sets it.
+   - **Audience decides delivery.** `rider` alerts run through the rider agent
+     (`notify_pickup_reminder`). `ops` alerts go to the `overwatch_list` via
+     `WALogger.critical` (`notify_ops_rider_alert`). `rest_admins` alerts go to
+     `restaurant_master.admins` by direct send (`notify_rest_admins_rider_alert`),
+     on a schedule and with wording independent of `ops`. Neither of the latter
+     two reaches the rider, so the everything-through-the-agent rule does not
+     apply to them.
+   - Ledger: `rider_pickup_alert`, one row per (`dispatch_id`, `phase`,
+     `audience`, `offset_minutes`) with `status` in `pending` / `sent` /
+     `superseded`. Cascades away with the dispatch row.
+   - Webhook: `POST /delivery-hooks/rider-pickup-alerts` — **only called when at
+     least one checkpoint is due.**
+   - Payload (simplified):
+     ```json
+     {
+       "event_type": "rider_pickup_alerts",
+       "timestamp": 1734212345,
+       "alerts": [
+         {
+           "order_number": "ELAS-ABCD-1",
+           "rider_id": "447...",
+           "dispatch_id": 11,
+           "phase": "awaiting_pickup",
+           "audience": "rider",
+           "offset_minutes": -5,
+           "pickup_time": "2026-05-09T11:40:00+00:00",
+           "minutes_since_pickup": -4.2,
+           "rider_name": "...",
+           "rest_name": "...",
+           "rest_ref": "ELAS",
+           "rest_admins": ["447..."]
+         }
+       ]
+     }
+     ```
+   - When several checkpoints are due at once, only the **largest** fires; the
+     rest are marked `superseded`. That collapse is **per audience**, so a
+     rider alert, an ops escalation, and a rest_admins message can all fire on
+     the same tick — even when two of them share the same `offset_minutes`.
+     Checkpoints are marked only on a 2xx, so a failed POST is retried on the
+     next tick.
+   - `trigger_pickup_time_reschedule` reopens and re-times every checkpoint for
+     an order whenever its `pickup_time` moves — one trigger covers all six
+     buckets, because they share the anchor.
+
  **Timeout note:** These jobs are invoked from the DB and must return quickly. The corresponding FastAPI endpoints acknowledge success immediately and perform WhatsApp fan-out in background tasks.
 
 ---

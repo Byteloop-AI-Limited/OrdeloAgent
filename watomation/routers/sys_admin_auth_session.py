@@ -1,11 +1,16 @@
 """Sys-admin scoped HTTP endpoints (auth session, rider payout, paid status).
     . Mints sys_admin dashboard magic-link sessions into `auth_sessions`
     . Gates sys_admin access via `config.params.get_overwatch_list()` allowlist
-    . Returns weekly rider payout report joining delivery_dispatch / rider_master / rider_registrations / delivery_option
+    . Returns the rider payout report by delegating the join to the `get_rider_payout_report`
+      Postgres function (see ordelo_datamodels/jobs_n_functions/get_rider_payout_report.sql),
+      then aggregating per payee in Python
+    . Report is location-agnostic: every town / rest_ref with completed dispatches appears,
+      and each row carries `town` + `rest_ref` so payouts can be attributed per location
     . Marks `delivery_dispatch` rows as paid (idempotent, only flips rows still `paid_status='unpaid'`)
   Functions/Classes:
     . _sha256_hex
     . _ensure_sys_admin
+    . _payee_key
     . fetch_payouts
     . CreateSysAdminSessionResponse
     . UpdatePaidRequest
@@ -15,7 +20,7 @@
     . update_paid_status
   Key Endpoints:
     . POST /sys-admin/dashboard-session - mint sys_admin session
-    . GET  /sys-admin/rider-payout      - weekly payout report
+    . GET  /sys-admin/rider-payout      - payout report for a date range
     . POST /sys-admin/update-paid       - mark dispatch_ids as paid
 """
 
@@ -35,7 +40,12 @@ from config.params import get_overwatch_list, get_dashboard_app_url_async
 router = APIRouter(prefix="/sys-admin", tags=["sys_admin"])
 
 LINK_TTL_MINUTES = 30
-EXCLUDE_RIDER_ID = "447448440754"
+
+# Internal test accounts omitted from payouts. Passed to get_rider_payout_report so the
+# list can change here without a DB migration.
+EXCLUDE_RIDER_IDS = ["447448440754"]
+
+PAYOUT_REPORT_RPC = "get_rider_payout_report"
 
 
 def _sha256_hex(value: str) -> str:
@@ -125,108 +135,98 @@ async def create_sys_admin_dashboard_session(wa_number: str) -> CreateSysAdminSe
 # ---------------------------------------------------------------------------
 
 
+def _payee_key(row: dict) -> str:
+    """Stable grouping key for a payout row.
+
+    Rows are paid per bank account. Riders with no registration on file have no account to
+    group by, so they fall back to their own rider_id - that keeps them visible as an
+    individual card instead of merging every unknown rider into one blob.
+    """
+    account = row.get("bank_account")
+    if not account:
+        return f"rider:{row['rider_id']}"
+    return f"bank:{row.get('bank_account_name')}|{row.get('sort_code')}|{account}"
+
+
 def fetch_payouts(start_date: str, end_date: str) -> dict:
     """Synchronous payout aggregator.
 
-    Joins delivery_dispatch -> rider_master -> rider_registrations -> delivery_option,
-    excluding EXCLUDE_RIDER_ID, filtering to completed dispatches within [start, end].
+    Delegates the join to the `get_rider_payout_report` Postgres function (one row per
+    completed dispatch in [start_date, end_date], both days inclusive, minus
+    EXCLUDE_RIDER_IDS) and aggregates per payee. No town / rest_ref filtering is applied:
+    all locations are reported, and each row carries both so payouts can be attributed.
     Returns a JSON-serializable dict with detailed and aggregated rows.
     """
-    dispatches = (
-        client_ordelo.table("delivery_dispatch")
-        .select("dispatch_id, order_number, rider_id, rider_payout, dtts, paid_status, paid_dtts")
-        .eq("status", "completed")
-        .neq("rider_id", EXCLUDE_RIDER_ID)
-        .gte("dtts", start_date)
-        .lte("dtts", end_date)
-        .order("dtts", desc=True)
+    rows = (
+        client_ordelo.rpc(
+            PAYOUT_REPORT_RPC,
+            {
+                "p_start":           start_date,
+                "p_end":             end_date,
+                "p_exclude_riders":  EXCLUDE_RIDER_IDS,
+            },
+        )
         .execute()
         .data
     ) or []
 
-    if not dispatches:
-        return {
-            "start": start_date,
-            "end": end_date,
-            "total_orders": 0,
-            "detailed": [],
-            "aggregated": [],
+    detailed: List[dict] = [
+        {
+            "payee_key":         _payee_key(row),
+            "bank_account_name": row.get("bank_account_name"),
+            "sort_code":         row.get("sort_code"),
+            "bank_account":      row.get("bank_account"),
+            "dispatch_id":       row["dispatch_id"],
+            "order_number":      row["order_number"],
+            "rest_ref":          row.get("rest_ref"),
+            "rider_id":          row["rider_id"],
+            "rider_name":        row.get("rider_name"),
+            "town":              row.get("town"),
+            "vehicle_type":      row.get("vehicle_type"),
+            "rider_payout":      row["rider_payout"],
+            "dtts":              row["dtts"],
+            "paid_status":       row["paid_status"],
+            "paid_dtts":         row.get("paid_dtts"),
         }
+        for row in rows
+    ]
 
-    rider_ids = list({d["rider_id"] for d in dispatches})
-    order_numbers = [d["order_number"] for d in dispatches]
-
-    riders = {
-        r["rider_id"]: r
-        for r in (
-            client_ordelo.table("rider_master")
-            .select("rider_id, rider_name, vehicle_type")
-            .in_("rider_id", rider_ids)
-            .execute()
-            .data
-            or []
-        )
-    }
-
-    reg_rows = (
-        client_ordelo.table("rider_registrations")
-        .select("phone, bank_account_name, sort_code, bank_account")
-        .execute()
-        .data
-        or []
+    agg_acc: dict = defaultdict(
+        lambda: {"rider_payout": 0.0, "order_count": 0, "rider_names": [], "towns": []}
     )
-    reg_by_rider = {r["phone"][1:]: r for r in reg_rows}
-
-    options = {
-        o["order_number"]: o
-        for o in (
-            client_ordelo.table("delivery_option")
-            .select("order_number, vehicle_type")
-            .in_("order_number", order_numbers)
-            .execute()
-            .data
-            or []
-        )
-    }
-
-    detailed: List[dict] = []
-    for d in dispatches:
-        rider = riders.get(d["rider_id"])
-        if not rider:
-            continue
-        opt = options.get(d["order_number"])
-        if not opt or opt["vehicle_type"] != rider["vehicle_type"]:
-            continue
-        reg = reg_by_rider.get(d["rider_id"])
-        if not reg:
-            continue
-        detailed.append({
-            "bank_account_name": reg["bank_account_name"],
-            "sort_code":         reg["sort_code"],
-            "bank_account":      reg["bank_account"],
-            "dispatch_id":       d["dispatch_id"],
-            "order_number":      d["order_number"],
-            "rider_payout":      d["rider_payout"],
-            "dtts":              d["dtts"],
-            "paid_status":       d["paid_status"],
-        })
-
-    agg_acc: dict = defaultdict(lambda: {"rider_payout": 0.0, "order_count": 0})
     for row in detailed:
-        key = (row["bank_account_name"], row["sort_code"], row["bank_account"])
-        agg_acc[key]["rider_payout"] += row["rider_payout"]
-        agg_acc[key]["order_count"] += 1
+        acc = agg_acc[row["payee_key"]]
+        acc["rider_payout"] += row["rider_payout"]
+        acc["order_count"] += 1
+        for field, value in (("rider_names", row["rider_name"]), ("towns", row["town"])):
+            if value and value not in acc[field]:
+                acc[field].append(value)
+        acc.setdefault("bank_account_name", row["bank_account_name"])
+        acc.setdefault("sort_code", row["sort_code"])
+        acc.setdefault("bank_account", row["bank_account"])
 
     aggregated = [
         {
-            "bank_account_name": name,
-            "sort_code":         sort,
-            "bank_account":      acct,
-            "rider_payout":      round(totals["rider_payout"], 2),
-            "order_count":       totals["order_count"],
+            "payee_key":            key,
+            "bank_account_name":    totals["bank_account_name"],
+            "sort_code":            totals["sort_code"],
+            "bank_account":         totals["bank_account"],
+            "rider_names":          totals["rider_names"],
+            "towns":                totals["towns"],
+            "rider_payout":         round(totals["rider_payout"], 2),
+            "order_count":          totals["order_count"],
+            "missing_bank_details": not totals["bank_account"],
         }
-        for (name, sort, acct), totals in agg_acc.items()
+        for key, totals in agg_acc.items()
     ]
+    aggregated.sort(key=lambda a: a["rider_payout"], reverse=True)
+
+    missing = [a for a in aggregated if a["missing_bank_details"]]
+    if missing:
+        logger.warning(
+            f"[sys_admin.rider_payout] {len(missing)} payee(s) have no bank details on file: "
+            f"{[a['rider_names'] or a['payee_key'] for a in missing]}"
+        )
 
     return {
         "start": start_date,
@@ -239,14 +239,18 @@ def fetch_payouts(start_date: str, end_date: str) -> dict:
 
 @router.get(
     "/rider-payout",
-    summary="Weekly rider payout report",
+    summary="Rider payout report for a date range",
     description=(
-        "Aggregates completed dispatches in `[start, end]` (inclusive) by rider bank "
-        "account. Joins `delivery_dispatch -> rider_master -> rider_registrations -> "
-        "delivery_option` and excludes internal test rider. If `end` is omitted, "
-        "defaults to `start + 6 days`."
+        "Aggregates completed dispatches in `[start, end]` by payee. Both dates are "
+        "inclusive of the whole day. Sourced from the `get_rider_payout_report` Postgres "
+        "function, which joins `delivery_dispatch -> rider_master -> delivery_summary -> "
+        "rider_registrations` and excludes internal test riders. Covers **all** towns and "
+        "`rest_ref`s - each detail row carries `town` and `rest_ref` so payouts can be "
+        "attributed per location. Riders with no bank details on file are still reported, "
+        "grouped under their own `payee_key` with `missing_bank_details=true`. If `end` is "
+        "omitted, defaults to `start + 6 days`."
     ),
-    response_description="Detailed per-order rows and aggregated per-rider totals",
+    response_description="Detailed per-order rows and aggregated per-payee totals",
     responses={
         200: {
             "description": "Payout report (empty arrays if no matching dispatches)",
@@ -258,23 +262,34 @@ def fetch_payouts(start_date: str, end_date: str) -> dict:
                         "total_orders": 1,
                         "detailed": [
                             {
+                                "payee_key": "bank:Jane Doe|12-34-56|12345678",
                                 "bank_account_name": "Jane Doe",
                                 "sort_code": "12-34-56",
                                 "bank_account": "12345678",
                                 "dispatch_id": 101,
-                                "order_number": "ELAS-ABCD-1",
+                                "order_number": "BNAT-ABCD-1",
+                                "rest_ref": "BNAT",
+                                "rider_id": "447700900123",
+                                "rider_name": "Jane",
+                                "town": "Orpington",
+                                "vehicle_type": "scooter",
                                 "rider_payout": 4.5,
                                 "dtts": "2026-03-28T12:34:56",
                                 "paid_status": "unpaid",
+                                "paid_dtts": None,
                             }
                         ],
                         "aggregated": [
                             {
+                                "payee_key": "bank:Jane Doe|12-34-56|12345678",
                                 "bank_account_name": "Jane Doe",
                                 "sort_code": "12-34-56",
                                 "bank_account": "12345678",
+                                "rider_names": ["Jane"],
+                                "towns": ["Orpington"],
                                 "rider_payout": 4.5,
                                 "order_count": 1,
+                                "missing_bank_details": False,
                             }
                         ],
                     }

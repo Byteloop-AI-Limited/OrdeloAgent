@@ -71,7 +71,7 @@ BEGIN
   new_rows AS (
     SELECT
       123456789 + row_num AS dispatch_id,
-      'ELAS-LIYF-22'::varchar AS order_number,
+      'ELAS-CHRD-22'::varchar AS order_number,
       rider_id,
       7.30::double precision AS rider_payout,
       vehicle_type,
@@ -89,7 +89,7 @@ BEGIN
       'Mill Stream Approach Castle St Salisbury SP1 3TA'::varchar AS rest_address,
       'Salisbury'::varchar AS town,
       '447586593694'::varchar AS customer_id,
-      'L!nt@'::varchar AS customer_name,
+      'Brady'::varchar AS customer_name,
       '-1.7911197'::varchar AS customer_lon,
       '51.0695493'::varchar AS customer_lat,
       '53a Winchester Street Salisbury SP1 1HL'::varchar AS customer_address
@@ -181,7 +181,7 @@ SELECT fake_delivery_dispatch_whook(
     SELECT array_agg(rider_id ORDER BY rider_name)
     FROM rider_master
     WHERE is_in_shift = true
-      AND rider_name IN ('Lohith', 'Mohammed Hoque', 'Nikhil', 'Rahul', 'Marian', 'Rishi', 'Bokul')
+      AND rider_name IN ('Rangaswamy','Mohammed Hoque','Rishi','Muhibur')
       -- AND rider_name IN ('Lohith')
   )
 );

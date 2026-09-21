@@ -12,6 +12,11 @@ Delivery webhook handlers for Ordelo delivery system
     . Handles empty payloads gracefully in endpoints
     . Manages thread lifecycle including automatic closure for inactive threads
     . Implements restaurant confirmation touchpoint before rider dispatch
+    . Alerts at configurable checkpoints around pickup_time across two phases (before and
+      after collection) and three audiences (the rider via the agent, overwatch, or the
+      restaurant's admins -- the latter two by direct send on independent schedules),
+      scheduled entirely by job_rider_pickup_alerts(); this router only gates on the
+      alert's phase and routes by its audience
     . Suppresses pre-pickup-only rider updates (food ready, pickup time adjusted) unless the
       order is still inflight and not yet picked up, via ordelo.delivery_progress.check_delivery_progress,
       so a late admin button tap never runs the rider agent or writes to delivery_summary
@@ -35,7 +40,10 @@ Delivery webhook handlers for Ordelo delivery system
     . delivery_timedout - Handles delivery timeout events
     . check_rider_allocation_status - Checks rider allocation status
     . shift_availability_enquiry_hook - Processes shift availability enquiries
-    . admin_availability_enquiry_hook - Processes admin availability enquiries for restaurants
+    . admin_availability_enquiry_hook - Processes admin availability enquiries (dedupes admins shared across restaurants)
+    . _process_admin_availability - Sends the enquiry once per unique admin number
+    . rider_pickup_alerts_hook - Receives due pickup checkpoints from job_rider_pickup_alerts()
+    . _process_rider_pickup_alerts - Delivers each due alert, gated on its phase and routed by its audience
     . restaurant_confirmation_flow - Handles restaurant confirmation workflow (unconfirmed, accept, decline, timedout)
     . _handle_restaurant_unconfirmed - Sends order confirmation request to restaurant
     . _handle_restaurant_accept - Sends pickup time selection to restaurant
@@ -75,6 +83,7 @@ from utils_common.waba_utils.wa_senders import (
 from ordelo.agents.agent_runner import (
     init_ordelo_graph,
     run_rider_agent_w_custom_msg,
+    clear_pickup_alert_cue,
 )
 from ordelo.delivery_progress import DeliveryProgress, check_delivery_progress
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
@@ -85,6 +94,8 @@ from utils_common.waba_utils.wa_senders import (
     send_restaurant_order_confirmation,
     send_restaurant_pickup_time,
     admin_order_reciept,
+    notify_ops_rider_alert,
+    notify_rest_admins_rider_alert,
 )
 
 
@@ -969,7 +980,8 @@ async def _process_shift_availability(riders: list):
     
     This endpoint:
     1. Receives a dict of restaurant admins from the PostgreSQL function
-    2. For each restaurant, sends admin availability enquiry to each admin
+    2. Dedupes admins that appear under more than one restaurant so each
+       number receives a single message
     3. Logs processing status for monitoring
     """,
     response_description="Status of the admin availability enquiry operation",
@@ -1002,7 +1014,9 @@ async def admin_availability_enquiry_hook(
     Handle admin availability enquiry webhook from PostgreSQL function.
 
     This endpoint processes the payload containing restaurant admins and sends
-    availability enquiry to each admin.
+    the availability enquiry to each admin exactly once: the same admin number
+    can appear under multiple rest_refs, and the enquiry message is generic, so
+    duplicate numbers are collapsed here before scheduling.
     Uses background tasks to avoid DB timeout.
 
     Args:
@@ -1010,35 +1024,208 @@ async def admin_availability_enquiry_hook(
         background_tasks: FastAPI BackgroundTasks for async processing
 
     Returns:
-        dict: Status of the operation and count of admins to be processed
+        dict: Status of the operation and count of unique admins to be processed
     """
     logger.info(f"admin_availability_enquiry_hook received: {payload}")
 
     restaurant_admins = payload.get("restaurant_admins", {})
     event_type = payload.get("event_type", "unknown")
 
-    total_admins = sum(len(admins) for admins in restaurant_admins.values())
+    admin_rest_refs: dict = {}
+    for rest_ref, admins in restaurant_admins.items():
+        for admin in admins:
+            admin_rest_refs.setdefault(admin, []).append(rest_ref)
 
-    if restaurant_admins:
+    if admin_rest_refs:
         logger.info(
-            f"Scheduling {len(restaurant_admins)} restaurants ({total_admins} admins) for {event_type} processing"
+            f"Scheduling {len(restaurant_admins)} restaurants ({len(admin_rest_refs)} unique admins) for {event_type} processing"
         )
-        background_tasks.add_task(_process_admin_availability, restaurant_admins)
+        background_tasks.add_task(_process_admin_availability, admin_rest_refs)
     else:
         logger.info("No restaurant admins found in the enquiry")
 
-    return {"status": "success", "admins_scheduled": total_admins}
+    return {"status": "success", "admins_scheduled": len(admin_rest_refs)}
 
 
-async def _process_admin_availability(restaurant_admins: dict):
-    """Background task to process admin availability for restaurants."""
-    for rest_ref, admins in restaurant_admins.items():
-        logger.info(f"Processing {len(admins)} admins for restaurant {rest_ref}")
-        for admin in admins:
+async def _process_admin_availability(admin_rest_refs: dict):
+    """Background task sending the admin availability enquiry once per unique admin number.
+
+    Args:
+        admin_rest_refs (dict): admin number -> list of rest_refs that number administers
+    """
+    for admin, rest_refs in admin_rest_refs.items():
+        logger.info(f"Processing admin availability for {admin} (restaurants: {rest_refs})")
+        try:
+            await enquire_admin_availability(recipient=admin)
+        except Exception as e:
+            logger.error(f"Error processing admin availability for {admin}: {e}")
+
+
+# %%
+@router.post(
+    "/rider-pickup-alerts",
+    summary="Alert riders at pickup-time checkpoints. Called by job_rider_pickup_alerts() PostgreSQL function",
+    description="""
+    Receives the pickup checkpoints that came due on this sweep, one per rider.
+
+    All scheduling policy (which checkpoints exist, which fired, which are
+    collapsed) lives in job_rider_pickup_alerts(); the job only calls this
+    endpoint when there is something to send. This endpoint gates each alert on
+    delivery progress and drives the rider agent to deliver it.
+    """,
+    response_description="Count of alerts scheduled for delivery",
+)
+async def rider_pickup_alerts_hook(
+    payload: dict = Depends(get_payload),
+    background_tasks: BackgroundTasks = None,
+):
+    """
+    Handle the rider pickup-alert webhook from job_rider_pickup_alerts().
+
+    Responds immediately and does the agent runs in a background task, so the
+    calling SQL function is never held open on WhatsApp/LLM latency. Note the
+    job marks checkpoints 'sent' on receiving this 2xx, not on the message
+    actually landing -- a failure inside the background task is logged and the
+    rider is picked up by the next checkpoint rather than retried here.
+
+    Args:
+        payload (dict): {"event_type", "timestamp", "alerts": [...]}
+        background_tasks: FastAPI BackgroundTasks for async processing
+
+    Returns:
+        dict: Status of the operation and count of alerts scheduled
+    """
+    logger.info(f"rider_pickup_alerts_hook received: {payload}")
+
+    alerts = payload.get("alerts") or []
+
+    if alerts:
+        background_tasks.add_task(_process_rider_pickup_alerts, alerts)
+    else:
+        logger.info("No pickup alerts in the payload")
+
+    return {"status": "success", "alerts_scheduled": len(alerts)}
+
+
+async def _process_rider_pickup_alerts(alerts: list):
+    """Background task to deliver each due pickup/delivery alert through the rider agent.
+
+    Each alert is gated on check_delivery_progress: the sweep built this payload
+    seconds ago, and a "you're late!" nag landing just after the rider verified
+    the restaurant code is exactly the failure to avoid. One alert failing must
+    not abort the rest, so every alert is isolated.
+
+    The alert's phase names the DeliveryProgress the delivery must still be in --
+    'awaiting_pickup' for a rider who has not collected, 'picked_up' for one who
+    has collected but not delivered. job_rider_pickup_alerts() emits exactly the
+    DeliveryProgress values, so the gate is an identity check rather than a
+    mapping, and the SQL and Python gates cannot drift apart.
+
+    Audience decides delivery once the gate passes: 'rider' runs the rider graph,
+    'ops' escalates to overwatch, 'rest_admins' notifies the restaurant's admins --
+    the latter two by direct send, on independent schedules.
+    """
+    for alert in alerts:
+        order_number = alert.get("order_number")
+        rider_id = alert.get("rider_id")
+        offset_minutes = alert.get("offset_minutes")
+        # Absent phase/audience means a pre-migration payload (app deployed ahead
+        # of the SQL): those were all rider awaiting-pickup alerts.
+        phase = alert.get("phase") or DeliveryProgress.AWAITING_PICKUP
+        audience = alert.get("audience") or "rider"
+
+        try:
             try:
-                await enquire_admin_availability(recipient=admin)
-            except Exception as e:
-                logger.error(f"Error processing admin availability for {admin}: {e}")
+                required = DeliveryProgress(phase)
+            except ValueError:
+                logger.error(
+                    f"Pickup alert for order {order_number} has unknown phase "
+                    f"{phase!r}; skipping rather than guessing"
+                )
+                continue
+
+            progress, row = await check_delivery_progress(order_number=order_number)
+
+            if progress is not required:
+                logger.info(
+                    f"Pickup alert for order {order_number} (phase {required}, "
+                    f"offset {offset_minutes}) while {progress}; skipping"
+                )
+                continue
+
+            # Prefer the rider on the live inflight row over the one the sweep
+            # saw. If the original rider declined pre-pickup between the POST and
+            # this task running, the order has been re-dispatched and the payload
+            # names someone who no longer has the job.
+            rider_id = (row or {}).get("rider_id") or rider_id
+
+            if audience == "ops":
+                # Never reaches the rider, so this is a direct send rather than a
+                # run of the rider graph -- there is no agent thread to keep faithful.
+                await notify_ops_rider_alert(
+                    phase=str(required),
+                    order_number=order_number,
+                    pickup_time=alert.get("pickup_time"),
+                    rider_id=rider_id,
+                    rider_name=alert.get("rider_name"),
+                    rest_name=alert.get("rest_name"),
+                    rest_ref=alert.get("rest_ref"),
+                )
+            elif audience == "rest_admins":
+                # Same direct-send rationale as ops. Recipients come from the
+                # payload (restaurant_master.admins, read by the SQL at resolve
+                # time), not RestaurantMaster.get_admins_for(): that accessor is
+                # sync/cached and would need asyncio.to_thread, and the payload
+                # is already the fresher read of the same column.
+                await notify_rest_admins_rider_alert(
+                    phase=str(required),
+                    order_number=order_number,
+                    pickup_time=alert.get("pickup_time"),
+                    rider_id=rider_id,
+                    rider_name=alert.get("rider_name"),
+                    rest_ref=alert.get("rest_ref"),
+                    rest_admins=alert.get("rest_admins"),
+                )
+            elif audience == "rider":
+                # order_number and pickup_time come from the payload, not from
+                # whatever the thread last stored: _handle_restaurant_pickuptime_adjusted
+                # only refreshes state pickup_time while AWAITING_PICKUP, so after
+                # collection the thread's copy can be stale while the SQL has already
+                # rescheduled due_dtts off the new time.
+                try:
+                    await run_rider_agent_w_custom_msg(
+                        recipient=rider_id,
+                        system_msg=(
+                            "call tool `notify_pickup_reminder`. A pickup alert is due "
+                            "for this order."
+                        ),
+                        state_update_dict={
+                            "pickup_alert_offset": offset_minutes,
+                            "pickup_alert_phase": str(required),
+                            "order_number": order_number,
+                            "pickup_time": alert.get("pickup_time"),
+                        },
+                    )
+                finally:
+                    # The cue is single-use. Disarm it whatever happened, so a turn
+                    # hours later cannot re-fire this alert.
+                    await clear_pickup_alert_cue(rider_id)
+            else:
+                logger.error(
+                    f"Pickup alert for order {order_number} has unknown audience "
+                    f"{audience!r}; skipping rather than guessing"
+                )
+                continue
+
+            logger.info(
+                f"Pickup alert sent for order {order_number} rider {rider_id} "
+                f"(audience {audience}, phase {required}, offset {offset_minutes})"
+            )
+        except Exception as e:
+            logger.error(
+                f"Error processing pickup alert for order {order_number} "
+                f"rider {rider_id}: {e}"
+            )
 
 
 # %%
