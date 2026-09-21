@@ -37,6 +37,9 @@ Key Functions:
   - test_process_rider_pickup_alerts_ops_audience_skipped_on_phase_mismatch
   - test_process_rider_pickup_alerts_unknown_audience_is_skipped
   - test_process_rider_pickup_alerts_missing_audience_defaults_to_rider
+  - test_process_rider_pickup_alerts_rest_admins_audience_messages_admins_not_agent_or_overwatch
+  - test_process_rider_pickup_alerts_rest_admins_audience_skipped_on_phase_mismatch
+  - test_process_rider_pickup_alerts_three_audiences_on_one_tick_are_all_delivered
   - test_process_rider_pickup_alerts_sends_to_the_rider_on_the_live_inflight_row
   - test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config
   - test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config
@@ -799,9 +802,20 @@ def _capture_escalations(monkeypatch) -> list:
 
     async def _fake_escalate(**kwargs):
         calls.append(kwargs)
-        return {"overwatch": "sent", "admins_notified": 1, "admins_failed": 0}
+        return {"overwatch": "sent"}
 
     monkeypatch.setattr(delivery_hooks, "notify_ops_rider_alert", _fake_escalate)
+    return calls
+
+
+def _capture_rest_admin_alerts(monkeypatch) -> list:
+    calls = []
+
+    async def _fake_notify(**kwargs):
+        calls.append(kwargs)
+        return {"admins_notified": 1, "admins_failed": 0}
+
+    monkeypatch.setattr(delivery_hooks, "notify_rest_admins_rider_alert", _fake_notify)
     return calls
 
 
@@ -827,7 +841,6 @@ async def test_process_rider_pickup_alerts_ops_audience_escalates_instead_of_run
     assert len(escalations) == 1
     assert escalations[0]["phase"] == "picked_up"
     assert escalations[0]["order_number"] == "ELAS-ABCD-1"
-    assert escalations[0]["rest_admins"] == ["ADMIN01"]
 
 
 async def test_process_rider_pickup_alerts_ops_audience_skipped_on_phase_mismatch(monkeypatch) -> None:
@@ -887,6 +900,88 @@ async def test_process_rider_pickup_alerts_missing_audience_defaults_to_rider(mo
 
     assert escalations == []
     assert len(agent_calls) == 1
+
+
+async def test_process_rider_pickup_alerts_rest_admins_audience_messages_admins_not_agent_or_overwatch(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress_by_order(
+            DeliveryProgress.AWAITING_PICKUP, {"ELAS-ABCD-1": {"rider_id": "RIDER_NEW"}}
+        ),
+    )
+    escalations = _capture_escalations(monkeypatch)
+    rest_admin_alerts = _capture_rest_admin_alerts(monkeypatch)
+    agent_calls = []
+
+    async def _fake_run(**kwargs):
+        agent_calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    await delivery_hooks._process_rider_pickup_alerts(
+        [_alert(audience="rest_admins", rider_id="RIDER_OLD", offset_minutes=7)]
+    )
+
+    assert escalations == []
+    assert agent_calls == []
+    assert len(rest_admin_alerts) == 1
+    assert rest_admin_alerts[0]["order_number"] == "ELAS-ABCD-1"
+    assert rest_admin_alerts[0]["rest_admins"] == ["ADMIN01"]
+    # Live inflight row, not the payload's stale rider -- same guarantee as #4.
+    assert rest_admin_alerts[0]["rider_id"] == "RIDER_NEW"
+
+
+async def test_process_rider_pickup_alerts_rest_admins_audience_skipped_on_phase_mismatch(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress(DeliveryProgress.PICKED_UP, {"rider_id": "RIDER01"}),
+    )
+    rest_admin_alerts = _capture_rest_admin_alerts(monkeypatch)
+
+    # A still-awaiting-pickup rest_admins alert must not fire once collected.
+    await delivery_hooks._process_rider_pickup_alerts(
+        [_alert(audience="rest_admins", phase="awaiting_pickup", offset_minutes=7)]
+    )
+
+    assert rest_admin_alerts == []
+
+
+async def test_process_rider_pickup_alerts_three_audiences_on_one_tick_are_all_delivered(
+    monkeypatch,
+) -> None:
+    """Mirrors runbook step 6: rider/7, ops/10, rest_admins/7 due together for the
+    same order. All three must be delivered from a single run."""
+    monkeypatch.setattr(
+        delivery_hooks,
+        "check_delivery_progress",
+        _progress(DeliveryProgress.AWAITING_PICKUP, {"rider_id": "RIDER01"}),
+    )
+    escalations = _capture_escalations(monkeypatch)
+    rest_admin_alerts = _capture_rest_admin_alerts(monkeypatch)
+    agent_calls = []
+
+    async def _fake_run(**kwargs):
+        agent_calls.append(kwargs)
+
+    monkeypatch.setattr(delivery_hooks, "run_rider_agent_w_custom_msg", _fake_run)
+
+    await delivery_hooks._process_rider_pickup_alerts(
+        [
+            _alert(audience="rider", offset_minutes=7),
+            _alert(audience="ops", offset_minutes=10),
+            _alert(audience="rest_admins", offset_minutes=7),
+        ]
+    )
+
+    assert len(agent_calls) == 1
+    assert len(escalations) == 1
+    assert len(rest_admin_alerts) == 1
 
 
 async def test_process_rider_pickup_alerts_sends_to_the_rider_on_the_live_inflight_row(

@@ -1,7 +1,8 @@
 /**
 ================================================================================
-  RIDER & OPS PICKUP ALERTS
-  Nudges a rider around their pickup time, and escalates to ops when ignored.
+  RIDER, OPS & RESTAURANT-ADMIN PICKUP ALERTS
+  Nudges a rider around their pickup time, and escalates to ops and the
+  restaurant's admins -- on separate schedules -- when ignored.
 ================================================================================
 
 WHAT THIS FILE CREATES
@@ -11,7 +12,7 @@ WHAT THIS FILE CREATES
   FUNCTION  job_rider_pickup_alerts()         the sweep; pg_cron runs it every 2 min
   FUNCTION  rider_pickup_alert_reschedule()   trigger body
   TRIGGER   trigger_pickup_time_reschedule    on delivery_summary.pickup_time
-  4 rows in ordelo_config                     one interval list per bucket
+  6 rows in ordelo_config                     one interval list per bucket
 
 
 THE IDEA
@@ -22,45 +23,54 @@ Each checkpoint becomes one row in rider_pickup_alert, which records when it
 falls due and whether it has fired. That ledger is the whole memory of the
 feature; nothing lives in agent state.
 
-Checkpoints come in four BUCKETS, one per (audience x phase):
+Checkpoints come in six BUCKETS, one per (audience x phase):
 
-  AUDIENCE = who hears it       PHASE = where the delivery must be
-    rider  -> via the agent       awaiting_pickup -> dispatch is 'assigned'
-    ops    -> overwatch + admins  picked_up       -> dispatch is 'pickedup'
+  AUDIENCE = who hears it            PHASE = where the delivery must be
+    rider        -> via the agent      awaiting_pickup -> dispatch is 'assigned'
+    ops          -> overwatch          picked_up       -> dispatch is 'pickedup'
+    rest_admins  -> the restaurant's admins
 
-  ┌──────────┬─────────────────┬───────────────────────────────────────────┬───────────────┐
-  │ audience │ phase           │ ordelo_config key                         │ default       │
-  ├──────────┼─────────────────┼───────────────────────────────────────────┼───────────────┤
-  │ rider    │ awaiting_pickup │ ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS   │ -15,-5,2,5,7  │
-  │ rider    │ picked_up       │ ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS │ 30,45         │
-  │ ops      │ awaiting_pickup │ rider_alert_to_overwatch_pickup_intervals │ 10            │
-  │ ops      │ picked_up       │ rider_alert_to_overwatch_delivery_intervals│ 30           │
-  └──────────┴─────────────────┴───────────────────────────────────────────┴───────────────┘
+  ┌─────────────┬─────────────────┬──────────────────────────────────────────────┬───────────────┐
+  │ audience    │ phase           │ ordelo_config key                            │ default       │
+  ├─────────────┼─────────────────┼──────────────────────────────────────────────┼───────────────┤
+  │ rider       │ awaiting_pickup │ ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS      │ -15,-5,2,5,7  │
+  │ rider       │ picked_up       │ ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS    │ 30,45         │
+  │ ops         │ awaiting_pickup │ rider_alert_to_overwatch_pickup_intervals    │ 10            │
+  │ ops         │ picked_up       │ rider_alert_to_overwatch_delivery_intervals  │ 30            │
+  │ rest_admins │ awaiting_pickup │ rider_alert_to_rest_admins_pickup_intervals  │ -10,2,7       │
+  │ rest_admins │ picked_up       │ rider_alert_to_rest_admins_delivery_intervals│ (blank = off) │
+  └─────────────┴─────────────────┴──────────────────────────────────────────────┴───────────────┘
 
-  Blank any key to switch off just that bucket. Blank all four and the job does
-  nothing at all.
+  Blank any key to switch off just that bucket. Blank all six and the job does
+  nothing at all. The rest_admins/picked_up key ships blank on purpose -- wired
+  end to end, inactive until someone sets it.
 
-ALL FOUR BUCKETS MEASURE FROM delivery_summary.pickup_time -- never from the
+ALL SIX BUCKETS MEASURE FROM delivery_summary.pickup_time -- never from the
 moment the rider actually collected. That one anchor is why a single trigger can
 reschedule everything when an admin moves the pickup time.
 
 
 WORKED EXAMPLE  (defaults above, pickup_time = 12:00)
 --------------------------------------------------------------------------------
-  11:45  rider: "pickup is in about 15 min"          <- checkpoint -15
-  11:55  rider: "pickup is in about 5 min"           <- checkpoint -5
-  12:02  rider: "you're about 2 min past pickup"     <- checkpoint 2
-  12:10  ops:   "rider has still not collected"      <- ops checkpoint 10
-  12:30  ops:   "collected but not delivered"        <- ops checkpoint 30  }  same
-         rider: "you're about 30 min past pickup"    <- rider checkpoint 30 }  tick
+  11:45  rider:       "pickup is in about 15 min"     <- rider checkpoint -15
+  11:50  rest_admins: "rider due to collect at 12:00" <- rest_admins checkpoint -10
+  11:55  rider:       "pickup is in about 5 min"      <- rider checkpoint -5
+  12:02  rider:       "you're about 2 min past pickup" <- rider checkpoint 2       }  same
+         rest_admins: "not yet collected, 2 min past"  <- rest_admins checkpoint 2 }  tick
+  12:07  rider:       "you're about 7 min past pickup" <- rider checkpoint 7       }  same
+         rest_admins: "not yet collected, 7 min past"  <- rest_admins checkpoint 7 }  tick
+  12:10  ops:         "rider has still not collected"  <- ops checkpoint 10
+  12:30  ops:         "collected but not delivered"    <- ops checkpoint 30  }  same
+         rider:       "you're about 30 min past pickup" <- rider checkpoint 30 }  tick
 
-The 12:30 line is the case to keep in mind: two rows, same offset, different
-audience. They are separate checkpoints and both fire.
+The 12:07/12:10 cluster is the case to keep in mind: three audiences, and rider
+and rest_admins share the SAME offset (7). They are separate checkpoints,
+partitioned by audience, and all fire independently.
 
 
 HOW THE SWEEP RUNS  (job_rider_pickup_alerts, every 2 minutes)
 --------------------------------------------------------------------------------
-  (a) read the four config keys        -> nothing configured? stop
+  (a) read the six config keys         -> nothing configured? stop
   (b) SEED   create missing checkpoint rows for live dispatches
   (c) RESOLVE pick what is due now, one winner per (dispatch, audience)
   (d) POST   send them to /delivery-hooks/rider-pickup-alerts -- only if any
@@ -89,7 +99,7 @@ file, under VERIFICATION.
 See also: docs/delivery_process.md, CONTEXT.md ("Pickup alert").
 **/
 
-
+drop table rider_pickup_alert;
 -- ===========================================================================
 -- 1. THE LEDGER
 --    One row per checkpoint. Answers "what was sent, what is still to come".
@@ -100,7 +110,7 @@ CREATE TABLE IF NOT EXISTS rider_pickup_alert (
     phase          VARCHAR(20)  NOT NULL
                    CHECK (phase IN ('awaiting_pickup', 'picked_up')),
     audience       VARCHAR(20)  NOT NULL
-                   CHECK (audience IN ('rider', 'ops')),
+                   CHECK (audience IN ('rider', 'ops', 'rest_admins')),
     offset_minutes INTEGER      NOT NULL,
     order_number   VARCHAR(100) NOT NULL,
     rider_id       VARCHAR(12)  NOT NULL,
@@ -141,8 +151,8 @@ CREATE INDEX IF NOT EXISTS rider_pickup_alert_order_idx
 -- 2. CONFIG -- one interval list per bucket
 --    Edit these to change the schedule; no code change needed.
 -- ===========================================================================
--- The two ops keys are lowercase to match the `overwatch_list` key they sit
--- beside. Deliberately inconsistent with the uppercase rider keys.
+-- The ops and rest_admins keys are lowercase to match the `overwatch_list` key
+-- they sit beside. Deliberately inconsistent with the uppercase rider keys.
 INSERT INTO ordelo_config (config_key, config_value, description)
 VALUES
   ('ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS',
@@ -153,10 +163,16 @@ VALUES
    'Minutes after delivery_summary.pickup_time at which to chase a rider who has collected but not delivered. Blank disables in-transit rider alerts.'),
   ('rider_alert_to_overwatch_pickup_intervals',
    '10',
-   'Minutes past delivery_summary.pickup_time at which to alert overwatch and restaurant admins that a rider has still not collected. Blank disables.'),
+   'Minutes past delivery_summary.pickup_time at which to alert overwatch that a rider has still not collected. Blank disables.'),
   ('rider_alert_to_overwatch_delivery_intervals',
    '30',
-   'Minutes past delivery_summary.pickup_time at which to alert overwatch and restaurant admins that a collected order is still undelivered. Blank disables.')
+   'Minutes past delivery_summary.pickup_time at which to alert overwatch that a collected order is still undelivered. Blank disables.'),
+  ('rider_alert_to_rest_admins_pickup_intervals',
+   '-10,2,7',
+   'Signed minutes around delivery_summary.pickup_time at which to message the restaurant''s admins about the rider; negative = heads-up before pickup, positive = chase after. Blank disables.'),
+  ('rider_alert_to_rest_admins_delivery_intervals',
+   '',
+   'Minutes after delivery_summary.pickup_time at which to tell the restaurant''s admins a collected order is still undelivered. BLANK ON PURPOSE = inactive; set e.g. 30 to enable. Do not use a placeholder word -- an unparseable non-blank value logs a NOTICE on every sweep.')
 ON CONFLICT (config_key) DO NOTHING;
 
 
@@ -188,25 +204,29 @@ $$;
 CREATE OR REPLACE FUNCTION job_rider_pickup_alerts()
 RETURNS boolean AS $$
 DECLARE
-    v_rider_pickup     int[];
-    v_rider_delivery   int[];
-    v_ops_pickup       int[];
-    v_ops_delivery     int[];
-    v_alerts           jsonb;
-    v_payload          jsonb;
-    v_app_url          text;
-    v_hook_url         text;
-    v_resp             http_response;
-    v_cfg              record;
+    v_rider_pickup         int[];
+    v_rider_delivery       int[];
+    v_ops_pickup           int[];
+    v_ops_delivery         int[];
+    v_rest_admins_pickup   int[];
+    v_rest_admins_delivery int[];
+    v_alerts               jsonb;
+    v_payload              jsonb;
+    v_app_url              text;
+    v_hook_url             text;
+    v_resp                 http_response;
+    v_cfg                  record;
 BEGIN
     PERFORM set_config('statement_timeout', '10000', true);
 
     -- ---- (a) READ CONFIG -------------------------------------------------
     -- A blank or absent key disables that bucket.
-    v_rider_pickup   := parse_alert_offsets('ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS');
-    v_rider_delivery := parse_alert_offsets('ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS');
-    v_ops_pickup     := parse_alert_offsets('rider_alert_to_overwatch_pickup_intervals');
-    v_ops_delivery   := parse_alert_offsets('rider_alert_to_overwatch_delivery_intervals');
+    v_rider_pickup         := parse_alert_offsets('ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS');
+    v_rider_delivery       := parse_alert_offsets('ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS');
+    v_ops_pickup           := parse_alert_offsets('rider_alert_to_overwatch_pickup_intervals');
+    v_ops_delivery         := parse_alert_offsets('rider_alert_to_overwatch_delivery_intervals');
+    v_rest_admins_pickup   := parse_alert_offsets('rider_alert_to_rest_admins_pickup_intervals');
+    v_rest_admins_delivery := parse_alert_offsets('rider_alert_to_rest_admins_delivery_intervals');
 
     -- Set but unparseable is an operator mistake, not a kill switch -- say so
     -- loudly. This is the NOTICE you want the first time an alert goes missing.
@@ -217,7 +237,9 @@ BEGIN
                    'ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS',
                    'ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS',
                    'rider_alert_to_overwatch_pickup_intervals',
-                   'rider_alert_to_overwatch_delivery_intervals')
+                   'rider_alert_to_overwatch_delivery_intervals',
+                   'rider_alert_to_rest_admins_pickup_intervals',
+                   'rider_alert_to_rest_admins_delivery_intervals')
            AND btrim(c.config_value) <> ''
            AND parse_alert_offsets(c.config_key) IS NULL
     LOOP
@@ -226,14 +248,15 @@ BEGIN
     END LOOP;
 
     IF v_rider_pickup IS NULL AND v_rider_delivery IS NULL
-       AND v_ops_pickup IS NULL AND v_ops_delivery IS NULL THEN
+       AND v_ops_pickup IS NULL AND v_ops_delivery IS NULL
+       AND v_rest_admins_pickup IS NULL AND v_rest_admins_delivery IS NULL THEN
         RAISE NOTICE 'job_rider_pickup_alerts: no intervals configured in any bucket, skipping';
         RETURN false;
     END IF;
 
     -- ---- (b) SEED --------------------------------------------------------
     -- Create the missing checkpoint rows for every live dispatch. The VALUES
-    -- list below IS the four-bucket table from the header, in code.
+    -- list below IS the six-bucket table from the header, in code.
     --
     -- Two behaviours worth knowing:
     --   * NOT EXISTS is scoped per (dispatch, phase, audience), so the
@@ -260,10 +283,12 @@ BEGIN
      -- Plain CROSS JOIN, not LATERAL: the VALUES list depends on plpgsql
      -- variables, not on the row to its left. Casts keep gate_status varchar.
      CROSS JOIN (VALUES
-         ('rider'::varchar, 'awaiting_pickup'::varchar, 'assigned'::varchar, v_rider_pickup),
-         ('rider'::varchar, 'picked_up'::varchar,       'pickedup'::varchar, v_rider_delivery),
-         ('ops'::varchar,   'awaiting_pickup'::varchar, 'assigned'::varchar, v_ops_pickup),
-         ('ops'::varchar,   'picked_up'::varchar,       'pickedup'::varchar, v_ops_delivery)
+         ('rider'::varchar,       'awaiting_pickup'::varchar, 'assigned'::varchar, v_rider_pickup),
+         ('rider'::varchar,       'picked_up'::varchar,       'pickedup'::varchar, v_rider_delivery),
+         ('ops'::varchar,         'awaiting_pickup'::varchar, 'assigned'::varchar, v_ops_pickup),
+         ('ops'::varchar,         'picked_up'::varchar,       'pickedup'::varchar, v_ops_delivery),
+         ('rest_admins'::varchar, 'awaiting_pickup'::varchar, 'assigned'::varchar, v_rest_admins_pickup),
+         ('rest_admins'::varchar, 'picked_up'::varchar,       'pickedup'::varchar, v_rest_admins_delivery)
      ) AS ph(audience, phase, gate_status, offsets)
      CROSS JOIN unnest(ph.offsets) AS k(offset_minutes)
      WHERE dd.status = ph.gate_status
@@ -286,8 +311,8 @@ BEGIN
     -- "relation with OID ... does not exist".
     --
     -- restaurant_master / rider_master are LEFT joined so a missing row only
-    -- degrades the ops message rather than dropping the alert. Rider rows
-    -- ignore those columns.
+    -- degrades the ops/rest_admins message rather than dropping the alert.
+    -- Rider rows ignore those columns.
     WITH phases AS (
         SELECT * FROM (VALUES
             ('awaiting_pickup'::varchar, 'assigned'::varchar),
@@ -450,7 +475,7 @@ $$ LANGUAGE plpgsql;
 --    Any change to delivery_summary.pickup_time re-times and reopens every
 --    checkpoint for that order.
 -- ===========================================================================
--- One trigger covers all four buckets with no phase or audience logic, because
+-- One trigger covers all six buckets with no phase or audience logic, because
 -- they all hang off the same anchor. It catches every path that moves the time:
 -- the admin /AdminAdjustPickupTime button, the restaurant-timeout auto-set in
 -- _handle_restaurant_timedout, and manual SQL.
@@ -513,11 +538,13 @@ EXECUTE FUNCTION rider_pickup_alert_reschedule();
 --   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 --  WHERE n.nspname = 'public' AND p.proname = 'parse_alert_offsets';
 --
--- 0b. All four keys present, and overwatch_list populated? An empty
---     overwatch_list means ops escalations reach the restaurant admins only.
+-- 0b. All six keys present, and overwatch_list populated? An empty
+--     overwatch_list means ops escalations are lost, not redirected -- ops is
+--     overwatch-only now. rider_alert_to_rest_admins_delivery_intervals is
+--     expected BLANK; that is the inactive default, not a missing row.
 -- SELECT config_key, config_value FROM ordelo_config
 --  WHERE config_key LIKE 'ORDELO_APP_RIDER_%_ALERT_INTERVALS'
---     OR config_key LIKE 'rider_alert_to_overwatch_%'
+--     OR config_key LIKE 'rider_alert_to_%'
 --     OR config_key = 'overwatch_list';
 --
 -- 1. Pick a live dispatch to test against.
@@ -533,10 +560,16 @@ EXECUTE FUNCTION rider_pickup_alert_reschedule();
 --  WHERE order_number = '<ORDER>'
 --  ORDER BY audience, phase, offset_minutes;
 --
--- --- rider alerts, before collection (dispatch still 'assigned') ----------
+-- --- rider + rest_admins alerts, before collection (dispatch 'assigned') --
 --
--- 3. Four minutes to pickup. Expect ONE rider message ("in about 4 min"),
---    -15 superseded, -5 sent, 2/5/7 pending. No ops alert (10 not due).
+-- 3. Four minutes to pickup. The wording always comes from the REAL delta, not
+--    the checkpoint's offset -- so both messages say "4 min", not the
+--    checkpoint numbers (-5 / -10) that triggered them. Expect ONE rider
+--    message ("in about 4 min") and ONE rest_admins message ("due to collect
+--    ... in ~4 min"; its only due checkpoint is -10, but -10 is a bucket
+--    label, not a promise about the wording).
+--    Rider: -15 superseded, -5 sent, 2/5/7 pending.
+--    rest_admins: -10 sent, 2/7 pending. No ops alert (10 not due).
 -- UPDATE delivery_summary SET pickup_time = now() + interval '4 minutes'
 --  WHERE order_number = '<ORDER>';
 -- SELECT job_rider_pickup_alerts();
@@ -545,46 +578,74 @@ EXECUTE FUNCTION rider_pickup_alert_reschedule();
 -- SELECT job_rider_pickup_alerts();
 --
 -- 5. Six minutes past pickup. The step-3 UPDATE reopened everything, so expect
---    ONE rider message ("about 6 min past"), -15/-5/2 superseded, 5 sent,
---    7 pending. Still no ops alert.
+--    ONE rider message ("about 6 min past") and ONE rest_admins message
+--    ("6 min past", its 2 checkpoint firing since 7 is not yet due).
+--    Rider: -15/-5/2 superseded, 5 sent, 7 pending.
+--    rest_admins: -10 superseded, 2 sent, 7 pending. Still no ops alert.
 -- UPDATE delivery_summary SET pickup_time = now() - interval '6 minutes'
 --  WHERE order_number = '<ORDER>';
 -- SELECT job_rider_pickup_alerts();
 --
--- --- ops escalation #1, still uncollected ---------------------------------
+-- --- ops escalation #1 + rest_admins chase, still uncollected -------------
 --
--- 6. Eleven minutes past pickup. Expect overwatch AND the restaurant's admins
---    to get one 🔴 "still not collected" message, and ops/awaiting_pickup/10
---    to go 'sent'. Re-run: silent.
+-- 6. THE SHARPEST CHECK IN THIS FILE. Eleven minutes past pickup. rider/7,
+--    ops/10, and rest_admins/7 are all due at once -- three audiences, one
+--    tick, and rider/rest_admins share offset_minutes = 7. This is exactly
+--    the case the 4-column PK and PARTITION BY (dispatch_id, audience) exist
+--    for. Expect THREE messages from ONE run:
+--      * rider, via the agent: "about 11 min past pickup"
+--      * overwatch (🔴, via WALogger): "still not collected"
+--      * the restaurant's admins (⏰): "has not yet collected -- 11 min past"
+--    ops/awaiting_pickup/10 and rest_admins/awaiting_pickup/7 both go 'sent'.
+--    If only two messages arrive, check which audience went missing before
+--    assuming the ranking is broken -- confirm it isn't a config gap first.
 -- UPDATE delivery_summary SET pickup_time = now() - interval '11 minutes'
 --  WHERE order_number = '<ORDER>';
 -- SELECT job_rider_pickup_alerts();
 --
 -- --- after collection (drive the dispatch to 'pickedup' first) ------------
 --
--- 7. THE SHARPEST CHECK IN THIS FILE. Verify the restaurant confirmation code
---    through the agent so the dispatch flips to 'pickedup' the real way, then
---    go 31 minutes past pickup. Both the rider delivery bucket (offset 30) and
---    the ops delivery bucket (offset 30) are due -- two rows, same offset,
---    different audience. Expect TWO messages from ONE run: one to the rider via
---    the agent, one to overwatch + admins. If only one arrives, the ranking is
---    not partitioning by audience.
+-- 7. Verify the restaurant confirmation code through the agent so the
+--    dispatch flips to 'pickedup' the real way, then go 31 minutes past
+--    pickup. Both the rider delivery bucket (offset 30) and the ops delivery
+--    bucket (offset 30) are due -- two rows, same offset, different audience.
+--    Expect TWO messages from ONE run: one to the rider via the agent, one to
+--    overwatch. rest_admins/picked_up seeds and fires NOTHING here -- its key
+--    ships blank; see step 8b to exercise that branch deliberately.
 -- UPDATE delivery_summary SET pickup_time = now() - interval '31 minutes'
 --  WHERE order_number = '<ORDER>';
 -- SELECT job_rider_pickup_alerts();
 --
 -- --- switches and failure modes -------------------------------------------
 --
--- 8. Independent kill switches. Blank both ops keys: rider alerts must still
---    fire and nothing reaches overwatch. Then restore and blank both rider keys
---    to check the reverse.
+-- 8. Independent kill switches. Blank all non-rider keys: rider alerts must
+--    still fire and nothing reaches overwatch or the restaurant. Then restore
+--    and blank both rider keys to check the reverse.
 -- UPDATE ordelo_config SET config_value = ''
---  WHERE config_key LIKE 'rider_alert_to_overwatch_%';
+--  WHERE config_key LIKE 'rider_alert_to_%';
 -- SELECT job_rider_pickup_alerts();
 -- UPDATE ordelo_config SET config_value = '10'
 --  WHERE config_key = 'rider_alert_to_overwatch_pickup_intervals';
 -- UPDATE ordelo_config SET config_value = '30'
 --  WHERE config_key = 'rider_alert_to_overwatch_delivery_intervals';
+-- UPDATE ordelo_config SET config_value = '-10,2,7'
+--  WHERE config_key = 'rider_alert_to_rest_admins_pickup_intervals';
+-- UPDATE ordelo_config SET config_value = ''
+--  WHERE config_key = 'rider_alert_to_rest_admins_delivery_intervals';
+--
+-- 8b. Wake the dormant bucket. rest_admins/picked_up is the one branch no
+--     runbook step or normal traffic will ever exercise while its key is
+--     blank -- flip it on, exercise it once, then blank it again. On a
+--     'pickedup' dispatch, 31 minutes past pickup:
+-- UPDATE ordelo_config SET config_value = '30'
+--  WHERE config_key = 'rider_alert_to_rest_admins_delivery_intervals';
+-- UPDATE delivery_summary SET pickup_time = now() - interval '31 minutes'
+--  WHERE order_number = '<ORDER>';
+-- SELECT job_rider_pickup_alerts();
+--    Expect the restaurant's admins to get "🛵 ... collected but has not
+--    delivered -- 31 min past". Then:
+-- UPDATE ordelo_config SET config_value = ''
+--  WHERE config_key = 'rider_alert_to_rest_admins_delivery_intervals';
 --
 -- 9. Alerts stop after delivery. Complete the order, re-run, confirm nothing is
 --    sent and any remaining rows stay 'pending' and inert.
@@ -599,7 +660,7 @@ EXECUTE FUNCTION rider_pickup_alert_reschedule();
 -- SELECT count(*) FROM rider_pickup_alert WHERE order_number = '<ORDER>';
 -- UPDATE ordelo_config SET config_value = '<REAL URL>' WHERE config_key = 'ORDELO_APP_URL';
 --
--- 11. Full kill switch. Blank all four interval keys -> returns false, no HTTP
+-- 11. Full kill switch. Blank all six interval keys -> returns false, no HTTP
 --     call at all.
 --
 -- 12. Replay a test order from the top.

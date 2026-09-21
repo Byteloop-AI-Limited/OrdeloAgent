@@ -13,9 +13,10 @@ Delivery webhook handlers for Ordelo delivery system
     . Manages thread lifecycle including automatic closure for inactive threads
     . Implements restaurant confirmation touchpoint before rider dispatch
     . Alerts at configurable checkpoints around pickup_time across two phases (before and
-      after collection) and two audiences (the rider via the agent, or overwatch plus the
-      restaurant's admins via direct send), scheduled entirely by job_rider_pickup_alerts();
-      this router only gates on the alert's phase and routes by its audience
+      after collection) and three audiences (the rider via the agent, overwatch, or the
+      restaurant's admins -- the latter two by direct send on independent schedules),
+      scheduled entirely by job_rider_pickup_alerts(); this router only gates on the
+      alert's phase and routes by its audience
     . Suppresses pre-pickup-only rider updates (food ready, pickup time adjusted) unless the
       order is still inflight and not yet picked up, via ordelo.delivery_progress.check_delivery_progress,
       so a late admin button tap never runs the rider agent or writes to delivery_summary
@@ -94,6 +95,7 @@ from utils_common.waba_utils.wa_senders import (
     send_restaurant_pickup_time,
     admin_order_reciept,
     notify_ops_rider_alert,
+    notify_rest_admins_rider_alert,
 )
 
 
@@ -1120,7 +1122,8 @@ async def _process_rider_pickup_alerts(alerts: list):
     mapping, and the SQL and Python gates cannot drift apart.
 
     Audience decides delivery once the gate passes: 'rider' runs the rider graph,
-    'ops' escalates to overwatch and the restaurant's admins by direct send.
+    'ops' escalates to overwatch, 'rest_admins' notifies the restaurant's admins --
+    the latter two by direct send, on independent schedules.
     """
     for alert in alerts:
         order_number = alert.get("order_number")
@@ -1166,6 +1169,20 @@ async def _process_rider_pickup_alerts(alerts: list):
                     rider_id=rider_id,
                     rider_name=alert.get("rider_name"),
                     rest_name=alert.get("rest_name"),
+                    rest_ref=alert.get("rest_ref"),
+                )
+            elif audience == "rest_admins":
+                # Same direct-send rationale as ops. Recipients come from the
+                # payload (restaurant_master.admins, read by the SQL at resolve
+                # time), not RestaurantMaster.get_admins_for(): that accessor is
+                # sync/cached and would need asyncio.to_thread, and the payload
+                # is already the fresher read of the same column.
+                await notify_rest_admins_rider_alert(
+                    phase=str(required),
+                    order_number=order_number,
+                    pickup_time=alert.get("pickup_time"),
+                    rider_id=rider_id,
+                    rider_name=alert.get("rider_name"),
                     rest_ref=alert.get("rest_ref"),
                     rest_admins=alert.get("rest_admins"),
                 )
