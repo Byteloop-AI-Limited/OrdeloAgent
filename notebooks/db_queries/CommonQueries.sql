@@ -2,7 +2,7 @@ select * from thread order by dtts desc;
 select * from restaurant_master;
 -- commit;
 select * from takeaway_summary order by dtts desc;
-lkj
+lkj;
 select * from thread where is_active=True order by dtts desc;
 select * from get_latest_state_by_thread('ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d');
 select * from get_latest_state('447448440754', 'ORDELO');
@@ -41,6 +41,7 @@ update delivery_summary set status='timedout' where order_number='SFCS-TIGD-21';
 delete from cust_rest_map where cust_id='447919202938';
 delete from customer_master where cust_id='447919202938';
 
+select * from rider_pickup_alert;
 
 update thread set is_active=false where is_active=True and dt<='2026-05-14' and agent='SFCS';
 select * from thread where is_active=True and dt<'2026-03-27' order by dt desc;;

@@ -19,6 +19,7 @@ Core agent runner for Ordelo's delivery workflow system
       see docs/get_latest_state_guide.md for the RPC itself.
     . run_rider_agent_w_custom_msg - Executes rider graph with custom messages and returns AI response
     . clear_wa_location_request - Clears a stale wa_location request id from graph state after a failed prompt
+    . clear_pickup_alert_cue - Disarms a spent pickup-alert cue so it cannot re-fire on a later turn
     . init_ordelo_graph - Initializes delivery workflow for given detail
     . debug_state - Returns shortened graph state for debugging
     . debug_state_values - Returns state values for debugging
@@ -201,6 +202,31 @@ async def clear_wa_location_request(recipient: str) -> None:
     )
 
 
+# %% Clear a spent pickup-alert cue from graph state
+async def clear_pickup_alert_cue(recipient: str) -> None:
+    """Disarms pickup_alert_offset/pickup_alert_phase after an alert run.
+
+    The cue is written by aupdate_state *before* the graph is invoked, and
+    notify_pickup_reminder only clears it if it actually runs. If the LLM answers
+    with text instead of calling the tool -- or the tool raises and ToolNode
+    swallows it -- the offset stays in state and the tool's own guard then
+    *permits* the call on any later, unrelated rider turn, producing a bogus
+    "you're N min past pickup" hours later.
+
+    The cue is single-use by definition, so callers disarm it unconditionally once
+    the run is over. Mirrors clear_wa_location_request.
+    """
+    pool: AsyncConnectionPool = await pg_settings.get_pool()
+    checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
+    graph = builder.compile(checkpointer=checkpointer)
+    config, _ = await get_config_for_recipient(recipient, pool)
+    await graph.aupdate_state(
+        config,
+        {"pickup_alert_offset": None, "pickup_alert_phase": None},
+        as_node="toolNode",
+    )
+
+
 # %% Init Ordelo graph
 async def init_ordelo_graph(
     delivery_summary: DeliverySummary, rider_id: str, rider_name: str, dispatch_id: int
@@ -238,6 +264,8 @@ async def init_ordelo_graph(
             "delivery_start_dtts": delivery_start_dtts,
             "rider_name": rider_name,
             "pickup_time": delivery_summary.pickup_time,
+            "pickup_alert_offset": None,
+            "pickup_alert_phase": None,
         },
         as_node="toolNode",
     )

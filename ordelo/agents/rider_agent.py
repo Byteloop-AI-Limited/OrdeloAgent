@@ -14,6 +14,7 @@ LangGraph agent implementation for rider delivery workflow
     . AgentState - TypedDict for agent state management
     . notify_food_ready_for_pickup - Notifies rider about food readiness
     . notify_pickup_time_adjusted - Notifies rider of an adjusted pickup time (reads state pickup_time)
+    . notify_pickup_reminder - Reminds the rider at a pickup or delivery checkpoint, cued by pickup_alert_offset in state
     . send_pickup_location - Sends restaurant location to rider
     . send_dropoff_location - Sends customer location to rider
     . send_delivery_instructions - Provides delivery instructions
@@ -67,7 +68,7 @@ from config import (
     project_settings,
 )
 from config.params import get_wa_logger
-from utils_common.tz_utils import fmt_uk_time
+from utils_common.tz_utils import fmt_uk_time, to_utc_aware
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from ordelo.agent_app_handlers import (
     _send_delivery_instructions,
@@ -96,6 +97,8 @@ class AgentState(TypedDict):
     pickup_time: str
     wa_location_request_id: str
     force_wa_location_prompt: bool
+    pickup_alert_offset: int
+    pickup_alert_phase: str
 
 
 # %% Static Runtime Context
@@ -235,6 +238,128 @@ async def notify_pickup_time_adjusted(
                     f"/dontRespond: Rider notified that pickup time is updated to {pickup_time_display}."
                 ),
             ]
+        }
+    )
+
+
+# %%
+async def notify_pickup_reminder(
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
+) -> dict:
+    """
+    Reminds the rider that a pickup or delivery checkpoint has been reached.
+
+    Driven by the job_rider_pickup_alerts sweep, which seeds pickup_alert_offset and
+    pickup_alert_phase into state before running the graph. The offset identifies which
+    configured checkpoint fired, but the wording is derived from the *actual* time to
+    pickup recomputed here: a -5 checkpoint firing at 1 minute to pickup must say
+    "1 minute", not "5".
+
+    Phase selects the message. 'awaiting_pickup' chases collection; 'picked_up' chases
+    the delivery of food the rider is already carrying. Both are measured against the
+    same anchor, delivery_summary.pickup_time.
+
+    Args:
+        None
+
+    Returns:
+        dict: Command containing ToolMessage and AIMessage updates for the agent's state.
+    """
+    ctx = runtime.context
+    recipient = ctx.recipient
+
+    reply_to_msg_id = state.get("reply_to_msg_id", None)
+    rider_name = state.get("rider_name", None)
+    order_number = state.get("order_number", None)
+    pickup_time = state.get("pickup_time", None)
+    alert_offset = state.get("pickup_alert_offset", None)
+    alert_phase = state.get("pickup_alert_phase", None) or "awaiting_pickup"
+
+    # Guard: only the sweep may fire this. Without an offset in state the LLM is
+    # calling it on its own initiative, which must not reach the rider.
+    if alert_offset is None:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "No pickup alert is due.", tool_call_id=tool_call_id
+                    ),
+                    AIMessage("/dontRespond: No pickup alert is due."),
+                ]
+            }
+        )
+
+    if not pickup_time:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        "Pickup time not found in state.", tool_call_id=tool_call_id
+                    ),
+                    AIMessage("/dontRespond: Pickup time not found in state."),
+                ],
+                "pickup_alert_offset": None,
+                "pickup_alert_phase": None,
+            }
+        )
+
+    # State holds pickup_time as EITHER a datetime (init_ordelo_graph writes
+    # DeliverySummary.pickup_time) or an ISO string (the webhook paths write the
+    # payload value). to_utc_aware absorbs both; parsing directly would raise
+    # TypeError on the datetime, i.e. on the normal path.
+    minutes_to_pickup = round(
+        (to_utc_aware(pickup_time) - datetime.now(timezone.utc)).total_seconds() / 60
+    )
+    pickup_time_display = fmt_uk_time(pickup_time)
+
+    if alert_phase == "picked_up":
+        # Food is already with the rider; chase the delivery, not the collection.
+        # Still phrase from the sign of the real delta rather than assuming the
+        # pickup time has passed -- a negative offset in the delivery config would
+        # otherwise make this claim something untrue to the rider.
+        if minutes_to_pickup > 0:
+            when = f"the pickup time is still about {minutes_to_pickup} min away"
+        else:
+            when = f"it's now about {abs(minutes_to_pickup)} min past the pickup time"
+        alert_text = (
+            f"🛵 {rider_name}, you collected order *{order_number}* — {when} "
+            f"({pickup_time_display}). Please get it to the customer as soon as you can."
+        )
+        summary = f"delivery reminder, {when}"
+    elif minutes_to_pickup > 0:
+        alert_text = (
+            f"⏰ {rider_name}, pickup for order *{order_number}* is in about "
+            f"{minutes_to_pickup} min ({pickup_time_display}). Please head over now."
+        )
+        summary = f"in about {minutes_to_pickup} min"
+    else:
+        alert_text = (
+            f"⚠️ {rider_name}, you're about {abs(minutes_to_pickup)} min past the pickup "
+            f"time for order *{order_number}* ({pickup_time_display}). Please collect ASAP."
+        )
+        summary = f"about {abs(minutes_to_pickup)} min past pickup"
+
+    await ctx.wa_client.send_message(
+        to=recipient,
+        text=alert_text,
+        reply_to_message_id=reply_to_msg_id,
+    )
+
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    f"Rider reminded about pickup ({summary}).",
+                    tool_call_id=tool_call_id,
+                ),
+                AIMessage(f"/dontRespond: Rider reminded about pickup, {summary}."),
+            ],
+            # Clear the cue so a later, unrelated turn cannot re-fire this alert,
+            # phase included -- a stale phase would pick the wrong message.
+            "pickup_alert_offset": None,
+            "pickup_alert_phase": None,
         }
     )
 
@@ -1143,6 +1268,7 @@ _rider_agent_tools = [
     send_delivery_instructions,
     notify_food_ready_for_pickup,
     notify_pickup_time_adjusted,
+    notify_pickup_reminder,
     send_pickup_location,
     send_dropoff_location,
     request_rider_current_location,

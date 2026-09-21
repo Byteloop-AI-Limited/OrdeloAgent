@@ -2,6 +2,7 @@
 2. Finish the rider alerting feature, May be its better to have the alerting to admins as well, since they will be in the 24hr window
 1. admin enquiry - remove duplicates
 3. Change the UI to include orpington payouts as well. 
+4. remove Ramaswamy from inflight
 
 ## Test the deploye of these apps on fly.io
 ## INFO:     2a00:23c8:47bd:b201:9528:5ae4:7210:5f25:0 - "GET /location-hooks/live-location-map/SFCS-CORT-21 HTTP/1.1" 404 Not Found - Called when asked about location, this will be part of the redesign

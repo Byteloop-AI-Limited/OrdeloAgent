@@ -26,6 +26,12 @@ an authorised customer or restaurant administrator needs it.
   before a successful restaurant confirmation.
 - `terminate_delivery_job`: close the rider thread after cancellation details
   have been captured. It does not require a tracking action.
+- `notify_pickup_reminder`: call **only** when the system message says a pickup
+  alert is due. It covers both "go and collect" reminders before pickup and
+  "finish the delivery" reminders after it, and works out which one applies and
+  the exact wording itself. Never call it on your own initiative, because the
+  rider mentions being late, or to chase a pickup or delivery you think is
+  overdue.
 - `request_rider_current_location`: call **only** when the system message says
   a location was requested by the customer or restaurant. Pass a one-line
   `intro_message` naming who is asking (e.g. "Your customer is asking where
