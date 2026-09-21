@@ -1,6 +1,8 @@
 select * from thread order by dtts desc;
 select * from restaurant_master;
-commit;
+-- commit;
+select * from takeaway_summary order by dtts desc;
+lkj
 select * from thread where is_active=True order by dtts desc;
 select * from get_latest_state_by_thread('ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d');
 select * from get_latest_state('447448440754', 'ORDELO');
@@ -13,24 +15,31 @@ exclude_list = ['447919202938', '447448440754', '447446933210'];
 
 -- delete from thread where recipient='447448440754';
 -- 447427558868 - investigate threads for this rider.
-:
+
+select * from delivery_option where order_number like 'ELAS-NKRA-20%' order by id desc;
+select * from delivery_dispatch where order_number like '%BNAT-XYWO-22%' ;
+select * from delivery_summary where order_number like 'ELAS-NKRA-20' order by dtts desc;
 select * from customer_master;
 select rest_ref, count(*) from cust_rest_map where has_consent group by rest_ref;
 -- Check and close thread
 select * from thread where is_active order by dtts desc;
-update thread set is_active=False where is_active and recipient='16465894168';
+update thread set is_active=False where is_active and recipient='447863275140';
 --ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d 
---ORDELO-7006a159-8f54-4615-ac0e-6fe58fed32c6
+--ORDELO-7006a159-8f54-4615-ac0e-6fe58fed32c7
 
 select * from thread where recipient='447427558868' order by dtts desc;
-
+select * from delivery_dispatch where order_number='BNAT-NOLZ-21' order by dtts desc;
 select * from cust_rest_map where cust_id='447448440754';
 select * from customer_master where cust_id='447919202938';
-select * from delivery_summary where order_number like 'BNAT%' order by dtts desc;
+select * from delivery_summary where order_number like 'BNAT-FROD-22%'  order by dtts desc;
 select * from delivery_summary order by dtts desc;
 update delivery_summary set status='timedout' where order_number='SFCS-TIGD-21';
-delete from cust_rest_map where cust_id='447448440754';
-delete from customer_master where cust_id='447448440754';
+
+
+-- Cleanup of customer to simulate new customer
+-- 447919202938
+delete from cust_rest_map where cust_id='447919202938';
+delete from customer_master where cust_id='447919202938';
 
 
 update thread set is_active=false where is_active=True and dt<='2026-05-14' and agent='SFCS';
@@ -54,7 +63,7 @@ select SUBSTRING(phone, 2, LENGTH(phone)) as rider_id,* from rider_registrations
 447446933210
 select rider_id,* from rider_registrations;
 
-select * from delivery_option where order_number='ELAS-LORN-24';
+select * from delivery_option where order_number='BNAT-JXKN-22';
 
 select * from delivery_summary order by dtts desc;
 
@@ -98,11 +107,11 @@ select * from delivery_summary where order_number='ELAS-ZXUV-21'; -- rest_ref, r
 select * from delivery_detail order by dtts desc; -- vehicle_type, rider_id, rider_payout, distance, status_update_dtts (order_pickup time);
 select * from delivery_dispatch where status='completed' and rider_id!='447448440754' order by status_update_dtts desc; -- vehicle_type, rider_id, rider_payout, distance, status_update_dtts (actual_pickup_time);
 
-select final_order_value - total_customer_charge as food_value, * from delivery_option where order_number='ELAS-MSPI-21' and vehicle_type='car';
+select final_order_value - total_customer_charge as food_value, * from delivery_option where order_number='BNAT-NOLZ-21' and vehicle_type='car';
 select total_price-rest_cost as rest_savings, * from food_order where order_number='ELAS-HCTZ-20' limit 10;
 select * from food_order order by order_dtts desc;
 select 47.4-55.8;
-
+{"profit": 1.32, "extra_fee": 0.0, "commission": 4.46, "rider_bonus": 0.14, "delivery_fee": 1.49, "driver_payout": 5.83, "distance_miles": 1.84, "service_charge": 2.0, "commission_rate": 0.15, "small_order_fee": 0.0, "final_order_value": 33.2, "total_customer_fee": 3.49, "service_charge_rate": 0.07, "payment_processing_fee": 0.79}
 select status,
 	rest_confirmation_code,
 	cust_confirmation_code,
