@@ -21,3 +21,5 @@ select * from rider_master;
 update rider_master
 set vehicle_type = 'car', town='Salisbury'
 where rider_id = '447424334783';
+
+{"profit": 2.15, "extra_fee": 0.0, "commission": 5.1, "rider_bonus": 0.49, "delivery_fee": 1.49, "driver_payout": 5.5600000000000005, "distance_miles": 1.22, "service_charge": 2.0, "commission_rate": 0.15, "small_order_fee": 0.0, "final_order_value": 37.46, "total_customer_fee": 3.49, "service_charge_rate": 0.07, "payment_processing_fee": 0.88}

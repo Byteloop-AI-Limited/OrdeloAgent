@@ -18,9 +18,47 @@ uname -m
 | `aarch64` | the **arm64** downloads below |
 | `armv7l` / `armv6l` | the **armv6l / arm** downloads below |
 
-### 1b. Enable auto-login
+### 1.1 Enable auto-login
 
-So the Pi comes back up logged in after a reboot.
+This Pi is unattended. Its attached console must always start a shell as the
+`byteloop` user after boot; it must not stop at a `login:` prompt. The receipt
+service, `cloudflared`, and SSH are system services and start independently of
+this login, but console auto-login makes local recovery possible without a
+keyboard/password exchange.
+
+> **Do not rely on Raspberry Pi Imager's username/password fields as the
+> acceptance check for this.** They provision the account (and can enable SSH),
+> but the selected OS image and its first-boot customisation determine whether
+> console auto-login is actually enabled. Always apply and verify the setting
+> below after the first boot of a newly imaged card.
+
+Run this while signed in as `byteloop` (not `root`). It selects **B2**, the
+Raspberry Pi OS console-auto-login boot mode, for the account that invoked
+`sudo`:
+
+```bash
+test "$(id -un)" = "byteloop" || { echo "Sign in as byteloop first"; exit 1; }
+sudo raspi-config nonint do_boot_behaviour B2
+if systemctl cat autologin@tty1.service >/dev/null 2>&1; then
+  sudo systemctl cat autologin@tty1.service
+else
+  sudo cat /etc/systemd/system/getty@tty1.service.d/autologin.conf
+fi
+```
+
+In the displayed unit or override, the `agetty` command must include
+`--autologin byteloop`. Raspberry Pi OS Bookworm and older releases use the
+`getty@tty1.service.d/autologin.conf` override; newer releases can use the
+standalone `autologin@tty1.service` unit. Therefore,
+`systemctl is-enabled autologin@tty1.service` returning `not-found` is normal
+on the former and is not a failure.
+
+Automatic console login deliberately does **not** put the account password in
+a script or type it at boot: it logs the configured local console account in
+without asking for it. The existing account password remains the password for
+SSH unless SSH is later changed to key-only authentication.
+
+If you prefer the menu, it configures the same setting:
 
 ```bash
 sudo raspi-config
@@ -32,13 +70,18 @@ Choose:
   - **Auto Login**
     - enable **Console Auto Login**
 
-Then reboot:
+Reboot and confirm from the attached display that the prompt is already
+`byteloop@...` rather than `login:`:
 
 ```bash
 sudo reboot
 ```
 
-### 1c. Connect to Wi-Fi
+> Do not hand-edit a getty override from instructions for another Raspberry Pi
+> OS release. Use `raspi-config` and inspect its result using the version-aware
+> check above.
+
+### 1.2 Connect to Wi-Fi
 
 Raspberry Pi OS (Bullseye and later) uses NetworkManager, so `nmcli` works
 purely from the terminal — no desktop needed.
@@ -53,6 +96,7 @@ List visible networks:
 
 ```bash
 sudo nmcli device wifi list
+nmcli connection show
 ```
 
 Connect:
@@ -60,18 +104,6 @@ Connect:
 ```bash
 sudo nmcli device wifi connect "XLN_Small_Biz_J5s3" password "YOUR_PASSWORD"
 ```
-
-> If the password contains `!`, bash tries to expand it as a history event
-> even inside quotes and fails with `bash: !...: event not found`. Read the
-> password into a variable instead of typing it inline:
-> ```bash
-> read -s -p "Wi-Fi password: " WIFI_PASS; echo
-> sudo nmcli device wifi connect "YOUR_SSID" password "$WIFI_PASS"
-> unset WIFI_PASS
-> ```
-> This also keeps the password out of shell history. Alternatively, disable
-> history expansion for the session with `set +H` before running the
-> original command.
 
 Verify:
 
@@ -98,7 +130,7 @@ persists across reboots automatically — no extra step needed.
 > ```
 > then `sudo wpa_cli -i wlan0 reconfigure`.
 
-### Pre-configure a network that isn't in range yet
+#### 1.2.1 Pre-configure a network that isn't in range yet
 
 `nmcli device wifi connect` only works against networks currently visible in
 a scan — if the SSID isn't broadcasting yet, it fails with `No network with
@@ -108,6 +140,18 @@ create it directly instead of scanning for it:
 ```bash
 sudo nmcli connection add type wifi ifname wlan0 con-name "YOUR_SSID" ssid "YOUR_SSID"
 sudo nmcli connection modify "YOUR_SSID" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "YOUR_PASSWORD"
+```
+
+For this deployment, run these for both networks:
+
+```bash
+# byteloop
+sudo nmcli connection add type wifi ifname wlan0 con-name "byteloop" ssid "byteloop"
+sudo nmcli connection modify "byteloop" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "byteloop123"
+
+# XLN_Small_Biz_J5s3
+sudo nmcli connection add type wifi ifname wlan0 con-name "XLN_Small_Biz_J5s3" ssid "XLN_Small_Biz_J5s3"
+sudo nmcli connection modify "XLN_Small_Biz_J5s3" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "c5Rgfyu7"
 ```
 
 Confirm it saved:
@@ -127,7 +171,7 @@ just being off right now), also add:
 sudo nmcli connection modify "YOUR_SSID" 802-11-wireless.hidden yes
 ```
 
-### Switch between already-connected Wi-Fi networks
+#### 1.2.2 Switch between already-connected Wi-Fi networks
 
 `nmcli` saves a connection profile for every network you've ever connected
 to, so switching back doesn't need the password again.
@@ -159,51 +203,117 @@ To forget a saved network entirely (deletes the stored password too):
 sudo nmcli connection delete "OLD_SSID"
 ```
 
----
+#### P.S. Optional Wi-Fi details
 
-## 2. Install git
+##### Password contains `!`
 
-```bash
-sudo apt update
-sudo apt install -y git curl wget
-git --version
-```
-
----
-
-## 3. Install Go 1.23.2
-
-The version in apt is too old for this repo.
+If the password contains `!`, bash may try to expand it as a history event,
+even inside quotes, and fail with `bash: !...: event not found`. Read the
+password into a variable instead:
 
 ```bash
-cd /tmp
-wget https://go.dev/dl/go1.23.2.linux-arm64.tar.gz
-# 32-bit instead:
-# wget https://go.dev/dl/go1.23.2.linux-armv6l.tar.gz
-
-sudo rm -rf /usr/local/go
-sudo tar -C /usr/local -xzf go1.23.2.linux-arm64.tar.gz
-echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.profile
-export PATH=$PATH:/usr/local/go/bin
-go version
+read -s -p "Wi-Fi password: " WIFI_PASS; echo
+sudo nmcli device wifi connect "YOUR_SSID" password "$WIFI_PASS"
+unset WIFI_PASS
 ```
 
-Must print `go1.23.2` or newer before continuing.
+This also keeps the password out of shell history. Alternatively, disable
+history expansion for the session with `set +H` before using the main command.
+
+##### Prefer `netplan-wlan0-10hith`, then fall back to `BT-M9CW3Q`
+
+Set these on the saved **connection profiles**. They only change the next
+automatic connection decision; they do not interrupt the current Wi-Fi or SSH
+session.
+
+```bash
+# Higher priority for byteloop
+sudo nmcli connection modify "byteloop" \
+  connection.autoconnect yes \
+  connection.autoconnect-priority 100 \
+  connection.autoconnect-retries 1
+
+sudo nmcli connection modify "BT-M9CW3Q" \
+  connection.autoconnect yes \
+  connection.autoconnect-priority 50
+```
+
+At boot, or whenever `wlan0` is disconnected, NetworkManager chooses the
+available candidate with the higher priority. It will try the preferred
+`netplan-wlan0-10hith` profile once; if that activation fails, it can select
+`BT-M9CW3Q` rather than making the default multiple attempts first. The
+numbers are arbitrary — only `100 > 50` matters.
+
+Verify the saved settings without reconnecting:
+
+```bash
+nmcli -f NAME,TYPE,AUTOCONNECT,AUTOCONNECT-PRIORITY,AUTOCONNECT-RETRIES connection show
+```
+
+> A priority does not pre-empt a healthy active connection. If the Pi is
+> already connected to BT and `netplan-wlan0-10hith` later appears, it stays
+> on BT until the connection drops or the Pi reboots. An automatic live
+> switch-back would need a separate NetworkManager dispatcher policy.
+
+##### Test the priority and fallback
+
+Perform this test from the Pi's attached console, not from the only SSH
+session: each reboot intentionally interrupts remote access.
+
+First, with **both** SSIDs available, confirm that NetworkManager can see
+them, then reboot:
+
+```bash
+# Rescan to pick up any new networks
+sudo nmcli device wifi list --rescan yes 
+# Show which one is currently active
+nmcli -f IN-USE,SSID,SIGNAL device wifi list --rescan yes
+sudo reboot
+```
+
+After it returns, this must show `yes:netplan-wlan0-10hith`:
+
+```bash
+nmcli -t -f active,ssid device wifi | grep '^yes:'
+```
+
+Next, make `netplan-wlan0-10hith` genuinely unavailable (turn off its access
+point or move the Pi out of its range) while leaving `BT-M9CW3Q` available,
+then reboot again. The same check must show `yes:BT-M9CW3Q`. Restore the
+preferred access point and reboot one final time; it must return to
+`netplan-wlan0-10hith`.
+
+`connection.autoconnect-retries 1` limits the preferred profile to one
+activation attempt, but does not promise an exact number of seconds: Wi-Fi
+association and DHCP timing depend on the access point and signal.
 
 ---
 
-## 4. Clone the repo
+## 2. Install all dependencies
+
+```bash
+sudo apt update && sudo apt install -y git curl wget golang nodejs npm
+```
+
+> The `golang` package in apt can lag behind what the repo needs. If
+> `go build` later complains about the Go version, install Go 1.23.2
+> manually from https://go.dev/dl/ (linux-arm64 tarball) and prepend
+> `/usr/local/go/bin` to your `PATH`.
+
+---
+
+## 3. Clone the repo
 
 ```bash
 cd ~
-git clone https://YOUR_GITHUB_TOKEN@github.com/Byteloop-AI-Limited/receipt-service.git
+git clone https://github.com/Byteloop-AI-Limited/receipt-service.git
 cd receipt-service
 git checkout fix/receipt-encoding-and-modifier-dedup
 ```
 
 ---
 
-## 5. Build and install the binary
+## 4. Build and install the binary
 
 ```bash
 go build -o receipt-service ./pi
@@ -214,7 +324,7 @@ sudo install -m755 receipt-service /usr/local/bin/receipt-service
 
 ---
 
-## 6. Run it as a service that starts on boot
+## 5. Run it as a service that starts on boot
 
 ```bash
 sudo tee /etc/systemd/system/receipt-service.service >/dev/null <<'EOF'
@@ -242,7 +352,7 @@ Expect `Active: active (running)` and `Loaded: ... enabled`.
 
 ---
 
-## 7. Test the printer
+## 6. Test the printer
 
 Health check:
 
@@ -271,7 +381,7 @@ curl -i -X POST http://localhost:8080/ \
 
 ---
 
-## 8. Install cloudflared
+## 7. Install cloudflared
 
 ```bash
 cd /tmp
@@ -285,7 +395,7 @@ cloudflared --version
 
 ---
 
-## 9. Log in to Cloudflare
+### 7.1 Log in to Cloudflare
 
 ```bash
 cloudflared tunnel login
@@ -295,31 +405,56 @@ Opens the browser on the Pi. If it doesn't, it prints a URL — paste that into
 Chromium on the Pi. Log in and select the `byteloop.ai` zone. Writes
 `~/.cloudflared/cert.pem`.
 
----
-
-## 10. Create the tunnel
+### 7.2 Create the tunnel
 
 ```bash
 cloudflared tunnel create bnat-print
 cloudflared tunnel list
 ```
 
-**Write down the UUID it prints** — needed in step 12.
+**Write down the UUID it prints** — needed in section 7.4.
 
----
+> **Tunnel already exists from an old Pi that's gone?** A tunnel belongs to
+> its credentials file (`~/.cloudflared/<UUID>.json`), not the hardware —
+> `tunnel create bnat-print` here will fail with a name conflict. Either:
+>
+> - **Reuse it:** in the Cloudflare Zero Trust dashboard → Networks →
+>   Tunnels → `bnat-print` → Configure, copy the install token and run
+>   `sudo cloudflared service install <TOKEN>` on the new Pi. The UUID and
+>   DNS records stay as-is; your local `config.yml` ingress rules still apply.
+> - **Start clean:** `cloudflared tunnel delete bnat-print` (after
+>   `tunnel login`), then `tunnel create` again — this prints a **new UUID**,
+>   so re-run `route dns` (section 7.3) and update both UUIDs in `config.yml`
+>   (section 7.4). The old CNAME points at the dead tunnel until you re-run
+>   `route dns`.
 
-## 11. Create the DNS record
+### 7.3 Create the DNS records
 
 ```bash
 cloudflared tunnel route dns bnat-print bnat-print.byteloop.ai
+cloudflared tunnel route dns bnat-print bnat-print-ssh.byteloop.ai
 dig +short bnat-print.byteloop.ai
+dig +short bnat-print-ssh.byteloop.ai
 ```
 
-Creates the proxied CNAME in Cloudflare automatically — no dashboard needed.
+Creates proxied CNAMEs for both hostnames automatically — no dashboard needed.
+`bnat-print-ssh.byteloop.ai` uses the same tunnel as the print service.
 
----
+#### 7.3.1 Inspect or remove an existing DNS record
 
-## 12. Tunnel config
+If `route dns` reports code `1003`, the hostname already has an A, AAAA, or
+CNAME record. In the Cloudflare dashboard, open **DNS → Records** for
+`byteloop.ai`, search for the hostname, and delete the confirmed stale record.
+
+Alternatively, keep the hostname and repoint it to the current tunnel without
+deleting it:
+
+```bash
+cloudflared tunnel route dns --overwrite-dns bnat-print bnat-print.byteloop.ai
+cloudflared tunnel route dns --overwrite-dns bnat-print bnat-print-ssh.byteloop.ai
+```
+
+### 7.4 Configure the tunnel
 
 ```bash
 sudo mkdir -p /etc/cloudflared
@@ -328,13 +463,17 @@ sudo nano /etc/cloudflared/config.yml
 ```
 
 Paste this, replacing **both** occurrences of `PASTE-UUID-HERE` with the UUID
-from step 10:
+from section 7.2:
 
 ```yaml
 tunnel: PASTE-UUID-HERE
 credentials-file: /etc/cloudflared/PASTE-UUID-HERE.json
 
 ingress:
+  # Remote SSH to the Pi
+  - hostname: bnat-print-ssh.byteloop.ai
+    service: ssh://localhost:22
+  # Receipt-printing service
   - hostname: bnat-print.byteloop.ai
     service: http://localhost:8080
   - service: http_status:404
@@ -347,6 +486,10 @@ tunnel: d8f8c7d0-865d-47b4-a14a-d9287314bd3b
 credentials-file: /etc/cloudflared/d8f8c7d0-865d-47b4-a14a-d9287314bd3b.json
 
 ingress:
+  # Remote SSH to the Pi
+  - hostname: bnat-print-ssh.byteloop.ai
+    service: ssh://localhost:22
+  # Receipt-printing service
   - hostname: bnat-print.byteloop.ai
     service: http://localhost:8080
   - service: http_status:404
@@ -358,9 +501,7 @@ Save with `Ctrl+O`, `Enter`, `Ctrl+X`. Then validate:
 cloudflared tunnel --config /etc/cloudflared/config.yml ingress validate
 ```
 
----
-
-## 13. Make the tunnel start on boot
+### 7.5 Start the tunnel and enable it on boot
 
 ```bash
 sudo cloudflared --config /etc/cloudflared/config.yml service install
@@ -371,9 +512,38 @@ sudo systemctl status cloudflared --no-pager
 Look for `Registered tunnel connection` in the output — usually four, one per
 Cloudflare edge datacentre.
 
+### 7.6 Configure SSH access
+
+Enable the Pi's SSH service:
+
+```bash
+sudo systemctl enable --now ssh
+```
+
+On the remote Mac, install `cloudflared`, then add this host entry to
+`~/.ssh/config`:
+
+```bash
+brew install cloudflared
+nano ~/.ssh/config
+```
+
+```sshconfig
+Host bnat-print-ssh.byteloop.ai
+  ProxyCommand cloudflared access ssh --hostname %h
+```
+
+Connect with the Pi username:
+
+```bash
+ssh byteloop@bnat-print-ssh.byteloop.ai
+```
+
+Use an SSH key and a Cloudflare Access policy before relying on remote access.
+
 ---
 
-## 14. Test through the public hostname
+## 8. Test through the public hostname
 
 Still on the Pi:
 
@@ -394,7 +564,7 @@ chain works.
 
 ---
 
-## 15. Reboot test
+## 9. Reboot test
 
 ```bash
 sudo reboot
@@ -403,18 +573,22 @@ sudo reboot
 When it comes back:
 
 ```bash
-systemctl is-enabled receipt-service cloudflared
-systemctl is-active  receipt-service cloudflared
+systemctl is-enabled receipt-service cloudflared ssh
+systemctl is-active  receipt-service cloudflared ssh
 curl https://bnat-print.byteloop.ai/healthz
 ```
 
-All four must read `enabled` / `active`, and the health check must return `ok`.
-If anything reads `disabled`, run `sudo systemctl enable <name>` and reboot
-again.
+The first six results must read `enabled` / `active`, and the health check
+must return `ok`. The attached console must already be logged in as
+`byteloop`, with no `login:` prompt. If a service reads `disabled`, run
+`sudo systemctl enable <name>` and reboot again. If the console asks for a
+login, repeat section 1.1 while signed in as `byteloop` and re-check that
+the displayed `agetty` command contains `--autologin byteloop` before
+rebooting.
 
 ---
 
-## 16. Point payment-service at it
+## 10. Point payment-service at it
 
 In the payment-service repo, [config.go:213](payment-service/internal/config/config.go#L213):
 
@@ -470,118 +644,3 @@ sudo systemctl restart receipt-service
   router does **not** port-forward 8080.
 
 ---
-
-## Remote SSH through the tunnel
-
-SSH shares the existing `bnat-print` tunnel — no new tunnel, no port
-forwarding. The receipt service on 8080 is untouched; this only adds a second
-ingress rule.
-
-### On the Pi — tunnel config
-
-Edit `/etc/cloudflared/config.yml` and add the SSH rule **before** the
-catch-all 404:
-
-```yaml
-tunnel: d8f8c7d0-865d-47b4-a14a-d9287314bd3b
-credentials-file: /etc/cloudflared/d8f8c7d0-865d-47b4-a14a-d9287314bd3b.json
-
-ingress:
-  - hostname: bnat-print-ssh.byteloop.ai
-    service: ssh://localhost:22
-  - hostname: bnat-print.byteloop.ai
-    service: http://localhost:8080
-  - service: http_status:404
-```
-
-### On the Pi — DNS route + restart
-
-`route dns` is per-hostname: this adds a second CNAME for `bnat-print-ssh.byteloop.ai`
-pointing at the same tunnel, leaving the existing record alone.
-
-```bash
-cloudflared tunnel route dns bnat-print bnat-print-ssh.byteloop.ai
-cloudflared tunnel --config /etc/cloudflared/config.yml ingress validate
-sudo systemctl restart cloudflared
-```
-
-Make sure sshd is up (usually is on Pi OS):
-
-```bash
-sudo systemctl enable --now ssh
-sudo ss -lntp | grep :22
-```
-
-### On the remote machine (your Mac)
-
-Raw `ssh` cannot cross Cloudflare on its own — the client needs `cloudflared`
-to proxy the connection.
-
-```bash
-brew install cloudflared
-```
-
-Append to `~/.ssh/config` **on the Mac** (not the Pi):
-
-```bash
-cat >> ~/.ssh/config <<'EOF'
-
-Host bnat-print-ssh.byteloop.ai
-  ProxyCommand cloudflared access ssh --hostname %h
-EOF
-```
-
-`%h` is a literal ssh token that expands to the hostname — paste it as-is.
-No restart needed; the file is read on every ssh invocation. Then connect
-with the Pi's username:
-
-```bash
-ssh byteloop@bnat-print-ssh.byteloop.ai
-```
-
-Accept the host key prompt, then enter the `byteloop` user's password.
-
-### Debugging
-
-| Symptom | Likely cause |
-|---|---|
-| `port 22: Operation timed out` | ProxyCommand not applied — config went on the Pi instead of the Mac, or cloudflared isn't installed on the Mac |
-| `404` / hostname errors in `journalctl -u cloudflared` | SSH ingress rule missing from config.yml |
-| `dig +short bnat-print-ssh.byteloop.ai` returns nothing | DNS route didn't take — re-run `route dns` |
-
-Checks, in order:
-
-```bash
-# Mac — is the config block being picked up?
-ssh -G bnat-print-ssh.byteloop.ai | grep -i proxycommand
-
-# Mac — raw tunnel test; an SSH-2.0-OpenSSH banner means the chain works
-cloudflared access ssh --hostname bnat-print-ssh.byteloop.ai
-
-# Pi — tunnel logs after restart
-journalctl -u cloudflared -n 50 --no-pager
-```
-
-### Security
-
-Exposing SSH via the tunnel makes sshd reachable from the whole internet —
-password auth still applies, but bots will find it. Switch to key-only auth:
-
-```bash
-# Mac — create a key if you don't have one, then install it on the Pi
-ssh-keygen -t ed25519
-ssh-copy-id byteloop@bnat-print-ssh.byteloop.ai
-
-# verify `ssh byteloop@bnat-print-ssh.byteloop.ai` logs in WITHOUT a password first,
-# then on the Pi:
-sudo tee /etc/ssh/sshd_config.d/99-key-only.conf <<'EOF'
-PasswordAuthentication no
-PubkeyAuthentication yes
-EOF
-sudo systemctl restart ssh
-```
-
-Keep the current session open until a fresh key-based login works, so you
-don't lock yourself out. SSH keys have no relation to the HTTP bearer token —
-the 8080 service keeps its token auth, SSH uses keys.
-
