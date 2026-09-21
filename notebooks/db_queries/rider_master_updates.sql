@@ -1,26 +1,28 @@
 -- Master data maintenance for restaurant_master, rider_master, and customer_master.
+
 -- Consolidated from CommonQueries.sql and config_updates.sql.
 select * from rider_registrations order by inserted_at desc;
-select * from rider_master;
+select * from rider_master where town='Orpington' and status='active' order by shift_response_dtts desc, is_in_shift desc, status;
+select * from rider_master where town='Salisbury' order by shift_response_dtts desc; 
+
 select * from ordelo_config where config_key like '%_APP_URL';
 
 select admins,* from restaurant_master where rest_ref='ELAS';
 select admins,* from restaurant_master where rest_ref='SFCS';
-select * from rider_master;
+select * from rider_master where town='Orpington' and is_in_shift;
 select * from rider_master where date_trunc('second', shift_response_dtts)::time > time '11:00:00' and rider_id not in ('447448440754', '447446933210') order by is_in_shift desc, shift_response_dtts desc, status asc;
 
--- update rider_master set is_in_shift=true where town='Salisbury';
-select * from cust_rest_map;
--- Run before 11 am
-update rider_master set 
-is_in_shift=false
-;
--- , shift_response_dtts=now();
+select * from public.bnat_menu;
 -- , town='dummy'
 -- where town='Salisbury';
 
 update rider_master set is_in_shift=true, town ='Salisbury', vehicle_type='car' where rider_name='Lohith';
-update rider_master set is_in_shift=true, town ='dummy', vehicle_type='car' where rider_name='Rahul';
+update rider_master set is_in_shift=true, town ='Dummy', vehicle_type='car' where rider_name='Rahul';
+
+update rider_registrations set bank_account_name='REHAN ALI AWAN'
+where id=42;
+-- make this riders status=inactive
+update rider_master set status='inactive', is_in_shift=false where rider_name in ('Steven', 'Dhruva', 'Rakesh');
 
 SELECT public.enquire_shift_availability();
 select enquire_admin_availability(ARRAY['ELAS']);
@@ -32,23 +34,24 @@ update rider_master set town='Salisbury', is_in_shift=true where rider_name in (
 update rider_master set town='dummy', is_in_shift=true where rider_name in ('Lohith');
 
 -- delete from rider_master where rider_name='Muhibur';
-select phone as rider_id,  from rider_registrations;
--- select 18+119.67;
+-- Remove leading + and spaces from phone number
+select distinct replace(replace(phone, '+', ''), ' ', '') as rider_id, SPLIT_PART(full_name, ' ', 1) as rider_name, vehicle_type, area as town, false as is_in_shift, 'active' as status, 1 as priority from rider_registrations where area='Orpington';
+
+
 INSERT INTO rider_master (rider_id, rider_name, vehicle_type, town, status, is_in_shift, priority)
-VALUEr
-  -- ('447438568101', 'Rishi',      'car', 'Salisbury', 'active', FALSE, 1),
-  -- ('447444198621', 'Ganesh',     'car', 'Salisbury', 'active', FALSE, 1),
-  -- ('447469849539', 'Bokul',      'car', 'Salisbury', 'active', FALSE, 1),
-  -- ('447473101040', 'Suraj',      'car', 'Salisbury', 'active', FALSE, 1),
-  -- ('447305473427', 'Jamie',      'car', 'Salisbury', 'active', FALSE, 1),
-  -- ('447853175864', 'Rangaswamy', 'car', 'Salisbury', 'active', FALSE, 1),
-  -- ('447909510536', 'Nikhil',     'car', 'Salisbury', 'active', FALSE, 1),
-  -- ('447448440754', '10hith',     'scooter', 'Orpington', 'active', FALSE, 1)
-  -- ('447393103339', 'Ain',     'car', 'Salisbury', 'active', FALSE, 1),
-  -- ('447927803163', 'Muhibur',     'scooter', 'Salisbury', 'active', FALSE, 1)
---  ('447555982235', 'Luis', 'car', 'Salisbury', 'active', FALSE, 1)
-('447555687794', 'Marian', 'bike', 'Salisbury', 'active', FALSE, 1)
+VALUES
+  ('447495654065', 'Majid',          'scooter', 'Orpington', 'active', FALSE, 1),
+  ('447554466043', 'Dhruva',         'scooter', 'Orpington', 'active', FALSE, 1),
+  ('447578401831', 'Rakesh',         'car',     'Orpington', 'active', FALSE, 1),
+  ('447747200220', 'Amar',           'scooter', 'Orpington', 'active', FALSE, 1),
+  ('447765522420', 'Rehan',          'scooter', 'Orpington', 'active', FALSE, 1),
+  ('447768519536', 'Leonardo',       'scooter', 'Orpington', 'active', FALSE, 1),
+  ('447823807404', 'Selvan', 'scooter', 'Orpington', 'active', FALSE, 1),
+  ('447904796697', 'Hammad',         'car',     'Orpington', 'active', FALSE, 1),
+  ('447961629376', 'Steven',         'car',     'Orpington', 'active', FALSE, 1),
+  ('447984211602', 'Muhammad',       'scooter', 'Orpington', 'active', FALSE, 1)
 ;
+
 -- ('447555687794', 'Marian', 'bike', 'Salisbury', 'active', FALSE, 1)
 update rider_master set status='inactive' where rider_name in ('Marian', 'Luis', 'Suraj', 'Jamie', 'Ganesh', 'Ain', 'Agam');
 update rider_master set is_in_shift=true where rider_name in ('Rishi', 'Abubakar', 'Bokul', 'Mohammed Hoque', 'Rangaswamy');
@@ -56,3 +59,9 @@ update rider_master set is_in_shift=true where rider_name in ('Rishi', 'Abubakar
 select * from rider_master where rider_name = 'Marian';
 
 
+-- Orp
+select * from rider_master where town='Orpington' order by id;
+Rakesh,  -- Doc pending
+Dhruva, Hammad ;
+
+update rider_master set status='active', is_in_shift=false where town='Orpington';

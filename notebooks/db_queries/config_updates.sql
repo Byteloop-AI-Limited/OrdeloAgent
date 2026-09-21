@@ -60,6 +60,27 @@ DO UPDATE SET config_value = '123';
 -- DO UPDATE SET config_value = '447446933210';
 -- DO UPDATE SET config_value = '447448440754,447446933210';
 
+
+select * from ordelo_config where config_key in ('ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS', 'ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS', 'rider_alert_to_overwatch_pickup_intervals', 'rider_alert_to_overwatch_pickup_intervals');
+
+
+
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES
+  ('ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS',
+   '-15,-5,2,5,7',
+   'Signed minutes around delivery_summary.pickup_time at which to alert a rider who has not yet collected; negative = before pickup, positive = after. Blank disables awaiting-pickup rider alerts.'),
+  ('ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS',
+   '30,45',
+   'Minutes after delivery_summary.pickup_time at which to chase a rider who has collected but not delivered. Blank disables in-transit rider alerts.'),
+  ('rider_alert_to_overwatch_pickup_intervals',
+   '10',
+   'Minutes past delivery_summary.pickup_time at which to alert overwatch and restaurant admins that a rider has still not collected. Blank disables.'),
+  ('rider_alert_to_overwatch_delivery_intervals',
+   '30',
+   'Minutes past delivery_summary.pickup_time at which to alert overwatch and restaurant admins that a collected order is still undelivered. Blank disables.')
+ON CONFLICT (config_key) DO NOTHING
+
 SELECT * FROM ordelo_post('SFCS_APP_URL', '/internal/cache/reset', 'scope=all');
 
 -- After changing overwatch_list, reset each deployed Restaurant Application.
