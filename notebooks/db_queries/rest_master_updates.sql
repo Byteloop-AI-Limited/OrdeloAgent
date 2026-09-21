@@ -13,6 +13,7 @@ select * from thread;
 -- Adding collection_commission columns to restaurant_master table
 ALTER TABLE restaurant_master ADD COLUMN collection_commission DOUBLE PRECISION NULL;
 update restaurant_master set collection_commission = 0.04 where rest_ref = 'SFCS';
+update restaurant_master set collection_commission = 0.05 where rest_ref = 'BNAT';
 -- update restaurant_master set city='Orpington' where rest_ref='WREN';
 
 -- Test Setup - ELAS
