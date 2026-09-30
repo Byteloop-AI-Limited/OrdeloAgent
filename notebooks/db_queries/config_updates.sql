@@ -3,6 +3,7 @@ select * from ordelo_config where config_key like 'RESTAURANT_MENU%';
 select * from ordelo_config where config_key like '%TIMEOUT%';
 
 select * from ordelo_config where config_key like '%ORDELO%';
+select * from ordelo_config where config_key like '%rider%';
 select * from ordelo_config where config_key like '%ELAS%';
 select * from ordelo_config where config_key like '%SFCS%';
 select * from ordelo_config where config_key like '%MENU%';

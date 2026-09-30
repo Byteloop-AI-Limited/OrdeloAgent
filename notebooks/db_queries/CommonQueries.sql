@@ -3,6 +3,7 @@ select * from restaurant_master;
 -- commit;
 select * from takeaway_summary order by dtts desc;
 lkj;
+'447741594995';
 select * from thread where is_active=True order by dtts desc;
 select * from get_latest_state_by_thread('ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d');
 select * from get_latest_state('447448440754', 'ORDELO');
@@ -16,14 +17,14 @@ exclude_list = ['447919202938', '447448440754', '447446933210'];
 -- delete from thread where recipient='447448440754';
 -- 447427558868 - investigate threads for this rider.
 
-select * from delivery_option where order_number like 'ELAS-NKRA-20%' order by id desc;
-select * from delivery_dispatch where order_number like '%BNAT-XYWO-22%' ;
-select * from delivery_summary where order_number like 'ELAS-NKRA-20' order by dtts desc;
+select * from delivery_option where order_number like 'ELAS-DDJV-22%' order by id desc;
+select * from delivery_dispatch where order_number like 'ELAS-XBKV-20%' ;
+select * from delivery_summary where order_number like 'ELAS-%' order by dtts desc;
 select * from customer_master;
 select rest_ref, count(*) from cust_rest_map where has_consent group by rest_ref;
 -- Check and close thread
 select * from thread where is_active order by dtts desc;
-update thread set is_active=False where is_active and recipient='447863275140';
+update thread set is_active=False where is_active and recipient='447448440754';
 --ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d 
 --ORDELO-7006a159-8f54-4615-ac0e-6fe58fed32c7
 
@@ -31,9 +32,9 @@ select * from thread where recipient='447427558868' order by dtts desc;
 select * from delivery_dispatch where order_number='BNAT-NOLZ-21' order by dtts desc;
 select * from cust_rest_map where cust_id='447448440754';
 select * from customer_master where cust_id='447919202938';
-select * from delivery_summary where order_number like 'BNAT-FROD-22%'  order by dtts desc;
+select * from delivery_summary where order_number like 'SFCS-%'  order by dtts desc;
 select * from delivery_summary order by dtts desc;
-update delivery_summary set status='timedout' where order_number='SFCS-TIGD-21';
+update delivery_summary set status='timedout' where order_number='SFCS-LSFC-25';
 
 
 -- Cleanup of customer to simulate new customer
@@ -54,8 +55,8 @@ SELECT dtts, dtts AT TIME ZONE 'Europe/London' as dtts_uk
 FROM delivery_summary 
 WHERE order_number='ELAS-ETXF-27';
 
-select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
-
+select * from delivery_dispatch  order by dtts desc;
+select  dispatch_complete_func(1197);
 select * from delivery_dispatch where status='completed' and rider_id!='447448440754' order by dtts desc ;
 select * from delivery_summary order by dtts desc;
 select SUBSTRING(phone, 2, LENGTH(phone)) as rider_id,* from rider_registrations;
@@ -80,6 +81,7 @@ select * from customer_master order by dtts desc limit 10;
 select *
       FROM pgmq.read('owntracks', 5, 1000);
 
+select * from delivery_inflight;
 select job_process_owntracks();
 -- view definition of function - FUNCTION public.delivery_inflight_whook
 select pg_get_functiondef('delivery_inflight_whook'::regproc);

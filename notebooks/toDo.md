@@ -1,12 +1,12 @@
 ## ordelo-agg
-2. Finish the rider alerting feature, May be its better to have the alerting to admins as well, since they will be in the 24hr window
-1. admin enquiry - remove duplicates
-3. Change the UI to include orpington payouts as well. 
-4. remove Ramaswamy from inflight
 
 ## Test the deploye of these apps on fly.io
 ## INFO:     2a00:23c8:47bd:b201:9528:5ae4:7210:5f25:0 - "GET /location-hooks/live-location-map/SFCS-CORT-21 HTTP/1.1" 404 Not Found - Called when asked about location, this will be part of the redesign
-## mono repo testing should continue - Need to find out the webhook efficiency
+
+
+
+## Double ordering
+1. When there is an existing order, The UI should reject displaying the menu or checking out again - tell user to wait until the current order is finished. I think currently, the UI checks on thread being active. I can also do onething additional check on order being active or not. 
 
 ## Test checkpoint
 On no driver found, retain_thread should be set to False:
@@ -35,9 +35,8 @@ Current status: 5 of 7 tasks completed. One test failing (test_send_product_sect
 
 
 
-## New design for terminating threads:
--- Get the latest checkpoint for a thread
-SELECT
+## Get the latest checkpoint for a thread
+-- SELECT
     thread_id,
     checkpoint_id,
     checkpoint -> 'channel_values' AS state
@@ -48,32 +47,6 @@ ORDER BY checkpoint_id DESC
 LIMIT 1;
 
 <!-- utils_common/thread_management/thread_mgmnt_ddl.sql (get_stale_active_threads) -->
-
-## SFCS go live changes
-
-class RestaurantConfirmationPayload(BaseModel):
-    """Payload model for restaurant confirmation webhook."""
-
-    trigger_reason: str
-    delivery_summary: DeliverySummaryData
-    restaurant_master: RestaurantMasterData
-    food_order: FoodOrder
-    order_items: List[OrderItem]
-
-
-## Takeaway streamlining.
-- move some packages to dev depndancies
-- in @takeaway_hooks.py, what is the flow when the pickup time is updated? 
-Its should create admin_order_reciept, with option to notify customer for pickup
-This notify should use webhook router to call restaurant and invoke the agent
-The agent should ideally terminate the thread after this.
-
-- is AutoAccept working for takeaway?, particularly after the restaurant_accept
-
-- Remove the live tracking flow or mention of it. - Removed in elai agent, verification required.
-- Does this mean rider agent should have request_location tool? - Should this be a sperate functionality of its own?
-
-- run_rider_agent_w_custom_msg - check if the rider has collected the food and is inflight before sending this message
 
 ### Investigate this trace:
  await debug_thread('ORDELO-ee723178-5eb3-4d6b-a171-1f7c2d1e80e2')
@@ -89,35 +62,7 @@ The agent should ideally terminate the thread after this.
   {'AIMessage': {'content': 'Thank you, Abubakar. The restaurant confirmation code has been verified successfully. Please proceed to deliver the order to the customer.\n\nI will resend the live tracking link to ensure your tracking is active.',
     'additional_kwargs': {'refusal': None}}},
 
-### Chat with riders.
-If resistance on 150,
-  1. Mention the savings that they make on deliveries.
-  2. AI Powered, their own channel, customer base, marketing msgs, on whatsapp - most effetive for reaching, brand presence
-  3. Just Delivery in Orpington and takeout - takeout for other locations (customized solution) + Only onboarding costs
-  4. Commitment - 100 gbp to get started with onboarding and implementation.
 
-## GoLive checklist:
-WABA change on both elai and ordelo
-Config updates for 
-
-    update ordelo_config set config_value = 'https://elas-agg.ordelo.app' where config_key = 'ELAS_APP_URL';
-    update ordelo_config set config_value = 'https://rider-agent.ordelo.app' where config_key = 'ORDELO_APP_URL';
-    update ordelo_config set config_value = 'https://restaurant.ordelo.app' where config_key = 'RESTAURANT_MENU_APP_URL'; 
-Hi There, On decline from rider;
-
-
-Change the lat and lon for ELAS;
-Update ELAS adming in restaurant master
-Update 
-
-- 
-## Immediate
-- [!!!] One restConfirmation, ackonwledge and then ask to start live tracking
-- admin_order_receipt (graph_init_hook) can make use of live location as a ButtonURL Not possible to mix interactive with buttonURL
-
-### 8th DEC
-- Test the rider, double book orders
-Message(id='wamid.HBgMNDQ3NDQ4NDQwNzU0FQIAEhgWM0VCMDZDRkY5OTU1RTU0QkJGMjQ1NgA=', timestamp=datetime.datetime(2025, 12, 11, 17, 33, 25, tzinfo=datetime.timezone.utc), metadata=Metadata(display_phone_number='447823713944', phone_number_id='434523189754637'), from_user=User(wa_id='447448440754', name='10hith', identity_key_hash=None), waba_id='490733454126658', type=MessageType.TEXT, reply_to_message=None, forwarded=False, forwarded_many_times=False, text='hi', image=None, video=None, sticker=None, document=None, audio=None, caption=None, reaction=None, location=None, contacts=None, order=None, referral=None, error=None)
 
 ## Riders:
 Create the WA group for riders
