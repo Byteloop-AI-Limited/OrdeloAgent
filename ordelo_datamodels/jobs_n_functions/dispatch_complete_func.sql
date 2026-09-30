@@ -77,3 +77,6 @@ UPDATE delivery_dispatch
 SET status = 'timedout' 
 WHERE status = 'unassigned'
 AND (current_timestamp - dtts) > interval '30 seconds';
+
+
+dispatch_complete_func
