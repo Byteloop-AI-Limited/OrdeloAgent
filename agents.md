@@ -2,6 +2,8 @@
 
 This document maps the codebase structure and explains how agents, webhooks, messaging, and data layers work together. Use it as your starting point and as a quick index for searching code.
 
+For local startup of OrdeloAgent and the sibling restaurant-frontend, Python shell preparation (`venv`, `PYTHONPATH`, `envLoad`), Cloudflare Tunnel routing, and maintenance-window test/production URL switches, follow the [local testing runbook](docs/local-testing-runbook.md).
+
 
 ## High‑Level Overview
 
@@ -260,8 +262,8 @@ INSTALL_DEV=1 source run_setup.sh
 
 ## Running Locally
 
-- Setup environment: `source run_setup.sh` (see Environment Setup above)
-- Run the app: `uvicorn watomation.fapp_ordelo_agent:app --reload --port 3100`
+- Prepare the Python shell before any Python command: activate `venv` (or `.venv`), set `PYTHONPATH="$PWD"`, and load `.env` with `envLoad`, as shown in the [local testing runbook](docs/local-testing-runbook.md).
+- Run the app: `uv run watomation/fapp_ordelo_agent.py` (port 3100; add `--active` when using `venv`).
 - WhatsApp webhook endpoint is provided by pywa_async (configured with your Business token/phone); ensure Meta configuration points to your accessible URL.
 - DB checkpointer tables: run once if needed via `utils_common/thread_management/initialize_db.py` (creates LangGraph checkpoints schema).
 

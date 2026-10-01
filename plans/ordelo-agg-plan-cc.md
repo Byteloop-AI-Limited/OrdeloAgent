@@ -1,7 +1,7 @@
 # Ordelo web ordering channel (ordelo-agg): design and release plan
 
 - **Target repository:** `OrdeloAgent` → `plans/ordelo-agg-plan-cc.md` (branch `release/ordelo-agg`)
-- **Status (2026-10-01):** R0 (front end, fixtures) and R1a (Ordelo) are built; R1a plus the test-payment addendum (D32) are being committed and taken to production by the owner. **A new session should start at "Resume here" below.**
+- **Status (2026-10-01, after go-live):** R0 (front end, fixtures) and R1a (Ordelo) plus the test-payment addendum (D32) are **live in production**, and every R1a verification gap is closed. Next is **R1b**, then **R2**. The R0 front-end findings were deferred to the R3 entry gate (D34) and then fixed on 2026-10-01 (uncommitted in restaurant-frontend; only the Lighthouse check remains); scheduling the init reconciler is deferred (D33). **A new session should start at "Resume here" below.**
 - **Revised 2026-10-01:** the payment-service contract stays unchanged for web; web-specific payment behaviour moves into Ordelo's `payment-complete` (D22–D27). Glossary in `CONTEXT.md`; decisions in ADR-0003, ADR-0004 and ADR-0005.
 - **Evidence snapshot:** 2026-09-29. OrdeloAgent `7697e15` (`release/ordelo-agg`), restaurant-frontend `a75312e` (`dev`), restaurant-agents `eeb6a3c` (`main`). Payment service `58158ca` read on 2026-10-01.
 - **Companion reference:** `OrdeloAgent/docs/ordelo-restaurant-frontend-agents.md` (endpoint ids such as `create` and `authorized` below refer to it)
@@ -16,9 +16,9 @@ Labels used throughout:
 
 ---
 
-## Resume here (state at end of session, 2026-10-01)
+## Resume here (state at 2026-10-01, after go-live)
 
-Read this first, then §0 (D22–D32), §18 and §22. Background reading: `CONTEXT.md` ("Web ordering"), `docs/adr/0003`–`0005`, `plans/ordelo_agg_plan_cc_decision_log.md` (entries 27–36).
+Read this first, then §0 (D22–D34), §18 and §22. Background reading: `CONTEXT.md` ("Web ordering"), `docs/adr/0003`–`0005`, `plans/ordelo_agg_plan_cc_decision_log.md` (entries 27–36).
 
 ### Done
 
@@ -27,9 +27,10 @@ Read this first, then §0 (D22–D32), §18 and §22. Background reading: `CONTE
 | Decisions | Payment service unchanged for web (D22); no webhook signature check, as today (D23); web orders collect no name/phone (D24); manual capture only (D25); post-payment redirect gap deferred (D26); web orders never reach restaurant apps (D27); `storefront` column now (D28); R2 creates a real web-style order (D29); R1 split into R1a/R1b (D30); R1 SQL run manually (D31); test payments via `?isTest3100=true` (D32) | §0, decision log 27–36 |
 | Docs | Glossary, three ADRs, plan sections §9.3, §13.1, §18 rewritten | `CONTEXT.md`, `docs/adr/0003–0005` |
 | SQL (run by owner on the shared Supabase `pqsvhidiwiydgshynfib`) | `ordelo_datamodels/migrations/ordelo_agg_r1.sql` (food_order `origin_channel`/`storefront`/`idempotency_key`, `payment_event`, RPCs `create_food_order_with_items` and `record_payment_authorised`, `job_payment_init_reconciler()`, R1b tables) and `ordelo_agg_r1_test_payment.sql` (`food_order.payment_mode`, RPC updated) | both run 2026-10-01 |
-| `ordelo_config` | `PAYMENT_INBOX_ENABLED=true`, `ORDER_CREATE_RPC_ENABLED=true`, `ENABLE_PAYMENT_TEST_ROUTES=false`, `TEST_PAYMENT_REST_REFS=BNAT`, `PAYMENT_INIT_RECONCILER_SINCE` set. **During testing `ORDELO_APP_URL` points at the owner's local server (`rider-agent-test.ordelo.app`)** | shared DB |
+| `ordelo_config` | `PAYMENT_INBOX_ENABLED=true`, `ORDER_CREATE_RPC_ENABLED=true`, `ENABLE_PAYMENT_TEST_ROUTES=false`, `TEST_PAYMENT_REST_REFS=BNAT`, `PAYMENT_INIT_RECONCILER_SINCE` set. `ORDELO_APP_URL` points back at production Ordelo (go-live, 2026-10-01) | shared DB |
 | OrdeloAgent code (R1a + D32) | `config/feature_flags.py`; `utils_common/order_management/order_reference.py`, `customer_keys.py`, `order_service.py`, `food_order_pymodel.py` (`payment_mode`, `uses_test_payment`); `utils_common/payment_ms/payment_events.py`, `payment_mode.py`; `watomation/routers/order_hooks.py` (new fields, F3 fix, W-id skip, test payments), `payment_hooks.py` (once-only payment-complete, gated test route, `/init-reconciler`); tests | branch `release/ordelo-agg` |
 | restaurant-frontend code | R0 web prototype (fixtures); D32: `lib/testPayment.ts`, `BasketDrawer`, `/api/checkout`, order summary label, `/api/web/orders`, fixtures, `CheckoutFlow`, `OrdeloMenuContainer`. `.env.local` set to `NEXT_PUBLIC_WEB_ORDERING_MODE=off`; production is off by default because `amplify.yml` doesn't copy that variable | branch `dev` |
+| Go-live (owner, 2026-10-01) | Both repos committed and deployed; Amplify production has web ordering off; `ORDELO_APP_URL` back on production. One real paid WhatsApp order went through the new `payment-complete`. | production |
 
 ### Verified
 
@@ -39,20 +40,33 @@ Read this first, then §0 (D22–D32), §18 and §22. Background reading: `CONTE
 - **Real WhatsApp orders** (`SFCS-JDQS-25`, `ELAS-RMLT-26/27`) were created through the new one-transaction RPC with the flags on.
 - **D32 test payments:** curl — BNAT honoured (`payment_mode='test'`, Stripe `cs_test_` session), SFCS refused (live). WhatsApp page — `ELAS-RMLT-27` from a non-overwatch number: the front end passed the flag and Ordelo refused it. Web page (fixtures) — BNAT gives `payment_mode: test`, ELAS gives `live`.
 
-### Not verified yet
+### Verified after go-live (owner, 2026-10-01)
 
-1. A WhatsApp order **paid for real** through the new `payment-complete` (restaurant-app notice, summary init, capture on rider acceptance). Do one small real order straight after go-live and check: log `payment event evt_… : applied`, restaurant app notified, `delivery_summary` row, capture in Stripe.
-2. Overwatch + takeaway + `&isTest3100=true`: label, Stripe test page, capture through the test service (capture follows stored `payment_mode`; unit-tested only).
+All three former "Not verified yet" items are done:
+
+1. A WhatsApp order **paid for real** through the new `payment-complete` (event applied, restaurant app notified, summary row, capture in Stripe).
+2. Overwatch + takeaway + `&isTest3100=true` (label, Stripe test page, capture through the test service).
 3. Full WhatsApp takeaway and pay-at-restaurant runs with the flags on.
 
 ### Next steps, in order
 
-1. **Go-live (owner, in progress):** commit both repos; deploy Ordelo and the front end; check Amplify production has no `NEXT_PUBLIC_WEB_ORDERING_MODE` (or `off`); point `ORDELO_APP_URL` back at production Ordelo; run "Not verified yet" item 1. Rollback = set the flag in `ordelo_config` to `false`.
-2. **Schedule the init reconciler (not done):** `SELECT cron.schedule('job_payment_init_reconciler', '*/2 * * * *', $$SELECT job_payment_init_reconciler()$$);` once production Ordelo serves `/payment-hooks/init-reconciler` and `ORDELO_APP_URL` points at it.
-3. **R2 payment-path check:** §18 R2 (web-style BNAT order paid in Stripe test mode; confirm Stripe's test-mode webhook reaches Ordelo; capture and cancel). Runbook steps were given in session; R2 is easier after R1b because the remaining 9 restaurant-app hooks still send web orders to restaurant apps.
-4. **R1b customer notifier:** §18 R1b (replace the 10 restaurant-app call sites behind `CUSTOMER_NOTIFIER_ENABLED`, characterisation tests first).
-5. **Before R3:** fix the four R0 findings (`plans/ordelo-r0-validation-2026-09-30.md`) and stale copy (review screen says charged "when a rider picks up" — it's when the rider accepts; review screen and the fixture pay page say name/phone are collected — not true under D24); answer Q14, Q16, Q17.
-6. **Separate track:** payment-service F11–F13 (§3).
+1. **R1b: customer notifier** (§18 R1b, §22). *Why now:* today only `payment-complete` and `capture-address` skip web orders. The other restaurant-app hooks (§2.2: `order_hooks`, `takeaway_hooks`, `location_hooks`, `delivery_hooks` ×2, `agent_app_handlers` ×2, `on_callback_wa_handler`, …) would still post a web order's W-id to a restaurant app. R1b puts all of them behind one module so web and WhatsApp can be routed differently. For WhatsApp orders nothing visible changes. Steps:
+   1. **Characterisation tests first.** For each of the 10 hooks, record the exact URL and JSON body sent today (mock the HTTP client). These tests must pass unchanged at the end.
+   2. **M3 notifier** `utils_common/notify/customer_notifier.py`: `publish(order_number, event)` writes `order_customer_event` (idempotent), resolves subscriptions, writes the outbox and dispatches. **Adapter A** = restaurant app (same URL and payload as today, retries = 0). **Adapter B** = web page (no-op until R3). Fallback: a WhatsApp order with no subscription goes to its restaurant app.
+   3. **Swap the 10 call sites** to `publish(...)` behind `CUSTOMER_NOTIFIER_ENABLED`. Flag off = the legacy direct call, kept for one release.
+   4. **Subscriptions:** `create_order_with_items` creates `whatsapp_restaurant` (WhatsApp) or `web_page` (web). M2's web branch publishes `payment_authorised`.
+   5. **SQL:** none new. Section 003 of `ordelo_agg_r1.sql` (subscriptions, customer events, outbox) was run on 2026-10-01.
+   6. **Roll-out:** deploy with the flag off, turn it on with `BNAT` first, place a WhatsApp delivery and a takeaway order, compare customer messages, then enable for all. Rollback = flag off.
+2. **R2: payment-path check** (§18 R2). *No code and nothing to deploy;* it is a scripted test run that proves a web-style order can be paid, captured and cancelled through the unchanged payment service before any web page is wired to it. Do it after R1b so the web-style test order reaches no restaurant app at any stage. On `BNAT` (Stripe test mode):
+   1. Create a web-style order: `SELECT create_thread('WEB', NULL)`; `POST /order-hooks/capture-address` with a W-id; `POST /order-hooks/create-order/BNAT` with that W-id, the `WEB-…` thread, `"origin_channel":"web"`, `"storefront":"ordelo"`. Expect a Stripe Checkout URL.
+   2. Pay it with a Stripe test card. Check the payment service saved the PaymentIntent (`payment_details`) and Ordelo logged `payment event … : applied` on the web branch (no restaurant-app call). Replay the event: `duplicate`, no side effects.
+   3. Note, from the Stripe dashboard, the Ordelo webhook URL and subscribed events for each Stripe account in use (§21, assumption 1).
+   4. Let a rider accept: capture succeeds. On a second order, let dispatch time out: cancel succeeds.
+   5. Record where Stripe sends the browser after paying (expected: the restaurant's fixed URL, D26).
+   6. Write the five results into the release notes and clean up the test rows.
+3. **R3 entry gate (D34):** items 1–5 under §18 R3 "Entry gate" were **fixed on 2026-10-01** (restaurant-frontend `dev`, uncommitted). Still open before R3 goes live: Lighthouse mobile accessibility (item 6), and answers to Q14, Q16, Q17. None of these blocks R1b or R2.
+4. **Deferred by the owner (D33):** scheduling the init reconciler. The job and endpoint exist; when wanted, run `SELECT cron.schedule('job_payment_init_reconciler', '*/2 * * * *', $$SELECT job_payment_init_reconciler()$$);`.
+5. **Separate track:** payment-service F11–F13 (§3).
 
 ---
 
@@ -92,6 +106,8 @@ Read this first, then §0 (D22–D32), §18 and §22. Background reading: `CONTE
 | D30 | (2026-10-01) **R1 is split.** **R1a** = payment and order foundation (everything R2 needs). **R1b** = the customer notifier (needed by R3, not R2). The late-payment guard (Q17) stays out of R1 and belongs to R3. | §18 |
 | D32 | (2026-10-01) **Test payments on request: `?isTest3100=true`.** Both checkouts (WhatsApp `/restaurant/[id]` and the Ordelo web page) pass `test_payment: true` to `create-order`. **Ordelo decides:** it honours the request only for an overwatch recipient (WhatsApp; web orders have no phone, D24) or a restaurant listed in `ordelo_config.TEST_PAYMENT_REST_REFS` (web, option 1). Otherwise the order is live and the request is logged. The choice is stored once on `food_order.payment_mode` (`live`/`test`), so create, capture and cancel all use the same payment service. Today's rule (overwatch + delivery → test) is unchanged. Owner overrode the R0 guardrail of not touching `BasketDrawer` for this. | §13, R1a addendum |
 | D31 | (2026-10-01) **All R1 SQL ships as one file**, `ordelo_datamodels/migrations/ordelo_agg_r1.sql`, which the owner runs manually. Code that depends on it is behind `ordelo_config` flags that are off when the key is missing, so deploying code before the SQL is safe. | §6.1, §18 |
+| D33 | (2026-10-01) **Scheduling the init reconciler is deferred** (owner: not wanted yet). The SQL job and `/payment-hooks/init-reconciler` stay deployed but unscheduled. | §18 R1a, §22 |
+| D34 | (2026-10-01) **The R0 front-end findings are deferred to an R3 entry gate.** All four findings and the stale copy sit in the Ordelo web code only (`components/ordelo/*`, `lib/web/*`, the fixture pay page), which is off in production; none touches the WhatsApp flow (`/restaurant/[id]`, `MenuContainer`, `BasketDrawer`, `CartContext`). They don't block R1b or R2, but must be fixed before web ordering goes live. | §18 R3 "Entry gate", `plans/ordelo-r0-validation-2026-09-30.md` |
 
 ---
 
@@ -102,7 +118,7 @@ The brief says OrdeloAgent "contains the customer facing whatsapp solution". The
 | System | Role today | Evidence |
 |---|---|---|
 | **restaurant-agents** (apps `elas`, `sfcs`, `bnat`) | The **customer WhatsApp agent**: one app, one WABA number and one LangGraph per restaurant. It owns `Thread` and `AgentState`, sends menu links carrying `recipient` and `thread_id`, receives order and rider events and messages the customer. | `docs/domain/platform-domain-model.md`; `services/wa_templates/rest_menu_query_params.py:RestMenuQueryParams`; `watomation/routers/order_event_hooks.py:payment_complete` |
-| **OrdeloAgent** | Order, pricing, payment and fulfilment **orchestrator**. It also runs the **rider** LangGraph agent and the **restaurant-admin/ops** WhatsApp interactions on its own number. | `watomation/routers/*`; `ordelo/agents/rider_agent.py` |
+| **OrdeloAgent** | Order, pricing, payment and fulfilment**orchestrator**. It also runs the **rider** LangGraph agent and the **restaurant-admin/ops** WhatsApp interactions on its own number. | `watomation/routers/*`; `ordelo/agents/rider_agent.py` |
 | **restaurant-frontend** | Next.js 14 menu, basket and order summary for WhatsApp deep links, plus the rest-admin, rider and sys-admin portals. | `app/restaurant/[id]/page.tsx`, `components/BasketDrawer.tsx` |
 | **Payment service** | Stripe wrapper (Go, AWS Lambda): creates Checkout Sessions, captures (with restaurant payout transfer) and cancels; its own Stripe webhook stores the order → PaymentIntent mapping or prints the kitchen ticket. **Read at `58158ca` (2026-10-01) [V]. Unchanged for web (D22).** | `payment-service/internal/transport/http/handler.go`, `internal/stripe/payment.go`, `internal/stripe/webhook.go`, `internal/config/config.go`; called by `utils_common/payment_ms/payment.py`, `delivery_hooks.py:capture_delivery_payment/cancel_payment` |
 | **Menu service** | `MENU_API_URL` (restaurant.byteloop.ai), backed by `{rest}_menu` tables [A]. **Not in any connected repo.** | `restaurant-frontend/app/api/menu/route.ts` |
@@ -1108,6 +1124,13 @@ R1a (Ordelo payment/order foundation) ──► R2 (payment-path check) ──�
 
 ### R3: Web ordering live (flagged: one town, one restaurant, then widen)
 
+- **Entry gate (deferred from R0, D34).** restaurant-frontend, web code only. **Items 1–5 fixed 2026-10-01** (uncommitted on `dev`; `tsc` and lint clean; logic checked with a throwaway script). Item 6 is still open.
+  1. ✅ Restaurant-switch confirmation is skipped: `PersistedCart.tsx` saves the new basket before `OrdeloMenuContainer.tsx` checks for another active basket. Capture the previous restaurant first; clear storage only after the user chooses. *Fix:* `lib/storefront/basket.ts` `otherActiveBasket` scans stored baskets instead of trusting the active pointer; "Start new basket" calls the new `clearOtherBaskets`.
+  2. ✅ Checkout drops the Ordelo voucher: `CheckoutFlow.tsx` calls `resolveOffers` without the stored `ordelo_web_voucher:{id}`. Dormant until a restaurant has `ordeloOffers` (Q13). *Fix:* `readStoredVoucher`/`storeVoucher` in `lib/storefront/offers.ts`, used by both the menu page and checkout. Needs a browser check once Q13 configures a voucher.
+  3. ✅ Receipt keeps only 20 basket lines while 50 are accepted (`lib/web/fixtures/index.ts`). Fixture code, but the live R3 order/receipt must keep every accepted line or reject larger baskets (mind cookie size). *Fix:* `MAX_ORDER_LINES = 20` in `lib/web/types.ts`; more lines, or a snapshot cookie over 3,800 chars, gets `422 basket_too_large` (checkout also checks before submitting); the receipt keeps every line. **R3: Ordelo `/web/orders` must enforce the same limit (or a higher one it stores in full).**
+  4. ✅ Capture wording: `CheckoutFlow.tsx` and `lib/web/status.ts` say the card is charged when a rider picks up; it is when the rider accepts. The review page also says "authorised now" before payment.
+  5. ✅ Stale D24 copy: the review screen and the fixture pay page say name and phone are collected. *Not changed (depends on Q14):* the order-lookup copy that still mentions a phone number, in `app/(web)/orders/find/page.tsx`, `app/(web)/town/[town]/orders/[orderNumber]/page.tsx` and `components/ordelo/PaymentReturn.tsx`.
+  6. Lighthouse mobile accessibility ≥ 90 (R0 acceptance, not yet measured).
 - **Migrations:** §6.2 (004, 005, 007; 006 removed); `job_close_thread` filter.
 - **Ordelo:**
   - M4, M5, M6.
@@ -1280,7 +1303,8 @@ Work one release at a time. Don't start R3 code paths that create real orders be
 - [x] `utils_common/payment_ms/payment_events.py` (M2, behind `PAYMENT_INBOX_ENABLED`); `payment_hooks.payment_complete_path` delegates; web orders skip the restaurant app (D27); `payment_complete_test_path` gated (`ENABLE_PAYMENT_TEST_ROUTES`).
 - [x] `order_hooks.capture_address` skips the restaurant-app hook for W-ids.
 - [x] Init reconciler: SQL job `job_payment_init_reconciler()` + `/payment-hooks/init-reconciler` (alert-only; alerts once per order via `payment_event` kind `init_reconcile_alerted`).
-- [ ] **Schedule the reconciler (pg_cron) — not done.** After production Ordelo serves `/payment-hooks/init-reconciler` and `ORDELO_APP_URL` points at it.
+- [ ] **Schedule the reconciler (pg_cron) — deferred by the owner (D33).** Production Ordelo serves `/payment-hooks/init-reconciler` and `ORDELO_APP_URL` points at it, so it can be scheduled whenever wanted.
+- [x] **Go-live (2026-10-01):** deployed to production; real paid WhatsApp order, overwatch test-payment takeaway, and full WhatsApp takeaway and pay-at-restaurant runs verified by the owner.
 - [x] SQL run by the owner (2026-10-01); flags `PAYMENT_INBOX_ENABLED` and `ORDER_CREATE_RPC_ENABLED` on in the test environment (`rider-agent-test.ordelo.app`).
 - [x] Endpoint verification on the test environment (2026-10-01, BNAT, W-id `WVERIFYTEST1`, cleaned up): 15/15 checks passed, covering web-style create-order on both insert paths, the once-only outcomes (applied, duplicate, rejected_state, unknown_order, ignored, invalid), the test-route gate, today's path with the inbox off, and the reconciler job end to end (Supabase → `/payment-hooks/init-reconciler` → overwatch WhatsApp). Server logs confirm the restaurant-app call is skipped for web orders on both paths.
 - [x] **R1a declared complete by the owner (2026-10-01)** on the strength of the SQL run and the endpoint verification above. A full WhatsApp delivery/takeaway/pay-at-restaurant run with the flags on was not part of that verification; do one before the production rollout.
@@ -1295,6 +1319,10 @@ Work one release at a time. Don't start R3 code paths that create real orders be
 
 **R3: OrdeloAgent + restaurant-frontend**
 
+- [x] Entry gate from R0 (D34), items 1–5: fixed 2026-10-01 (restaurant-frontend `dev`, uncommitted).
+- [ ] Entry gate item 6: Lighthouse mobile accessibility ≥ 90.
+- [ ] Order-lookup copy that mentions a phone number (after Q14).
+- [ ] Ordelo `/web/orders` enforces `MAX_ORDER_LINES` (20) or a higher limit stored in full.
 - [ ] Migrations 004, 005, 007; `job_close_thread.sql` filter; admin views `origin_channel`.
 - [ ] M4 `order_access.py`, M5 `customer_order_view.py`, M6 `web_checkout.py`; `watomation/routers/web_hooks.py` registered in `fapp_ordelo_agent.py`.
 - [ ] M2 web branch: skip the restaurant app (D27), publish to the notifier, late-payment guard (Q17).

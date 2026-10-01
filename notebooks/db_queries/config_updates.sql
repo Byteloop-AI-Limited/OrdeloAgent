@@ -395,3 +395,5 @@ UPDATE ordelo_config
 INSERT INTO ordelo_config (config_key, config_value, description)
 VALUES ('TEST_PAYMENT_REST_REFS', 'BNAT', 'ordelo-agg D32: restaurants that honour ?isTest3100=true')
 ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value, updated_at = now();
+
+UPDATE ordelo_config SET config_value = 'BNAT', updated_at = now() WHERE config_key = 'TEST_PAYMENT_REST_REFS';

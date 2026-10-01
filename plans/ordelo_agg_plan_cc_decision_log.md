@@ -380,6 +380,23 @@
 - **Answers:** "I want to say 1, overwatch numbers only, but on web, the phone number isnt captured right?" and "Both pages". After confirming web orders carry no phone (D24): for web, ★ test restaurants only vs a secret value → "Lets go with Option1".
 - **Applied:** D32; R1a addendum in §18.
 
+### 37. Go-live done; reconciler schedule deferred (2026-10-01)
+
+- **Owner's update (verbatim):** "1. Finish golive - this is complete 2. Schedule - not done, not interested in it yet 3. This is complete as well."
+- **Meaning:** go-live (both repos deployed, `ORDELO_APP_URL` back on production, one real paid WhatsApp order) is done, and the remaining R1a verification gaps (overwatch + takeaway + `isTest3100`, full WhatsApp takeaway and pay-at-restaurant runs) are closed. The init reconciler stays unscheduled.
+- **Applied:** D33; plan "Resume here" and §22.
+
+### 38. R0 findings: defer if not a blocker (2026-10-01)
+
+- **Owner's request (verbatim):** "R0 findings - confirm if they are all UI elements taht doesnt imact the WA UI flow. If yes, then I would want to fix it first, otherwise log it and move on if it isnt a blocker. Actually, move on if it isnt a blocker, update the plan for later implementation."
+- **Finding:** all four findings in `plans/ordelo-r0-validation-2026-09-30.md`, and the stale copy, are in the Ordelo web code only (`components/ordelo/*`, `lib/web/*`, the fixture pay page). Web ordering is off in production. None touches `/restaurant/[id]`, `MenuContainer`, `BasketDrawer` or `CartContext`. They block R3 (web live), not R1b or R2. Basis: the file paths in the validation report; the restaurant-frontend repo wasn't opened in this session.
+- **Applied:** D34; §18 R3 "Entry gate"; §22 R3 checklist.
+
+### 39. Fix the R0 findings now (2026-10-01)
+
+- **Owner's request (verbatim):** "Ok, go ahead and fix R0 findings"
+- **Applied:** R3 entry-gate items 1–5 fixed in restaurant-frontend (uncommitted on `dev`). New basket limit `MAX_ORDER_LINES = 20` (larger baskets are refused, not truncated). Lighthouse (item 6) and the Q14-dependent lookup copy remain.
+
 ## Items still open (from the plan, §21)
 
 These were not decided in this session:
