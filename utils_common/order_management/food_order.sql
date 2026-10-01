@@ -73,6 +73,37 @@ CREATE TABLE public.order_item_v2 (
     FOREIGN KEY (order_id) REFERENCES public.food_order(order_id) ON DELETE CASCADE
 );
 
+-- ---------------------------------------------------------------------------
+-- 001  food_order: origin channel, storefront, idempotency key   (D15, D28)
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.food_order
+  ADD COLUMN IF NOT EXISTS origin_channel TEXT NOT NULL DEFAULT 'whatsapp'
+      CONSTRAINT food_order_origin_channel_chk CHECK (origin_channel IN ('whatsapp','web')),
+  ADD COLUMN IF NOT EXISTS storefront TEXT NOT NULL DEFAULT 'direct'
+      CONSTRAINT food_order_storefront_chk CHECK (storefront IN ('direct','ordelo')),
+  ADD COLUMN IF NOT EXISTS idempotency_key TEXT NULL;   -- used by web create-order (R3)
+
+CREATE UNIQUE INDEX IF NOT EXISTS food_order_idempotency_key_uq
+  ON public.food_order (idempotency_key) WHERE idempotency_key IS NOT NULL;
+
+-- origin_channel and storefront are written once at insert and never change.
+CREATE OR REPLACE FUNCTION public.forbid_food_order_origin_change() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.origin_channel IS DISTINCT FROM OLD.origin_channel THEN
+    RAISE EXCEPTION 'food_order.origin_channel is immutable (order %)', OLD.order_number;
+  END IF;
+  IF NEW.storefront IS DISTINCT FROM OLD.storefront THEN
+    RAISE EXCEPTION 'food_order.storefront is immutable (order %)', OLD.order_number;
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS food_order_origin_immutable ON public.food_order;
+CREATE TRIGGER food_order_origin_immutable
+  BEFORE UPDATE OF origin_channel, storefront ON public.food_order
+  FOR EACH ROW EXECUTE FUNCTION public.forbid_food_order_origin_change();
+
 
 -- %% cascaded drop
 DROP TABLE IF EXISTS OrderItem;

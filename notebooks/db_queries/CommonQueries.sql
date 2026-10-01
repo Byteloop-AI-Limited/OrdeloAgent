@@ -46,7 +46,7 @@ select * from rider_pickup_alert;
 
 update thread set is_active=false where is_active=True and dt<='2026-05-14' and agent='SFCS';
 select * from thread where is_active=True and dt<'2026-03-27' order by dt desc;;
-select * from food_order limit 1;
+select distinct(payment_status) from food_order limit 100;
 select * from rider_registrations order by inserted_at desc;
 
 select pickup_time, * from delivery_summary where order_number='ELAS-ETXF-28';
@@ -454,3 +454,5 @@ select * from delivery_summary where order_number='SFCS-TVUC-20';
 
 select * from delivery_dispatch where dispatch_id=1159;
 select * from delivery_inflight;
+
+select * from customer_master order by dtts desc;
