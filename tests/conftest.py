@@ -163,3 +163,25 @@ _install_google_credentials_patch()
 # Import after the stubs above are in place. ``tests.fixtures`` itself never
 # imports production modules at module load; it only defines fixtures.
 pytest_plugins = ("tests.fixtures.fixtures_pkg",)
+
+
+# ---------------------------------------------------------------------------
+# Step 5: ordelo_config feature flags are off unless a test turns them on
+# ---------------------------------------------------------------------------
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def feature_flags(monkeypatch):
+    """Set of enabled ``ordelo_config`` flag keys; empty (all off) by default.
+
+    Tests turn a flag on with ``feature_flags.add("PAYMENT_INBOX_ENABLED")``.
+    """
+    from config import feature_flags as flags_module
+
+    enabled: set[str] = set()
+    monkeypatch.setattr(flags_module, "_read_flag", lambda key: key in enabled)
+    flags_module.reset_feature_flag_cache()
+    yield enabled
+    flags_module.reset_feature_flag_cache()

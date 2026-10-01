@@ -367,4 +367,31 @@ select config_key, config_value, description from ordelo_config where config_key
   "config_value": ".5",
   "description": "Timeout in minutes for delivery_summary status transition to timedout"
  }
-]
+];
+--  Web
+INSERT INTO ordelo_config (config_key, config_value, description) VALUES
+  ('PAYMENT_INBOX_ENABLED',      'false', 'ordelo-agg R1a: payment-complete applies each payment once (record_payment_authorised)'),
+  ('ORDER_CREATE_RPC_ENABLED',   'false', 'ordelo-agg R1a: create order + items in one transaction (create_food_order_with_items)'),
+  ('ENABLE_PAYMENT_TEST_ROUTES', 'false', 'ordelo-agg R1a: allow /payment-hooks/payment-complete-test (keep false in prod)')
+ON CONFLICT (config_key) DO NOTHING;
+
+
+-- reconciler
+-- check orders created from now on
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('PAYMENT_INIT_RECONCILER_SINCE', now()::text,
+        'ordelo-agg R1a: alert on paid orders with no summary, created after this time')
+ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value, updated_at = now();
+
+-- 
+UPDATE ordelo_config
+   SET config_value = 'true', updated_at = now()
+ WHERE config_key = 'PAYMENT_INBOX_ENABLED';
+
+UPDATE ordelo_config
+   SET config_value = 'true', updated_at = now()
+ WHERE config_key = 'ORDER_CREATE_RPC_ENABLED';
+
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('TEST_PAYMENT_REST_REFS', 'BNAT', 'ordelo-agg D32: restaurants that honour ?isTest3100=true')
+ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value, updated_at = now();

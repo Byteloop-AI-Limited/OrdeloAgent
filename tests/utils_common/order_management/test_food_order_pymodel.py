@@ -7,6 +7,7 @@ Key Functions:
   - test_from_order_id_returns_model_without_pricing_update_when_final_value_exists
   - test_from_order_number_returns_none_for_missing_row
   - test_payment_uri_uses_test_url_for_overwatch_delivery_customer
+  - test_payment_mode_test_uses_test_url_and_is_not_dumped
   - test_rest_ref_derives_lowercase_prefix
   - test_update_final_order_value_in_db_updates_instance_fields
   - test_generate_order_summary_for_payment_intent_adds_nonzero_fees
@@ -201,3 +202,16 @@ async def test_takeaway_capture_payload_uses_collection_product_items(
     assert product_summary["items"] == capture["items"]
     assert product_summary["total"] == 23.96
     assert capture["total_amount"] == 23.96
+
+
+def test_payment_mode_test_uses_test_url_and_is_not_dumped(monkeypatch) -> None:
+    import utils_common.order_management.food_order_pymodel as module
+
+    monkeypatch.setattr(module, "get_overwatch_list", lambda: [])
+    test_order = _food_order(action="takeaway", recipient="W7K2M9QX4TPA", payment_mode="test")
+
+    assert test_order.uses_test_payment
+    assert test_order.payment_uri.startswith("https://test.example.com/stripe-test/")
+    assert "payment_mode" not in test_order.model_dump()  # restaurant-app payload unchanged
+    assert not _food_order(payment_mode=None).uses_test_payment
+    assert _food_order().payment_uri.startswith("https://test.example.com/stripe/")

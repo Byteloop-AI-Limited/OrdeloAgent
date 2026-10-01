@@ -188,3 +188,108 @@ async def test_get_active_thread_proxies_restaurant_response(monkeypatch) -> Non
 
     assert response.status_code == 200
     assert response.body == b'{"thread_id":"thread-1"}'
+
+
+
+async def test_create_order_passes_origin_and_raises_before_reading_failed_order(monkeypatch) -> None:
+    received = {}
+
+    async def _create_order(**kwargs):
+        received.update(kwargs)
+        return {"success": False, "error": "Failed to create order", "details": "boom"}
+
+    def _from_order_id(order_id):
+        raise AssertionError("must not read the order when creation failed (F3)")
+
+    monkeypatch.setattr(order_hooks, "create_order_with_items", _create_order)
+    monkeypatch.setattr(order_hooks.FoodOrder, "from_order_id", staticmethod(_from_order_id))
+
+    with pytest.raises(HTTPException) as failed:
+        await order_hooks.create_order(
+            "SFCS",
+            order_hooks.CreateOrderRequest(
+                recipient="W7K2M9QX4TPA", thread_id="WEB-1", order_items=_order_items(),
+                order_type="delivery", origin_channel="web", storefront="ordelo",
+            ),
+        )
+    assert failed.value.status_code == 400
+    assert received["origin_channel"] == "web" and received["storefront"] == "ordelo"
+    assert order_hooks.CreateOrderRequest(
+        recipient="447400000000", thread_id="t", order_items=_order_items(), order_type="takeaway"
+    ).origin_channel == "whatsapp"
+
+
+@respx.mock
+async def test_capture_address_skips_restaurant_app_for_web_customer_key(monkeypatch, patch_supabase_client) -> None:
+    async def _webhook(rest_ref, webhook_type):
+        raise AssertionError("restaurant app must not be called for a W-id (ADR-0003)")
+
+    monkeypatch.setattr(order_hooks, "get_restaurant_webhook_url_async", _webhook)
+    monkeypatch.setattr(order_hooks.CustRestMap, "upsert", staticmethod(lambda **kwargs: None))
+    request = order_hooks.CaptureAddressRequest(
+        recipient="W7K2M9QX4TPA", rest_ref="SFCS", house_number="1", street_name="High Street",
+        city="Salisbury", postcode="SP1 2AB", latitude=51.07, longitude=-1.79,
+    )
+
+    assert await order_hooks.capture_address(request) == {"success": True}
+    upsert = next(c for c in patch_supabase_client.calls if c.table == "customer_master")
+    assert upsert.payload["cust_id"] == "W7K2M9QX4TPA" and upsert.payload["cust_name"] == "W7K2M9QX4TPA"
+
+
+
+@pytest.mark.parametrize("allowed, expected_mode", [(True, "test"), (False, None)])
+async def test_create_order_honours_test_payment_only_when_allowed(monkeypatch, allowed, expected_mode) -> None:
+    received = {}
+
+    async def _create_order(**kwargs):
+        received.update(kwargs)
+        return {"success": True, "order_id": "ABCD-1", "order_number": "BNAT-ABCD-1"}
+
+    async def _allowed(recipient, rest_ref):
+        return allowed, "test_restaurant" if allowed else "not_allowed"
+
+    async def _takeaway_url(food_order):
+        return "https://pay.example.com/manual"
+
+    food_order = _food_order("takeaway")
+    food_order.payment_mode = expected_mode
+    food_order.uses_test_payment = expected_mode == "test"
+    monkeypatch.setattr(order_hooks, "create_order_with_items", _create_order)
+    monkeypatch.setattr(order_hooks, "is_test_payment_allowed", _allowed)
+    monkeypatch.setattr(order_hooks.FoodOrder, "from_order_id", staticmethod(lambda order_id: food_order))
+    monkeypatch.setattr(order_hooks, "generate_takeaway_manual_payment_url", _takeaway_url)
+
+    result = await order_hooks.create_order(
+        "BNAT",
+        order_hooks.CreateOrderRequest(
+            recipient="W7K2M9QX4TPA", thread_id="WEB-1", order_items=_order_items(),
+            order_type="takeaway", origin_channel="web", storefront="ordelo", test_payment=True,
+        ),
+    )
+
+    assert received["payment_mode"] == expected_mode
+    assert result["payment_mode"] == ("test" if allowed else "live")
+
+
+async def test_create_order_without_test_payment_never_checks_permission(monkeypatch) -> None:
+    async def _create_order(**kwargs):
+        assert kwargs["payment_mode"] is None
+        return {"success": True, "order_id": "ABCD-1", "order_number": "ELAS-ABCD-1"}
+
+    async def _allowed(recipient, rest_ref):
+        raise AssertionError("permission must not be checked without test_payment")
+
+    async def _url(food_order):
+        return "https://pay.example.com/intent"
+
+    monkeypatch.setattr(order_hooks, "create_order_with_items", _create_order)
+    monkeypatch.setattr(order_hooks, "is_test_payment_allowed", _allowed)
+    monkeypatch.setattr(order_hooks.FoodOrder, "from_order_id", staticmethod(lambda order_id: _food_order("delivery")))
+    monkeypatch.setattr(order_hooks, "generate_payment_intent_url", _url)
+
+    result = await order_hooks.create_order(
+        "ELAS",
+        order_hooks.CreateOrderRequest(recipient="447400000000", thread_id="t", order_items=_order_items(), order_type="delivery"),
+    )
+    assert result["payment_intent_url"] == "https://pay.example.com/intent"
+    assert result["payment_mode"] == "live"

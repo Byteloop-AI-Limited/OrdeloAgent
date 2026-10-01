@@ -9,6 +9,11 @@ Key Functions:
   - test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway
   - test_payment_complete_test_path_schedules_expected_initializer
   - test_pay_at_restaurant_validates_action_and_schedules_takeaway
+  - test_legacy_path_skips_restaurant_app_for_web_orders
+  - test_inbox_applies_once_and_skips_restaurant_app_for_web
+  - test_inbox_duplicate_rejected_unknown_and_ignored_have_no_side_effects
+  - test_payment_complete_test_path_is_off_by_default_and_uses_inbox
+  - test_init_reconciler_alerts_overwatch
 """
 
 from __future__ import annotations
@@ -19,6 +24,7 @@ import respx
 from fastapi import HTTPException
 
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
+from config.feature_flags import reset_feature_flag_cache
 from watomation.routers import payment_hooks
 
 
@@ -84,8 +90,9 @@ async def test_payment_complete_path_updates_order_and_schedules_delivery_or_tak
 
 
 async def test_payment_complete_test_path_schedules_expected_initializer(
-    patch_supabase_client,
+    patch_supabase_client, feature_flags
 ) -> None:
+    feature_flags.add("ENABLE_PAYMENT_TEST_ROUTES")
     patch_supabase_client.register(
         table="food_order",
         verb="update",
@@ -134,3 +141,108 @@ async def test_pay_at_restaurant_validates_action_and_schedules_takeaway(patch_s
     result = await payment_hooks.pay_at_restaurant("ELAS", request, bg)
     assert result == {"status": "success", "order_number": "ELAS-ABCD-1"}
     assert [task["func"] for task in bg.tasks] == [payment_hooks.handle_payment_complete, payment_hooks.init_takeaway_summary]
+
+
+def _web_row(action="delivery") -> dict:
+    return _food_order_row(action) | {
+        "order_id": "QKZD-31",
+        "order_number": "SFCS-QKZD-31",
+        "recipient": "W7K2M9QX4TPA",
+        "thread_id": "WEB-1",
+        "origin_channel": "web",
+        "storefront": "ordelo",
+    }
+
+
+def _stripe_body(order_id="QKZD-31", event_id="evt_1", event_type="checkout.session.completed") -> dict:
+    return {"id": event_id, "type": event_type, "data": {"object": {"id": "cs_1", "metadata": {"orderID": order_id}}}}
+
+
+async def test_legacy_path_skips_restaurant_app_for_web_orders(patch_supabase_client) -> None:
+    patch_supabase_client.register(table="food_order", verb="update", response=FakeSupabaseResponse(data=[_web_row("delivery")]))
+    bg = _FakeBackgroundTasks()
+
+    assert await payment_hooks.payment_complete_path(_FakeRequest(_stripe_body()), bg) == {"success": "success"}
+    assert [task["func"] for task in bg.tasks] == [payment_hooks.init_delivery_summary]
+    assert bg.tasks[0]["args"] == ("SFCS-QKZD-31", "W7K2M9QX4TPA")
+
+
+async def test_inbox_applies_once_and_skips_restaurant_app_for_web(patch_supabase_client, feature_flags) -> None:
+    feature_flags.add("PAYMENT_INBOX_ENABLED")
+    patch_supabase_client.register_rpc(
+        "record_payment_authorised", FakeSupabaseResponse(data={"outcome": "applied", "order": _food_order_row("takeaway")})
+    )
+    bg = _FakeBackgroundTasks()
+    result = await payment_hooks.payment_complete_path(_FakeRequest(_stripe_body("ABCD-1")), bg)
+    assert result == {"success": "success", "outcome": "applied"}
+    assert [task["func"] for task in bg.tasks] == [payment_hooks.handle_payment_complete, payment_hooks.init_takeaway_summary]
+    assert not any(c.table == "food_order" for c in patch_supabase_client.calls)
+
+    patch_supabase_client.register_rpc(
+        "record_payment_authorised", FakeSupabaseResponse(data={"outcome": "applied", "order": _web_row("delivery")})
+    )
+    bg = _FakeBackgroundTasks()
+    await payment_hooks.payment_complete_path(_FakeRequest(_stripe_body()), bg)
+    assert [task["func"] for task in bg.tasks] == [payment_hooks.init_delivery_summary]
+
+
+@pytest.mark.parametrize(
+    "rpc_data, body, expected",
+    [
+        ({"outcome": "duplicate"}, _stripe_body(), "duplicate"),
+        ({"outcome": "rejected_state", "payment_status": "requires_capture"}, _stripe_body(), "rejected_state"),
+        ({"outcome": "unknown_order"}, _stripe_body("NOPE-1"), "unknown_order"),
+        (None, _stripe_body(event_type="payment_intent.created"), "ignored"),
+        (None, {"data": {"object": {"metadata": {}}}}, "invalid"),
+    ],
+)
+async def test_inbox_duplicate_rejected_unknown_and_ignored_have_no_side_effects(
+    patch_supabase_client, feature_flags, rpc_data, body, expected
+) -> None:
+    feature_flags.add("PAYMENT_INBOX_ENABLED")
+    if rpc_data is not None:
+        patch_supabase_client.register_rpc("record_payment_authorised", FakeSupabaseResponse(data=rpc_data))
+    bg = _FakeBackgroundTasks()
+
+    result = await payment_hooks.payment_complete_path(_FakeRequest(body), bg)
+
+    assert result == {"success": "success", "outcome": expected}
+    assert bg.tasks == []
+    if rpc_data is None:
+        assert patch_supabase_client.rpc_calls == []
+
+
+async def test_payment_complete_test_path_is_off_by_default_and_uses_inbox(patch_supabase_client, feature_flags) -> None:
+    with pytest.raises(HTTPException) as off:
+        await payment_hooks.payment_complete_test_path("ABCD-1", _FakeBackgroundTasks())
+    assert off.value.status_code == 404
+    assert patch_supabase_client.calls == []
+
+    feature_flags.update({"ENABLE_PAYMENT_TEST_ROUTES", "PAYMENT_INBOX_ENABLED"})
+    reset_feature_flag_cache()  # the 404 above cached "off" for 60 s
+    patch_supabase_client.register_rpc("record_payment_authorised", FakeSupabaseResponse(data={"outcome": "duplicate"}))
+    result = await payment_hooks.payment_complete_test_path("ABCD-1", _FakeBackgroundTasks())
+    assert result == {"success": "success", "outcome": "duplicate"}
+    assert patch_supabase_client.rpc_calls[-1].payload["args"]["p_provider_event_id"] == "authorised:ABCD-1"
+
+
+async def test_init_reconciler_alerts_overwatch(monkeypatch) -> None:
+    messages = []
+
+    class _WALogger:
+        async def info(self, msg):
+            messages.append(msg)
+
+    async def _get_wa_logger():
+        return _WALogger()
+
+    monkeypatch.setattr(payment_hooks, "get_wa_logger", _get_wa_logger)
+    bg = _FakeBackgroundTasks()
+    request = payment_hooks.InitReconcilerRequest(
+        orders=[{"order_id": "ABCD-1", "order_number": "ELAS-ABCD-1", "action": "delivery", "authorised_at": "2026-10-01T10:00:00Z"}]
+    )
+
+    assert await payment_hooks.init_reconciler_path(request, bg) == {"alerted": 1}
+    task = bg.tasks[0]
+    await task["func"](*task["args"])
+    assert "ELAS-ABCD-1" in messages[0]
