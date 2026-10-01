@@ -24,7 +24,7 @@ select * from customer_master;
 select rest_ref, count(*) from cust_rest_map where has_consent group by rest_ref;
 -- Check and close thread
 select * from thread where is_active order by dtts desc;
-update thread set is_active=False where is_active and recipient='447448440754';
+update thread set is_active=False where is_active and recipient='447919202938';
 --ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d 
 --ORDELO-7006a159-8f54-4615-ac0e-6fe58fed32c7
 
@@ -450,9 +450,12 @@ select * from waba_es order by dtts desc;
 select dispatch_complete_func(1159);
 
 
-select * from delivery_summary where order_number='SFCS-TVUC-20';
+select * from delivery_summary where order_number='BNAT-QGFS-70';
 
 select * from delivery_dispatch where dispatch_id=1159;
 select * from delivery_inflight;
 
 select * from customer_master order by dtts desc;
+
+select * from order_item where order_id = 'RMLT-29';
+select * from food_order where order_id = 'RMLT-29';

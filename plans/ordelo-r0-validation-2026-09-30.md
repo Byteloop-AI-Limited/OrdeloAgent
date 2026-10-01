@@ -39,3 +39,7 @@ J
 - `tsconfig.tsbuildinfo` is an unrelated generated change to exclude from a clean implementation commit. The new implementation files are still untracked and must be included when committing.
 
 Screenshots: `/private/tmp/ordelo-r0-menu-360.jpg`, `/private/tmp/ordelo-r0-fee-360.jpg`.
+
+## Follow-up (2026-10-01)
+
+Findings 1–4 and the stale name/phone copy were fixed in restaurant-frontend (uncommitted on `dev`); see `ordelo-agg-plan-cc.md` §18 R3 "Entry gate". The Lighthouse measurement is still outstanding.
