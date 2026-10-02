@@ -246,6 +246,9 @@ async def _handle_restaurant_decline(
         customer_text = f"Sorry, your order {food_order.order_number} could not be accepted by {takeaway_summary.rest_name}."
 
     if is_web_customer_key(takeaway_summary.customer_id):
+        if cancel_result is None and food_order.payment_status != "pay_at_rest":
+            from utils_common.web_ordering.lifecycle import queue_release
+            await queue_release(food_order.order_number, "restaurant_declined")
         await customer_notifier.publish(food_order.order_number, CustomerOrderEvent(
             "restaurant_declined", "restaurant_declined", "web-restaurant-declined", {"payment_cancelled": cancel_result is not None}))
     else:

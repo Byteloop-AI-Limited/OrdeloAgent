@@ -1,6 +1,7 @@
 -- R3 additive web checkout/access storage. Does not enable any restaurant.
 -- Existing WhatsApp order creation retains the same parameters/defaults.
 BEGIN;
+SET LOCAL search_path = public;
 ALTER TABLE restaurant_master ADD COLUMN IF NOT EXISTS delivery_order_cutoff_minutes integer NOT NULL DEFAULT 0,
  ADD COLUMN IF NOT EXISTS takeaway_order_cutoff_minutes integer NOT NULL DEFAULT 0;
 CREATE TABLE IF NOT EXISTS public.order_access_grant (
