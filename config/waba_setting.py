@@ -130,7 +130,7 @@ waba_business_settings.phone_id, waba_business_settings.account_id
 #     business_phone_number.webhook_configuration,
 # )
 
-# %%
+# %% run
 
 
 # _sync_wa_client.override_waba_callback_url(
