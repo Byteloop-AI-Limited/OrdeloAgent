@@ -787,7 +787,7 @@ async def delivery_timedout(
     Returns:
         dict: Status of the delivery timedout operation.
     """
-    logger.info(f"delivery_timedout received: {payload}")
+    logger.info("delivery_timedout received")
     delivery_summary_lst = payload.get("delivery_summary", None)
     delivery_summary = delivery_summary_lst[0]
     rest_id = delivery_summary["rest_id"]
@@ -804,6 +804,10 @@ async def delivery_timedout(
             "Payment cancellation failed during delivery_timedout",
             extra={"order_number": delivery_summary.get("order_number")},
         )
+
+    if not payment_cancelled and is_web_customer_key(delivery_summary.get("customer_id")):
+        from utils_common.web_ordering.lifecycle import queue_release
+        await queue_release(delivery_summary["order_number"], "no_rider_found")
 
     # 2. Configured auto-accept orders intentionally suppress the noisy
     # no-rider message. Timeout auto-accepts retain their existing message.

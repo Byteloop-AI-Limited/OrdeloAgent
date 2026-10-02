@@ -1,7 +1,7 @@
 # Ordelo web ordering channel (ordelo-agg): design and release plan
 
 - **Target repository:** `OrdeloAgent` → `plans/ordelo-agg-plan-cc.md` (branch `release/ordelo-agg`)
-- **Status (2026-10-01, after go-live):** R0 (front end, fixtures) and R1a (Ordelo) plus the test-payment addendum (D32) are **live in production**, and every R1a verification gap is closed. Next is **R1b**, then **R2**. The R0 front-end findings were deferred to the R3 entry gate (D34) and then fixed on 2026-10-01 (uncommitted in restaurant-frontend; only the Lighthouse check remains); scheduling the init reconciler is deferred (D33). **A new session should start at "Resume here" below.**
+- **Status (2026-10-02):** R3 is implemented locally and enabled for ELAS through the test tunnel. The storefront has created a real unpaid Stripe-test quote. Production acceptance is pending paid web/WhatsApp regression, accessibility, monitoring and public business/legal details. See [R3 build and test-window handover](../docs/releases/ordelo-agg-r3-2026-10-02.md) for current configuration and restoration obligations; the historical resume snapshot below describes 2026-10-01. R1b/R2 evidence is recorded separately in `docs/releases/`. Scheduling the init reconciler remains deferred (D33).
 - **Revised 2026-10-01:** the payment-service contract stays unchanged for web; web-specific payment behaviour moves into Ordelo's `payment-complete` (D22–D27). Glossary in `CONTEXT.md`; decisions in ADR-0003, ADR-0004 and ADR-0005.
 - **Evidence snapshot:** 2026-09-29. OrdeloAgent `7697e15` (`release/ordelo-agg`), restaurant-frontend `a75312e` (`dev`), restaurant-agents `eeb6a3c` (`main`). Payment service `58158ca` read on 2026-10-01.
 - **Companion reference:** `OrdeloAgent/docs/ordelo-restaurant-frontend-agents.md` (endpoint ids such as `create` and `authorized` below refer to it)
@@ -1158,7 +1158,7 @@ remain pending. See [verification notes](../docs/releases/ordelo-agg-r1b-2026-10
   - `customer_hooks.update_address` skipped for W-ids (`capture-address` already skips them from R1a, D29).
   - Availability/pause checks; eligibility typed result.
   - Abandoned-checkout sweep (web threads inactive after 2 h).
-  - Web test-mode switch: `food_order` from a restaurant listed in `ordelo_config.WEB_TEST_REST_REFS` uses `stripe_url_test` (replaces the overwatch-recipient trick for web).
+  - Web test-mode switch: an explicit `test_payment` request uses `stripe_url_test` only for a restaurant in `ordelo_config.TEST_PAYMENT_REST_REFS` (D32). An allowlist entry alone does not force test mode; unauthorised web test requests are rejected without falling back to live payment.
 - **Frontend:** `/api/web/*` live proxies; cookies; log redaction (F9); `robots.txt`/sitemap; legal pages; the price-floor monitor job (D8).
 - **Flags:**
   - `webOrderingEnabled` per restaurant (config) **and** `WEB_ORDERING_ENABLED_REST_REFS` in `ordelo_config` (server-side kill switch checked in `/web/checkout-sessions` and `/web/orders`).
@@ -1338,18 +1338,20 @@ Work one release at a time. Don't start R3 code paths that create real orders be
 
 - [x] Entry gate from R0 (D34), items 1–5: fixed 2026-10-01 (restaurant-frontend `dev`, uncommitted).
 - [ ] Entry gate item 6: Lighthouse mobile accessibility ≥ 90.
-- [ ] Order-lookup copy that mentions a phone number (after Q14).
-- [ ] Ordelo `/web/orders` enforces `MAX_ORDER_LINES` (20) or a higher limit stored in full.
-- [ ] Migrations 004, 005, 007; `job_close_thread.sql` filter; admin views `origin_channel`.
-- [ ] M4 `order_access.py`, M5 `customer_order_view.py`, M6 `web_checkout.py`; `watomation/routers/web_hooks.py` registered in `fapp_ordelo_agent.py`.
-- [ ] M2 web branch: skip the restaurant app (D27), publish to the notifier, late-payment guard (Q17).
-- [ ] `ordelo/agents/rider_agent.py:send_customer_contact`: no contact card for a non-phone `customer_id`; tell the rider no number is on file.
-- [ ] M6: manual-capture calls only (D25); reject `rest_ref`s the payment service doesn't know (F13).
-- [ ] `takeaway_hooks._handle_restaurant_decline` → notifier; `order_hooks.capture_address` + `customer_hooks.update_address` skip W-ids.
-- [ ] Availability evaluator (service hours + cutoff + pause keys); typed eligibility helper.
-- [ ] Abandoned web-thread sweep; web test-mode switch in `FoodOrder.payment_uri`.
-- [ ] Frontend: `/api/web/*` routes with `X-Ordelo-Web-Key`; cookies; redact logging in `middleware.ts` and `app/api/menu/route.ts`; `robots.txt`, sitemap, legal pages.
-- [ ] Monitoring jobs M-1…M-9; price-floor monitor.
+- [x] Order-lookup copy uses secret link/cookie only (Q14); no live phone fallback.
+- [x] Ordelo `/web/orders` enforces `MAX_ORDER_LINES` (20).
+- [x] Additive `ordelo_agg_r3.sql` migration; WEB thread cleanup filter; admin view `origin_channel`.
+- [x] M4 `order_access.py`, M5 `customer_order_view.py`, M6 `web_checkout.py`; `watomation/routers/web_hooks.py` registered in `fapp_ordelo_agent.py`.
+- [x] M2 web branch: skip the restaurant app (D27), publish to the notifier, durable late-payment guard (Q17).
+- [x] `ordelo/agents/rider_agent.py:send_customer_contact`: no contact card for a non-phone `customer_id`; tell the rider no number is on file.
+- [x] M6: manual-capture calls only (D25); reject unknown payment-service `rest_ref`s (F13).
+- [x] Takeaway decline → notifier; address hooks skip W-ids.
+- [x] Availability evaluator (service hours + cutoff + pause keys); typed eligibility helper.
+- [x] Abandoned WEB thread sweep; explicit test request uses D32 allowlist.
+- [x] Frontend live proxies, secret/cookies, query log redaction, robots and gated sitemap.
+- [ ] Public business identity, support email and approved legal links (owner: keep pending).
+- [ ] Monitoring M1–M9 and enabled price-floor audit; audit implementation exists behind a flag.
+- [ ] Paid storefront/WhatsApp regression and production privacy checks; see R3 release handover.
 
 **R4: restaurant-agents + OrdeloAgent + frontend** (§14, §18).
 

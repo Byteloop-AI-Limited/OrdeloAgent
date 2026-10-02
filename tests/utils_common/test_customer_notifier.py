@@ -111,7 +111,7 @@ async def test_web_address_is_skipped(monkeypatch):
     assert len(respx.calls) == 0
 
 
-async def test_persistence_failure_does_not_send_legacy_fallback(monkeypatch):
+async def test_persistence_failure_does_not_send_legacy_fallback(monkeypatch, patch_supabase_client):
     monkeypatch.setattr(
         n, "_record", AsyncMock(side_effect=RuntimeError("database down"))
     )
@@ -121,6 +121,7 @@ async def test_persistence_failure_does_not_send_legacy_fallback(monkeypatch):
         "BNAT-ABCD-1", n.CustomerOrderEvent("delivered", "delivered", "rider-cust-cc")
     )
     dispatch.assert_not_awaited()
+    assert any(call.table == 'order_customer_event' and call.verb == 'upsert' for call in patch_supabase_client.calls)
 
 
 async def test_sweep_only_recovers_pending_unattempted_rows(

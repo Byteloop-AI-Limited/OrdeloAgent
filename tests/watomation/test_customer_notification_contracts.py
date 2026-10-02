@@ -86,6 +86,7 @@ async def test_legacy_notification_contract(
     monkeypatch.setattr(notifier, "config_csv", AsyncMock(return_value=frozenset()))
     if notifier_enabled:
         feature_flags.add("CUSTOMER_NOTIFIER_ENABLED")
+    if notifier_enabled or origin == "web":
         state = {}
 
         async def record(order_number, event):
