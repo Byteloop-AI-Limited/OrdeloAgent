@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ordelo Local Automatic Orders"
+  short_description: "Test Ordelo locally through Chrome, Swagger and Stripe"
+  default_prompt: "Use $ordelo-local-automatic-orders to run an Ordelo local order test, verify database and Stripe evidence, and restore the approved configuration."
