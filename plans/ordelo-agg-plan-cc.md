@@ -1,7 +1,7 @@
 # Ordelo web ordering channel (ordelo-agg): design and release plan
 
 - **Target repository:** `OrdeloAgent` → `plans/ordelo-agg-plan-cc.md` (branch `release/ordelo-agg`)
-- **Status (2026-10-02):** R3 is implemented locally and enabled for ELAS through the test tunnel. The storefront has created a real unpaid Stripe-test quote. Production acceptance is pending paid web/WhatsApp regression, accessibility, monitoring and public business/legal details. See [R3 build and test-window handover](../docs/releases/ordelo-agg-r3-2026-10-02.md) for current configuration and restoration obligations; the historical resume snapshot below describes 2026-10-01. R1b/R2 evidence is recorded separately in `docs/releases/`. Scheduling the init reconciler remains deferred (D33).
+- **Status (2026-10-02, production handover):** R3 implementation and build checks passed. The owner's complete overwatch WhatsApp delivery/UI regression **ELAS-LXGM-26 passed** in Stripe test mode. Paid web collection **ELAS-RNRX-25 failed capture** because the payment service has no persisted intent record; R3 public acceptance is not complete. The owner restored both app URLs and Meta to production (verified at 14:46 local). ELAS Stripe TEST ingress is still local, and two web test sessions need reconciliation. Owner wants production deployment and eventual live web; recommended first deployment keeps new web checkout paused. See [exact production configuration and unresolved issues](../docs/releases/ordelo-agg-r3-production-handover-2026-10-02.md) and [detailed R3 evidence](../docs/releases/ordelo-agg-r3-2026-10-02.md). Scheduling the init reconciler remains deferred (D33).
 - **Revised 2026-10-01:** the payment-service contract stays unchanged for web; web-specific payment behaviour moves into Ordelo's `payment-complete` (D22–D27). Glossary in `CONTEXT.md`; decisions in ADR-0003, ADR-0004 and ADR-0005.
 - **Evidence snapshot:** 2026-09-29. OrdeloAgent `7697e15` (`release/ordelo-agg`), restaurant-frontend `a75312e` (`dev`), restaurant-agents `eeb6a3c` (`main`). Payment service `58158ca` read on 2026-10-01.
 - **Companion reference:** `OrdeloAgent/docs/ordelo-restaurant-frontend-agents.md` (endpoint ids such as `create` and `authorized` below refer to it)
@@ -16,7 +16,15 @@ Labels used throughout:
 
 ---
 
-## Resume here (state at 2026-10-01, after go-live)
+## Resume here (current handover, 2026-10-02)
+
+1. Read the [production handover](../docs/releases/ordelo-agg-r3-production-handover-2026-10-02.md), including the current/paused/live configuration table and provider/test-session cleanup. Do not apply the older pre-R1b restore profile, which would disable the notifier pilot.
+2. Owner restored both app URLs and the Meta override. On explicit owner approval at **15:39 local**, `TEST_PAYMENT_REST_REFS=BNAT` and empty `WEB_ORDERING_ENABLED_REST_REFS` were applied and verified; **`WEB_LATE_PAYMENT_GUARD_ENABLED=true`** was retained. Production URLs and existing inbox/RPC/notifier flags were verified unchanged. The [pause/unpause SQL profiles](../notebooks/db_queries/ordelo-agg-db-switch.sql) and private before snapshot are documented in the handover. PAUSE is the runnable default; UNPAUSE enables ELAS and is commented out pending launch acceptance.
+3. Release wiring still needs production web env variables copied by Amplify, matching backend/frontend server keys, a stable cookie secret, and the production upstream URL. Local ignored env files are not deployed configuration.
+4. Resolve web collection capture through the payment-service deployment/configuration investigation, reconcile existing test sessions, and complete remaining R3 regression/launch gates before setting the web allowlist back to `ELAS`. Owner expects low `/town` traffic, but the route/API is public when enabled; this is not a launch safeguard.
+5. Overwatch WhatsApp delivery passed through completion. Non-overwatch live payment, R3-run takeaway/pay-at-restaurant, web delivery, late-payment, failure/cancellation paths, production privacy, accessibility, monitoring and pending public business/legal details remain separate gaps.
+
+## Historical resume snapshot (2026-10-01, after go-live)
 
 Read this first, then §0 (D22–D34), §18 and §22. Background reading: `CONTEXT.md` ("Web ordering"), `docs/adr/0003`–`0005`, `plans/ordelo_agg_plan_cc_decision_log.md` (entries 27–36).
 
@@ -1140,6 +1148,8 @@ remain pending. See [verification notes](../docs/releases/ordelo-agg-r1b-2026-10
 
 ### R3: Web ordering live (flagged: one town, one restaurant, then widen)
 
+- **Current acceptance (2026-10-02):** implemented/build verified; full overwatch WhatsApp delivery/UI regression passed. Web collection authorisation succeeded but capture failed (`ELAS-RNRX-25`), indicating deployed payment-service metadata/persistence mismatch with local commit `58158ca`. Public web acceptance remains open. See the production handover linked above; the owner wants live web, but low traffic to `/town` does not remove the capture failure or the remaining gates.
+
 - **Entry gate (deferred from R0, D34).** restaurant-frontend, web code only. **Items 1–5 fixed 2026-10-01** (uncommitted on `dev`; `tsc` and lint clean; logic checked with a throwaway script). Item 6 is still open.
   1. ✅ Restaurant-switch confirmation is skipped: `PersistedCart.tsx` saves the new basket before `OrdeloMenuContainer.tsx` checks for another active basket. Capture the previous restaurant first; clear storage only after the user chooses. *Fix:* `lib/storefront/basket.ts` `otherActiveBasket` scans stored baskets instead of trusting the active pointer; "Start new basket" calls the new `clearOtherBaskets`.
   2. ✅ Checkout drops the Ordelo voucher: `CheckoutFlow.tsx` calls `resolveOffers` without the stored `ordelo_web_voucher:{id}`. Dormant until a restaurant has `ordeloOffers` (Q13). *Fix:* `readStoredVoucher`/`storeVoucher` in `lib/storefront/offers.ts`, used by both the menu page and checkout. Needs a browser check once Q13 configures a voucher.
@@ -1351,7 +1361,13 @@ Work one release at a time. Don't start R3 code paths that create real orders be
 - [x] Frontend live proxies, secret/cookies, query log redaction, robots and gated sitemap.
 - [ ] Public business identity, support email and approved legal links (owner: keep pending).
 - [ ] Monitoring M1–M9 and enabled price-floor audit; audit implementation exists behind a flag.
-- [ ] Paid storefront/WhatsApp regression and production privacy checks; see R3 release handover.
+- [x] Full overwatch WhatsApp delivery/UI regression: ELAS-LXGM-26, test payment captured, pickup/customer-confirmed completion, notifications each sent once.
+- [ ] Web manual-collection capture: ELAS-RNRX-25 failed; inspect/release existing payment-service fix and reconcile the current test intent.
+- [ ] Remaining paid web/WhatsApp matrix and production privacy checks; see R3 release handover.
+- [ ] Production web environment wiring in Amplify/backend and both frontend/backend source releases; current local env alone is insufficient.
+- [x] Owner restored both shared app URLs and Meta to production; read-only verification 14:46 local.
+- [x] Owner-approved ordelo_config handover applied/verified 15:39 local: test-payment scope BNAT, new web checkout paused, late guard true; production URLs and payment/notifier flags preserved.
+- [ ] Remaining ELAS Stripe TEST callback restoration and payable/authorised web-test cleanup; no provider settings were changed by the ordelo_config update.
 
 **R4: restaurant-agents + OrdeloAgent + frontend** (§14, §18).
 
