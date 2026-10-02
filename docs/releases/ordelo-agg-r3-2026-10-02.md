@@ -8,6 +8,12 @@ window through the existing Cloudflare tunnel, not a production deployment or
 completed R3 acceptance. The owner requested that business identity, support
 email, and approved Terms/Privacy links remain pending.
 
+**Later production handover:** the owner restored both shared app URLs and the
+Meta override to production; verified at 14:46 local. The historical test-window
+configuration below describes the earlier window. See the
+[production handover](ordelo-agg-r3-production-handover-2026-10-02.md) for current
+values, unresolved capture, remaining provider cleanup and deployment settings.
+
 ## Scope and WhatsApp implications
 
 This release changes the backend as well as the storefront UI: guest checkout,
