@@ -15,10 +15,13 @@ Functions/Classes:
   . create_order_with_items - Creates order and order items (one-transaction RPC behind
     ORDER_CREATE_RPC_ENABLED, else insert + compensating delete)
   . capture_payment_for_order - Captures payment for order with restaurant confirmation
+    . Routes customer notifications through the R1b notifier when enabled
 """
 
 # %%
 from __future__ import annotations
+
+from utils_common.notify import customer_notifier
 
 import asyncio
 from typing import Any, Dict, List, Optional, Tuple
@@ -383,6 +386,8 @@ async def create_order_with_items(
             result = await _insert_order_compensating(insert_payload, order_items)
 
         if result.get("success"):
+            if await customer_notifier.enabled_for(rest_ref):
+                await customer_notifier.create_origin_subscription(order_number)
             return {"success": True, "order_id": order_id, "order_number": order_number}
         if not result.get("duplicate_order_id") or attempt == attempts:
             break

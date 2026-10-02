@@ -1,3 +1,14 @@
+select * from payment_event;
+select * from order_customer_event;
+select * from order_notification_subscription;
+select * from notification_outbox;
+select * from delivery_summary where order_number like '%LXGM-20';
+select * from delivery_summary order by dtts desc; 
+
+update delivery_summary set pickup_time='2026-10-02 08:55:19.027864+00'
+where order_number='ELAS-LXGM-20';
+
+select * from food_order where order_id='LXGM-20';
 select * from customer_master where cust_id='447448440754';
 select * from customer_master;
 select * from restaurant_master where rest_ref='SFCS';

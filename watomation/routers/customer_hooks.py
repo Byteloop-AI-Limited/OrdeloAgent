@@ -15,7 +15,11 @@ Functions/Classes:
   . update_address - POST /update-address
   . update_cust_rest_map - POST /update-cust-rest-map
   . submit_restaurant_feedback - POST /restaurant-feedback
+    . Routes customer notifications through the R1b notifier when enabled
 """
+
+from utils_common.notify import customer_notifier
+from utils_common.order_management.customer_keys import is_web_customer_key
 
 # %%
 import asyncio
@@ -123,6 +127,11 @@ async def update_address(request: UpdateAddressRequest):
     logger.info(f"Address updated for customer {request.cust_id}")
 
     try:
+        if await customer_notifier.enabled_for(request.rest_ref):
+            await customer_notifier.notify_address(request.rest_ref, request.cust_id, address_payload)
+            return {"success": True, "cust_id": request.cust_id}
+        if is_web_customer_key(request.cust_id):
+            return {"success": True, "cust_id": request.cust_id}
         webhook_url = await get_restaurant_webhook_url_async(
             request.rest_ref, "order-address-update"
         )

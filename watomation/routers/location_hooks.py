@@ -15,7 +15,12 @@ Location hooks router for OrdeloAgent FastAPI service.
     . receive_pub - Webhook to receive location events from OwnTracks
     . notify_rider_location_event - Handles rider location events
     . notify_rider_null_or_outdated_location - Notifies riders about tracking issues
+    . Routes customer notifications through the R1b notifier when enabled
 """
+
+from utils_common.order_management.customer_keys import is_web_customer_key
+from utils_common.notify import customer_notifier
+from utils_common.notify.customer_notifier import CustomerOrderEvent
 
 # %%
 from fastapi import APIRouter, Request, Depends, Path, HTTPException, BackgroundTasks
@@ -287,6 +292,11 @@ async def notify_rider_location_event(
     elif location == "cust" and event == "enter":
         # Call restaurant webhook for customer enter event
         rest_ref = order_number.split("-")[0]
+        if is_web_customer_key(delivery_summary.get("customer_id") or customer_id) or await customer_notifier.enabled_for(rest_ref):
+            await customer_notifier.publish(order_number, CustomerOrderEvent(
+                "rider_near_customer", "rider_near_customer", "rider-cust-enter",
+                {"delivery_summary": delivery_summary}, f"/{order_number}"))
+            return {"event": "success"}
         webhook_url = await get_restaurant_webhook_url_async(
             rest_ref, "rider-cust-enter"
         )

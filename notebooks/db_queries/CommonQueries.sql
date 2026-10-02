@@ -459,3 +459,18 @@ select * from customer_master order by dtts desc;
 
 select * from order_item where order_id = 'RMLT-29';
 select * from food_order where order_id = 'RMLT-29';
+
+// to be sent to Codex app
+R1b, in plain terms: Right now only two of the 10 places that notify a restaurant app skip web orders. The other eight would still send a web order's customer ID to a restaurant app. R1b routes all 10 through one customer notifier, so web and WhatsApp orders can be handled differently. WhatsApp customers see no change. The steps are:
+1. Write tests that record exactly what each of the 10 hooks sends today.
+2. Build the notifier.
+3. Switch the 10 call sites over behind CUSTOMER_NOTIFIER_ENABLED, with the flag off by default.
+4. Turn the flag on for BNAT first and compare the customer messages.
+No new SQL is needed; those tables were already created.
+R2, in plain terms: this is a test run, not code. On BNAT in Stripe test mode, you create a web-style order through the existing endpoints, pay with a test card, and check four things:
+- Ordelo records the payment once and doesn't call the restaurant app.
+- Replaying the payment event changes nothing.
+- The payment is captured when a rider accepts, and cancelled when no rider takes the job.
+- Where Stripe sends the browser after payment.
+Do it after R1b, so the test order never reaches a restaurant app. The plan has the exact calls.
+

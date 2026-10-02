@@ -23,10 +23,12 @@ _FLAG_CACHE_TTL_SECS = 60
 _FLAG_CACHE: dict[str, tuple[bool, float]] = {}
 _TRUE_VALUES = {"true", "1", "yes", "on"}
 
-# Flags introduced by the ordelo-agg plan (R1a).
+# Flags introduced by the ordelo-agg plan (R1a/R1b).
 ORDER_CREATE_RPC_ENABLED = "ORDER_CREATE_RPC_ENABLED"
 PAYMENT_INBOX_ENABLED = "PAYMENT_INBOX_ENABLED"
 ENABLE_PAYMENT_TEST_ROUTES = "ENABLE_PAYMENT_TEST_ROUTES"
+CUSTOMER_NOTIFIER_ENABLED = "CUSTOMER_NOTIFIER_ENABLED"
+CUSTOMER_NOTIFIER_REST_REFS = "CUSTOMER_NOTIFIER_REST_REFS"
 # Plan D32: restaurants whose orders may use test payments on request.
 TEST_PAYMENT_REST_REFS = "TEST_PAYMENT_REST_REFS"
 
@@ -73,10 +75,11 @@ def _read_csv(key: str) -> frozenset[str]:
     return frozenset(v.strip().upper() for v in raw.split(",") if v.strip())
 
 
-async def config_csv(key: str) -> frozenset[str]:
+async def config_csv(key: str, *, fail_on_error: bool = False) -> frozenset[str]:
     """Upper-cased values of a comma-separated ``ordelo_config`` key (cached 60 s).
 
-    A missing key or a failed lookup gives an empty set.
+    A missing key gives an empty set. Failed lookups also give an empty set
+    unless fail_on_error=True (used by the notifier pilot allowlist).
     """
     cached = _CSV_CACHE.get(key)
     now = time.monotonic()
@@ -85,6 +88,8 @@ async def config_csv(key: str) -> frozenset[str]:
     try:
         value = await asyncio.to_thread(_read_csv, key)
     except Exception as err:  # noqa: BLE001 - a failed lookup means "empty"
+        if fail_on_error:
+            raise
         logger.warning(f"config {key}: lookup failed, treating as empty: {err}")
         value = frozenset()
     _CSV_CACHE[key] = (value, now)
