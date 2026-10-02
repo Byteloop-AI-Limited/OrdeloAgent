@@ -17,7 +17,11 @@ Functions/Classes:
   . validate_postcode - Validates UK postcodes and returns resolved address
   . capture_address - Captures customer address and upserts into customer_master and cust_rest_map
   . get_active_thread - Proxies active thread retrieval request to restaurant system
+    . Routes customer notifications through the R1b notifier when enabled
 """
+
+from utils_common.notify import customer_notifier
+from utils_common.payment_ms.payment_mode import is_test_payment_allowed
 
 # %%
 
@@ -211,6 +215,7 @@ class CreateOrderRequest(BaseModel):
     # Plan D28/D29: web-style orders (R2 checks, later /web/*) set these.
     origin_channel: Literal["whatsapp", "web"] = "whatsapp"
     storefront: Literal["direct", "ordelo"] = "direct"
+    test_payment: bool = False
 
 
 @router.post(
@@ -253,6 +258,12 @@ async def create_order(
     _notes = request.notes.lower() if request.notes else ""
 
     action = request.order_type
+    payment_mode = None
+    if request.test_payment:
+        allowed, reason = await is_test_payment_allowed(request.recipient, rest_ref)
+        if allowed:
+            payment_mode = "test"
+        logger.info("test payment request rest_ref={} allowed={} reason={}", rest_ref, allowed, reason)
 
     # Create order with items
     order_result = await create_order_with_items(
@@ -264,6 +275,7 @@ async def create_order(
         notes=request.notes,
         origin_channel=request.origin_channel,
         storefront=request.storefront,
+        payment_mode=payment_mode,
     )
 
     # Check if order creation was successful (F3: before reading order_id)
@@ -302,6 +314,7 @@ async def create_order(
         "thread_id": request.thread_id,
         "order_number": order_number,
         "payment_intent_url": payment_intent_url,
+        "payment_mode": "test" if getattr(food_order, "uses_test_payment", False) else "live",
         "service_charge": food_order.service_charge,
         "delivery_fee": food_order.delivery_fee,
         "small_order_fee": food_order.small_order_fee,
@@ -381,6 +394,10 @@ async def capture_address(request: CaptureAddressRequest):
     )
 
     logger.info(f"Customer address captured for {request.recipient}")
+
+    if await customer_notifier.enabled_for(rest_ref):
+        await customer_notifier.notify_address(rest_ref, request.recipient, _customer_master_row.model_dump())
+        return {"success": True}
 
     # A W-id belongs to a web checkout, which no restaurant app knows (ADR-0003).
     if is_web_customer_key(request.recipient):

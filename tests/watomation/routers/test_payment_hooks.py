@@ -167,6 +167,25 @@ async def test_legacy_path_skips_restaurant_app_for_web_orders(patch_supabase_cl
     assert bg.tasks[0]["args"] == ("SFCS-QKZD-31", "W7K2M9QX4TPA")
 
 
+async def test_notifier_publishes_web_authorisation_once(monkeypatch, patch_supabase_client, feature_flags):
+    from unittest.mock import AsyncMock
+    from utils_common.notify import customer_notifier
+    feature_flags.update({"PAYMENT_INBOX_ENABLED", "CUSTOMER_NOTIFIER_ENABLED"})
+    monkeypatch.setattr(customer_notifier, "config_csv", AsyncMock(return_value=frozenset({"BNAT"})))
+    web = _web_row() | {"order_number": "BNAT-QKZD-31"}
+    patch_supabase_client.register_rpc("record_payment_authorised", FakeSupabaseResponse(data={"outcome": "applied", "order": web}))
+    bg = _FakeBackgroundTasks()
+    await payment_hooks.payment_complete_path(_FakeRequest(_stripe_body()), bg)
+    assert bg.tasks[0]["func"] is customer_notifier.publish
+    assert bg.tasks[0]["args"][0] == "BNAT-QKZD-31"
+    assert bg.tasks[0]["args"][1].event_type == "payment_authorised"
+    assert bg.tasks[1]["func"] is payment_hooks.init_delivery_summary
+    patch_supabase_client.register_rpc("record_payment_authorised", FakeSupabaseResponse(data={"outcome": "duplicate"}))
+    replay = _FakeBackgroundTasks()
+    await payment_hooks.payment_complete_path(_FakeRequest(_stripe_body()), replay)
+    assert replay.tasks == []
+
+
 async def test_inbox_applies_once_and_skips_restaurant_app_for_web(patch_supabase_client, feature_flags) -> None:
     feature_flags.add("PAYMENT_INBOX_ENABLED")
     patch_supabase_client.register_rpc(

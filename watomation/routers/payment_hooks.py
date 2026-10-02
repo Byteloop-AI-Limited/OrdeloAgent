@@ -1,4 +1,6 @@
 """
+R3: web-origin isolation and customer tracking safeguards.
+
 Payment webhook handler module for Elai Agent
     . Processes payment webhook events from payment providers
     . Extracts payment status information from webhook payloads
@@ -15,7 +17,12 @@ Payment webhook handler module for Elai Agent
     . payment_complete_test_path - Test replay, off unless ENABLE_PAYMENT_TEST_ROUTES
     . init_reconciler_path - Alert-only target of job_payment_init_reconciler()
     . pay_at_restaurant - Logs pay-at-restaurant order data
+    . Routes customer notifications through the R1b notifier when enabled
 """
+
+from utils_common.notify import customer_notifier
+from utils_common.notify.customer_notifier import CustomerOrderEvent
+from utils_common.order_management.customer_keys import is_web_customer_key
 
 # %%
 from typing import List, Optional
@@ -62,6 +69,16 @@ async def handle_payment_complete(food_order: FoodOrder):
     Returns:
         dict: Success status
     """
+
+    if await customer_notifier.enabled_for(food_order.order_number.split("-")[0]):
+        await customer_notifier.publish(food_order.order_number, CustomerOrderEvent(
+            "payment_authorised", "payment_authorised", "order-payment-complete",
+            food_order.model_dump(), f"/{food_order.recipient}/{food_order.thread_id}"))
+        return {"success": "success"}
+
+    # A flag flip between scheduling and execution must never leak a W-id.
+    if is_web_customer_key(food_order.recipient):
+        return {"success": "success"}
 
     # Call the restaurant api to update the payment status
     rest_ref = food_order.order_number.split("-")[0]
@@ -119,7 +136,7 @@ def init_delivery_summary(order_number: str, recipient: str):
 # %%
 
 
-def _schedule_after_authorisation(
+async def _schedule_after_authorisation(
     order_row: dict, background_tasks: BackgroundTasks
 ) -> FoodOrder:
     """Queue the restaurant-app notice (WhatsApp orders only) and summary init."""
@@ -127,12 +144,19 @@ def _schedule_after_authorisation(
 
     # ADR-0003 / D27: web orders never reach a restaurant app.
     if order_row.get("origin_channel", "whatsapp") == "web":
+        if await flag_enabled("WEB_LATE_PAYMENT_GUARD_ENABLED") or await customer_notifier.enabled_for(food_order.order_number.split("-")[0]):
+            background_tasks.add_task(customer_notifier.publish, food_order.order_number,
+                CustomerOrderEvent("payment_authorised", "payment_authorised", "order-payment-complete",
+                    food_order.model_dump(), f"/{food_order.recipient}/{food_order.thread_id}"))
         logger.info(
             f"order {food_order.order_number}: web order, restaurant-app payment-complete skipped"
         )
     else:
         background_tasks.add_task(handle_payment_complete, food_order)
 
+    if order_row.get("origin_channel") == "web" and await flag_enabled("WEB_LATE_PAYMENT_GUARD_ENABLED"):
+        from utils_common.web_ordering.common import query
+        background_tasks.add_task(query, "UPDATE thread SET is_active=false WHERE thread_id=%s AND agent='WEB'", (food_order.thread_id,))
     if food_order.action == "delivery":
         background_tasks.add_task(
             init_delivery_summary, food_order.order_number, food_order.recipient
@@ -159,9 +183,13 @@ async def _apply_via_inbox(body: dict, background_tasks: BackgroundTasks) -> dic
         logger.info(f"payment-complete: ignored event type {body.get('type')!r}")
         return {"success": "success", "outcome": "ignored"}
 
+    from utils_common.web_ordering.lifecycle import reject_late
+    late = await reject_late(evt)
+    if late:
+        return {"success": "success", "outcome": late}
     outcome = await record_payment_authorised(evt)
     if outcome.applied and outcome.order:
-        _schedule_after_authorisation(outcome.order, background_tasks)
+        await _schedule_after_authorisation(outcome.order, background_tasks)
     elif outcome.outcome == REJECTED_STATE:
         logger.warning(
             f"payment-complete: order {evt.order_id} is {outcome.payment_status}, "
@@ -180,7 +208,7 @@ async def _apply_legacy(order_id: str, background_tasks: BackgroundTasks) -> dic
         .eq("order_id", order_id)
         .execute()
     )
-    _schedule_after_authorisation(response.data[0], background_tasks)
+    await _schedule_after_authorisation(response.data[0], background_tasks)
     return {"success": "success"}
 
 
@@ -200,6 +228,10 @@ async def payment_complete_path(request: Request, background_tasks: BackgroundTa
 
     order_id = request_body["data"]["object"]["metadata"]["orderID"]
     logger.info(f"order_id:{order_id} - PaymentComplete webhook from stripe called")
+    from utils_common.web_ordering.lifecycle import reject_late
+    late = await reject_late(parse_payment_complete(request_body))
+    if late:
+        return {"success": "success", "outcome": late}
     return await _apply_legacy(order_id, background_tasks)
 
 

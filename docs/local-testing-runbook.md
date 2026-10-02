@@ -254,3 +254,19 @@ Account for the same cache expiry/restart behavior on restoration. Verify produc
 | Menu fetch fails | Check `MENU_API_URL` and its upstream independently of `ORDELO_APP_URL`. |
 
 Source references: [`fapp_ordelo_agent.py`](../watomation/fapp_ordelo_agent.py), [`config/params.py`](../config/params.py), and the sibling frontend's `package.json`, `lib/config.ts`, `lib/supabase.ts`, and `app/api/menu/route.ts`. Tunnel mappings were checked against the local Cloudflare configuration when this guide was written.
+
+## Reusable order-testing skill and configuration SQL
+
+Invoke `$ordelo-local-automatic-orders` for browser/Swagger order tests with
+database and Stripe test evidence. The repository source is
+[Ordelo Local Automatic Orders](../.claude/skills/ordelo-local-automatic-orders/SKILL.md).
+Its [configuration guide](../.claude/skills/ordelo-local-automatic-orders/references/configuration.md)
+explains the flags and the separate frontend, Meta and Stripe restoration steps.
+
+- [Restore production routing before R1b rollout](../.claude/skills/ordelo-local-automatic-orders/references/production-restore.sql)
+- [Enable local ELAS/BNAT R1b/R2 testing](../.claude/skills/ordelo-local-automatic-orders/references/test-enable.sql)
+- [Inspect one order and its notification/payment records](../.claude/skills/ordelo-local-automatic-orders/references/inspect-order.sql)
+
+These profiles retain deployed R1a flags. The production profile disables the
+local R1b pilot pending an approved deployment/rollout; future tests should
+restore their own before snapshot if production settings have advanced.

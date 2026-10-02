@@ -116,6 +116,23 @@ async def test_create_order_with_items_success(monkeypatch, patch_supabase_clien
     assert "storefront" not in food_order_call.payload
 
 
+@pytest.mark.parametrize("origin", ["whatsapp", "web"])
+async def test_notifier_subscription_created_after_success(monkeypatch, patch_supabase_client, feature_flags, origin):
+    from unittest.mock import AsyncMock
+    from utils_common.notify import customer_notifier
+    feature_flags.update({"ORDER_CREATE_RPC_ENABLED", "CUSTOMER_NOTIFIER_ENABLED"})
+    monkeypatch.setattr(customer_notifier, "config_csv", AsyncMock(return_value=frozenset({"BNAT"})))
+    subscription = AsyncMock()
+    monkeypatch.setattr(customer_notifier, "create_origin_subscription", subscription)
+    monkeypatch.setattr(order_service, "new_order_reference", lambda *args: "ABCD")
+    patch_supabase_client.register_rpc("get_next_daily_seq", FakeSupabaseResponse(data=9))
+    patch_supabase_client.register_rpc("create_food_order_with_items", FakeSupabaseResponse(data={"item_count": 1}))
+    recipient = "W7K2M9QX4TPA" if origin == "web" else "447400000000"
+    result = await order_service.create_order_with_items(recipient, "thread-1", _items(), "BNAT", "delivery", origin_channel=origin)
+    assert result["success"]
+    subscription.assert_awaited_once_with("BNAT-ABCD-9")
+
+
 async def test_create_order_with_items_rolls_back_when_order_items_insert_empty(monkeypatch, patch_supabase_client) -> None:
     monkeypatch.setattr(order_service, "new_order_reference", lambda recipient, order_dt: "ABCD")
     patch_supabase_client.register_rpc("get_next_daily_seq", FakeSupabaseResponse(data=9))

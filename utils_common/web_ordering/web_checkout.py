@@ -89,7 +89,7 @@ async def address(thread_id, cust_id, value):
     display = ', '.join(filter(None, [value.get('flat'), value.get('building'), value.get('house_number'), value.get('street'), value.get('town'), value.get('postcode')]))
     if not value.get('street') or not value.get('town') or not value.get('postcode') or not any(value.get(k) for k in ('flat','building','house_number')):
         raise WebError('invalid_address')
-    location = await availability.geocode(display)
+    location = await availability.geocode(display, expected_postcode=value['postcode'])
     snapshot = {**value, 'latitude': location['lat'], 'longitude': location['lng'], 'display': display}
     await query('UPDATE web_session_meta SET address=%s WHERE thread_id=%s AND cust_id=%s', (Jsonb(snapshot), thread_id, cust_id))
     return {'ok': True}
@@ -107,6 +107,11 @@ async def create(req, key):
     addr = co.get('address') if co['mode'] == 'delivery' else None
     if co['mode'] == 'delivery' and not addr:
         raise WebError('invalid_address')
+    payment_mode = 'live'
+    if req.test_payment:
+        if not (await is_test_payment_allowed(req.cust_id, req.rest_ref))[0]:
+            raise WebError('test_payment_not_allowed',403)
+        payment_mode = 'test'
     body_hash = fingerprint(req, addr)
     total = sum((item.price*item.quantity for item in req.order_items), Decimal(0))
     if total <= 0 or total > 10000:
@@ -140,9 +145,6 @@ async def create(req, key):
                 seq = (await cur.fetchone())['seq']
                 reference = new_order_reference(customer, day.isoformat())
                 order_id, order_number = f'{reference}-{seq}', f'{req.rest_ref}-{reference}-{seq}'
-                payment_mode = 'live'
-                if req.test_payment and (await is_test_payment_allowed(customer, req.rest_ref))[0]:
-                    payment_mode = 'test'
                 instructions = (addr or {}).get('instructions')
                 notes = '\n'.join(filter(None, [req.notes, f'Delivery instructions: {instructions}' if instructions else None])) or None
                 payload = {'order_id': order_id, 'order_number': order_number, 'seq_id': seq, 'recipient': customer,

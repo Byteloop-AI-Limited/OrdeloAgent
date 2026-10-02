@@ -57,6 +57,7 @@ All three former "Not verified yet" items are done:
    4. **Subscriptions:** `create_order_with_items` creates `whatsapp_restaurant` (WhatsApp) or `web_page` (web). M2's web branch publishes `payment_authorised`.
    5. **SQL:** none new. Section 003 of `ordelo_agg_r1.sql` (subscriptions, customer events, outbox) was run on 2026-10-01.
    6. **Roll-out:** deploy with the flag off, turn it on with `BNAT` first, place a WhatsApp delivery and a takeaway order, compare customer messages, then enable for all. Rollback = flag off.
+   **Progress (2026-10-02):** steps 1–5 are implemented locally and verified; the BNAT rollout and R2 remain pending. The flag is still off on the shared database. See the [R1b verification notes](../docs/releases/ordelo-agg-r1b-2026-10-02.md).
 2. **R2: payment-path check** (§18 R2). *No code and nothing to deploy;* it is a scripted test run that proves a web-style order can be paid, captured and cancelled through the unchanged payment service before any web page is wired to it. Do it after R1b so the web-style test order reaches no restaurant app at any stage. On `BNAT` (Stripe test mode):
    1. Create a web-style order: `SELECT create_thread('WEB', NULL)`; `POST /order-hooks/capture-address` with a W-id; `POST /order-hooks/create-order/BNAT` with that W-id, the `WEB-…` thread, `"origin_channel":"web"`, `"storefront":"ordelo"`. Expect a Stripe Checkout URL.
    2. Pay it with a Stripe test card. Check the payment service saved the PaymentIntent (`payment_details`) and Ordelo logged `payment event … : applied` on the web branch (no restaurant-app call). Replay the event: `duplicate`, no side effects.
@@ -1096,7 +1097,7 @@ R1a (Ordelo payment/order foundation) ──► R2 (payment-path check) ──�
 - **Before use:** run the SQL, then `INSERT INTO ordelo_config (config_key, config_value) VALUES ('TEST_PAYMENT_REST_REFS', 'BNAT');`.
 - **Status (2026-10-01):** implemented, uncommitted. Ordelo: `utils_common/payment_ms/payment_mode.py`, `config/feature_flags.py` (`config_csv`), `FoodOrder.payment_mode`/`uses_test_payment`, `order_hooks.create_order`, `order_service`; tests pass (one pre-existing failure). SQL checked twice on scratch Postgres 16. Front end: `lib/testPayment.ts`, `BasketDrawer`, `/api/checkout`, order summary, `/api/web/orders`, fixtures, `CheckoutFlow`, `OrdeloMenuContainer`; `tsc` and lint clean.
 
-### R1b: Customer notifier (needed by R3, not by R2)
+### R1b: Customer notifier (required before the web-style R2 test)
 
 - **SQL:** section 003 of `ordelo_agg_r1.sql` (subscriptions, customer events, outbox).
 - **Code:**
@@ -1108,6 +1109,21 @@ R1a (Ordelo payment/order foundation) ──► R2 (payment-path check) ──�
 - **Acceptance:** characterisation tests record the URL and body for each of the 10 hooks before and after, and they're identical; outbox retry when a target is down (T8).
 - **Rollback:** `CUSTOMER_NOTIFIER_ENABLED=false`.
 - **Guardrails:** restaurant-app adapter **retries = 0** (record the outcome only); notifier falls back to the restaurant app for any WhatsApp order with no subscription; enable on the test restaurant first.
+
+**Implementation update (2026-10-02):** the notifier, all ten call-site routes,
+origin subscriptions and web `payment_authorised` publication are implemented
+locally. Frozen legacy URL, JSON and raw-body contracts pass with the flag both
+off and on; all ten hooks skip restaurant-app sends for web orders with the
+notifier enabled. The two address hooks use the notifier's pre-order address
+helper, without creating an order event (§7.4). No SQL was added. A 60-second
+application-owned sweep recovers committed **unattempted** outbox rows; it never
+retries a restaurant HTTP attempt, including uncertain timeouts. This resolves
+the general retry/pg_cron checklist wording in favour of R1b's zero-retry and
+no-new-SQL scope. `CUSTOMER_NOTIFIER_REST_REFS=BNAT` limits the enabled flag to
+the pilot; an absent/empty list allows all restaurants, while the flag itself
+remains off when absent. The shared DB currently has no notifier flag and still
+uses production routing. Deployment, BNAT customer-message comparison and R2
+remain pending. See [verification notes](../docs/releases/ordelo-agg-r1b-2026-10-02.md).
 
 ### R2: Payment-path check (no payment-service change, D22)
 
@@ -1311,9 +1327,10 @@ Work one release at a time. Don't start R3 code paths that create real orders be
 
 **R1b: OrdeloAgent**
 
-- [ ] `utils_common/notify/customer_notifier.py` (M3) with `RestaurantAppWebhookAdapter`, `WebPageAdapter`; outbox dispatcher + pg_cron sweep; replace the 10 call sites listed in §2.2. Notifier fallback for WhatsApp orders without a subscription.
-- [ ] Characterisation tests for those 10 payloads (before/after).
-- [ ] Subscriptions created in `create_order_with_items`; M2 web branch publishes `payment_authorised`.
+- [x] `utils_common/notify/customer_notifier.py` (M3) with `RestaurantAppWebhookAdapter`, `WebPageAdapter`; outbox dispatcher + application-owned sweep (no new SQL); all 10 call sites listed in §2.2 routed, with a pre-order address helper. Notifier fallback for WhatsApp orders without a subscription.
+- [x] Characterisation tests for those 10 URLs, JSON payloads and raw request bodies (before/after), plus web isolation and failure/recovery tests.
+- [x] Subscriptions created in `create_order_with_items`; M2 web branch publishes `payment_authorised`.
+- [ ] Deploy flag off; enable for BNAT and compare real WhatsApp delivery/takeaway customer messages before widening.
 
 **R2: payment-path check** (no payment-service change; run the §18 R2 checks).
 

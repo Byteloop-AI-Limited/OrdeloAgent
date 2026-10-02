@@ -75,7 +75,7 @@ async def available(rest_ref, mode, *, new_order=True):
         raise WebError('restaurant_closed', next_open=next_open)
     return row
 
-async def geocode(address):
+async def geocode(address, *, expected_postcode=None):
     # Send the complete manually entered address, not a postcode centroid, for
     # the binding delivery quote. Coordinates never come from the browser.
     from utils_common.maps_service.address_resolver import API_KEY
@@ -95,6 +95,10 @@ async def geocode(address):
     result = body['results'][0]
     if result.get('partial_match'):
         raise WebError('invalid_address')
+    if expected_postcode:
+        resolved = next((part['long_name'] for part in result.get('address_components', []) if 'postal_code' in part.get('types', [])), '')
+        if resolved.upper().replace(' ','') != expected_postcode.upper().replace(' ',''):
+            raise WebError('invalid_address')
     return result['geometry']['location']
 
 async def pricing(row, location, total=0):

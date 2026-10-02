@@ -27,7 +27,12 @@ Agent app handlers for Ordelo delivery agent workflows and WhatsApp integration.
     . post_rider_event_restaurant_cc - Post restaurant confirmation code events
     . debug_state - Debug utility for inspecting agent state
     . debug_state_by_thread - Debug utility for thread-specific state inspection
+    . Routes customer notifications through the R1b notifier when enabled
 """
+
+from utils_common.order_management.customer_keys import is_web_customer_key
+from utils_common.notify import customer_notifier
+from utils_common.notify.customer_notifier import CustomerOrderEvent
 
 # %%
 import base64
@@ -511,6 +516,10 @@ async def post_rider_event_customer_cc(order_number: str, customer_id: int):
         and prints the response status and JSON.
     """
     rest_ref = order_number.split("-")[0]
+    if is_web_customer_key(str(customer_id)) or await customer_notifier.enabled_for(rest_ref):
+        await customer_notifier.publish(order_number, CustomerOrderEvent(
+            "delivered", "delivered", "rider-cust-cc", {}, f"/{order_number}/{customer_id}"))
+        return
     webhook_url = await get_restaurant_webhook_url_async(rest_ref, "rider-cust-cc")
     async with httpx.AsyncClient() as client:
         await client.post(
@@ -538,6 +547,10 @@ async def post_rider_event_restaurant_cc(order_number: str, customer_id: int):
         and logs the call.
     """
     rest_ref = order_number.split("-")[0]
+    if is_web_customer_key(str(customer_id)) or await customer_notifier.enabled_for(rest_ref):
+        await customer_notifier.publish(order_number, CustomerOrderEvent(
+            "food_collected", "food_collected", "rider-rest-cc", {}, f"/{order_number}/{customer_id}"))
+        return
     webhook_url = await get_restaurant_webhook_url_async(rest_ref, "rider-rest-cc")
     async with httpx.AsyncClient() as client:
         await client.post(

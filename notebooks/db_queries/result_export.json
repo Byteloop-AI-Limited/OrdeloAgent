@@ -1,65 +1,33 @@
 [
  {
-  "config_key": "ORDELO_AGG_APP_URL",
-  "config_value": "https://restaurant.ordelo.app",
-  "description": "URL for ordelo restaurant dashboard",
-  "created_at": "2025-12-11 22:02:55.007769+00",
-  "updated_at": "2025-12-11 22:02:55.007769+00"
- },
- {
-  "config_key": "ELAB_APP_URL",
-  "config_value": "https://elaib-agent.ordelo.app/",
-  "description": "URL for ordelo app",
-  "created_at": "2025-09-09 16:39:03.568866+00",
-  "updated_at": "2025-09-09 16:39:03.568866+00"
- },
- {
-  "config_key": "WREN_APP_URL",
-  "config_value": "https://wren-agg-test.ordelo.app",
-  "description": "URL for ordelo app",
-  "created_at": "2025-09-09 16:57:46.735818+00",
-  "updated_at": "2025-09-09 16:57:46.735818+00"
- },
- {
-  "config_key": "SFCS_APP_URL",
-  "config_value": "https://sfcs-agent.fly.dev",
-  "description": "URL for Southern Fried Chicken app",
-  "created_at": "2026-03-11 11:21:15.719396+00",
-  "updated_at": "2026-03-11 11:21:15.719396+00"
- },
- {
-  "config_key": "ELAS_APP_URL",
-  "config_value": "https://elas-agg.ordelo.app",
-  "description": "URL for ELAS app",
-  "created_at": "2025-10-17 21:30:45.348734+00",
-  "updated_at": "2026-08-17 09:36:07.362179+00"
- },
- {
-  "config_key": "BNAT_APP_URL",
-  "config_value": "https://bnat-agent.fly.dev/",
-  "description": "URL for Burger Nation app",
-  "created_at": "2026-07-25 13:45:21.534178+00",
-  "updated_at": "2026-07-25 13:45:21.534178+00"
- },
- {
-  "config_key": "VAVI_APP_URL",
-  "config_value": "https://vavi-agg-test.ordelo.app",
-  "description": "Agg URL for VAVI",
-  "created_at": "2026-01-12 13:29:15.914562+00",
-  "updated_at": "2026-01-12 13:29:15.914562+00"
- },
- {
-  "config_key": "RESTAURANT_MENU_APP_URL",
-  "config_value": "https://restaurant.ordelo.app",
-  "description": "URL for Restaurant-frontend, Elai Salisbury menu",
-  "created_at": "2025-12-13 18:05:55.391303+00",
-  "updated_at": "2025-12-13 18:05:55.391303+00"
- },
- {
-  "config_key": "ORDELO_APP_URL",
-  "config_value": "https://rider-agent.ordelo.app",
-  "description": "URL for ordelo app",
-  "created_at": "2025-06-17 09:17:15.223493+00",
-  "updated_at": "2025-06-17 09:17:15.223493+00"
+  "order_number": "ELAS-LXGM-20",
+  "rest_id": "447914844933",
+  "rest_name": "Elai - Salisbury",
+  "rest_lon": "-1.79717268758398",
+  "rest_lat": "51.0726635283769",
+  "rest_address": "Mill Stream Approach Castle St dummy SP1 3TA",
+  "town": "dummy",
+  "customer_id": "447448440754",
+  "customer_name": "10hith",
+  "customer_lon": "-1.7972295",
+  "customer_lat": "51.0725095",
+  "customer_address": "1  Salisbury SP1 3TA",
+  "restaurant_confirmation_status": "auto_accept",
+  "restaurant_update_dtts": "2026-10-02 08:45:53.664517+00",
+  "restaurant_admin": null,
+  "status": "completed",
+  "rest_confirmation_code": 20,
+  "cust_confirmation_code": 97,
+  "rest_prep_time_minutes": null,
+  "rest_confirmation_method": null,
+  "restaurant_msg_id": null,
+  "rider_msg_id": null,
+  "customer_msg_id": null,
+  "pickup_time": "2026-10-02 08:55:19.027864+00",
+  "pickup_date": "2026-10-02",
+  "rest_ref": "ELAS",
+  "dt": "2026-10-02",
+  "dtts": "2026-10-02 08:45:19.027864+00",
+  "redispatch_dtts": null
  }
 ]

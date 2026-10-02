@@ -1,4 +1,6 @@
 """
+R3: web-origin isolation and customer tracking safeguards.
+
 Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . Processes takeaway restaurant confirmation workflow events via DB trigger webhooks
     . Handles restaurant_unconfirmed, restaurant_accept, restaurant_decline, restaurant_timedout
@@ -21,7 +23,12 @@ Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . _post_pickup_time_event - POSTs pickup-time-updated event to restaurant webhook service
     . pickup_time_updated_hook - Webhook endpoint for pickup_time set events
     . init_takeaway_order - Direct entrypoint for pay-at-restaurant takeaway orders
+    . Routes customer notifications through the R1b notifier when enabled
 """
+
+from utils_common.order_management.customer_keys import is_web_customer_key
+from utils_common.notify import customer_notifier
+from utils_common.notify.customer_notifier import CustomerOrderEvent
 # %%
 import asyncio
 from datetime import datetime, timedelta, timezone
@@ -222,9 +229,10 @@ async def _handle_restaurant_decline(
         )
     )
 
+    cancel_result = None
     if food_order.payment_status != "pay_at_rest":
         try:
-            await cancel_payment(order_number=food_order.order_number)
+            cancel_result = await cancel_payment(order_number=food_order.order_number)
         except Exception:
             logger.exception(
                 "Payment cancellation failed during takeaway decline",
@@ -237,9 +245,11 @@ async def _handle_restaurant_decline(
     else:
         customer_text = f"Sorry, your order {food_order.order_number} could not be accepted by {takeaway_summary.rest_name}."
 
-    await _async_wa_client.send_message(
-        to=takeaway_summary.customer_id, text=customer_text
-    )
+    if is_web_customer_key(takeaway_summary.customer_id):
+        await customer_notifier.publish(food_order.order_number, CustomerOrderEvent(
+            "restaurant_declined", "restaurant_declined", "web-restaurant-declined", {"payment_cancelled": cancel_result is not None}))
+    else:
+        await _async_wa_client.send_message(to=takeaway_summary.customer_id, text=customer_text)
 
     return {
         "status": "success",
@@ -405,11 +415,16 @@ async def _post_pickup_time_event(
     restaurant_master: RestaurantMasterData,
 ) -> None:
     rest_ref = takeaway_summary.rest_ref or takeaway_summary.order_number.split("-")[0]
-    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "order-pickup-time-updated")
     payload = {
         "takeaway_summary": takeaway_summary.model_dump(),
         "restaurant_master": restaurant_master.model_dump(),
     }
+    if is_web_customer_key(takeaway_summary.customer_id) or await customer_notifier.enabled_for(rest_ref):
+        await customer_notifier.publish(takeaway_summary.order_number, CustomerOrderEvent(
+            "pickup_time_set", f"pickup_time_set:{takeaway_summary.pickup_time}",
+            "order-pickup-time-updated", payload, follow_redirects=True, is_estimate=True))
+        return
+    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "order-pickup-time-updated")
     async with httpx.AsyncClient(follow_redirects=True) as http_client:
         res = await http_client.post(webhook_url, json=payload)
         res.raise_for_status()
@@ -481,6 +496,8 @@ async def capture_takeaway_payment(order_number: str):
                     headers=ms_settings.stripe_headers,
                 )
                 res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+                if is_web_customer_key(getattr(food_order, "recipient", "")):
+                    await customer_notifier.publish(order_number, CustomerOrderEvent("payment_captured", "payment_captured", "web-payment-captured"))
                 return res.text
             except httpx.HTTPStatusError as error:
                 response_text = res.text if res is not None else ""

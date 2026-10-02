@@ -1,4 +1,6 @@
 """
+R3: web-origin isolation and customer tracking safeguards.
+
 Delivery webhook handlers for Ordelo delivery system
     . Processes delivery-related webhook events from database triggers
     . Manages delivery dispatch assignments and inflight tracking
@@ -51,7 +53,12 @@ Delivery webhook handlers for Ordelo delivery system
     . _handle_restaurant_timedout - Logs restaurant confirmation timeout event
     . _handle_restaurant_pickuptime_adjusted - Notifies the inflight rider when an admin adjusts the pickup time (skipped after pickup)
     . close_threads - Closes inactive threads and sends goodbye messages
+    . Routes customer notifications through the R1b notifier when enabled
 """
+
+from utils_common.order_management.customer_keys import is_web_customer_key
+from utils_common.notify import customer_notifier
+from utils_common.notify.customer_notifier import CustomerOrderEvent
 
 # %%
 import asyncio
@@ -205,6 +212,8 @@ async def capture_delivery_payment(order_number, restaurant_cc: int):
                 headers=ms_settings.stripe_headers,
             )
             res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            if is_web_customer_key(getattr(food_order, "recipient", "")):
+                await customer_notifier.publish(order_number, CustomerOrderEvent("payment_captured", "payment_captured", "web-payment-captured"))
             return res.text
         except httpx.HTTPError as e:
             logger.error(f"Error during payment capture for order {order_id}: {e}")
@@ -250,6 +259,8 @@ async def cancel_payment(order_number):
                 headers=ms_settings.stripe_headers,
             )
             res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            if is_web_customer_key(getattr(food_order, "recipient", "")):
+                await customer_notifier.publish(order_number, CustomerOrderEvent("payment_released", "payment_released", "web-payment-released", {"payment_cancelled": True}))
             return res.text
         except httpx.HTTPError as e:
             logger.error(f"Error during payment cancellation for order {order_id}: {e}")
@@ -333,7 +344,7 @@ async def notify_overwatch(log_msg: str):
 
 
 # %% post rider event inflight
-async def post_rider_event_inflight(delivery_summary: DeliverySummary):
+async def post_rider_event_inflight(delivery_summary: DeliverySummary, dispatch_id: int | None = None):
     """
     Posts the delivery summary for a given order_number to the rider-inflight webhook.
 
@@ -350,6 +361,11 @@ async def post_rider_event_inflight(delivery_summary: DeliverySummary):
         # "delivery_detail": delivery_detail.model_dump(mode="json"),
     }
     rest_ref = delivery_summary.rest_ref
+    if is_web_customer_key(delivery_summary.customer_id) or await customer_notifier.enabled_for(rest_ref or delivery_summary.order_number.split("-")[0]):
+        await customer_notifier.publish(delivery_summary.order_number, CustomerOrderEvent(
+            "rider_assigned", f"rider_assigned:{dispatch_id or delivery_summary.redispatch_dtts or 'initial'}",
+            "rider-inflight", payload))
+        return
     webhook_url = await get_restaurant_webhook_url_async(rest_ref, "rider-inflight")
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -377,6 +393,11 @@ async def post_delivery_timedout(
         with the delivery summary as JSON payload and prints the response status and JSON.
     """
     rest_ref = delivery_summary["order_number"].split("-")[0]
+    if is_web_customer_key(delivery_summary.get("customer_id", "")) or await customer_notifier.enabled_for(rest_ref):
+        await customer_notifier.publish(delivery_summary["order_number"], CustomerOrderEvent(
+            "no_rider_found", "no_rider_found", "delivery-timedout",
+            {**delivery_summary, "payment_cancelled": payment_cancelled}))
+        return
     webhook_url = await get_restaurant_webhook_url_async(rest_ref, "delivery-timedout")
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -558,7 +579,7 @@ async def delivery_inflight_graph_init_hook(
     # 2. Call restaurant webhook - rider-inflight-event (background)
     logger.info("step2: call restaurant webhook - rider-inflight-event")
     background_tasks.add_task(
-        post_rider_event_inflight, delivery_summary=delivery_summary
+        post_rider_event_inflight, delivery_summary=delivery_summary, dispatch_id=dispatch_id
     )
 
     # 3. Admin notification
@@ -870,6 +891,8 @@ async def close_threads(request: Request):
         # Loop through the records and close each thread
         if payload and isinstance(payload, list):
             for record in payload:
+                if record.get("recipient") is None or record.get("agent") == "WEB":
+                    continue
                 await thread_handler.make_threads_inactive(
                     recipient=record["recipient"]
                 )
