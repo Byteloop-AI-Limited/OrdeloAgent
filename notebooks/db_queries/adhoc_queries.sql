@@ -3,7 +3,14 @@ select * from order_customer_event;
 select * from order_notification_subscription;
 select * from notification_outbox;
 select * from delivery_summary where order_number like '%LXGM-20';
-select * from delivery_summary order by dtts desc; 
+select * from delivery_summary ;
+select * from bnat_menu where addons is not null and addons != '[]' and addons like '%step2%' limit 3;
+
+   SELECT *
+   FROM bnat_menu
+   WHERE addons IS NOT NULL
+     AND to_jsonb(addons)::text ILIKE '%step2%'
+   LIMIT 3;
 
 update delivery_summary set pickup_time='2026-10-02 08:55:19.027864+00'
 where order_number='ELAS-LXGM-20';
