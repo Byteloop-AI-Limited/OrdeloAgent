@@ -1,4 +1,4 @@
-"""R3 database helpers, launch restaurant registry and public error contract."""
+"""R3 database helpers, Salisbury/Orpington web registry and public error contract."""
 
 from datetime import datetime, timezone
 from psycopg.rows import dict_row
@@ -9,7 +9,8 @@ from config.pg_setting import pg_settings
 RESTAURANTS = {
     "ELAS": {"town": "salisbury", "phone": "01722656888"},
     "SFCS": {"town": "salisbury", "phone": "01722433714"},
-    "BNAT": {"town": "salisbury", "phone": "01689637476"},
+    "BNAT": {"town": "orpington", "phone": "01689637476"},
+    "CRMS": {"town": "orpington", "phone": "01689838792"},
 }
 MAX_ORDER_LINES = 20
 LATE_PAYMENT_MINUTES = 35

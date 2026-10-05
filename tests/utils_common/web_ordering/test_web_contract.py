@@ -16,7 +16,7 @@ from utils_common.web_ordering import (
     web_checkout,
     lifecycle,
 )
-from utils_common.web_ordering.common import WebError
+from utils_common.web_ordering.common import RESTAURANTS, WebError
 from watomation.routers import web_hooks, takeaway_hooks
 from ordelo.agents import rider_agent
 from tests.ordelo.agents.test_rider_agent import _runtime
@@ -25,6 +25,37 @@ from tests.watomation.routers.test_takeaway_hooks import _takeaway_summary_row
 NOW = datetime(2026, 10, 2, 12, tzinfo=timezone.utc)
 FOOD = {"action": "delivery", "payment_status": "requires_payment", "order_dtts": NOW}
 KEY = "a" * 43
+
+
+def test_registry_towns_and_phones():
+    for entry in RESTAURANTS.values():
+        assert entry["town"]
+        assert entry["phone"]
+    assert RESTAURANTS["CRMS"] == {"town": "orpington", "phone": "01689838792"}
+    assert RESTAURANTS["BNAT"] == {"town": "orpington", "phone": "01689637476"}
+
+
+@pytest.mark.parametrize("rest_refs", [("BNAT", "CRMS"), ("CRMS", "BNAT")])
+async def test_orpington_delivery_eligibility(monkeypatch, rest_refs):
+    monkeypatch.setattr(
+        availability, "geocode", AsyncMock(return_value={"lat": 51.37, "lng": 0.10})
+    )
+    monkeypatch.setattr(
+        availability,
+        "available",
+        AsyncMock(side_effect=lambda ref, mode: {"rest_ref": ref}),
+    )
+    monkeypatch.setattr(
+        availability,
+        "pricing",
+        AsyncMock(return_value={"minimum_order_value": 10, "delivery_fee": 2.5}),
+    )
+
+    result = await availability.eligibility("BR6 0TW", "delivery", rest_refs)
+
+    assert result["town_slug"] == "orpington"
+    assert [row["rest_ref"] for row in result["restaurants"]] == list(rest_refs)
+    assert all(row["status"] == "deliverable" for row in result["restaurants"])
 
 
 @pytest.mark.parametrize(
