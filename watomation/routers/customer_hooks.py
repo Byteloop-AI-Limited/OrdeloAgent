@@ -15,11 +15,10 @@ Functions/Classes:
   . update_address - POST /update-address
   . update_cust_rest_map - POST /update-cust-rest-map
   . submit_restaurant_feedback - POST /restaurant-feedback
-    . Routes customer notifications through the R1b notifier when enabled
+    . Routes customer notifications through the R1b notifier (always on since R3.1)
 """
 
 from utils_common.notify import customer_notifier
-from utils_common.order_management.customer_keys import is_web_customer_key
 
 # %%
 import asyncio
@@ -27,12 +26,11 @@ import datetime
 import uuid
 from typing import Optional
 
-import httpx
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from pydantic import BaseModel
 
 from config import client_ordelo
-from config.params import get_restaurant_webhook_url_async, _resolve_rest_ref
+from config.params import _resolve_rest_ref
 from ordelo_datamodels.customer_master_pymodel import (
     CustomerMaster,
     CreateOrUpdateCustomerRequest,
@@ -127,23 +125,7 @@ async def update_address(request: UpdateAddressRequest):
     logger.info(f"Address updated for customer {request.cust_id}")
 
     try:
-        if await customer_notifier.enabled_for(request.rest_ref):
-            await customer_notifier.notify_address(request.rest_ref, request.cust_id, address_payload)
-            return {"success": True, "cust_id": request.cust_id}
-        if is_web_customer_key(request.cust_id):
-            return {"success": True, "cust_id": request.cust_id}
-        webhook_url = await get_restaurant_webhook_url_async(
-            request.rest_ref, "order-address-update"
-        )
-        async with httpx.AsyncClient() as http_client:
-            res = await http_client.post(
-                url=f"{webhook_url}/{request.cust_id}",
-                json=address_payload,
-            )
-            res.raise_for_status()
-            logger.info(
-                f"Restaurant {request.rest_ref} notified of address update for {request.cust_id}"
-            )
+        await customer_notifier.notify_address(request.rest_ref, request.cust_id, address_payload)
     except Exception as exc:
         logger.warning(f"Restaurant notification failed for {request.cust_id}: {exc}")
 

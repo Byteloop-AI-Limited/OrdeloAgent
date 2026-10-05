@@ -176,7 +176,7 @@ import pytest  # noqa: E402
 def feature_flags(monkeypatch):
     """Set of enabled ``ordelo_config`` flag keys; empty (all off) by default.
 
-    Tests turn a flag on with ``feature_flags.add("PAYMENT_INBOX_ENABLED")``.
+    Tests turn a flag on with ``feature_flags.add("ELAS_WEB_ORDERING_PAUSED")``.
     """
     from config import feature_flags as flags_module
 
@@ -185,3 +185,52 @@ def feature_flags(monkeypatch):
     flags_module.reset_feature_flag_cache()
     yield enabled
     flags_module.reset_feature_flag_cache()
+
+
+# ---------------------------------------------------------------------------
+# Step 6: customer notifier with persistence faked (R3.1: always on)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def inline_notifier(monkeypatch):
+    """publish() records in memory and dispatches at once through the real adapters.
+
+    Set ``inline_notifier.webhook`` to the restaurant-app URL lookup a test needs;
+    ``inline_notifier.finished`` collects (outbox_id, status, error).
+    """
+    from types import SimpleNamespace
+    from utils_common.notify import customer_notifier as notifier
+    from utils_common.order_management.customer_keys import is_web_customer_key
+
+    state = SimpleNamespace(events=[], finished=[], recipient="447400000000", webhook=None)
+
+    async def record(order_number, event):
+        state.events.append((order_number, event.data()))
+        return [len(state.events)]
+
+    async def claim(outbox_id):
+        order_number, data = state.events[outbox_id - 1]
+        web = is_web_customer_key(state.recipient)
+        return {
+            "order_number": order_number,
+            "data": data,
+            "channel": "web_page" if web else "whatsapp_restaurant",
+            "active": True,
+            "origin_channel": "web" if web else "whatsapp",
+            "recipient": state.recipient,
+            "destination": None if web else state.recipient,
+            "detail_level": "full",
+        }
+
+    async def finish(outbox_id, status, error=None):
+        state.finished.append((outbox_id, status, error))
+
+    async def webhook(rest_ref, webhook_type):
+        return await state.webhook(rest_ref, webhook_type)
+
+    monkeypatch.setattr(notifier, "_record", record)
+    monkeypatch.setattr(notifier, "_claim", claim)
+    monkeypatch.setattr(notifier, "_finish", finish)
+    monkeypatch.setattr(notifier, "get_restaurant_webhook_url_async", webhook)
+    return state

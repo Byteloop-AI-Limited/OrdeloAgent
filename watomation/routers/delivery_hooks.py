@@ -53,7 +53,7 @@ Delivery webhook handlers for Ordelo delivery system
     . _handle_restaurant_timedout - Logs restaurant confirmation timeout event
     . _handle_restaurant_pickuptime_adjusted - Notifies the inflight rider when an admin adjusts the pickup time (skipped after pickup)
     . close_threads - Closes inactive threads and sends goodbye messages
-    . Routes customer notifications through the R1b notifier when enabled
+    . Routes customer notifications through the R1b notifier (always on since R3.1)
 """
 
 from utils_common.order_management.customer_keys import is_web_customer_key
@@ -76,7 +76,6 @@ from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from config import (
     _async_wa_client,
     client_ordelo,
-    get_restaurant_webhook_url_async,
     logger,
     ms_settings,
     pg_settings,
@@ -352,29 +351,16 @@ async def post_rider_event_inflight(delivery_summary: DeliverySummary, dispatch_
         delivery_summary (DeliverySummary): The delivery summary for the order.
 
     Side Effects:
-        Sends an HTTP POST request to the configured rider-inflight webhook endpoint
-        with the delivery summary as JSON payload and prints the response status and JSON.
+        Publishes a "rider_assigned" customer event through the notifier.
     """
 
     payload = {
         "delivery_summary": delivery_summary.model_dump(mode="json"),
         # "delivery_detail": delivery_detail.model_dump(mode="json"),
     }
-    rest_ref = delivery_summary.rest_ref
-    if is_web_customer_key(delivery_summary.customer_id) or await customer_notifier.enabled_for(rest_ref or delivery_summary.order_number.split("-")[0]):
-        await customer_notifier.publish(delivery_summary.order_number, CustomerOrderEvent(
-            "rider_assigned", f"rider_assigned:{dispatch_id or delivery_summary.redispatch_dtts or 'initial'}",
-            "rider-inflight", payload))
-        return
-    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "rider-inflight")
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            webhook_url,
-            json=payload,
-        )
-        logger.debug(
-            f"Status code: {response.status_code}, Response: {response.json()}"
-        )
+    await customer_notifier.publish(delivery_summary.order_number, CustomerOrderEvent(
+        "rider_assigned", f"rider_assigned:{dispatch_id or delivery_summary.redispatch_dtts or 'initial'}",
+        "rider-inflight", payload))
 
 
 # %% post delivery timedout
@@ -389,23 +375,11 @@ async def post_delivery_timedout(
         delivery_summary (dict): The payload for the delivery-timedout webhook.
 
     Side Effects:
-        Sends an HTTP POST request to the configured delivery-timedout webhook endpoint
-        with the delivery summary as JSON payload and prints the response status and JSON.
+        Publishes a "no_rider_found" customer event through the notifier.
     """
-    rest_ref = delivery_summary["order_number"].split("-")[0]
-    if is_web_customer_key(delivery_summary.get("customer_id", "")) or await customer_notifier.enabled_for(rest_ref):
-        await customer_notifier.publish(delivery_summary["order_number"], CustomerOrderEvent(
-            "no_rider_found", "no_rider_found", "delivery-timedout",
-            {**delivery_summary, "payment_cancelled": payment_cancelled}))
-        return
-    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "delivery-timedout")
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            webhook_url,
-            json={**delivery_summary, "payment_cancelled": payment_cancelled},
-        )
-    logger.info("Restaurant notified of delivery timeout")
-    logger.info("Status code:", response.status_code)
+    await customer_notifier.publish(delivery_summary["order_number"], CustomerOrderEvent(
+        "no_rider_found", "no_rider_found", "delivery-timedout",
+        {**delivery_summary, "payment_cancelled": payment_cancelled}))
 
 
 # %% Define paths

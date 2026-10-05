@@ -91,9 +91,9 @@ async def test_confirmation_flow_no_admins():
 
 
 @respx.mock
-async def test_pickup_time_set_posts_webhook(monkeypatch):
+async def test_pickup_time_set_posts_webhook(monkeypatch, inline_notifier):
     async def _wh(*a, **kw): return "https://r.example.com/pt"
-    monkeypatch.setattr(takeaway_hooks, "get_restaurant_webhook_url_async", _wh)
+    inline_notifier.webhook = _wh
     route = respx.post("https://r.example.com/pt").mock(
         return_value=httpx.Response(200, json={"ok": True})
     )

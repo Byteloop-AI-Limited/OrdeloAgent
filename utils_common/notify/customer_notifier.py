@@ -8,6 +8,8 @@ zero, including after ambiguous timeouts or process death. WebPageAdapter is
 a no-op until R3; web origins can never use RestaurantAppWebhookAdapter.
 notify_address handles the two pre-order address hooks, which cannot reference
 food_order yet. sweep_pending recovers unattempted rows, not failed deliveries.
+Since R3.1 (D35) the notifier is always on for every restaurant; there is no
+rollout flag or pilot list and no legacy direct restaurant-app call.
 """
 
 import asyncio
@@ -19,12 +21,6 @@ from loguru import logger
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from config.feature_flags import (
-    CUSTOMER_NOTIFIER_ENABLED,
-    CUSTOMER_NOTIFIER_REST_REFS,
-    config_csv,
-    flag_enabled,
-)
 from config.params import get_restaurant_webhook_url_async
 from config.pg_setting import pg_settings, client_ordelo
 from utils_common.order_management.customer_keys import is_web_customer_key
@@ -52,18 +48,6 @@ class CustomerOrderEvent:
             "path_suffix": self.path_suffix,
             "follow_redirects": self.follow_redirects,
         }
-
-
-async def enabled_for(rest_ref: str) -> bool:
-    """Missing flag = off; a nonempty allowlist limits the pilot to those refs."""
-    if not await flag_enabled(CUSTOMER_NOTIFIER_ENABLED):
-        return False
-    try:
-        refs = await config_csv(CUSTOMER_NOTIFIER_REST_REFS, fail_on_error=True)
-    except Exception:
-        logger.warning("customer notifier: rollout lookup failed; disabled")
-        return False
-    return not refs or rest_ref.upper() in refs
 
 
 class RestaurantAppWebhookAdapter:
@@ -309,10 +293,6 @@ async def publish(order_number: str, event: CustomerOrderEvent) -> None:
 
 async def sweep_pending() -> int:
     """Recover committed but unattempted events; never retry an HTTP attempt."""
-    notifier_on = await flag_enabled(CUSTOMER_NOTIFIER_ENABLED)
-    web_on = await flag_enabled('WEB_LATE_PAYMENT_GUARD_ENABLED')
-    if not notifier_on and not web_on:
-        return 0
     pool = await pg_settings.get_pool()
     async with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
         await cur.execute("""
@@ -342,9 +322,8 @@ async def sweep_pending() -> int:
         rows = await cur.fetchall()
     count = 0
     for row in rows:
-        if (web_on and row.get("origin_channel") == "web") or await enabled_for(row["order_number"].split("-")[0]):
-            await dispatch(row["id"])
-            count += 1
+        await dispatch(row["id"])
+        count += 1
     return count
 
 

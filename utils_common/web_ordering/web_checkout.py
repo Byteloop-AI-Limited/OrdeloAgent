@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from config.pg_setting import pg_settings
-from config.feature_flags import flag_enabled
 from utils_common.order_management.customer_keys import new_web_customer_key
 from utils_common.order_management.order_reference import new_order_reference
 from utils_common.order_management.food_order_pymodel import FoodOrder
@@ -22,7 +21,7 @@ from utils_common.payment_ms.payment import (
     generate_payment_intent_url,
     generate_takeaway_manual_payment_url,
 )
-from utils_common.payment_ms.payment_mode import is_test_payment_allowed
+from utils_common.payment_ms.payment_mode import resolve_payment_mode
 from . import availability, order_access
 from .common import MAX_ORDER_LINES, RESTAURANTS, WebError, one, query, utcnow, iso
 
@@ -68,8 +67,6 @@ class OrderInput(BaseModel):
 
 async def start(rest_ref, mode, town_slug, visitor_id, district=None):
     await availability.available(rest_ref, mode)
-    if not await flag_enabled("WEB_LATE_PAYMENT_GUARD_ENABLED"):
-        raise WebError("ordering_unavailable", 503)
     if town_slug != RESTAURANTS[rest_ref]["town"]:
         raise WebError("unknown_town")
     thread = await one("SELECT * FROM public.create_thread(%s,%s)", ("WEB", None))
@@ -183,11 +180,11 @@ async def create(req, key):
     addr = co.get("address") if co["mode"] == "delivery" else None
     if co["mode"] == "delivery" and not addr:
         raise WebError("invalid_address")
-    payment_mode = "live"
-    if req.test_payment:
-        if not (await is_test_payment_allowed(req.cust_id, req.rest_ref))[0]:
-            raise WebError("test_payment_not_allowed", 403)
-        payment_mode = "test"
+    # R3.1 (D35): a test restaurant is always test; elsewhere a web request is refused.
+    payment_mode, _ = await resolve_payment_mode(req.cust_id, req.rest_ref, req.test_payment)
+    if req.test_payment and payment_mode is None:
+        raise WebError("test_payment_not_allowed", 403)
+    payment_mode = payment_mode or "live"
     body_hash = fingerprint(req, addr)
     total = sum((item.price * item.quantity for item in req.order_items), Decimal(0))
     if total <= 0 or total > 10000:

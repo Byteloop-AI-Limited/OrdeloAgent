@@ -12,31 +12,23 @@ Payment webhook handler module for Elai Agent
   Functions/Classes:
     . PayAtRest - Pydantic model for pay-at-restaurant requests
     . handle_payment_complete - Processes payment completion and updates order status
-    . payment_complete_path - Stripe payment-complete webhook (M2 inbox behind
-      PAYMENT_INBOX_ENABLED; web orders skip the restaurant app, ADR-0003)
-    . payment_complete_test_path - Test replay, off unless ENABLE_PAYMENT_TEST_ROUTES
+    . payment_complete_path - Stripe payment-complete webhook (M2 inbox, always
+      on since R3.1; web orders skip the restaurant app, ADR-0003)
     . init_reconciler_path - Alert-only target of job_payment_init_reconciler()
     . pay_at_restaurant - Logs pay-at-restaurant order data
-    . Routes customer notifications through the R1b notifier when enabled
+    . Routes customer notifications through the R1b notifier (always on since R3.1)
 """
 
 from utils_common.notify import customer_notifier
 from utils_common.notify.customer_notifier import CustomerOrderEvent
-from utils_common.order_management.customer_keys import is_web_customer_key
 
 # %%
 from typing import List, Optional
 
-import asyncio
 
 from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel
 from config import client_ordelo
-from config.feature_flags import (
-    ENABLE_PAYMENT_TEST_ROUTES,
-    PAYMENT_INBOX_ENABLED,
-    flag_enabled,
-)
 from config.params import get_wa_logger
 from utils_common.payment_ms.payment_events import (
     REJECTED_STATE,
@@ -45,8 +37,6 @@ from utils_common.payment_ms.payment_events import (
     record_payment_authorised,
 )
 from utils_common.order_management.food_order_pymodel import FoodOrder
-from config.params import get_restaurant_webhook_url_async
-import httpx
 from utils_common.order_management.order_db_ops_new import OrderItem
 from watomation.routers.takeaway_hooks import init_takeaway_summary
 
@@ -61,7 +51,9 @@ router = APIRouter(tags=["payment-hooks"])
 # %% supporting functions
 async def handle_payment_complete(food_order: FoodOrder):
     """
-    Handles the update of the payment status in the graph and notifies the restaurant.
+    Publishes the payment_authorised customer event. The notifier routes it to
+    the restaurant app for WhatsApp orders and to the order page for web
+    orders, which never reach a restaurant app (ADR-0003 / D27).
 
     Args:
         food_order: The food order object
@@ -70,41 +62,9 @@ async def handle_payment_complete(food_order: FoodOrder):
         dict: Success status
     """
 
-    if await customer_notifier.enabled_for(food_order.order_number.split("-")[0]):
-        await customer_notifier.publish(food_order.order_number, CustomerOrderEvent(
-            "payment_authorised", "payment_authorised", "order-payment-complete",
-            food_order.model_dump(), f"/{food_order.recipient}/{food_order.thread_id}"))
-        return {"success": "success"}
-
-    # A flag flip between scheduling and execution must never leak a W-id.
-    if is_web_customer_key(food_order.recipient):
-        return {"success": "success"}
-
-    # Call the restaurant api to update the payment status
-    rest_ref = food_order.order_number.split("-")[0]
-    payment_complete_url = await get_restaurant_webhook_url_async(
-        rest_ref, "order-payment-complete"
-    )
-    recipient = food_order.recipient
-    thread_id = food_order.thread_id
-    order_id = food_order.order_id
-
-    # Make async HTTP request to restaurant webhook
-    async with httpx.AsyncClient() as http_client:
-        try:
-            res = await http_client.post(
-                url=f"{payment_complete_url}/{recipient}/{thread_id}",
-                json=food_order.model_dump(),
-            )
-            res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
-            logger.info(
-                f"Successfully notified restaurant {rest_ref} for order {order_id}"
-            )
-        except httpx.HTTPError as e:
-            logger.error(
-                f"Error during restaurant notification for order {order_id}: {e}"
-            )
-
+    await customer_notifier.publish(food_order.order_number, CustomerOrderEvent(
+        "payment_authorised", "payment_authorised", "order-payment-complete",
+        food_order.model_dump(), f"/{food_order.recipient}/{food_order.thread_id}"))
     return {"success": "success"}
 
 
@@ -139,22 +99,11 @@ def init_delivery_summary(order_number: str, recipient: str):
 async def _schedule_after_authorisation(
     order_row: dict, background_tasks: BackgroundTasks
 ) -> FoodOrder:
-    """Queue the restaurant-app notice (WhatsApp orders only) and summary init."""
+    """Queue the payment_authorised customer event and summary init."""
     food_order = FoodOrder(**order_row)
+    background_tasks.add_task(handle_payment_complete, food_order)
 
-    # ADR-0003 / D27: web orders never reach a restaurant app.
-    if order_row.get("origin_channel", "whatsapp") == "web":
-        if await flag_enabled("WEB_LATE_PAYMENT_GUARD_ENABLED") or await customer_notifier.enabled_for(food_order.order_number.split("-")[0]):
-            background_tasks.add_task(customer_notifier.publish, food_order.order_number,
-                CustomerOrderEvent("payment_authorised", "payment_authorised", "order-payment-complete",
-                    food_order.model_dump(), f"/{food_order.recipient}/{food_order.thread_id}"))
-        logger.info(
-            f"order {food_order.order_number}: web order, restaurant-app payment-complete skipped"
-        )
-    else:
-        background_tasks.add_task(handle_payment_complete, food_order)
-
-    if order_row.get("origin_channel") == "web" and await flag_enabled("WEB_LATE_PAYMENT_GUARD_ENABLED"):
+    if order_row.get("origin_channel") == "web":
         from utils_common.web_ordering.common import query
         background_tasks.add_task(query, "UPDATE thread SET is_active=false WHERE thread_id=%s AND agent='WEB'", (food_order.thread_id,))
     if food_order.action == "delivery":
@@ -200,58 +149,16 @@ async def _apply_via_inbox(body: dict, background_tasks: BackgroundTasks) -> dic
     return {"success": "success", "outcome": outcome.outcome}
 
 
-async def _apply_legacy(order_id: str, background_tasks: BackgroundTasks) -> dict:
-    """Pre-R1a behaviour: unconditional status update (kept while the flag is off)."""
-    response = await asyncio.to_thread(
-        lambda: client_ordelo.table("food_order")
-        .update({"payment_status": "requires_capture"})
-        .eq("order_id", order_id)
-        .execute()
-    )
-    await _schedule_after_authorisation(response.data[0], background_tasks)
-    return {"success": "success"}
-
-
 @router.post("/payment-complete")
 async def payment_complete_path(request: Request, background_tasks: BackgroundTasks):
     """
     Called by Stripe (checkout.session.completed), unsigned (D23).
 
-    With PAYMENT_INBOX_ENABLED on, the event is applied at most once (plan M2);
-    otherwise the pre-R1a unconditional update runs. Either way, web orders
-    skip the restaurant app (D27).
+    The event is applied at most once through the payment inbox (plan M2).
+    Web orders skip the restaurant app (D27).
     """
     request_body: dict = await request.json()
-
-    if await flag_enabled(PAYMENT_INBOX_ENABLED):
-        return await _apply_via_inbox(request_body, background_tasks)
-
-    order_id = request_body["data"]["object"]["metadata"]["orderID"]
-    logger.info(f"order_id:{order_id} - PaymentComplete webhook from stripe called")
-    from utils_common.web_ordering.lifecycle import reject_late
-    late = await reject_late(parse_payment_complete(request_body))
-    if late:
-        return {"success": "success", "outcome": late}
-    return await _apply_legacy(order_id, background_tasks)
-
-
-# %%
-
-
-@router.post("/payment-complete-test/{order_id}")
-async def payment_complete_test_path(
-    order_id: str,
-    background_tasks: BackgroundTasks,
-):
-    """Replays payment-complete for an order. Off unless ENABLE_PAYMENT_TEST_ROUTES is on."""
-    if not await flag_enabled(ENABLE_PAYMENT_TEST_ROUTES):
-        raise HTTPException(status_code=404, detail="Not Found")
-
-    logger.info(f"order_id:{order_id} - PaymentComplete test triggered")
-    if await flag_enabled(PAYMENT_INBOX_ENABLED):
-        body = {"data": {"object": {"metadata": {"orderID": order_id}}}}
-        return await _apply_via_inbox(body, background_tasks)
-    return await _apply_legacy(order_id, background_tasks)
+    return await _apply_via_inbox(request_body, background_tasks)
 
 
 # %%

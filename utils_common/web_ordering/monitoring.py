@@ -5,7 +5,6 @@ contract. Missing menu matches are reported as unverifiable, never as valid.
 """
 
 from decimal import Decimal
-from config.feature_flags import flag_enabled
 from .common import RESTAURANTS, query, one, utcnow
 from .availability import UK
 from loguru import logger
@@ -21,8 +20,7 @@ def below_floor(actual, menu_price, max_discount=0):
 
 
 async def sweep():
-    if not await flag_enabled("WEB_PRICE_MONITOR_ENABLED"):
-        return
+    """Once per UK day. Always on since R3.1 (D35); a missing max-discount key means 0%."""
     day = utcnow().astimezone(UK).date()
     claimed = await query(
         """INSERT INTO web_monitor_run(run_day) VALUES (%s)

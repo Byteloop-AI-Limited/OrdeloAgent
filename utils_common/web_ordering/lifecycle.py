@@ -9,7 +9,6 @@ import asyncio
 from datetime import timedelta
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
-from config.feature_flags import flag_enabled
 from config.pg_setting import pg_settings
 from loguru import logger
 from utils_common.notify import customer_notifier
@@ -21,8 +20,6 @@ from .common import WebError
 
 async def queue_release(order_number, reason):
     """Recover a failed web cancellation without changing WhatsApp behaviour."""
-    if not await flag_enabled("WEB_LATE_PAYMENT_GUARD_ENABLED"):
-        return
     await query(
         """INSERT INTO web_payment_release(order_number,reason) VALUES (%s,%s)
         ON CONFLICT DO NOTHING""",
@@ -31,7 +28,7 @@ async def queue_release(order_number, reason):
 
 
 async def reject_late(evt):
-    if evt is None or not await flag_enabled("WEB_LATE_PAYMENT_GUARD_ENABLED"):
+    if evt is None:
         return None
     order = await one("SELECT * FROM food_order WHERE order_id=%s", (evt.order_id,))
     if not order or order.get("origin_channel") != "web":
@@ -94,8 +91,6 @@ async def reject_late(evt):
 
 
 async def sweep():
-    if not await flag_enabled("WEB_LATE_PAYMENT_GUARD_ENABLED"):
-        return
     await query("""UPDATE thread SET is_active=false WHERE agent='WEB' AND is_active AND thread_id IN
         (SELECT thread_id FROM web_session_meta WHERE expires_at<now())""")
     await query("DELETE FROM web_rate_limit WHERE window_start<now()-interval '2 days'")

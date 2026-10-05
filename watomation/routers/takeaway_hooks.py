@@ -23,7 +23,7 @@ Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . _post_pickup_time_event - POSTs pickup-time-updated event to restaurant webhook service
     . pickup_time_updated_hook - Webhook endpoint for pickup_time set events
     . init_takeaway_order - Direct entrypoint for pay-at-restaurant takeaway orders
-    . Routes customer notifications through the R1b notifier when enabled
+    . Routes customer notifications through the R1b notifier (always on since R3.1)
 """
 
 from utils_common.order_management.customer_keys import is_web_customer_key
@@ -42,7 +42,6 @@ import httpx
 from config import (
     _async_wa_client,
     client_ordelo,
-    get_restaurant_webhook_url_async,
     logger,
     ms_settings
 )
@@ -417,23 +416,13 @@ async def _post_pickup_time_event(
     takeaway_summary: TakeawaySummaryData,
     restaurant_master: RestaurantMasterData,
 ) -> None:
-    rest_ref = takeaway_summary.rest_ref or takeaway_summary.order_number.split("-")[0]
     payload = {
         "takeaway_summary": takeaway_summary.model_dump(),
         "restaurant_master": restaurant_master.model_dump(),
     }
-    if is_web_customer_key(takeaway_summary.customer_id) or await customer_notifier.enabled_for(rest_ref):
-        await customer_notifier.publish(takeaway_summary.order_number, CustomerOrderEvent(
-            "pickup_time_set", f"pickup_time_set:{takeaway_summary.pickup_time}",
-            "order-pickup-time-updated", payload, follow_redirects=True, is_estimate=True))
-        return
-    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "order-pickup-time-updated")
-    async with httpx.AsyncClient(follow_redirects=True) as http_client:
-        res = await http_client.post(webhook_url, json=payload)
-        res.raise_for_status()
-    logger.info(
-        f"Pickup time event posted for order {takeaway_summary.order_number} to {webhook_url}"
-    )
+    await customer_notifier.publish(takeaway_summary.order_number, CustomerOrderEvent(
+        "pickup_time_set", f"pickup_time_set:{takeaway_summary.pickup_time}",
+        "order-pickup-time-updated", payload, follow_redirects=True, is_estimate=True))
 
 
 # %%

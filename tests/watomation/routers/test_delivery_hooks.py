@@ -338,12 +338,12 @@ async def test_delivery_timedout_skips_no_rider_admin_message_for_configured_aut
 
 
 @respx.mock
-async def test_timeout_webhook_serialises_verified_payment_cancellation(monkeypatch) -> None:
+async def test_timeout_webhook_serialises_verified_payment_cancellation(monkeypatch, inline_notifier) -> None:
     async def _webhook_url(rest_ref, webhook_type):
         assert (rest_ref, webhook_type) == ("ELAS", "delivery-timedout")
         return "https://rest.example.com/delivery-timedout"
 
-    monkeypatch.setattr(delivery_hooks, "get_restaurant_webhook_url_async", _webhook_url)
+    inline_notifier.webhook = _webhook_url
     route = respx.post("https://rest.example.com/delivery-timedout").mock(
         return_value=httpx.Response(200, json={"ok": True})
     )

@@ -21,15 +21,13 @@ VALUES
   ('CRMS_WEB_MAX_DISCOUNT_PERCENT',             '0',
    'Nightly web price audit floor for CRMS: no discount at launch (no ordeloOffers in the frontend)'),
   ('CRMS_WEB_ORDERING_PAUSED',                  'true',
-   'Kill switch: true blocks new CRMS web orders (both modes). Flipped by 03/04'),
-  ('CRMS_WEB_DELIVERY_PAUSED',                  'false',
-   'Kill switch: true blocks new CRMS web delivery orders only (collection keeps working)')
+   'Kill switch: true blocks new CRMS web orders (both modes). Flipped by 03/04')
 ON CONFLICT (config_key) DO UPDATE
 SET config_value = EXCLUDED.config_value,
     description  = EXCLUDED.description,
     updated_at   = CURRENT_TIMESTAMP;
 
--- Verify before COMMIT: expect 7 rows.
+-- Verify before COMMIT: expect 6 rows.
 SELECT config_key, config_value FROM public.ordelo_config
 WHERE config_key LIKE 'CRMS\_%' ORDER BY config_key;
 

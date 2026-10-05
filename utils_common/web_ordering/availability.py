@@ -9,7 +9,7 @@ import math
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 import requests
-from config.feature_flags import config_csv, flag_enabled
+from config.feature_flags import flag_enabled
 from utils_common.order_management.order_service import _call_pricing_service
 from .common import RESTAURANTS, WebError, one, utcnow
 
@@ -71,21 +71,10 @@ async def restaurant(rest_ref):
 
 async def available(rest_ref, mode, *, new_order=True):
     row = await restaurant(rest_ref)
-    if new_order:
-        # Empty allowlist means disabled for web, unlike the old notifier pilot.
-        refs = await config_csv("WEB_ORDERING_ENABLED_REST_REFS", fail_on_error=True)
-        if rest_ref not in refs:
-            raise WebError("ordering_paused", 503)
-        if (
-            not await flag_enabled("PAYMENT_INBOX_ENABLED")
-            or not await flag_enabled("ORDER_CREATE_RPC_ENABLED")
-            or not await flag_enabled("WEB_LATE_PAYMENT_GUARD_ENABLED")
-        ):
-            raise WebError("ordering_unavailable", 503)
-        if await flag_enabled(f"{rest_ref}_WEB_ORDERING_PAUSED") or (
-            mode == "delivery" and await flag_enabled(f"{rest_ref}_WEB_DELIVERY_PAUSED")
-        ):
-            raise WebError("ordering_paused", 503)
+    # R3.1 (D35): every registry restaurant takes web orders. The only switch is
+    # the emergency pause, absent by default; it never blocks tracking.
+    if new_order and await flag_enabled(f"{rest_ref}_WEB_ORDERING_PAUSED"):
+        raise WebError("ordering_paused", 503)
     try:
         cutoff = (
             max(

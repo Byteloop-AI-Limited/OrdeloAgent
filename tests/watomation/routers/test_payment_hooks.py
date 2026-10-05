@@ -6,13 +6,10 @@ summary initialization scheduling, and pay-at-restaurant validation.
 
 Key Functions:
   - test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors
-  - test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway
-  - test_payment_complete_test_path_schedules_expected_initializer
   - test_pay_at_restaurant_validates_action_and_schedules_takeaway
-  - test_legacy_path_skips_restaurant_app_for_web_orders
   - test_inbox_applies_once_and_skips_restaurant_app_for_web
   - test_inbox_duplicate_rejected_unknown_and_ignored_have_no_side_effects
-  - test_payment_complete_test_path_is_off_by_default_and_uses_inbox
+  - test_test_replay_route_is_gone
   - test_init_reconciler_alerts_overwatch
 """
 
@@ -24,7 +21,6 @@ import respx
 from fastapi import HTTPException
 
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
-from config.feature_flags import reset_feature_flag_cache
 from watomation.routers import payment_hooks
 
 
@@ -44,6 +40,15 @@ class _FakeRequest:
         return self.payload
 
 
+@pytest.fixture(autouse=True)
+def _no_late_payment_lookup(monkeypatch):
+    """The late-payment guard reads food_order; these orders aren't late web orders."""
+    from unittest.mock import AsyncMock
+    from utils_common.web_ordering import lifecycle
+
+    monkeypatch.setattr(lifecycle, "one", AsyncMock(return_value=None))
+
+
 def _food_order_row(action="delivery") -> dict:
     return {
         "order_id": "ABCD-1",
@@ -57,11 +62,11 @@ def _food_order_row(action="delivery") -> dict:
 
 
 @respx.mock
-async def test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors(monkeypatch) -> None:
+async def test_handle_payment_complete_posts_restaurant_webhook_and_swallows_http_errors(monkeypatch, inline_notifier) -> None:
     async def _webhook(rest_ref, webhook_type):
         return "https://rest.example.com/payment-complete"
 
-    monkeypatch.setattr(payment_hooks, "get_restaurant_webhook_url_async", _webhook)
+    inline_notifier.webhook = _webhook
     route = respx.post("https://rest.example.com/payment-complete/447400000000/thread-1").mock(return_value=httpx.Response(200, json={"ok": True}))
     food_order = payment_hooks.FoodOrder(**_food_order_row())
 
@@ -70,52 +75,7 @@ async def test_handle_payment_complete_posts_restaurant_webhook_and_swallows_htt
 
     respx.post("https://rest.example.com/payment-complete/447400000000/thread-1").mock(return_value=httpx.Response(500, json={"error": "down"}))
     assert await payment_hooks.handle_payment_complete(food_order) == {"success": "success"}
-
-
-async def test_payment_complete_path_updates_order_and_schedules_delivery_or_takeaway(patch_supabase_client) -> None:
-    patch_supabase_client.register(table="food_order", verb="update", response=FakeSupabaseResponse(data=[_food_order_row("delivery")]))
-    bg = _FakeBackgroundTasks()
-    payload = {"data": {"object": {"metadata": {"orderID": "ABCD-1"}}}}
-
-    result = await payment_hooks.payment_complete_path(_FakeRequest(payload), bg)
-
-    assert result == {"success": "success"}
-    assert patch_supabase_client.calls[-1].payload == {"payment_status": "requires_capture"}
-    assert [task["func"] for task in bg.tasks] == [payment_hooks.handle_payment_complete, payment_hooks.init_delivery_summary]
-
-    patch_supabase_client.register(table="food_order", verb="update", response=FakeSupabaseResponse(data=[_food_order_row("takeaway")]))
-    bg = _FakeBackgroundTasks()
-    await payment_hooks.payment_complete_path(_FakeRequest(payload), bg)
-    assert [task["func"] for task in bg.tasks] == [payment_hooks.handle_payment_complete, payment_hooks.init_takeaway_summary]
-
-
-async def test_payment_complete_test_path_schedules_expected_initializer(
-    patch_supabase_client, feature_flags
-) -> None:
-    feature_flags.add("ENABLE_PAYMENT_TEST_ROUTES")
-    patch_supabase_client.register(
-        table="food_order",
-        verb="update",
-        response=FakeSupabaseResponse(data=[_food_order_row("delivery")]),
-    )
-    delivery_bg = _FakeBackgroundTasks()
-    assert await payment_hooks.payment_complete_test_path("ABCD-1", delivery_bg) == {"success": "success"}
-    assert [task["func"] for task in delivery_bg.tasks] == [
-        payment_hooks.handle_payment_complete,
-        payment_hooks.init_delivery_summary,
-    ]
-
-    patch_supabase_client.register(
-        table="food_order",
-        verb="update",
-        response=FakeSupabaseResponse(data=[_food_order_row("takeaway")]),
-    )
-    takeaway_bg = _FakeBackgroundTasks()
-    assert await payment_hooks.payment_complete_test_path("ABCD-1", takeaway_bg) == {"success": "success"}
-    assert [task["func"] for task in takeaway_bg.tasks] == [
-        payment_hooks.handle_payment_complete,
-        payment_hooks.init_takeaway_summary,
-    ]
+    assert [status for _, status, _ in inline_notifier.finished] == ["sent", "failed"]
 
 
 async def test_pay_at_restaurant_validates_action_and_schedules_takeaway(patch_supabase_client) -> None:
@@ -158,28 +118,14 @@ def _stripe_body(order_id="QKZD-31", event_id="evt_1", event_type="checkout.sess
     return {"id": event_id, "type": event_type, "data": {"object": {"id": "cs_1", "metadata": {"orderID": order_id}}}}
 
 
-async def test_legacy_path_skips_restaurant_app_for_web_orders(patch_supabase_client) -> None:
-    patch_supabase_client.register(table="food_order", verb="update", response=FakeSupabaseResponse(data=[_web_row("delivery")]))
-    bg = _FakeBackgroundTasks()
-
-    assert await payment_hooks.payment_complete_path(_FakeRequest(_stripe_body()), bg) == {"success": "success"}
-    assert [task["func"] for task in bg.tasks] == [payment_hooks.init_delivery_summary]
-    assert bg.tasks[0]["args"] == ("SFCS-QKZD-31", "W7K2M9QX4TPA")
-
-
-async def test_notifier_publishes_web_authorisation_once(monkeypatch, patch_supabase_client, feature_flags):
-    from unittest.mock import AsyncMock
-    from utils_common.notify import customer_notifier
-    feature_flags.update({"PAYMENT_INBOX_ENABLED", "CUSTOMER_NOTIFIER_ENABLED"})
-    monkeypatch.setattr(customer_notifier, "config_csv", AsyncMock(return_value=frozenset({"BNAT"})))
+async def test_notifier_publishes_web_authorisation_once(patch_supabase_client):
     web = _web_row() | {"order_number": "BNAT-QKZD-31"}
     patch_supabase_client.register_rpc("record_payment_authorised", FakeSupabaseResponse(data={"outcome": "applied", "order": web}))
     bg = _FakeBackgroundTasks()
     await payment_hooks.payment_complete_path(_FakeRequest(_stripe_body()), bg)
-    assert bg.tasks[0]["func"] is customer_notifier.publish
-    assert bg.tasks[0]["args"][0] == "BNAT-QKZD-31"
-    assert bg.tasks[0]["args"][1].event_type == "payment_authorised"
-    assert bg.tasks[1]["func"] is payment_hooks.init_delivery_summary
+    assert bg.tasks[0]["func"] is payment_hooks.handle_payment_complete
+    assert bg.tasks[0]["args"][0].order_number == "BNAT-QKZD-31"
+    assert bg.tasks[-1]["func"] is payment_hooks.init_delivery_summary
     patch_supabase_client.register_rpc("record_payment_authorised", FakeSupabaseResponse(data={"outcome": "duplicate"}))
     replay = _FakeBackgroundTasks()
     await payment_hooks.payment_complete_path(_FakeRequest(_stripe_body()), replay)
@@ -187,7 +133,6 @@ async def test_notifier_publishes_web_authorisation_once(monkeypatch, patch_supa
 
 
 async def test_inbox_applies_once_and_skips_restaurant_app_for_web(patch_supabase_client, feature_flags) -> None:
-    feature_flags.add("PAYMENT_INBOX_ENABLED")
     patch_supabase_client.register_rpc(
         "record_payment_authorised", FakeSupabaseResponse(data={"outcome": "applied", "order": _food_order_row("takeaway")})
     )
@@ -202,7 +147,9 @@ async def test_inbox_applies_once_and_skips_restaurant_app_for_web(patch_supabas
     )
     bg = _FakeBackgroundTasks()
     await payment_hooks.payment_complete_path(_FakeRequest(_stripe_body()), bg)
-    assert [task["func"] for task in bg.tasks] == [payment_hooks.init_delivery_summary]
+    from utils_common.web_ordering.common import query
+    # Web: the customer event (routed to the order page), closing the web thread, then summary init.
+    assert [task["func"] for task in bg.tasks] == [payment_hooks.handle_payment_complete, query, payment_hooks.init_delivery_summary]
 
 
 @pytest.mark.parametrize(
@@ -218,7 +165,6 @@ async def test_inbox_applies_once_and_skips_restaurant_app_for_web(patch_supabas
 async def test_inbox_duplicate_rejected_unknown_and_ignored_have_no_side_effects(
     patch_supabase_client, feature_flags, rpc_data, body, expected
 ) -> None:
-    feature_flags.add("PAYMENT_INBOX_ENABLED")
     if rpc_data is not None:
         patch_supabase_client.register_rpc("record_payment_authorised", FakeSupabaseResponse(data=rpc_data))
     bg = _FakeBackgroundTasks()
@@ -231,18 +177,11 @@ async def test_inbox_duplicate_rejected_unknown_and_ignored_have_no_side_effects
         assert patch_supabase_client.rpc_calls == []
 
 
-async def test_payment_complete_test_path_is_off_by_default_and_uses_inbox(patch_supabase_client, feature_flags) -> None:
-    with pytest.raises(HTTPException) as off:
-        await payment_hooks.payment_complete_test_path("ABCD-1", _FakeBackgroundTasks())
-    assert off.value.status_code == 404
-    assert patch_supabase_client.calls == []
-
-    feature_flags.update({"ENABLE_PAYMENT_TEST_ROUTES", "PAYMENT_INBOX_ENABLED"})
-    reset_feature_flag_cache()  # the 404 above cached "off" for 60 s
-    patch_supabase_client.register_rpc("record_payment_authorised", FakeSupabaseResponse(data={"outcome": "duplicate"}))
-    result = await payment_hooks.payment_complete_test_path("ABCD-1", _FakeBackgroundTasks())
-    assert result == {"success": "success", "outcome": "duplicate"}
-    assert patch_supabase_client.rpc_calls[-1].payload["args"]["p_provider_event_id"] == "authorised:ABCD-1"
+def test_test_replay_route_is_gone() -> None:
+    """R3.1 (D35): the synthetic replay route and its switch are removed."""
+    paths = {route.path for route in payment_hooks.router.routes}
+    assert "/payment-complete" in paths
+    assert not any(path.startswith("/payment-complete-test") for path in paths)
 
 
 async def test_init_reconciler_alerts_overwatch(monkeypatch) -> None:
