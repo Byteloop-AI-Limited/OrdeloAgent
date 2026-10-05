@@ -34,7 +34,7 @@ IDs, concurrency testing and evidence limits.
 | Issue | Evidence / required next step | Effect on release |
 |---|---|---|
 | Manual collection capture | RNRX-25 has no payment_details record under either short or full reference. Three capture attempts failed. At 14:47 local Stripe still reports £27.90 authorised, zero received. Actual session metadata lacks captureMode/restRef. Local payment-service commit `58158ca` already adds manual-capture metadata and persistence; inspect the deployed creation and webhook Lambdas and deploy/verify that fix through the separate payment-service release. Reconcile the existing session separately. | Blocks live paid web collection; can also affect WhatsApp manual-capture collection. No source workaround, fabricated DB payment row or longer retry was used. |
-| Production web environment | Current `restaurant-frontend/amplify.yml` copies only legacy variables into `.env.production`, omitting new web mode, backend URL, key, cookie secret and site URL. Amend its existing allowlist to include the names below and configure actual production values. Backend needs the matching key too. This wiring is documented, not changed in this handover. | Web will not function in production just by committing local `.env.local` settings. |
+| Production web environment | Current `restaurant-frontend/amplify.yml` copies only legacy variables into `.env.production`, omitting new web mode, key, cookie secret and site URL. Amend its existing allowlist to include the names below and configure actual production values. R3 now resolves the backend through `ordelo_config.ORDELO_APP_URL`, using the shared WhatsApp URL lookup. Backend needs the matching key too. Amplify wiring is documented, not changed in this handover. | Web will not function in production just by committing local `.env.local` settings. |
 | Remaining regression | Real web delivery, collection success after provider fix, decline/no-rider cancellation, late-payment cancellation and kill switch with an in-flight order have not passed the full R3 matrix. Non-overwatch live WhatsApp payment, takeaway and pay-at-restaurant were not rerun during R3. | R3 acceptance remains incomplete. Earlier R1/R2 evidence is separate. |
 | Public business/legal details | Owner chose to leave business identity, support email and approved Terms/Privacy links pending. | Pending public launch details; no names or legal copy invented. |
 | Production privacy | App query logging was redacted, but development access logs include secret `/o/{token}` paths. Verify/mask actual ingress, Amplify and backend access logs before launch. | Infrastructure token/privacy acceptance remains open. |
@@ -97,13 +97,13 @@ off and must not be blindly used for this release.
 | Backend ORDELO_WEB_KEY | Strong production server secret, ≥32 characters; alternatively AWS application secret field `ordelo_web_key` as supported by require_key. Keep outside Git. |
 | Frontend ORDELO_WEB_KEY | Exactly the same backend secret, server only. |
 | Frontend WEB_COOKIE_SECRET | Separate strong production secret, ≥32 characters; stable across rebuilds so valid cookies continue to work. |
-| Frontend ORDELO_WEB_API_URL | `https://rider-agent.ordelo.app`; never localhost or the test tunnel in production. Omitting it uses the DB Ordelo URL fallback. |
+| Backend URL lookup | R3 uses `ordelo_config.ORDELO_APP_URL` through `getRiderAgentUrl()`, like WhatsApp. The shared lookup caches for 60 seconds and retains `RIDER_AGENT_URL` as its fallback when DB configuration is unavailable. `ORDELO_WEB_API_URL` is no longer used. |
 | Frontend NEXT_PUBLIC_WEB_ORDERING_MODE | `live` renders the real channel; a production rebuild is required. New checkout still obeys the backend empty/ELAS allowlist. `off` makes web routes unavailable. |
 | Frontend ORDELO_WEB_SITE_URL | `https://restaurant.ordelo.app` if that is the chosen public storefront host; it emits public town/menu sitemap entries. Leave absent until advertising is intended. |
 | Frontend RIDER_AGENT_URL | Existing production fallback `https://rider-agent.ordelo.app`; preserve authorised MENU_API_URL and other existing variables. |
 
 Amend Amplify's existing environment-copy regex with:
-`NEXT_PUBLIC_WEB_ORDERING_MODE|ORDELO_WEB_API_URL|ORDELO_WEB_KEY|WEB_COOKIE_SECRET|ORDELO_WEB_SITE_URL`.
+`NEXT_PUBLIC_WEB_ORDERING_MODE|ORDELO_WEB_KEY|WEB_COOKIE_SECRET|ORDELO_WEB_SITE_URL`.
 These are names only; do not place keys in source or prefix them NEXT_PUBLIC.
 The current local backend `.env.r3-local` and frontend `.env.local` are ignored
 test configuration, not production secret delivery. Do not copy the entire local

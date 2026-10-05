@@ -24,7 +24,8 @@ select * from customer_master;
 select rest_ref, count(*) from cust_rest_map where has_consent group by rest_ref;
 -- Check and close thread
 select * from thread where is_active order by dtts desc;
-update thread set is_active=False where is_active and recipient='447919202938';
+update thread set is_active=False where is_active and recipient='447448440754';
+update thread set is_active=False where agent='WEB';
 --ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d 
 --ORDELO-7006a159-8f54-4615-ac0e-6fe58fed32c7
 
@@ -460,6 +461,17 @@ select * from customer_master order by dtts desc;
 select * from order_item where order_id = 'RMLT-29';
 select * from food_order where order_id = 'RMLT-29';
 
+select * from bnat_menu;
+SELECT
+     column_name,
+     data_type,
+     is_nullable,
+     column_default
+   FROM information_schema.columns
+   WHERE table_schema = 'public'
+     AND table_name = 'bnat_menu'
+   ORDER BY ordinal_position;
+
 // to be sent to Codex app
 R1b, in plain terms: Right now only two of the 10 places that notify a restaurant app skip web orders. The other eight would still send a web order's customer ID to a restaurant app. R1b routes all 10 through one customer notifier, so web and WhatsApp orders can be handled differently. WhatsApp customers see no change. The steps are:
 1. Write tests that record exactly what each of the 10 hooks sends today.
@@ -473,4 +485,3 @@ R2, in plain terms: this is a test run, not code. On BNAT in Stripe test mode, y
 - The payment is captured when a rider accepts, and cancelled when no rider takes the job.
 - Where Stripe sends the browser after payment.
 Do it after R1b, so the test order never reaches a restaurant app. The plan has the exact calls.
-

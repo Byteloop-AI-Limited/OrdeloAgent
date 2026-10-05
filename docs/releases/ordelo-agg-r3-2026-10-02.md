@@ -251,3 +251,29 @@ contain `/o/{token}` paths, so infrastructure privacy acceptance is not claimed.
 Client-supplied pricing remains the explicitly accepted D8 risk; legacy endpoint
 authentication and webhook-signature limitations are not resolved by the new
 authenticated web router. Do not enable public live payments on this evidence.
+
+## R3 backend URL lookup correction (2026-10-02)
+
+At the owner's request, `restaurant-frontend/lib/web/api.ts` now always uses
+`getRiderAgentUrl()` for live web requests. That shared WhatsApp lookup reads
+`ordelo_config.ORDELO_APP_URL`, caches it for 60 seconds and retains the existing
+`RIDER_AGENT_URL` fallback when database configuration is unavailable. The web
+channel no longer reads `ORDELO_WEB_API_URL`. The change covers eligibility,
+checkout, address capture, order creation, session resume, status and access
+exchange; the existing WhatsApp lookup implementation was not modified.
+
+Validation: an isolated production build passed compilation, lint and TypeScript
+checks with existing image, dependency/browser-data and Supabase Edge warnings.
+A temporary production server on port 3300 logged `Fetched ORDELO_APP_URL from
+DB: https://rider-agent.ordelo.app` while its copied environment still contained
+the old localhost override. A postcode eligibility request returned HTTP 503
+`web_unavailable` from the production upstream. This confirms database routing;
+it does not establish production web readiness. The current backend source uses
+that error when its web server key is absent or shorter than 32 characters, so
+production backend configuration/version and matching frontend key still need
+verification before a successful public postcode test.
+
+The temporary port-3300 server was stopped. The owner's port-3000 frontend was
+already stopped when the runtime probe was attempted. Local Ordelo remains
+running on port 3100 after the earlier connectivity diagnosis. No database URL
+or flag was changed for this routing correction.

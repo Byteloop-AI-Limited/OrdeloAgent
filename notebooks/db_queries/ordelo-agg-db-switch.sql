@@ -59,7 +59,9 @@ ON CONFLICT(config_key) DO UPDATE
 SET config_value=EXCLUDED.config_value, updated_at=CURRENT_TIMESTAMP;
 
 COMMIT;
+--
 -- */
+ROLLBACK;
 
 -- VERIFY: run after the chosen profile. Flags can take 60 seconds to refresh.
 SELECT config_key, config_value, updated_at
@@ -72,3 +74,8 @@ WHERE config_key IN (
   'WEB_ORDERING_ENABLED_REST_REFS', 'WEB_LATE_PAYMENT_GUARD_ENABLED'
 )
 ORDER BY config_key;
+
+
+SELECT config_key, config_value
+FROM public.ordelo_config
+WHERE config_key = 'WEB_ORDERING_ENABLED_REST_REFS';

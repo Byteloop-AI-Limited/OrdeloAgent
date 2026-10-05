@@ -1,7 +1,7 @@
 # Ordelo web ordering channel (ordelo-agg): design and release plan
 
 - **Target repository:** `OrdeloAgent` → `plans/ordelo-agg-plan-cc.md` (branch `release/ordelo-agg`)
-- **Status (2026-10-02, production handover):** R3 implementation and build checks passed. The owner's complete overwatch WhatsApp delivery/UI regression **ELAS-LXGM-26 passed** in Stripe test mode. Paid web collection **ELAS-RNRX-25 failed capture** because the payment service has no persisted intent record; R3 public acceptance is not complete. The owner restored both app URLs and Meta to production (verified at 14:46 local). ELAS Stripe TEST ingress is still local, and two web test sessions need reconciliation. Owner wants production deployment and eventual live web; recommended first deployment keeps new web checkout paused. See [exact production configuration and unresolved issues](../docs/releases/ordelo-agg-r3-production-handover-2026-10-02.md) and [detailed R3 evidence](../docs/releases/ordelo-agg-r3-2026-10-02.md). Scheduling the init reconciler remains deferred (D33).
+- **Status (2026-10-05):** R1b, R2 and the R3 build are done; both repos are deployed with the web environment wired, and the 2 Oct Stripe/test-session clean-up is done. Web checkout is **open for ELAS and CRMS** (5 Oct export) although R3 launch gates are still open, including the **payment-service manual collection capture fix**. **A new session should start at "Resume here" below.**
 - **Revised 2026-10-01:** the payment-service contract stays unchanged for web; web-specific payment behaviour moves into Ordelo's `payment-complete` (D22–D27). Glossary in `CONTEXT.md`; decisions in ADR-0003, ADR-0004 and ADR-0005.
 - **Evidence snapshot:** 2026-09-29. OrdeloAgent `7697e15` (`release/ordelo-agg`), restaurant-frontend `a75312e` (`dev`), restaurant-agents `eeb6a3c` (`main`). Payment service `58158ca` read on 2026-10-01.
 - **Companion reference:** `OrdeloAgent/docs/ordelo-restaurant-frontend-agents.md` (endpoint ids such as `create` and `authorized` below refer to it)
@@ -16,11 +16,72 @@ Labels used throughout:
 
 ---
 
-## Resume here (current handover, 2026-10-02)
+## Resume here (state at 2026-10-05)
+
+Confirmed by the owner on 2026-10-05 unless a source is given. The 2 Oct handover below is kept for history.
+
+### Done
+
+- [x] **R1b customer notifier:** released; pilot `CUSTOMER_NOTIFIER_ENABLED=true`, `CUSTOMER_NOTIFIER_REST_REFS=ELAS,BNAT`. Notes: `docs/releases/ordelo-agg-r1b-2026-10-02.md`.
+- [x] **R2 payment-path check:** passed. Notes: `docs/releases/ordelo-agg-r2-2026-10-02.md`.
+- [x] **R3 build:** code complete (commits `a17aa8f`, `6860622` "R3 complete"); 533 tests pass (one pre-existing failure deselected). Notes: `docs/releases/ordelo-agg-r3-2026-10-02.md`.
+- [x] **R3 web backend lookup:** the web channel uses `ordelo_config.ORDELO_APP_URL` through `getRiderAgentUrl()`, like WhatsApp; `ORDELO_WEB_API_URL` is no longer used.
+- [x] **2 Oct configuration:** app URLs and Meta restored to production; PAUSE profile of `notebooks/db_queries/ordelo-agg-db-switch.sql` applied at 15:39.
+- [x] **Overwatch WhatsApp delivery regression** `ELAS-LXGM-26` passed end to end (Stripe test mode).
+- [x] **Deployment and production environment:** both repos deployed; Amplify copies `NEXT_PUBLIC_WEB_ORDERING_MODE|ORDELO_WEB_KEY|WEB_COOKIE_SECRET|ORDELO_WEB_SITE_URL`; matching backend/frontend `ORDELO_WEB_KEY` and a stable `WEB_COOKIE_SECRET` set.
+- [x] **Stripe and test sessions:** ELAS Stripe TEST Ordelo callback restored to `https://rider-agent.ordelo.app/payment-hooks/payment-complete`; GZBU-24 (open session) and RNRX-25 (authorised, uncaptured) reconciled.
+- [x] **CRMS web-only onboarding started:** backend commit `ac64e19` (5 Oct). The 5 Oct config export shows `WEB_ORDERING_ENABLED_REST_REFS=ELAS,CRMS`, `TEST_PAYMENT_REST_REFS=BNAT,CRMS`, `CRMS_WEB_ORDERING_PAUSED=false`, `CRMS_WEB_DELIVERY_PAUSED=false`, i.e. the CRMS production test window (`03_prod_test_enable.sql`) is open. Tracked in `plans/onboard-crms-plan.md` §4.
+
+### Not done
+
+- [ ] **Manual collection capture (payment service).** RNRX-25 showed that web collection payments are authorised but can't be captured: the deployed payment service didn't add `captureMode=manual`/`restRef` to the Checkout Session or save the PaymentIntent to `payment_details`, so Ordelo's capture call finds nothing. Payment-service commit `58158ca` contains that fix but the deployed Lambdas weren't checked. This can also affect WhatsApp manual-capture collection.
+- [ ] **R3 regression matrix** (§19 rows marked R3, T10–T30 and T39–T42). Not yet run in production. Priority rows: T10 web delivery, T11 web collection (after the capture fix), T22 takeaway decline, T23 no rider found, T30 kill switch with orders in flight, T39 late payment, T40 rider asks for contact, T42 no restaurant-app call. Also rerun a non-overwatch live WhatsApp payment, takeaway and pay-at-restaurant.
+- [ ] **Monitoring and price audit:** M1–M9 (§20) and `WEB_PRICE_MONITOR_ENABLED=true` with the alert destination checked.
+- [ ] **Production log privacy:** check and mask `/o/{token}` paths in ingress, Amplify and backend access logs (T28).
+- [ ] **Accessibility:** Lighthouse mobile ≥ 90 (R3 entry gate item 6).
+- [ ] **Business and legal details:** business identity, support email, Terms and Privacy links.
+
+### Risks while checkout is open
+
+- **Collection capture:** until the payment-service fix is deployed and verified, a real paid web collection at ELAS or CRMS may be authorised but never captured (the card hold lapses; the restaurant isn't paid).
+- **CRMS test window:** CRMS is in `TEST_PAYMENT_REST_REFS` with checkout open, so a visitor without `?isTest3100=true` pays live (accepted risk in the CRMS plan; keep the window short).
+- **`ordelo-agg-db-switch.sql`:** the UNPAUSE block is *not* commented out (`-- /*` and `-- */` are line comments), so running the whole file applies PAUSE and then UNPAUSE. It would also reset both lists to ELAS/BNAT only, dropping CRMS. Run one section at a time.
+
+### Interim release R3.1: one switch (proposed 2026-10-05, owner request)
+
+Goal: everything live, all notifications on, and **one** setting left to manage: `TEST_PAYMENT_REST_REFS` (the test restaurant, `BNAT`). Every rollout flag from R1a–R3 is removed from code and from `ordelo_config`. Full spec in §18 "R3.1". Decision D35.
+
+| Setting today | After R3.1 |
+|---|---|
+| `PAYMENT_INBOX_ENABLED`, `ORDER_CREATE_RPC_ENABLED` | Always on in code; legacy paths deleted; rows deleted |
+| `CUSTOMER_NOTIFIER_ENABLED`, `CUSTOMER_NOTIFIER_REST_REFS` | Notifier always on for every restaurant; legacy direct calls deleted; rows deleted |
+| `WEB_LATE_PAYMENT_GUARD_ENABLED` | Always on in code; row deleted |
+| `WEB_ORDERING_ENABLED_REST_REFS` | Removed. A restaurant is on the web when it's in the code registries (backend `RESTAURANTS`, frontend `webOrderingEnabled`) |
+| `ENABLE_PAYMENT_TEST_ROUTES` | `/payment-hooks/payment-complete-test` route deleted; row deleted |
+| `WEB_PRICE_MONITOR_ENABLED`, `{REST}_WEB_MAX_DISCOUNT_PERCENT` | Monitor always on; max discount defaults to 0 in code (key optional, absent by default); rows deleted |
+| `{REST}_WEB_DELIVERY_PAUSED` | Removed |
+| `{REST}_WEB_ORDERING_PAUSED` | Kept as the only emergency switch, **absent by default** (absent = open) |
+| `TEST_PAYMENT_REST_REFS` | Kept, `BNAT` only. Meaning changes: **every** order (web and WhatsApp) for a listed restaurant uses Stripe test, no `?isTest3100=true` needed. Overwatch numbers can still request test payments on live restaurants. |
+| `ORDELO_APP_URL`, `RESTAURANT_MENU_APP_URL`, `overwatch_list`, timeouts, restaurant keys | Unchanged (environment and operations settings, not rollout flags) |
+
+### Next steps, in order (revised 2026-10-05)
+
+1. **Now, before R3.1:** take CRMS out of `TEST_PAYMENT_REST_REFS` *or* pause it (`onboarding_crms/99_rollback.sql` Level 1). Today a CRMS visitor without `?isTest3100=true` pays live while CRMS isn't ready for real orders (admin numbers are still the owner's). Don't run `ordelo-agg-db-switch.sql` as a whole.
+2. **Fix web collection capture** (payment service, see "Not done"). R3.1 makes every listed restaurant live, so a real web collection must be capturable first. Verify on BNAT, then one WhatsApp collection.
+3. **Build R3.1** (§18): code changes, tests, and an updated test-payment rule. One release for OrdeloAgent; restaurant-frontend only if `isTest3100` handling changes.
+4. **Deploy R3.1 with the old rows still in place** (the new code ignores them). Check: one WhatsApp delivery and one takeaway each at ELAS and SFCS (SFCS was never in the notifier pilot), one web delivery and one web collection at BNAT (test), notifications arrive.
+5. **Clean up `ordelo_config`** a few days later, once a rollback to the old image is no longer likely: run the R3.1 clean-up SQL (deletes the rollout rows, sets `TEST_PAYMENT_REST_REFS=BNAT`). Retire `ordelo-agg-db-switch.sql`, `.claude/skills/ordelo-local-automatic-orders/references/{test-enable,production-restore}.sql` and the CRMS `03`/`99` scripts' flag sections; replace with one short "test restaurant / emergency pause" script.
+6. **R3 regression matrix** (§19 R3 rows) on BNAT, against the simplified build.
+7. **CRMS go-live gate G3** (`plans/onboard-crms-plan.md` §4.4): real admin numbers, live confirmation timeout, payment service has CRMS live Stripe details.
+8. **Monitoring** (M1–M9; the price monitor is always on after R3.1, check its alert destination), **log privacy** (T28), **Lighthouse** ≥ 90, **business/legal details**.
+
+Deferred: init-reconciler scheduling (D33); payment-service F11–F13 (§3).
+
+## Earlier handover (2026-10-02)
 
 1. Read the [production handover](../docs/releases/ordelo-agg-r3-production-handover-2026-10-02.md), including the current/paused/live configuration table and provider/test-session cleanup. Do not apply the older pre-R1b restore profile, which would disable the notifier pilot.
 2. Owner restored both app URLs and the Meta override. On explicit owner approval at **15:39 local**, `TEST_PAYMENT_REST_REFS=BNAT` and empty `WEB_ORDERING_ENABLED_REST_REFS` were applied and verified; **`WEB_LATE_PAYMENT_GUARD_ENABLED=true`** was retained. Production URLs and existing inbox/RPC/notifier flags were verified unchanged. The [pause/unpause SQL profiles](../notebooks/db_queries/ordelo-agg-db-switch.sql) and private before snapshot are documented in the handover. PAUSE is the runnable default; UNPAUSE enables ELAS and is commented out pending launch acceptance.
-3. Release wiring still needs production web env variables copied by Amplify, matching backend/frontend server keys, a stable cookie secret, and the production upstream URL. Local ignored env files are not deployed configuration.
+3. Release wiring still needs production web env variables copied by Amplify, matching backend/frontend server keys, and a stable cookie secret. R3 now uses the shared `getRiderAgentUrl()` lookup of `ordelo_config.ORDELO_APP_URL`, like WhatsApp, and ignores `ORDELO_WEB_API_URL`. Local ignored env files are not deployed configuration.
 4. Resolve web collection capture through the payment-service deployment/configuration investigation, reconcile existing test sessions, and complete remaining R3 regression/launch gates before setting the web allowlist back to `ELAS`. Owner expects low `/town` traffic, but the route/API is public when enabled; this is not a launch safeguard.
 5. Overwatch WhatsApp delivery passed through completion. Non-overwatch live payment, R3-run takeaway/pay-at-restaurant, web delivery, late-payment, failure/cancellation paths, production privacy, accessibility, monitoring and pending public business/legal details remain separate gaps.
 
@@ -117,6 +178,7 @@ All three former "Not verified yet" items are done:
 | D31 | (2026-10-01) **All R1 SQL ships as one file**, `ordelo_datamodels/migrations/ordelo_agg_r1.sql`, which the owner runs manually. Code that depends on it is behind `ordelo_config` flags that are off when the key is missing, so deploying code before the SQL is safe. | §6.1, §18 |
 | D33 | (2026-10-01) **Scheduling the init reconciler is deferred** (owner: not wanted yet). The SQL job and `/payment-hooks/init-reconciler` stay deployed but unscheduled. | §18 R1a, §22 |
 | D34 | (2026-10-01) **The R0 front-end findings are deferred to an R3 entry gate.** All four findings and the stale copy sit in the Ordelo web code only (`components/ordelo/*`, `lib/web/*`, the fixture pay page), which is off in production; none touches the WhatsApp flow (`/restaurant/[id]`, `MenuContainer`, `BasketDrawer`, `CartContext`). They don't block R1b or R2, but must be fixed before web ordering goes live. | §18 R3 "Entry gate", `plans/ordelo-r0-validation-2026-09-30.md` |
+| D35 | (2026-10-05) **Interim release R3.1: one switch.** All R1a–R3 rollout flags are removed: their features are always on in code and their legacy paths deleted. Web ordering is on for every restaurant in the code registries; the notifier is on for every restaurant. `TEST_PAYMENT_REST_REFS` (BNAT) is the only setting to manage, and a listed restaurant always uses Stripe test. `{REST}_WEB_ORDERING_PAUSED` stays as an absent-by-default emergency switch. Rollback becomes redeploying the previous image. | Resume here; §18 R3.1 |
 
 ---
 
@@ -1176,6 +1238,27 @@ remain pending. See [verification notes](../docs/releases/ordelo-agg-r1b-2026-10
 - **Acceptance (test restaurant, Stripe test mode, then one live restaurant):** the §19 matrix rows marked R3 pass. The restaurant receives the web order on existing WhatsApp admin flows exactly as for WhatsApp orders. The rider is told no customer number is on file. The order page shows each stage.
 - **Monitoring:** §20 dashboards live before the first real order.
 - **Rollback:** flip the server kill switch (new web checkouts get 503 "Online ordering is paused, call the restaurant"). **In-flight web orders keep fulfilling**, because fulfilment doesn't depend on web code; order pages keep working. Frontend rollback is an Amplify redeploy.
+
+### R3.1: One switch (interim release, D35)
+
+- **Why:** the R1a–R3 rollout flags did their job (staged, reversible rollout); everything they guard is now verified or wanted on. Keeping them means ~12 keys to keep consistent, the pause/unpause scripts, and a live `production-restore.sql` that would turn the notifier off.
+- **OrdeloAgent code:**
+  1. `config/feature_flags.py`: delete `ORDER_CREATE_RPC_ENABLED`, `PAYMENT_INBOX_ENABLED`, `ENABLE_PAYMENT_TEST_ROUTES`, `CUSTOMER_NOTIFIER_ENABLED`, `CUSTOMER_NOTIFIER_REST_REFS`. Keep `flag_enabled`/`config_csv` (used by `TEST_PAYMENT_REST_REFS` and the pause key).
+  2. `order_service.create_order_with_items`: always use the RPC; delete the insert + compensating-delete path.
+  3. `payment_hooks.payment_complete_path`: always use the M2 inbox; delete the legacy unconditional update. Delete `payment_complete_test_path` and its route.
+  4. `customer_notifier.enabled_for` → always true (or delete it and its call sites); delete the legacy direct restaurant-app calls kept "for one release" at the 10 call sites; `sweep_pending` always runs.
+  5. `WEB_LATE_PAYMENT_GUARD_ENABLED` checks in `lifecycle.py`, `web_checkout.py`, `availability.py`, `payment_hooks.py`, `customer_notifier.py` → always on.
+  6. `web_ordering/availability.available`: drop the `WEB_ORDERING_ENABLED_REST_REFS` check, the three prerequisite-flag checks and `{REST}_WEB_DELIVERY_PAUSED`; keep the `RESTAURANTS` registry check, `{REST}_WEB_ORDERING_PAUSED` (absent = open), hours and cutoff.
+  7. `web_ordering/monitoring.py`: price monitor always on; `{REST}_WEB_MAX_DISCOUNT_PERCENT` absent = 0.
+  8. `payment_mode`: a restaurant in `TEST_PAYMENT_REST_REFS` gets `payment_mode='test'` on **every** order, requested or not. Overwatch recipients on other restaurants keep test-on-request (`?isTest3100=true`), and today's overwatch + delivery rule stays.
+  9. Tests: remove flag-off cases; keep the R1b characterisation tests (now for the always-on notifier); add "test restaurant always test" and "web open with no allowlist row".
+- **restaurant-frontend:** no change needed for the flags (web mode and `webOrderingEnabled` are already code/env). Optional: drop `?isTest3100=true` from the web page if overwatch testing on live restaurants isn't wanted on web (web orders carry no phone, so only the test restaurant can be test on web anyway).
+- **SQL (owner runs, after the deploy has settled):** one clean-up file, `notebooks/db_queries/ordelo-config-r3_1-cleanup.sql`: save a before-SELECT, then `DELETE` the rows `PAYMENT_INBOX_ENABLED`, `ORDER_CREATE_RPC_ENABLED`, `ENABLE_PAYMENT_TEST_ROUTES`, `CUSTOMER_NOTIFIER_ENABLED`, `CUSTOMER_NOTIFIER_REST_REFS`, `WEB_ORDERING_ENABLED_REST_REFS`, `WEB_LATE_PAYMENT_GUARD_ENABLED`, `WEB_PRICE_MONITOR_ENABLED`, `%_WEB_MAX_DISCOUNT_PERCENT`, `%_WEB_DELIVERY_PAUSED`, `%_WEB_ORDERING_PAUSED` (all currently false); upsert `TEST_PAYMENT_REST_REFS=BNAT`. Leave app URLs, `overwatch_list`, timeouts and restaurant keys alone. Optional: `PAYMENT_INIT_RECONCILER_SINCE` can stay (reconciler unscheduled, D33).
+- **Order matters:** deploy code first, delete rows later. The old code treats a missing flag as off, so deleting rows before the deploy (or rolling back to the old image after deleting them) switches the inbox, RPC, notifier and web ordering off. That fails safe for WhatsApp (legacy paths) but closes web.
+- **Retire scripts:** `notebooks/db_queries/ordelo-agg-db-switch.sql`, `.claude/skills/ordelo-local-automatic-orders/references/test-enable.sql` and `production-restore.sql` (the latter turns the notifier **off**), flag sections in `onboarding_crms/02`, `03`, `99`. Replace with one short script: inspect; add/remove the test restaurant; set/clear `{REST}_WEB_ORDERING_PAUSED`.
+- **Acceptance:** WhatsApp delivery + takeaway at ELAS and SFCS with identical customer messages; pay-at-restaurant at one restaurant; web delivery + collection at BNAT in test mode with no `?isTest3100`; web ordering open at a registry restaurant with no allowlist row; one notification per event; R1b characterisation tests green.
+- **Rollback:** redeploy the previous image **before** the clean-up SQL is run (no config needed). After clean-up, rolling back also needs the old rows re-inserted (keep the before-SELECT).
+- **Prerequisite:** web collection capture fixed in the payment service (otherwise real web collection payments can't be captured once everything is live).
 
 ### R4: WhatsApp hand-off (ordelo_agg)
 
