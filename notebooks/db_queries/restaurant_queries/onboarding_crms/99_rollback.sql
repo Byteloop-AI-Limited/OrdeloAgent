@@ -1,3 +1,7 @@
+-- Updated for R3.1 (plan D35, 2026-10-05): there is no web allowlist or delivery-only
+-- pause any more. A restaurant is on the web when it is in the code registries;
+-- {REF}_WEB_ORDERING_PAUSED is the only web switch; every order of a restaurant in
+-- TEST_PAYMENT_REST_REFS is a Stripe test payment. See ordelo-agg-db-switch.sql.
 -- =============================================================================
 -- CRMS onboarding · 99 · ROLLBACK. Pick the smallest level that solves the problem.
 -- All levels take effect within about 60 s (backend flag/CSV cache), with no deploy.
@@ -5,27 +9,18 @@
 
 -- ---------- Level 1: pause all new CRMS web orders (normal "turn it off") ----------
 BEGIN;
-UPDATE public.ordelo_config SET config_value = 'true', updated_at = CURRENT_TIMESTAMP
-WHERE config_key = 'CRMS_WEB_ORDERING_PAUSED';
+INSERT INTO public.ordelo_config (config_key, config_value, description)
+VALUES ('CRMS_WEB_ORDERING_PAUSED', 'true', 'Emergency stop for new CRMS web orders')
+ON CONFLICT (config_key) DO UPDATE SET config_value = 'true', updated_at = CURRENT_TIMESTAMP;
 SELECT config_key, config_value FROM public.ordelo_config WHERE config_key = 'CRMS_WEB_ORDERING_PAUSED';
 COMMIT;
 
--- ---------- Level 2: pause delivery only (e.g. no Orpington riders tonight) ----------
--- BEGIN;
--- UPDATE public.ordelo_config SET config_value = 'true', updated_at = CURRENT_TIMESTAMP
--- WHERE config_key = 'CRMS_WEB_DELIVERY_PAUSED';
--- COMMIT;
+-- ---------- Level 2: delivery only ----------
+-- No longer available (R3.1 removed CRMS_WEB_DELIVERY_PAUSED). Use Level 1.
 
--- ---------- Level 3: take CRMS out of the global web lists ----------
--- BEGIN;
--- UPDATE public.ordelo_config
--- SET config_value = array_to_string(
---       array_remove(string_to_array(upper(replace(config_value, ' ', '')), ','), 'CRMS'), ','),
---     updated_at = CURRENT_TIMESTAMP
--- WHERE config_key IN ('WEB_ORDERING_ENABLED_REST_REFS', 'TEST_PAYMENT_REST_REFS');
--- SELECT config_key, config_value FROM public.ordelo_config
--- WHERE config_key IN ('WEB_ORDERING_ENABLED_REST_REFS', 'TEST_PAYMENT_REST_REFS');
--- COMMIT;
+-- ---------- Level 3: take CRMS off the web ----------
+-- Since R3.1 there is no allowlist row: remove RESTAURANTS["CRMS"] (backend) and
+-- RESTAURANTS.crms webOrderingEnabled (frontend) and deploy. Level 1 meanwhile.
 
 -- ---------- Level 4: full removal (only if CRMS never took an order) ----------
 -- Check first. Expected: 0 for all three, or do NOT delete (FKs and history).

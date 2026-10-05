@@ -27,6 +27,18 @@ from utils_common.order_management.order_db_ops_new import OrderItem
 from watomation.routers import order_hooks
 
 
+@pytest.fixture(autouse=True)
+def _no_test_restaurants(monkeypatch):
+    """Payment-mode config boundary: no test restaurants, no overwatch numbers."""
+    from utils_common.payment_ms import payment_mode
+
+    async def _csv(key, **kwargs):
+        return frozenset()
+
+    monkeypatch.setattr(payment_mode, "config_csv", _csv)
+    monkeypatch.setattr(payment_mode, "get_overwatch_list", lambda: [])
+
+
 def _order_items() -> list[OrderItem]:
     return [OrderItem(order_id="placeholder", sku="burger", quantity=1, price=10.0, product_name="Burger")]
 
@@ -148,12 +160,12 @@ async def test_validate_postcode_returns_resolved_address(monkeypatch) -> None:
 
 
 @respx.mock
-async def test_capture_address_upserts_customer_and_notifies_restaurant(monkeypatch, patch_supabase_client) -> None:
+async def test_capture_address_upserts_customer_and_notifies_restaurant(monkeypatch, patch_supabase_client, inline_notifier) -> None:
     async def _webhook(rest_ref, webhook_type):
         return "https://rest.example.com/address-update"
 
     calls = []
-    monkeypatch.setattr(order_hooks, "get_restaurant_webhook_url_async", _webhook)
+    inline_notifier.webhook = _webhook
     monkeypatch.setattr(order_hooks.CustRestMap, "upsert", staticmethod(lambda **kwargs: calls.append(kwargs)))
     route = respx.post("https://rest.example.com/address-update/447400000000").mock(return_value=httpx.Response(200, json={"ok": True}))
     request = order_hooks.CaptureAddressRequest(
@@ -237,64 +249,6 @@ async def test_capture_address_skips_restaurant_app_for_web_customer_key(monkeyp
 
 
 
-@pytest.mark.parametrize("allowed, expected_mode", [(True, "test"), (False, None)])
-async def test_create_order_honours_test_payment_only_when_allowed(monkeypatch, allowed, expected_mode) -> None:
-    received = {}
-
-    async def _create_order(**kwargs):
-        received.update(kwargs)
-        return {"success": True, "order_id": "ABCD-1", "order_number": "BNAT-ABCD-1"}
-
-    async def _allowed(recipient, rest_ref):
-        return allowed, "test_restaurant" if allowed else "not_allowed"
-
-    async def _takeaway_url(food_order):
-        return "https://pay.example.com/manual"
-
-    food_order = _food_order("takeaway")
-    food_order.payment_mode = expected_mode
-    food_order.uses_test_payment = expected_mode == "test"
-    monkeypatch.setattr(order_hooks, "create_order_with_items", _create_order)
-    monkeypatch.setattr(order_hooks, "is_test_payment_allowed", _allowed)
-    monkeypatch.setattr(order_hooks.FoodOrder, "from_order_id", staticmethod(lambda order_id: food_order))
-    monkeypatch.setattr(order_hooks, "generate_takeaway_manual_payment_url", _takeaway_url)
-
-    result = await order_hooks.create_order(
-        "BNAT",
-        order_hooks.CreateOrderRequest(
-            recipient="W7K2M9QX4TPA", thread_id="WEB-1", order_items=_order_items(),
-            order_type="takeaway", origin_channel="web", storefront="ordelo", test_payment=True,
-        ),
-    )
-
-    assert received["payment_mode"] == expected_mode
-    assert result["payment_mode"] == ("test" if allowed else "live")
-
-
-async def test_create_order_without_test_payment_never_checks_permission(monkeypatch) -> None:
-    async def _create_order(**kwargs):
-        assert kwargs["payment_mode"] is None
-        return {"success": True, "order_id": "ABCD-1", "order_number": "ELAS-ABCD-1"}
-
-    async def _allowed(recipient, rest_ref):
-        raise AssertionError("permission must not be checked without test_payment")
-
-    async def _url(food_order):
-        return "https://pay.example.com/intent"
-
-    monkeypatch.setattr(order_hooks, "create_order_with_items", _create_order)
-    monkeypatch.setattr(order_hooks, "is_test_payment_allowed", _allowed)
-    monkeypatch.setattr(order_hooks.FoodOrder, "from_order_id", staticmethod(lambda order_id: _food_order("delivery")))
-    monkeypatch.setattr(order_hooks, "generate_payment_intent_url", _url)
-
-    result = await order_hooks.create_order(
-        "ELAS",
-        order_hooks.CreateOrderRequest(recipient="447400000000", thread_id="t", order_items=_order_items(), order_type="delivery"),
-    )
-    assert result["payment_intent_url"] == "https://pay.example.com/intent"
-    assert result["payment_mode"] == "live"
-
-
 # --- R3.1 (D35): the test restaurant list is the only payment switch ---------------------------
 
 def _payment_config(monkeypatch, *, test_refs=frozenset({"BNAT"}), overwatch=("447400000000",)):
@@ -360,3 +314,20 @@ async def test_live_restaurant_is_live_unless_overwatch_asks(monkeypatch) -> Non
                                        order_type="delivery", test_payment=True),
     )
     assert received["payment_mode"] == "test" and overwatch["payment_mode"] == "test"
+
+
+@respx.mock
+async def test_capture_address_succeeds_when_restaurant_app_is_down(monkeypatch, patch_supabase_client, inline_notifier) -> None:
+    """The address is saved even if the restaurant app rejects the notice."""
+    async def _webhook(rest_ref, webhook_type):
+        return "https://rest.example.com/address-update"
+
+    inline_notifier.webhook = _webhook
+    monkeypatch.setattr(order_hooks.CustRestMap, "upsert", staticmethod(lambda **kwargs: None))
+    respx.post("https://rest.example.com/address-update/447400000000").mock(return_value=httpx.Response(503))
+    request = order_hooks.CaptureAddressRequest(
+        recipient="447400000000", rest_ref="SFCS", house_number="1", street_name="High Street",
+        city="Salisbury", postcode="SP1 2AB", latitude=51.07, longitude=-1.79,
+    )
+
+    assert await order_hooks.capture_address(request) == {"success": True}

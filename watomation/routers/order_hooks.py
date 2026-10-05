@@ -17,15 +17,17 @@ Functions/Classes:
   . validate_postcode - Validates UK postcodes and returns resolved address
   . capture_address - Captures customer address and upserts into customer_master and cust_rest_map
   . get_active_thread - Proxies active thread retrieval request to restaurant system
-    . Routes customer notifications through the R1b notifier when enabled
+    . Routes customer notifications through the R1b notifier (always on since R3.1)
 """
 
 from utils_common.notify import customer_notifier
-from utils_common.payment_ms.payment_mode import is_test_payment_allowed
+from utils_common.payment_ms.payment_mode import resolve_payment_mode
 
 # %%
 
 from typing import List, Literal, Optional
+
+import asyncio
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query, Response
@@ -36,7 +38,6 @@ from ordelo_datamodels.cust_rest_map_pymodel import CustRestMap
 from ordelo_datamodels.customer_master_pymodel import CustomerMaster
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from utils_common.maps_service.address_resolver import address_resolver
-from utils_common.order_management.customer_keys import is_web_customer_key
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.order_management.order_service import (
@@ -258,12 +259,9 @@ async def create_order(
     _notes = request.notes.lower() if request.notes else ""
 
     action = request.order_type
-    payment_mode = None
-    if request.test_payment:
-        allowed, reason = await is_test_payment_allowed(request.recipient, rest_ref)
-        if allowed:
-            payment_mode = "test"
-        logger.info("test payment request rest_ref={} allowed={} reason={}", rest_ref, allowed, reason)
+    payment_mode, reason = await resolve_payment_mode(request.recipient, rest_ref, request.test_payment)
+    if request.test_payment or payment_mode:
+        logger.info("payment mode rest_ref={} mode={} reason={}", rest_ref, payment_mode or "live", reason)
 
     # Create order with items
     order_result = await create_order_with_items(
@@ -382,10 +380,8 @@ async def capture_address(request: CaptureAddressRequest):
     logger.info(f"restRef is :{rest_ref}")
     _customer_master_row = CustomerMaster(**customer_master_pl)
 
-    response = (
-        client_ordelo.table("customer_master")
-        .upsert(_customer_master_row.model_dump())
-        .execute()
+    await asyncio.to_thread(
+        lambda: client_ordelo.table("customer_master").upsert(_customer_master_row.model_dump()).execute()
     )
     CustRestMap.upsert(
         cust_id=request.recipient,
@@ -395,26 +391,12 @@ async def capture_address(request: CaptureAddressRequest):
 
     logger.info(f"Customer address captured for {request.recipient}")
 
-    if await customer_notifier.enabled_for(rest_ref):
+    # Web customers are skipped inside notify_address (ADR-0003). The address is
+    # already saved, so a restaurant-app failure is logged, not returned.
+    try:
         await customer_notifier.notify_address(rest_ref, request.recipient, _customer_master_row.model_dump())
-        return {"success": True}
-
-    # A W-id belongs to a web checkout, which no restaurant app knows (ADR-0003).
-    if is_web_customer_key(request.recipient):
-        logger.info("Web customer key: restaurant-app address hook skipped")
-        return {"success": True}
-
-    webhook_url = await get_restaurant_webhook_url_async(
-        rest_ref, "order-address-update"
-    )
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            url=f"{webhook_url}/{request.recipient}",
-            json=_customer_master_row.model_dump(),
-        )
-        logger.info("Restaurant notified of rider")
-        logger.info("Status code:", response.status_code)
-
+    except Exception as exc:
+        logger.warning(f"Restaurant address notice failed for {request.recipient}: {type(exc).__name__}")
     return {"success": True}
 
 

@@ -24,10 +24,9 @@ WhatsApp callback button handler for delivery dispatch responses
     . handle_pickup_time_selection - Handles restaurant pickup-time selection callbacks
     . admin_collection_ready - Nudges the rider agent that food is ready (skipped after pickup)
     . admin_adjust_pickup_time - Handles admin pickup-time adjustment callbacks (sets restaurant_pickuptime_adjusted)
-    . Routes customer notifications through the R1b notifier when enabled
+    . Routes customer notifications through the R1b notifier (always on since R3.1)
 """
 
-from utils_common.order_management.customer_keys import is_web_customer_key
 from utils_common.notify import customer_notifier
 from utils_common.notify.customer_notifier import CustomerOrderEvent
 
@@ -50,9 +49,7 @@ from ordelo.delivery_progress import (
 from ordelo_datamodels.delivery_pymodels import DeliveryDispatch
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 from datetime import datetime, timezone
-from config.params import get_restaurant_webhook_url_async
 from utils_common.tz_utils import fmt_uk_time
-import httpx
 
 # from utils_common.waba_utils.wa_senders import send_restaurant_pickup_time
 from pywa.types import CallbackButton
@@ -534,17 +531,8 @@ async def admin_takeaway_ready(
     }
 
     try:
-        if is_web_customer_key(recipient or "") or await customer_notifier.enabled_for(rest_ref):
-            await customer_notifier.publish(order_number, CustomerOrderEvent(
-                "ready_for_collection", "ready_for_collection", "order-takeaway-ready", payload, f"/{order_id}"))
-        else:
-            webhook_url = await get_restaurant_webhook_url_async(rest_ref, "order-takeaway-ready")
-            async with httpx.AsyncClient() as client:
-                response = await client.post(url=f"{webhook_url}/{order_id}", json=payload)
-                response.raise_for_status()
-                logger.info(
-                    f"Takeaway ready notification sent for order_id={order_id}, status_code={response.status_code}"
-                )
+        await customer_notifier.publish(order_number, CustomerOrderEvent(
+            "ready_for_collection", "ready_for_collection", "order-takeaway-ready", payload, f"/{order_id}"))
         await callback.reply("Customer notification request sent.")
     except Exception as e:
         logger.error(

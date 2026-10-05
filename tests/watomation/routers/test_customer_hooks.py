@@ -60,11 +60,11 @@ async def test_create_or_update_customer_updates_existing_customer(monkeypatch) 
 
 
 @respx.mock
-async def test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer(monkeypatch, patch_supabase_client) -> None:
+async def test_update_address_updates_db_notifies_restaurant_and_handles_missing_customer(monkeypatch, patch_supabase_client, inline_notifier) -> None:
     async def _webhook(rest_ref, webhook_type):
         return "https://rest.example.com/address-update"
 
-    monkeypatch.setattr(customer_hooks, "get_restaurant_webhook_url_async", _webhook)
+    inline_notifier.webhook = _webhook
     patch_supabase_client.register(table="customer_master", verb="update", response=FakeSupabaseResponse(data=[{"cust_id": "447400000000"}]))
     route = respx.post("https://rest.example.com/address-update/447400000000").mock(return_value=httpx.Response(200, json={"ok": True}))
     request = customer_hooks.UpdateAddressRequest(

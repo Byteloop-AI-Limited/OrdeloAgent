@@ -47,7 +47,7 @@ Confirmed by the owner on 2026-10-05 unless a source is given. The 2 Oct handove
 - **CRMS test window:** CRMS is in `TEST_PAYMENT_REST_REFS` with checkout open, so a visitor without `?isTest3100=true` pays live (accepted risk in the CRMS plan; keep the window short).
 - **`ordelo-agg-db-switch.sql`:** the UNPAUSE block is *not* commented out (`-- /*` and `-- */` are line comments), so running the whole file applies PAUSE and then UNPAUSE. It would also reset both lists to ELAS/BNAT only, dropping CRMS. Run one section at a time.
 
-### Interim release R3.1: one switch (proposed 2026-10-05, owner request)
+### Interim release R3.1: one switch (built 2026-10-05, uncommitted; not deployed)
 
 Goal: everything live, all notifications on, and **one** setting left to manage: `TEST_PAYMENT_REST_REFS` (the test restaurant, `BNAT`). Every rollout flag from R1a–R3 is removed from code and from `ordelo_config`. Full spec in §18 "R3.1". Decision D35.
 
@@ -58,19 +58,19 @@ Goal: everything live, all notifications on, and **one** setting left to manage:
 | `WEB_LATE_PAYMENT_GUARD_ENABLED` | Always on in code; row deleted |
 | `WEB_ORDERING_ENABLED_REST_REFS` | Removed. A restaurant is on the web when it's in the code registries (backend `RESTAURANTS`, frontend `webOrderingEnabled`) |
 | `ENABLE_PAYMENT_TEST_ROUTES` | `/payment-hooks/payment-complete-test` route deleted; row deleted |
-| `WEB_PRICE_MONITOR_ENABLED`, `{REST}_WEB_MAX_DISCOUNT_PERCENT` | Monitor always on; max discount defaults to 0 in code (key optional, absent by default); rows deleted |
+| `WEB_PRICE_MONITOR_ENABLED` | Monitor always on; row deleted. `{REST}_WEB_MAX_DISCOUNT_PERCENT` stays an optional key (absent = 0); rows are **kept** so approved offers aren't flagged daily |
 | `{REST}_WEB_DELIVERY_PAUSED` | Removed |
-| `{REST}_WEB_ORDERING_PAUSED` | Kept as the only emergency switch, **absent by default** (absent = open) |
+| `{REST}_WEB_ORDERING_PAUSED` | Kept as the only emergency switch, **absent by default** (absent = open). Clean-up deletes only rows that aren't `true`, so an active pause survives |
 | `TEST_PAYMENT_REST_REFS` | Kept, `BNAT` only. Meaning changes: **every** order (web and WhatsApp) for a listed restaurant uses Stripe test, no `?isTest3100=true` needed. Overwatch numbers can still request test payments on live restaurants. |
 | `ORDELO_APP_URL`, `RESTAURANT_MENU_APP_URL`, `overwatch_list`, timeouts, restaurant keys | Unchanged (environment and operations settings, not rollout flags) |
 
 ### Next steps, in order (revised 2026-10-05)
 
-1. **Now, before R3.1:** take CRMS out of `TEST_PAYMENT_REST_REFS` *or* pause it (`onboarding_crms/99_rollback.sql` Level 1). Today a CRMS visitor without `?isTest3100=true` pays live while CRMS isn't ready for real orders (admin numbers are still the owner's). Don't run `ordelo-agg-db-switch.sql` as a whole.
+1. ✅ **CRMS:** owner decided (2026-10-05) that CRMS being live is fine. Section 1 of the clean-up SQL sets the test list to BNAT only, so CRMS takes live payments from then on.
 2. **Fix web collection capture** (payment service, see "Not done"). R3.1 makes every listed restaurant live, so a real web collection must be capturable first. Verify on BNAT, then one WhatsApp collection.
-3. **Build R3.1** (§18): code changes, tests, and an updated test-payment rule. One release for OrdeloAgent; restaurant-frontend only if `isTest3100` handling changes.
+3. ✅ **Build R3.1** (§18) — done 2026-10-05, uncommitted on `release/ordelo-agg`: 516 tests pass (one pre-existing failure deselected), no new ruff errors, two-axis code review run and its findings fixed. No restaurant-frontend change needed.
 4. **Deploy R3.1 with the old rows still in place** (the new code ignores them). Check: one WhatsApp delivery and one takeaway each at ELAS and SFCS (SFCS was never in the notifier pilot), one web delivery and one web collection at BNAT (test), notifications arrive.
-5. **Clean up `ordelo_config`** a few days later, once a rollback to the old image is no longer likely: run the R3.1 clean-up SQL (deletes the rollout rows, sets `TEST_PAYMENT_REST_REFS=BNAT`). Retire `ordelo-agg-db-switch.sql`, `.claude/skills/ordelo-local-automatic-orders/references/{test-enable,production-restore}.sql` and the CRMS `03`/`99` scripts' flag sections; replace with one short "test restaurant / emergency pause" script.
+5. **Clean up `ordelo_config`** a few days later, once a rollback to the old image is no longer likely: run **section 1 of `notebooks/db_queries/ordelo-agg-db-switch.sql`** (deletes the rollout rows, sets `TEST_PAYMENT_REST_REFS=BNAT`). That file is now the one short script (inspect / test list / emergency pause / reopen); the skill scripts and CRMS `02`–`99` were updated to the new model.
 6. **R3 regression matrix** (§19 R3 rows) on BNAT, against the simplified build.
 7. **CRMS go-live gate G3** (`plans/onboard-crms-plan.md` §4.4): real admin numbers, live confirmation timeout, payment service has CRMS live Stripe details.
 8. **Monitoring** (M1–M9; the price monitor is always on after R3.1, check its alert destination), **log privacy** (T28), **Lighthouse** ≥ 90, **business/legal details**.
@@ -1253,12 +1253,17 @@ remain pending. See [verification notes](../docs/releases/ordelo-agg-r1b-2026-10
   8. `payment_mode`: a restaurant in `TEST_PAYMENT_REST_REFS` gets `payment_mode='test'` on **every** order, requested or not. Overwatch recipients on other restaurants keep test-on-request (`?isTest3100=true`), and today's overwatch + delivery rule stays.
   9. Tests: remove flag-off cases; keep the R1b characterisation tests (now for the always-on notifier); add "test restaurant always test" and "web open with no allowlist row".
 - **restaurant-frontend:** no change needed for the flags (web mode and `webOrderingEnabled` are already code/env). Optional: drop `?isTest3100=true` from the web page if overwatch testing on live restaurants isn't wanted on web (web orders carry no phone, so only the test restaurant can be test on web anyway).
-- **SQL (owner runs, after the deploy has settled):** one clean-up file, `notebooks/db_queries/ordelo-config-r3_1-cleanup.sql`: save a before-SELECT, then `DELETE` the rows `PAYMENT_INBOX_ENABLED`, `ORDER_CREATE_RPC_ENABLED`, `ENABLE_PAYMENT_TEST_ROUTES`, `CUSTOMER_NOTIFIER_ENABLED`, `CUSTOMER_NOTIFIER_REST_REFS`, `WEB_ORDERING_ENABLED_REST_REFS`, `WEB_LATE_PAYMENT_GUARD_ENABLED`, `WEB_PRICE_MONITOR_ENABLED`, `%_WEB_MAX_DISCOUNT_PERCENT`, `%_WEB_DELIVERY_PAUSED`, `%_WEB_ORDERING_PAUSED` (all currently false); upsert `TEST_PAYMENT_REST_REFS=BNAT`. Leave app URLs, `overwatch_list`, timeouts and restaurant keys alone. Optional: `PAYMENT_INIT_RECONCILER_SINCE` can stay (reconciler unscheduled, D33).
+- **SQL (owner runs, after the deploy has settled):** section 1 of `notebooks/db_queries/ordelo-agg-db-switch.sql` (the owner asked for the clean-up to live in that file): save a before-SELECT, then `DELETE` the rows `PAYMENT_INBOX_ENABLED`, `ORDER_CREATE_RPC_ENABLED`, `ENABLE_PAYMENT_TEST_ROUTES`, `CUSTOMER_NOTIFIER_ENABLED`, `CUSTOMER_NOTIFIER_REST_REFS`, `WEB_ORDERING_ENABLED_REST_REFS`, `WEB_LATE_PAYMENT_GUARD_ENABLED`, `WEB_PRICE_MONITOR_ENABLED`, `%_WEB_DELIVERY_PAUSED`, and `%_WEB_ORDERING_PAUSED` rows that aren't `true` (`%_WEB_MAX_DISCOUNT_PERCENT` is kept, see above); upsert `TEST_PAYMENT_REST_REFS=BNAT`. Leave app URLs, `overwatch_list`, timeouts and restaurant keys alone. Optional: `PAYMENT_INIT_RECONCILER_SINCE` can stay (reconciler unscheduled, D33).
 - **Order matters:** deploy code first, delete rows later. The old code treats a missing flag as off, so deleting rows before the deploy (or rolling back to the old image after deleting them) switches the inbox, RPC, notifier and web ordering off. That fails safe for WhatsApp (legacy paths) but closes web.
 - **Retire scripts:** `notebooks/db_queries/ordelo-agg-db-switch.sql`, `.claude/skills/ordelo-local-automatic-orders/references/test-enable.sql` and `production-restore.sql` (the latter turns the notifier **off**), flag sections in `onboarding_crms/02`, `03`, `99`. Replace with one short script: inspect; add/remove the test restaurant; set/clear `{REST}_WEB_ORDERING_PAUSED`.
 - **Acceptance:** WhatsApp delivery + takeaway at ELAS and SFCS with identical customer messages; pay-at-restaurant at one restaurant; web delivery + collection at BNAT in test mode with no `?isTest3100`; web ordering open at a registry restaurant with no allowlist row; one notification per event; R1b characterisation tests green.
 - **Rollback:** redeploy the previous image **before** the clean-up SQL is run (no config needed). After clean-up, rolling back also needs the old rows re-inserted (keep the before-SELECT).
 - **Prerequisite:** web collection capture fixed in the payment service (otherwise real web collection payments can't be captured once everything is live).
+- **Built (2026-10-05, uncommitted):**
+  - Code: all listed flags removed with their legacy paths (compensating insert, unconditional payment-complete, test replay route, 10 legacy direct restaurant-app calls, notifier pilot). `payment_mode.resolve_payment_mode` is the single rule; a failed `TEST_PAYMENT_REST_REFS` lookup now **fails the order** rather than letting a test restaurant take a live payment. `capture_address` logs (doesn't fail) when the restaurant app rejects the address notice, and its customer upsert now runs in `asyncio.to_thread`.
+  - Behaviour change to note: when a restaurant app rejects a notification, the notifier records it as failed (no retry) instead of raising. The admin "takeaway ready" button therefore always answers "Customer notification request sent." (already the case for ELAS/BNAT under the R1b pilot).
+  - SQL: `ordelo-agg-db-switch.sql` rewritten (whole file only reads); skill `test-enable.sql`/`production-restore.sql` no longer set rollout rows and keep the test list to BNAT; CRMS `02`–`99` drop the allowlist and delivery pause, and pauses are now upserts (an `UPDATE` would do nothing once the row is absent).
+  - Tests: TDD at the seven agreed seams; new `inline_notifier` fixture in `tests/conftest.py`.
 
 ### R4: WhatsApp hand-off (ordelo_agg)
 

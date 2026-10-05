@@ -23,7 +23,7 @@ For a WhatsApp restaurant (with an agent app), use [`notebooks/db_queries/restau
 | Admin WhatsApp numbers (E.164, no `+`) | `restaurant_master.admins` |
 | Pickup defaults, dispatch timeout, confirmation timeout | `{REF}_*` config keys |
 | Web offers (if any) and maximum discount | Frontend `ordeloOffers`; `{REF}_WEB_MAX_DISCOUNT_PERCENT` |
-| Modes at launch: delivery / collection | `{REF}_WEB_DELIVERY_PAUSED` |
+| Modes at launch | Both delivery and collection (R3.1 removed the delivery-only pause) |
 
 ## 1. External prerequisites (other services; check, don't assume)
 
@@ -39,7 +39,7 @@ For a WhatsApp restaurant (with an agent app), use [`notebooks/db_queries/restau
 | Pre-flight | `00_preflight_readonly.sql` | rest_ref/rest_id free, columns present, global switches noted, menu sanity |
 | restaurant_master | `01_restaurant_master.sql` | Upsert; `service_hours_json` is what the web enforces (`"24:00"` is allowed as the end) |
 | `{REF}_*` keys | `02_ordelo_config_crms_keys.sql` | Start with **`{REF}_WEB_ORDERING_PAUSED=true`**. Do **not** create `{REF}_APP_URL` |
-| Test window | `03_prod_test_enable.sql` | Appends to `WEB_ORDERING_ENABLED_REST_REFS` and `TEST_PAYMENT_REST_REFS` (never overwrites), then unpauses |
+| Test window | `03_prod_test_enable.sql` | Since R3.1 only the `TEST_PAYMENT_REST_REFS` append and the unpause matter (every order of a listed restaurant is a test payment); the allowlist row is ignored |
 | Go live | `04_go_live.sql` | Real admins, live timeout, remove from `TEST_PAYMENT_REST_REFS`, unpause |
 | Rollback | `99_rollback.sql` | L1 pause → L4 delete |
 
@@ -48,14 +48,13 @@ Per-restaurant keys read by code:
 | Key | Read by | Missing means |
 |---|---|---|
 | `{REF}_WEB_ORDERING_PAUSED` | `availability.available` | not paused |
-| `{REF}_WEB_DELIVERY_PAUSED` | `availability.available` | not paused |
 | `{REF}_WEB_MAX_DISCOUNT_PERCENT` | `monitoring` price audit | 0 % |
 | `{REF}_DEFAULT_DELIVERY_PICKUP_TIME` / `_COLLECTION_` | `resolve_initial_restaurant_acceptance`, hooks | global `DEFAULT_*_PICKUP_TIME` |
 | `{REF}_DELIVERY_TIMEOUT_TIME` | `process_delivery` | global `DELIVERY_TIMEOUT_TIME`, else 10 |
 | `{REF}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | `process_restaurant_confirmation` | global default |
 | `{REF}_APP_URL` | restaurant-app webhooks, stale-thread job | **leave out for web-only** (skipped safely) |
 
-Global keys: `WEB_ORDERING_ENABLED_REST_REFS` (allowlist; empty pauses all web), `TEST_PAYMENT_REST_REFS` (honours `?isTest3100=true`). The PAUSE profile in `notebooks/db_queries/ordelo-agg-db-switch.sql` **overwrites** both, so re-append afterwards.
+Global key (R3.1, D35): only `TEST_PAYMENT_REST_REFS`. Every order (web and WhatsApp) of a listed restaurant uses Stripe test; never list a restaurant with real customers. A restaurant is on the web when it is in the backend `RESTAURANTS` registry and frontend `webOrderingEnabled`; there is no allowlist row. Switches: `notebooks/db_queries/ordelo-agg-db-switch.sql`.
 
 Caches: flags/CSV 60 s; `RestaurantMaster` 1 h, cleared with `POST /internal/cache/reset?rest_ref={REF}`.
 

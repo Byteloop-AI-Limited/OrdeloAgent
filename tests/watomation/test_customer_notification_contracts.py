@@ -1,7 +1,9 @@
 """Frozen HTTP contracts for all ten restaurant-app notification hooks.
 
-The snapshots were recorded against the legacy hooks before R1b. The same
-assertions exercise both flag settings; all HTTP and persistence is local.
+The snapshots were recorded against the legacy hooks before R1b. Since R3.1
+(D35) every hook goes through the customer notifier for every restaurant, with
+no ordelo_config rows; the bytes sent to the restaurant app are unchanged.
+All HTTP and persistence is local.
 """
 
 import json
@@ -35,9 +37,7 @@ ORDER = "ELAS-ABCD-1"
 PHONE = "447400000000"
 
 
-@pytest.mark.parametrize(
-    "notifier_enabled,origin", [(False, "whatsapp"), (True, "whatsapp"), (True, "web")]
-)
+@pytest.mark.parametrize("origin", ["whatsapp", "web"])
 @pytest.mark.parametrize(
     "hook",
     [
@@ -56,7 +56,6 @@ PHONE = "447400000000"
 @respx.mock
 async def test_legacy_notification_contract(
     hook,
-    notifier_enabled,
     origin,
     monkeypatch,
     patch_supabase_client,
@@ -64,50 +63,33 @@ async def test_legacy_notification_contract(
     feature_flags,
 ):
     PHONE = "W7K2M9QX4TPA" if origin == "web" else "447400000000"
-    modules = [
-        payment_hooks,
-        order_hooks,
-        customer_hooks,
-        takeaway_hooks,
-        location_hooks,
-        delivery_hooks,
-        agent_app_handlers,
-        on_callback_wa_handler,
-    ]
-
     async def webhook(rest_ref, event):
         return f"https://restaurant.example/{rest_ref}/{event}"
 
-    for module in modules:
-        monkeypatch.setattr(module, "get_restaurant_webhook_url_async", webhook)
     from utils_common.notify import customer_notifier as notifier
 
     monkeypatch.setattr(notifier, "get_restaurant_webhook_url_async", webhook)
-    monkeypatch.setattr(notifier, "config_csv", AsyncMock(return_value=frozenset()))
-    if notifier_enabled:
-        feature_flags.add("CUSTOMER_NOTIFIER_ENABLED")
-    if notifier_enabled or origin == "web":
-        state = {}
+    state = {}
 
-        async def record(order_number, event):
-            state["data"] = event.data()
-            return [1]
+    async def record(order_number, event):
+        state["data"] = event.data()
+        return [1]
 
-        async def claim(outbox_id):
-            return {
-                "order_number": ORDER,
-                "data": state["data"],
-                "channel": "whatsapp_restaurant",
-                "active": True,
-                "origin_channel": origin,
-                "recipient": PHONE,
-                "destination": PHONE,
-                "detail_level": "full",
-            }
+    async def claim(outbox_id):
+        return {
+            "order_number": ORDER,
+            "data": state["data"],
+            "channel": "whatsapp_restaurant",
+            "active": True,
+            "origin_channel": origin,
+            "recipient": PHONE,
+            "destination": PHONE,
+            "detail_level": "full",
+        }
 
-        monkeypatch.setattr(notifier, "_record", record)
-        monkeypatch.setattr(notifier, "_claim", claim)
-        monkeypatch.setattr(notifier, "_finish", AsyncMock())
+    monkeypatch.setattr(notifier, "_record", record)
+    monkeypatch.setattr(notifier, "_claim", claim)
+    monkeypatch.setattr(notifier, "_finish", AsyncMock())
     route = respx.route().mock(return_value=httpx.Response(200, json={"ok": True}))
     summary = delivery_summary(
         order_number=ORDER,
@@ -213,6 +195,9 @@ async def test_legacy_notification_contract(
         data = SimpleNamespace(order_number=ORDER, recipient=PHONE, rest_ref="ELAS")
         cb.data = json.dumps(vars(data) | {"action": "/AdminTakeawayReady"})
         await on_callback_wa_handler.admin_takeaway_ready(None, cb)
+    if hook not in ("capture_address", "update_address"):
+        # Order events are recorded by the notifier (no flag, any restaurant).
+        assert "data" in state
     if origin == "web":
         assert route.call_count == 0
         return

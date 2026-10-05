@@ -8,7 +8,6 @@ from pydantic import ValidationError
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
-from tests.watomation import test_customer_notification_contracts as contracts
 from utils_common.web_ordering import (
     availability,
     order_access,
@@ -56,32 +55,6 @@ async def test_orpington_delivery_eligibility(monkeypatch, rest_refs):
     assert result["town_slug"] == "orpington"
     assert [row["rest_ref"] for row in result["restaurants"]] == list(rest_refs)
     assert all(row["status"] == "deliverable" for row in result["restaurants"])
-
-
-@pytest.mark.parametrize(
-    "hook",
-    [
-        "inflight",
-        "timedout",
-        "customer_cc",
-        "restaurant_cc",
-        "nearby",
-        "pickup_time",
-        "takeaway_ready",
-    ],
-)
-async def test_web_isolated_with_notifier_off(
-    hook, monkeypatch, patch_supabase_client, delivery_summary, feature_flags
-):
-    await contracts.test_legacy_notification_contract(
-        hook,
-        False,
-        "web",
-        monkeypatch,
-        patch_supabase_client,
-        delivery_summary,
-        feature_flags,
-    )
 
 
 @pytest.mark.parametrize("minutes,expected", [(0, True), (59, True), (60, False)])
@@ -249,6 +222,8 @@ async def test_web_takeaway_decline_does_not_whatsapp_customer(
     monkeypatch.setattr(takeaway_hooks, "cancel_payment", AsyncMock(return_value=None))
     publish = AsyncMock()
     monkeypatch.setattr(takeaway_hooks.customer_notifier, "publish", publish)
+    release = AsyncMock()
+    monkeypatch.setattr(lifecycle, "query", release)
     summary = takeaway_hooks.TakeawaySummaryData(
         **_takeaway_summary_row(customer_id="W7K2M9QX4TPA")
     )
@@ -264,6 +239,8 @@ async def test_web_takeaway_decline_does_not_whatsapp_customer(
     await takeaway_hooks._handle_restaurant_decline(summary, food)
     assert not fake_async_wa.sent
     assert publish.await_args.args[1].payload["payment_cancelled"] is False
+    # The unconfirmed cancellation is queued for recovery (always on since R3.1).
+    assert release.await_args.args[1] == ("ELAS-ABCD-1", "restaurant_declined")
 
 
 async def test_unknown_restaurant_never_contacts_payments():
@@ -271,14 +248,28 @@ async def test_unknown_restaurant_never_contacts_payments():
         await availability.restaurant("WREN")
 
 
-async def test_kill_switch_does_not_grant_empty_allowlist(monkeypatch):
-    monkeypatch.setattr(
-        availability, "restaurant", AsyncMock(return_value={"rest_ref": "ELAS"})
-    )
-    monkeypatch.setattr(availability, "config_csv", AsyncMock(return_value=frozenset()))
+ALWAYS_OPEN = {day: [["00:00", "48:00"]] for day in availability.DAYS}
+
+
+async def test_registry_restaurant_is_open_with_no_config_rows(monkeypatch, feature_flags):
+    """R3.1 (D35): no allowlist or rollout rows; being in the registry is enough."""
+    row = {"rest_ref": "ELAS", "service_hours_json": ALWAYS_OPEN}
+    monkeypatch.setattr(availability, "restaurant", AsyncMock(return_value=row))
+
+    assert await availability.available("ELAS", "delivery") == row
+    assert await availability.available("ELAS", "collection") == row
+
+
+async def test_emergency_pause_stops_new_web_orders(monkeypatch, feature_flags):
+    row = {"rest_ref": "ELAS", "service_hours_json": ALWAYS_OPEN}
+    monkeypatch.setattr(availability, "restaurant", AsyncMock(return_value=row))
+    feature_flags.add("ELAS_WEB_ORDERING_PAUSED")
+
     with pytest.raises(WebError) as caught:
-        await availability.available("ELAS", "delivery")
-    assert caught.value.status == 503
+        await availability.available("ELAS", "collection")
+    assert (caught.value.status, caught.value.body["error"]) == (503, "ordering_paused")
+    # Tracking an existing order is never paused.
+    assert await availability.available("ELAS", "collection", new_order=False) == row
 
 
 async def test_status_only_view_redacts_before_return(monkeypatch):
@@ -314,14 +305,10 @@ async def test_release_recovery_does_not_repeat_confirmed_cancellation(monkeypat
     assert "completed_at=now()" in persist.await_args.args[0]
 
 
-async def test_failed_web_cancellation_queues_durable_recovery(monkeypatch):
-    enabled = AsyncMock(return_value=False)
+async def test_failed_web_cancellation_queues_durable_recovery(monkeypatch, feature_flags):
+    """R3.1: no WEB_LATE_PAYMENT_GUARD_ENABLED row; recovery is always queued."""
     persist = AsyncMock()
-    monkeypatch.setattr(lifecycle, "flag_enabled", enabled)
     monkeypatch.setattr(lifecycle, "query", persist)
-    await lifecycle.queue_release("ELAS-ABCD-1", "no_rider_found")
-    persist.assert_not_awaited()
-    enabled.return_value = True
     await lifecycle.queue_release("ELAS-ABCD-1", "no_rider_found")
     assert persist.await_args.args[1] == ("ELAS-ABCD-1", "no_rider_found")
     assert "ON CONFLICT DO NOTHING" in persist.await_args.args[0]
@@ -414,16 +401,15 @@ def test_confirmed_release_survives_missing_event():
     assert (status, state) == ("cancelled", "released")
 
 
-async def test_late_guard_never_interferes_with_whatsapp(monkeypatch):
-    monkeypatch.setattr(lifecycle, "flag_enabled", AsyncMock(return_value=True))
+async def test_late_guard_never_interferes_with_whatsapp(monkeypatch, feature_flags):
     monkeypatch.setattr(
         lifecycle, "one", AsyncMock(return_value=FOOD | {"origin_channel": "whatsapp"})
     )
     assert await lifecycle.reject_late(SimpleNamespace(order_id="1")) is None
 
 
-async def test_late_web_authorisation_is_durably_rejected(monkeypatch, patch_pg_pool):
-    monkeypatch.setattr(lifecycle, "flag_enabled", AsyncMock(return_value=True))
+async def test_late_web_authorisation_is_durably_rejected(monkeypatch, patch_pg_pool, feature_flags):
+    """R3.1: no WEB_LATE_PAYMENT_GUARD_ENABLED row needed."""
     monkeypatch.setattr(lifecycle, "utcnow", lambda: NOW + timedelta(minutes=36))
     monkeypatch.setattr(
         lifecycle,
@@ -473,3 +459,13 @@ def test_price_floor_allows_rounding_and_configured_discount(
     from utils_common.web_ordering.monitoring import below_floor
 
     assert below_floor(price, menu, discount) is expected
+
+
+async def test_price_audit_runs_without_a_switch(monkeypatch, feature_flags):
+    """R3.1: no WEB_PRICE_MONITOR_ENABLED row; the daily audit claims its run."""
+    from utils_common.web_ordering import monitoring
+
+    claim = AsyncMock(return_value=[])  # another worker already claimed today
+    monkeypatch.setattr(monitoring, "query", claim)
+    await monitoring.sweep()
+    assert "INSERT INTO web_monitor_run" in claim.await_args.args[0]

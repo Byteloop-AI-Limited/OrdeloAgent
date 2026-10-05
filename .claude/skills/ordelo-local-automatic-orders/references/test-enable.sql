@@ -1,3 +1,7 @@
+-- SUPERSEDED BY R3.1 (plan D35, 2026-10-05). The rollout flags below are ignored by
+-- R3.1 code and deleted by notebooks/db_queries/ordelo-agg-db-switch.sql section 1.
+-- TEST_PAYMENT_REST_REFS now makes EVERY order of a listed restaurant a Stripe test
+-- payment: never list a restaurant with real customers. Use ordelo-agg-db-switch.sql.
 -- Re-enable the successful ELAS/BNAT local R1b/R2 profile from 2026-10-02.
 -- Maintenance window: all shared DB consumers see these test URLs.
 -- First start/reach the local 3100/3000 services and existing tunnel.
@@ -24,12 +28,7 @@ INSERT INTO public.ordelo_config (config_key, config_value, description)
 VALUES
     ('ORDELO_APP_URL', 'https://rider-agent-test.ordelo.app', 'URL for Ordelo app'),
     ('RESTAURANT_MENU_APP_URL', 'https://restaurant-test.ordelo.app', 'URL for restaurant frontend'),
-    ('PAYMENT_INBOX_ENABLED', 'true', 'R1a: apply each authorized payment once'),
-    ('ORDER_CREATE_RPC_ENABLED', 'true', 'R1a: create order and items atomically'),
-    ('ENABLE_PAYMENT_TEST_ROUTES', 'false', 'Keep synthetic payment test route disabled'),
-    ('CUSTOMER_NOTIFIER_ENABLED', 'true', 'R1b customer notifier rollout flag'),
-    ('CUSTOMER_NOTIFIER_REST_REFS', 'ELAS,BNAT', 'Restaurants in the notifier pilot'),
-    ('TEST_PAYMENT_REST_REFS', 'BNAT,ELAS', 'Restaurants eligible for requested Stripe test payments')
+    ('TEST_PAYMENT_REST_REFS', 'BNAT', 'Restaurants whose orders always use Stripe test (R3.1)')
 ON CONFLICT (config_key) DO UPDATE
 SET config_value = EXCLUDED.config_value, updated_at = CURRENT_TIMESTAMP;
 

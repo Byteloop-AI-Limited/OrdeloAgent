@@ -1,4 +1,4 @@
-"""Channel isolation, no-retry delivery, recovery and pilot configuration."""
+"""Channel isolation, no-retry delivery and recovery."""
 
 import asyncio
 from unittest.mock import AsyncMock
@@ -7,7 +7,6 @@ import httpx
 import pytest
 import respx
 
-from config.feature_flags import reset_feature_flag_cache
 from utils_common.notify import customer_notifier as n
 
 
@@ -84,27 +83,6 @@ async def test_failed_restaurant_request_is_attempted_once(monkeypatch, response
     assert finish.await_args.args[1] == "failed"
 
 
-async def test_missing_flag_off_and_bnat_allowlist(monkeypatch, feature_flags):
-    monkeypatch.setattr(n, "config_csv", AsyncMock(return_value=frozenset({"BNAT"})))
-    assert not await n.enabled_for("BNAT")
-    feature_flags.add("CUSTOMER_NOTIFIER_ENABLED")
-    reset_feature_flag_cache()
-    assert await n.enabled_for("bnat")
-    assert not await n.enabled_for("ELAS")
-    monkeypatch.setattr(n, "config_csv", AsyncMock(return_value=frozenset()))
-    assert await n.enabled_for("ELAS")
-
-
-async def test_rollout_lookup_failure_does_not_enable_all_restaurants(
-    monkeypatch, feature_flags
-):
-    feature_flags.add("CUSTOMER_NOTIFIER_ENABLED")
-    monkeypatch.setattr(
-        n, "config_csv", AsyncMock(side_effect=RuntimeError("database down"))
-    )
-    assert not await n.enabled_for("ELAS")
-
-
 @respx.mock
 async def test_web_address_is_skipped(monkeypatch):
     await n.notify_address("BNAT", "W7K2M9QX4TPA", {"postcode": "BR6 6DN"})
@@ -127,11 +105,10 @@ async def test_persistence_failure_does_not_send_legacy_fallback(monkeypatch, pa
 async def test_sweep_only_recovers_pending_unattempted_rows(
     monkeypatch, patch_pg_pool, feature_flags
 ):
-    feature_flags.add("CUSTOMER_NOTIFIER_ENABLED")
+    """R3.1: no rollout rows, any restaurant (SFCS was never in the pilot)."""
     patch_pg_pool.register_sql(
-        "SELECT o.id,e.order_number", [{"id": 1, "order_number": "BNAT-ABCD-1"}]
+        "SELECT o.id,e.order_number", [{"id": 1, "order_number": "SFCS-ABCD-1"}]
     )
-    monkeypatch.setattr(n, "config_csv", AsyncMock(return_value=frozenset({"BNAT"})))
     dispatch = AsyncMock()
     monkeypatch.setattr(n, "dispatch", dispatch)
     assert await n.sweep_pending() == 1

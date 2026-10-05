@@ -3,7 +3,7 @@ Feature flags stored in the ``ordelo_config`` table.
 
 A flag is on when its ``config_value`` is one of ``true``/``1``/``yes``/``on``
 (case-insensitive). A missing key, any other value, or a failed lookup means
-off, so code that depends on new SQL can ship before that SQL is run.
+off.
 Values are cached for 60 seconds so flipping a flag needs no redeploy.
 
 Functions:
@@ -23,13 +23,9 @@ _FLAG_CACHE_TTL_SECS = 60
 _FLAG_CACHE: dict[str, tuple[bool, float]] = {}
 _TRUE_VALUES = {"true", "1", "yes", "on"}
 
-# Flags introduced by the ordelo-agg plan (R1a/R1b).
-ORDER_CREATE_RPC_ENABLED = "ORDER_CREATE_RPC_ENABLED"
-PAYMENT_INBOX_ENABLED = "PAYMENT_INBOX_ENABLED"
-ENABLE_PAYMENT_TEST_ROUTES = "ENABLE_PAYMENT_TEST_ROUTES"
-CUSTOMER_NOTIFIER_ENABLED = "CUSTOMER_NOTIFIER_ENABLED"
-CUSTOMER_NOTIFIER_REST_REFS = "CUSTOMER_NOTIFIER_REST_REFS"
-# Plan D32: restaurants whose orders may use test payments on request.
+# R3.1 (D35): the R1a-R3 rollout flags are gone. What remains in ordelo_config:
+#   TEST_PAYMENT_REST_REFS     - restaurants whose orders always use Stripe test
+#   {REST}_WEB_ORDERING_PAUSED - emergency stop for new web orders (absent = open)
 TEST_PAYMENT_REST_REFS = "TEST_PAYMENT_REST_REFS"
 
 _CSV_CACHE: dict[str, tuple[frozenset[str], float]] = {}

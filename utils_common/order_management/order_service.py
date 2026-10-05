@@ -12,10 +12,9 @@ Functions/Classes:
   . _resolve_restaurant_coordinates - Resolves restaurant coordinates
   . get_min_order_value_for_location - Builds delivery message for customer location
   . get_min_order_value - Fetches minimum order value for an order
-  . create_order_with_items - Creates order and order items (one-transaction RPC behind
-    ORDER_CREATE_RPC_ENABLED, else insert + compensating delete)
+  . create_order_with_items - Creates order and order items in one transaction (RPC)
   . capture_payment_for_order - Captures payment for order with restaurant confirmation
-    . Routes customer notifications through the R1b notifier when enabled
+    . Routes customer notifications through the R1b notifier
 """
 
 # %%
@@ -30,7 +29,6 @@ from datetime import datetime
 import requests
 import uuid
 from config import client_ordelo, logger, ms_settings
-from config.feature_flags import ORDER_CREATE_RPC_ENABLED, flag_enabled
 
 from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.order_management.order_reference import (
@@ -186,85 +184,6 @@ def _is_duplicate_key_error(error_message: str) -> bool:
     return "duplicate key" in error_message or "23505" in error_message
 
 
-def _delete_food_order(order_id: str) -> None:
-    client_ordelo.table("food_order").delete().eq("order_id", order_id).execute()
-
-
-async def _insert_order_compensating(
-    insert_payload: Dict[str, Any], order_items: List[OrderItem]
-) -> Dict[str, Any]:
-    """Legacy path: insert food_order, then order_item; delete the order on failure."""
-    order_id = insert_payload["order_id"]
-    try:
-        food_order_response = await asyncio.to_thread(
-            lambda: client_ordelo.table("food_order").insert(insert_payload).execute()
-        )
-        if not food_order_response.data:
-            logger.error(f"Warning: Inserting food order {order_id} returned no data.")
-            return {
-                "success": False,
-                "error": "No data returned from food_order insert",
-            }
-    except Exception as e:
-        error_message = str(e)
-        logger.error(f"Error inserting food order {order_id}: {error_message}")
-        return {
-            "success": False,
-            "error": "Failed to insert food order",
-            "details": error_message,
-            "duplicate_order_id": _is_duplicate_key_error(error_message),
-        }
-
-    try:
-        items_to_insert = [
-            item.model_copy(update={"order_id": order_id}) for item in order_items
-        ]
-        order_items_response = await asyncio.to_thread(
-            lambda: client_ordelo.table("order_item")
-            .insert([x.model_dump() for x in items_to_insert])
-            .execute()
-        )
-        if not order_items_response.data:
-            logger.error(
-                f"Warning: Inserting order items for order {order_id} returned no data."
-            )
-            try:
-                await asyncio.to_thread(_delete_food_order, order_id)
-                logger.error(
-                    f"Rollback attempted: Deleted food_order {order_id} due to order_item insert issue (no data)."
-                )
-            except Exception as del_e:
-                logger.error(
-                    f"Error during rollback: Failed to delete food_order {order_id}: {del_e}"
-                )
-            return {
-                "success": False,
-                "error": "No data returned from order_item insert operation",
-                "details": "Insert seemed successful but no data was returned. Rollback attempted.",
-            }
-    except Exception as e:
-        error_message = str(e)
-        logger.error(
-            f"Error inserting order items for order {order_id}: {error_message}"
-        )
-        try:
-            await asyncio.to_thread(_delete_food_order, order_id)
-            logger.error(
-                f"Rollback attempted: Deleted food_order {order_id} due to order_item insert failure."
-            )
-        except Exception as del_e:
-            logger.error(
-                f"Error during rollback: Failed to delete food_order {order_id}: {del_e}"
-            )
-        return {
-            "success": False,
-            "error": "Failed to insert order items",
-            "details": error_message + ". Rollback attempted.",
-        }
-
-    return {"success": True}
-
-
 async def _insert_order_rpc(
     insert_payload: Dict[str, Any], order_items: List[OrderItem]
 ) -> Dict[str, Any]:
@@ -349,7 +268,6 @@ async def create_order_with_items(
             "details": error_message,
         }
 
-    use_rpc = await flag_enabled(ORDER_CREATE_RPC_ENABLED)
     # A phone-derived reference is deterministic, so retrying can't help;
     # a random one (W-ids) is retried on an order_id collision.
     attempts = 1 if is_phone_derived(recipient) else _MAX_REFERENCE_ATTEMPTS
@@ -380,14 +298,10 @@ async def create_order_with_items(
         if payment_mode == "test":
             insert_payload["payment_mode"] = payment_mode
 
-        if use_rpc:
-            result = await _insert_order_rpc(insert_payload, order_items)
-        else:
-            result = await _insert_order_compensating(insert_payload, order_items)
+        result = await _insert_order_rpc(insert_payload, order_items)
 
         if result.get("success"):
-            if await customer_notifier.enabled_for(rest_ref):
-                await customer_notifier.create_origin_subscription(order_number)
+            await customer_notifier.create_origin_subscription(order_number)
             return {"success": True, "order_id": order_id, "order_number": order_number}
         if not result.get("duplicate_order_id") or attempt == attempts:
             break
