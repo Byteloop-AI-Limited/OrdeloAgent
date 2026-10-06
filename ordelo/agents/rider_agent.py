@@ -1,4 +1,6 @@
 """
+R3: web-origin isolation and customer tracking safeguards.
+
 LangGraph agent implementation for rider delivery workflow
     . Implements rider agent nodes and tools using LangGraph and LangChain
     . Manages delivery workflow from instructions to completion
@@ -596,6 +598,15 @@ async def send_customer_contact(
         .data[0]
     )
     customer_id = delivery_summary["customer_id"]
+    if not str(customer_id).isdigit():
+        await ctx.wa_client.send_message(to=recipient, text=(
+            "No customer phone number is on file for this web order. "
+            "Follow the delivery instructions. If you cannot find the customer, contact operations for help."
+        ))
+        return Command(update={"messages": [
+            ToolMessage("No customer number on file; rider instructed to contact operations.", tool_call_id=tool_call_id),
+            AIMessage("/dontRespond: No customer number on file."),
+        ]})
 
     await ctx.wa_client.send_contact(
         to=recipient,

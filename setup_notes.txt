@@ -1,5 +1,6 @@
 # Reclaim diskspace from wsl 
 https://superuser.com/questions/1606213/how-do-i-get-back-unused-disk-space-from-ubuntu-on-wsl2
+
 wsl --shutdown
 kill docker desktop
 

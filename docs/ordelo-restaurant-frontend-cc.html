@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ordelo &#8646; Frontend Explorer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{padding:10px 14px;background:#1e293b;border-bottom:1px solid #334155;display:flex;align-items:center;gap:14px;flex-shrink:0;flex-wrap:wrap}
+header h1{font-size:14px;font-weight:700;color:#f8fafc;white-space:nowrap}
+header .sub{font-size:11px;color:#64748b;white-space:nowrap}
+#tabs{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.tab{padding:4px 11px;border-radius:4px;cursor:pointer;font-size:11px;border:1px solid #475569;color:#94a3b8;background:transparent;transition:all .15s;font-family:inherit}
+.tab:hover{background:#334155;color:#e2e8f0}
+.tab.active{background:#3b82f6;color:#fff;border-color:#3b82f6}
+.tab.special{border-color:#f59e0b;color:#fbbf24}
+.tab.special.active{background:#f59e0b;color:#0f172a;border-color:#f59e0b}
+#main{flex:1;display:flex;overflow:hidden;min-height:0}
+#sidebar{width:228px;flex-shrink:0;background:#1e293b;border-right:1px solid #334155;overflow-y:auto;padding:11px;display:flex;flex-direction:column;gap:12px}
+.sec-title{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.layer-row{display:flex;align-items:center;gap:7px;cursor:pointer;padding:3px 0;user-select:none}
+.layer-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.layer-row span{font-size:11.5px;color:#cbd5e1;transition:opacity .1s}
+.layer-row.off span{opacity:.35;text-decoration:line-through}
+.subview{padding:5px 8px;border-radius:4px;cursor:pointer;font-size:11.5px;color:#94a3b8;border:1px solid transparent;margin-bottom:3px}
+.subview:hover{background:#334155;color:#e2e8f0}
+.subview.active{background:#1e3a5f;color:#93c5fd;border-color:#3b82f6}
+.gotcha{background:#431407;border:1px solid #9a3412;border-radius:5px;padding:7px 9px;margin-bottom:6px;cursor:pointer;transition:background .15s}
+.gotcha:hover,.gotcha.hl{background:#7c2d12;border-color:#ea580c}
+.gtitle{font-size:11px;font-weight:700;color:#fb923c}
+.gdesc{font-size:11px;color:#fed7aa;margin-top:2px;line-height:1.45}
+#canvas-wrap{flex:1;position:relative;overflow:hidden;background:#0f172a;display:flex;flex-direction:column;min-width:0}
+svg#diagram{width:100%;height:100%;cursor:grab;display:block}
+svg#diagram.panning{cursor:grabbing}
+#zoom-btns{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:3px;z-index:5}
+.zbtn{width:26px;height:26px;background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:4px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;user-select:none}
+.zbtn:hover{background:#334155;color:#e2e8f0}
+#detail{width:0;flex-shrink:0;background:#1e293b;border-left:1px solid #334155;padding:0;overflow:hidden;transition:width .2s,padding .2s}
+#detail.open{width:310px;padding:12px;overflow-y:auto}
+#det-close{float:right;cursor:pointer;color:#64748b;font-size:16px;line-height:1}
+#det-close:hover{color:#e2e8f0}
+#det-title{font-size:13.5px;font-weight:700;color:#f1f5f9;margin-bottom:3px;clear:both;line-height:1.35}
+#det-sub{font-size:11px;color:#64748b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-bottom:8px;word-break:break-all}
+.badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:9.5px;font-weight:700;margin:0 4px 8px 0;letter-spacing:.02em}
+.ds{margin-bottom:10px}
+.dst{font-size:9.5px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;letter-spacing:.05em}
+.dsp{font-size:11.5px;color:#cbd5e1;line-height:1.6}
+.dsc{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;background:#0f172a;border:1px solid #334155;border-radius:3px;padding:6px 8px;color:#a5f3fc;display:block;margin-top:4px;word-break:break-all;white-space:pre-wrap;line-height:1.5}
+.dsg{background:#431407;border:1px solid #9a3412;border-radius:4px;padding:7px 9px;font-size:11px;color:#fed7aa;line-height:1.5;margin-top:6px}
+.src{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#94a3b8;background:#0f172a;border:1px solid #334155;border-radius:3px;padding:4px 7px;margin-top:3px;display:block;word-break:break-all}
+.src b{color:#7dd3fc;font-weight:400}
+#pane{flex:1;overflow-y:auto;padding:16px 20px;min-width:0}
+#pane h2{font-size:16px;color:#f8fafc;margin-bottom:5px;font-weight:700}
+#pane h3{font-size:13px;color:#e2e8f0;margin:18px 0 7px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#pane p.lead{font-size:12.5px;color:#94a3b8;line-height:1.65;margin-bottom:12px;max-width:80ch}
+#filters{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.fbtn{padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;border:1px solid #475569;color:#94a3b8;background:transparent;font-family:inherit}
+.fbtn:hover{background:#334155;color:#e2e8f0}
+.fbtn.active{background:#334155;color:#f1f5f9;border-color:#64748b}
+#search{padding:4px 9px;border-radius:4px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:11px;font-family:inherit;min-width:190px}
+#search:focus{outline:none;border-color:#3b82f6}
+.ep{border:1px solid #334155;border-radius:5px;margin-bottom:5px;background:#1e293b;overflow:hidden}
+.ep-head{padding:7px 10px;cursor:pointer;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.ep-head:hover{background:#26364d}
+.meth{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:3px;flex-shrink:0;min-width:42px;text-align:center}
+.m-GET{background:#064e3b;color:#6ee7b7}.m-POST{background:#1e3a5f;color:#93c5fd}
+.m-PATCH{background:#422006;color:#fcd34d}.m-RPC{background:#3b0764;color:#d8b4fe}
+.m-SQL{background:#422006;color:#fdba74}.m-WA{background:#14532d;color:#86efac}
+.ep-path{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:#e2e8f0;flex:1;min-width:180px;word-break:break-all}
+.ep-tag{font-size:9.5px;padding:2px 7px;border-radius:9px;font-weight:700;flex-shrink:0}
+.t-live{background:#052e16;color:#4ade80;border:1px solid #166534}
+.t-dead{background:#450a0a;color:#f87171;border:1px solid #7f1d1d}
+.t-stale{background:#422006;color:#fbbf24;border:1px solid #92400e}
+.ep-body{display:none;padding:2px 10px 11px;border-top:1px solid #334155}
+.ep.open .ep-body{display:block}
+.ep-grid{display:grid;grid-template-columns:78px 1fr;gap:5px 11px;font-size:11.5px;margin-top:9px}
+.ep-grid dt{color:#64748b;font-size:10px;text-transform:uppercase;font-weight:700;padding-top:3px;letter-spacing:.04em}
+.ep-grid dd{color:#cbd5e1;line-height:1.55;min-width:0}
+.chip{display:inline-block;font-size:10.5px;color:#94a3b8;background:#0f172a;border:1px solid #334155;border-radius:3px;padding:2px 6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin:2px 3px 0 0}
+.card{background:#1e293b;border:1px solid #334155;border-radius:6px;padding:12px 14px;margin-bottom:9px}
+.card.red{border-left:3px solid #ef4444}
+.card.amber{border-left:3px solid #f59e0b}
+.card.green{border-left:3px solid #22c55e}
+.card h4{font-size:12.5px;color:#f1f5f9;margin-bottom:5px;font-weight:700}
+.card p{font-size:11.5px;color:#cbd5e1;line-height:1.65;margin-bottom:5px}
+.note{background:#0c2a4d;border:1px solid #1e40af;border-radius:5px;padding:10px 12px;font-size:11.5px;color:#bfdbfe;line-height:1.65;margin:10px 0;max-width:82ch}
+.note b{color:#dbeafe}
+#prompt-bar{background:#1e293b;border-top:1px solid #334155;padding:9px 12px;flex-shrink:0;display:flex;gap:10px;align-items:flex-start;max-height:96px}
+#prompt-text{flex:1;font-size:11px;color:#94a3b8;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-y:auto;max-height:76px}
+#copy-btn{padding:5px 13px;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:4px;cursor:pointer;font-size:11px;flex-shrink:0;font-family:inherit}
+#copy-btn:hover{background:#1e40af}
+.hop{cursor:pointer}
+.hop:hover rect.hitbox{fill:#ffffff12}
+.hop.sel rect.hitbox{fill:#3b82f61f}
+@media(max-width:900px){#sidebar{display:none}#detail.open{width:250px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Ordelo &#8646; Restaurant-Frontend</h1>
+  <span class="sub">interaction explorer &#183; generated from code on dev</span>
+  <div id="tabs">
+    <button class="tab active" data-tab="flows">Flows</button>
+    <button class="tab" data-tab="endpoints">Endpoints</button>
+    <button class="tab" data-tab="portals">Portals</button>
+    <button class="tab" data-tab="data">Identity &amp; Data</button>
+    <button class="tab special" data-tab="gaps">&#9888; Web-only gaps</button>
+  </div>
+</header>
+<div id="main">
+  <aside id="sidebar"><div id="sidebar-content"></div></aside>
+  <div id="canvas-wrap">
+    <svg id="diagram" style="display:none"><g id="svg-root"></g></svg>
+    <div id="zoom-btns" style="display:none">
+      <div class="zbtn" id="zin" title="Zoom in">+</div>
+      <div class="zbtn" id="zreset" title="Reset view">&#9673;</div>
+      <div class="zbtn" id="zout" title="Zoom out">&#8722;</div>
+    </div>
+    <div id="pane"></div>
+  </div>
+  <aside id="detail">
+    <span id="det-close">&#10005;</span>
+    <div id="det-title">&#8212;</div>
+    <div id="det-sub">&#8212;</div>
+    <div id="det-body"></div>
+  </aside>
+</div>
+<div id="prompt-bar">
+  <div id="prompt-text">Pick a flow on the left, or click any hop in the diagram to see its payload and source lines.</div>
+  <button id="copy-btn">Copy</button>
+</div>
+<script>
+/* ============================================================
+   DATA — every field below is transcribed from source on dev.
+   Citations are file:line. See the "Verify" note in Identity tab.
+   ============================================================ */
+
+const ACTORS = {
+  browser: {label:'Browser',       sub:'customer device',        x:0,  color:'#a78bfa'},
+  next:    {label:'Next /api',     sub:'restaurant-frontend',    x:1,  color:'#60a5fa'},
+  ordelo:  {label:'ORDELO',        sub:'FastAPI + LangGraph',    x:2,  color:'#34d399'},
+  rest:    {label:'restaurant-agents', sub:'restaurant runtime', x:3,  color:'#fbbf24'},
+  ext:     {label:'External',      sub:'Stripe / Google / DB',   x:4,  color:'#f472b6'}
+};
+
+const LAYERS = {
+  http:  {label:'Frontend → ORDELO', color:'#60a5fa'},
+  proxy: {label:'ORDELO ↔ restaurant-agents', color:'#fbbf24'},
+  db:    {label:'DB trigger / RPC', color:'#c084fc'},
+  ext:   {label:'Stripe / pricing / maps', color:'#f472b6'},
+  wa:    {label:'WhatsApp-only hop', color:'#4ade80'},
+  dead:  {label:'Dead end / not built', color:'#ef4444'}
+};
+
+const FLOWS = {
+order: { title:'Order &amp; Payment (delivery)', blurb:
+  'The full path from a WhatsApp menu link to a <code>delivery_summary</code> row. Note hop 6: session validation is a <b>reverse-proxy</b> — ORDELO does not own the session store. And note the last hop: after paying, the customer gets nothing back.',
+  hops:[
+ {f:'ext',t:'browser',l:'menu link (WhatsApp)',layer:'wa',
+  code:'{RESTAURANT_MENU_APP_URL}/restaurant/elas\n  ?minimum_order=12.24\n  &order_type=delivery\n  &thread_id=ELAS-7d4aa595-...\n  &recipient=447448440754',
+  d:'ORDELO resolves the base URL via get_restaurant_base_url_async("RESTAURANT_MENU") and sends the link over WABA. The pair (recipient, thread_id) IS the customer session — there is no cookie and no session id.',
+  src:[['watomation/fapp_ordelo_agent.py','258'],['restaurant-frontend/curl-tests.sh','35']],
+  g:'recipient and minimum_order are display-only strings from the URL (app/restaurant/[id]/page.tsx:26-29). The authoritative delivery fee comes back later from create-order.'},
+
+ {f:'browser',t:'next',l:'GET /api/menu',layer:'http',
+  code:'GET /api/menu?restaurant=elas',
+  d:'Menu fetch. This does NOT go to ORDELO — it proxies to the separate byteloop menu service.',
+  src:[['restaurant-frontend/app/api/menu/route.ts','49']]},
+
+ {f:'next',t:'ext',l:'GET {MENU_API_URL}',layer:'ext',
+  code:'GET https://restaurant.byteloop.ai/api/menu\n      ?restaurant_name={apiName}',
+  d:'Separate service, unrelated to ORDELO. apiName can differ from the ordering ref — e.g. wren serves elas’s menu but orders under its own orderApiName.',
+  src:[['restaurant-frontend/app/api/menu/route.ts','81'],['restaurant-frontend/CLAUDE.md','29']]},
+
+ {f:'browser',t:'next',l:'GET /api/verify-session',layer:'http',
+  code:'GET /api/verify-session?rest_ref=ELAS&recipient=447448440754',
+  d:'Fired twice: once on page load, and again immediately before checkout inside the basket drawer.',
+  src:[['restaurant-frontend/app/restaurant/[id]/page.tsx','52'],['restaurant-frontend/components/BasketDrawer.tsx','82']]},
+
+ {f:'next',t:'ordelo',l:'GET /order-hooks/get-active-thread',layer:'http',
+  code:'GET {ORDELO}/order-hooks/get-active-thread/{rest_ref}/{recipient}',
+  d:'Resolved base URL comes from Supabase ordelo_config.ORDELO_APP_URL (60s TTL cache), falling back to the RIDER_AGENT_URL env var.',
+  src:[['restaurant-frontend/app/api/verify-session/route.ts','20'],['restaurant-frontend/lib/config.ts','24'],['watomation/routers/order_hooks.py','393']]},
+
+ {f:'ordelo',t:'rest',l:'↳ proxied verbatim',layer:'proxy',
+  code:'GET {REST_APP_URL}/thread-hooks/get-active-thread/{rest_ref}/{recipient}\n\n→ { thread_id: "ELAS-7d4a..." }   or   -1  (no active thread)',
+  d:'THE KEY STRUCTURAL FACT. ORDELO is a pure reverse-proxy here — it returns the upstream body and status unchanged (502 on transport error). The session lives in the restaurant runtime, not in ORDELO.',
+  src:[['watomation/routers/order_hooks.py','400'],['config/params.py','66']],
+  g:'Validation is plaintext equality: thread_id !== -1 && thread_id === urlThreadId. No HMAC, no signature, no cookie. Anyone who knows a (recipient, thread_id) pair can order.'},
+
+ {f:'browser',t:'next',l:'POST /api/checkout',layer:'http',
+  code:'{ restaurantId, recipient, threadId,\n  orderItems:[{order_id,sku,quantity,price,product_name,modifications}],\n  notes?, orderType }',
+  d:'Prices in order_items are already discounted client-side before they are sent.',
+  src:[['restaurant-frontend/app/api/checkout/route.ts','5'],['restaurant-frontend/components/BasketDrawer.tsx','106']]},
+
+ {f:'next',t:'ordelo',l:'POST /order-hooks/create-order',layer:'http',
+  code:'POST {ORDELO}/order-hooks/create-order/{rest_ref}\n\n{ recipient, thread_id, order_items[], order_type, notes? }',
+  d:'rest_ref = restaurantConfig.orderApiName ?? apiName. This single call does three jobs: order-number creation, delivery pricing, and payment-page provisioning.',
+  src:[['restaurant-frontend/app/api/checkout/route.ts','52'],['watomation/routers/order_hooks.py','212']]},
+
+ {f:'ordelo',t:'ext',l:'order number + pricing',layer:'db',
+  code:'RPC get_next_daily_seq(order_date)\ncreate_order_reference(recipient, order_dt)\n\norder_id     = "KDDV-21"\norder_number = "ELAS-KDDV-21"   ← {REST_REF}-{ref}-{seq}',
+  d:'The 4-char reference is a salted SHA-256 of the LAST 4 DIGITS OF THE PHONE NUMBER. food_order is inserted with payment_status = requires_payment.',
+  src:[['utils_common/order_management/order_service.py','213'],['utils_common/order_management/order_db_ops_new.py','63']],
+  g:'HARD BLOCKER for a web-only channel: create_order_reference raises ValueError unless recipient[-4:] is 4 digits. A web user without a phone number fails here, before any row is written.'},
+
+ {f:'ordelo',t:'ext',l:'POST {pricing_url}',layer:'ext',
+  code:'{ total_food_value, restaurant_latitude, restaurant_longitude,\n  customer_latitude, customer_longitude, rest_ref, order_number }\n\n→ delivery_options[] where vehicle_type == "car"\n   → service_charge, delivery_fee, small_order_fee, commission_rate',
+  d:'The pricing microservice. Channel-agnostic — fully reusable by a web-only channel as-is.',
+  src:[['utils_common/order_management/food_order_pymodel.py','55'],['config/microservices_setting.py','29']]},
+
+ {f:'ordelo',t:'ext',l:'POST …/payment-url (Stripe)',layer:'ext',
+  code:'POST {stripe_url}/threads/{thread_id}/orders/{order_id}/payment-url\nX-Authorization: Bearer {stripe_token}\n\ndelivery → manual capture   (captured later, at rider assignment)',
+  d:'Overwatch (test) customers are routed to stripe_url_test instead. Returns a hosted Checkout url.',
+  src:[['utils_common/payment_ms/payment.py','26'],['utils_common/order_management/food_order_pymodel.py','192']]},
+
+ {f:'ordelo',t:'next',l:'200 ← payment_intent_url',layer:'http',
+  code:'{ status, order_id, recipient, thread_id, order_number,\n  payment_intent_url, service_charge, delivery_fee,\n  small_order_fee, notes }',
+  d:'This is the complete response. Nothing else is returned.',
+  src:[['watomation/routers/order_hooks.py','292']],
+  g:'CONTRACT DRIFT: the frontend reads data.subtotal and data.total, which ORDELO never sends — both are always undefined. BasketDrawer falls through to client-recomputed pricing, so the total the customer sees is computed in the browser.'},
+
+ {f:'browser',t:'ext',l:'redirect → Stripe Checkout',layer:'ext',
+  code:'window.location.href = orderData.payment_intent_url',
+  d:'Full off-site redirect. sessionStorage["order_summary"] is deliberately kept so the customer can come back.',
+  src:[['restaurant-frontend/app/order-summary/page.tsx','97']]},
+
+ {f:'ext',t:'rest',l:'Stripe success → payment MS',layer:'ext',
+  code:'Stripe webhook → payment microservice → restaurant runtime',
+  d:'Stripe does NOT call ORDELO directly. The success event is relayed through the restaurant runtime.',
+  src:[['restaurant-agents/.../on_message_graph_handler.py','203']]},
+
+ {f:'rest',t:'ordelo',l:'POST /payment-hooks/payment-complete',layer:'proxy',
+  code:'POST {ORDELO}/payment-hooks/payment-complete\n\n{ data: { object: { metadata: { orderID } } } }   ← only field read',
+  d:'Sets food_order.payment_status = requires_capture, then fans out two background tasks.',
+  src:[['watomation/routers/payment_hooks.py','105']]},
+
+ {f:'ordelo',t:'rest',l:'notify restaurant of payment',layer:'proxy',
+  code:'POST {REST_APP_URL}/order-event-hooks/{rest_ref}/payment-complete/{recipient}/{thread_id}',
+  d:'One of 11 webhook types ORDELO calls back on the restaurant app (config/params.py:66-78).',
+  src:[['watomation/routers/payment_hooks.py','38'],['config/params.py','66']]},
+
+ {f:'ordelo',t:'ext',l:'RPC init_delivery → delivery_summary',layer:'db',
+  code:'RPC init_delivery(p_cust_id, p_order_number, p_rest_ref)\n\n→ delivery_summary  status = restaurant_unconfirmed\n                   restaurant_confirmation_status = restaurant_unconfirmed',
+  d:'Branches on food_order.action: delivery → init_delivery, takeaway → init_takeaway. The insert fires a DB trigger that re-enters ORDELO — see the Delivery lifecycle view.',
+  src:[['watomation/routers/payment_hooks.py','80'],['ordelo_datamodels/jobs_n_functions/init_delivery.sql','124']],
+  g:'init_delivery RAISES if p_cust_id is not already in customer_master, and delivery_summary.customer_lon/lat are NOT NULL — so a customer with no geocoded address cannot have a delivery created.'},
+
+ {f:'browser',t:'browser',l:'✗ no confirmation page',layer:'dead',
+  code:'// TODO: Redirect to order confirmation page',
+  d:'DEAD END. After paying, the customer is shown nothing. There is no order-status page and no polling against ORDELO anywhere in the frontend.',
+  src:[['restaurant-frontend/app/order-summary/page.tsx','132']],
+  g:'config/whatsapp.ts defines a PAYMENT_COMPLETE wa.me link per restaurant — but getWhatsAppUrl() is called in exactly one file and only for ADDRESS_UPDATE_COMPLETE and START_NEW_CONVERSATION. PAYMENT_COMPLETE is dead config. For a web-only channel this gap is the interesting part.'}
+]},
+
+session: { title:'Session &amp; Address', blurb:
+  'How a customer is identified, and the one place the web flow legitimately hands back to WhatsApp. The customer session is the pair <code>(recipient, thread_id)</code> — minted by ORDELO, carried in the URL, never signed.',
+  hops:[
+ {f:'browser',t:'next',l:'page load → GET /api/verify-session',layer:'http',
+  code:'/restaurant/elas?recipient=447448440754&thread_id=ELAS-7d4a…',
+  d:'Params consumed: distance, minimum_order, order_type, rating, reviews, opensAt, recipient, thread_id.',
+  src:[['restaurant-frontend/app/restaurant/[id]/page.tsx','52']]},
+
+ {f:'next',t:'ordelo',l:'GET /order-hooks/get-active-thread',layer:'http',
+  code:'→ { thread_id }  |  -1',
+  d:'ORDELO proxies this to the restaurant runtime; see the Order flow, hop 6.',
+  src:[['restaurant-frontend/app/api/verify-session/route.ts','20'],['watomation/routers/order_hooks.py','393']]},
+
+ {f:'next',t:'browser',l:'valid? → render menu',layer:'http',
+  code:'data.thread_id !== -1 && data.thread_id === threadId',
+  d:'Re-run verbatim in BasketDrawer immediately before checkout. A non-OK response is treated as expired.',
+  src:[['restaurant-frontend/app/restaurant/[id]/page.tsx','59'],['restaurant-frontend/components/BasketDrawer.tsx','87']],
+  g:'Expiry lives in the DB, not the frontend: restaurant_master.rest_stale_active_threads_minutes. The frontend only ever sees the -1 sentinel.'},
+
+ {f:'browser',t:'browser',l:'invalid → /address-update',layer:'dead',
+  code:'router.push("/address-update?session_expired=true&rest_ref=" + restRef)',
+  d:'The only route where rest_ref appears as a query param.',
+  src:[['restaurant-frontend/app/restaurant/[id]/page.tsx','66']]},
+
+ {f:'browser',t:'next',l:'POST /api/capture-address',layer:'http',
+  code:'{ recipient, rest_ref, house_number, building_name, street_name,\n  city, county, postcode, country, latitude, longitude }',
+  d:'The Next route passes the body through opaquely — JSON.stringify(body) with zero validation.',
+  src:[['restaurant-frontend/app/address-update/page.tsx','86'],['restaurant-frontend/app/api/capture-address/route.ts','10']]},
+
+ {f:'next',t:'ordelo',l:'POST /order-hooks/capture-address',layer:'http',
+  code:'→ upsert customer_master\n→ upsert cust_rest_map (has_consent = false)\n→ { success: true }',
+  d:'cust_name is set to request.recipient — the phone number doubles as the customer name.',
+  src:[['watomation/routers/order_hooks.py','341']]},
+
+ {f:'ordelo',t:'rest',l:'notify restaurant of address',layer:'proxy',
+  code:'POST {REST_APP_URL}/order-event-hooks/{rest_ref}/address-update/{recipient}',
+  d:'Webhook failure is logged, not raised.',
+  src:[['config/params.py','66']]},
+
+ {f:'browser',t:'ext',l:'wa.me → back to WhatsApp',layer:'wa',
+  code:'getWhatsAppUrl(rest_ref, "ADDRESS_UPDATE_COMPLETE")\ngetWhatsAppUrl(rest_ref, "START_NEW_CONVERSATION")',
+  d:'THE ONLY LIVE BOUNCE-BACK to WhatsApp in the whole frontend. Hard-coded per restaurant for ELAS, SFCS and BNAT only.',
+  src:[['restaurant-frontend/app/address-update/page.tsx','129'],['restaurant-frontend/config/whatsapp.ts','21']]}
+]},
+
+takeaway: { title:'Takeaway fork', blurb:
+  'Takeaway diverges at payment. Restaurants with <code>takeawayPayment: true</code> (sfcs, bnat) authorise on Stripe and capture at the pickup-time boundary; everyone else pays at the restaurant and Stripe is never involved.',
+  hops:[
+ {f:'next',t:'ordelo',l:'create-order (order_type=takeaway)',layer:'http',
+  code:'generate_takeaway_manual_payment_url(food_order)\n  → action: "collection", manual_mode_capture: true',
+  d:'The payment-service wire action is "collection"; food_order.action stays "takeaway". Authorisation stores the PaymentIntent and does not print.',
+  src:[['utils_common/payment_ms/payment.py','69'],['docs/glossary.md','1']]},
+
+ {f:'browser',t:'next',l:'POST /api/pay-at-restaurant',layer:'http',
+  code:'shouldPayAtRestaurant = isTakeaway(order_type) && !takeaway_payment',
+  d:'Gated on a checkbox on the order-summary page. sfcs and bnat are configured with takeawayPayment:true and therefore skip this branch.',
+  src:[['restaurant-frontend/app/order-summary/page.tsx','107'],['restaurant-frontend/config/restaurants.ts','135']]},
+
+ {f:'next',t:'ordelo',l:'POST /payment-hooks/pay-at-restaurant',layer:'http',
+  code:'{ recipient, thread_id, order_id, order_items[], order_type, notes? }\n\n→ food_order.payment_status = "pay_at_rest"',
+  d:'Returns HTTP 400 if order_type !== "takeaway". Its docstring states plainly: "This is called by checkout page on the restaurant frontend."',
+  src:[['restaurant-frontend/app/api/pay-at-restaurant/route.ts','63'],['watomation/routers/payment_hooks.py','199']],
+  g:'PayAtRest.order_id is matched against the order_number COLUMN, not order_id. It works only because the frontend happens to send an order number (route.ts:46). The naming invites a future mismatch.'},
+
+ {f:'ordelo',t:'ext',l:'RPC init_takeaway → takeaway_summary',layer:'db',
+  code:'RPC init_takeaway(p_cust_id, p_order_number, p_rest_ref)',
+  d:'Same background-task pair as delivery: handle_payment_complete + init_takeaway_summary.',
+  src:[['watomation/routers/takeaway_hooks.py','122']]},
+
+ {f:'ext',t:'ordelo',l:'trigger → confirmation request',layer:'db',
+  code:'POST /takeaway-hooks/restaurant-confirmation-request',
+  d:'Fans out to five handlers by trigger_reason: unconfirmed, accept, decline, timedout.',
+  src:[['watomation/routers/takeaway_hooks.py','323']]},
+
+ {f:'ordelo',t:'ext',l:'WA buttons to restaurant admins',layer:'wa',
+  code:'send_restaurant_order_confirmation(order_type="takeaway")\npickup-time buttons: [5, 15, 25] minutes',
+  d:'restaurant_master.admins is a TEXT[] of WhatsApp phone numbers.',
+  src:[['watomation/routers/takeaway_hooks.py','143'],['ordelo_datamodels/masterdata.sql','20']]},
+
+ {f:'ext',t:'ordelo',l:'pickup_time set → capture',layer:'db',
+  code:'trigger_takeaway_pickup_time_set  (pickup_time NULL → non-NULL)\n  → POST /takeaway-hooks/pickup-time-updated\n  → capture_takeaway_payment()',
+  d:'If payment_status is pay_at_rest it only issues a print job; otherwise it requires requires_capture and captures on Stripe. Retries only the one known-transient 500, on delays (2,5)s.',
+  src:[['watomation/routers/takeaway_hooks.py','533'],['docs/adr/0002-takeaway-manual-capture-at-pickup-time.md','1']]}
+]},
+
+lifecycle: { title:'Delivery lifecycle (after payment)',blurb:
+  'Once <code>delivery_summary</code> exists the frontend is out of the picture entirely. This runs on Postgres triggers, pg_cron and WhatsApp. Abridged — the full six-phase treatment is in <code>docs/delivery_process.md</code> and <code>docs/delivery_process_explorer.html</code>.',
+  hops:[
+ {f:'ext',t:'ordelo',l:'trigger → restaurant-confirmation-request',layer:'db',
+  code:'delivery_summary INSERT/UPDATE on restaurant_confirmation_status\n  → restaurant_updates_whook()\n  → POST {ORDELO_APP_URL}/delivery-hooks/restaurant-confirmation-request',
+  d:'Note the trigger watches restaurant_confirmation_status, not status. Returns 200 immediately and dispatches to one of five background handlers.',
+  src:[['ordelo_datamodels/summary.sql','284'],['watomation/routers/delivery_hooks.py','1498']]},
+
+ {f:'ordelo',t:'ext',l:'WA Accept/Decline → admins',layer:'wa',
+  code:'_handle_restaurant_unconfirmed() → loops restaurant_master.admins',
+  d:'The restaurant confirms by tapping a WhatsApp button. There is no HTTP endpoint for this.',
+  src:[['watomation/routers/delivery_hooks.py','1234'],['watomation/on_callback_wa_handler.py','283']],
+  g:'MITIGATED: restaurant_master.auto_accept bypasses this whole chain, and job_restaurant_confirmation_timeout() forces the flow forward after N minutes. The flow CAN advance with no WA tap — just without admin control.'},
+
+ {f:'ext',t:'ext',l:'pg_cron → delivery_detail + dispatch',layer:'db',
+  code:'process_delivery()    → delivery_detail   (per vehicle_type)\njob_create_dispatch() → delivery_dispatch (status = unassigned)',
+  d:'Roughly every 5 seconds. Rider pool comes from get_available_riders(), which excludes riders holding a delivery_inflight row.',
+  src:[['ordelo_datamodels/jobs_n_functions/process_delivery.sql','33'],['ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql','33']]},
+
+ {f:'ext',t:'ordelo',l:'trigger → /delivery-hooks/delivery-dispatch',layer:'db',
+  code:'{ bulk_dispatch: [{ dispatch_id, rider_id, order_number, distance,\n                    rider_payout, pickup_time, rest_name, … }] }',
+  d:'Statement-level trigger, so one call carries the whole batch.',
+  src:[['ordelo_datamodels/dispatch.sql','73'],['watomation/routers/delivery_hooks.py','409']]},
+
+ {f:'ordelo',t:'ext',l:'WA Accept/Decline → riders',layer:'wa',
+  code:'wa_send_delivery_dispatch_request_to_rider()\n  → interactive buttons carrying /dispatchResponse JSON',
+  d:'rider_master.rider_id IS the WhatsApp number — used directly as the send target.',
+  src:[['watomation/routers/delivery_hooks.py','262']]},
+
+ {f:'ext',t:'ext',l:'rider accepts → status = accepted',layer:'wa',
+  code:'client.table("delivery_dispatch").update({"status": "accepted"})',
+  d:'THE HARDEST LOCK. This is the only writer of status=accepted in live code, and it is reachable only from the WhatsApp callback handler.',
+  src:[['ordelo/agent_app_handlers.py','270'],['watomation/on_callback_wa_handler.py','57']],
+  g:'Without an accepted write, job_assign_dispatch never fires, delivery_inflight is never populated, and the order sits at unassigned until process_delivery times it out. There is NO HTTP endpoint that accepts a dispatch.'},
+
+ {f:'ext',t:'ordelo',l:'inflight → capture + LangGraph boot',layer:'db',
+  code:'job_assign_dispatch() → delivery_inflight INSERT\n  → POST /delivery-hooks/delivery-inflight-graph-init\n     → capture_delivery_payment()   (also issues the kitchen print job)\n     → init_ordelo_graph()          (boots the rider agent thread)',
+  d:'Five background tasks fire here, including the restaurant rider-inflight webhook and the admin WhatsApp receipt.',
+  src:[['ordelo_datamodels/inflight.sql','75'],['watomation/routers/delivery_hooks.py','485']]},
+
+ {f:'ordelo',t:'ext',l:'codes verified → completed',layer:'db',
+  code:'rest_confirmation_code + cust_confirmation_code = CONFIRMATION_CODE_SALT\n  → dispatch_complete_func(dispatch_id)\n  → dispatch/detail/summary = completed, inflight deleted',
+  d:'Two-digit codes verified by the rider LangGraph agent, delivered over WhatsApp.',
+  src:[['ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql','38'],['ordelo/agents/rider_agent.py','781']],
+  g:'The CUSTOMER never receives a WhatsApp message anywhere in this flow. delivery_summary.customer_msg_id is nullable and nothing writes it.'}
+]},
+
+magiclink: { title:'Magic-link handshake (admin &amp; rider)', blurb:
+  'The <b>only</b> ORDELO coupling the rest-admin and rider portals have. After the cookie is set, these portals leave the triangle entirely and read Postgres directly — they never call ORDELO again. Shown for the rider; rest-admin and sys-admin are identical bar the table checked and the cookie name.',
+  hops:[
+ {f:'ext',t:'ordelo',l:'rider messages ORDELO on WhatsApp',layer:'wa',
+  code:'a WhatsApp message to the business number',
+  d:'The handshake starts in WhatsApp. For rest-admin the equivalent handler is at on_message_wa_handler.py:314; for sys-admin, :342.',
+  src:[['watomation/on_message_wa_handler.py','314']]},
+
+ {f:'ordelo',t:'ordelo',l:'POST /rider/dashboard-session',layer:'http',
+  code:'{ wa_number }  →  { url, expires_at }',
+  d:'Exposed as an HTTP route but invoked in-process from the message handler — sys-admin’s variant takes wa_number as a QUERY param precisely so the coroutine can be awaited directly.',
+  src:[['watomation/routers/rider_auth_session.py','48'],['watomation/routers/sys_admin_auth_session.py','74']]},
+
+ {f:'ordelo',t:'ext',l:'authorize against the role table',layer:'db',
+  code:'rider     → rider_master, must appear EXACTLY once\n            400 rider_not_registered / 409 multiple_rider_records\nrest_admin→ restaurant_master.admins @> [wa_number]\nsys_admin → ordelo_config.overwatch_list, else 403',
+  d:'Each role authorizes against a different source of truth. This is the only authorization logic in the whole service — and it gates session minting, not the hooks.',
+  src:[['watomation/routers/rider_auth_session.py','21'],['watomation/routers/rest_admin_auth_session.py','60'],['watomation/routers/sys_admin_auth_session.py','74']]},
+
+ {f:'ordelo',t:'ext',l:'INSERT auth_sessions (hash only)',layer:'db',
+  code:'token = secrets.token_urlsafe(32)      ← never stored\nINSERT auth_sessions (sha256(token), role, scope_ref, 30-min TTL)',
+  d:'Only the SHA-256 hash is persisted. 32-byte token, 30-minute TTL, single use. This part is done correctly.',
+  src:[['ordelo_datamodels/auth_sessions.sql','11'],['watomation/routers/rest_admin_auth_session.py','15']]},
+
+ {f:'ordelo',t:'ext',l:'WhatsApp the activation link',layer:'wa',
+  code:'{app_url}/rider/activate/{token}\n\napp_url ← get_dashboard_app_url_async(role)\n        ← ordelo_config.RESTAURANT_MENU_APP_URL  (all three roles today)',
+  d:'All three roles currently resolve to the same app URL key.',
+  src:[['config/params.py','213']]},
+
+ {f:'ext',t:'browser',l:'rider taps the link',layer:'wa',
+  code:'GET /rider/activate/{token}',
+  d:'Lands on a Next.js route handler, not a page.',
+  src:[['restaurant-frontend/app/rider/activate/[token]/route.ts','10']]},
+
+ {f:'browser',t:'next',l:'token → __Host- cookie',layer:'http',
+  code:'__Host-rdash   (rider)\n__Host-radash  (rest-admin)\n__Host-sdash   (sys-admin)\n\n60-minute idle timeout, 4-hour hard cap',
+  d:'The route handler validates the hash, mints the cookie and redirects into the portal. Enforced on every later request by middleware.',
+  src:[['restaurant-frontend/middleware.ts','45'],['restaurant-frontend/lib/rider-session.ts','29']]},
+
+ {f:'next',t:'ext',l:'portal reads Postgres directly',layer:'db',
+  code:'delivery_dispatch  .eq("rider_id", session.scope_ref)     ← rider\nv_admin_orders     .eq("rest_ref", session.rest_ref)      ← rest-admin',
+  d:'ORDELO IS NEVER CALLED AGAIN. A JS Proxy auto-injects the tenant filter on every scoped table. The server client uses the Supabase secret key and bypasses RLS, so isolation is enforced in JavaScript, not by the database.',
+  src:[['restaurant-frontend/lib/rider-session.ts','23'],['restaurant-frontend/lib/rest-admin-session.ts','348']],
+  g:'sys-admin is the exception — it is the one portal that keeps calling ORDELO after activation, for the two rider-payout endpoints.'}
+]}
+};
+
+/* ---------------- ENDPOINT CATALOGUE ---------------- */
+const GROUPS = {
+  'fe-ordelo': {label:'Frontend → ORDELO',        note:'Exactly 6 live. Every one goes through a Next.js server route — the browser never calls ORDELO directly, which is why ORDELO has no CORS config.'},
+  'fe-sb':     {label:'Frontend → Supabase (direct)', note:'The admin and rider portals bypass ORDELO entirely and read Postgres through tenant-scoped Proxy clients.'},
+  'fe-ext':    {label:'Frontend → other services', note:'Menu and geocoding do not involve ORDELO.'},
+  'rest-ordelo':{label:'restaurant-agents → ORDELO', note:'The restaurant runtime is the third corner of the triangle.'},
+  'ordelo-rest':{label:'ORDELO → restaurant-agents', note:'11 webhook types. Base URL = ordelo_config.{REST_REF}_APP_URL, cached in-process for 1 hour.'},
+  'db-ordelo': {label:'Postgres trigger / pg_cron → ORDELO', note:'All take payload: dict = Depends(get_payload) — literally await request.json(), no validation and no auth. They return {"status":"success"} even on internal error, because a raised exception would fail the SQL trigger’s HTTP call.'},
+  'ordelo-ext':{label:'ORDELO → microservices',    note:'Stripe, pricing and Google Maps. All channel-agnostic.'},
+  'wa-ordelo': {label:'WhatsApp → ORDELO',          note:'Meta webhook and Flow endpoints.'},
+  'diag':      {label:'Diagnostics (unauthenticated)', note:'No API key, no JWT, no signature check on any of these.'}
+};
+
+const ENDPOINTS = [
+/* --- frontend -> ORDELO --- */
+{m:'POST',p:'/order-hooks/create-order/{rest_ref}',g:'fe-ordelo',s:'live',
+ caller:['restaurant-frontend/app/api/checkout/route.ts','52'], impl:['watomation/routers/order_hooks.py','212'],
+ req:'{ recipient, thread_id, order_items[{order_id,sku,quantity,price,product_name,modifications}], order_type: "delivery"|"takeaway", notes? }',
+ res:'{ status, order_id, recipient, thread_id, order_number, payment_intent_url, service_charge, delivery_fee, small_order_fee, notes }',
+ d:'The checkout endpoint. Creates food_order + order_item, generates the order number, calls the pricing microservice, and provisions the Stripe payment page — all in one call.',
+ gotcha:'The frontend reads data.subtotal and data.total (checkout/route.ts:94-95), which this endpoint never returns. Both are always undefined and BasketDrawer.tsx:162 falls back to client-recomputed pricing.'},
+
+{m:'GET',p:'/order-hooks/get-active-thread/{rest_ref}/{recipient}',g:'fe-ordelo',s:'live',
+ caller:['restaurant-frontend/app/api/verify-session/route.ts','20'], impl:['watomation/routers/order_hooks.py','393'],
+ req:'path params only',
+ res:'upstream body + status proxied verbatim — { thread_id } or -1',
+ d:'Session validation before checkout. A PURE REVERSE-PROXY to the restaurant runtime’s own thread-hooks/get-active-thread. ORDELO does not own the session store. 502 on transport error.',
+ gotcha:'Called twice per order: on page load and again immediately before checkout (BasketDrawer.tsx:82).'},
+
+{m:'POST',p:'/order-hooks/capture-address',g:'fe-ordelo',s:'live',
+ caller:['restaurant-frontend/app/api/capture-address/route.ts','10'], impl:['watomation/routers/order_hooks.py','341'],
+ req:'{ recipient, rest_ref, house_number?, building_name?, street_name?, locality?, city, county?, postcode, latitude, longitude }',
+ res:'{ success: true }',
+ d:'Upserts customer_master, upserts cust_rest_map with has_consent=false, then notifies the restaurant via the order-address-update webhook.',
+ gotcha:'cust_name is set to request.recipient — the phone number doubles as the customer name.'},
+
+{m:'POST',p:'/payment-hooks/pay-at-restaurant/{rest_ref}',g:'fe-ordelo',s:'live',
+ caller:['restaurant-frontend/app/api/pay-at-restaurant/route.ts','63'], impl:['watomation/routers/payment_hooks.py','199'],
+ req:'{ recipient, thread_id, order_id, order_items[], order_type, notes? }',
+ res:'{ status: "success", order_number }',
+ d:'Takeaway only — returns 400 for anything else. Sets payment_status=pay_at_rest, then runs the same handle_payment_complete + init_takeaway_summary pair as the Stripe path. No Stripe intent at all.',
+ gotcha:'order_id is matched against the order_number COLUMN (payment_hooks.py:230). It works only because the frontend happens to send an order number.'},
+
+{m:'GET',p:'/sys-admin/rider-payout?start=&end=',g:'fe-ordelo',s:'live',
+ caller:['restaurant-frontend/app/api/sys-admin/rider-payouts/report/route.ts','32'], impl:['watomation/routers/sys_admin_auth_session.py','240'],
+ req:'start (ISO date, required), end (optional, defaults start+6d)',
+ res:'{ start, end, total_orders, detailed[], aggregated[] }',
+ d:'Calls RPC get_rider_payout_report, which joins delivery_dispatch → rider_master → delivery_summary → rider_registrations, then aggregates per bank account.'},
+
+{m:'POST',p:'/sys-admin/update-paid',g:'fe-ordelo',s:'live',
+ caller:['restaurant-frontend/app/api/sys-admin/rider-payouts/mark-paid/route.ts','41'], impl:['watomation/routers/sys_admin_auth_session.py','341'],
+ req:'{ dispatch_ids: [int, …] }  (min length 1)',
+ res:'{ updated_count, dispatch_ids_updated[], dispatch_ids_skipped[] }',
+ d:'Idempotently flips delivery_dispatch.paid_status unpaid→paid. Already-paid rows come back as skipped.',
+ gotcha:'ORDELO applies no caller identity here. The only thing enforcing sys_admin is the frontend proxy’s cookie check.'},
+
+{m:'GET',p:'/order-hooks/postcode-validator/{postcode}',g:'fe-ordelo',s:'stale',
+ caller:['restaurant-frontend/ENV_SETUP.md','84'], impl:['watomation/routers/order_hooks.py','307'],
+ req:'path postcode', res:'UKAddress',
+ d:'Documented as frontend-called and still implemented, but the frontend rewrote app/api/postcode-lookup to call postcodes.io + Google directly. No live call site.',
+ gotcha:'Stale documentation — ENV_SETUP.md still prescribes this call.'},
+
+/* --- frontend -> Supabase --- */
+{m:'GET',p:'v_admin_orders  (keyset paginated)',g:'fe-sb',s:'live',
+ caller:['restaurant-frontend/app/api/rest-admin/orders/route.ts','15'], impl:['restaurant-frontend/lib/rest-admin-session.ts','348'],
+ req:'cursor + limit', res:'order rows',
+ d:'Auto-scoped by rest_ref through a JS Proxy that injects .eq("rest_ref", session.rest_ref) on every TENANT_SCOPED_TABLES query.'},
+{m:'GET',p:'v_admin_orders_daily / v_admin_order_items',g:'fe-sb',s:'live',
+ caller:['restaurant-frontend/app/api/rest-admin/orders/summary/route.ts','7'], impl:['restaurant-frontend/app/api/rest-admin/orders/[order_number]/items/route.ts','7'],
+ req:'—', res:'rollups / line items', d:'Daily rollups and per-order line items for the restaurant dashboard.'},
+{m:'GET',p:'delivery_dispatch  (rider jobs)',g:'fe-sb',s:'live',
+ caller:['restaurant-frontend/app/api/rider/jobs/route.ts','9'], impl:['restaurant-frontend/lib/rider-session.ts','23'],
+ req:'cursor + limit', res:'dispatch rows',
+ d:'Scoped to .eq("rider_id", …). The rider portal never touches ORDELO.'},
+{m:'GET',p:'restaurant_master / ordelo_config',g:'fe-sb',s:'live',
+ caller:['restaurant-frontend/app/api/sys-admin/restaurants/route.ts','10'], impl:['restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/config/route.ts','9'],
+ req:'—', res:'config rows', d:'GET and PATCH. Sys-admin writes the same ordelo_config table that lib/config.ts reads to find ORDELO.',
+ gotcha:'Config write/read loop: lib/config.ts caches for 60s and /api/reset-config-cache is per-instance only, so on multi-instance Amplify a flush hits one container.'},
+{m:'GET',p:'ordelo_config  (unauthenticated dump)',g:'fe-sb',s:'live',
+ caller:['restaurant-frontend/app/api/test-db-connection/route.ts','4'], impl:['restaurant-frontend/app/api/test-db-connection/route.ts','11'],
+ req:'—', res:'all rows', d:'Debug route. Dumps the entire ordelo_config table with no auth and sits outside the middleware matcher.'},
+
+/* --- frontend -> other --- */
+{m:'GET',p:'{MENU_API_URL}?restaurant_name=',g:'fe-ext',s:'live',
+ caller:['restaurant-frontend/app/api/menu/route.ts','81'], impl:['restaurant-frontend/services/menuService.ts','1'],
+ req:'restaurant_name', res:'menu JSON',
+ d:'restaurant.byteloop.ai — a separate service. Not ORDELO.'},
+{m:'GET',p:'api.postcodes.io + Google Geocoding',g:'fe-ext',s:'live',
+ caller:['restaurant-frontend/app/api/postcode-lookup/[postcode]/route.ts','58'], impl:['restaurant-frontend/app/api/postcode-lookup/[postcode]/route.ts','82'],
+ req:'postcode', res:'address + lat/lng',
+ d:'Replaced the ORDELO postcode-validator call. The frontend now geocodes on its own.'},
+
+/* --- restaurant-agents -> ORDELO --- */
+{m:'POST',p:'/payment-hooks/payment-complete',g:'rest-ordelo',s:'live',
+ caller:['restaurant-agents/.../on_message_graph_handler.py','203'], impl:['watomation/routers/payment_hooks.py','105'],
+ req:'Stripe event; only data.object.metadata.orderID is read', res:'{ "success": "success" }',
+ d:'Stripe does NOT call ORDELO directly — the success event is relayed by the restaurant runtime. Sets payment_status=requires_capture, notifies the restaurant, then branches on food_order.action to init_delivery or init_takeaway.'},
+{m:'POST',p:'/delivery-hooks/notify-food-ready-for-pickup/{recipient}',g:'rest-ordelo',s:'live',
+ caller:['restaurant-agents/.../on_callback_handler.py','146'], impl:['watomation/routers/delivery_hooks.py','693'],
+ req:'{ restaurant_name }', res:'{ status: "success"|"skipped", action, recipient }',
+ d:'Gated on check_delivery_progress == AWAITING_PICKUP, so a late "Ready" tap returns skipped rather than running the agent.',
+ gotcha:'The caller never inspects the response — a bare await client.post.'},
+{m:'GET',p:'/delivery-hooks/check-rider-allocation-status/{order_number}',g:'rest-ordelo',s:'live',
+ caller:['restaurant-agents/.../rest_agent/agents/delivery.py','691'], impl:['watomation/routers/delivery_hooks.py','814'],
+ req:'path order_number', res:'{ delivery_summary_status }',
+ d:'Annotated "To Be Deleted" in the source comment, but it has a live caller.',
+ gotcha:'Marked for deletion at delivery_hooks.py:813 while still in use. Deleting it would break the restaurant runtime.'},
+{m:'POST',p:'/customer-hooks/create-or-update-customer',g:'rest-ordelo',s:'live',
+ caller:['restaurant-agents/.../ordelo_service/ordelo_service.py','68'], impl:['watomation/routers/customer_hooks.py','51'],
+ req:'{ cust_id, rest_ref, cust_name?, cust_email?, address fields… }', res:'the upserted CustomerMaster',
+ d:'Upserts with exclude_unset=True so omitted fields do not null out existing data. For a new customer it also seeds cust_rest_map with has_consent=false.'},
+{m:'POST',p:'/customer-hooks/update-address',g:'rest-ordelo',s:'live',
+ caller:['restaurant-agents/.../ordelo_service/ordelo_service.py','90'], impl:['watomation/routers/customer_hooks.py','96'],
+ req:'{ cust_id, rest_ref, city, postcode, lat, lon, … }', res:'{ success, cust_id }',
+ d:'404 if the customer is missing. Then POSTs to the restaurant’s order-address-update webhook.'},
+{m:'POST',p:'/customer-hooks/update-cust-rest-map',g:'rest-ordelo',s:'live',
+ caller:['restaurant-agents/.../ordelo_service/ordelo_service.py','116'], impl:['watomation/routers/customer_hooks.py','144'],
+ req:'{ cust_id, rest_ref, has_consent, consent_dtts? }', res:'{ success, record }',
+ d:'Marketing-consent ledger, one row per (customer, restaurant). Fully channel-agnostic.'},
+{m:'POST',p:'/customer-hooks/restaurant-feedback',g:'rest-ordelo',s:'live',
+ caller:['restaurant-agents/.../ordelo_service/ordelo_service.py','136'], impl:['watomation/routers/customer_hooks.py','198'],
+ req:'{ rest_ref, cust_id, cust_name?, order_reference?, description (5–2000) }', res:'202 { status:"accepted", feedback_id, admins_scheduled }',
+ d:'Mints FDB-<hex12> and WhatsApps every deduped admin. Nothing is persisted — feedback is ephemeral.'},
+{m:'POST',p:'/wa-request-location',g:'rest-ordelo',s:'live',
+ caller:['restaurant-agents/.../ordelo_service/ordelo_service.py','164'], impl:['watomation/routers/wa_location_hooks.py','34'],
+ req:'{ rest_ref, order_number, location_requested_by, requester_id, callback_url, idempotency_key? }',
+ res:'200 location_available / 202 waiting_for_rider',
+ d:'The modern replacement for OwnTracks. Validates the caller against the live delivery_inflight assignment, then asks the rider for a native WhatsApp location.',
+ gotcha:'callback_url is validated to be public HTTPS with no credentials or fragment — the closest thing to per-request authorization on any hook.'},
+{m:'POST',p:'/internal/cache/reset',g:'rest-ordelo',s:'live',
+ caller:['restaurant-agents/.../services/operational_diagnostics.py','101'], impl:['watomation/fapp_ordelo_agent.py','312'],
+ req:'optional ?rest_ref=', res:'{ scope, removed_entries{…} }',
+ d:'Evicts process-local caches: base URL, overwatch list, RestaurantMaster, app URL. A shared operational contract between the two services.'},
+
+/* --- ORDELO -> restaurant-agents --- */
+{m:'POST',p:'order-event-hooks/{rest_ref}/payment-complete/{recipient}/{thread_id}',g:'ordelo-rest',s:'live',
+ caller:['watomation/routers/payment_hooks.py','38'], impl:['config/params.py','66'],
+ req:'the FoodOrder row', res:'ignored',
+ d:'One of 11 WEBHOOK_PATHS entries. Failure is logged, not raised.'},
+{m:'POST',p:'order-event-hooks/{rest_ref}/address-update/{recipient}',g:'ordelo-rest',s:'live',
+ caller:['watomation/routers/order_hooks.py','341'], impl:['config/params.py','66'],
+ req:'the customer_master row', res:'ignored', d:'Sent after capture-address and after customer-hooks/update-address.'},
+{m:'POST',p:'rider-event-hooks/{rest_ref}/rider-inflight',g:'ordelo-rest',s:'live',
+ caller:['watomation/routers/delivery_hooks.py','485'], impl:['config/params.py','66'],
+ req:'the delivery summary', res:'ignored', d:'Fired when a rider is assigned and the inflight row appears.'},
+{m:'POST',p:'rider-event-hooks/{rest_ref}/on-restaurant-enter | on-customer-enter',g:'ordelo-rest',s:'live',
+ caller:['watomation/routers/location_hooks.py','243'], impl:['config/params.py','66'],
+ req:'{ event, rid, customer_id, order_number }', res:'ignored',
+ d:'Geofence transitions. rid=rest + enter also WhatsApps admins the 2-digit restaurant confirmation code.'},
+{m:'POST',p:'rider-event-hooks/{rest_ref}/delivery-timedout',g:'ordelo-rest',s:'live',
+ caller:['watomation/routers/delivery_hooks.py','750'], impl:['config/params.py','66'],
+ req:'delivery summary + payment_cancelled', res:'ignored',
+ d:'Carries the outcome of cancel_payment(), which is the only thing that lets the restaurant runtime confirm a refund. Skipped for order numbers containing "test".'},
+{m:'POST',p:'order-event-hooks/{rest_ref}/takeaway-pickup-time-updated | takeaway-ready',g:'ordelo-rest',s:'live',
+ caller:['watomation/routers/takeaway_hooks.py','533'], impl:['config/params.py','66'],
+ req:'takeaway summary', res:'ignored', d:'Takeaway pickup-time and ready events.'},
+{m:'GET',p:'thread-hooks/get-active-thread/{rest_ref}/{recipient}',g:'ordelo-rest',s:'live',
+ caller:['watomation/routers/order_hooks.py','400'], impl:['config/params.py','66'],
+ req:'—', res:'{ thread_id } | -1',
+ d:'The upstream of the frontend’s session check. The only WEBHOOK_PATHS entry that already carries rest_ref in its own path.'},
+
+/* --- DB triggers -> ORDELO --- */
+{m:'SQL',p:'/delivery-hooks/restaurant-confirmation-request',g:'db-ordelo',s:'live',
+ caller:['ordelo_datamodels/summary.sql','284'], impl:['watomation/routers/delivery_hooks.py','1498'],
+ req:'{ trigger_reason, delivery_summary, restaurant_master, food_order, order_items }', res:'{ status:"accepted", message, order_number }',
+ d:'Fires on delivery_summary INSERT/UPDATE of restaurant_confirmation_status (NOT of status). Dispatches to five background handlers: unconfirmed, accept, decline, timedout, pickuptime_adjusted.'},
+{m:'SQL',p:'/delivery-hooks/delivery-dispatch',g:'db-ordelo',s:'live',
+ caller:['ordelo_datamodels/dispatch.sql','73'], impl:['watomation/routers/delivery_hooks.py','409'],
+ req:'{ bulk_dispatch: [{ dispatch_id, rider_id, order_number, distance, rider_payout, pickup_time, … }] }', res:'{ status:"success" }',
+ d:'Statement-level trigger — one call carries the whole batch. Sends each rider an interactive WhatsApp message with Accept/Decline.'},
+{m:'SQL',p:'/delivery-hooks/delivery-inflight-graph-init',g:'db-ordelo',s:'live',
+ caller:['ordelo_datamodels/inflight.sql','75'], impl:['watomation/routers/delivery_hooks.py','485'],
+ req:'{ delivery_inflight[], delivery_summary{}, rider_master{} }', res:'{ status:"success" }',
+ d:'Five background tasks: capture payment (also prints the kitchen docket), notify restaurant, admin receipt, boot the rider LangGraph thread, log to overwatch.'},
+{m:'SQL',p:'/delivery-hooks/delivery-timedout',g:'db-ordelo',s:'live',
+ caller:['ordelo_datamodels/summary.sql','356'], impl:['watomation/routers/delivery_hooks.py','750'],
+ req:'{ delivery_summary: […] }', res:'{ status:"success" }',
+ d:'No rider found. Cancels the payment, WhatsApps every restaurant admin (unless configured_auto), and posts to the restaurant webhook.'},
+{m:'SQL',p:'/delivery-hooks/notify-missed-dispatches',g:'db-ordelo',s:'live',
+ caller:['ordelo_datamodels/inflight.sql','158'], impl:['watomation/routers/delivery_hooks.py','597'],
+ req:'{ missed_dispatches: [{ order_number, dispatches[] }] }', res:'{ status:"success" }',
+ d:'Tells losing riders the job was picked up by someone else, then bulk-marks those dispatches missed so the job will not re-emit them.'},
+{m:'SQL',p:'/delivery-hooks/rider-pickup-alerts',g:'db-ordelo',s:'live',
+ caller:['ordelo_datamodels/jobs_n_functions/job_rider_pickup_alerts.sql','392'], impl:['watomation/routers/delivery_hooks.py','1065'],
+ req:'{ event_type, timestamp, alerts[{order_number, rider_id, offset_minutes, phase, audience, …}] }', res:'{ status, alerts_scheduled }',
+ d:'Returns instantly and hands off. Routes by audience: rider → run the agent, ops → ops channel, rest_admins → admin WhatsApp.',
+ gotcha:'The SQL marks checkpoints "sent" on the 2xx, not on actual delivery.'},
+{m:'SQL',p:'/delivery-hooks/close-threads',g:'db-ordelo',s:'live',
+ caller:['ordelo_datamodels/jobs_n_functions/job_close_thread.sql','46'], impl:['watomation/routers/delivery_hooks.py','833'],
+ req:'[{ thread_id, recipient, last_access_dtts, is_active, minutes_since_last_access }]', res:'{ status, processed_count }',
+ d:'~5-minute cron. Marks threads inactive and sends a goodbye WhatsApp.'},
+{m:'SQL',p:'/delivery-hooks/shift-availability-enquiry',g:'db-ordelo',s:'live',
+ caller:['ordelo_datamodels/jobs_n_functions/enquire_shift_availability.sql','46'], impl:['watomation/routers/delivery_hooks.py','888'],
+ req:'{ event_type, timestamp, riders[] }', res:'{ status, riders_scheduled }',
+ d:'Immediately sets is_in_shift=false for every listed rider, then asks each one over WhatsApp.'},
+{m:'SQL',p:'/delivery-hooks/admin-availability-enquiry',g:'db-ordelo',s:'live',
+ caller:['ordelo_datamodels/jobs_n_functions/enquire_admin_availability.sql','53'], impl:['watomation/routers/delivery_hooks.py','975'],
+ req:'{ event_type, timestamp, restaurant_admins: { REST_REF: [phone] } }', res:'{ status, admins_scheduled }',
+ d:'Inverts the map to admin→rest_refs so a number administering several restaurants is messaged once.'},
+{m:'SQL',p:'/takeaway-hooks/restaurant-confirmation-request',g:'db-ordelo',s:'live',
+ caller:['ordelo_datamodels/takeaway_summary.sql','214'], impl:['watomation/routers/takeaway_hooks.py','323'],
+ req:'{ trigger_reason, takeaway_summary, restaurant_master, food_order, order_items }', res:'{ status:"accepted" }',
+ d:'The takeaway twin of the delivery route. Decline also WhatsApps the customer directly — the one place a customer is messaged.'},
+{m:'SQL',p:'/takeaway-hooks/pickup-time-updated',g:'db-ordelo',s:'live',
+ caller:['ordelo_datamodels/takeaway_summary.sql','381'], impl:['watomation/routers/takeaway_hooks.py','533'],
+ req:'{ takeaway_summary{}, restaurant_master{} }', res:'{ status:"success" }',
+ d:'Fires when pickup_time goes NULL → non-NULL. This is the takeaway capture boundary.'},
+{m:'SQL',p:'/location-hooks/notify-rider-location-event',g:'db-ordelo',s:'live',
+ caller:['ordelo_datamodels/location.sql','77'], impl:['watomation/routers/location_hooks.py','243'],
+ req:'{ event, rid, customer_id, order_number }', res:'{ "event": "success" }',
+ d:'Geofence enter/exit from process_location_transition.'},
+
+/* --- ORDELO -> microservices --- */
+{m:'POST',p:'{stripe_url}/threads/{thread_id}/orders/{order_id}/payment-url',g:'ordelo-ext',s:'live',
+ caller:['utils_common/order_management/food_order_pymodel.py','192'], impl:['utils_common/payment_ms/payment.py','26'],
+ req:'intent | takeaway auth | print-only | capture | cancel — five payload shapes, one URL',
+ res:'{ url }',
+ d:'Overwatch customers are routed to stripe_url_test on delivery. Auth header is X-Authorization: Bearer {stripe_token}.'},
+{m:'POST',p:'{pricing_url}',g:'ordelo-ext',s:'live',
+ caller:['utils_common/order_management/order_service.py','38'], impl:['utils_common/order_management/food_order_pymodel.py','55'],
+ req:'{ total_food_value, restaurant_lat/lon, customer_lat/lon, rest_ref, order_number }',
+ res:'delivery_options[] → the car entry gives service_charge, delivery_fee, small_order_fee, commission_rate',
+ d:'Single POST to the base URL, no sub-path. The quote path deliberately sends a uuid4 placeholder instead of a real order number.'},
+{m:'GET',p:'maps.googleapis.com/maps/api/geocode | directions',g:'ordelo-ext',s:'live',
+ caller:['utils_common/maps_service/address_resolver.py','104'], impl:['config/google_setting.py','24'],
+ req:'postcode or coordinates', res:'UKAddress / route',
+ d:'Called directly, not via a microservice. Keyed by google_settings.maps_api_key.'},
+
+/* --- WhatsApp -> ORDELO --- */
+{m:'WA',p:'GET / and POST /  (Meta webhook)',g:'wa-ordelo',s:'live',
+ caller:['watomation/fapp_ordelo_agent.py','147'], impl:['watomation/fapp_ordelo_agent.py','163'],
+ req:'WABA update JSON', res:'challenge echo / { status: "ok" }',
+ d:'Registered by pywa_async. Every rider, admin and customer message and every callback-button tap lands here and fans out to the registered handlers.',
+ gotcha:'validate_updates=False (fapp_ordelo_agent.py:152) disables Meta webhook signature verification on the one route genuinely exposed to the public internet.'},
+{m:'WA',p:'POST /customer-address-capture  (Flow)',g:'wa-ordelo',s:'dead',
+ caller:['watomation/fapp_ordelo_agent.py','214'], impl:['watomation/on_flow_request_wa_handler.py','40'],
+ req:'pywa encrypted Flow request', res:'pywa encrypted Flow response',
+ d:'A STUB. Returns hardcoded placeholders ("John Doe - test", "44744123123123") and the completion handler only logs. It does not persist addresses.',
+ gotcha:'Good news for a web-only channel: real address writes already go through plain HTTP, not this Flow.'},
+{m:'WA',p:'POST /flows/postcode-search  (Flow)',g:'wa-ordelo',s:'live',
+ caller:['watomation/fapp_ordelo_agent.py','226'], impl:['watomation/on_flow_request_postcode_search.py','1'],
+ req:'pywa encrypted Flow request', res:'pywa encrypted Flow response', d:'Postcode search Flow.'},
+{m:'POST',p:'/rest-admin/dashboard-session',g:'wa-ordelo',s:'live',
+ caller:['watomation/on_message_wa_handler.py','314'], impl:['watomation/routers/rest_admin_auth_session.py','60'],
+ req:'{ wa_number }', res:'{ url, expires_at }',
+ d:'Resolves rest_ref via restaurant_master.admins @> [wa_number], mints a 30-min token, stores ONLY its SHA-256 hash, and returns {app_url}/rest-admin/activate/{token}.',
+ gotcha:'This is the real ORDELO↔portal coupling. The frontend never calls it — it only consumes the resulting magic link.'},
+{m:'POST',p:'/rider/dashboard-session',g:'wa-ordelo',s:'live',
+ caller:['watomation/fapp_ordelo_agent.py','134'], impl:['watomation/routers/rider_auth_session.py','48'],
+ req:'{ wa_number }', res:'{ url, expires_at }',
+ d:'400 rider_not_registered if absent from rider_master, 409 multiple_rider_records if duplicated.'},
+{m:'POST',p:'/sys-admin/dashboard-session?wa_number=',g:'wa-ordelo',s:'live',
+ caller:['watomation/on_message_wa_handler.py','342'], impl:['watomation/routers/sys_admin_auth_session.py','74'],
+ req:'query wa_number', res:'{ url, expires_at }',
+ d:'403 sys_admin_not_authorized unless the number is in ordelo_config.overwatch_list. Takes a query param deliberately so the coroutine can be called straight from the /sysadmin message handler.'},
+
+/* --- diagnostics --- */
+{m:'POST',p:'/payment-hooks/payment-complete-test/{order_id}',g:'diag',s:'live',
+ caller:['— manual','1'], impl:['watomation/routers/payment_hooks.py','150'],
+ req:'path order_id', res:'{ "success": "success" }',
+ d:'Replays the entire payment-complete flow without Stripe.',
+ gotcha:'Unauthenticated, and it force-marks ANY order as paid and kicks off delivery/takeaway init.'},
+{m:'GET',p:'/details  |  /restaurant-details/{rest_ref}',g:'diag',s:'live',
+ caller:['— manual','1'], impl:['watomation/fapp_ordelo_agent.py','240'],
+ req:'—', res:'phone-number + resolved base URLs + admins',
+ d:'Diagnostics. /restaurant-details resolves every WEBHOOK_PATHS entry for a restaurant — useful for confirming the triangle wiring.'},
+{m:'GET',p:'/threads  |  /debug-state  |  /thread-hooks/debug-*',g:'diag',s:'live',
+ caller:['— manual','1'], impl:['watomation/routers/thread_hooks.py','90'],
+ req:'recipient or thread_id', res:'LangGraph checkpoint state',
+ d:'Six debug routes on thread_hooks plus two at app level. All unauthenticated.'},
+{m:'GET',p:'/location-hooks/live-location-map/{order_number}',g:'diag',s:'live',
+ caller:['restaurant-agents/.../rider_event_hooks.py','208'], impl:['watomation/routers/location_hooks.py','159'],
+ req:'path order_number', res:'302 → https://maps.google.com/?q=…',
+ d:'DIRECTLY BROWSER-FACING — one of only two such routes. The URL is minted for the customer and sent as a WhatsApp button. 404 when there is no location fix.'},
+{m:'POST',p:'/takeaway-hooks/init-takeaway-order',g:'diag',s:'dead',
+ caller:['— none found','1'], impl:['watomation/routers/takeaway_hooks.py','601'],
+ req:'{ order_number, customer_id | recipient }', res:'{ status:"accepted", order_number }',
+ d:'No caller exists in any of the repos. The source comment at takeaway_hooks.py:600 asks "Where is this called?" — and it is right.'}
+];
+
+/* ---------------- PORTALS ---------------- */
+const PORTALS = [
+{id:'customer', name:'Customer ordering', tone:'green',
+ headline:'The only portal that really talks to ORDELO — 4 of the 6 live calls.',
+ entry:'WhatsApp deep link carrying ?recipient=&thread_id=&order_type=&minimum_order=',
+ session:'The pair (recipient, thread_id). No cookie, no signature. Cart is in-memory React Context; handoff to /order-summary is sessionStorage["order_summary"].',
+ pages:['app/restaurant/[id]/page.tsx','app/order-summary/page.tsx','app/address-update/page.tsx','app/checkout-error/page.tsx'],
+ calls:[
+  ['POST','/api/checkout','→ ORDELO create-order'],
+  ['GET','/api/verify-session','→ ORDELO get-active-thread (proxied on to restaurant-agents)'],
+  ['POST','/api/capture-address','→ ORDELO capture-address'],
+  ['POST','/api/pay-at-restaurant','→ ORDELO pay-at-restaurant'],
+  ['GET','/api/menu','→ byteloop menu service'],
+  ['GET','/api/postcode-lookup/[postcode]','→ postcodes.io + Google'],
+  ['GET','/api/restaurant-hours/[id]','→ Supabase restaurant_master.service_hours_json']],
+ gotcha:'None of these four ORDELO-facing routes is inside the middleware matcher (middleware.ts:186-194), so all are unauthenticated and callable by anyone who can reach the host.'},
+
+{id:'rest-admin', name:'Restaurant admin', tone:'amber',
+ headline:'Never calls ORDELO at all. Reads Postgres directly through a tenant-scoped Proxy.',
+ entry:'Magic link minted by ORDELO from WhatsApp → /rest-admin/activate/[token] → __Host-radash cookie.',
+ session:'Opaque cookie → auth_sessions row. 60-minute idle timeout, 4-hour hard cap, enforced in middleware.ts.',
+ pages:['app/rest-admin/page.tsx','app/rest-admin/orders/page.tsx','app/rest-admin/reports/page.tsx','app/rest-admin/actions/page.tsx','app/rest-admin/more/page.tsx'],
+ calls:[
+  ['GET','/api/rest-admin/orders','→ Supabase v_admin_orders (keyset paginated, 30s refresh)'],
+  ['GET','/api/rest-admin/orders/summary','→ Supabase v_admin_orders_daily'],
+  ['GET','/api/rest-admin/orders/[order_number]/items','→ Supabase v_admin_order_items'],
+  ['POST','/api/rest-admin/logout','→ clears the session row']],
+ gotcha:'lib/rest-admin-session.ts:28-38 declares TENANT_SCOPED_TABLES and a JS Proxy (line 348) auto-injects .eq("rest_ref", session.rest_ref). Tenant isolation is enforced in JavaScript, not by RLS — the server client uses the secret key and bypasses RLS.'},
+
+{id:'rider', name:'Rider', tone:'amber',
+ headline:'Also never calls ORDELO. Same Supabase-direct pattern, scoped by rider_id.',
+ entry:'Magic link from ORDELO → /rider/activate/[token] → __Host-rdash cookie. Minted by rider_auth_session.py:48.',
+ session:'auth_sessions row with role=rider, scope_ref=rider_id.',
+ pages:['app/rider/page.tsx','app/rider/jobs/page.tsx','app/rider/more/page.tsx','app/rider/expired/page.tsx'],
+ calls:[
+  ['GET','/api/rider/jobs','→ Supabase delivery_dispatch (keyset paginated)'],
+  ['GET','/api/rider/jobs/summary','→ Supabase delivery_dispatch earnings rollup'],
+  ['GET','rider_master / rider_registrations','→ browser-side Supabase client (RLS-respecting)'],
+  ['POST','/api/rider/logout','→ clears the session row']],
+ gotcha:'The rider PORTAL is read-only. Everything a rider actually does that changes state — accepting a dispatch, confirming codes, going on shift — happens over WhatsApp, not here.'},
+
+{id:'sys-admin', name:'System admin', tone:'green',
+ headline:'The only admin portal touching ORDELO — the remaining 2 of the 6 live calls.',
+ entry:'Magic link from ORDELO → /sys-admin/activate/[token] → __Host-sdash cookie. Gated on ordelo_config.overwatch_list.',
+ session:'auth_sessions row with role=sys_admin.',
+ pages:['app/sys-admin/page.tsx','app/sys-admin/restaurants/page.tsx','app/sys-admin/rider-payouts/page.tsx','app/sys-admin/riders-inshift/page.tsx'],
+ calls:[
+  ['GET','/api/sys-admin/rider-payouts/report','→ ORDELO GET /sys-admin/rider-payout'],
+  ['POST','/api/sys-admin/rider-payouts/mark-paid','→ ORDELO POST /sys-admin/update-paid'],
+  ['GET','/api/sys-admin/rider-payouts/summary','→ Supabase delivery_dispatch + rider_master'],
+  ['GET/PATCH','/api/sys-admin/restaurants/[rest_ref]','→ Supabase restaurant_master'],
+  ['GET/PATCH','/api/sys-admin/restaurants/[rest_ref]/config','→ Supabase ordelo_config']],
+ gotcha:'The config PATCH writes the very ordelo_config row (ORDELO_APP_URL) that lib/config.ts reads to find ORDELO. Change it and the frontend repoints itself — after the 60s cache expires, per container.'}
+];
+
+/* ---------------- WEB-ONLY GAPS ---------------- */
+const GAPS = {
+hard:[
+{t:'create_order_reference() requires a 4-digit phone tail',
+ d:'number = recipient[-4:]; raises ValueError("Number must be a 4-digit string") unless it is 4 digits. The 4-char order reference is a salted SHA-256 of the last four digits of the phone number. A web-only user with no phone fails HERE — before any row is written.',
+ src:[['utils_common/order_management/order_db_ops_new.py','63'],['utils_common/order_management/order_service.py','213']]},
+{t:'customer_master.cust_id is VARCHAR(12)',
+ d:'A UK MSISDN without the plus is exactly 12 digits — 447448440754, the literal used throughout the codebase. A UUID or an email will not fit. Pydantic enforces it too, with max_length=12.',
+ src:[['ordelo_datamodels/masterdata.sql','49'],['ordelo_datamodels/customer_master_pymodel.py','21']]},
+{t:'food_order.thread_id is NOT NULL',
+ d:'A LangGraph/WhatsApp conversation thread id is mandatory on every order row. A web session would have to synthesise one.',
+ src:[['utils_common/order_management/food_order.sql','36']]},
+{t:'init_delivery raises without a pre-existing, geocoded customer',
+ d:'RAISE EXCEPTION "Customer details not found for cust_id: %" if the id is absent from customer_master. And delivery_summary.customer_lon/customer_lat are NOT NULL, so a customer with no geocoded address cannot have a delivery created at all.',
+ src:[['ordelo_datamodels/jobs_n_functions/init_delivery.sql','124'],['ordelo_datamodels/summary.sql','12']]}
+],
+supply:[
+{t:'Rider accept has exactly one writer, and it is a WhatsApp button',
+ d:'delivery_dispatch.status = "accepted" is written in exactly one place in live code, reachable only from the WhatsApp callback filter /dispatchResponse. There is no HTTP endpoint that accepts a dispatch. Without that write, job_assign_dispatch never fires, delivery_inflight is never populated, and the order sits at unassigned until it times out.',
+ src:[['ordelo/agent_app_handlers.py','270'],['watomation/on_callback_wa_handler.py','57']]},
+{t:'Restaurant confirm and pickup-time are WhatsApp buttons',
+ d:'restaurant_confirmation_status and pickup_time transition only via the /RestaurantOrder and /PickupTime callback handlers. The outbound side is equally bound — _handle_restaurant_unconfirmed loops restaurant_master.admins sending WhatsApp messages.',
+ src:[['watomation/on_callback_wa_handler.py','283'],['watomation/routers/delivery_hooks.py','1234']]},
+{t:'Identity is the phone number, all the way down',
+ d:'rider_master.rider_id IS the WhatsApp number, used directly as the send target. restaurant_master.admins is a TEXT[] of WhatsApp numbers. Confirmation codes are delivered and verified over WhatsApp by the rider LangGraph agent.',
+ src:[['ordelo_datamodels/masterdata.sql','6'],['ordelo/agents/rider_agent.py','781']]}
+],
+nuance:[
+{t:'The flow already advances with no WhatsApp tap',
+ d:'restaurant_master.auto_accept bypasses the entire confirmation chain in the database, and job_restaurant_confirmation_timeout() forces the flow forward after N minutes regardless. So restaurant confirmation is not a hard blocker — it is a loss of admin control, not a dead stop. See ADR 0001.',
+ src:[['ordelo_datamodels/jobs_n_functions/init_delivery.sql','195'],['docs/adr/0001-configured-restaurant-auto-accept.md','1']]},
+{t:'The WhatsApp address-capture Flow is a stub',
+ d:'on_customer_address_flow returns hardcoded placeholders ("John Doe - test", "44744123123123") and the completion handler only logs. It does not persist anything. Real address writes already go through plain HTTP — /order-hooks/capture-address and /customer-hooks/update-address.',
+ src:[['watomation/on_flow_request_wa_handler.py','40']]},
+{t:'The customer never receives a WhatsApp message in the delivery flow',
+ d:'delivery_summary.customer_msg_id is nullable and nothing writes it. Customer-directed notifications go to the RESTAURANT’s app via webhook, not to the customer over WhatsApp. The one exception is a takeaway decline. The customer path is far less coupled than the supply path.',
+ src:[['ordelo_datamodels/summary.sql','33'],['watomation/routers/takeaway_hooks.py','206']]},
+{t:'A WhatsApp-free app variant already exists in the repo',
+ d:'watomation/wo_fapp_ordelo_agent_wo_wa.py is a ~100-line FastAPI app that mounts the routers without instantiating the pywa WhatsApp client. It is the closest thing to a web-channel skeleton already checked in.',
+ src:[['watomation/wo_fapp_ordelo_agent_wo_wa.py','1']]}
+],
+reusable:[
+{t:'Already channel-agnostic — reusable as-is',
+ d:'order_hooks.py, payment_hooks.py and customer_hooks.py have ZERO WhatsApp imports between them. So do utils_common/order_management/*, utils_common/payment_ms/payment.py, utils_common/maps_service/address_resolver.py, config/params.py and every ordelo_datamodels/*_pymodel.py. The pricing microservice, the Stripe microservice and Google geocoding are all channel-neutral. cust_rest_map carries no WhatsApp assumption beyond the cust_id width it inherits.',
+ src:[['watomation/routers/order_hooks.py','1'],['watomation/routers/payment_hooks.py','1'],['watomation/routers/customer_hooks.py','1']]}
+]};
+
+/* ---------------- IDENTITY CHAIN ---------------- */
+const IDENTITY = [
+{k:'recipient', v:'447448440754', w:'UK MSISDN, no plus — exactly 12 digits',
+ where:'URL query param → food_order.recipient → passed as p_cust_id to init_delivery',
+ src:[['utils_common/order_management/food_order.sql','34']]},
+{k:'thread_id', v:'ELAS-7d4aa595-6239-40ec-bed1-a0d98c281f48', w:'LangGraph / WhatsApp conversation thread',
+ where:'URL query param → food_order.thread_id (NOT NULL) → the Stripe payment URL path',
+ src:[['utils_common/order_management/food_order.sql','36'],['utils_common/order_management/food_order_pymodel.py','192']]},
+{k:'cust_id', v:'447448440754', w:'VARCHAR(12) primary key — the same phone number',
+ where:'customer_master.cust_id, cust_rest_map.cust_id, delivery_summary.customer_id',
+ src:[['ordelo_datamodels/masterdata.sql','49']]},
+{k:'order_id', v:'KDDV-21', w:'{4-char salted hash of phone tail}-{daily seq}',
+ where:'food_order.order_id (UNIQUE), the Stripe payment URL path',
+ src:[['utils_common/order_management/order_service.py','213']]},
+{k:'order_number', v:'ELAS-KDDV-21', w:'{REST_REF}-{order_id} — the join key for everything downstream',
+ where:'food_order, delivery_summary, delivery_dispatch, takeaway_summary — all keyed on this',
+ src:[['utils_common/order_management/order_service.py','214']]},
+{k:'rest_ref', v:'ELAS', w:'VARCHAR(4) — recovered by splitting the order number on "-"',
+ where:'delivery_summary.rest_ref is a GENERATED column: SPLIT_PART(order_number, \'-\', 1). Recovered the same way in Python throughout.',
+ src:[['ordelo_datamodels/summary.sql','41'],['watomation/routers/payment_hooks.py','50']]}
+];
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const SVGNS = 'http://www.w3.org/2000/svg';
+const el = (n,a={}) => { const e=document.createElementNS(SVGNS,n); for(const k in a) e.setAttribute(k,a[k]); return e; };
+
+let state = { tab:'flows', flow:'order', off:new Set(), sel:null, fgroup:'all', fstatus:'all', q:'' };
+
+const srcHtml = arr => (arr||[]).map(([f,l]) =>
+  `<span class="src"><b>${esc(f)}</b>${l && l!=='1' ? ':'+esc(l) : ''}</span>`).join('');
+
+/* ---------- SVG sequence diagram ---------- */
+const LANE_W = 218, HEAD_H = 66, ROW_H = 54, PAD = 26;
+const laneX = i => PAD + LANE_W/2 + i*LANE_W;
+
+function drawFlow(){
+  const flow = FLOWS[state.flow];
+  const hops = flow.hops;
+  const W = PAD*2 + LANE_W*5;
+  const H = HEAD_H + hops.length*ROW_H + 40;
+  const svg = $('#diagram');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const root = $('#svg-root');
+  root.innerHTML = '';
+
+  // lifelines + actor headers
+  Object.entries(ACTORS).forEach(([key,a]) => {
+    const x = laneX(a.x);
+    root.appendChild(el('line',{x1:x,y1:HEAD_H-6,x2:x,y2:H-16,stroke:'#334155','stroke-width':1.5,'stroke-dasharray':'3 4'}));
+    const box = el('rect',{x:x-92,y:14,width:184,height:40,rx:6,fill:'#1e293b',stroke:a.color,'stroke-width':1.5});
+    root.appendChild(box);
+    const t1 = el('text',{x,y:31,'text-anchor':'middle',fill:a.color,'font-size':12.5,'font-weight':700});
+    t1.textContent = a.label; root.appendChild(t1);
+    const t2 = el('text',{x,y:45,'text-anchor':'middle',fill:'#64748b','font-size':9.5});
+    t2.textContent = a.sub; root.appendChild(t2);
+  });
+
+  // hops
+  hops.forEach((h,i) => {
+    const y = HEAD_H + 22 + i*ROW_H;
+    const col = LAYERS[h.layer].color;
+    const dim = state.off.has(h.layer);
+    const g = el('g',{class:'hop'+(state.sel===i?' sel':''), opacity: dim?0.16:1});
+    g.dataset.i = i;
+
+    const hb = el('rect',{class:'hitbox',x:2,y:y-24,width:W-4,height:ROW_H-4,rx:4,fill:'transparent'});
+    g.appendChild(hb);
+
+    const x1 = laneX(ACTORS[h.f].x), x2 = laneX(ACTORS[h.t].x);
+    const num = el('text',{x:PAD-12,y:y+4,'text-anchor':'middle',fill:'#475569','font-size':10});
+    num.textContent = i+1; g.appendChild(num);
+
+    if (h.f === h.t) {                       // self-hop
+      const w = 96;
+      const p = el('path',{d:`M ${x1} ${y-9} h ${w} v 18 h -${w}`,fill:'none',stroke:col,'stroke-width':1.8,
+                           'stroke-dasharray': h.layer==='dead'?'5 4':''});
+      g.appendChild(p);
+      g.appendChild(el('path',{d:`M ${x1+7} ${y+5} L ${x1} ${y+9} L ${x1+7} ${y+13}`,fill:'none',stroke:col,'stroke-width':1.8}));
+      const lb = el('text',{x:x1+w+10,y:y+4,fill:col,'font-size':11.5,'font-weight':600});
+      lb.textContent = h.l; g.appendChild(lb);
+    } else {
+      const dir = x2 > x1 ? 1 : -1;
+      const ax1 = x1 + dir*4, ax2 = x2 - dir*9;
+      g.appendChild(el('line',{x1:ax1,y1:y,x2:ax2,y2:y,stroke:col,'stroke-width':1.8,
+                               'stroke-dasharray': (h.layer==='db'||h.layer==='dead')?'5 4':''}));
+      g.appendChild(el('path',{d:`M ${ax2-dir*7} ${y-4.5} L ${ax2+dir*2} ${y} L ${ax2-dir*7} ${y+4.5} Z`,fill:col}));
+      const mid = (ax1+ax2)/2;
+      const lb = el('text',{x:mid,y:y-8,'text-anchor':'middle',fill:col,'font-size':11.5,'font-weight':600});
+      lb.textContent = h.l; g.appendChild(lb);
+    }
+    if (h.g) {
+      const w = el('text',{x:W-PAD+6,y:y+4,'text-anchor':'end',fill:'#fb923c','font-size':12});
+      w.textContent = '⚠'; g.appendChild(w);
+    }
+    g.addEventListener('click', () => selectHop(i));
+    root.appendChild(g);
+  });
+  resetView();
+}
+
+function selectHop(i){
+  state.sel = i;
+  const h = FLOWS[state.flow].hops[i];
+  $$('#svg-root .hop').forEach(g => g.classList.toggle('sel', +g.dataset.i === i));
+  const d = $('#detail');
+  d.classList.add('open');
+  $('#det-title').textContent = h.l;
+  $('#det-sub').textContent = `${ACTORS[h.f].label}  →  ${ACTORS[h.t].label}`;
+  $('#det-body').innerHTML =
+    `<span class="badge" style="background:${LAYERS[h.layer].color}22;color:${LAYERS[h.layer].color};border:1px solid ${LAYERS[h.layer].color}55">${esc(LAYERS[h.layer].label)}</span>` +
+    (h.code ? `<div class="ds"><div class="dst">Wire</div><code class="dsc">${esc(h.code)}</code></div>` : '') +
+    `<div class="ds"><div class="dst">What happens</div><div class="dsp">${esc(h.d)}</div></div>` +
+    (h.g ? `<div class="ds"><div class="dst">Gotcha</div><div class="dsg">${esc(h.g)}</div></div>` : '') +
+    (h.src ? `<div class="ds"><div class="dst">Source</div>${srcHtml(h.src)}</div>` : '');
+  $('#prompt-text').textContent =
+    `[${state.flow} · hop ${i+1}] ${ACTORS[h.f].label} → ${ACTORS[h.t].label}: ${h.l}\n` +
+    (h.code ? h.code + '\n' : '') + h.d + (h.g ? '\nGOTCHA: ' + h.g : '') +
+    (h.src ? '\n' + h.src.map(([f,l]) => l && l!=='1' ? `${f}:${l}` : f).join('  ') : '');
+}
+
+/* ---------- pan + zoom ---------- */
+let vb = null, drag = null;
+function resetView(){
+  const s = $('#diagram').getAttribute('viewBox').split(' ').map(Number);
+  vb = {x:s[0], y:s[1], w:s[2], h:s[3]}; applyVB();
+}
+function applyVB(){ $('#diagram').setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); }
+function zoom(f){ const cx=vb.x+vb.w/2, cy=vb.y+vb.h/2; vb.w*=f; vb.h*=f; vb.x=cx-vb.w/2; vb.y=cy-vb.h/2; applyVB(); }
+
+/* ---------- sidebar ---------- */
+function drawSidebar(){
+  const c = $('#sidebar-content');
+  if (state.tab === 'flows'){
+    const flow = FLOWS[state.flow];
+    c.innerHTML =
+      `<div><div class="sec-title">Flow</div>` +
+      Object.entries(FLOWS).map(([k,f]) =>
+        `<div class="subview${k===state.flow?' active':''}" data-flow="${k}">${f.title}</div>`).join('') + `</div>` +
+      `<div><div class="sec-title">Layers</div>` +
+      Object.entries(LAYERS).map(([k,l]) =>
+        `<div class="layer-row${state.off.has(k)?' off':''}" data-layer="${k}">` +
+        `<span class="layer-dot" style="background:${l.color}"></span><span>${l.label}</span></div>`).join('') + `</div>` +
+      (flow.hops.some(h=>h.g) ? `<div><div class="sec-title">Gotchas</div>` +
+        flow.hops.map((h,i) => h.g ? `<div class="gotcha" data-hop="${i}"><div class="gtitle">${esc(h.l)}</div>` +
+        `<div class="gdesc">${esc(h.g.length>120 ? h.g.slice(0,120)+'…' : h.g)}</div></div>` : '').join('') + `</div>` : '');
+    c.querySelectorAll('[data-flow]').forEach(n => n.onclick = () => {
+      state.flow = n.dataset.flow; state.sel = null; $('#detail').classList.remove('open');
+      $('#prompt-text').textContent = FLOWS[state.flow].title.replace(/&amp;/g,'&') + ' — click any hop for its payload and source lines.';
+      drawSidebar(); drawFlow();
+    });
+    c.querySelectorAll('[data-layer]').forEach(n => n.onclick = () => {
+      const k = n.dataset.layer;
+      state.off.has(k) ? state.off.delete(k) : state.off.add(k);
+      drawSidebar(); drawFlow();
+    });
+    c.querySelectorAll('[data-hop]').forEach(n => n.onclick = () => selectHop(+n.dataset.hop));
+  } else if (state.tab === 'endpoints'){
+    const counts = {};
+    ENDPOINTS.forEach(e => counts[e.g] = (counts[e.g]||0)+1);
+    c.innerHTML = `<div><div class="sec-title">Direction</div>` +
+      `<div class="subview${state.fgroup==='all'?' active':''}" data-g="all">All (${ENDPOINTS.length})</div>` +
+      Object.entries(GROUPS).map(([k,g]) =>
+        `<div class="subview${state.fgroup===k?' active':''}" data-g="${k}">${g.label} (${counts[k]||0})</div>`).join('') +
+      `</div><div><div class="sec-title">Status</div>` +
+      ['all','live','stale','dead'].map(s =>
+        `<div class="subview${state.fstatus===s?' active':''}" data-s="${s}">${s}</div>`).join('') + `</div>`;
+    c.querySelectorAll('[data-g]').forEach(n => n.onclick = () => { state.fgroup = n.dataset.g; drawSidebar(); drawPane(); });
+    c.querySelectorAll('[data-s]').forEach(n => n.onclick = () => { state.fstatus = n.dataset.s; drawSidebar(); drawPane(); });
+  } else if (state.tab === 'portals'){
+    c.innerHTML = `<div><div class="sec-title">Portal</div>` +
+      PORTALS.map(p => `<div class="subview" data-p="${p.id}">${p.name}</div>`).join('') + `</div>` +
+      `<div class="note" style="font-size:11px;margin:0">Only <b>customer</b> and <b>sys-admin</b> talk to ORDELO. rest-admin and rider read Postgres directly.</div>`;
+    c.querySelectorAll('[data-p]').forEach(n => n.onclick = () =>
+      document.getElementById('portal-'+n.dataset.p)?.scrollIntoView({behavior:'smooth',block:'start'}));
+  } else {
+    c.innerHTML = `<div class="note" style="font-size:11px;margin:0">Every claim on this page cites <code>file:line</code> from the <code>dev</code> branch of OrdeloAgent, restaurant-frontend and restaurant-agents.</div>`;
+  }
+}
+
+/* ---------- pane (non-diagram tabs) ---------- */
+function drawPane(){
+  const p = $('#pane');
+  if (state.tab === 'endpoints'){
+    const q = state.q.toLowerCase();
+    const rows = ENDPOINTS.filter(e =>
+      (state.fgroup==='all' || e.g===state.fgroup) &&
+      (state.fstatus==='all' || e.s===state.fstatus) &&
+      (!q || (e.p+e.d+e.m+(e.caller?e.caller[0]:'')+(e.impl?e.impl[0]:'')).toLowerCase().includes(q)));
+    const byGroup = {};
+    rows.forEach(e => (byGroup[e.g] = byGroup[e.g]||[]).push(e));
+    p.innerHTML =
+      `<h2>Endpoint catalogue</h2>` +
+      `<p class="lead">Every cross-service call, grouped by direction. <b>${rows.length}</b> shown of ${ENDPOINTS.length}. Each row carries the caller and the implementation as <code>file:line</code>. Click a row to expand.</p>` +
+      `<div id="filters">` +
+      `<input id="search" placeholder="filter by path, file or description…" value="${esc(state.q)}">` +
+      `<button class="fbtn${state.fstatus==='all'?' active':''}" data-s="all">all</button>` +
+      `<button class="fbtn${state.fstatus==='live'?' active':''}" data-s="live">live</button>` +
+      `<button class="fbtn${state.fstatus==='stale'?' active':''}" data-s="stale">stale doc</button>` +
+      `<button class="fbtn${state.fstatus==='dead'?' active':''}" data-s="dead">dead</button></div>` +
+      (rows.length===0 ? `<p class="lead">No endpoints match.</p>` :
+      Object.entries(byGroup).map(([g,list]) =>
+        `<h3>${GROUPS[g].label} <span style="color:#64748b;font-weight:400;font-size:11px">${list.length}</span></h3>` +
+        `<p class="lead" style="margin-bottom:9px">${GROUPS[g].note}</p>` +
+        list.map(e => `
+          <div class="ep">
+            <div class="ep-head">
+              <span class="meth m-${e.m}">${e.m}</span>
+              <span class="ep-path">${esc(e.p)}</span>
+              <span class="ep-tag t-${e.s==='stale'?'stale':e.s}">${e.s==='stale'?'stale doc':e.s}</span>
+            </div>
+            <div class="ep-body">
+              <dl class="ep-grid">
+                <dt>Does</dt><dd>${esc(e.d)}</dd>
+                <dt>Request</dt><dd><code class="dsc">${esc(e.req)}</code></dd>
+                <dt>Response</dt><dd><code class="dsc">${esc(e.res)}</code></dd>
+                <dt>Caller</dt><dd>${srcHtml([e.caller])}</dd>
+                <dt>Impl</dt><dd>${srcHtml([e.impl])}</dd>
+                ${e.gotcha ? `<dt>Gotcha</dt><dd><div class="dsg">${esc(e.gotcha)}</div></dd>` : ''}
+              </dl>
+            </div>
+          </div>`).join('')).join(''));
+    p.querySelectorAll('.ep-head').forEach(h => h.onclick = () => h.parentElement.classList.toggle('open'));
+    p.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { state.fstatus = b.dataset.s; drawSidebar(); drawPane(); });
+    const s = $('#search');
+    s.oninput = () => { state.q = s.value; const pos = s.selectionStart; drawPane();
+      const n = $('#search'); n.focus(); n.setSelectionRange(pos,pos); };
+
+  } else if (state.tab === 'portals'){
+    p.innerHTML = `<h2>The four portals</h2>` +
+      `<p class="lead">restaurant-frontend hosts four separate applications. The headline finding is an <b>asymmetry</b>: only the customer and sys-admin portals call ORDELO. The rest-admin and rider portals read Postgres directly and never touch it — their only ORDELO coupling is the magic link that lets them in.</p>` +
+      PORTALS.map(o => `
+        <div id="portal-${o.id}" class="card ${o.tone}">
+          <h4>${o.name}</h4>
+          <p style="color:#f1f5f9">${esc(o.headline)}</p>
+          <dl class="ep-grid" style="margin-top:10px">
+            <dt>Entry</dt><dd>${esc(o.entry)}</dd>
+            <dt>Session</dt><dd>${esc(o.session)}</dd>
+            <dt>Pages</dt><dd>${o.pages.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</dd>
+            <dt>Calls</dt><dd>${o.calls.map(([m,path,to]) =>
+              `<div style="margin-bottom:4px"><span class="meth m-${m.split('/')[0]}" style="margin-right:6px">${m}</span>` +
+              `<code style="font-size:11px;color:#e2e8f0">${esc(path)}</code> ` +
+              `<span style="color:#64748b;font-size:10.5px">${esc(to)}</span></div>`).join('')}</dd>
+            <dt>Gotcha</dt><dd><div class="dsg">${esc(o.gotcha)}</div></dd>
+          </dl>
+        </div>`).join('');
+
+  } else if (state.tab === 'data'){
+    p.innerHTML = `<h2>Identity &amp; data</h2>` +
+      `<p class="lead">One chain runs through the whole system, and it starts at a phone number. Every downstream key is derived from it. This is the single most important thing to understand before designing a web-only channel.</p>` +
+      `<div class="note"><b>The chain:</b> <code>recipient</code> (phone) → <code>cust_id</code> (the same phone, VARCHAR(12)) → <code>order_id</code> (hash of the phone’s last 4 digits + daily sequence) → <code>order_number</code> (<code>{REST_REF}-{order_id}</code>) → <code>rest_ref</code> (recovered by splitting the order number). A web user with no phone number breaks this at step one.</div>` +
+      IDENTITY.map(i => `
+        <div class="card">
+          <h4><code style="color:#7dd3fc">${esc(i.k)}</code> <span style="color:#64748b;font-weight:400;font-size:11px">${esc(i.w)}</span></h4>
+          <code class="dsc" style="margin-bottom:6px">${esc(i.v)}</code>
+          <p>${esc(i.where)}</p>${srcHtml(i.src)}
+        </div>`).join('') +
+      `<h3>Tables the two services share</h3>` +
+      `<p class="lead">The frontend reads several of these directly with the Supabase <b>secret key</b>, which bypasses RLS — so tenant isolation is enforced in JavaScript by the Proxy wrappers in <code>lib/rest-admin-session.ts</code> and <code>lib/rider-session.ts</code>, not by the database.</p>` +
+      ['ordelo_config — ORDELO_APP_URL, {REST_REF}_APP_URL, timeouts, overwatch_list. The frontend both READS it (to find ORDELO) and WRITES it (sys-admin config PATCH).',
+       'restaurant_master — rest_ref PK, admins TEXT[] of WhatsApp numbers, service_hours_json, auto_accept, rest_stale_active_threads_minutes.',
+       'customer_master — cust_id VARCHAR(12) PK. Written by ORDELO only.',
+       'cust_rest_map — per-restaurant marketing consent. (cust_id, rest_ref) PK, has_consent default false.',
+       'delivery_dispatch — read directly by the rider and sys-admin portals; written by pg_cron and the WhatsApp callback.',
+       'auth_sessions — magic-link sessions. ORDELO mints (storing only the SHA-256 hash); the frontend validates.',
+       'v_admin_orders / v_admin_order_items / v_admin_orders_daily — views read only by the rest-admin portal.'
+      ].map(t => `<div class="card"><p style="margin:0">${esc(t)}</p></div>`).join('') +
+      `<h3>Verifying this page</h3>` +
+      `<p class="lead">Every <code>file:line</code> here was checked against the working tree when this file was generated. To re-check after the code moves, extract each citation and assert the file exists and is long enough:</p>` +
+      `<code class="dsc">grep -oE '[A-Za-z0-9_./\\[\\]-]+\\.(py|ts|tsx|sql|md):[0-9]+' docs/ordelo-restaurant-frontend-cc.html | sort -u |
+while IFS=: read f l; do
+  for r in ~/bloop/OrdeloAgent ~/bloop/restaurant-frontend ~/bloop/restaurant-agents; do
+    [ -f "$r/$f" ] &amp;&amp; { [ "$(wc -l &lt; "$r/$f")" -ge "$l" ] || echo "SHORT $f:$l"; break; }
+  done
+done</code>`;
+
+  } else if (state.tab === 'gaps'){
+    const sec = (title, list, tone, intro) =>
+      `<h3>${title}</h3><p class="lead">${intro}</p>` +
+      list.map(g => `<div class="card ${tone}"><h4>${esc(g.t)}</h4><p>${esc(g.d)}</p>${srcHtml(g.src)}</div>`).join('');
+    p.innerHTML = `<h2>What breaks in a website-only channel</h2>` +
+      `<p class="lead">Descriptive only — this marks where the current flow <i>requires</i> WhatsApp to advance. It does not propose replacements.</p>` +
+      `<div class="note"><b>The short version:</b> the customer-facing path is already channel-agnostic HTTP — <code>order_hooks</code>, <code>customer_hooks</code>, <code>payment_hooks</code>, pricing, Stripe and maps have no WhatsApp in them at all. The WhatsApp locks are on the <b>supply</b> side (restaurant confirms, rider accepts), not the customer side. But one hard blocker sits squarely in the customer path anyway: identity is a phone number, structurally.</div>` +
+      sec('\u{1F534} Hard blockers — the code raises', GAPS.hard, 'red',
+        'These are not conventions. Each one throws or violates a NOT NULL constraint for a customer without a phone number.') +
+      sec('\u{1F7E0} Supply-side WhatsApp locks', GAPS.supply, 'amber',
+        'Mostly orthogonal to a web customer channel — riders and restaurants can stay on WhatsApp. They matter only if the goal is a fully channel-agnostic core.') +
+      sec('\u{1F535} Nuances that stop this over-claiming', GAPS.nuance, '',
+        'The coupling is genuinely weaker than a first read suggests. Each of these cuts against the "it is all WhatsApp" conclusion.') +
+      sec('\u{1F7E2} Already channel-agnostic', GAPS.reusable, 'green',
+        'Reusable as-is by a web-only channel, with no changes.');
+  }
+}
+
+/* ---------- tabs ---------- */
+function setTab(t){
+  state.tab = t;
+  $$('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  const isFlow = t === 'flows';
+  $('#diagram').style.display   = isFlow ? 'block' : 'none';
+  $('#zoom-btns').style.display = isFlow ? 'flex'  : 'none';
+  $('#pane').style.display      = isFlow ? 'none'  : 'block';
+  $('#detail').classList.remove('open');
+  drawSidebar();
+  if (isFlow){ drawFlow(); $('#prompt-text').textContent = FLOWS[state.flow].title.replace(/&amp;/g,'&') + ' — click any hop for its payload and source lines.'; }
+  else { drawPane(); $('#pane').scrollTop = 0;
+         $('#prompt-text').textContent = { endpoints:'Endpoint catalogue — filter by direction or status, click a row to expand.',
+           portals:'Four portals. Only customer and sys-admin call ORDELO.',
+           data:'The identity chain: recipient → cust_id → order_id → order_number → rest_ref.',
+           gaps:'WhatsApp couplings, marked by severity.' }[t]; }
+}
+
+/* ---------- wiring ---------- */
+$$('.tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+$('#det-close').onclick = () => { $('#detail').classList.remove('open'); state.sel = null;
+  $$('#svg-root .hop').forEach(g => g.classList.remove('sel')); };
+$('#zin').onclick = () => zoom(1/1.2);
+$('#zout').onclick = () => zoom(1.2);
+$('#zreset').onclick = resetView;
+$('#copy-btn').onclick = () => {
+  navigator.clipboard.writeText($('#prompt-text').textContent).then(() => {
+    const b = $('#copy-btn'); b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1200);
+  }).catch(() => {});
+};
+(() => {
+  const svg = $('#diagram');
+  svg.addEventListener('mousedown', e => { drag = {x:e.clientX, y:e.clientY, vx:vb.x, vy:vb.y}; svg.classList.add('panning'); });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const r = svg.getBoundingClientRect();
+    vb.x = drag.vx - (e.clientX - drag.x) * vb.w / r.width;
+    vb.y = drag.vy - (e.clientY - drag.y) * vb.h / r.height;
+    applyVB();
+  });
+  window.addEventListener('mouseup', () => { drag = null; svg.classList.remove('panning'); });
+  svg.addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY > 0 ? 1.1 : 1/1.1); }, {passive:false});
+})();
+
+setTab('flows');
+</script>
+</body>
+</html>

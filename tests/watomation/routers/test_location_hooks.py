@@ -116,13 +116,13 @@ async def test_notify_rider_location_event_restaurant_enter_notifies_admins(monk
 
 
 @respx.mock
-async def test_notify_rider_location_event_customer_enter_posts_webhook(monkeypatch, patch_supabase_client) -> None:
+async def test_notify_rider_location_event_customer_enter_posts_webhook(monkeypatch, patch_supabase_client, inline_notifier) -> None:
     patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[_summary_row()]))
 
     async def _webhook(rest_ref, webhook_type):
         return "https://rest.example.com/customer-enter"
 
-    monkeypatch.setattr(location_hooks, "get_restaurant_webhook_url_async", _webhook)
+    inline_notifier.webhook = _webhook
     route = respx.post("https://rest.example.com/customer-enter/ELAS-ABCD-1").mock(return_value=httpx.Response(200, json={"ok": True}))
 
     await location_hooks.notify_rider_location_event(

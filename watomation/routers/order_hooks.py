@@ -17,11 +17,17 @@ Functions/Classes:
   . validate_postcode - Validates UK postcodes and returns resolved address
   . capture_address - Captures customer address and upserts into customer_master and cust_rest_map
   . get_active_thread - Proxies active thread retrieval request to restaurant system
+    . Routes customer notifications through the R1b notifier (always on since R3.1)
 """
+
+from utils_common.notify import customer_notifier
+from utils_common.payment_ms.payment_mode import resolve_payment_mode
 
 # %%
 
 from typing import List, Literal, Optional
+
+import asyncio
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query, Response
@@ -207,6 +213,10 @@ class CreateOrderRequest(BaseModel):
     order_items: List[OrderItem]
     order_type: Literal["delivery", "takeaway"]
     notes: Optional[str] = None
+    # Plan D28/D29: web-style orders (R2 checks, later /web/*) set these.
+    origin_channel: Literal["whatsapp", "web"] = "whatsapp"
+    storefront: Literal["direct", "ordelo"] = "direct"
+    test_payment: bool = False
 
 
 @router.post(
@@ -249,6 +259,9 @@ async def create_order(
     _notes = request.notes.lower() if request.notes else ""
 
     action = request.order_type
+    payment_mode, reason = await resolve_payment_mode(request.recipient, rest_ref, request.test_payment)
+    if request.test_payment or payment_mode:
+        logger.info("payment mode rest_ref={} mode={} reason={}", rest_ref, payment_mode or "live", reason)
 
     # Create order with items
     order_result = await create_order_with_items(
@@ -258,15 +271,12 @@ async def create_order(
         rest_ref=rest_ref,
         action=action,
         notes=request.notes,
+        origin_channel=request.origin_channel,
+        storefront=request.storefront,
+        payment_mode=payment_mode,
     )
 
-    # update final order values (below calls the update)
-    food_order = FoodOrder.from_order_id(order_id=order_result["order_id"])
-    if not food_order:
-        logger.error(f"FoodOrder not found for order_id: {order_result['order_id']}")
-        return None
-
-    # Check if order creation was successful
+    # Check if order creation was successful (F3: before reading order_id)
     if not order_result.get("success"):
         raise HTTPException(
             status_code=400,
@@ -275,6 +285,12 @@ async def create_order(
                 "details": order_result.get("details"),
             },
         )
+
+    # update final order values (below calls the update)
+    food_order = FoodOrder.from_order_id(order_id=order_result["order_id"])
+    if not food_order:
+        logger.error(f"FoodOrder not found for order_id: {order_result['order_id']}")
+        return None
 
     order_id = order_result["order_id"]
     order_number = order_result["order_number"]
@@ -296,6 +312,7 @@ async def create_order(
         "thread_id": request.thread_id,
         "order_number": order_number,
         "payment_intent_url": payment_intent_url,
+        "payment_mode": "test" if getattr(food_order, "uses_test_payment", False) else "live",
         "service_charge": food_order.service_charge,
         "delivery_fee": food_order.delivery_fee,
         "small_order_fee": food_order.small_order_fee,
@@ -363,10 +380,8 @@ async def capture_address(request: CaptureAddressRequest):
     logger.info(f"restRef is :{rest_ref}")
     _customer_master_row = CustomerMaster(**customer_master_pl)
 
-    response = (
-        client_ordelo.table("customer_master")
-        .upsert(_customer_master_row.model_dump())
-        .execute()
+    await asyncio.to_thread(
+        lambda: client_ordelo.table("customer_master").upsert(_customer_master_row.model_dump()).execute()
     )
     CustRestMap.upsert(
         cust_id=request.recipient,
@@ -376,17 +391,12 @@ async def capture_address(request: CaptureAddressRequest):
 
     logger.info(f"Customer address captured for {request.recipient}")
 
-    webhook_url = await get_restaurant_webhook_url_async(
-        rest_ref, "order-address-update"
-    )
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            url=f"{webhook_url}/{request.recipient}",
-            json=_customer_master_row.model_dump(),
-        )
-        logger.info("Restaurant notified of rider")
-        logger.info("Status code:", response.status_code)
-
+    # Web customers are skipped inside notify_address (ADR-0003). The address is
+    # already saved, so a restaurant-app failure is logged, not returned.
+    try:
+        await customer_notifier.notify_address(rest_ref, request.recipient, _customer_master_row.model_dump())
+    except Exception as exc:
+        logger.warning(f"Restaurant address notice failed for {request.recipient}: {type(exc).__name__}")
     return {"success": True}
 
 

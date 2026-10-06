@@ -113,3 +113,122 @@ the same reason "Delivery progress" reads the delivery tables: graph state reads
 back `NULL` once a thread goes inactive, which is indistinguishable from
 "nothing sent" and would replay the whole sequence. Which reminders have been
 sent is the scheduler's bookkeeping, not something the agent needs to believe.
+
+## Web ordering
+
+Terms introduced by the web ordering plan (`plans/ordelo-agg-plan-cc.md`).
+Payment terms such as authorisation, capture and pickup-time boundary are in
+`docs/glossary.md`.
+
+### Storefront
+
+Who sells an order and on whose terms (branding, offers, commission):
+**Ordelo** (the aggregator) or **direct** (a restaurant's own customers).
+Fixed when the order is created.
+_Avoid_: brand, site, shop
+
+### Origin channel
+
+How an order was placed: **WhatsApp** or **web**. Fixed for the order's life;
+following the order somewhere else later never changes it.
+_Avoid_: channel (on its own), source
+
+### Web order
+
+An order whose origin channel is web. Always paid online with manual capture,
+and never sent to a restaurant app.
+_Avoid_: online order, site order
+
+### Restaurant app
+
+A restaurant-agents WhatsApp app that serves one restaurant's own customers.
+It only ever hears about WhatsApp orders.
+_Avoid_: customer agent, restaurant agent
+
+### Customer key
+
+The identifier for the customer on an order: the WhatsApp number for a
+WhatsApp order, a web customer key for a web order.
+_Avoid_: recipient, phone (it is not always one)
+
+### Web customer key
+
+A synthetic customer key (a "W-id") minted for one web checkout. It holds that
+checkout's delivery address and nothing else; it is not a phone number, and no
+one can be contacted through it.
+_Avoid_: guest id, web user, account
+
+### Web thread
+
+The record that ties one web checkout attempt to its order and payment. It
+lives alongside conversations but is not one: no agent ever runs on it.
+_Avoid_: web session, checkout session (Stripe's term), conversation
+
+### Customer contact
+
+A way to reach the person who placed an order. A WhatsApp order has one, its
+WhatsApp number; a web order has none.
+_Avoid_: contact details
+
+### Capture point
+
+The moment an authorised payment is charged: when a rider accepts the delivery
+job, or at the pickup-time boundary for collection. Never at checkout for a web
+order.
+_Avoid_: payment time
+
+### Payment release
+
+Cancelling an authorisation before capture, so the customer is never charged.
+_Avoid_: refund (a refund returns money after capture)
+
+### Payment-complete event
+
+Stripe's notice that a customer has authorised payment for an order. Ordelo
+receives it straight from Stripe, unsigned, and applies it at most once per
+order.
+_Avoid_: payment forward, payment webhook (the payment service has its own)
+
+### Post-payment redirect
+
+Where Stripe sends the customer's browser after paying or cancelling. Fixed per
+restaurant, not per order.
+_Avoid_: return page (a planned Ordelo page that does not exist yet), success page
+
+### Customer event
+
+A change in an order that the customer cares about, such as "rider assigned" or
+"ready for collection". Recorded once per order, however many places it is
+later delivered to.
+_Avoid_: notification, status update
+
+### Notification subscription
+
+A standing instruction to send one order's customer events to one destination
+at one detail level. An order's origin channel and its subscriptions are
+independent of each other.
+_Avoid_: opt-in (that is the consent), channel
+
+### Customer notifier
+
+The one place in Ordelo that turns customer events into messages for each
+notification subscription. Nothing else sends order updates to customers.
+_Avoid_: messenger, hook caller
+
+### Detail level
+
+How much of an order a viewer or subscriber may see: **full** (address, items,
+charges, customer confirmation code) or **status only**.
+_Avoid_: access level, permission
+
+### Order access grant
+
+The secret that lets one browser see one order in full. The order number on its
+own grants nothing.
+_Avoid_: order token, login
+
+### Hand-off code
+
+A one-time code that links a WhatsApp sender to a web order so they can follow
+it on WhatsApp.
+_Avoid_: OTP, verification code

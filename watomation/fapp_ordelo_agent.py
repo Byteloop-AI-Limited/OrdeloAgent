@@ -4,6 +4,7 @@ FastAPI application for Ordelo WhatsApp automation service.
     . Manages PostgreSQL checkpoints and Supabase-backed thread access
     . Exposes diagnostic endpoints for debugging agent state and flows
     . Serves as entry point when running OrdeloAgent with WhatsApp integration
+    . Recovers unattempted customer notifications with an application-owned sweep
   Functions/Classes:
     . app - FastAPI application instance
     . custom_404_handler - Handles 404 errors with template response
@@ -17,6 +18,8 @@ FastAPI application for Ordelo WhatsApp automation service.
 """
 
 import logging
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException
@@ -30,6 +33,9 @@ from pywa.types.flows import FlowRequestActionType
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from config import waba_business_settings, pg_settings, client_ordelo
+from utils_common.notify.customer_notifier import run_sweeper
+from watomation.routers import web_hooks
+from utils_common.web_ordering.common import WebError
 from ordelo.agents.rider_agent import builder
 from ordelo.agent_app_handlers import (
     debug_state,
@@ -115,7 +121,18 @@ POOL_MAX_SIZE = 25
 # %% Define Lifespan Events
 
 # Define and set the app, call import soon after
-app = FastAPI(title="OrdeloAgent")
+@asynccontextmanager
+async def lifespan(app):
+    task = asyncio.create_task(run_sweeper())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+
+app = FastAPI(title="OrdeloAgent", lifespan=lifespan)
 
 templates = Jinja2Templates(directory="watomation/routers/templates")
 
@@ -142,6 +159,12 @@ app.include_router(twilio_webhook.router, prefix="/twilio-webhook")
 app.include_router(order_hooks.router, prefix="/order-hooks")
 app.include_router(payment_hooks.router, prefix="/payment-hooks")
 app.include_router(wa_location_hooks.router)
+app.include_router(web_hooks.router, prefix="/web")
+
+@app.exception_handler(WebError)
+async def web_error_handler(request, exc):
+    from fastapi.responses import JSONResponse
+    return JSONResponse(exc.body, status_code=exc.status, headers=web_hooks.PRIVATE)
 
 # %% DEFINE WA
 wa: WhatsApp = WhatsApp(

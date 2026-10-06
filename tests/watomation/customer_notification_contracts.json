@@ -1,0 +1,228 @@
+{
+  "capture_address": {
+    "body": {
+      "building_name": null,
+      "city": "London",
+      "cust_email": null,
+      "cust_id": "447400000000",
+      "cust_name": "447400000000",
+      "house_number": "1",
+      "lat": 51.5,
+      "lon": -0.1,
+      "postcode": "BR6 6DN",
+      "street_name": "High Street"
+    },
+    "body_json": "{\"cust_id\":\"447400000000\",\"cust_name\":\"447400000000\",\"cust_email\":null,\"house_number\":\"1\",\"building_name\":null,\"street_name\":\"High Street\",\"city\":\"London\",\"postcode\":\"BR6 6DN\",\"lat\":51.5,\"lon\":-0.1}",
+    "url": "https://restaurant.example/ELAS/order-address-update/447400000000"
+  },
+  "customer_cc": {
+    "body": {},
+    "body_json": "{}",
+    "url": "https://restaurant.example/ELAS/rider-cust-cc/ELAS-ABCD-1/447400000000"
+  },
+  "inflight": {
+    "body": {
+      "delivery_summary": {
+        "cust_confirmation_code": 22,
+        "customer_address": "2 Customer Avenue, London",
+        "customer_id": "447400000000",
+        "customer_lat": 51.5174,
+        "customer_lon": -0.1378,
+        "customer_msg_id": null,
+        "customer_name": "Test Customer",
+        "dt": "2026-01-15",
+        "dtts": "2026-01-15T12:00:00Z",
+        "order_number": "ELAS-ABCD-1",
+        "pickup_date": "2026-01-15",
+        "pickup_time": null,
+        "redispatch_dtts": null,
+        "rest_address": "1 Test Street, London",
+        "rest_confirmation_code": 11,
+        "rest_confirmation_method": null,
+        "rest_id": "REST001",
+        "rest_lat": 51.5074,
+        "rest_lon": -0.1278,
+        "rest_name": "Test Restaurant",
+        "rest_prep_time_minutes": null,
+        "rest_ref": "ELAS",
+        "restaurant_admin": null,
+        "restaurant_confirmation_status": "restaurant_unconfirmed",
+        "restaurant_msg_id": null,
+        "restaurant_update_dtts": null,
+        "rider_msg_id": null,
+        "status": "unassigned",
+        "town": "London"
+      }
+    },
+    "body_json": "{\"delivery_summary\":{\"order_number\":\"ELAS-ABCD-1\",\"rest_id\":\"REST001\",\"rest_name\":\"Test Restaurant\",\"rest_lon\":-0.1278,\"rest_lat\":51.5074,\"rest_address\":\"1 Test Street, London\",\"town\":\"London\",\"customer_id\":\"447400000000\",\"customer_name\":\"Test Customer\",\"customer_lon\":-0.1378,\"customer_lat\":51.5174,\"customer_address\":\"2 Customer Avenue, London\",\"restaurant_confirmation_status\":\"restaurant_unconfirmed\",\"restaurant_update_dtts\":null,\"restaurant_admin\":null,\"status\":\"unassigned\",\"rest_confirmation_code\":11,\"cust_confirmation_code\":22,\"rest_prep_time_minutes\":null,\"rest_confirmation_method\":null,\"restaurant_msg_id\":null,\"rider_msg_id\":null,\"customer_msg_id\":null,\"pickup_time\":null,\"pickup_date\":\"2026-01-15\",\"rest_ref\":\"ELAS\",\"dt\":\"2026-01-15\",\"dtts\":\"2026-01-15T12:00:00Z\",\"redispatch_dtts\":null}}",
+    "url": "https://restaurant.example/ELAS/rider-inflight"
+  },
+  "nearby": {
+    "body": {
+      "delivery_summary": {
+        "cust_confirmation_code": 22,
+        "customer_address": "2 Customer Avenue, London",
+        "customer_id": "447400000000",
+        "customer_lat": 51.5174,
+        "customer_lon": -0.1378,
+        "customer_msg_id": null,
+        "customer_name": "Test Customer",
+        "dt": "2026-01-15",
+        "dtts": "2026-01-15T12:00:00Z",
+        "order_number": "ELAS-ABCD-1",
+        "pickup_date": "2026-01-15",
+        "pickup_time": null,
+        "redispatch_dtts": null,
+        "rest_address": "1 Test Street, London",
+        "rest_confirmation_code": 11,
+        "rest_confirmation_method": null,
+        "rest_id": "REST001",
+        "rest_lat": 51.5074,
+        "rest_lon": -0.1278,
+        "rest_name": "Test Restaurant",
+        "rest_prep_time_minutes": null,
+        "rest_ref": "ELAS",
+        "restaurant_admin": null,
+        "restaurant_confirmation_status": "restaurant_unconfirmed",
+        "restaurant_msg_id": null,
+        "restaurant_update_dtts": null,
+        "rider_msg_id": null,
+        "status": "unassigned",
+        "town": "London"
+      }
+    },
+    "body_json": "{\"delivery_summary\":{\"order_number\":\"ELAS-ABCD-1\",\"rest_id\":\"REST001\",\"rest_name\":\"Test Restaurant\",\"rest_lon\":-0.1278,\"rest_lat\":51.5074,\"rest_address\":\"1 Test Street, London\",\"town\":\"London\",\"customer_id\":\"447400000000\",\"customer_name\":\"Test Customer\",\"customer_lon\":-0.1378,\"customer_lat\":51.5174,\"customer_address\":\"2 Customer Avenue, London\",\"restaurant_confirmation_status\":\"restaurant_unconfirmed\",\"restaurant_update_dtts\":null,\"restaurant_admin\":null,\"status\":\"unassigned\",\"rest_confirmation_code\":11,\"cust_confirmation_code\":22,\"rest_prep_time_minutes\":null,\"rest_confirmation_method\":null,\"restaurant_msg_id\":null,\"rider_msg_id\":null,\"customer_msg_id\":null,\"pickup_time\":null,\"pickup_date\":\"2026-01-15\",\"rest_ref\":\"ELAS\",\"dt\":\"2026-01-15\",\"dtts\":\"2026-01-15T12:00:00Z\",\"redispatch_dtts\":null}}",
+    "url": "https://restaurant.example/ELAS/rider-cust-enter/ELAS-ABCD-1"
+  },
+  "payment": {
+    "body": {
+      "action": "delivery",
+      "commission_rate": null,
+      "delivery_fee": null,
+      "final_order_value": null,
+      "notes": null,
+      "order_id": "ABCD-1",
+      "order_number": "ELAS-ABCD-1",
+      "payment_status": "requires_capture",
+      "recipient": "447400000000",
+      "rest_cost": null,
+      "seq_id": null,
+      "service_charge": null,
+      "small_order_fee": null,
+      "thread_id": "ELAS-thread",
+      "total_price": 20.0
+    },
+    "body_json": "{\"order_id\":\"ABCD-1\",\"order_number\":\"ELAS-ABCD-1\",\"seq_id\":null,\"recipient\":\"447400000000\",\"notes\":null,\"thread_id\":\"ELAS-thread\",\"action\":\"delivery\",\"total_price\":20.0,\"final_order_value\":null,\"rest_cost\":null,\"service_charge\":null,\"delivery_fee\":null,\"small_order_fee\":null,\"commission_rate\":null,\"payment_status\":\"requires_capture\"}",
+    "url": "https://restaurant.example/ELAS/order-payment-complete/447400000000/ELAS-thread"
+  },
+  "pickup_time": {
+    "body": {
+      "restaurant_master": {
+        "admins": [
+          "ADMIN01"
+        ],
+        "building_name": null,
+        "city": null,
+        "house_number": null,
+        "lat": 51.5074,
+        "lon": -0.1278,
+        "postcode": null,
+        "rest_id": "REST001",
+        "rest_name": "Elai",
+        "rest_ref": "ELAS",
+        "street_name": null
+      },
+      "takeaway_summary": {
+        "customer_id": "447400000000",
+        "customer_msg_id": null,
+        "customer_name": "Test Customer",
+        "dt": "2026-05-09",
+        "dtts": "2026-05-09T10:00:00+00:00",
+        "order_number": "ELAS-ABCD-1",
+        "pickup_date": "2026-05-09",
+        "pickup_time": "2026-05-09T12:30:00+00:00",
+        "rest_address": "1 Test Street",
+        "rest_confirmation_code": 11,
+        "rest_confirmation_method": null,
+        "rest_id": "REST001",
+        "rest_name": "Elai",
+        "rest_prep_time_minutes": null,
+        "rest_ref": "ELAS",
+        "restaurant_admin": null,
+        "restaurant_confirmation_status": "restaurant_timedout",
+        "restaurant_msg_id": null,
+        "restaurant_update_dtts": null,
+        "status": "restaurant_confirming",
+        "town": "London"
+      }
+    },
+    "body_json": "{\"takeaway_summary\":{\"order_number\":\"ELAS-ABCD-1\",\"rest_id\":\"REST001\",\"rest_name\":\"Elai\",\"rest_address\":\"1 Test Street\",\"town\":\"London\",\"customer_id\":\"447400000000\",\"customer_name\":\"Test Customer\",\"restaurant_confirmation_status\":\"restaurant_timedout\",\"restaurant_update_dtts\":null,\"restaurant_admin\":null,\"status\":\"restaurant_confirming\",\"rest_confirmation_code\":11,\"rest_prep_time_minutes\":null,\"rest_confirmation_method\":null,\"restaurant_msg_id\":null,\"customer_msg_id\":null,\"pickup_time\":\"2026-05-09T12:30:00+00:00\",\"pickup_date\":\"2026-05-09\",\"rest_ref\":\"ELAS\",\"dt\":\"2026-05-09\",\"dtts\":\"2026-05-09T10:00:00+00:00\"},\"restaurant_master\":{\"rest_id\":\"REST001\",\"rest_ref\":\"ELAS\",\"rest_name\":\"Elai\",\"admins\":[\"ADMIN01\"],\"lon\":-0.1278,\"lat\":51.5074,\"house_number\":null,\"building_name\":null,\"street_name\":null,\"city\":null,\"postcode\":null}}",
+    "url": "https://restaurant.example/ELAS/order-pickup-time-updated"
+  },
+  "restaurant_cc": {
+    "body": {},
+    "body_json": "{}",
+    "url": "https://restaurant.example/ELAS/rider-rest-cc/ELAS-ABCD-1/447400000000"
+  },
+  "takeaway_ready": {
+    "body": {
+      "admin_id": "admin-1",
+      "event": "admin_takeaway_ready",
+      "event_dtts": "2026-10-02T12:00:00+00:00",
+      "order_id": "ABCD-1",
+      "order_number": "ELAS-ABCD-1",
+      "recipient": "447400000000"
+    },
+    "body_json": "{\"order_id\":\"ABCD-1\",\"order_number\":\"ELAS-ABCD-1\",\"recipient\":\"447400000000\",\"admin_id\":\"admin-1\",\"event\":\"admin_takeaway_ready\",\"event_dtts\":\"2026-10-02T12:00:00+00:00\"}",
+    "url": "https://restaurant.example/ELAS/order-takeaway-ready/ABCD-1"
+  },
+  "timedout": {
+    "body": {
+      "cust_confirmation_code": 22,
+      "customer_address": "2 Customer Avenue, London",
+      "customer_id": "447400000000",
+      "customer_lat": 51.5174,
+      "customer_lon": -0.1378,
+      "customer_msg_id": null,
+      "customer_name": "Test Customer",
+      "dt": "2026-01-15",
+      "dtts": "2026-01-15T12:00:00Z",
+      "order_number": "ELAS-ABCD-1",
+      "payment_cancelled": true,
+      "pickup_date": "2026-01-15",
+      "pickup_time": null,
+      "redispatch_dtts": null,
+      "rest_address": "1 Test Street, London",
+      "rest_confirmation_code": 11,
+      "rest_confirmation_method": null,
+      "rest_id": "REST001",
+      "rest_lat": 51.5074,
+      "rest_lon": -0.1278,
+      "rest_name": "Test Restaurant",
+      "rest_prep_time_minutes": null,
+      "rest_ref": "ELAS",
+      "restaurant_admin": null,
+      "restaurant_confirmation_status": "restaurant_unconfirmed",
+      "restaurant_msg_id": null,
+      "restaurant_update_dtts": null,
+      "rider_msg_id": null,
+      "status": "unassigned",
+      "town": "London"
+    },
+    "body_json": "{\"order_number\":\"ELAS-ABCD-1\",\"rest_id\":\"REST001\",\"rest_name\":\"Test Restaurant\",\"rest_lon\":-0.1278,\"rest_lat\":51.5074,\"rest_address\":\"1 Test Street, London\",\"town\":\"London\",\"customer_id\":\"447400000000\",\"customer_name\":\"Test Customer\",\"customer_lon\":-0.1378,\"customer_lat\":51.5174,\"customer_address\":\"2 Customer Avenue, London\",\"restaurant_confirmation_status\":\"restaurant_unconfirmed\",\"restaurant_update_dtts\":null,\"restaurant_admin\":null,\"status\":\"unassigned\",\"rest_confirmation_code\":11,\"cust_confirmation_code\":22,\"rest_prep_time_minutes\":null,\"rest_confirmation_method\":null,\"restaurant_msg_id\":null,\"rider_msg_id\":null,\"customer_msg_id\":null,\"pickup_time\":null,\"pickup_date\":\"2026-01-15\",\"rest_ref\":\"ELAS\",\"dt\":\"2026-01-15\",\"dtts\":\"2026-01-15T12:00:00Z\",\"redispatch_dtts\":null,\"payment_cancelled\":true}",
+    "url": "https://restaurant.example/ELAS/delivery-timedout"
+  },
+  "update_address": {
+    "body": {
+      "building_name": null,
+      "city": "London",
+      "house_number": "1",
+      "lat": 51.5,
+      "lon": -0.1,
+      "postcode": "BR6 6DN",
+      "street_name": "High Street"
+    },
+    "body_json": "{\"house_number\":\"1\",\"building_name\":null,\"street_name\":\"High Street\",\"city\":\"London\",\"postcode\":\"BR6 6DN\",\"lat\":51.5,\"lon\":-0.1}",
+    "url": "https://restaurant.example/ELAS/order-address-update/447400000000"
+  }
+}

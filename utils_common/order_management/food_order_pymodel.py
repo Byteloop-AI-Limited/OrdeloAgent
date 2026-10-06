@@ -6,7 +6,8 @@ FoodOrder pydantic model for food_order table
   . Supports updating final order value using the model rest_ref and bubbles failures to the caller
   . Now supports generating capture payloads with fee-free receipt items
   . On instantiation via from_order_id, ensures final_order_value is up-to-date
-  . Provides a payment_uri property to generate payment URL for Stripe (test URL only for overwatch + delivery action)
+  . Provides a payment_uri property to generate payment URL for Stripe (test URL when payment_mode='test',
+    or for overwatch + delivery action when payment_mode is not set)
   . gen_capture_payload logs the capture split (total_amount, rest_payout, ordelo_take, commission_rate) for verification
   . update_takeaway_financials_in_db logs the takeaway split (total_amount, rest_payout, ordelo_take, commission_rate) for verification
 Functions/Classes:
@@ -25,7 +26,7 @@ Functions/Classes:
 # %%
 from typing import Optional
 import requests
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from config import client_ordelo, logger, ms_settings
 from config.params import get_overwatch_list
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
@@ -52,6 +53,9 @@ class FoodOrder(BaseModel):
     small_order_fee: Optional[float] = None
     commission_rate: Optional[float] = None
     payment_status: str
+    # Plan D32: 'test' when create-order honoured ?isTest3100=true. Excluded from
+    # model_dump so the payload sent to restaurant apps is unchanged.
+    payment_mode: Optional[str] = Field(default=None, exclude=True)
 
     @staticmethod
     def get_final_order_value(
@@ -189,6 +193,19 @@ class FoodOrder(BaseModel):
             return None
 
     @property
+    def uses_test_payment(self) -> bool:
+        """True when this order uses the test payment service.
+
+        Either create-order stored payment_mode='test' (plan D32), or today's rule:
+        an overwatch customer ordering delivery.
+        """
+        if self.payment_mode == "test":
+            return True
+        if self.payment_mode == "live":
+            return False
+        return self.action == "delivery" and self.recipient in get_overwatch_list()
+
+    @property
     def payment_uri(self) -> str:
         """
         Generates the payment URL for this order using order_id and thread_id.
@@ -196,11 +213,10 @@ class FoodOrder(BaseModel):
         Returns:
             str: The constructed payment URL for this order.
         """
-        overwatch_list = get_overwatch_list()
-        # ie if the person ordering food is in the overwatch list and action is delivery, use test URL
-        if self.recipient in overwatch_list and self.action == "delivery":
+        if self.uses_test_payment:
             logger.debug(
-                f"Overwatch customer {self.recipient} using test payment URL for order {self.order_number}"
+                f"Customer {self.recipient} using test payment URL for order {self.order_number}"
+                f" (payment_mode={self.payment_mode})"
             )
             return f"{ms_settings.stripe_url_test}/threads/{self.thread_id}/orders/{self.order_id}/payment-url"
 

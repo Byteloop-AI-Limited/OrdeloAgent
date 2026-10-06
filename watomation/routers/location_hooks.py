@@ -15,7 +15,11 @@ Location hooks router for OrdeloAgent FastAPI service.
     . receive_pub - Webhook to receive location events from OwnTracks
     . notify_rider_location_event - Handles rider location events
     . notify_rider_null_or_outdated_location - Notifies riders about tracking issues
+    . Routes customer notifications through the R1b notifier (always on since R3.1)
 """
+
+from utils_common.notify import customer_notifier
+from utils_common.notify.customer_notifier import CustomerOrderEvent
 
 # %%
 from fastapi import APIRouter, Request, Depends, Path, HTTPException, BackgroundTasks
@@ -29,10 +33,8 @@ from config import (
     _async_wa_client,
     pg_settings,
     client_ordelo,
-    get_restaurant_webhook_url_async,
 )
 import re
-import httpx
 from datetime import datetime, timezone
 from pywa.types import ButtonUrl
 from ordelo.agent_app_handlers import get_live_map_location_url
@@ -260,7 +262,6 @@ async def notify_rider_location_event(
     # Extract the payload
     event = payload.get("event")
     location = payload.get("rid")
-    customer_id = payload.get("customer_id")
     order_number = payload.get("order_number")
 
     delivery_summary: dict = (
@@ -285,17 +286,11 @@ async def notify_rider_location_event(
             )
 
     elif location == "cust" and event == "enter":
-        # Call restaurant webhook for customer enter event
-        rest_ref = order_number.split("-")[0]
-        webhook_url = await get_restaurant_webhook_url_async(
-            rest_ref, "rider-cust-enter"
-        )
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{webhook_url}/{order_number}",
-                json={"delivery_summary": delivery_summary},
-            )
-        logger.debug(f"Post Rider Cust Enter: {order_number}")
+        # Customer-enter event: through the notifier (web pages never reach a restaurant app)
+        await customer_notifier.publish(order_number, CustomerOrderEvent(
+            "rider_near_customer", "rider_near_customer", "rider-cust-enter",
+            {"delivery_summary": delivery_summary}, f"/{order_number}"))
+        return {"event": "success"}
     else:
         return {"event": "success"}
 
