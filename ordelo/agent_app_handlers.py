@@ -27,7 +27,11 @@ Agent app handlers for Ordelo delivery agent workflows and WhatsApp integration.
     . post_rider_event_restaurant_cc - Post restaurant confirmation code events
     . debug_state - Debug utility for inspecting agent state
     . debug_state_by_thread - Debug utility for thread-specific state inspection
+    . Routes customer notifications through the R1b notifier (always on since R3.1)
 """
+
+from utils_common.notify import customer_notifier
+from utils_common.notify.customer_notifier import CustomerOrderEvent
 
 # %%
 import base64
@@ -45,11 +49,9 @@ from config import (
     logger,
     _sync_wa_client,
     project_settings,
-    get_restaurant_webhook_url_async,
 )
 from pydantic import BaseModel
 from typing import Optional
-import httpx
 from utils_common.lg_utils import (
     get_state_values,
     shorten_state_messages,
@@ -507,21 +509,11 @@ async def post_rider_event_customer_cc(order_number: str, customer_id: int):
         order_number (str): The unique identifier for the order.
 
     Side Effects:
-        Sends an HTTP POST request to the configured rider-customer-cc webhook endpoint
-        and prints the response status and JSON.
+        Publishes a "delivered" customer event; the notifier delivers it to the
+        restaurant app (WhatsApp orders) or the order page (web orders).
     """
-    rest_ref = order_number.split("-")[0]
-    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "rider-cust-cc")
-    async with httpx.AsyncClient() as client:
-        await client.post(
-            f"{webhook_url}/{order_number}/{customer_id}",
-            json={},
-        )
-        logger.info(
-            "Ending session on customer agent. Cust-CC Webhook called for order number: {}".format(
-                order_number
-            )
-        )
+    await customer_notifier.publish(order_number, CustomerOrderEvent(
+        "delivered", "delivered", "rider-cust-cc", {}, f"/{order_number}/{customer_id}"))
 
 
 # %%
@@ -534,17 +526,10 @@ async def post_rider_event_restaurant_cc(order_number: str, customer_id: int):
         customer_id (int): The unique identifier for the customer.
 
     Side Effects:
-        Sends an HTTP POST request to the configured rider-restaurant-cc webhook endpoint
-        and logs the call.
+        Publishes a "food_collected" customer event through the notifier.
     """
-    rest_ref = order_number.split("-")[0]
-    webhook_url = await get_restaurant_webhook_url_async(rest_ref, "rider-rest-cc")
-    async with httpx.AsyncClient() as client:
-        await client.post(
-            f"{webhook_url}/{order_number}/{customer_id}",
-            json={},
-        )
-        logger.info("Rest-CC Webhook called for order number: {}".format(order_number))
+    await customer_notifier.publish(order_number, CustomerOrderEvent(
+        "food_collected", "food_collected", "rider-rest-cc", {}, f"/{order_number}/{customer_id}"))
 
 
 # %% Debug State

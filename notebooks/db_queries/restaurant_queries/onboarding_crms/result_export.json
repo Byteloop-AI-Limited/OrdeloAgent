@@ -1,0 +1,18 @@
+[
+ {
+  "config_key": "CRMS_WEB_DELIVERY_PAUSED",
+  "config_value": "false"
+ },
+ {
+  "config_key": "CRMS_WEB_ORDERING_PAUSED",
+  "config_value": "false"
+ },
+ {
+  "config_key": "TEST_PAYMENT_REST_REFS",
+  "config_value": "BNAT,CRMS"
+ },
+ {
+  "config_key": "WEB_ORDERING_ENABLED_REST_REFS",
+  "config_value": "ELAS,CRMS"
+ }
+]

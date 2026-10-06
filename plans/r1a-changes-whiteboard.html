@@ -1,0 +1,308 @@
+<title>R1a Changes Whiteboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one whiteboard column of pinned sheets, each a hand-drawn figure or table with a short caption (matches the R1 Migration Whiteboard) */
+:root{
+  --board:#f6f7f4; --sheet:#ffffff; --ink:#1f2328; --muted:#5d6670; --grid:#e3e6e1;
+  --new:#1f5fbf; --risk:#b3261e; --flag:#b86a00; --ok:#2e7d4f; --hl:#e8f0fc;
+  --hand:"Kalam","Comic Sans MS",cursive; --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --board:#16191d; --sheet:#1d2127; --ink:#e7e9ec; --muted:#9aa3ad; --grid:#2a2f36;
+  --new:#7fb0ff; --risk:#ff8a80; --flag:#f0b25a; --ok:#6fd49a; --hl:#1f2c42; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --board:#16191d; --sheet:#1d2127; --ink:#e7e9ec; --muted:#9aa3ad; --grid:#2a2f36;
+  --new:#7fb0ff; --risk:#ff8a80; --flag:#f0b25a; --ok:#6fd49a; --hl:#1f2c42; color-scheme:dark}
+body{background:var(--board);color:var(--ink);font:15px/1.55 var(--body);
+  background-image:radial-gradient(var(--grid) 1px,transparent 1px);background-size:22px 22px}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:28px 64px;display:grid;gap:28px}
+header h1{font:700 2.1rem/1.15 var(--hand);margin:0;text-wrap:balance}
+header p{margin:.4rem 0 0;color:var(--muted);max-width:70ch}
+.sheet{background:var(--sheet);border:1.5px solid var(--grid);border-radius:6px;padding:20px 22px;box-shadow:0 1px 0 var(--grid);min-width:0}
+.sheet h2{font:700 1.45rem/1.2 var(--hand);margin:0 0 .5rem;text-wrap:balance}
+.sheet h2 small{font:400 .95rem var(--body);color:var(--muted);margin-left:.4rem}
+.sheet p{margin:.5rem 0;max-width:72ch}
+figure{margin:12px 0 0}
+.fig{overflow-x:auto}
+svg{display:block;width:100%;height:auto;min-width:760px;color:var(--ink)}
+figcaption{margin-top:8px;color:var(--muted);font-size:.9rem;max-width:80ch}
+svg text{font-family:var(--hand);font-size:14px;fill:currentColor}
+svg .sm{font-size:12.5px}
+svg .mono{font-family:var(--mono);font-size:11.5px}
+svg .b{font-weight:700}
+svg .box{fill:var(--sheet);stroke:currentColor;stroke-width:1.6}
+svg .box.new{stroke:var(--new);fill:var(--hl)}
+svg .box.dim{stroke:var(--muted)}
+svg .box.flag{stroke:var(--flag);stroke-dasharray:5 4}
+svg .ln{stroke:currentColor;stroke-width:1.6;fill:none}
+svg .ln.new{stroke:var(--new)} svg .ln.dash{stroke-dasharray:6 5}
+svg .t-new{fill:var(--new)} svg .t-risk{fill:var(--risk)} svg .t-flag{fill:var(--flag)} svg .t-ok{fill:var(--ok)} svg .t-mut{fill:var(--muted)}
+svg .ah{fill:currentColor} svg .ah.new{fill:var(--new)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:.92rem}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--grid)}
+th{font:600 .78rem var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+code,pre{font-family:var(--mono);font-size:.85rem}
+code{background:var(--hl);padding:1px 5px;border-radius:3px;overflow-wrap:anywhere}
+pre{background:var(--board);border:1px solid var(--grid);border-radius:6px;padding:12px 14px;overflow-x:auto;margin:.6rem 0}
+.pill{display:inline-block;font:600 .72rem var(--body);letter-spacing:.04em;padding:2px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.p-safe{color:var(--ok)} .p-watch{color:var(--flag)} .p-risk{color:var(--risk)} .p-new{color:var(--new)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.two>div{min-width:0}
+ul,ol{margin:.4rem 0;padding-left:1.3rem} li{margin:.3rem 0}
+.note{font-family:var(--hand);font-size:1.05rem;color:var(--flag)}
+@media (prefers-reduced-motion:no-preference){.sheet{transition:border-color .2s}.sheet:hover{border-color:var(--muted)}}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>R1a: what changed in the Ordelo service, and why</h1>
+  <p>1 October 2026, branch <code>release/ordelo-agg</code>, uncommitted and not deployed. R1a lays the payment and order groundwork that the R2 payment-path check needs. Every new behaviour is behind an <code>ordelo_config</code> flag that is off when the key is missing, so WhatsApp orders behave exactly as today until you switch something on.</p>
+</header>
+
+<!-- 0. DECISIONS -->
+<section class="sheet" id="decisions">
+  <h2>0. Decisions that shaped this <small>plan D28–D31</small></h2>
+  <div class="tbl"><table>
+    <thead><tr><th>#</th><th>Decision</th><th>What it means in the code</th></tr></thead>
+    <tbody>
+      <tr><td>D28</td><td>Add <code>food_order.storefront</code> now (Q11 answered yes)</td><td>New column, default <code>direct</code>, can't change after insert</td></tr>
+      <tr><td>D29</td><td>R2 creates a real web-style order</td><td><code>create-order</code> takes optional <code>origin_channel</code> and <code>storefront</code>; <code>capture-address</code> skips the restaurant app for a W-id</td></tr>
+      <tr><td>D30</td><td>R1 is split: R1a now, R1b (customer notifier) later</td><td>Only R1a is built. The late-payment cut-off (Q17) waits for R3</td></tr>
+      <tr><td>D31</td><td>All R1 SQL in one file, run by hand</td><td><code>ordelo_datamodels/migrations/ordelo_agg_r1.sql</code>; code depending on it is behind flags</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 1. PAYMENT COMPLETE -->
+<section class="sheet" id="payment-complete">
+  <h2>1. How <code>payment-complete</code> now works <small>plan M2, ADR-0003, ADR-0004</small></h2>
+  <div class="fig"><figure>
+  <svg viewBox="0 0 1000 470" role="img" aria-label="Stripe posts checkout.session.completed to payment-complete. If PAYMENT_INBOX_ENABLED is off, today's unconditional update runs. If on, the body is parsed and record_payment_authorised applies it once in one transaction; duplicates, wrong-state and unknown orders only log. Applied payments go to a shared step: WhatsApp orders notify the restaurant app, web orders skip it, and both start the delivery or takeaway summary.">
+    <defs>
+      <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+      <marker id="a1n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah new"/></marker>
+    </defs>
+    <!-- row 1 -->
+    <rect class="box dim" x="10" y="40" width="190" height="72" rx="8"/>
+    <text x="22" y="64" class="b">Stripe</text>
+    <text x="22" y="84" class="mono">checkout.session</text>
+    <text x="22" y="100" class="mono">.completed (unsigned)</text>
+
+    <rect class="box flag" x="240" y="40" width="180" height="72" rx="8"/>
+    <text x="252" y="64" class="b t-flag">flag?</text>
+    <text x="252" y="84" class="mono">PAYMENT_INBOX</text>
+    <text x="252" y="100" class="mono">_ENABLED</text>
+
+    <rect class="box new" x="460" y="40" width="210" height="72" rx="8"/>
+    <text x="472" y="64" class="b t-new">parse the event</text>
+    <text x="472" y="84" class="sm">other event types → ignored</text>
+    <text x="472" y="101" class="sm">id = evt_… or authorised:&lt;order&gt;</text>
+
+    <rect class="box new" x="710" y="40" width="280" height="72" rx="8"/>
+    <text x="722" y="64" class="b t-new">record_payment_authorised (SQL)</text>
+    <text x="722" y="84" class="sm">log event (unique id) + set requires_capture</text>
+    <text x="722" y="101" class="sm">only if still requires_payment · 1 transaction</text>
+
+    <g class="ln" marker-end="url(#a1)"><line x1="200" y1="76" x2="238" y2="76"/></g>
+    <g class="ln new" marker-end="url(#a1n)"><line x1="420" y1="76" x2="458" y2="76"/><line x1="670" y1="76" x2="708" y2="76"/></g>
+    <text x="428" y="68" class="sm t-new b">on</text>
+
+    <!-- legacy -->
+    <line class="ln" x1="330" y1="112" x2="330" y2="158" marker-end="url(#a1)"/>
+    <text x="338" y="140" class="sm t-flag b">off</text>
+    <rect class="box dim" x="240" y="160" width="180" height="84" rx="8"/>
+    <text x="252" y="184" class="b">today's path</text>
+    <text x="252" y="204" class="sm">unconditional update</text>
+    <text x="252" y="221" class="sm">→ requires_capture</text>
+    <text x="252" y="238" class="sm t-mut">replays re-run (as now)</text>
+
+    <!-- outcomes -->
+    <line class="ln new" x1="780" y1="112" x2="780" y2="158" marker-end="url(#a1n)"/>
+    <line class="ln" x1="925" y1="112" x2="925" y2="158" marker-end="url(#a1)"/>
+    <rect class="box new" x="710" y="160" width="140" height="56" rx="8"/>
+    <text x="722" y="184" class="b t-ok">applied</text>
+    <text x="722" y="204" class="sm">first valid event</text>
+    <rect class="box dim" x="870" y="160" width="120" height="100" rx="8"/>
+    <text x="882" y="182" class="b t-mut">no-op, 200</text>
+    <text x="882" y="202" class="sm">duplicate</text>
+    <text x="882" y="219" class="sm">rejected_state</text>
+    <text x="882" y="236" class="sm">unknown_order</text>
+    <text x="882" y="253" class="sm">ignored / invalid</text>
+
+    <!-- shared step -->
+    <rect class="box" x="440" y="290" width="300" height="70" rx="8"/>
+    <text x="452" y="314" class="b">after authorisation (shared)</text>
+    <text x="452" y="334" class="sm">is food_order.origin_channel = web ?</text>
+    <text x="452" y="351" class="sm t-mut">same step for both paths</text>
+    <path class="ln" d="M330,244 C330,300 380,325 438,325" marker-end="url(#a1)"/>
+    <path class="ln new" d="M780,216 C780,280 760,310 742,318" marker-end="url(#a1n)"/>
+
+    <!-- branches -->
+    <rect class="box" x="140" y="395" width="270" height="64" rx="8"/>
+    <text x="152" y="419" class="b">WhatsApp order</text>
+    <text x="152" y="439" class="sm">restaurant app payment-complete (unchanged)</text>
+    <rect class="box new" x="440" y="395" width="250" height="64" rx="8"/>
+    <text x="452" y="419" class="b t-new">web order</text>
+    <text x="452" y="439" class="sm">restaurant app skipped (D27)</text>
+    <rect class="box" x="720" y="395" width="270" height="64" rx="8"/>
+    <text x="732" y="419" class="b">both</text>
+    <text x="732" y="439" class="sm">start delivery / takeaway summary</text>
+    <path class="ln" d="M520,360 C460,380 330,375 300,393" marker-end="url(#a1)"/>
+    <line class="ln new" x1="565" y1="360" x2="565" y2="393" marker-end="url(#a1n)"/>
+    <path class="ln" d="M660,360 C720,380 800,375 830,393" marker-end="url(#a1)"/>
+  </svg>
+  <figcaption>The endpoint always answers 200, so Stripe stops retrying. With the flag on, sending the same event three times starts one setup and sends one restaurant notice. The web-order skip works with the flag off too, as soon as the column exists. There is still no signature check (D23).</figcaption>
+  </figure></div>
+  <div class="two" style="margin-top:14px">
+    <div><p><strong>The test route</strong> <code>/payment-hooks/payment-complete-test/{order_id}</code> now returns 404 unless <code>ENABLE_PAYMENT_TEST_ROUTES</code> is on. When on, it goes through the same once-only path.</p></div>
+    <div><p><strong>The safety alert:</strong> a SQL job finds paid orders with no delivery or takeaway summary after 2 minutes and posts them to <code>/payment-hooks/init-reconciler</code>, which tells overwatch once per order. It alerts only; it changes nothing.</p></div>
+  </div>
+</section>
+
+<!-- 2. CREATE ORDER -->
+<section class="sheet" id="create-order">
+  <h2>2. How an order is created now <small>plan M1, F3, F4, D29</small></h2>
+  <div class="fig"><figure>
+  <svg viewBox="0 0 1000 300" role="img" aria-label="create-order takes optional origin_channel and storefront. The order reference stays phone-derived for WhatsApp numbers and is random for W-ids, with a retry on collision. If ORDER_CREATE_RPC_ENABLED is on, the order and items are inserted in one transaction; otherwise today's insert-then-delete path runs. Failures now return 400 before the order is read, and the payment link still comes from the unchanged payment service.">
+    <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+    <marker id="a2n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah new"/></marker></defs>
+    <rect class="box" x="10" y="40" width="220" height="96" rx="8"/>
+    <text x="22" y="64" class="b">POST create-order/{rest_ref}</text>
+    <text x="22" y="85" class="sm t-new">+ origin_channel: whatsapp | web</text>
+    <text x="22" y="103" class="sm t-new">+ storefront: direct | ordelo</text>
+    <text x="22" y="122" class="sm t-mut">defaults = today's behaviour</text>
+
+    <rect class="box new" x="268" y="40" width="226" height="96" rx="8"/>
+    <text x="280" y="64" class="b t-new">order reference (M1)</text>
+    <text x="280" y="85" class="sm">WhatsApp number → same as today</text>
+    <text x="280" y="103" class="sm">W-id → 4 random letters (no I, L, O)</text>
+    <text x="280" y="122" class="sm">collision → new letters, up to 3 tries</text>
+
+    <rect class="box flag" x="532" y="40" width="168" height="96" rx="8"/>
+    <text x="544" y="64" class="b t-flag">flag?</text>
+    <text x="544" y="86" class="mono">ORDER_CREATE_RPC</text>
+    <text x="544" y="102" class="mono">_ENABLED</text>
+
+    <rect class="box new" x="740" y="20" width="250" height="64" rx="8"/>
+    <text x="752" y="44" class="b t-new">on: one transaction (F4)</text>
+    <text x="752" y="64" class="sm">order + items together, or neither</text>
+    <rect class="box dim" x="740" y="104" width="250" height="64" rx="8"/>
+    <text x="752" y="128" class="b">off: today's path</text>
+    <text x="752" y="148" class="sm">insert order, then items; delete if items fail</text>
+
+    <g class="ln" marker-end="url(#a2)"><line x1="230" y1="88" x2="266" y2="88"/><line x1="494" y1="88" x2="530" y2="88"/><path d="M700,104 C720,120 724,136 738,136"/></g>
+    <path class="ln new" d="M700,72 C720,56 724,52 738,52" marker-end="url(#a2n)"/>
+
+    <rect class="box" x="10" y="210" width="460" height="64" rx="8"/>
+    <text x="22" y="234" class="b">F3 fix: a failed create returns 400</text>
+    <text x="22" y="254" class="sm">checked before the order is read (it used to crash with a 500)</text>
+    <rect class="box dim" x="530" y="210" width="460" height="64" rx="8"/>
+    <text x="542" y="234" class="b">payment link: existing payment service</text>
+    <text x="542" y="254" class="sm">unchanged contract (D22); manual capture only (D25)</text>
+    <path class="ln" d="M865,168 C865,190 800,196 790,208" marker-end="url(#a2)"/>
+  </svg>
+  <figcaption>WhatsApp inserts don't send the two new fields at all; the database fills its defaults. That keeps today's insert byte-identical and lets this code run before the SQL file has been applied. <code>capture-address</code> also returns early for a W-id, so no restaurant app hears about a web checkout.</figcaption>
+  </figure></div>
+</section>
+
+<!-- 3. SQL -->
+<section class="sheet" id="sql">
+  <h2>3. The SQL file <small>ordelo_datamodels/migrations/ordelo_agg_r1.sql</small></h2>
+  <p>Run it top to bottom in one session. It is additive and safe to run more than once: on a scratch Postgres 16 it ran twice cleanly, and each function returned the expected result.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Section</th><th>What it adds</th><th>Used when</th></tr></thead>
+    <tbody>
+      <tr><td>001</td><td><code>food_order.origin_channel</code> (default <code>whatsapp</code>), <code>storefront</code> (default <code>direct</code>), <code>idempotency_key</code>; trigger that stops the first two changing</td><td><span class="pill p-safe">immediately, harmless</span></td></tr>
+      <tr><td>002</td><td><code>payment_event</code>: one row per payment event, unique event id</td><td><span class="pill p-watch">PAYMENT_INBOX_ENABLED</span></td></tr>
+      <tr><td>F4</td><td><code>create_food_order_with_items(p_order, p_items)</code></td><td><span class="pill p-watch">ORDER_CREATE_RPC_ENABLED</span></td></tr>
+      <tr><td>M2</td><td><code>record_payment_authorised(…)</code> → <code>applied</code> | <code>duplicate</code> | <code>rejected_state</code> | <code>unknown_order</code></td><td><span class="pill p-watch">PAYMENT_INBOX_ENABLED</span></td></tr>
+      <tr><td>Alert</td><td><code>job_payment_init_reconciler()</code></td><td><span class="pill p-watch">once scheduled + start time set</span></td></tr>
+      <tr><td>003</td><td>Subscriptions, customer events, outbox (for R1b)</td><td><span class="pill p-new">nothing reads them yet</span></td></tr>
+    </tbody>
+  </table></div>
+  <p>Check first that no order is mid-fulfilment; the query is at the top of the file. Verification queries and the flag inserts are at the bottom.</p>
+</section>
+
+<!-- 4. ROLLOUT -->
+<section class="sheet" id="rollout">
+  <h2>4. Switching it on <small>one step at a time; each step undoes on its own</small></h2>
+  <div class="two">
+    <div>
+      <ol>
+        <li>Run the SQL file.</li>
+        <li>Deploy the code. With no flags set, it behaves as today.</li>
+        <li>On the test restaurant, turn on one flag, run a WhatsApp delivery, takeaway and pay-at-restaurant order, then the next flag.</li>
+        <li>Same in production, outside service hours.</li>
+        <li>Set <code>PAYMENT_INIT_RECONCILER_SINCE</code> and schedule the alert job.</li>
+      </ol>
+    </div>
+    <div>
+<pre>INSERT INTO ordelo_config (config_key, config_value)
+VALUES ('PAYMENT_INBOX_ENABLED', 'true')
+ON CONFLICT (config_key) DO UPDATE
+  SET config_value = EXCLUDED.config_value;
+
+-- undo
+UPDATE ordelo_config SET config_value = 'false'
+ WHERE config_key = 'PAYMENT_INBOX_ENABLED';</pre>
+      <p class="note">Flags are re-read every 60 s, so no redeploy is needed to switch them.</p>
+    </div>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Flag</th><th>Turns on</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td><code>PAYMENT_INBOX_ENABLED</code></td><td>Once-only <code>payment-complete</code></td><td>off</td></tr>
+      <tr><td><code>ORDER_CREATE_RPC_ENABLED</code></td><td>Order and items in one transaction</td><td>off</td></tr>
+      <tr><td><code>ENABLE_PAYMENT_TEST_ROUTES</code></td><td><code>payment-complete-test</code> route</td><td>off <span class="pill p-risk">was always on</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 5. FILES -->
+<section class="sheet" id="files">
+  <h2>5. Files changed in OrdeloAgent</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>File</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td><code>plans/ordelo-agg-plan-cc.md</code>, <code>…decision_log.md</code></td><td>D28–D31, R1a/R1b split, checklist (updated before any code)</td></tr>
+      <tr><td><code>ordelo_datamodels/migrations/ordelo_agg_r1.sql</code></td><td><span class="pill p-new">new</span> all R1 SQL</td></tr>
+      <tr><td><code>config/feature_flags.py</code></td><td><span class="pill p-new">new</span> <code>ordelo_config</code> flags, 60 s cache, missing = off</td></tr>
+      <tr><td><code>utils_common/order_management/order_reference.py</code></td><td><span class="pill p-new">new</span> order references (M1)</td></tr>
+      <tr><td><code>utils_common/order_management/customer_keys.py</code></td><td><span class="pill p-new">new</span> recognise and mint W-ids</td></tr>
+      <tr><td><code>utils_common/payment_ms/payment_events.py</code></td><td><span class="pill p-new">new</span> parse and apply payment events (M2)</td></tr>
+      <tr><td><code>utils_common/order_management/order_service.py</code></td><td>new fields, one-transaction option, reference retry; DB calls run off the event loop</td></tr>
+      <tr><td><code>watomation/routers/order_hooks.py</code></td><td>new request fields, F3 fix, W-id skip in <code>capture-address</code></td></tr>
+      <tr><td><code>watomation/routers/payment_hooks.py</code></td><td>new <code>payment-complete</code>, gated test route, <code>/init-reconciler</code></td></tr>
+      <tr><td><code>tests/…</code></td><td><code>conftest.py</code> (flags off by default) + 5 test files</td></tr>
+    </tbody>
+  </table></div>
+  <p>Test run: 423 passed. The one failure, <code>test_restaurant_master_get_admins_fetches_live_column</code>, was already failing before these changes. Ruff finds no new problems.</p>
+</section>
+
+<!-- 6. NEXT -->
+<section class="sheet" id="next">
+  <h2>6. What's next</h2>
+  <div class="two">
+    <div>
+      <p><strong>R2 payment-path check</strong> (once R1a is deployed with <code>PAYMENT_INBOX_ENABLED</code> on):</p>
+      <ol>
+        <li><code>SELECT create_thread('WEB', NULL)</code> for a web thread.</li>
+        <li><code>capture-address</code> with a W-id such as <code>W7K2M9QX4TPA</code>.</li>
+        <li><code>create-order</code> with that W-id, the <code>WEB-…</code> thread, <code>"origin_channel":"web"</code>, <code>"storefront":"ordelo"</code>.</li>
+        <li>Pay in Stripe test mode; confirm both the payment service and Ordelo get the event, Ordelo applies it once and skips the restaurant app.</li>
+        <li>Check capture on rider acceptance and cancel on no rider; note where Stripe sends the browser.</li>
+      </ol>
+    </div>
+    <div>
+      <p><strong>Not done yet</strong></p>
+      <ul>
+        <li>R1b: the customer notifier that replaces the 10 restaurant-app calls.</li>
+        <li>R3 items: late-payment cut-off (Q17), rider "no number on file" message, rejecting unknown restaurants before calling the payment service.</li>
+        <li>Open questions Q14–Q17 in the plan.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+</div>

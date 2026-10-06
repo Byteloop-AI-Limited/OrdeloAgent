@@ -310,7 +310,7 @@ async def test_admin_collection_ready_skips_when_no_longer_in_progress(monkeypat
 
 
 @respx.mock
-async def test_admin_takeaway_ready_validates_and_posts_webhook(monkeypatch) -> None:
+async def test_admin_takeaway_ready_validates_and_posts_webhook(monkeypatch, inline_notifier) -> None:
     invalid = _FakeCallback(data=json.dumps({"action": "/AdminTakeawayReady", "order_number": "BAD"}))
     await handler.admin_takeaway_ready(FakeAsyncWhatsApp(), invalid)
     assert invalid.replies == ["Missing order number in callback. Please retry."]
@@ -318,7 +318,8 @@ async def test_admin_takeaway_ready_validates_and_posts_webhook(monkeypatch) -> 
     async def _webhook(rest_ref, webhook_type):
         return "https://rest.example.com/takeaway-ready"
 
-    monkeypatch.setattr(handler, "get_restaurant_webhook_url_async", _webhook)
+    inline_notifier.webhook = _webhook
+    inline_notifier.recipient = "4474"
     route = respx.post("https://rest.example.com/takeaway-ready/ABCD-1").mock(return_value=httpx.Response(200, json={"ok": True}))
     callback = _FakeCallback(data=json.dumps({"action": "/AdminTakeawayReady", "order_number": "ELAS-ABCD-1", "recipient": "4474"}), sender="ADMIN01")
 

@@ -1,4 +1,6 @@
 """
+R3: web-origin isolation and customer tracking safeguards.
+
 Payment webhook handler module for Elai Agent
     . Processes payment webhook events from payment providers
     . Extracts payment status information from webhook payloads
@@ -10,19 +12,31 @@ Payment webhook handler module for Elai Agent
   Functions/Classes:
     . PayAtRest - Pydantic model for pay-at-restaurant requests
     . handle_payment_complete - Processes payment completion and updates order status
-    . payment_complete_path - FastAPI route handling payment completion webhooks
+    . payment_complete_path - Stripe payment-complete webhook (M2 inbox, always
+      on since R3.1; web orders skip the restaurant app, ADR-0003)
+    . init_reconciler_path - Alert-only target of job_payment_init_reconciler()
     . pay_at_restaurant - Logs pay-at-restaurant order data
+    . Routes customer notifications through the R1b notifier (always on since R3.1)
 """
+
+from utils_common.notify import customer_notifier
+from utils_common.notify.customer_notifier import CustomerOrderEvent
 
 # %%
 from typing import List, Optional
 
+
 from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel
 from config import client_ordelo
+from config.params import get_wa_logger
+from utils_common.payment_ms.payment_events import (
+    REJECTED_STATE,
+    UNKNOWN_ORDER,
+    parse_payment_complete,
+    record_payment_authorised,
+)
 from utils_common.order_management.food_order_pymodel import FoodOrder
-from config.params import get_restaurant_webhook_url_async
-import httpx
 from utils_common.order_management.order_db_ops_new import OrderItem
 from watomation.routers.takeaway_hooks import init_takeaway_summary
 
@@ -37,7 +51,9 @@ router = APIRouter(tags=["payment-hooks"])
 # %% supporting functions
 async def handle_payment_complete(food_order: FoodOrder):
     """
-    Handles the update of the payment status in the graph and notifies the restaurant.
+    Publishes the payment_authorised customer event. The notifier routes it to
+    the restaurant app for WhatsApp orders and to the order page for web
+    orders, which never reach a restaurant app (ADR-0003 / D27).
 
     Args:
         food_order: The food order object
@@ -46,31 +62,9 @@ async def handle_payment_complete(food_order: FoodOrder):
         dict: Success status
     """
 
-    # Call the restaurant api to update the payment status
-    rest_ref = food_order.order_number.split("-")[0]
-    payment_complete_url = await get_restaurant_webhook_url_async(
-        rest_ref, "order-payment-complete"
-    )
-    recipient = food_order.recipient
-    thread_id = food_order.thread_id
-    order_id = food_order.order_id
-
-    # Make async HTTP request to restaurant webhook
-    async with httpx.AsyncClient() as http_client:
-        try:
-            res = await http_client.post(
-                url=f"{payment_complete_url}/{recipient}/{thread_id}",
-                json=food_order.model_dump(),
-            )
-            res.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
-            logger.info(
-                f"Successfully notified restaurant {rest_ref} for order {order_id}"
-            )
-        except httpx.HTTPError as e:
-            logger.error(
-                f"Error during restaurant notification for order {order_id}: {e}"
-            )
-
+    await customer_notifier.publish(food_order.order_number, CustomerOrderEvent(
+        "payment_authorised", "payment_authorised", "order-payment-complete",
+        food_order.model_dump(), f"/{food_order.recipient}/{food_order.thread_id}"))
     return {"success": "success"}
 
 
@@ -102,32 +96,16 @@ def init_delivery_summary(order_number: str, recipient: str):
 # %%
 
 
-@router.post("/payment-complete")
-async def payment_complete_path(request: Request, background_tasks: BackgroundTasks):
-    """
-    This is called by stripe success webhook
-    """
-    # Unpack request
-    request_body: dict = await request.json()
-
-    # update payment status to `requires_payment`, `requires_capture`
-    order_id = request_body["data"]["object"]["metadata"]["orderID"]
-    logger.info(f"order_id:{order_id} - PaymentComplete webhook from stripe called")
-
-    # Update the payment status
-    response = (
-        client_ordelo.table("food_order")
-        .update({"payment_status": "requires_capture"})
-        .eq("order_id", order_id)
-        .execute()
-    )
-
-    # Call the restaurant api to update the payment status
-    # Prepare the payload
-    food_order = FoodOrder(**response.data[0])
-
+async def _schedule_after_authorisation(
+    order_row: dict, background_tasks: BackgroundTasks
+) -> FoodOrder:
+    """Queue the payment_authorised customer event and summary init."""
+    food_order = FoodOrder(**order_row)
     background_tasks.add_task(handle_payment_complete, food_order)
 
+    if order_row.get("origin_channel") == "web":
+        from utils_common.web_ordering.common import query
+        background_tasks.add_task(query, "UPDATE thread SET is_active=false WHERE thread_id=%s AND agent='WEB'", (food_order.thread_id,))
     if food_order.action == "delivery":
         background_tasks.add_task(
             init_delivery_summary, food_order.order_number, food_order.recipient
@@ -140,46 +118,85 @@ async def payment_complete_path(request: Request, background_tasks: BackgroundTa
         logger.warning(
             f"Unknown food_order.action={food_order.action} for order={food_order.order_number}; summary init skipped"
         )
+    return food_order
 
-    return {"success": "success"}
+
+async def _apply_via_inbox(body: dict, background_tasks: BackgroundTasks) -> dict:
+    """Plan M2: apply a payment-complete body at most once. Always answers 200."""
+    try:
+        evt = parse_payment_complete(body)
+    except ValueError as err:
+        logger.error(f"payment-complete: {err}")
+        return {"success": "success", "outcome": "invalid"}
+    if evt is None:
+        logger.info(f"payment-complete: ignored event type {body.get('type')!r}")
+        return {"success": "success", "outcome": "ignored"}
+
+    from utils_common.web_ordering.lifecycle import reject_late
+    late = await reject_late(evt)
+    if late:
+        return {"success": "success", "outcome": late}
+    outcome = await record_payment_authorised(evt)
+    if outcome.applied and outcome.order:
+        await _schedule_after_authorisation(outcome.order, background_tasks)
+    elif outcome.outcome == REJECTED_STATE:
+        logger.warning(
+            f"payment-complete: order {evt.order_id} is {outcome.payment_status}, "
+            f"event {evt.provider_event_id} not applied"
+        )
+    elif outcome.outcome == UNKNOWN_ORDER:
+        logger.error(f"payment-complete: unknown order {evt.order_id}")
+    return {"success": "success", "outcome": outcome.outcome}
+
+
+@router.post("/payment-complete")
+async def payment_complete_path(request: Request, background_tasks: BackgroundTasks):
+    """
+    Called by Stripe (checkout.session.completed), unsigned (D23).
+
+    The event is applied at most once through the payment inbox (plan M2).
+    Web orders skip the restaurant app (D27).
+    """
+    request_body: dict = await request.json()
+    return await _apply_via_inbox(request_body, background_tasks)
 
 
 # %%
 
 
-@router.post("/payment-complete-test/{order_id}")
-async def payment_complete_test_path(
-    order_id: str,
-    background_tasks: BackgroundTasks,
-):
-    """Test endpoint that replays the full payment-complete flow for a given order_id."""
-    logger.info(f"order_id:{order_id} - PaymentComplete test triggered")
+class InitReconcilerOrder(BaseModel):
+    order_id: str
+    order_number: str
+    action: Optional[str] = None
+    authorised_at: Optional[str] = None
 
-    response = (
-        client_ordelo.table("food_order")
-        .update({"payment_status": "requires_capture"})
-        .eq("order_id", order_id)
-        .execute()
+
+class InitReconcilerRequest(BaseModel):
+    orders: List[InitReconcilerOrder]
+
+
+async def _alert_init_missing(orders: List[InitReconcilerOrder]) -> None:
+    lines = [f"- {o.order_number} ({o.action or '?'}), paid {o.authorised_at or '?'}" for o in orders]
+    message = (
+        "Payment authorised but no fulfilment summary after 2 min "
+        "(init reconciler, alert-only):\n" + "\n".join(lines)
     )
+    try:
+        wa_logger = await get_wa_logger()
+        await wa_logger.info(message)
+    except Exception as err:  # noqa: BLE001 - alerting must not fail the job
+        logger.error(f"init reconciler: overwatch alert failed: {err}")
+    logger.warning(message)
 
-    food_order = FoodOrder(**response.data[0])
 
-    background_tasks.add_task(handle_payment_complete, food_order)
-
-    if food_order.action == "delivery":
-        background_tasks.add_task(
-            init_delivery_summary, food_order.order_number, food_order.recipient
-        )
-    elif food_order.action == "takeaway":
-        background_tasks.add_task(
-            init_takeaway_summary, food_order.order_number, food_order.recipient
-        )
-    else:
-        logger.warning(
-            f"Unknown food_order.action={food_order.action} for order={food_order.order_number}; summary init skipped"
-        )
-
-    return {"success": "success"}
+@router.post("/init-reconciler")
+async def init_reconciler_path(
+    request: InitReconcilerRequest, background_tasks: BackgroundTasks
+):
+    """Called by job_payment_init_reconciler(); alerts overwatch (alert-only mode)."""
+    if request.orders:
+        background_tasks.add_task(_alert_init_missing, request.orders)
+    return {"alerted": len(request.orders)}
 
 
 # %%

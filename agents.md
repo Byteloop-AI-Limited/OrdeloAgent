@@ -2,6 +2,8 @@
 
 This document maps the codebase structure and explains how agents, webhooks, messaging, and data layers work together. Use it as your starting point and as a quick index for searching code.
 
+For local startup of OrdeloAgent and the sibling restaurant-frontend, Python shell preparation (`venv`, `PYTHONPATH`, `envLoad`), Cloudflare Tunnel routing, and maintenance-window test/production URL switches, follow the [local testing runbook](docs/local-testing-runbook.md).
+
 
 ## High‑Level Overview
 
@@ -260,8 +262,8 @@ INSTALL_DEV=1 source run_setup.sh
 
 ## Running Locally
 
-- Setup environment: `source run_setup.sh` (see Environment Setup above)
-- Run the app: `uvicorn watomation.fapp_ordelo_agent:app --reload --port 3100`
+- Prepare the Python shell before any Python command: activate `venv` (or `.venv`), set `PYTHONPATH="$PWD"`, and load `.env` with `envLoad`, as shown in the [local testing runbook](docs/local-testing-runbook.md).
+- Run the app: `uv run watomation/fapp_ordelo_agent.py` (port 3100; add `--active` when using `venv`).
 - WhatsApp webhook endpoint is provided by pywa_async (configured with your Business token/phone); ensure Meta configuration points to your accessible URL.
 - DB checkpointer tables: run once if needed via `utils_common/thread_management/initialize_db.py` (creates LangGraph checkpoints schema).
 
@@ -332,6 +334,7 @@ Note: Ensure AWS secrets are loaded so `ordelo_agent_env` can populate settings.
 
 ## Notable Details and Caveats
 
+- **SQL execution preference (2026-10-02):** Write SQL intended for manual execution as standalone statements without explicit `BEGIN`, `END`, or `COMMIT` transaction wrappers. Avoid `DO ... BEGIN ... END` blocks for routine configuration switches; prefer ordinary SQL statements. The user reported that the R3 configuration update persisted in the Supabase web SQL editor but did not persist when run as a transaction block in the VS Code PostgreSQL extension. This is an observed workflow issue, not a confirmed PostgreSQL defect. Include `RETURNING` or a separate verification `SELECT` for changes. This does not require removing procedural syntax needed inside existing function definitions or changing application transaction handling.
 - State and threads: The system relies on a `thread` table keyed by WhatsApp number; always ensure a thread exists before invoking the rider graph.
 - Tool responses: Tool functions generally both send WA messages and return `Command` state updates; the agent node decides whether to call tools or respond.
 - **/dontRespond convention:** If a tool already sends a WhatsApp message (via `wa_client.send_message` / `send_location` / templates), the tool’s returned `Command` must include a `ToolMessage(...)` followed by an `AIMessage("/dontRespond: ...")`. This suppresses `respond_node` from echoing a second, near‑duplicate text to the rider.

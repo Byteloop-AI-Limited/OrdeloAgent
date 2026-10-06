@@ -1,37 +1,104 @@
 [
  {
-  "config_key": "SFCS_DELIVERY_TIMEOUT_TIME",
-  "config_value": "5",
-  "description": "Timeout in minutes for delivery_summary status transition to timedout",
-  "created_at": "2026-05-18 11:44:17.196904+00",
-  "updated_at": "2026-05-18 11:44:17.196904+00"
+  "column_name": "id",
+  "data_type": "bigint",
+  "is_nullable": "NO",
+  "column_default": null
  },
  {
-  "config_key": "SFCS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME",
-  "config_value": ".5",
-  "description": "Timeout in minutes for delivery_summary status transition to timedout",
-  "created_at": "2026-03-11 11:26:53.13097+00",
-  "updated_at": "2026-03-11 11:26:53.13097+00"
+  "column_name": "created_at",
+  "data_type": "timestamp with time zone",
+  "is_nullable": "YES",
+  "column_default": "now()"
  },
  {
-  "config_key": "SFCS_DEFAULT_COLLECTION_PICKUP_TIME",
-  "config_value": "15",
-  "description": "SFCS takeaway pickup default override",
-  "created_at": "2026-05-18 09:18:54.033706+00",
-  "updated_at": "2026-05-18 09:18:54.033706+00"
+  "column_name": "title",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
  },
  {
-  "config_key": "SFCS_DEFAULT_DELIVERY_PICKUP_TIME",
-  "config_value": "15",
-  "description": "SFCS delivery pickup default override",
-  "created_at": "2026-05-18 09:18:54.033706+00",
-  "updated_at": "2026-05-18 09:18:54.033706+00"
+  "column_name": "sku",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
  },
  {
-  "config_key": "SFCS_APP_URL",
-  "config_value": "https://sfcs-agg.ordelo.app",
-  "description": "URL for Southern Fried Chicken app",
-  "created_at": "2026-03-11 11:21:15.719396+00",
-  "updated_at": "2026-03-11 11:21:15.719396+00"
+  "column_name": "description",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
+ },
+ {
+  "column_name": "availability",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
+ },
+ {
+  "column_name": "price",
+  "data_type": "numeric",
+  "is_nullable": "YES",
+  "column_default": null
+ },
+ {
+  "column_name": "currency",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": "'GBP'::text"
+ },
+ {
+  "column_name": "branch_link",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": "'https://sfc-salisbury.co.uk'::text"
+ },
+ {
+  "column_name": "image_link",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
+ },
+ {
+  "column_name": "branch_name",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": "'Salisbury'::text"
+ },
+ {
+  "column_name": "category",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
+ },
+ {
+  "column_name": "discounted_price",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
+ },
+ {
+  "column_name": "sub_category",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
+ },
+ {
+  "column_name": "addons",
+  "data_type": "jsonb",
+  "is_nullable": "YES",
+  "column_default": null
+ },
+ {
+  "column_name": "sub_category_description",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
+ },
+ {
+  "column_name": "dietary_requirements",
+  "data_type": "text",
+  "is_nullable": "YES",
+  "column_default": null
  }
 ]

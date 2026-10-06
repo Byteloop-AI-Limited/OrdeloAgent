@@ -177,11 +177,12 @@ async def test_send_delivery_instructions_composes_buttons_and_returns_message_i
 
 
 @respx.mock
-async def test_post_rider_event_webhooks_call_configured_urls(monkeypatch) -> None:
+async def test_post_rider_event_webhooks_call_configured_urls(monkeypatch, inline_notifier) -> None:
     async def _fake_webhook(rest_ref: str, webhook_type: str) -> str:
         return f"https://restaurant.example.com/{rest_ref}/{webhook_type}"
 
-    monkeypatch.setattr(agent_app_handlers, "get_restaurant_webhook_url_async", _fake_webhook)
+    inline_notifier.webhook = _fake_webhook
+    inline_notifier.recipient = "4474"
     cust_route = respx.post("https://restaurant.example.com/ELAS/rider-cust-cc/ELAS-ABCD-1/4474").mock(
         return_value=httpx.Response(200, json={"ok": True})
     )

@@ -8,9 +8,11 @@ OrdeloAgent is an AI-powered on-demand food delivery orchestration system. It us
 
 ## Commands
 
+Follow the [local testing runbook](docs/local-testing-runbook.md) to run OrdeloAgent and the sibling restaurant-frontend, expose them through Cloudflare Tunnel, and switch/restore shared `ordelo_config` URLs during maintenance. Before any Python command, activate `venv` (or `.venv`), set `PYTHONPATH="$PWD"`, and load `.env` using `envLoad` as documented there.
+
 ```bash
 # Dev server
-uvicorn watomation.fapp_ordelo_agent:app --reload
+uv run watomation/fapp_ordelo_agent.py  # port 3100; use --active with venv
 
 # Production (Docker)
 ./start.sh  # gunicorn + uvicorn worker

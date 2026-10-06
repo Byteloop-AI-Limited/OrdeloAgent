@@ -12,13 +12,17 @@ Functions/Classes:
   . _resolve_restaurant_coordinates - Resolves restaurant coordinates
   . get_min_order_value_for_location - Builds delivery message for customer location
   . get_min_order_value - Fetches minimum order value for an order
-  . create_order_with_items - Creates order and order items with transaction rollback
+  . create_order_with_items - Creates order and order items in one transaction (RPC)
   . capture_payment_for_order - Captures payment for order with restaurant confirmation
+    . Routes customer notifications through the R1b notifier
 """
 
 # %%
 from __future__ import annotations
 
+from utils_common.notify import customer_notifier
+
+import asyncio
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
 
@@ -26,9 +30,10 @@ import requests
 import uuid
 from config import client_ordelo, logger, ms_settings
 
-from utils_common.order_management.order_db_ops_new import (
-    OrderItem,
-    create_order_reference,
+from utils_common.order_management.order_db_ops_new import OrderItem
+from utils_common.order_management.order_reference import (
+    is_phone_derived,
+    new_order_reference,
 )
 
 
@@ -169,6 +174,44 @@ def get_min_order_value(
     # return float(min_order_value)
 
 
+ORIGIN_CHANNELS = ("whatsapp", "web")
+STOREFRONTS = ("direct", "ordelo")
+_MAX_REFERENCE_ATTEMPTS = 3
+
+
+def _is_duplicate_key_error(error_message: str) -> bool:
+    """True when a Postgres error is a unique violation (e.g. order_id collision)."""
+    return "duplicate key" in error_message or "23505" in error_message
+
+
+async def _insert_order_rpc(
+    insert_payload: Dict[str, Any], order_items: List[OrderItem]
+) -> Dict[str, Any]:
+    """F4: insert food_order and order_item in one transaction (SQL RPC)."""
+    order_id = insert_payload["order_id"]
+    items = [
+        item.model_dump(include={"product_name", "sku", "quantity", "price", "modifications"})
+        for item in order_items
+    ]
+    try:
+        await asyncio.to_thread(
+            lambda: client_ordelo.rpc(
+                "create_food_order_with_items",
+                {"p_order": insert_payload, "p_items": items},
+            ).execute()
+        )
+    except Exception as e:
+        error_message = str(e)
+        logger.error(f"Error creating order {order_id} via RPC: {error_message}")
+        return {
+            "success": False,
+            "error": "Failed to create order",
+            "details": error_message,
+            "duplicate_order_id": _is_duplicate_key_error(error_message),
+        }
+    return {"success": True}
+
+
 async def create_order_with_items(
     recipient: str,
     thread_id: str,
@@ -176,19 +219,34 @@ async def create_order_with_items(
     rest_ref: str,
     action: str,
     notes: Optional[str] = None,
+    origin_channel: str = "whatsapp",
+    storefront: str = "direct",
+    payment_mode: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Creates a new food order with order items in the database.
 
     Args:
-        recipient: Customer phone number
-        thread_id: WhatsApp thread ID
+        recipient: Customer key (WhatsApp number, or a W-id for a web order)
+        thread_id: WhatsApp thread ID, or the web thread for a web order
         order_items: List of OrderItem objects
         rest_ref: Restaurant reference code
+        action: "delivery" or "takeaway"
+        notes: Optional order notes
+        origin_channel: "whatsapp" (default) or "web" (plan D29)
+        storefront: "direct" (default) or "ordelo" (plan D28)
+        payment_mode: "test" when a requested test payment was honoured (plan D32)
 
     Returns:
         Dict with success status, order_id, order_number, or error details
     """
+    if origin_channel not in ORIGIN_CHANNELS:
+        return {"success": False, "error": f"Invalid origin_channel: {origin_channel}"}
+    if storefront not in STOREFRONTS:
+        return {"success": False, "error": f"Invalid storefront: {storefront}"}
+    if payment_mode not in (None, "live", "test"):
+        return {"success": False, "error": f"Invalid payment_mode: {payment_mode}"}
+
     order_dt: str = datetime.now().strftime("%Y-%m-%d")
 
     # Calculate total price from order items
@@ -196,9 +254,11 @@ async def create_order_with_items(
 
     # Get next sequence number
     try:
-        seq_number = client_ordelo.rpc(
-            "get_next_daily_seq", {"input_date": order_dt}
-        ).execute()
+        seq_number = await asyncio.to_thread(
+            lambda: client_ordelo.rpc(
+                "get_next_daily_seq", {"input_date": order_dt}
+            ).execute()
+        )
     except Exception as e:
         error_message = str(e)
         logger.error(f"Error getting sequence number: {error_message}")
@@ -208,100 +268,50 @@ async def create_order_with_items(
             "details": error_message,
         }
 
-    # Create order reference for given recipient and date
-    order_reference = create_order_reference(recipient, order_dt)
-    order_id = f"{order_reference}-{seq_number.data}"
-    order_number = f"{rest_ref.upper()}-{order_reference}-{seq_number.data}"
+    # A phone-derived reference is deterministic, so retrying can't help;
+    # a random one (W-ids) is retried on an order_id collision.
+    attempts = 1 if is_phone_derived(recipient) else _MAX_REFERENCE_ATTEMPTS
 
-    insert_payload = {
-        "order_id": order_id,
-        "order_number": order_number,
-        "seq_id": seq_number.data,
-        "recipient": recipient,
-        "notes": notes,
-        "thread_id": thread_id,
-        "action": action,
-        "total_price": total_price,
-        "payment_status": "requires_payment",
-    }
+    result: Dict[str, Any] = {"success": False, "error": "Order not created"}
+    for attempt in range(1, attempts + 1):
+        order_reference = new_order_reference(recipient, order_dt)
+        order_id = f"{order_reference}-{seq_number.data}"
+        order_number = f"{rest_ref.upper()}-{order_reference}-{seq_number.data}"
 
-    # Insert into FoodOrder
-    try:
-        food_order_response = (
-            client_ordelo.table("food_order").insert(insert_payload).execute()
-        )
-        if not food_order_response.data:
-            logger.error(f"Warning: Inserting food order {order_id} returned no data.")
-            return {
-                "success": False,
-                "error": "No data returned from food_order insert",
-            }
-    except Exception as e:
-        error_message = str(e)
-        logger.error(f"Error inserting food order {order_id}: {error_message}")
-        return {
-            "success": False,
-            "error": "Failed to insert food order",
-            "details": error_message,
+        insert_payload = {
+            "order_id": order_id,
+            "order_number": order_number,
+            "seq_id": seq_number.data,
+            "recipient": recipient,
+            "notes": notes,
+            "thread_id": thread_id,
+            "action": action,
+            "total_price": total_price,
+            "payment_status": "requires_payment",
         }
+        # Written only when not the default, so WhatsApp inserts are unchanged
+        # and still work before the R1 SQL has been run.
+        if origin_channel != "whatsapp":
+            insert_payload["origin_channel"] = origin_channel
+        if storefront != "direct":
+            insert_payload["storefront"] = storefront
+        if payment_mode == "test":
+            insert_payload["payment_mode"] = payment_mode
 
-    # Insert order_items - only proceed if food_order insert was successful
-    try:
-        # Update order_id for all items
-        items_to_insert = [
-            item.model_copy(update={"order_id": order_id}) for item in order_items
-        ]
-        order_items_response = (
-            client_ordelo.table("order_item")
-            .insert([x.model_dump() for x in items_to_insert])
-            .execute()
-        )
-        if not order_items_response.data:
-            logger.error(
-                f"Warning: Inserting order items for order {order_id} returned no data."
-            )
-            # Attempt to delete the potentially orphaned food_order
-            try:
-                client_ordelo.table("food_order").delete().eq(
-                    "order_id", order_id
-                ).execute()
-                logger.error(
-                    f"Rollback attempted: Deleted food_order {order_id} due to order_item insert issue (no data)."
-                )
-            except Exception as del_e:
-                logger.error(
-                    f"Error during rollback: Failed to delete food_order {order_id}: {del_e}"
-                )
-            return {
-                "success": False,
-                "error": "No data returned from order_item insert operation",
-                "details": "Insert seemed successful but no data was returned. Rollback attempted.",
-            }
-    except Exception as e:
-        error_message = str(e)
-        logger.error(
-            f"Error inserting order items for order {order_id}: {error_message}"
-        )
-        # Attempt to delete the potentially orphaned food_order
-        try:
-            client_ordelo.table("food_order").delete().eq(
-                "order_id", order_id
-            ).execute()
-            logger.error(
-                f"Rollback attempted: Deleted food_order {order_id} due to order_item insert failure."
-            )
-        except Exception as del_e:
-            logger.error(
-                f"Error during rollback: Failed to delete food_order {order_id}: {del_e}"
-            )
-        return {
-            "success": False,
-            "error": "Failed to insert order items",
-            "details": error_message + ". Rollback attempted.",
-        }
+        result = await _insert_order_rpc(insert_payload, order_items)
 
-    # If both inserts succeeded and returned data
-    return {"success": True, "order_id": order_id, "order_number": order_number}
+        if result.get("success"):
+            await customer_notifier.create_origin_subscription(order_number)
+            return {"success": True, "order_id": order_id, "order_number": order_number}
+        if not result.get("duplicate_order_id") or attempt == attempts:
+            break
+        logger.warning(
+            f"order_id {order_id} already exists; retrying with a new reference "
+            f"(attempt {attempt + 1}/{attempts})"
+        )
+
+    result.pop("duplicate_order_id", None)
+    return result
 
 # %%
 """ Test

@@ -3,6 +3,7 @@ select * from restaurant_master;
 -- commit;
 select * from takeaway_summary order by dtts desc;
 lkj;
+'447741594995';
 select * from thread where is_active=True order by dtts desc;
 select * from get_latest_state_by_thread('ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d');
 select * from get_latest_state('447448440754', 'ORDELO');
@@ -16,14 +17,15 @@ exclude_list = ['447919202938', '447448440754', '447446933210'];
 -- delete from thread where recipient='447448440754';
 -- 447427558868 - investigate threads for this rider.
 
-select * from delivery_option where order_number like 'ELAS-NKRA-20%' order by id desc;
-select * from delivery_dispatch where order_number like '%BNAT-XYWO-22%' ;
-select * from delivery_summary where order_number like 'ELAS-NKRA-20' order by dtts desc;
+select * from delivery_option where order_number like 'ELAS-DDJV-22%' order by id desc;
+select * from delivery_dispatch where order_number like 'ELAS-XBKV-20%' ;
+select * from delivery_summary where order_number like 'ELAS-%' order by dtts desc;
 select * from customer_master;
 select rest_ref, count(*) from cust_rest_map where has_consent group by rest_ref;
 -- Check and close thread
 select * from thread where is_active order by dtts desc;
-update thread set is_active=False where is_active and recipient='447863275140';
+update thread set is_active=False where is_active and recipient='447448440754';
+update thread set is_active=False where agent='WEB';
 --ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d 
 --ORDELO-7006a159-8f54-4615-ac0e-6fe58fed32c7
 
@@ -31,9 +33,9 @@ select * from thread where recipient='447427558868' order by dtts desc;
 select * from delivery_dispatch where order_number='BNAT-NOLZ-21' order by dtts desc;
 select * from cust_rest_map where cust_id='447448440754';
 select * from customer_master where cust_id='447919202938';
-select * from delivery_summary where order_number like 'BNAT-FROD-22%'  order by dtts desc;
+select * from delivery_summary where order_number like 'SFCS-%'  order by dtts desc;
 select * from delivery_summary order by dtts desc;
-update delivery_summary set status='timedout' where order_number='SFCS-TIGD-21';
+update delivery_summary set status='timedout' where order_number='SFCS-LSFC-25';
 
 
 -- Cleanup of customer to simulate new customer
@@ -45,7 +47,7 @@ select * from rider_pickup_alert;
 
 update thread set is_active=false where is_active=True and dt<='2026-05-14' and agent='SFCS';
 select * from thread where is_active=True and dt<'2026-03-27' order by dt desc;;
-select * from food_order limit 1;
+select distinct(payment_status) from food_order limit 100;
 select * from rider_registrations order by inserted_at desc;
 
 select pickup_time, * from delivery_summary where order_number='ELAS-ETXF-28';
@@ -54,8 +56,8 @@ SELECT dtts, dtts AT TIME ZONE 'Europe/London' as dtts_uk
 FROM delivery_summary 
 WHERE order_number='ELAS-ETXF-27';
 
-select * from delivery_dispatch  where status like '%pick%' order by dtts desc;
-
+select * from delivery_dispatch  order by dtts desc;
+select  dispatch_complete_func(1197);
 select * from delivery_dispatch where status='completed' and rider_id!='447448440754' order by dtts desc ;
 select * from delivery_summary order by dtts desc;
 select SUBSTRING(phone, 2, LENGTH(phone)) as rider_id,* from rider_registrations;
@@ -80,6 +82,7 @@ select * from customer_master order by dtts desc limit 10;
 select *
       FROM pgmq.read('owntracks', 5, 1000);
 
+select * from delivery_inflight;
 select job_process_owntracks();
 -- view definition of function - FUNCTION public.delivery_inflight_whook
 select pg_get_functiondef('delivery_inflight_whook'::regproc);
@@ -102,7 +105,7 @@ select * from delivery_summary order by dtts desc limit 10;
 select * from delivery_dispatch 
 inner join rider_master on rider_master.rider_id = delivery_dispatch.rider_id
 where order_number='ELAS-ZXUV-21';
-
+select * from food_order where order_number='SFCS-UFIF-23';
 select * from takeaway_summary order by dtts desc;
 select * from delivery_summary where order_number='ELAS-ZXUV-21'; -- rest_ref, rest_confirmation_code, cust_confirmation_code, status, dtts as order_created_time, customer_id, customer_name, restaurant_confirmation_status, restaurant_update_dtts, pickup_time as scheduled_pickup_time
 select * from delivery_detail order by dtts desc; -- vehicle_type, rider_id, rider_payout, distance, status_update_dtts (order_pickup time);
@@ -111,8 +114,6 @@ select * from delivery_dispatch where status='completed' and rider_id!='44744844
 select final_order_value - total_customer_charge as food_value, * from delivery_option where order_number='BNAT-NOLZ-21' and vehicle_type='car';
 select total_price-rest_cost as rest_savings, * from food_order where order_number='ELAS-HCTZ-20' limit 10;
 select * from food_order order by order_dtts desc;
-select 47.4-55.8;
-{"profit": 1.32, "extra_fee": 0.0, "commission": 4.46, "rider_bonus": 0.14, "delivery_fee": 1.49, "driver_payout": 5.83, "distance_miles": 1.84, "service_charge": 2.0, "commission_rate": 0.15, "small_order_fee": 0.0, "final_order_value": 33.2, "total_customer_fee": 3.49, "service_charge_rate": 0.07, "payment_processing_fee": 0.79}
 select status,
 	rest_confirmation_code,
 	cust_confirmation_code,
@@ -333,7 +334,7 @@ SELECT cleanup_delivery_order('ELAS-KDDV-21');
 
 select order_number, status, pickup_time from delivery_summary order by dtts desc;
 
-update delivery_summary set status='restaurant_unconfirmed', pickup_time=dtts where order_number='ELAS-KDDV-21';
+update delivery_summary set status='restaurant_unconfirmed', pickup_time=dtts where order_number='ELAS-JRHV-20';
 update delivery_summary set status='restaurant_accept' where order_number='ELAS-KDDV-21';
 update delivery_summary set status='restaurant_decline' where order_number='ELAS-KDDV-21';
 
@@ -448,7 +449,53 @@ select * from waba_es order by dtts desc;
 select dispatch_complete_func(1159);
 
 
-select * from delivery_summary where order_number='SFCS-TVUC-20';
+select * from delivery_summary where order_number='BNAT-QGFS-70';
 
 select * from delivery_dispatch where dispatch_id=1159;
 select * from delivery_inflight;
+
+select * from customer_master order by dtts desc;
+
+select * from order_item where order_id = 'RMLT-29';
+select * from food_order where order_id = 'RMLT-29';
+
+select * from bnat_menu;
+SELECT
+     column_name,
+     data_type,
+     is_nullable,
+     column_default
+   FROM information_schema.columns
+   WHERE table_schema = 'public'
+     AND table_name = 'bnat_menu'
+   ORDER BY ordinal_position;
+
+// to be sent to Codex app
+R1b, in plain terms: Right now only two of the 10 places that notify a restaurant app skip web orders. The other eight would still send a web order's customer ID to a restaurant app. R1b routes all 10 through one customer notifier, so web and WhatsApp orders can be handled differently. WhatsApp customers see no change. The steps are:
+1. Write tests that record exactly what each of the 10 hooks sends today.
+2. Build the notifier.
+3. Switch the 10 call sites over behind CUSTOMER_NOTIFIER_ENABLED, with the flag off by default.
+4. Turn the flag on for BNAT first and compare the customer messages.
+No new SQL is needed; those tables were already created.
+R2, in plain terms: this is a test run, not code. On BNAT in Stripe test mode, you create a web-style order through the existing endpoints, pay with a test card, and check four things:
+- Ordelo records the payment once and doesn't call the restaurant app.
+- Replaying the payment event changes nothing.
+- The payment is captured when a rider accepts, and cancelled when no rider takes the job.
+- Where Stripe sends the browser after payment.
+Do it after R1b, so the test order never reaches a restaurant app. The plan has the exact calls.;
+
+
+SELECT config_key, config_value, updated_at
+FROM public.ordelo_config
+WHERE config_key IN ('TEST_PAYMENT_REST_REFS', 'ORDELO_APP_URL', 'RESTAURANT_MENU_APP_URL')
+   OR config_key LIKE '%\_WEB\_ORDERING\_PAUSED' ESCAPE '\'
+   OR config_key LIKE '%\_WEB\_MAX\_DISCOUNT\_PERCENT' ESCAPE '\'
+ORDER BY config_key;
+select * from payment_event order by id desc limit 10;
+
+
+INSERT INTO public.ordelo_config (config_key, config_value, description)
+VALUES ('TEST_PAYMENT_REST_REFS', 'BNAT,ELAS', 'Restaurants whose orders always use Stripe test (R3.1)')
+ON CONFLICT (config_key) DO UPDATE
+SET config_value = EXCLUDED.config_value, description = EXCLUDED.description,
+    updated_at = CURRENT_TIMESTAMP;

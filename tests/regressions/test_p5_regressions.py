@@ -8,8 +8,8 @@ Key Functions:
   - test_payment_and_reservation_templates_use_pywa_param_objects
   - test_cancel_delivery_before_pickup_reads_rider_name_from_state_not_context
   - test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic
-  - test_admin_takeaway_ready_reports_webhook_failure_to_callback
-  - test_location_customer_enter_propagates_webhook_http_error
+  - test_admin_takeaway_ready_records_failed_restaurant_notice
+  - test_location_customer_enter_records_webhook_http_error
   - test_restaurant_confirmation_flow_returns_error_for_invalid_payload
 """
 
@@ -157,11 +157,13 @@ async def test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic(
 
 
 @respx.mock
-async def test_admin_takeaway_ready_reports_webhook_failure_to_callback(monkeypatch) -> None:
+async def test_admin_takeaway_ready_records_failed_restaurant_notice(monkeypatch, inline_notifier) -> None:
+    """Since R3.1 the notifier records a failed restaurant-app notice (no retry); the admin's tap is acknowledged."""
     async def _webhook(rest_ref, webhook_type):
         return "https://rest.example.com/takeaway-ready"
 
-    monkeypatch.setattr(on_callback_wa_handler, "get_restaurant_webhook_url_async", _webhook)
+    inline_notifier.webhook = _webhook
+    inline_notifier.recipient = "4474"
     respx.post("https://rest.example.com/takeaway-ready/ABCD-1").mock(return_value=httpx.Response(500, json={"error": "boom"}))
     callback = _FakeCallback(
         data=json.dumps({"action": "/AdminTakeawayReady", "order_number": "ELAS-ABCD-1", "recipient": "4474"}),
@@ -170,11 +172,12 @@ async def test_admin_takeaway_ready_reports_webhook_failure_to_callback(monkeypa
 
     await on_callback_wa_handler.admin_takeaway_ready(FakeAsyncWhatsApp(), callback)
 
-    assert callback.replies == ["Failed to notify customer. Please retry."]
+    assert callback.replies == ["Customer notification request sent."]
+    assert [status for _, status, _ in inline_notifier.finished] == ["failed"]
 
 
 @respx.mock
-async def test_location_customer_enter_propagates_webhook_http_error(monkeypatch, patch_supabase_client) -> None:
+async def test_location_customer_enter_records_webhook_http_error(monkeypatch, patch_supabase_client, inline_notifier) -> None:
     patch_supabase_client.register(
         table="delivery_summary",
         verb="select",
@@ -184,7 +187,8 @@ async def test_location_customer_enter_propagates_webhook_http_error(monkeypatch
     async def _webhook(rest_ref, webhook_type):
         return "https://rest.example.com/customer-enter"
 
-    monkeypatch.setattr(location_hooks, "get_restaurant_webhook_url_async", _webhook)
+    inline_notifier.webhook = _webhook
+    inline_notifier.recipient = "4474"
     respx.post("https://rest.example.com/customer-enter/ELAS-ABCD-1").mock(return_value=httpx.Response(503, json={"error": "down"}))
 
     await location_hooks.notify_rider_location_event(
@@ -193,6 +197,7 @@ async def test_location_customer_enter_propagates_webhook_http_error(monkeypatch
     )
 
     assert respx.calls.call_count == 1
+    assert [status for _, status, _ in inline_notifier.finished] == ["failed"]
 
 
 async def test_restaurant_confirmation_flow_returns_error_for_invalid_payload() -> None:
