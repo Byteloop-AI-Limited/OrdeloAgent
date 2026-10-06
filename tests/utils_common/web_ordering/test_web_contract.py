@@ -469,3 +469,42 @@ async def test_price_audit_runs_without_a_switch(monkeypatch, feature_flags):
     monkeypatch.setattr(monitoring, "query", claim)
     await monitoring.sweep()
     assert "INSERT INTO web_monitor_run" in claim.await_args.args[0]
+
+
+def _google_reply(monkeypatch, postcode, **extra):
+    """Stub the Google geocode call; no network or API key involved."""
+    import sys
+
+    monkeypatch.setitem(
+        sys.modules,
+        "utils_common.maps_service.address_resolver",
+        SimpleNamespace(API_KEY="test"),
+    )
+    result = {
+        "geometry": {"location": {"lat": 51.07, "lng": -1.79}},
+        "address_components": [{"long_name": postcode, "types": ["postal_code"]}],
+        **extra,
+    }
+    reply = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {"status": "OK", "results": [result]},
+    )
+    monkeypatch.setattr(availability.requests, "get", lambda *a, **k: reply)
+
+
+@pytest.mark.parametrize(
+    "typed, found",
+    [("SP1 3TA", "SP1 3UE"), ("SP13TA", "SP1 3TA"), ("sp1 3ta", "SP1 3TA")],
+)
+async def test_geocode_accepts_postcode_within_same_sector(monkeypatch, typed, found):
+    _google_reply(monkeypatch, found)
+    location = await availability.geocode("1 Mill Stream Approach", expected_postcode=typed)
+    assert location == {"lat": 51.07, "lng": -1.79}
+
+
+@pytest.mark.parametrize("found", ["SP2 8AB", "BR6 6DN", ""])
+async def test_geocode_rejects_postcode_outside_sector(monkeypatch, found):
+    _google_reply(monkeypatch, found)
+    with pytest.raises(WebError) as error:
+        await availability.geocode("1 Mill Stream Approach", expected_postcode="SP1 3TA")
+    assert error.value.body["error"] == "invalid_address"

@@ -1,7 +1,7 @@
 # Ordelo web ordering channel (ordelo-agg): design and release plan
 
 - **Target repository:** `OrdeloAgent` → `plans/ordelo-agg-plan-cc.md` (branch `release/ordelo-agg`)
-- **Status (2026-10-05):** R1b, R2 and the R3 build are done; both repos are deployed with the web environment wired, and the 2 Oct Stripe/test-session clean-up is done. Web checkout is **open for ELAS and CRMS** (5 Oct export) although R3 launch gates are still open, including the **payment-service manual collection capture fix**. **A new session should start at "Resume here" below.**
+- **Status (2026-10-06, later):** R1b, R2 and R3 are done and deployed. **R3.1 "one switch" (D35) is built (`5e40296`), tested by the owner and going out as an interim deploy.** Web delivery, the order status page, the existing WhatsApp flow and the priority R3 regression rows have passed. Only **web collection capture** remains; the owner is fixing it in the payment service. After the deploy: run section 1 of the clean-up SQL a few days later. **A new session should start at "Resume here" below.**
 - **Revised 2026-10-01:** the payment-service contract stays unchanged for web; web-specific payment behaviour moves into Ordelo's `payment-complete` (D22–D27). Glossary in `CONTEXT.md`; decisions in ADR-0003, ADR-0004 and ADR-0005.
 - **Evidence snapshot:** 2026-09-29. OrdeloAgent `7697e15` (`release/ordelo-agg`), restaurant-frontend `a75312e` (`dev`), restaurant-agents `eeb6a3c` (`main`). Payment service `58158ca` read on 2026-10-01.
 - **Companion reference:** `OrdeloAgent/docs/ordelo-restaurant-frontend-agents.md` (endpoint ids such as `create` and `authorized` below refer to it)
@@ -16,9 +16,9 @@ Labels used throughout:
 
 ---
 
-## Resume here (state at 2026-10-05)
+## Resume here (state at 2026-10-06)
 
-Confirmed by the owner on 2026-10-05 unless a source is given. The 2 Oct handover below is kept for history.
+Confirmed by the owner on 2026-10-05/06 unless a source is given. The 2 Oct handover below is kept for history.
 
 ### Done
 
@@ -30,12 +30,15 @@ Confirmed by the owner on 2026-10-05 unless a source is given. The 2 Oct handove
 - [x] **Overwatch WhatsApp delivery regression** `ELAS-LXGM-26` passed end to end (Stripe test mode).
 - [x] **Deployment and production environment:** both repos deployed; Amplify copies `NEXT_PUBLIC_WEB_ORDERING_MODE|ORDELO_WEB_KEY|WEB_COOKIE_SECRET|ORDELO_WEB_SITE_URL`; matching backend/frontend `ORDELO_WEB_KEY` and a stable `WEB_COOKIE_SECRET` set.
 - [x] **Stripe and test sessions:** ELAS Stripe TEST Ordelo callback restored to `https://rider-agent.ordelo.app/payment-hooks/payment-complete`; GZBU-24 (open session) and RNRX-25 (authorised, uncaptured) reconciled.
+- [x] **R3.1 build** (D35): committed `5e40296` on `release/ordelo-agg` — all rollout flags removed, `TEST_PAYMENT_REST_REFS` is the one switch, `ordelo-agg-db-switch.sql` rewritten. 516 tests pass.
+- [x] **R3.1 owner test, web (2026-10-06):** a web order's status page updates through the stages, the web delivery workflow works end to end, and the payment is captured (T10).
+- [x] **R3.1 owner test, WhatsApp (2026-10-06):** the existing WhatsApp ordering flow works as expected on the R3.1 build.
 - [x] **CRMS web-only onboarding started:** backend commit `ac64e19` (5 Oct). The 5 Oct config export shows `WEB_ORDERING_ENABLED_REST_REFS=ELAS,CRMS`, `TEST_PAYMENT_REST_REFS=BNAT,CRMS`, `CRMS_WEB_ORDERING_PAUSED=false`, `CRMS_WEB_DELIVERY_PAUSED=false`, i.e. the CRMS production test window (`03_prod_test_enable.sql`) is open. Tracked in `plans/onboard-crms-plan.md` §4.
 
 ### Not done
 
-- [ ] **Manual collection capture (payment service).** RNRX-25 showed that web collection payments are authorised but can't be captured: the deployed payment service didn't add `captureMode=manual`/`restRef` to the Checkout Session or save the PaymentIntent to `payment_details`, so Ordelo's capture call finds nothing. Payment-service commit `58158ca` contains that fix but the deployed Lambdas weren't checked. This can also affect WhatsApp manual-capture collection.
-- [ ] **R3 regression matrix** (§19 rows marked R3, T10–T30 and T39–T42). Not yet run in production. Priority rows: T10 web delivery, T11 web collection (after the capture fix), T22 takeaway decline, T23 no rider found, T30 kill switch with orders in flight, T39 late payment, T40 rider asks for contact, T42 no restaurant-app call. Also rerun a non-overwatch live WhatsApp payment, takeaway and pay-at-restaurant.
+- [ ] **Manual collection capture (payment service)** — **owner is resolving it (2026-10-06)**; code references for the payment team in the Claude doc "Collection capture failure: code references". Also seen on SFCS-TZXP-25. Root cause confirmed 2026-10-06 (NGMK-23, and RNRX-25 before it). Ordelo is **not** taking the payment directly: web and WhatsApp collection both call `generate_takeaway_manual_payment_url`, which sends `manual_mode_capture: true`, and Stripe authorises without charging. The capture fails because the payment service never stored the PaymentIntent: in payment-service code before `58158ca`, the `checkout.session.completed` webhook saves `payment_details` **only when `action == "delivery"`**; a `collection` session falls through to the print path (kitchen ticket printed at authorisation) and nothing is saved, so capture later answers "no payment details found". Delivery works because it matches that one branch. `58158ca` (on payment-service `main`, 2026-08-25) adds `captureMode` metadata and saves the PaymentIntent for every manual-capture session, but the deployed Lambdas don't run it (RNRX-25's session had no `captureMode`). NGMK-23 went to the **test** payment service (`ms_stripe_url_test`, `0af50z1k40…`); live is `ms_stripe_url` (`z0hydw9v90…`); the ELAS Stripe test account's payment-service webhook targets a third gateway (`hjgttc1wpj…/prod/webhook/elai`). `buildspec.yml` only updates the Lambda named `payment`. **Fix (payment-service release):** deploy `58158ca` to every Lambda behind those gateways, including whichever receives each restaurant's Stripe webhook (check BNAT's test account), then place one web collection at BNAT and confirm a `payment_details` row, capture, and one receipt. Also confirm live: check that a recent live WhatsApp collection captured. **Reconcile NGMK-23** (test mode: capture or cancel in the Stripe test dashboard; it can't be captured through the service because no record exists). No Ordelo change is needed.
+- [x] **R3 regression matrix, priority rows** (owner, 2026-10-06): ✅ T10 web delivery, ✅ T22 takeaway decline, ✅ T23 no rider found, ✅ T30 kill switch (`{REST}_WEB_ORDERING_PAUSED`) with orders in flight, ✅ T39 late payment, ✅ T40 rider asks for contact, ✅ T42 no restaurant-app call, ✅ WhatsApp rerun. **Open: T11 web collection**, which needs the payment-service capture fix. The other R3 rows (T12–T21, T24–T29, T41) were not tracked one by one.
 - [ ] **Monitoring and price audit:** M1–M9 (§20) and `WEB_PRICE_MONITOR_ENABLED=true` with the alert destination checked.
 - [ ] **Production log privacy:** check and mask `/o/{token}` paths in ingress, Amplify and backend access logs (T28).
 - [ ] **Accessibility:** Lighthouse mobile ≥ 90 (R3 entry gate item 6).
@@ -43,11 +46,10 @@ Confirmed by the owner on 2026-10-05 unless a source is given. The 2 Oct handove
 
 ### Risks while checkout is open
 
-- **Collection capture:** until the payment-service fix is deployed and verified, a real paid web collection at ELAS or CRMS may be authorised but never captured (the card hold lapses; the restaurant isn't paid).
-- **CRMS test window:** CRMS is in `TEST_PAYMENT_REST_REFS` with checkout open, so a visitor without `?isTest3100=true` pays live (accepted risk in the CRMS plan; keep the window short).
-- **`ordelo-agg-db-switch.sql`:** the UNPAUSE block is *not* commented out (`-- /*` and `-- */` are line comments), so running the whole file applies PAUSE and then UNPAUSE. It would also reset both lists to ELAS/BNAT only, dropping CRMS. Run one section at a time.
+- **Collection capture:** until the payment-service fix is deployed and verified, a real paid web collection may be authorised but never captured (the card hold lapses; the restaurant isn't paid). Web delivery capture is confirmed working (2026-10-06).
+- **Before R3.1 is deployed**, production still runs the R3 code: the old allowlist and pilot rows still decide behaviour, and CRMS is in `TEST_PAYMENT_REST_REFS` (old rule: test only on request). The rewritten `ordelo-agg-db-switch.sql` only reads when run whole; run its sections one at a time, and section 1 only after the R3.1 deploy has settled.
 
-### Interim release R3.1: one switch (built 2026-10-05, uncommitted; not deployed)
+### Interim release R3.1: one switch (built `5e40296` 2026-10-05; tested by the owner 2026-10-06; not yet deployed)
 
 Goal: everything live, all notifications on, and **one** setting left to manage: `TEST_PAYMENT_REST_REFS` (the test restaurant, `BNAT`). Every rollout flag from R1a–R3 is removed from code and from `ordelo_config`. Full spec in §18 "R3.1". Decision D35.
 
@@ -68,10 +70,16 @@ Goal: everything live, all notifications on, and **one** setting left to manage:
 
 1. ✅ **CRMS:** owner decided (2026-10-05) that CRMS being live is fine. Section 1 of the clean-up SQL sets the test list to BNAT only, so CRMS takes live payments from then on.
 2. **Fix web collection capture** (payment service, see "Not done"). R3.1 makes every listed restaurant live, so a real web collection must be capturable first. Verify on BNAT, then one WhatsApp collection.
-3. ✅ **Build R3.1** (§18) — done 2026-10-05, uncommitted on `release/ordelo-agg`: 516 tests pass (one pre-existing failure deselected), no new ruff errors, two-axis code review run and its findings fixed. No restaurant-frontend change needed.
-4. **Deploy R3.1 with the old rows still in place** (the new code ignores them). Check: one WhatsApp delivery and one takeaway each at ELAS and SFCS (SFCS was never in the notifier pilot), one web delivery and one web collection at BNAT (test), notifications arrive.
+3. ✅ **Build R3.1** (§18) — done and committed 2026-10-05 (`5e40296`): 516 tests pass (one pre-existing failure deselected), no new ruff errors, two-axis code review run and its findings fixed. ✅ **Owner tested it (2026-10-06):** web status page updates, web delivery end to end with payment captured, and the existing WhatsApp flow all work.
+   - **restaurant-frontend: no change needed for R3.1.** It never read the removed rows: web presence is `webOrderingEnabled` in `config/restaurants.ts` plus the `NEXT_PUBLIC_WEB_ORDERING_MODE` build variable, and it only forwards `?isTest3100=true` as a request. Error codes it handles (`ordering_paused`, `ordering_unavailable` for a missing web key) are unchanged, and the "Test payment" label follows Ordelo's `payment_mode` answer, so BNAT now shows it on every order. A web `?isTest3100=true` at a live restaurant still gets `403 test_payment_not_allowed`, shown as the generic error (unchanged).
+   - Optional tidy-ups (fixtures/comments only, not deployed behaviour): `lib/web/fixtures/index.ts` should make BNAT test on every order (today it still needs the request, like the old rule), and the comment in `lib/testPayment.ts` should say a listed restaurant is always test. Frontend web restaurants after R3.1: ELAS, SFCS, BNAT, CRMS (all four have `webOrderingEnabled`), so **SFCS becomes orderable on the web** once R3.1 is deployed.
+4. **Interim deploy of R3.1 (owner, 2026-10-06, in progress)** with the old `ordelo_config` rows still in place (the new code ignores them). Checks:
+   - ✅ Existing WhatsApp flow works on R3.1 (owner, 2026-10-06). Repeat one WhatsApp order at SFCS after the deploy if it wasn't part of that test (SFCS was never in the notifier pilot).
+   - ✅ Web delivery end to end, order page updates, payment captured (owner, 2026-10-06).
+   - [ ] Web collection at BNAT (after the payment-service capture fix).
+   - [ ] Right after the deploy: one quick WhatsApp order and one web delivery order in production.
 5. **Clean up `ordelo_config`** a few days later, once a rollback to the old image is no longer likely: run **section 1 of `notebooks/db_queries/ordelo-agg-db-switch.sql`** (deletes the rollout rows, sets `TEST_PAYMENT_REST_REFS=BNAT`). That file is now the one short script (inspect / test list / emergency pause / reopen); the skill scripts and CRMS `02`–`99` were updated to the new model.
-6. **R3 regression matrix** (§19 R3 rows) on BNAT, against the simplified build.
+6. ✅ **R3 regression matrix, priority rows** — passed (owner, 2026-10-06) except T11 web collection, which follows the capture fix.
 7. **CRMS go-live gate G3** (`plans/onboard-crms-plan.md` §4.4): real admin numbers, live confirmation timeout, payment service has CRMS live Stripe details.
 8. **Monitoring** (M1–M9; the price monitor is always on after R3.1, check its alert destination), **log privacy** (T28), **Lighthouse** ≥ 90, **business/legal details**.
 
@@ -1264,6 +1272,7 @@ remain pending. See [verification notes](../docs/releases/ordelo-agg-r1b-2026-10
   - Behaviour change to note: when a restaurant app rejects a notification, the notifier records it as failed (no retry) instead of raising. The admin "takeaway ready" button therefore always answers "Customer notification request sent." (already the case for ELAS/BNAT under the R1b pilot).
   - SQL: `ordelo-agg-db-switch.sql` rewritten (whole file only reads); skill `test-enable.sql`/`production-restore.sql` no longer set rollout rows and keep the test list to BNAT; CRMS `02`–`99` drop the allowlist and delivery pause, and pauses are now upserts (an `UPDATE` would do nothing once the row is absent).
   - Tests: TDD at the seven agreed seams; new `inline_notifier` fixture in `tests/conftest.py`.
+- **Owner test (2026-10-06):** web order status page updates, web delivery end to end with payment captured, and the existing WhatsApp flow all work. Web collection waits for the payment-service capture fix.
 
 ### R4: WhatsApp hand-off (ordelo_agg)
 
@@ -1301,8 +1310,8 @@ Unit and integration tests use pytest + pytest-asyncio (Ordelo, restaurant-agent
 | T7 | Event without an `id` (the `/paid3100` shape) | both | both | Accepted once; de-duplicated per order (`authorised:<order_id>`) | R1 |
 | T8 | Notifier target down | WA | delivery | Outbox retries; order still dispatches and captures | R1 |
 | T9 | Init failure after authorisation | both | delivery | Reconciler inits within 2 min; alert | R1 |
-| T10 | Web happy path | web | delivery | Order page stages; rider told no number is on file; restaurant admin flow unchanged; no restaurant-app call | R3 |
-| T11 | Web happy path | web | collection | "Waiting for restaurant" → pickup time → updated time → ready | R3 |
+| T10 | Web happy path | web | delivery | Order page stages; rider told no number is on file; restaurant admin flow unchanged; no restaurant-app call | R3 ✅ owner test on R3.1, 2026-10-06 (order page stages, delivery, payment captured) |
+| T11 | Web happy path | web | collection | "Waiting for restaurant" → pickup time → updated time → ready | R3 — open: needs the payment-service capture fix |
 | T12 | Postcode out of range / pricing down | web | delivery | `out_of_range` vs `unavailable` distinct messages | R3 |
 | T13 | Address changed after estimate | web | delivery | Fee change highlighted; explicit confirm; new order | R3 |
 | T14 | Mode switched in basket | web | both | Discount re-applied from config; old order dropped | R3 |
@@ -1313,15 +1322,15 @@ Unit and integration tests use pytest + pytest-asyncio (Ordelo, restaurant-agent
 | T19 | Checkout expired / cancelled | web | both | Order stays `requires_payment`; page "Payment not completed"; basket resumable | R3 |
 | T20 | Restaurant closed / cutoff / paused | web | both | 422 with next-open; UI blocks checkout | R3 |
 | T21 | Below minimum (server) | web | delivery | 422 `below_minimum` | R3 |
-| T22 | Takeaway decline | web | collection | Auth cancelled; `restaurant_declined` + `payment_released` on page; no WA send to W-id | R3 |
-| T23 | No rider found | web | delivery | `no_rider_found`; released; page wording | R3 |
+| T22 | Takeaway decline | web | collection | Auth cancelled; `restaurant_declined` + `payment_released` on page; no WA send to W-id | R3 ✅ owner test on R3.1, 2026-10-06 |
+| T23 | No rider found | web | delivery | `no_rider_found`; released; page wording | R3 ✅ owner test on R3.1, 2026-10-06 |
 | T24 | Order number only, no token | web | — | 401/lookup form; no PII | R3 |
 | T25 | Lookup wrong second factor ×6 (only if Q14 keeps a fallback) | web | — | Uniform 404 then rate-limited | R3 |
 | T26 | Token for order A used on order B | web | — | 403 | R3 |
 | T27 | Status-only view | web | — | No address/code/items/charges | R3 |
 | T28 | Logs/analytics contain no phone/token/postcode | web | — | Grep of Amplify + Ordelo logs clean | R3 |
 | T29 | `job_close_thread` ignores WEB threads | — | — | No WA send to NULL recipient | R3 |
-| T30 | Kill switch on with orders in flight | web | both | New checkout 503; in-flight complete; pages work | R3 |
+| T30 | Kill switch on with orders in flight | web | both | New checkout 503; in-flight complete; pages work | R3 ✅ owner test on R3.1, 2026-10-06 |
 | T31 | Hand-off with a valid code | web→WA | both | Detail level per Q15; catch-up summary | R4 |
 | T32 | Hand-off code used by someone else (forwarded) | web→WA | both | Detail level per Q15 | R4 |
 | T33 | Code reused / expired / forwarded unused | web→WA | — | 410 / 410 / binds forwardee at the Q15 level | R4 |
@@ -1330,10 +1339,10 @@ Unit and integration tests use pytest + pytest-asyncio (Ordelo, restaurant-agent
 | T36 | Agent down during events | web→WA | — | Outbox retry; page unaffected | R4 |
 | T37 | STOP | web→WA | — | Subscriptions deactivated | R4 |
 | T38 | Web order is still `origin_channel='web'` after hand-off | — | — | Immutable trigger holds | R4 |
-| T39 | Web payment after the late-payment cut-off (Q17) | web | both | No init; authorisation cancelled (retried until the payment service has stored it); page shows payment released | R3 |
-| T40 | Rider asks for the customer's contact on a web order | web | delivery | "No number on file" reply; no contact card carrying the W-id | R3 |
+| T39 | Web payment after the late-payment cut-off (Q17) | web | both | No init; authorisation cancelled (retried until the payment service has stored it); page shows payment released | R3 ✅ owner test on R3.1, 2026-10-06 |
+| T40 | Rider asks for the customer's contact on a web order | web | delivery | "No number on file" reply; no contact card carrying the W-id | R3 ✅ owner test on R3.1, 2026-10-06 |
 | T41 | Web create-order for a `rest_ref` the payment service doesn't know | web | both | 422; the payment service is never called (F13) | R3 |
-| T42 | Web payment-complete never calls a restaurant app | web | both | No request to `order-payment-complete/{recipient}/{thread_id}` (D27) | R3 |
+| T42 | Web payment-complete never calls a restaurant app | web | both | No request to `order-payment-complete/{recipient}/{thread_id}` (D27) | R3 ✅ owner test on R3.1, 2026-10-06 |
 
 ---
 

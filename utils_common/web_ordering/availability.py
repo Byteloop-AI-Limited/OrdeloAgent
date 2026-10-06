@@ -9,6 +9,7 @@ import math
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 import requests
+from loguru import logger
 from config.feature_flags import flag_enabled
 from utils_common.order_management.order_service import _call_pricing_service
 from .common import RESTAURANTS, WebError, one, utcnow
@@ -114,6 +115,15 @@ async def geocode(address, *, expected_postcode=None):
         body = response.json()
     except (requests.RequestException, ValueError):
         raise WebError("address_lookup_unavailable", 503) from None
+    # [DEBUG-addr] temporary: Google verdict without the API key
+    logger.info(
+        "[DEBUG-addr] google status={} error_message={!r} n_results={} partial_match={} formatted={!r}",
+        body.get("status"),
+        body.get("error_message"),
+        len(body.get("results") or []),
+        (body.get("results") or [{}])[0].get("partial_match"),
+        (body.get("results") or [{}])[0].get("formatted_address"),
+    )
     if body.get("status") == "ZERO_RESULTS":
         raise WebError("invalid_address")
     if body.get("status") != "OK" or not body.get("results"):
@@ -130,10 +140,26 @@ async def geocode(address, *, expected_postcode=None):
             ),
             "",
         )
-        if resolved.upper().replace(" ", "") != expected_postcode.upper().replace(
-            " ", ""
-        ):
+        typed, found = (
+            "".join(code.upper().split()) for code in (expected_postcode, resolved)
+        )
+        # Google often resolves a street number to a neighbouring unit postcode
+        # (e.g. SP1 3TA typed, SP1 3UE found). Compare the postcode sector
+        # (outward code + first inward digit), which still catches wrong-town
+        # addresses and keeps the geocoded point close enough for fee quoting.
+        if len(typed) < 5 or len(found) < 5 or typed[:-2] != found[:-2]:
+            logger.warning(
+                "[DEBUG-addr] postcode sector mismatch resolved={!r} expected={!r}",
+                resolved,
+                expected_postcode,
+            )
             raise WebError("invalid_address")
+        if typed != found:
+            logger.info(
+                "[DEBUG-addr] postcode differs within sector, accepted resolved={!r} expected={!r}",
+                resolved,
+                expected_postcode,
+            )
     return result["geometry"]["location"]
 
 

@@ -546,6 +546,7 @@ async def delivery_inflight_graph_init_hook(
     rider_master = payload.get("rider_master")
 
     # 1. Capture Stripe Payment - This also issues print job
+    logger.info("step1: capture stripe delivery payment")
     background_tasks.add_task(
         capture_delivery_payment, delivery_summary.order_number, rest_confirmation_code
     )

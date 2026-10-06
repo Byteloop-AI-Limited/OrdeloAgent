@@ -33,6 +33,9 @@ Ask me to "show the P7 TODO list" or "load the P7 checkpoint memory"
 Reference the checkpoint by memory ID or tag when resuming
 Current status: 5 of 7 tasks completed. One test failing (test_send_product_sections in test_p7_wa_senders.py).
 
+## features
+1. Stripe MCP
+2. WA mcp
 
 
 ## Get the latest checkpoint for a thread

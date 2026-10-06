@@ -11,6 +11,7 @@ import json
 from decimal import Decimal
 from datetime import timedelta
 from pydantic import BaseModel, Field, ConfigDict, field_validator
+from loguru import logger
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from config.pg_setting import pg_settings
@@ -114,18 +115,24 @@ async def address(thread_id, cust_id, value):
         "postcode": 10,
         "instructions": 200,
     }
-    if any(
-        key not in allowed
+    # [DEBUG-addr] temporary diagnostics for /web/address 422s; remove with: grep -rn "DEBUG-addr"
+    logger.info("[DEBUG-addr] received keys={} value={}", sorted(value), value)
+    bad = [
+        key
+        for key, text in value.items()
+        if key not in allowed
         or not isinstance(text, (str, type(None)))
         or (text is not None and len(text) > allowed[key])
-        for key, text in value.items()
-    ):
+    ]
+    if bad:
+        logger.warning("[DEBUG-addr] rejected: unknown/oversized/non-string fields={}", bad)
         raise WebError("invalid_address")
     value = {key: text.strip() for key, text in value.items() if isinstance(text, str)}
     import re
 
     postcode = value.get("postcode", "").upper().replace(" ", "")
     if not re.fullmatch(r"[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}", postcode):
+        logger.warning("[DEBUG-addr] rejected: postcode regex failed normalised={!r}", postcode)
         raise WebError("invalid_address")
     value["postcode"] = postcode[:-3] + " " + postcode[-3:]
     display = ", ".join(
@@ -147,8 +154,24 @@ async def address(thread_id, cust_id, value):
         or not value.get("postcode")
         or not any(value.get(k) for k in ("flat", "building", "house_number"))
     ):
+        logger.warning(
+            "[DEBUG-addr] rejected: missing required parts present={}",
+            {k: bool(value.get(k)) for k in ("flat", "building", "house_number", "street", "town", "postcode")},
+        )
         raise WebError("invalid_address")
-    location = await availability.geocode(display, expected_postcode=value["postcode"])
+    logger.info(
+        "[DEBUG-addr] geocoding display={!r} expected_postcode={!r}", display, value["postcode"]
+    )
+    try:
+        location = await availability.geocode(
+            display, expected_postcode=value["postcode"]
+        )
+    except WebError as exc:
+        logger.warning(
+            "[DEBUG-addr] geocode rejected status={} body={}", exc.status, exc.body
+        )
+        raise
+    logger.info("[DEBUG-addr] geocode ok location={}", location)
     snapshot = {
         **value,
         "latitude": location["lat"],

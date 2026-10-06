@@ -410,7 +410,7 @@ INSERT INTO ordelo_config (config_key, config_value, description)
 VALUES
   ('CUSTOMER_NOTIFIER_ENABLED', 'true',
    'Enable R1b customer notifier'),
-  ('CUSTOMER_NOTIFIER_REST_REFS', 'ELAS',
+  ('CUSTOMER_NOTIFIER_REST_REFS', 'CRMS',
    'Restaurants included in the notifier pilot')
 ON CONFLICT (config_key) DO NOTHING;
 
