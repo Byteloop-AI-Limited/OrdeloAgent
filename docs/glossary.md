@@ -1,5 +1,7 @@
 # Ordelo glossary
 
+Canonical domain terms are in [GLOSSARY.md](../GLOSSARY.md). This older reference preserves payment/receipt implementation terminology; alerts and notification outcome meanings are documented in [alerts-and-notifications.md](alerts-and-notifications.md).
+
 | Term | Meaning |
 |---|---|
 | Takeaway | Ordelo's internal `food_order.action` value for a collection order. |
