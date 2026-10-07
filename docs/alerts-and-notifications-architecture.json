@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Ordelo alerts: customers and operations",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1160,
+      590
+    ]
+  },
+  "components": [
+    {
+      "id": "facts",
+      "type": "backend",
+      "label": "Order lifecycle hooks",
+      "sublabel": "Payment, rider, kitchen, location",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        260,
+        80
+      ]
+    },
+    {
+      "id": "notifier",
+      "type": "backend",
+      "label": "Customer notifier",
+      "sublabel": "Record and route customer events",
+      "pos": [
+        440,
+        40
+      ],
+      "size": [
+        280,
+        80
+      ]
+    },
+    {
+      "id": "events",
+      "type": "database",
+      "label": "Events and outbox",
+      "sublabel": "Facts, subscriptions, attempts",
+      "pos": [
+        840,
+        40
+      ],
+      "size": [
+        280,
+        80
+      ]
+    },
+    {
+      "id": "wa",
+      "type": "backend",
+      "label": "Restaurant app",
+      "sublabel": "Callback then customer WhatsApp",
+      "pos": [
+        440,
+        260
+      ],
+      "size": [
+        280,
+        80
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Private order status page",
+      "sublabel": "Next.js proxy and browser polling",
+      "pos": [
+        840,
+        260
+      ],
+      "size": [
+        280,
+        80
+      ]
+    },
+    {
+      "id": "schedule",
+      "type": "database",
+      "label": "Rider timing scheduler",
+      "sublabel": "Phase, audience, offset ledger",
+      "pos": [
+        40,
+        460
+      ],
+      "size": [
+        260,
+        80
+      ]
+    },
+    {
+      "id": "audiences",
+      "type": "external",
+      "label": "Rider / admins / overwatch",
+      "sublabel": "Graph tools or direct WhatsApp",
+      "pos": [
+        440,
+        460
+      ],
+      "size": [
+        280,
+        80
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "produce",
+      "from": "facts",
+      "to": "notifier",
+      "label": "customer event"
+    },
+    {
+      "id": "record",
+      "from": "notifier",
+      "to": "events",
+      "label": "atomic write"
+    },
+    {
+      "id": "callback",
+      "from": "notifier",
+      "to": "wa",
+      "label": "WA-order callback",
+      "labelDy": 74
+    },
+    {
+      "id": "read",
+      "from": "events",
+      "to": "web",
+      "label": "private projection",
+      "labelDy": 74
+    },
+    {
+      "id": "alert",
+      "from": "schedule",
+      "to": "audiences",
+      "label": "due checkpoint"
+    }
+  ]
+}

@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Ordelo web ordering: shared fulfilment",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1160,
+      570
+    ]
+  },
+  "components": [
+    {
+      "id": "guest",
+      "type": "frontend",
+      "label": "Guest browser",
+      "sublabel": "Checkout and private order page",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        260,
+        80
+      ]
+    },
+    {
+      "id": "proxy",
+      "type": "backend",
+      "label": "restaurant-frontend",
+      "sublabel": "Cookies and /api/web/* proxies",
+      "pos": [
+        440,
+        40
+      ],
+      "size": [
+        280,
+        80
+      ]
+    },
+    {
+      "id": "web",
+      "type": "backend",
+      "label": "Ordelo /web/*",
+      "sublabel": "Session, address, order, access",
+      "pos": [
+        440,
+        240
+      ],
+      "size": [
+        280,
+        80
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "Postgres",
+      "sublabel": "Orders, events, grants, requests",
+      "pos": [
+        40,
+        240
+      ],
+      "size": [
+        260,
+        80
+      ]
+    },
+    {
+      "id": "payment",
+      "type": "external",
+      "label": "Stripe / payment-service",
+      "sublabel": "Callback ingress / hosted payment",
+      "pos": [
+        840,
+        240
+      ],
+      "size": [
+        280,
+        80
+      ]
+    },
+    {
+      "id": "hooks",
+      "type": "backend",
+      "label": "Shared lifecycle hooks",
+      "sublabel": "Authorisation and fulfilment",
+      "pos": [
+        440,
+        460
+      ],
+      "size": [
+        280,
+        80
+      ]
+    },
+    {
+      "id": "staff",
+      "type": "external",
+      "label": "Admins and riders",
+      "sublabel": "Existing WhatsApp workflows",
+      "pos": [
+        840,
+        460
+      ],
+      "size": [
+        280,
+        80
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "browse",
+      "from": "guest",
+      "to": "proxy",
+      "label": "HTTPS"
+    },
+    {
+      "id": "secret",
+      "from": "proxy",
+      "to": "web",
+      "label": "server secret",
+      "labelDy": 74
+    },
+    {
+      "id": "persist",
+      "from": "web",
+      "to": "postgres",
+      "label": "SQL transactions"
+    },
+    {
+      "id": "pay",
+      "from": "web",
+      "to": "payment",
+      "label": "payment URL"
+    },
+    {
+      "id": "callbacks",
+      "from": "payment",
+      "to": "hooks",
+      "label": "Stripe callback"
+    },
+    {
+      "id": "transitions",
+      "from": "hooks",
+      "to": "postgres",
+      "label": "state and events"
+    },
+    {
+      "id": "operations",
+      "from": "hooks",
+      "to": "staff",
+      "label": "dispatch and pickup",
+      "labelDy": 30
+    }
+  ]
+}

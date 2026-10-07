@@ -1,5 +1,9 @@
 # Ordelo × Restaurant Frontend — integration reference (LLM/agent edition)
 
+> **Alerts and notifications:** see [the end-to-end guide](alerts-and-notifications.md) and [interactive companion](alerts-and-notifications.html) for recipient routing, retry outcomes and frontend polling.
+
+> **Web ordering implementation:** see the [interactive playground](web-ordering-playground.html) and [matching agent context](web-ordering-playground.md) for checkout identity, tables, payment/fulfilment flows and differences from the separate proposal.
+
 Machine-friendly rendering of `ordelo-restaurant-frontend-co.html` (the Integration Playground). Same facts, no UI. Evidence snapshot: 2026-09-29; Ordelo commit `7697e15`; restaurant-frontend commit `a75312e`. Scope: Read-only code inspection; live services, deployed configuration and external payment internals were not exercised.
 
 ## How to use this document
