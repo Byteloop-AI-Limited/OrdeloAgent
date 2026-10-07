@@ -24,7 +24,17 @@ from utils_common.payment_ms.payment import (
 )
 from utils_common.payment_ms.payment_mode import resolve_payment_mode
 from . import availability, order_access
-from .common import MAX_ORDER_LINES, RESTAURANTS, WebError, one, query, utcnow, iso
+from .common import (
+    MAX_ORDER_LINES,
+    RESTAURANTS,
+    WebError,
+    iso,
+    normalise_postcode,
+    one,
+    postcode_sector,
+    query,
+    utcnow,
+)
 
 
 class Item(BaseModel):
@@ -74,23 +84,31 @@ class OrderInput(BaseModel):
         return values
 
 
-async def start(rest_ref, mode, town_slug, visitor_id, district=None):
+async def start(rest_ref, mode, town_slug, visitor_id, district=None, postcode=None):
     """Create a two-hour WEB checkout session for a restaurant, mode and town.
 
     Recheck availability and town mapping, create a thread through create_thread,
     then persist web_session_meta with a synthetic checkout customer key.
     Return thread_id, cust_id and expiry. The thread and metadata writes are
     separate transactions; no rider or customer agent is started.
+
+    A delivery session also stores the full approved postcode (ADR 0008): the
+    backend's authority for the postcode-sector gate in address(). It must sit
+    in the stated district (postcode_mismatch). A missing or malformed postcode
+    is stored as NULL, which makes address() fail closed; collection stores NULL.
     """
     await availability.available(rest_ref, mode)
     if town_slug != RESTAURANTS[rest_ref]["town"]:
         raise WebError("unknown_town")
+    postcode = normalise_postcode(postcode) if mode == "delivery" else None
+    if postcode and district and postcode.split()[0] != district.upper().replace(" ", ""):
+        raise WebError("postcode_mismatch")
     thread = await one("SELECT * FROM public.create_thread(%s,%s)", ("WEB", None))
     cust_id = new_web_customer_key()
     expiry = utcnow() + timedelta(hours=2)
     await query(
-        """INSERT INTO web_session_meta(thread_id,visitor_id,cust_id,rest_ref,mode,town_slug,postcode_district,expires_at)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+        """INSERT INTO web_session_meta(thread_id,visitor_id,cust_id,rest_ref,mode,town_slug,postcode_district,postcode,expires_at)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
         (
             thread["thread_id"],
             visitor_id,
@@ -99,6 +117,7 @@ async def start(rest_ref, mode, town_slug, visitor_id, district=None):
             mode,
             town_slug,
             district,
+            postcode,
             expiry,
         ),
     )
@@ -123,15 +142,26 @@ async def session(thread_id, cust_id):
     return row
 
 
-async def address(thread_id, cust_id, value):
-    """Validate, geocode and save a delivery address on the checkout session.
+def address_display(value):
+    """Join the customer's address parts into one line, skipping empty parts."""
+    keys = ("flat", "building", "house_number", "street", "town", "postcode")
+    return ", ".join(filter(None, (value.get(key) for key in keys)))
 
-    Enforce field bounds, premises/street/town/postcode requirements and a UK
-    postcode shape. Persist normalized text and server coordinates as JSONB.
-    Return an ok response; invalid or expired input raises WebError. An order
-    later copies this editable draft into its own immutable request snapshot.
+
+async def address(thread_id, cust_id, value):
+    """Validate and save a delivery address on the checkout session (ADR 0008).
+
+    Enforce field bounds and street/town; a house number or name is optional
+    because some roads have none. For delivery the backend's stored postcode
+    (web_session_meta.postcode, set at checkout start) is the authority: the
+    request postcode is only compared, a different sector is postcode_mismatch,
+    and a session with no stored postcode fails closed (409
+    checkout_restart_required). The address text is never rejected by Google: the snapshot
+    keeps the customer's text, the locked postcode's centroid for pricing and
+    a best-effort rider pin with its precision. An order later copies this
+    editable draft into its own immutable request snapshot.
     """
-    await session(thread_id, cust_id)
+    meta = await session(thread_id, cust_id)
     allowed = {
         "flat": 40,
         "building": 60,
@@ -141,8 +171,6 @@ async def address(thread_id, cust_id, value):
         "postcode": 10,
         "instructions": 200,
     }
-    # [DEBUG-addr] temporary diagnostics for /web/address 422s; remove with: grep -rn "DEBUG-addr"
-    logger.info("[DEBUG-addr] received keys={} value={}", sorted(value), value)
     bad = [
         key
         for key, text in value.items()
@@ -151,57 +179,51 @@ async def address(thread_id, cust_id, value):
         or (text is not None and len(text) > allowed[key])
     ]
     if bad:
-        logger.warning("[DEBUG-addr] rejected: unknown/oversized/non-string fields={}", bad)
+        logger.warning("[web-addr] rejected: unknown/oversized/non-string fields={}", bad)
         raise WebError("invalid_address")
     value = {key: text.strip() for key, text in value.items() if isinstance(text, str)}
-    import re
-
-    postcode = value.get("postcode", "").upper().replace(" ", "")
-    if not re.fullmatch(r"[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}", postcode):
-        logger.warning("[DEBUG-addr] rejected: postcode regex failed normalised={!r}", postcode)
+    sent = normalise_postcode(value.get("postcode"))
+    if value.get("postcode") and not sent:
         raise WebError("invalid_address")
-    value["postcode"] = postcode[:-3] + " " + postcode[-3:]
-    display = ", ".join(
-        filter(
-            None,
-            [
-                value.get("flat"),
-                value.get("building"),
-                value.get("house_number"),
-                value.get("street"),
-                value.get("town"),
-                value.get("postcode"),
-            ],
-        )
-    )
-    if (
-        not value.get("street")
-        or not value.get("town")
-        or not value.get("postcode")
-        or not any(value.get(k) for k in ("flat", "building", "house_number"))
-    ):
-        logger.warning(
-            "[DEBUG-addr] rejected: missing required parts present={}",
-            {k: bool(value.get(k)) for k in ("flat", "building", "house_number", "street", "town", "postcode")},
-        )
+    if meta.get("mode") == "delivery":
+        stored = meta.get("postcode")
+        if not stored:
+            # Sessions started before ADR 0008 (or by an older frontend) cannot
+            # prove their sector: send the customer back to the postcode step.
+            raise WebError("checkout_restart_required", 409)
+        if sent and postcode_sector(sent) != postcode_sector(stored):
+            logger.warning(
+                "[web-addr] rejected: sector {!r} differs from checkout sector {!r}",
+                postcode_sector(sent),
+                postcode_sector(stored),
+            )
+            raise WebError("postcode_mismatch")
+        value["postcode"] = stored
+    else:
+        if not sent:
+            raise WebError("invalid_address")
+        value["postcode"] = sent
+    if not value.get("street") or not value.get("town"):
         raise WebError("invalid_address")
-    logger.info(
-        "[DEBUG-addr] geocoding display={!r} expected_postcode={!r}", display, value["postcode"]
+    display = address_display(value)
+    located = await availability.locate(
+        display,
+        value["postcode"],
+        street_address=address_display(
+            {key: value.get(key) for key in ("street", "town", "postcode")}
+        ),
     )
-    try:
-        location = await availability.geocode(
-            display, expected_postcode=value["postcode"]
-        )
-    except WebError as exc:
-        logger.warning(
-            "[DEBUG-addr] geocode rejected status={} body={}", exc.status, exc.body
-        )
-        raise
-    logger.info("[DEBUG-addr] geocode ok location={}", location)
+    logger.info("[web-addr] saved address pin_precision={}", located["precision"])
     snapshot = {
         **value,
-        "latitude": location["lat"],
-        "longitude": location["lng"],
+        # The rider pin: customer_master.lat/lon for navigation (and the
+        # shared fee calculation, bounded to the postcode sector).
+        "latitude": located["pin"]["lat"],
+        "longitude": located["pin"]["lng"],
+        # The locked postcode's centroid: prices the minimum order.
+        "postcode_latitude": located["centroid"]["lat"],
+        "postcode_longitude": located["centroid"]["lng"],
+        "pin_precision": located["precision"],
         "display": display,
     }
     await query(
@@ -209,6 +231,28 @@ async def address(thread_id, cust_id, value):
         (Jsonb(snapshot), thread_id, cust_id),
     )
     return {"ok": True}
+
+
+def pricing_location(addr):
+    """Coordinates that price the minimum order: the locked postcode's centroid.
+
+    Snapshots saved before ADR 0008 only have the geocoded address point.
+    """
+    return {
+        "lat": addr.get("postcode_latitude", addr["latitude"]),
+        "lng": addr.get("postcode_longitude", addr["longitude"]),
+    }
+
+
+_PIN_NOTES = {
+    "street": "Address not verified: map pin is on the street, not the door. Use the address text.",
+    "postcode": "Address not verified: map pin is the postcode centre. Use the address text.",
+}
+
+
+def pin_note(addr):
+    """Order note telling the restaurant and rider the map pin is approximate."""
+    return _PIN_NOTES.get((addr or {}).get("pin_precision"))
 
 
 def fingerprint(req, address_snapshot):
@@ -258,9 +302,7 @@ async def create(req, key):
         raise WebError("invalid_request")
     minimum = 0
     if addr:
-        option = await availability.pricing(
-            row, {"lat": addr["latitude"], "lng": addr["longitude"]}
-        )
+        option = await availability.pricing(row, pricing_location(addr))
         minimum = option["minimum_order_value"]
         if total < Decimal(str(minimum)):
             raise WebError("below_minimum", min_order_value=minimum)
@@ -338,6 +380,7 @@ async def create(req, key):
                                 f"Delivery instructions: {instructions}"
                                 if instructions
                                 else None,
+                                pin_note(addr),
                             ],
                         )
                     )

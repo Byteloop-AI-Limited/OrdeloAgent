@@ -34,6 +34,7 @@ LangGraph agent implementation for rider delivery workflow
 
 # %%
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Annotated, Any, Sequence
 from uuid import uuid4
@@ -423,6 +424,36 @@ async def send_pickup_location(
 
 
 # %%
+_PIN_WARNINGS = {
+    "street": "⚠️ Map pin is on the street, not the door. Follow the address.",
+    "postcode": "⚠️ Map pin is the postcode centre only. Follow the address.",
+}
+
+
+async def _web_pin_warning(client, order_number) -> str | None:
+    """Return a rider warning when a web order's drop-off pin is approximate.
+
+    Reads pin_precision from the order's immutable web_order_request snapshot
+    (ADR 0008). WhatsApp orders have no such row, and a lookup failure never
+    blocks the drop-off: both return None.
+    """
+    try:
+        rows = await asyncio.to_thread(
+            lambda: client.table("web_order_request")
+            .select("address")
+            .eq("order_number", order_number)
+            .limit(1)
+            .execute()
+            .data
+        )
+    except Exception:
+        logger.exception("pin precision lookup failed for {}", order_number)
+        return None
+    precision = ((rows or [{}])[0].get("address") or {}).get("pin_precision")
+    return _PIN_WARNINGS.get(precision)
+
+
+# %%
 async def send_dropoff_location(
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
@@ -456,6 +487,7 @@ async def send_dropoff_location(
         .execute()
         .data[0]
     )
+    warning = await _web_pin_warning(ctx.client_ordelo, order_number)
     await ctx.wa_client.send_location(
         to=recipient,
         latitude=summary["customer_lat"],
@@ -466,7 +498,9 @@ async def send_dropoff_location(
     )
     await ctx.wa_client.send_message(
         to=recipient,
-        text="Dropoff:\n" + summary["customer_address"],
+        text="Dropoff:\n"
+        + summary["customer_address"]
+        + (f"\n\n{warning}" if warning else ""),
         reply_to_message_id=reply_to_msg_id,
     )
     return Command(

@@ -472,7 +472,7 @@ CREATE TABLE IF NOT EXISTS public.web_session_meta (
   rest_ref      VARCHAR(4) NOT NULL,
   mode          TEXT NOT NULL CHECK (mode IN ('delivery','takeaway')),
   town_slug     TEXT NULL,
-  postcode_district TEXT NULL,          -- outward code only (e.g. 'SP1'), not the full postcode
+  postcode_district TEXT NULL,          -- outward code only (e.g. 'SP1'), not the full postcode  [superseded 2026-10-07: web_session_meta.postcode now holds the full delivery postcode, ADR 0008]
   utm           JSONB NOT NULL DEFAULT '{}'::jsonb,
   referrer_host TEXT NULL,
   device_class  TEXT NULL,              -- 'mobile'|'desktop'|'tablet' (derived, no raw UA)
@@ -1063,7 +1063,7 @@ Rationale: the existing admin portal already polls (30 s, visible tab only [V], 
 - **The order number alone grants nothing.** Because order numbers are guessable (daily global sequence + 4 letters), every order-view request needs a token or a lookup session.
 - **Customer vs admin permissions:** separate routes, cookies and data scopes. Shared UI components receive already-redacted view models.
 - **Keep secrets and PII out of URLs, analytics and logs:**
-  - No phone, postcode, address or token in URLs (postcode goes in a cookie; only `postcode_district` is stored in meta).
+  - No phone, postcode, address or token in URLs (postcode goes in a cookie; only `postcode_district` is stored in meta). *Update 2026-10-07 (ADR 0008): meta also stores the full delivery postcode as the backend's sector authority; `web_order_request.address` and `customer_master.postcode` already held it per order, and `web_session_meta` is service-role only.*
   - Redact `middleware.ts` and `/api/menu` query logging (F9).
   - Analytics events carry `rest_ref`, `mode`, `town` and hashed ids only.
   - `Referrer-Policy: strict-origin-when-cross-origin` globally and `no-referrer` on `/o/*`.

@@ -63,6 +63,7 @@ class Session(BaseModel):
     town_slug: str = Field(max_length=80)
     visitor_id: str = Field(min_length=1, max_length=80)
     postcode_district: str | None = Field(default=None, max_length=5)
+    postcode: str | None = Field(default=None, max_length=10)
 
 
 @router.post("/checkout-sessions", status_code=201)
@@ -85,6 +86,7 @@ async def start(body: Session, request: Request):
             body.town_slug,
             body.visitor_id,
             body.postcode_district,
+            postcode=body.postcode,
         ),
         201,
         headers=PRIVATE,

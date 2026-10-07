@@ -12,7 +12,7 @@ import requests
 from loguru import logger
 from config.feature_flags import flag_enabled
 from utils_common.order_management.order_service import _call_pricing_service
-from .common import RESTAURANTS, WebError, one, utcnow
+from .common import RESTAURANTS, WebError, one, postcode_sector, utcnow
 
 UK = ZoneInfo("Europe/London")
 DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
@@ -118,16 +118,13 @@ async def available(rest_ref, mode, *, new_order=True):
     return row
 
 
-async def geocode(address, *, expected_postcode=None):
-    """Resolve a UK address to Google's lat/lng without trusting browser coordinates.
+async def _google(address):
+    """Return Google's first geocode result for a UK address text.
 
-    Run blocking HTTP in a worker with a 12-second timeout. Reject empty or
-    partial matches and, when supplied, a different postcode sector; a unit
-    postcode difference within that sector is allowed. Raise WebError for
-    invalid addresses or provider failures.
+    Run blocking HTTP in a worker with a 12-second timeout. Raise WebError
+    invalid_address for ZERO_RESULTS and address_lookup_unavailable (503) for
+    provider failures. Coordinates never come from the browser.
     """
-    # Send the complete manually entered address, not a postcode centroid, for
-    # the binding delivery quote. Coordinates never come from the browser.
     from utils_common.maps_service.address_resolver import API_KEY
 
     # requests does not emit httpx's INFO log containing address/key query values.
@@ -142,52 +139,101 @@ async def geocode(address, *, expected_postcode=None):
         body = response.json()
     except (requests.RequestException, ValueError):
         raise WebError("address_lookup_unavailable", 503) from None
-    # [DEBUG-addr] temporary: Google verdict without the API key
-    logger.info(
-        "[DEBUG-addr] google status={} error_message={!r} n_results={} partial_match={} formatted={!r}",
-        body.get("status"),
-        body.get("error_message"),
-        len(body.get("results") or []),
-        (body.get("results") or [{}])[0].get("partial_match"),
-        (body.get("results") or [{}])[0].get("formatted_address"),
-    )
     if body.get("status") == "ZERO_RESULTS":
         raise WebError("invalid_address")
     if body.get("status") != "OK" or not body.get("results"):
+        logger.warning("[web-addr] google status={}", body.get("status"))
         raise WebError("address_lookup_unavailable", 503)
-    result = body["results"][0]
+    return body["results"][0]
+
+
+def _resolved_postcode(result):
+    """Return the postal_code Google resolved, or an empty string."""
+    return next(
+        (
+            part["long_name"]
+            for part in result.get("address_components", [])
+            if "postal_code" in part.get("types", [])
+        ),
+        "",
+    )
+
+
+def _same_sector(expected_postcode, result):
+    """True when Google's resolved postcode is in the expected postcode sector.
+
+    Google often resolves a street number to a neighbouring unit postcode
+    (e.g. SP1 3TA typed, SP1 3UE found). The sector (outward code + first
+    inward digit) still catches wrong-town results and keeps the point close.
+    """
+    expected, found = postcode_sector(expected_postcode), postcode_sector(_resolved_postcode(result))
+    return bool(expected) and expected == found
+
+
+async def geocode(address, *, expected_postcode=None):
+    """Resolve a UK address or postcode to Google's lat/lng, strictly.
+
+    Reject empty or partial matches and, when supplied, a different postcode
+    sector; a unit postcode difference within that sector is allowed. Raise
+    WebError for invalid addresses or provider failures. Eligibility uses this
+    for the postcode; checkout addresses use locate(), which never rejects.
+    """
+    result = await _google(address)
     if result.get("partial_match"):
         raise WebError("invalid_address")
-    if expected_postcode:
-        resolved = next(
-            (
-                part["long_name"]
-                for part in result.get("address_components", [])
-                if "postal_code" in part.get("types", [])
-            ),
-            "",
-        )
-        typed, found = (
-            "".join(code.upper().split()) for code in (expected_postcode, resolved)
-        )
-        # Google often resolves a street number to a neighbouring unit postcode
-        # (e.g. SP1 3TA typed, SP1 3UE found). Compare the postcode sector
-        # (outward code + first inward digit), which still catches wrong-town
-        # addresses and keeps the geocoded point close enough for fee quoting.
-        if len(typed) < 5 or len(found) < 5 or typed[:-2] != found[:-2]:
-            logger.warning(
-                "[DEBUG-addr] postcode sector mismatch resolved={!r} expected={!r}",
-                resolved,
-                expected_postcode,
-            )
-            raise WebError("invalid_address")
-        if typed != found:
-            logger.info(
-                "[DEBUG-addr] postcode differs within sector, accepted resolved={!r} expected={!r}",
-                resolved,
-                expected_postcode,
-            )
+    if expected_postcode and not _same_sector(expected_postcode, result):
+        raise WebError("invalid_address")
     return result["geometry"]["location"]
+
+
+_EXACT_TYPES = {"street_address", "premise", "subpremise"}
+
+
+def _usable_pin(result, postcode):
+    """Return (location, precision) for a Google result usable as a rider pin, else None.
+
+    Usable means inside the postcode sector and at least road-level. "exact" is a
+    door-level, non-partial match; a road-level or partial match is "street".
+    """
+    types = set(result.get("types") or [])
+    if not _same_sector(postcode, result) or not types & (_EXACT_TYPES | {"route"}):
+        return None
+    exact = types & _EXACT_TYPES and not result.get("partial_match")
+    return result["geometry"]["location"], "exact" if exact else "street"
+
+
+async def locate(address, postcode, *, street_address=None):
+    """Return the locked postcode's centroid and a best-effort rider pin (ADR 0008).
+
+    The centroid comes from the postcode alone, as eligibility quoted it, and
+    prices the minimum order. The pin is Google's result for the full address
+    when it lands inside the postcode sector ("exact" door-level, "street"
+    road-level or partial). If that is unusable (no result, another sector, too
+    coarse) retry once with street_address, the same address without premises,
+    which can only be "street". Anything still unusable, or a provider error,
+    uses the centroid with precision "postcode". The pin never leaves the
+    sector. Only a postcode Google can't resolve raises WebError.
+    """
+    centroid = await geocode(postcode)
+    for text, street_only in ((address, False), (street_address, True)):
+        if not text or (street_only and text == address):
+            continue  # no premises were given, so the first call was already street-only
+        try:
+            result = await _google(text)
+        except WebError as exc:
+            if exc.status >= 500:
+                break  # provider failure: a second call would likely fail too
+            continue  # ZERO_RESULTS: try the street-only text
+        usable = _usable_pin(result, postcode)
+        if usable:
+            location, precision = usable
+            return {
+                "centroid": centroid,
+                "pin": location,
+                "precision": "street" if street_only else precision,
+            }
+    logger.info("[web-addr] pin fallback to postcode centroid")
+    return {"centroid": centroid, "pin": centroid, "precision": "postcode"}
 
 
 async def pricing(row, location, total=0):
