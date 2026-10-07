@@ -1,5 +1,7 @@
 # Ordelo Domain Context
 
+Canonical business vocabulary: [GLOSSARY.md](GLOSSARY.md). Communication implementation and outcome semantics: [alerts and notifications](docs/alerts-and-notifications.md).
+
 ## Configured auto-accept
 
 A restaurant-level policy stored as `restaurant_master.auto_accept`. When true,
@@ -44,9 +46,9 @@ they finished yesterday.
 
 ## Pickup alert
 
-A reminder sent to a rider at a **checkpoint** around the order's
-`pickup_time`, so a forgotten pickup or a slow delivery is chased rather than
-discovered late.
+The legacy implementation name for a **rider timing alert**. A checkpoint can
+remind the rider, notify restaurant admins, or escalate to overwatch around the
+order's `pickup_time`; it is not restricted to riders or the pickup phase.
 
 - **Alert offset** - a signed number of minutes relative to `pickup_time`.
   Negative is *before* pickup (`-15` = fifteen minutes to go), positive is
@@ -153,9 +155,9 @@ _Avoid_: recipient, phone (it is not always one)
 
 ### Web customer key
 
-A synthetic customer key (a "W-id") minted for one web checkout. It holds that
-checkout's delivery address and nothing else; it is not a phone number, and no
-one can be contacted through it.
+A synthetic customer key (a "W-id") that cannot be used to contact a person.
+The checkout has a draft key; creating an order mints a distinct per-order key
+whose customer row preserves the delivery address.
 _Avoid_: guest id, web user, account
 
 ### Web thread
@@ -193,13 +195,15 @@ _Avoid_: payment forward, payment webhook (the payment service has its own)
 
 Where Stripe sends the customer's browser after paying or cancelling. Fixed per
 restaurant, not per order.
-_Avoid_: return page (a planned Ordelo page that does not exist yet), success page
+The frontend has a payment-return view, but the provider's configured redirect
+is a separate contract; the existence of that view does not prove it is used.
+_Avoid_: treating browser navigation as payment confirmation
 
 ### Customer event
 
 A change in an order that the customer cares about, such as "rider assigned" or
-"ready for collection". Recorded once per order, however many places it is
-later delivered to.
+"ready for collection". Recorded once per order and event key, however many places it is
+later presented or communicated to. Different pickup times can have different keys.
 _Avoid_: notification, status update
 
 ### Notification subscription
@@ -211,8 +215,10 @@ _Avoid_: opt-in (that is the consent), channel
 
 ### Customer notifier
 
-The one place in Ordelo that turns customer events into messages for each
-notification subscription. Nothing else sends order updates to customers.
+The main boundary that records customer events and routes subscription updates.
+Web subscribers read the order page; WhatsApp subscribers invoke their restaurant
+app. It is not the owner of every operational message. The current WhatsApp
+collection-decline handler remains a direct-send exception.
 _Avoid_: messenger, hook caller
 
 ### Detail level
