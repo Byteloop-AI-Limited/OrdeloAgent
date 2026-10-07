@@ -19,7 +19,11 @@ from .common import WebError
 
 
 async def queue_release(order_number, reason):
-    """Recover a failed web cancellation without changing WhatsApp behaviour."""
+    """Insert a durable web payment-cancellation intent if none exists.
+
+    Repeated calls keep the first reason and existing retry/completion state.
+    Callers must supply a web order; this helper does not inspect its origin.
+    """
     await query(
         """INSERT INTO web_payment_release(order_number,reason) VALUES (%s,%s)
         ON CONFLICT DO NOTHING""",
@@ -28,6 +32,13 @@ async def queue_release(order_number, reason):
 
 
 async def reject_late(evt):
+    """Reject a pending web authorisation after 35 minutes or restaurant closure.
+
+    Return None for normal/non-web events, late_rejected after an atomic event,
+    release-intent and WEB-thread update, or late_rejected_duplicate for a replay.
+    Recheck payment state under a row lock; transient availability errors propagate
+    rather than cancelling a valid order. No fulfilment is initialized here.
+    """
     if evt is None:
         return None
     order = await one("SELECT * FROM food_order WHERE order_id=%s", (evt.order_id,))
@@ -91,6 +102,12 @@ async def reject_late(evt):
 
 
 async def sweep():
+    """Expire WEB threads, prune rate counters and claim up to ten release jobs.
+
+    Claim due jobs with SKIP LOCKED and a one-minute next-attempt lease, then
+    perform cancellation I/O outside the transaction. Interrupted claims become
+    due again. Does not delete orders, grants or session metadata.
+    """
     await query("""UPDATE thread SET is_active=false WHERE agent='WEB' AND is_active AND thread_id IN
         (SELECT thread_id FROM web_session_meta WHERE expires_at<now())""")
     await query("DELETE FROM web_rate_limit WHERE window_start<now()-interval '2 days'")
@@ -103,6 +120,14 @@ async def sweep():
 
 
 async def release(order_number, attempts=1):
+    """Attempt cancellation for a queued web order and publish release evidence.
+
+    Existing release evidence completes the job without provider I/O. Otherwise
+    try the shared cancel helper up to four times (delays 0, 2, 5, 15 seconds).
+    A non-None result marks completion and publishes payment_released; failure
+    reschedules for five minutes and alerts on sweep attempts one and three.
+    This cancellation path is not a post-capture refund implementation.
+    """
     from watomation.routers.delivery_hooks import cancel_payment, notify_overwatch
 
     recorded = await one(

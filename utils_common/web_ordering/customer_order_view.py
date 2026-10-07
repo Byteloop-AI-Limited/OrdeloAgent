@@ -27,6 +27,13 @@ EVENT_TYPES = {
 
 
 def derive(food, summary, dispatch, events, release=None, at=None):
+    """Derive (display_status, payment_state, captured, cancel_reason) from evidence.
+
+    This pure projection prioritizes rejection/release over fulfilment progress.
+    Capture needs a customer capture event; release needs a completed release job
+    or cancellation evidence. requires_capture alone proves neither outcome.
+    Use at for deterministic evaluation of the 35-minute unpaid-order window.
+    """
     types = {e["event_type"] for e in events}
     data = [e.get("data", {}).get("payload", {}) for e in events]
     captured = "payment_captured" in types
@@ -95,6 +102,14 @@ def derive(food, summary, dispatch, events, release=None, at=None):
 
 
 async def get_view(order_number, detail_level="full"):
+    """Assemble a read-only customer DTO for a registered web order.
+
+    Combine FoodOrder, summary, latest relevant dispatch, events and release job.
+    Full grants add address/items/charges and the delivery code at appropriate
+    stages; other detail levels omit those fields. Expose only the rider's first
+    name. Raise not_found for absent/non-web orders or unknown registry refs.
+    Authorization belongs to the caller; separate reads are not one DB snapshot.
+    """
     food = await one(
         "SELECT * FROM food_order WHERE order_number=%s AND origin_channel='web'",
         (order_number,),

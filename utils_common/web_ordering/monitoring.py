@@ -11,6 +11,10 @@ from loguru import logger
 
 
 def below_floor(actual, menu_price, max_discount=0):
+    """Test whether a unit price is over one penny below the discounted menu floor.
+
+    Use Decimal arithmetic and reject discount percentages outside 0..100.
+    """
     discount = Decimal(str(max_discount))
     if not 0 <= discount <= 100:
         raise ValueError("Invalid configured maximum web discount")
@@ -20,7 +24,14 @@ def below_floor(actual, menu_price, max_discount=0):
 
 
 async def sweep():
-    """Once per UK day. Always on since R3.1 (D35); a missing max-discount key means 0%."""
+    """Claim and run one price audit per London day across registered restaurants.
+
+    Compare the last 24 hours of web order lines with the lowest menu price
+    matching their product name; unmatched lines also require review. Missing
+    maximum-discount config means zero. Record unique flagged orders and alert
+    ops without changing prices. Delete an unfinished claim on exception so a
+    later sweep can retry; a process crash can leave an unfinished claim behind.
+    """
     day = utcnow().astimezone(UK).date()
     claimed = await query(
         """INSERT INTO web_monitor_run(run_day) VALUES (%s)

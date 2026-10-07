@@ -19,6 +19,11 @@ DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 
 
 def minute(value):
+    """Convert integer minutes or HH:MM text to minutes in the range 0..2880.
+
+    Extended times represent overnight service. Reject booleans, invalid minute
+    components and out-of-range values with ValueError.
+    """
     if isinstance(value, bool):
         raise ValueError("Invalid time")
     if isinstance(value, int):
@@ -34,7 +39,12 @@ def minute(value):
 
 
 def opening(schedule, at=None, cutoff=15):
-    """Return (accepting, next opening). Includes yesterday's overnight span."""
+    """Return (accepting, next_open_iso) for a London weekly service schedule.
+
+    Include yesterday's overnight span and the next seven days. Intervals use
+    minute offsets from local midnight; cutoff removes the end of each window.
+    Malformed intervals raise ValueError; no future window returns None.
+    """
     local = (at or utcnow()).astimezone(UK)
     intervals = []
     for offset in range(-1, 8):
@@ -62,6 +72,10 @@ def opening(schedule, at=None, cutoff=15):
 
 
 async def restaurant(rest_ref):
+    """Load fresh restaurant_master data for an allowlisted rest_ref.
+
+    Raise unknown_restaurant for an unregistered ref or a missing database row.
+    """
     if rest_ref not in RESTAURANTS:
         raise WebError("unknown_restaurant")
     row = await one("SELECT * FROM restaurant_master WHERE rest_ref=%s", (rest_ref,))
@@ -71,6 +85,12 @@ async def restaurant(rest_ref):
 
 
 async def available(rest_ref, mode, *, new_order=True):
+    """Return fresh restaurant data when its web service window is open.
+
+    For new orders, enforce the emergency pause and a minimum 15-minute cutoff
+    for the selected mode. Existing-payment checks skip the pause and cutoff.
+    Raise WebError for pause, closure or malformed availability configuration.
+    """
     row = await restaurant(rest_ref)
     # R3.1 (D35): every registry restaurant takes web orders. The only switch is
     # the emergency pause, absent by default; it never blocks tracking.
@@ -99,6 +119,13 @@ async def available(rest_ref, mode, *, new_order=True):
 
 
 async def geocode(address, *, expected_postcode=None):
+    """Resolve a UK address to Google's lat/lng without trusting browser coordinates.
+
+    Run blocking HTTP in a worker with a 12-second timeout. Reject empty or
+    partial matches and, when supplied, a different postcode sector; a unit
+    postcode difference within that sector is allowed. Raise WebError for
+    invalid addresses or provider failures.
+    """
     # Send the complete manually entered address, not a postcode centroid, for
     # the binding delivery quote. Coordinates never come from the browser.
     from utils_common.maps_service.address_resolver import API_KEY
@@ -164,6 +191,12 @@ async def geocode(address, *, expected_postcode=None):
 
 
 async def pricing(row, location, total=0):
+    """Return a validated car delivery option for server-resolved coordinates.
+
+    Call the shared pricing service in a worker. Missing car options or negative minimums
+    indicate out_of_range; malformed/non-finite prices raise pricing_unavailable.
+    Normalize the nonnegative delivery fee from its breakdown or top-level value.
+    """
     body = await asyncio.to_thread(
         _call_pricing_service,
         {
@@ -210,6 +243,13 @@ async def pricing(row, location, total=0):
 
 
 async def eligibility(postcode, mode, rest_refs):
+    """Build per-restaurant availability and estimated delivery charges.
+
+    Delivery geocodes the postcode once, then quotes each restaurant; collection
+    skips geocoding/pricing. Convert per-restaurant WebErrors into public result
+    statuses. Initial geocoding failures propagate; town is the first deliverable
+    restaurant's registry town, or None.
+    """
     location = await geocode(postcode) if mode == "delivery" else {"lat": 0, "lng": 0}
     rows = []
     for rest_ref in rest_refs:

@@ -9,12 +9,21 @@ TOKEN = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
 
 def digest(token):
+    """Validate a 43-character URL-safe token and return its SHA-256 bytes.
+
+    Malformed tokens raise unauthorised (401) before any database lookup.
+    """
     if not TOKEN.fullmatch(token or ""):
         raise WebError("unauthorised", 401)
     return hashlib.sha256(token.encode()).digest()
 
 
 async def issue(order_number):
+    """Persist a hash-only page grant for a web order and return its raw secret.
+
+    Expiry is 30 days after order creation, not after grant issuance. Each call
+    creates a new grant; non-web or absent orders raise not_found (404).
+    """
     token = secrets.token_urlsafe(32)
     rows = await query(
         """INSERT INTO order_access_grant(order_number,kind,secret_hash,expires_at)
@@ -28,6 +37,11 @@ async def issue(order_number):
 
 
 async def verify(token, order_number=None):
+    """Return the order and detail level for an unexpired page-token grant.
+
+    Raise unauthorised (401) for invalid/expired secrets and forbidden (403) if
+    an optional order_number differs. Does not consume the reusable page token.
+    """
     row = await one(
         """SELECT order_number,detail_level FROM order_access_grant
         WHERE secret_hash=%s AND kind='page_token' AND expires_at>now()""",

@@ -38,6 +38,10 @@ class Item(BaseModel):
     @field_validator("modifications")
     @classmethod
     def modifications_bounded(cls, values):
+        """Validate each modifier display string is at most 200 characters.
+
+        Return the original list or raise ValueError for an oversized entry.
+        """
         if any(len(value) > 200 for value in values):
             raise ValueError("Modification too long")
         return values
@@ -56,6 +60,10 @@ class OrderInput(BaseModel):
     @field_validator("client_estimate")
     @classmethod
     def finite_estimate(cls, values):
+        """Reject non-finite or excessive client estimate values.
+
+        Allow None and magnitudes up to 100000; these estimates are not price authority.
+        """
         import math
 
         if any(
@@ -67,6 +75,13 @@ class OrderInput(BaseModel):
 
 
 async def start(rest_ref, mode, town_slug, visitor_id, district=None):
+    """Create a two-hour WEB checkout session for a restaurant, mode and town.
+
+    Recheck availability and town mapping, create a thread through create_thread,
+    then persist web_session_meta with a synthetic checkout customer key.
+    Return thread_id, cust_id and expiry. The thread and metadata writes are
+    separate transactions; no rider or customer agent is started.
+    """
     await availability.available(rest_ref, mode)
     if town_slug != RESTAURANTS[rest_ref]["town"]:
         raise WebError("unknown_town")
@@ -95,6 +110,10 @@ async def start(rest_ref, mode, town_slug, visitor_id, district=None):
 
 
 async def session(thread_id, cust_id):
+    """Return unexpired checkout metadata matching both thread_id and cust_id.
+
+    Raise no_checkout_session (409) when no matching unexpired checkout exists.
+    """
     row = await one(
         "SELECT * FROM web_session_meta WHERE thread_id=%s AND cust_id=%s AND expires_at>now()",
         (thread_id, cust_id),
@@ -105,6 +124,13 @@ async def session(thread_id, cust_id):
 
 
 async def address(thread_id, cust_id, value):
+    """Validate, geocode and save a delivery address on the checkout session.
+
+    Enforce field bounds, premises/street/town/postcode requirements and a UK
+    postcode shape. Persist normalized text and server coordinates as JSONB.
+    Return an ok response; invalid or expired input raises WebError. An order
+    later copies this editable draft into its own immutable request snapshot.
+    """
     await session(thread_id, cust_id)
     allowed = {
         "flat": 40,
@@ -186,6 +212,11 @@ async def address(thread_id, cust_id, value):
 
 
 def fingerprint(req, address_snapshot):
+    """Hash canonical order input and its address snapshot with SHA-256.
+
+    Include all serialized request fields so reuse of a key with changed input
+    is detected. Reject non-finite JSON values rather than hashing them.
+    """
     data = req.model_dump(mode="json") | {"address": address_snapshot}
     return hashlib.sha256(
         json.dumps(
@@ -195,6 +226,19 @@ def fingerprint(req, address_snapshot):
 
 
 async def create(req, key):
+    """Create or resume an idempotent web order and return quote plus access grant.
+
+    Validate session, availability, payment mode, address, total and minimum.
+    Under request/checkout advisory locks, atomically commit a fresh per-order
+    W customer, FoodOrder/items and web_order_request. At most ten distinct
+    requests are allowed per checkout; conflicting key/input returns 409.
+
+    After that commit, serialize payment-URL generation with a second request
+    lock and cache the quote. External failures leave the order durable for a
+    retry with the same key; provider-session uniqueness is not guaranteed by
+    this local lock. Accepted client item prices remain unchanged (decision D8).
+    Issue a fresh order-access token even when returning a cached quote.
+    """
     co = await session(req.thread_id, req.cust_id)
     if co["rest_ref"] != req.rest_ref:
         raise WebError("invalid_request")
@@ -380,6 +424,11 @@ async def create(req, key):
 
 
 async def _accept_by(cur, order_number):
+    """Read an order's creation time plus the 35-minute acceptance window.
+
+    Use the caller's transaction cursor. This is Ordelo's authorisation deadline,
+    not the hosted Stripe session's expiry.
+    """
     await cur.execute(
         "SELECT order_dtts+interval '35 minutes' AS at FROM food_order WHERE order_number=%s",
         (order_number,),
