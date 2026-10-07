@@ -1,5 +1,9 @@
 # OrdeloAgent — Agents, Modules, and How Things Fit Together
 
+> **Alerts and notifications:** [interactive guide](docs/alerts-and-notifications.html), [agent context](docs/alerts-and-notifications.md), and [canonical vocabulary](GLOSSARY.md) cover customer progress, restaurant-app callbacks, rider/admin alerts and overwatch. Existing transport statuses must not be described as confirmed message delivery.
+
+> **Web ordering implementation:** see the [interactive playground](docs/web-ordering-playground.html) and [matching agent context](docs/web-ordering-playground.md) for checkout identity, tables, payment/fulfilment flows and differences from the separate proposal.
+
 This document maps the codebase structure and explains how agents, webhooks, messaging, and data layers work together. Use it as your starting point and as a quick index for searching code.
 
 For local startup of OrdeloAgent and the sibling restaurant-frontend, Python shell preparation (`venv`, `PYTHONPATH`, `envLoad`), Cloudflare Tunnel routing, and maintenance-window test/production URL switches, follow the [local testing runbook](docs/local-testing-runbook.md).
