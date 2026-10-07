@@ -15,6 +15,7 @@ from utils_common.web_ordering import (
     web_checkout,
     lifecycle,
 )
+from utils_common.web_ordering import common
 from utils_common.web_ordering.common import RESTAURANTS, WebError
 from watomation.routers import web_hooks, takeaway_hooks
 from ordelo.agents import rider_agent
@@ -508,3 +509,309 @@ async def test_geocode_rejects_postcode_outside_sector(monkeypatch, found):
     with pytest.raises(WebError) as error:
         await availability.geocode("1 Mill Stream Approach", expected_postcode="SP1 3TA")
     assert error.value.body["error"] == "invalid_address"
+
+
+ADDRESS = {"house_number": "1", "street": "Mill Stream Approach", "town": "Salisbury"}
+CENTROID = {"lat": 51.0657, "lng": -1.7885}
+PIN = {"lat": 51.0650, "lng": -1.7890}
+LOCATED = {"centroid": CENTROID, "pin": PIN, "precision": "street"}
+
+
+def _address_session(monkeypatch, mode="delivery", postcode="SP1 2AB"):
+    meta = {"mode": mode, "postcode_district": "SP1", "postcode": postcode}
+    monkeypatch.setattr(web_checkout, "session", AsyncMock(return_value=meta))
+    locate = AsyncMock(return_value=LOCATED)
+    monkeypatch.setattr(availability, "locate", locate)
+    monkeypatch.setattr(web_checkout, "query", AsyncMock())
+    return locate
+
+
+def _saved_postcode():
+    return web_checkout.query.await_args.args[1][0].obj["postcode"]
+
+
+@pytest.mark.parametrize("sent", ["SP1 2AB", "sp12ab", "SP1 2ZZ", None])
+async def test_address_uses_stored_postcode_inside_sector(monkeypatch, sent):
+    _address_session(monkeypatch)
+    value = {**ADDRESS, **({"postcode": sent} if sent else {})}
+    assert await web_checkout.address("t", "W1", value) == {"ok": True}
+    assert _saved_postcode() == "SP1 2AB"  # the server's postcode, not the request's
+
+
+@pytest.mark.parametrize("sent", ["SP1 3TA", "SP2 8AB", "SP10 1AA", "BR6 0TW"])
+async def test_address_rejects_postcode_outside_checkout_sector(monkeypatch, sent):
+    locate = _address_session(monkeypatch)
+    with pytest.raises(WebError) as error:
+        await web_checkout.address("t", "W1", {**ADDRESS, "postcode": sent})
+    assert error.value.body["error"] == "postcode_mismatch"
+    locate.assert_not_awaited()
+
+
+@pytest.mark.parametrize("stored", [None, ""])
+async def test_address_fails_closed_without_stored_postcode(monkeypatch, stored):
+    locate = _address_session(monkeypatch, postcode=stored)
+    with pytest.raises(WebError) as error:
+        await web_checkout.address("t", "W1", {**ADDRESS, "postcode": "SP1 2AB"})
+    assert (error.value.status, error.value.body["error"]) == (409, "checkout_restart_required")
+    locate.assert_not_awaited()
+
+
+@pytest.mark.parametrize("mode, sent", [("delivery", "nonsense"), ("delivery", "SP1"), ("collection", None), ("collection", "x")])
+async def test_address_rejects_malformed_postcode(monkeypatch, mode, sent):
+    locate = _address_session(monkeypatch, mode=mode)
+    value = {**ADDRESS, **({"postcode": sent} if sent else {})}
+    with pytest.raises(WebError) as error:
+        await web_checkout.address("t", "W1", value)
+    assert error.value.body["error"] == "invalid_address"
+    locate.assert_not_awaited()
+
+
+async def test_collection_address_needs_no_stored_postcode(monkeypatch):
+    _address_session(monkeypatch, mode="collection", postcode=None)
+    assert await web_checkout.address("t", "W1", {**ADDRESS, "postcode": "BR6 0TW"}) == {"ok": True}
+
+
+# ADR 0008: the address never blocks checkout. The locked postcode's centroid
+# prices the minimum; Google's result is only the rider pin when it stays in
+# the postcode sector, otherwise the pin falls back to the centroid.
+
+
+def _google_replies(monkeypatch, replies):
+    """Stub Google per address text: replies maps a substring to (status, result)."""
+    import sys
+
+    monkeypatch.setitem(
+        sys.modules,
+        "utils_common.maps_service.address_resolver",
+        SimpleNamespace(API_KEY="test"),
+    )
+
+    calls = []
+
+    def get(url, params, timeout):
+        calls.append(params["address"])
+        status, result = next(v for k, v in replies.items() if k in params["address"])
+        return SimpleNamespace(
+            raise_for_status=lambda: None,
+            json=lambda: {"status": status, "results": [result] if result else []},
+        )
+
+    monkeypatch.setattr(availability.requests, "get", get)
+    return calls
+
+
+def _result(lat, postcode, types, partial=None):
+    result = {
+        "geometry": {"location": {"lat": lat, "lng": -1.79}},
+        "address_components": [{"long_name": postcode, "types": ["postal_code"]}],
+        "types": types,
+    }
+    if partial:
+        result["partial_match"] = True
+    return result
+
+
+POSTCODE_REPLY = ("OK", _result(51.0657, "SP1 2AB", ["postal_code"]))
+
+
+@pytest.mark.parametrize(
+    "types, partial, precision",
+    [
+        (["street_address"], None, "exact"),
+        (["premise"], None, "exact"),
+        (["route"], True, "street"),  # "Rose Cottage, Churchill Way East"
+        (["route"], None, "street"),
+    ],
+)
+async def test_locate_uses_google_pin_inside_sector(monkeypatch, types, partial, precision):
+    _google_replies(
+        monkeypatch,
+        {"Churchill": ("OK", _result(51.0650, "SP1 2AB", types, partial)), "SP1 2AB": POSTCODE_REPLY},
+    )
+    located = await availability.locate("Rose Cottage, Churchill Way East, Salisbury, SP1 2AB", "SP1 2AB")
+    assert located == {
+        "centroid": {"lat": 51.0657, "lng": -1.79},
+        "pin": {"lat": 51.0650, "lng": -1.79},
+        "precision": precision,
+    }
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        ("OK", _result(51.07, "SP1 1HZ", ["street_address"])),  # other sector
+        ("OK", _result(51.07, "SP2 8AB", ["route"], True)),  # other district
+        ("OK", _result(51.07, "", ["locality"], True)),  # town only
+        ("OK", _result(51.07, "SP1 2AB", ["postal_code"], True)),  # postcode only
+        ("ZERO_RESULTS", None),
+        ("OVER_QUERY_LIMIT", None),
+    ],
+)
+async def test_locate_falls_back_to_postcode_centroid(monkeypatch, reply):
+    _google_replies(monkeypatch, {"Churchill": reply, "SP1 2AB": POSTCODE_REPLY})
+    located = await availability.locate("1 Churchill Way E, Salisbury, SP1 2AB", "SP1 2AB")
+    assert located["pin"] == located["centroid"] == {"lat": 51.0657, "lng": -1.79}
+    assert located["precision"] == "postcode"
+
+
+async def test_locate_needs_the_locked_postcode_to_price(monkeypatch):
+    _google_replies(monkeypatch, {"Churchill": POSTCODE_REPLY, "SP1 2AB": ("ZERO_RESULTS", None)})
+    with pytest.raises(WebError) as error:
+        await availability.locate("Churchill Way E, Salisbury, SP1 2AB", "SP1 2AB")
+    assert error.value.body["error"] == "invalid_address"
+
+
+@pytest.mark.parametrize(
+    "premises",
+    [{}, {"building": "Rose Cottage"}, {"house_number": "1"}, {"flat": "2"}],
+)
+async def test_address_saves_without_house_number_and_keeps_pin_and_centroid(monkeypatch, premises):
+    _address_session(monkeypatch)
+    value = {"street": "Churchill Way East", "town": "Salisbury", "postcode": "SP1 2AB", **premises}
+    assert await web_checkout.address("t", "W1", value) == {"ok": True}
+    snapshot = web_checkout.query.await_args.args[1][0].obj
+    assert snapshot["street"] == "Churchill Way East"  # the customer's text wins
+    assert (snapshot["latitude"], snapshot["longitude"]) == (PIN["lat"], PIN["lng"])
+    assert (snapshot["postcode_latitude"], snapshot["postcode_longitude"]) == (CENTROID["lat"], CENTROID["lng"])
+    assert snapshot["pin_precision"] == "street"
+    availability.locate.assert_awaited_once_with(
+        web_checkout.address_display(value | {"postcode": "SP1 2AB"}),
+        "SP1 2AB",
+        street_address="Churchill Way East, Salisbury, SP1 2AB",
+    )
+
+
+@pytest.mark.parametrize("missing", ["street", "town"])
+async def test_address_still_needs_street_and_town(monkeypatch, missing):
+    locate = _address_session(monkeypatch)
+    value = {**ADDRESS, "postcode": "SP1 2AB", missing: " "}
+    with pytest.raises(WebError) as error:
+        await web_checkout.address("t", "W1", value)
+    assert error.value.body["error"] == "invalid_address"
+    locate.assert_not_awaited()
+
+
+def test_minimum_is_priced_from_postcode_centroid():
+    addr = {"latitude": 1.0, "longitude": 2.0, "postcode_latitude": 3.0, "postcode_longitude": 4.0}
+    assert web_checkout.pricing_location(addr) == {"lat": 3.0, "lng": 4.0}
+    # Snapshots saved before ADR 0008 have only the geocoded address point.
+    assert web_checkout.pricing_location({"latitude": 1.0, "longitude": 2.0}) == {"lat": 1.0, "lng": 2.0}
+
+
+@pytest.mark.parametrize(
+    "precision, note",
+    [
+        ("exact", None),
+        (None, None),
+        ("street", "Address not verified: map pin is on the street, not the door. Use the address text."),
+        ("postcode", "Address not verified: map pin is the postcode centre. Use the address text."),
+    ],
+)
+def test_rider_is_told_when_the_pin_is_approximate(precision, note):
+    assert web_checkout.pin_note({"pin_precision": precision}) == note
+
+
+FULL = "1, Churchill Way East, Salisbury, SP1 2AB"
+STREET = "Churchill Way East, Salisbury, SP1 2AB"
+OTHER_SECTOR = ("OK", _result(51.07, "SP1 1HZ", ["street_address"]))  # Google's interpolated door guess
+
+
+async def test_locate_retries_street_only_when_door_lands_outside_sector(monkeypatch):
+    calls = _google_replies(
+        monkeypatch,
+        {"1, Churchill": OTHER_SECTOR, "Churchill": ("OK", _result(51.0650, "SP1 2AB", ["route"])), "SP1 2AB": POSTCODE_REPLY},
+    )
+    located = await availability.locate(FULL, "SP1 2AB", street_address=STREET)
+    assert located["precision"] == "street"
+    assert located["pin"] == {"lat": 51.0650, "lng": -1.79}
+    assert calls == ["SP1 2AB", FULL, STREET]
+
+
+async def test_locate_retry_is_never_better_than_street(monkeypatch):
+    _google_replies(
+        monkeypatch,
+        {"1, Churchill": OTHER_SECTOR, "Churchill": ("OK", _result(51.0650, "SP1 2AB", ["street_address"])), "SP1 2AB": POSTCODE_REPLY},
+    )
+    located = await availability.locate(FULL, "SP1 2AB", street_address=STREET)
+    assert located["precision"] == "street"
+
+
+async def test_locate_retries_when_full_address_not_found(monkeypatch):
+    _google_replies(
+        monkeypatch,
+        {"1, Churchill": ("ZERO_RESULTS", None), "Churchill": ("OK", _result(51.0650, "SP1 2AB", ["route"])), "SP1 2AB": POSTCODE_REPLY},
+    )
+    assert (await availability.locate(FULL, "SP1 2AB", street_address=STREET))["precision"] == "street"
+
+
+async def test_locate_uses_centroid_when_retry_is_outside_sector_too(monkeypatch):
+    _google_replies(
+        monkeypatch,
+        {"1, Churchill": OTHER_SECTOR, "Churchill": ("OK", _result(51.07, "SP1 1HZ", ["route"])), "SP1 2AB": POSTCODE_REPLY},
+    )
+    located = await availability.locate(FULL, "SP1 2AB", street_address=STREET)
+    assert located["precision"] == "postcode"
+    assert located["pin"] == located["centroid"]
+
+
+async def test_locate_skips_retry_without_premises(monkeypatch):
+    calls = _google_replies(monkeypatch, {"Churchill": OTHER_SECTOR, "SP1 2AB": POSTCODE_REPLY})
+    located = await availability.locate(STREET, "SP1 2AB", street_address=STREET)
+    assert located["precision"] == "postcode"
+    assert calls == ["SP1 2AB", STREET]
+
+
+async def test_locate_skips_retry_on_provider_error(monkeypatch):
+    calls = _google_replies(
+        monkeypatch,
+        {"Churchill": ("OVER_QUERY_LIMIT", None), "SP1 2AB": POSTCODE_REPLY},
+    )
+    located = await availability.locate(FULL, "SP1 2AB", street_address=STREET)
+    assert located["precision"] == "postcode"
+    assert calls == ["SP1 2AB", FULL]
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [("SP1 2AB", "SP1 2AB"), ("sp12ab", "SP1 2AB"), (" sp1  2ab ", "SP1 2AB"), ("BR6 0TW", "BR6 0TW"),
+     ("W1A 1AA", "W1A 1AA"), ("SP1", None), ("", None), (None, None), ("12345", None)],
+)
+def test_normalise_postcode(value, expected):
+    assert common.normalise_postcode(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value, sector",
+    [("SP1 2AB", "SP12"), ("sp12zz", "SP12"), ("SP10 1AA", "SP101"), ("SP1", ""), (None, "")],
+)
+def test_postcode_sector(value, sector):
+    assert common.postcode_sector(value) == sector
+
+
+def _start_session(monkeypatch):
+    monkeypatch.setattr(availability, "available", AsyncMock())
+    monkeypatch.setattr(web_checkout, "one", AsyncMock(return_value={"thread_id": "T1"}))
+    monkeypatch.setattr(web_checkout, "query", AsyncMock())
+
+
+async def test_start_stores_normalised_postcode(monkeypatch):
+    _start_session(monkeypatch)
+    await web_checkout.start("ELAS", "delivery", "salisbury", "v1", "SP1", postcode="sp12ab")
+    params = web_checkout.query.await_args.args[1]
+    assert "SP1 2AB" in params and "SP1" in params
+
+
+async def test_start_rejects_postcode_outside_its_district(monkeypatch):
+    _start_session(monkeypatch)
+    with pytest.raises(WebError) as error:
+        await web_checkout.start("ELAS", "delivery", "salisbury", "v1", "SP1", postcode="SP2 8AB")
+    assert error.value.body["error"] == "postcode_mismatch"
+    web_checkout.query.assert_not_awaited()
+
+
+@pytest.mark.parametrize("mode, postcode", [("delivery", None), ("delivery", "nonsense"), ("collection", "SP1 2AB")])
+async def test_start_stores_null_without_a_usable_delivery_postcode(monkeypatch, mode, postcode):
+    _start_session(monkeypatch)
+    await web_checkout.start("ELAS", mode, "salisbury", "v1", "SP1", postcode=postcode)
+    assert "SP1 2AB" not in web_checkout.query.await_args.args[1]
+    assert None in web_checkout.query.await_args.args[1]

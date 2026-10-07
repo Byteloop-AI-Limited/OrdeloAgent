@@ -35,6 +35,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.graph import END
 
@@ -305,6 +306,41 @@ async def test_send_pickup_and_dropoff_location_send_whatsapp_locations(patch_su
     assert fake_async_wa.sent[0].kwargs["latitude"] == 51.5074
     assert fake_async_wa.sent[1].kwargs["latitude"] == 51.5174
     assert fake_async_wa.sent[2].method == "send_message"
+
+
+def _dropoff_text(wa) -> str:
+    return next(c.kwargs["text"] for c in reversed(wa.sent) if c.method == "send_message")
+
+
+@pytest.mark.parametrize("precision, fragment", [("street", "street, not the door"), ("postcode", "postcode centre")])
+async def test_dropoff_warns_rider_when_web_pin_is_approximate(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp, precision, fragment) -> None:
+    patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[_summary_row()]))
+    patch_supabase_client.register(table="web_order_request", verb="select", response=FakeSupabaseResponse(data=[{"address": {"pin_precision": precision}}]))
+
+    await rider_agent.send_dropoff_location({"order_number": "ELAS-ABCD-1", "reply_to_msg_id": "msg-1"}, "tool-2", _runtime(client=patch_supabase_client, wa=fake_async_wa))
+
+    text = _dropoff_text(fake_async_wa)
+    assert text.startswith("Dropoff:\n") and "⚠️" in text and fragment in text
+
+
+@pytest.mark.parametrize("data", [[], [{"address": None}], [{"address": {"pin_precision": "exact"}}], [{"address": {}}]])
+async def test_dropoff_has_no_warning_for_exact_pin_or_whatsapp_order(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp, data) -> None:
+    patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[_summary_row()]))
+    patch_supabase_client.register(table="web_order_request", verb="select", response=FakeSupabaseResponse(data=data))
+
+    await rider_agent.send_dropoff_location({"order_number": "ELAS-ABCD-1", "reply_to_msg_id": "msg-1"}, "tool-2", _runtime(client=patch_supabase_client, wa=fake_async_wa))
+
+    assert "⚠️" not in _dropoff_text(fake_async_wa)
+
+
+async def test_dropoff_survives_pin_lookup_failure(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[_summary_row()]))
+    patch_supabase_client.register(table="web_order_request", verb="select", response=RuntimeError("db down"))
+
+    result = await rider_agent.send_dropoff_location({"order_number": "ELAS-ABCD-1", "reply_to_msg_id": "msg-1"}, "tool-2", _runtime(client=patch_supabase_client, wa=fake_async_wa))
+
+    assert result.update["messages"][0].content == "Dropoff location sent to user."
+    assert "⚠️" not in _dropoff_text(fake_async_wa)
 
 
 async def test_send_start_live_tracking_link_sends_button_url(fake_async_wa: FakeAsyncWhatsApp, patch_supabase_client) -> None:

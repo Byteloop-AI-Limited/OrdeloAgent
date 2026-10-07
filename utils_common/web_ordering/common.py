@@ -1,5 +1,6 @@
 """R3 database helpers, Salisbury/Orpington web registry and public error contract."""
 
+import re
 from datetime import datetime, timezone
 from psycopg.rows import dict_row
 from config.pg_setting import pg_settings
@@ -14,6 +15,29 @@ RESTAURANTS = {
 }
 MAX_ORDER_LINES = 20
 LATE_PAYMENT_MINUTES = 35
+
+
+POSTCODE_RE = re.compile(r"[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}")
+
+
+def normalise_postcode(value):
+    """Return a UK postcode as 'SP1 2AB' (upper case, one space), or None.
+
+    None for empty input and anything that is not a full UK postcode shape.
+    """
+    compact = "".join((value or "").upper().split())
+    if not POSTCODE_RE.fullmatch(compact):
+        return None
+    return compact[:-3] + " " + compact[-3:]
+
+
+def postcode_sector(value):
+    """Return the postcode sector without a space: outward code + first inward digit.
+
+    'SP1 2AB' -> 'SP12'; 'SP10 1AA' -> 'SP101'. Empty string when too short.
+    """
+    compact = "".join((value or "").upper().split())
+    return compact[:-2] if len(compact) >= 5 else ""
 
 
 class WebError(Exception):
