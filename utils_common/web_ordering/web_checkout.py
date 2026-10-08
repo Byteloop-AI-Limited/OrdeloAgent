@@ -417,7 +417,10 @@ async def create(req, key):
         # The order is now durable. Failed/ambiguous external calls never cause
         # another order; only a missing payment URL may be regenerated (D22).
         # Read outside the transaction so the config lookup never holds the advisory lock.
-        return_urls = await web_return_urls(attempt["order_number"])
+        # The secret order link is the Stripe success URL, so the grant must exist before the
+        # payment URL is generated. Replays reuse the stored payment_url (and its first grant).
+        token = await order_access.issue(attempt["order_number"])
+        return_urls = await web_return_urls(attempt["order_number"], token)
         async with conn.transaction(), conn.cursor(row_factory=dict_row) as cur:
             await cur.execute("SET LOCAL search_path = public")
             await cur.execute(
@@ -459,7 +462,6 @@ async def create(req, key):
                     "UPDATE web_order_request SET quote=%s WHERE idempotency_key=%s",
                     (Jsonb(quote), key),
                 )
-    token = await order_access.issue(attempt["order_number"])
     return {
         **quote,
         "access": {

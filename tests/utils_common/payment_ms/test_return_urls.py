@@ -16,6 +16,16 @@ async def test_web_return_urls_built_from_storefront_url(config_values) -> None:
     }
 
 
+async def test_web_return_urls_success_is_secret_order_link_when_token_given(config_values) -> None:
+    config_values["WEB_STOREFRONT_URL"] = "https://restaurant-test.ordelo.app"
+    token = "a" * 43
+
+    assert await web_return_urls("ELAS-ABCD-1", token) == {
+        "success_url": f"https://restaurant-test.ordelo.app/o/{token}",
+        "cancel_url": "https://restaurant-test.ordelo.app/checkout?resume=1",
+    }
+
+
 async def test_web_return_urls_none_when_storefront_url_unset(config_values) -> None:
     assert await web_return_urls("ELAS-ABCD-1") is None
 
