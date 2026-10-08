@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from utils_common.payment_ms.return_urls import web_return_urls, wa_return_urls
+from utils_common.payment_ms.return_urls import (
+    order_link,
+    storefront_base,
+    wa_chat_url,
+    wa_return_urls,
+    web_return_urls,
+)
 
 
 async def test_web_return_urls_built_from_storefront_url(config_values) -> None:
@@ -45,3 +51,24 @@ def test_wa_return_urls_maps_known_restaurants(rest_ref: str, link: str) -> None
 @pytest.mark.parametrize("rest_ref", ["crms", "", None])
 def test_wa_return_urls_none_for_unknown_restaurant(rest_ref) -> None:
     assert wa_return_urls(rest_ref) is None
+
+
+async def test_storefront_base_strips_trailing_slash(config_values) -> None:
+    config_values["RESTAURANT_MENU_APP_URL"] = "https://restaurant.ordelo.app/"
+    assert await storefront_base() == "https://restaurant.ordelo.app"
+
+
+async def test_storefront_base_none_when_unset(config_values) -> None:
+    assert await storefront_base() is None
+
+
+def test_order_link_quotes_token() -> None:
+    assert order_link("https://x.app", "ab_-Z") == "https://x.app/o/ab_-Z"
+
+
+@pytest.mark.parametrize(
+    ("rest_ref", "link"),
+    [("elas", "https://wa.me/message/AIDICBLAE4KZH1"), ("CRMS", None), ("", None), (None, None)],
+)
+def test_wa_chat_url(rest_ref, link) -> None:
+    assert wa_chat_url(rest_ref) == link

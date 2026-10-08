@@ -3,7 +3,7 @@
 import hashlib
 import re
 import secrets
-from .common import WebError, one, query
+from .common import RESTAURANTS, WebError, one, query
 
 TOKEN = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
@@ -34,6 +34,38 @@ async def issue(order_number):
     if not rows:
         raise WebError("not_found", 404)
     return token
+
+
+async def issue_for_whatsapp(order_number, recipient):
+    """Mint a full page grant for a paid WhatsApp order and return its raw secret.
+
+    404 unknown order or restaurant not in RESTAURANTS; 409 web order (its link
+    comes from checkout) or unpaid order; 403 recipient mismatch. Every call
+    creates a new grant (no cap). Returns (token, expires_at).
+    """
+    order = await one(
+        "SELECT origin_channel,recipient,payment_status FROM food_order WHERE order_number=%s",
+        (order_number,),
+    )
+    if not order or order_number.split("-")[0] not in RESTAURANTS:
+        raise WebError("not_found", 404)
+    if order["origin_channel"] == "web":
+        raise WebError("web_order", 409)
+    if order["payment_status"] == "requires_payment":
+        raise WebError("not_paid", 409)
+    if not secrets.compare_digest(str(order["recipient"] or ""), str(recipient or "")):
+        raise WebError("forbidden", 403)
+    token = secrets.token_urlsafe(32)
+    rows = await query(
+        """INSERT INTO order_access_grant(order_number,kind,secret_hash,expires_at)
+        SELECT order_number,'page_token',%s,order_dtts+interval '30 days' FROM food_order
+        WHERE order_number=%s AND origin_channel='whatsapp' AND recipient=%s
+        AND payment_status<>'requires_payment' RETURNING id, expires_at""",
+        (digest(token), order_number, recipient),
+    )
+    if not rows:
+        raise WebError("not_found", 404)
+    return token, rows[0]["expires_at"]
 
 
 async def verify(token, order_number=None):

@@ -6,6 +6,7 @@ unchanged after existing payment-service operations. Redact before returning.
 
 from urllib.parse import quote
 from datetime import timedelta
+from utils_common.payment_ms.return_urls import wa_chat_url
 from .common import RESTAURANTS, WebError, one, query, iso, utcnow
 
 EVENT_TYPES = {
@@ -102,16 +103,16 @@ def derive(food, summary, dispatch, events, release=None, at=None):
 
 
 async def get_view(order_number, detail_level="full"):
-    """Assemble a read-only customer DTO for a registered web order.
+    """Assemble a read-only customer DTO for a registered web or WhatsApp order.
 
     Combine FoodOrder, summary, latest relevant dispatch, events and release job.
     Full grants add address/items/charges and the delivery code at appropriate
     stages; other detail levels omit those fields. Expose only the rider's first
-    name. Raise not_found for absent/non-web orders or unknown registry refs.
+    name. Raise not_found for absent orders or unknown registry refs.
     Authorization belongs to the caller; separate reads are not one DB snapshot.
     """
     food = await one(
-        "SELECT * FROM food_order WHERE order_number=%s AND origin_channel='web'",
+        "SELECT * FROM food_order WHERE order_number=%s AND origin_channel IN ('web','whatsapp')",
         (order_number,),
     )
     if not food:
@@ -166,7 +167,7 @@ async def get_view(order_number, detail_level="full"):
         times.append(release["updated_at"])
     view = {
         "order_number": order_number,
-        "origin_channel": "web",
+        "origin_channel": food["origin_channel"],
         "mode": "delivery" if food["action"] == "delivery" else "collection",
         "detail_level": detail_level,
         "display_status": status,
@@ -193,6 +194,11 @@ async def get_view(order_number, detail_level="full"):
         },
         "page_path": f"/town/{registry['town']}/orders/{order_number}",
     }
+    if food["origin_channel"] == "whatsapp":
+        wa_url = wa_chat_url(rest_ref)
+        view["support"]["whatsapp_available"] = bool(wa_url)
+        if wa_url:
+            view["support"]["whatsapp_url"] = wa_url
     if reason:
         view["cancel_reason"] = reason
     if summary.get("pickup_time"):
@@ -213,8 +219,9 @@ async def get_view(order_number, detail_level="full"):
                 "SELECT address FROM web_order_request WHERE order_number=%s",
                 (order_number,),
             )
-            or {}
-        )
+            if food["origin_channel"] == "web"
+            else None
+        ) or {}
         snapshot = request.get("address") or {}
         if food["action"] == "delivery":
             view["delivery"] = {

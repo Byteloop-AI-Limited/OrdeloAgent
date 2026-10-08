@@ -19,7 +19,8 @@ from utils_common.web_ordering import (
     web_checkout,
     customer_order_view,
 )
-from utils_common.web_ordering.common import WebError, query, RESTAURANTS
+from utils_common.payment_ms.return_urls import order_link, storefront_base
+from utils_common.web_ordering.common import WebError, query, RESTAURANTS, iso
 
 
 async def require_key(request: Request):
@@ -155,6 +156,30 @@ async def exchange(request: Request):
             "order_number": grant["order_number"],
             "page_path": f"/town/{RESTAURANTS[ref]['town']}/orders/{grant['order_number']}",
         },
+        headers=PRIVATE,
+    )
+
+
+class WhatsAppLink(BaseModel):
+    order_number: str = Field(pattern=r"^[A-Z0-9]+-[A-Z]{4}-\d+$")
+    recipient: str = Field(min_length=5, max_length=32)
+
+
+@router.post("/access/whatsapp-link")
+async def whatsapp_link(body: WhatsAppLink):
+    """Mint a private order-page link for a paid WhatsApp order (restaurant app, receipt time).
+
+    The raw token is returned once and never logged or stored.
+    """
+    base = await storefront_base()
+    if not base:  # check before minting: no orphan grants
+        raise WebError("link_unavailable", 503)
+    token, expires_at = await order_access.issue_for_whatsapp(
+        body.order_number, body.recipient
+    )
+    return JSONResponse(
+        {"url": order_link(base, token), "expires_at": iso(expires_at)},
+        status_code=201,
         headers=PRIVATE,
     )
 
