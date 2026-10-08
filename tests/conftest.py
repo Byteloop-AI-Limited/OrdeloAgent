@@ -191,7 +191,7 @@ def feature_flags(monkeypatch):
 def config_values(monkeypatch):
     """ordelo_config string values; empty (all unset) by default.
 
-    Tests set one with ``config_values["WEB_STOREFRONT_URL"] = "https://restaurant-test.ordelo.app"``.
+    Tests set one with ``config_values["RESTAURANT_MENU_APP_URL"] = "https://restaurant-test.ordelo.app"``.
     """
     from config import feature_flags as flags_module
 

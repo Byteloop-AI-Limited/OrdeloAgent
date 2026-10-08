@@ -14,7 +14,9 @@ from urllib.parse import quote
 
 from config.feature_flags import config_str
 
-WEB_STOREFRONT_URL = "WEB_STOREFRONT_URL"
+# ordelo_config key holding the restaurant-frontend base URL (no trailing slash needed). It also
+# builds the dashboard links in config/params.py, so test/prod switches move both together.
+RESTAURANT_MENU_APP_URL = "RESTAURANT_MENU_APP_URL"
 
 # Mirrors payment-service internal/config/config.yaml successurl/cancelurl and
 # restaurant-frontend config/whatsapp.ts PAYMENT_COMPLETE.
@@ -26,7 +28,7 @@ WA_PAYMENT_RETURN_URLS: dict[str, str] = {
 
 
 async def web_return_urls(order_number: str, token: str | None = None) -> dict[str, str] | None:
-    base = await config_str(WEB_STOREFRONT_URL)
+    base = await config_str(RESTAURANT_MENU_APP_URL)
     if not base:
         return None
     base = base.rstrip("/")
