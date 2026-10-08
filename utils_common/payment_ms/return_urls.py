@@ -1,6 +1,8 @@
 """
 Stripe Checkout return URLs sent to the payment service.
-  . web_return_urls - web orders return to the storefront's /checkout/return page
+  . web_return_urls - web orders return to their secret order link (/o/<token>) so the customer
+    sees the order page straight away, without waiting for payment authorisation; without a
+    token they fall back to the storefront's /checkout/return page
   . wa_return_urls  - WhatsApp menu-page orders return to the restaurant's WhatsApp chat
   . None from either means "send nothing": the payment service uses its per-restaurant defaults.
 Functions:
@@ -23,13 +25,18 @@ WA_PAYMENT_RETURN_URLS: dict[str, str] = {
 }
 
 
-async def web_return_urls(order_number: str) -> dict[str, str] | None:
+async def web_return_urls(order_number: str, token: str | None = None) -> dict[str, str] | None:
     base = await config_str(WEB_STOREFRONT_URL)
     if not base:
         return None
     base = base.rstrip("/")
+    success = (
+        f"{base}/o/{quote(token, safe='')}"
+        if token
+        else f"{base}/checkout/return?order={quote(order_number, safe='')}"
+    )
     return {
-        "success_url": f"{base}/checkout/return?order={quote(order_number, safe='')}",
+        "success_url": success,
         "cancel_url": f"{base}/checkout?resume=1",
     }
 
