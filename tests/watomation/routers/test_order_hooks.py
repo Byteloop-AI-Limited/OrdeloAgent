@@ -47,6 +47,7 @@ def _food_order(action: str = "delivery") -> SimpleNamespace:
     return SimpleNamespace(
         order_id="ABCD-1",
         order_number="ELAS-ABCD-1",
+        rest_ref="elas",
         recipient="447400000000",
         thread_id="thread-1",
         action=action,
@@ -118,15 +119,18 @@ async def test_get_min_order_value_by_postcode_resolves_addresses(monkeypatch) -
 
 async def test_create_order_returns_payment_url_for_delivery_and_takeaway(monkeypatch) -> None:
     payment_builders_called: list[str] = []
+    return_urls_seen: list[dict | None] = []
 
     async def _create_order(**kwargs):
         return {"success": True, "order_id": "ABCD-1", "order_number": "ELAS-ABCD-1"}
 
-    async def _delivery_url(food_order):
+    async def _delivery_url(food_order, **kwargs):
+        return_urls_seen.append(kwargs.get("return_urls"))
         payment_builders_called.append("delivery")
         return "https://pay.example.com/intent"
 
-    async def _takeaway_url(food_order):
+    async def _takeaway_url(food_order, **kwargs):
+        return_urls_seen.append(kwargs.get("return_urls"))
         payment_builders_called.append("takeaway")
         return "https://pay.example.com/manual"
 
@@ -150,6 +154,32 @@ async def test_create_order_returns_payment_url_for_delivery_and_takeaway(monkey
     )
     assert takeaway["payment_intent_url"] == "https://pay.example.com/manual"
     assert payment_builders_called == ["delivery", "takeaway"]
+    elas_wa = "https://wa.me/message/AIDICBLAE4KZH1"
+    assert return_urls_seen == [{"success_url": elas_wa, "cancel_url": elas_wa}] * 2
+
+
+async def test_create_order_sends_no_return_urls_for_unknown_restaurant(monkeypatch) -> None:
+    seen: list[dict | None] = []
+
+    async def _create_order(**kwargs):
+        return {"success": True, "order_id": "ABCD-1", "order_number": "CRMS-ABCD-1"}
+
+    async def _delivery_url(food_order, **kwargs):
+        seen.append(kwargs.get("return_urls"))
+        return "https://pay.example.com/intent"
+
+    food = _food_order("delivery")
+    food.rest_ref = "crms"
+    monkeypatch.setattr(order_hooks, "create_order_with_items", _create_order)
+    monkeypatch.setattr(order_hooks.FoodOrder, "from_order_id", staticmethod(lambda order_id: food))
+    monkeypatch.setattr(order_hooks, "generate_payment_intent_url", _delivery_url)
+
+    await order_hooks.create_order(
+        "CRMS",
+        order_hooks.CreateOrderRequest(recipient="447400000000", thread_id="thread-1", order_items=_order_items(), order_type="delivery"),
+    )
+
+    assert seen == [None]
 
 
 async def test_validate_postcode_returns_resolved_address(monkeypatch) -> None:
@@ -269,7 +299,7 @@ def _create_order_spy(monkeypatch, order_number):
         received.update(kwargs)
         return {"success": True, "order_id": "ABCD-1", "order_number": order_number}
 
-    async def _url(food_order):
+    async def _url(food_order, **kwargs):
         return "https://pay.example.com/intent"
 
     def _from_order_id(order_id):

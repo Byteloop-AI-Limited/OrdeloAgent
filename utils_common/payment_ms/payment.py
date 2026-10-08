@@ -6,6 +6,8 @@ Payment microservice utilities for Stripe integration
     . Integrates with Supabase for order item retrieval
     . Uses httpx for async HTTP requests to Stripe endpoints
     . Centralizes logging and configuration via ms_settings and logger
+    . Optional return_urls ({"success_url", "cancel_url"}) are added to the payload when given;
+      without them the payload is unchanged and the payment service uses its per-restaurant defaults
   Functions/Classes:
     . get_payment_uri
     . generate_payment_intent
@@ -23,18 +25,23 @@ from utils_common.order_management.food_order_pymodel import FoodOrder
 
 
 # %%
-async def generate_payment_intent_url(food_order: FoodOrder):
+async def generate_payment_intent_url(
+    food_order: FoodOrder, return_urls: dict[str, str] | None = None
+):
     """
     Generates a Stripe payment intent for a given order.
 
     Args:
         food_order: A FoodOrder instance containing order details.
+        return_urls: Optional {"success_url", "cancel_url"} for the Checkout Session.
 
     Returns:
         A string representing the Stripe payment intent URL.
     """
     payment_uri = food_order.payment_uri
     intent_payload = await food_order.gen_payment_intent_payload()
+    if return_urls:
+        intent_payload.update(return_urls)
 
     async with httpx.AsyncClient() as client:
         try:
@@ -68,12 +75,15 @@ async def generate_automatic_payment_url(
     )
 
 
-async def generate_takeaway_manual_payment_url(food_order: FoodOrder):
+async def generate_takeaway_manual_payment_url(
+    food_order: FoodOrder, return_urls: dict[str, str] | None = None
+):
     """Creates a manual-capture Checkout Session for an online takeaway order."""
     return await _generate_takeaway_payment_url(
         food_order,
         manual_mode_capture=True,
         is_print_only=False,
+        return_urls=return_urls,
     )
 
 
@@ -82,6 +92,7 @@ async def _generate_takeaway_payment_url(
     *,
     manual_mode_capture: bool,
     is_print_only: bool,
+    return_urls: dict[str, str] | None = None,
 ):
     """Posts the shared product-only takeaway payment payload."""
     payment_uri = food_order.payment_uri
@@ -98,6 +109,8 @@ async def _generate_takeaway_payment_url(
         "printonlyjob": is_print_only,
         "restRef": food_order.rest_ref,
     }
+    if return_urls:
+        intent_payload.update(return_urls)
 
     async with httpx.AsyncClient() as client:
         try:

@@ -46,6 +46,7 @@ from utils_common.order_management.order_service import (
 from utils_common.order_management.order_service import (
     get_min_order_value as fetch_min_order_value,
 )
+from utils_common.payment_ms.return_urls import wa_return_urls
 from utils_common.payment_ms.payment import (
     generate_payment_intent_url,
     generate_takeaway_manual_payment_url,
@@ -295,10 +296,15 @@ async def create_order(
     order_id = order_result["order_id"]
     order_number = order_result["order_number"]
 
+    return_urls = wa_return_urls(food_order.rest_ref)
     if food_order.action == "delivery":
-        payment_intent_url = await generate_payment_intent_url(food_order)
+        payment_intent_url = await generate_payment_intent_url(
+            food_order, return_urls=return_urls
+        )
     elif food_order.action == "takeaway":
-        payment_intent_url = await generate_takeaway_manual_payment_url(food_order)
+        payment_intent_url = await generate_takeaway_manual_payment_url(
+            food_order, return_urls=return_urls
+        )
     else:
         raise HTTPException(
             status_code=400,

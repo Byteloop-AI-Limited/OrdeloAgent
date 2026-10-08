@@ -187,6 +187,21 @@ def feature_flags(monkeypatch):
     flags_module.reset_feature_flag_cache()
 
 
+@pytest.fixture(autouse=True)
+def config_values(monkeypatch):
+    """ordelo_config string values; empty (all unset) by default.
+
+    Tests set one with ``config_values["WEB_STOREFRONT_URL"] = "https://restaurant-test.ordelo.app"``.
+    """
+    from config import feature_flags as flags_module
+
+    values: dict[str, str] = {}
+    monkeypatch.setattr(flags_module, "_read_str", lambda key: values.get(key))
+    flags_module.reset_feature_flag_cache()
+    yield values
+    flags_module.reset_feature_flag_cache()
+
+
 # ---------------------------------------------------------------------------
 # Step 6: customer notifier with persistence faked (R3.1: always on)
 # ---------------------------------------------------------------------------
