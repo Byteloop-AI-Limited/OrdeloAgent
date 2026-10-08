@@ -8,7 +8,7 @@ from utils_common.payment_ms.return_urls import web_return_urls, wa_return_urls
 
 
 async def test_web_return_urls_built_from_storefront_url(config_values) -> None:
-    config_values["WEB_STOREFRONT_URL"] = "https://restaurant-test.ordelo.app/"
+    config_values["RESTAURANT_MENU_APP_URL"] = "https://restaurant-test.ordelo.app/"
 
     assert await web_return_urls("ELAS-ABCD-1") == {
         "success_url": "https://restaurant-test.ordelo.app/checkout/return?order=ELAS-ABCD-1",
@@ -17,7 +17,7 @@ async def test_web_return_urls_built_from_storefront_url(config_values) -> None:
 
 
 async def test_web_return_urls_success_is_secret_order_link_when_token_given(config_values) -> None:
-    config_values["WEB_STOREFRONT_URL"] = "https://restaurant-test.ordelo.app"
+    config_values["RESTAURANT_MENU_APP_URL"] = "https://restaurant-test.ordelo.app"
     token = "a" * 43
 
     assert await web_return_urls("ELAS-ABCD-1", token) == {

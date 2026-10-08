@@ -27,7 +27,8 @@ _TRUE_VALUES = {"true", "1", "yes", "on"}
 # R3.1 (D35): the R1a-R3 rollout flags are gone. What remains in ordelo_config:
 #   TEST_PAYMENT_REST_REFS     - restaurants whose orders always use Stripe test
 #   {REST}_WEB_ORDERING_PAUSED - emergency stop for new web orders (absent = open)
-#   WEB_STOREFRONT_URL         - web storefront base URL for Stripe return links (absent = payment-service defaults)
+#   RESTAURANT_MENU_APP_URL    - restaurant-frontend base URL; also the base of web Stripe return links
+#                                (absent = payment-service defaults)
 TEST_PAYMENT_REST_REFS = "TEST_PAYMENT_REST_REFS"
 
 _CSV_CACHE: dict[str, tuple[frozenset[str], float]] = {}
