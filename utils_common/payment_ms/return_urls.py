@@ -5,7 +5,13 @@ Stripe Checkout return URLs sent to the payment service.
     token they fall back to the storefront's /checkout/return page
   . wa_return_urls  - WhatsApp menu-page orders return to the restaurant's WhatsApp chat
   . None from either means "send nothing": the payment service uses its per-restaurant defaults.
+  . storefront_base / order_link - build the secret /o/<token> order-page URL (also used to send
+    the link in the WhatsApp payment receipt)
+  . wa_chat_url - the restaurant's WhatsApp chat link (return URLs and the order page help button)
 Functions:
+  . storefront_base
+  . order_link
+  . wa_chat_url
   . web_return_urls
   . wa_return_urls
 """
@@ -27,13 +33,25 @@ WA_PAYMENT_RETURN_URLS: dict[str, str] = {
 }
 
 
-async def web_return_urls(order_number: str, token: str | None = None) -> dict[str, str] | None:
+async def storefront_base() -> str | None:
     base = await config_str(RESTAURANT_MENU_APP_URL)
+    return base.rstrip("/") if base else None
+
+
+def order_link(base: str, token: str) -> str:
+    return f"{base}/o/{quote(token, safe='')}"
+
+
+def wa_chat_url(rest_ref: str) -> str | None:
+    return WA_PAYMENT_RETURN_URLS.get((rest_ref or "").upper())
+
+
+async def web_return_urls(order_number: str, token: str | None = None) -> dict[str, str] | None:
+    base = await storefront_base()
     if not base:
         return None
-    base = base.rstrip("/")
     success = (
-        f"{base}/o/{quote(token, safe='')}"
+        order_link(base, token)
         if token
         else f"{base}/checkout/return?order={quote(order_number, safe='')}"
     )
@@ -44,5 +62,5 @@ async def web_return_urls(order_number: str, token: str | None = None) -> dict[s
 
 
 def wa_return_urls(rest_ref: str) -> dict[str, str] | None:
-    url = WA_PAYMENT_RETURN_URLS.get((rest_ref or "").upper())
+    url = wa_chat_url(rest_ref)
     return {"success_url": url, "cancel_url": url} if url else None
