@@ -23,6 +23,7 @@ from utils_common.payment_ms.payment import (
     generate_takeaway_manual_payment_url,
 )
 from utils_common.payment_ms.payment_mode import resolve_payment_mode
+from utils_common.payment_ms.return_urls import web_return_urls
 from . import availability, order_access
 from .common import (
     MAX_ORDER_LINES,
@@ -415,6 +416,8 @@ async def create(req, key):
                 attempt = {"order_number": order_number, "quote": None}
         # The order is now durable. Failed/ambiguous external calls never cause
         # another order; only a missing payment URL may be regenerated (D22).
+        # Read outside the transaction so the config lookup never holds the advisory lock.
+        return_urls = await web_return_urls(attempt["order_number"])
         async with conn.transaction(), conn.cursor(row_factory=dict_row) as cur:
             await cur.execute("SET LOCAL search_path = public")
             await cur.execute(
@@ -435,7 +438,7 @@ async def create(req, key):
                     if food.action == "delivery"
                     else generate_takeaway_manual_payment_url
                 )
-                url = await generator(food)
+                url = await generator(food, return_urls=return_urls)
                 if not url:
                     raise WebError("payment_unavailable", 503)
                 quote = {
