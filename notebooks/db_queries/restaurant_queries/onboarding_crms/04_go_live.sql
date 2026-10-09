@@ -1,8 +1,5 @@
--- Updated for R3.1 (plan D35, 2026-10-05): there is no web allowlist or delivery-only
--- pause any more. A restaurant is on the web when it is in the code registries;
--- {REF}_WEB_ORDERING_PAUSED is the only web switch; every order of a restaurant in
--- TEST_PAYMENT_REST_REFS is a Stripe test payment. See ordelo-agg-db-switch.sql.
--- =============================================================================
+-- Payment testing uses an exact TEST3100 item; ordinary new baskets use live.
+-- ===
 -- CRMS onboarding · 04 · GO LIVE
 -- Pre-conditions (see plan §4.4 gate G3):
 --   * every test in plan §4.3 passed
@@ -24,12 +21,10 @@ UPDATE public.ordelo_config
 SET config_value = '<TODO_LIVE_TIMEOUT_MINUTES>', updated_at = CURRENT_TIMESTAMP
 WHERE config_key = 'CRMS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME';
 
--- 4.3 Take CRMS out of the test list: its orders become live payments.
-UPDATE public.ordelo_config
-SET config_value = array_to_string(
-      array_remove(string_to_array(upper(replace(config_value, ' ', '')), ','), 'CRMS'), ','),
-    updated_at = CURRENT_TIMESTAMP
-WHERE config_key = 'TEST_PAYMENT_REST_REFS';
+-- 4.3 Ordinary baskets already use live; no payment switch is changed.
+
+-- Restaurant-wide test selection retired; use a TEST3100 order item.
+
 
 -- 4.4 Open for business: remove the pause (absent = open since R3.1).
 DELETE FROM public.ordelo_config WHERE config_key = 'CRMS_WEB_ORDERING_PAUSED';
@@ -47,8 +42,7 @@ END $$;
 
 SELECT rest_ref, admins FROM public.restaurant_master WHERE rest_ref = 'CRMS';
 SELECT config_key, config_value FROM public.ordelo_config
-WHERE config_key = 'TEST_PAYMENT_REST_REFS'
-   OR config_key LIKE 'CRMS\_%'
+WHERE config_key LIKE 'CRMS\_%'
 ORDER BY config_key;
 
 COMMIT;   -- change to ROLLBACK for a dry run
