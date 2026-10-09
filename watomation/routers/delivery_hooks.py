@@ -7,6 +7,7 @@ Delivery webhook handlers for Ordelo delivery system
     . Cancels payments for timed out deliveries via the payment microservice
     . Implements function chaining pattern for complex workflows
     . Handles missed dispatch notifications and rider communications
+    . Restricts TEST3100 dispatch and missed-notice audiences to current overwatch riders
     . Suppresses no-rider admin messages for configured auto-accept orders
     . Provides FastAPI endpoints for delivery operations
     . Uses PostgreSQL CTEs for conditional database operations
@@ -94,6 +95,9 @@ from ordelo.agents.agent_runner import (
 from ordelo.delivery_progress import DeliveryProgress, check_delivery_progress
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder
+from utils_common.order_management.test_order_dispatch import (
+    order_has_test_item, read_overwatch_riders, rider_dispatch_allowed,
+)
 from utils_common.order_management.order_db_ops_new import OrderItem
 
 from utils_common.waba_utils.wa_senders import (
@@ -290,6 +294,10 @@ async def wa_send_delivery_dispatch_request_to_rider(
     """
     order_number = delivery_summary["order_number"]
 
+    # Fresh membership protects stale/replayed payloads and changes since enqueue.
+    if not await rider_dispatch_allowed(order_number, recipient):
+        return
+
     pickup_time = fmt_uk_time(delivery_summary["pickup_time"])
 
     accept_pl = {
@@ -434,7 +442,7 @@ async def delivery_dispatch_hook(
     Handles incoming delivery dispatch webhook payloads and schedules sending dispatch requests to riders as background tasks.
         . Accepts payload with bulk_dispatch list
         . Schedules wa_send_delivery_dispatch_request_to_rider for each dispatch using BackgroundTasks
-        . Skips dispatches for overwatch customers unless rider_id == customer_id
+        . Restricts TEST3100 orders to overwatch riders, independent of customer identity
         . Returns immediately with status success if no dispatches
     Functions/Classes
         . delivery_dispatch_hook
@@ -442,38 +450,47 @@ async def delivery_dispatch_hook(
     Key Functions:
         . delivery_dispatch_hook - schedules dispatch sends in background
     """
-    from config.params import get_overwatch_list
-
     dispatches = payload.get("bulk_dispatch") or []
     if not dispatches:
         return {"status": "success"}
 
+    classifications = {}
+    overwatch = None
     for d in dispatches:
-        overwatch_list = get_overwatch_list()
-        # Overwatch customers: block dispatches to other riders; allow only when rider == customer.
-        if d["customer_id"] in overwatch_list:
-            if d["rider_id"] == d["customer_id"]:
-                background_tasks.add_task(
-                    wa_send_delivery_dispatch_request_to_rider,
-                    recipient=d["rider_id"],
-                    delivery_summary=d,
-                    dispatch_id=d["dispatch_id"],
-                )
-                logger.debug(
-                    f"Overwatch dispatch for rider {d['rider_id']} for customer {d['customer_id']}"
-                )
-            logger.debug(
-                f"Skipping dispatch for rider {d['rider_id']} for customer {d['customer_id']}"
-            )
+        order_number = d["order_number"]
+        if order_number not in classifications:
+            try:
+                classifications[order_number] = await order_has_test_item(order_number)
+            except Exception:
+                classifications[order_number] = None
+                logger.error("dispatch suppressed order={} reason=classification_unavailable", order_number)
+        test_order = classifications[order_number]
+        if test_order is None:
             continue
+        if test_order:
+            if overwatch is None:
+                try:
+                    overwatch = await read_overwatch_riders()
+                except Exception:
+                    overwatch = frozenset()
+                    logger.error("test dispatch suppressed reason=membership_unavailable")
+            if d["rider_id"] not in overwatch:
+                logger.info("dispatch suppressed order={} reason=test_order_non_overwatch_rider", order_number)
+                continue
         background_tasks.add_task(
             wa_send_delivery_dispatch_request_to_rider,
             recipient=d["rider_id"],
             delivery_summary=d,
             dispatch_id=d["dispatch_id"],
         )
-        logger.info(f"Enqueued dispatch for rider {d['rider_id']}")
+        logger.info("dispatch scheduled order={} test_order={}", order_number, test_order)
     return {"status": "success"}
+
+
+async def _send_missed_dispatch_if_allowed(order_number: str, to: str, text: str):
+    """Keep stale missed-notice payloads inside the same TEST3100 audience."""
+    if await rider_dispatch_allowed(order_number, to):
+        await _async_wa_client.send_message(to=to, text=text)
 
 
 # %% Delivery Inflight Graph Init; Fix this
@@ -669,7 +686,7 @@ async def notify_missed_dispatches_hook(
 
             # Send notification to rider in background
             background_tasks.add_task(
-                _async_wa_client.send_message, to=rider_id, text=_text
+                _send_missed_dispatch_if_allowed, order_number=order_number, to=rider_id, text=_text
             )
 
         # Mark dispatches as missed, they will not be pickup by notify_missed_dispatches sql function again

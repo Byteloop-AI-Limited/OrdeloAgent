@@ -403,12 +403,10 @@ UPDATE ordelo_config
 SET config_value = 'ELAS,BNAT',
     updated_at = now()
 WHERE config_key = 'CUSTOMER_NOTIFIER_REST_REFS';
+-- Restaurant-wide test selection retired; use a TEST3100 order item.
 
-INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('TEST_PAYMENT_REST_REFS', 'BNAT', 'ordelo-agg D32: restaurants that honour ?isTest3100=true')
-ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value, updated_at = now();
+-- Restaurant-wide test selection retired; use a TEST3100 order item.
 
-UPDATE ordelo_config SET config_value = 'BNAT', updated_at = now() WHERE config_key = 'TEST_PAYMENT_REST_REFS';
 
 INSERT INTO ordelo_config (config_key, config_value, description)
 VALUES
@@ -417,10 +415,8 @@ VALUES
   ('CUSTOMER_NOTIFIER_REST_REFS', 'CRMS',
    'Restaurants included in the notifier pilot')
 ON CONFLICT (config_key) DO NOTHING;
+-- Restaurant-wide test selection retired; use a TEST3100 order item.
 
-UPDATE ordelo_config
-SET config_value = 'BNAT,ELAS', updated_at = now()
-WHERE config_key = 'TEST_PAYMENT_REST_REFS';
 
 select * from ordelo_config where config_key='CUSTOMER_NOTIFIER_ENABLED';
 CUSTOMER_NOTIFIER_REST_REFS;
