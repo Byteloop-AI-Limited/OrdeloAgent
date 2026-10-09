@@ -15,7 +15,7 @@ Key Functions:
   - test_create_order_with_items_retries_random_reference_on_duplicate
   - test_create_order_with_items_does_not_retry_phone_reference
   - test_create_order_with_items_rejects_unknown_origin
-  - test_create_order_with_items_writes_test_payment_mode
+  - test_create_order_with_items_cannot_select_payment_mode
 """
 
 from __future__ import annotations
@@ -215,11 +215,14 @@ async def test_create_order_with_items_rejects_unknown_origin(patch_supabase_cli
     assert patch_supabase_client.calls == []
 
 
-async def test_create_order_with_items_writes_test_payment_mode(monkeypatch, patch_supabase_client) -> None:
+async def test_create_order_with_items_cannot_select_payment_mode(monkeypatch, patch_supabase_client) -> None:
     monkeypatch.setattr(order_service, "new_order_reference", lambda recipient, order_dt: "ABCD")
     patch_supabase_client.register_rpc("get_next_daily_seq", FakeSupabaseResponse(data=9))
     patch_supabase_client.register_rpc("create_food_order_with_items", FakeSupabaseResponse(data={"item_count": 1}))
 
-    await order_service.create_order_with_items("447448440754", "thread-1", _items(), "elas", "takeaway", payment_mode="test")
-
-    assert _rpc_order(patch_supabase_client)["payment_mode"] == "test"
+    items = _items()
+    items[0].product_name = "TEST3100"
+    await order_service.create_order_with_items("447448440754", "thread-1", items, "elas", "takeaway")
+    assert "payment_mode" not in _rpc_order(patch_supabase_client)
+    call = next(c for c in patch_supabase_client.rpc_calls if c.payload["name"] == "create_food_order_with_items")
+    assert call.payload["args"]["p_items"][0]["product_name"] == "TEST3100"

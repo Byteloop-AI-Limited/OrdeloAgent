@@ -78,6 +78,13 @@ def cue_clears(monkeypatch):
     return calls
 
 
+@pytest.fixture(autouse=True)
+def normal_dispatch_audience(monkeypatch):
+    async def allowed(*args):
+        return True
+    monkeypatch.setattr(delivery_hooks, "rider_dispatch_allowed", allowed)
+
+
 class _FakeBackgroundTasks:
     def __init__(self) -> None:
         self.tasks = []
@@ -185,24 +192,52 @@ async def test_wa_send_delivery_dispatch_request_to_rider_builds_accept_decline_
 
 
 async def test_delivery_dispatch_hook_empty_and_overwatch_scheduling(monkeypatch) -> None:
-    import config.params as params
-
     bg = _FakeBackgroundTasks()
     assert await delivery_hooks.delivery_dispatch_hook(bg, payload={}) == {"status": "success"}
+    classified = []
+    reads = []
+    async def marker(order_number):
+        classified.append(order_number)
+        return order_number == "ELAS-TEST-1"
+    async def overwatch():
+        reads.append(True)
+        return frozenset({"OPS-RIDER"})
+    monkeypatch.setattr(delivery_hooks, "order_has_test_item", marker)
+    monkeypatch.setattr(delivery_hooks, "read_overwatch_riders", overwatch)
+    payload = {"bulk_dispatch": [
+        {**_summary_row(order_number="ELAS-TEST-1", customer_id="W-ANON"), "rider_id": "OTHER", "dispatch_id": 1},
+        {**_summary_row(order_number="ELAS-TEST-1", customer_id="W-ANON"), "rider_id": "OPS-RIDER", "dispatch_id": 2},
+        {**_summary_row(order_number="ELAS-LIVE-1", customer_id="OPS-RIDER"), "rider_id": "RIDER02", "dispatch_id": 3},
+    ]}
+    assert await delivery_hooks.delivery_dispatch_hook(bg, payload=payload) == {"status": "success"}
+    assert [t["kwargs"]["recipient"] for t in bg.tasks] == ["OPS-RIDER", "RIDER02"]
+    assert classified == ["ELAS-TEST-1", "ELAS-LIVE-1"]
+    assert len(reads) == 1
 
-    monkeypatch.setattr(params, "get_overwatch_list", lambda: ["CUST01"])
-    payload = {
-        "bulk_dispatch": [
-            {**_summary_row(customer_id="CUST01"), "rider_id": "OTHER", "dispatch_id": 1},
-            {**_summary_row(customer_id="CUST01"), "rider_id": "CUST01", "dispatch_id": 2},
-            {**_summary_row(customer_id="CUST02"), "rider_id": "RIDER02", "dispatch_id": 3},
-        ]
-    }
 
-    result = await delivery_hooks.delivery_dispatch_hook(bg, payload=payload)
+async def test_dispatch_unknown_order_does_not_send_or_block_other_orders(monkeypatch):
+    async def marker(number):
+        if number == "UNKNOWN":
+            raise RuntimeError("lookup failed")
+        return False
+    monkeypatch.setattr(delivery_hooks, "order_has_test_item", marker)
+    bg = _FakeBackgroundTasks()
+    await delivery_hooks.delivery_dispatch_hook(bg, payload={"bulk_dispatch": [
+        {**_summary_row(order_number=n), "rider_id": "RIDER", "dispatch_id": i}
+        for i,n in enumerate(["UNKNOWN", "ELAS-LIVE-1"])
+    ]})
+    assert len(bg.tasks) == 1
+    assert bg.tasks[0]["kwargs"]["delivery_summary"]["order_number"] == "ELAS-LIVE-1"
 
-    assert result == {"status": "success"}
-    assert [task["kwargs"]["recipient"] for task in bg.tasks] == ["CUST01", "RIDER02"]
+
+async def test_blocked_stale_dispatch_and_missed_notice_never_send(monkeypatch, fake_async_wa):
+    async def blocked(*args):
+        return False
+    monkeypatch.setattr(delivery_hooks, "rider_dispatch_allowed", blocked)
+    monkeypatch.setattr(delivery_hooks, "_async_wa_client", fake_async_wa)
+    await delivery_hooks.wa_send_delivery_dispatch_request_to_rider("OTHER", _summary_row(), 10, _async_wa_client=fake_async_wa)
+    await delivery_hooks._send_missed_dispatch_if_allowed("ELAS-ABCD-1", "OTHER", "missed")
+    assert fake_async_wa.sent == []
 
 
 async def test_delivery_inflight_graph_init_hook_schedules_core_background_tasks() -> None:
