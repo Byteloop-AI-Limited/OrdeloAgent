@@ -10,7 +10,7 @@ import hashlib
 import json
 from decimal import Decimal
 from datetime import timedelta
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from loguru import logger
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
@@ -22,7 +22,6 @@ from utils_common.payment_ms.payment import (
     generate_payment_intent_url,
     generate_takeaway_manual_payment_url,
 )
-from utils_common.payment_ms.payment_mode import resolve_payment_mode
 from utils_common.payment_ms.return_urls import web_return_urls
 from . import availability, order_access
 from .common import (
@@ -65,8 +64,15 @@ class OrderInput(BaseModel):
     rest_ref: str = Field(min_length=4, max_length=4)
     order_items: list[Item] = Field(min_length=1, max_length=MAX_ORDER_LINES)
     notes: str | None = Field(default=None, max_length=500)
-    test_payment: bool = False
     client_estimate: dict[str, float | None] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def discard_legacy_payment_request(cls, values):
+        """Older cached clients may send this field; it has no routing effect."""
+        if isinstance(values, dict):
+            values = {key: value for key, value in values.items() if key != "test_payment"}
+        return values
 
     @field_validator("client_estimate")
     @classmethod
@@ -270,10 +276,30 @@ def fingerprint(req, address_snapshot):
     ).hexdigest()
 
 
+def fingerprint_matches(stored_hash, req, address_snapshot):
+    """Recognise old canonical hashes without using their toggle for routing.
+
+    Only the retired field may differ. Every basket/address/identity field
+    remains part of the comparison, including on pre-cutover cached quotes.
+    """
+    if stored_hash == fingerprint(req, address_snapshot):
+        return True
+    data = req.model_dump(mode="json") | {"address": address_snapshot}
+    for old_value in (False, True):
+        legacy = data | {"test_payment": old_value}
+        candidate = hashlib.sha256(json.dumps(
+            legacy, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode()).hexdigest()
+        if stored_hash == candidate:
+            return True
+    return False
+
+
 async def create(req, key):
     """Create or resume an idempotent web order and return quote plus access grant.
 
-    Validate session, availability, payment mode, address, total and minimum.
+    Validate session, availability, address, total and minimum; the creation RPC
+    fixes payment mode from accepted item names.
     Under request/checkout advisory locks, atomically commit a fresh per-order
     W customer, FoodOrder/items and web_order_request. At most ten distinct
     requests are allowed per checkout; conflicting key/input returns 409.
@@ -292,11 +318,6 @@ async def create(req, key):
     addr = co.get("address") if co["mode"] == "delivery" else None
     if co["mode"] == "delivery" and not addr:
         raise WebError("invalid_address")
-    # R3.1 (D35): a test restaurant is always test; elsewhere a web request is refused.
-    payment_mode, _ = await resolve_payment_mode(req.cust_id, req.rest_ref, req.test_payment)
-    if req.test_payment and payment_mode is None:
-        raise WebError("test_payment_not_allowed", 403)
-    payment_mode = payment_mode or "live"
     body_hash = fingerprint(req, addr)
     total = sum((item.price * item.quantity for item in req.order_items), Decimal(0))
     if total <= 0 or total > 10000:
@@ -321,7 +342,7 @@ async def create(req, key):
             if attempt:
                 if (
                     attempt["thread_id"] != req.thread_id
-                    or attempt["body_hash"] != body_hash
+                    or not fingerprint_matches(attempt["body_hash"], req, addr)
                 ):
                     raise WebError("idempotency_conflict", 409)
             else:
@@ -398,7 +419,6 @@ async def create(req, key):
                     "payment_status": "requires_payment",
                     "origin_channel": "web",
                     "storefront": "ordelo",
-                    "payment_mode": payment_mode,
                     "idempotency_key": key,
                     "notes": notes,
                 }

@@ -487,15 +487,9 @@ Do it after R1b, so the test order never reaches a restaurant app. The plan has 
 
 SELECT config_key, config_value, updated_at
 FROM public.ordelo_config
-WHERE config_key IN ('TEST_PAYMENT_REST_REFS', 'ORDELO_APP_URL', 'RESTAURANT_MENU_APP_URL')
+WHERE config_key IN ('ORDELO_APP_URL', 'RESTAURANT_MENU_APP_URL')
    OR config_key LIKE '%\_WEB\_ORDERING\_PAUSED' ESCAPE '\'
    OR config_key LIKE '%\_WEB\_MAX\_DISCOUNT\_PERCENT' ESCAPE '\'
 ORDER BY config_key;
 select * from payment_event order by id desc limit 10;
-
-
-INSERT INTO public.ordelo_config (config_key, config_value, description)
-VALUES ('TEST_PAYMENT_REST_REFS', 'BNAT,ELAS', 'Restaurants whose orders always use Stripe test (R3.1)')
-ON CONFLICT (config_key) DO UPDATE
-SET config_value = EXCLUDED.config_value, description = EXCLUDED.description,
-    updated_at = CURRENT_TIMESTAMP;
+-- Restaurant-wide test selection retired; use a TEST3100 order item.

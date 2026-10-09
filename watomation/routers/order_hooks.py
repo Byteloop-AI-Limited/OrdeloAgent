@@ -21,7 +21,6 @@ Functions/Classes:
 """
 
 from utils_common.notify import customer_notifier
-from utils_common.payment_ms.payment_mode import resolve_payment_mode
 
 # %%
 
@@ -207,7 +206,7 @@ async def get_min_order_value_by_postcode(
 
 
 class CreateOrderRequest(BaseModel):
-    """Request model for creating a new order."""
+    """Create an order; accepted item names alone select its payment environment."""
 
     recipient: str
     thread_id: str
@@ -217,7 +216,6 @@ class CreateOrderRequest(BaseModel):
     # Plan D28/D29: web-style orders (R2 checks, later /web/*) set these.
     origin_channel: Literal["whatsapp", "web"] = "whatsapp"
     storefront: Literal["direct", "ordelo"] = "direct"
-    test_payment: bool = False
 
 
 @router.post(
@@ -260,9 +258,6 @@ async def create_order(
     _notes = request.notes.lower() if request.notes else ""
 
     action = request.order_type
-    payment_mode, reason = await resolve_payment_mode(request.recipient, rest_ref, request.test_payment)
-    if request.test_payment or payment_mode:
-        logger.info("payment mode rest_ref={} mode={} reason={}", rest_ref, payment_mode or "live", reason)
 
     # Create order with items
     order_result = await create_order_with_items(
@@ -274,7 +269,6 @@ async def create_order(
         notes=request.notes,
         origin_channel=request.origin_channel,
         storefront=request.storefront,
-        payment_mode=payment_mode,
     )
 
     # Check if order creation was successful (F3: before reading order_id)
