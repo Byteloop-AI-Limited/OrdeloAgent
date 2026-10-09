@@ -46,7 +46,7 @@ A WhatsApp customer gets a private link to the same order page web customers use
 | Q4 | Grant: kind `page_token`, `detail_level` `full`, `expires_at = order_dtts + 30 days` (same as web; no migration). A fresh grant on every call, **no cap**. Issue only if: order exists, `origin_channel='whatsapp'`, paid (`payment_status <> 'requires_payment'`), caller's `recipient` = `food_order.recipient`, rest_ref in `RESTAURANTS`. Web orders → 409. |
 | Q5 | The endpoint lives under **`/web/*`** and uses the existing **`ORDELO_WEB_KEY`** (`X-Ordelo-Web-Key`). restaurant-agents gets the same key. |
 | Q6 | Page differences when `origin_channel === 'whatsapp'`: the help card's main button opens the **restaurant's WhatsApp chat** (`wa.me`), call stays as a second option; the **"Save your order link" box is hidden**. |
-| Q7 | One line appended to the existing receipt, delivery and collection: `Track your order: <url>`. Request the link with a **2 s timeout**; on any failure send the receipt **without** the line and log a warning with the order number only. Never log the URL or token. Delivery replays are already stopped by the existing duplicate guard; a collection replay gets a fresh link (accepted). |
+| Q7 | An "Order Tracking" URL button (`ButtonUrl`) on the existing receipt message, delivery and collection (changed from a text line on 2026-10-09). Request the link with a **2 s timeout**; on any failure send the receipt **without** the line and log a warning with the order number only. Never log the URL or token. Delivery replays are already stopped by the existing duplicate guard; a collection replay gets a fresh link (accepted). |
 | Q8 | Branches as in the table above. Release: **OrdeloAgent → restaurant-frontend → restaurant-agents**, so a link is never sent before the page can show it. |
 
 ---
@@ -190,14 +190,14 @@ Check how `runtime.settings` exposes `project` (it is built in `config/bundle.py
 ### 6.3 `watomation/routers/order_event_hooks.py` `payment_complete`
 
 - After the delivery duplicate guard (≈L215) and before building `formatted_wa_text`, call `link = await fetch_order_page_link(runtime, food_order.order_number, recipient)`.
-- Append `f"\n    Track your order: {link}\n"` to `formatted_wa_text` in **both** branches (delivery ≈L238, collection ≈L270) when `link` is set.
+- Pass `buttons=ButtonUrl(title="Order Tracking", url=link)` to `send_message` in **both** branches (delivery, collection) when `link` is set; no button otherwise.
 - The receipt is still sent before the background graph task, as today. Nothing else changes.
 - The link is not passed into the graph state or the LLM system message.
 
 ### 6.4 Tests (new `tests/watomation/routers/test_order_event_hooks.py`)
 
 Use the repo's runtime stubs (`tests/_stubs`) and patch `fetch_order_page_link` / `httpx`:
-- Delivery and collection: when the fetch returns a URL, the sent text ends with `Track your order: https://…/o/…`.
+- Delivery and collection: when the fetch returns a URL, the send has `buttons` = `ButtonUrl("Order Tracking", https://…/o/…)` and the text does not contain the link.
 - Fetch returns None (timeout, 401, 409, 503, empty key): receipt sent unchanged, no exception.
 - Delivery replay (duplicate guard hit): no fetch, no send.
 - `fetch_order_page_link`: empty/short key → no HTTP call; non-201 → None; non-https URL → None; timeout is 2 s; log lines never contain `/o/`.
@@ -212,7 +212,7 @@ Follow `docs/local-testing-runbook.md` (OrdeloAgent :3100, restaurant-frontend :
 
 | # | Test | Expect |
 |---|---|---|
-| W1 | WhatsApp delivery, ELAS, chat order, pay | Receipt ends with `Track your order: https://restaurant-test.ordelo.app/o/…`. Opening it lands on `/town/salisbury/orders/ELAS-…`; status moves through rider assigned / on its way / delivered; help card shows "Message Elai… on WhatsApp" → opens the ELAS wa.me; no "Save your order link" box |
+| W1 | WhatsApp delivery, ELAS, chat order, pay | Receipt shows an "Order Tracking" button opening `https://restaurant-test.ordelo.app/o/…`. Opening it lands on `/town/salisbury/orders/ELAS-…`; status moves through rider assigned / on its way / delivered; help card shows "Message Elai… on WhatsApp" → opens the ELAS wa.me; no "Save your order link" box |
 | W2 | WhatsApp collection (SFCS or BNAT) | Same line in the collection receipt; page shows the collection steps from `takeaway_summary` |
 | W3 | WhatsApp menu-page order (`/restaurant/elas`) | Same as W1 (same `payment-complete` path) |
 | W4 | `ordelo_web_key` removed from restaurant-agents env | Receipt sent without the line; no call made |
