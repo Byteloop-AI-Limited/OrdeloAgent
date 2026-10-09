@@ -1,3 +1,5 @@
+> Historical design/verification snapshot. Payment testing was superseded on 9 October 2026: new orders use test only with an exact `TEST3100` item, and test delivery offers are restricted to eligible overwatch riders. See the current test-orders guide.
+
 # Plan: order tracking page for WhatsApp orders (OrdeloAgent + restaurant-agents + restaurant-frontend)
 
 Written 2026-10-08. Decisions agreed with the owner in a grilling session (Q1–Q8 below).
@@ -208,7 +210,7 @@ Run the repo's usual `pytest -q` (and its linter).
 
 ## 7. Local verification
 
-Follow `docs/local-testing-runbook.md` (OrdeloAgent :3100, restaurant-frontend :3000, restaurant-agents :3101, Cloudflare tunnel; switch `ORDELO_APP_URL` / `RESTAURANT_MENU_APP_URL` to the test hosts in the maintenance window and restore after). Use Stripe test mode (overwatch number with `?isTest3100=true`, or a restaurant in `TEST_PAYMENT_REST_REFS`). Locally restaurant-agents needs `ordelo_web_key` in its env, matching OrdeloAgent's `ORDELO_WEB_KEY` from `.env.r3-local`.
+Follow `docs/local-testing-runbook.md` (OrdeloAgent :3100, restaurant-frontend :3000, restaurant-agents :3101, Cloudflare tunnel; switch `ORDELO_APP_URL` / `RESTAURANT_MENU_APP_URL` to the test hosts in the maintenance window and restore after). Use Stripe test mode (overwatch number with `?isTest3100=true`, or a restaurant in `retired restaurant-wide payment switch`). Locally restaurant-agents needs `ordelo_web_key` in its env, matching OrdeloAgent's `ORDELO_WEB_KEY` from `.env.r3-local`.
 
 | # | Test | Expect |
 |---|---|---|

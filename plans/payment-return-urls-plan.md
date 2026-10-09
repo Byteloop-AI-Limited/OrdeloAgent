@@ -1,3 +1,5 @@
+> Historical design/verification snapshot. Payment testing was superseded on 9 October 2026: new orders use test only with an exact `TEST3100` item, and test delivery offers are restricted to eligible overwatch riders. See the current test-orders guide.
+
 # Plan: per-order Stripe success/cancel URLs (payment-service + OrdeloAgent + restaurant-frontend)
 
 Written 2026-10-08. Decisions agreed with the owner in a grilling session (Q1–Q12 below).
@@ -40,7 +42,7 @@ The frontend landing page already exists and works: `restaurant-frontend/app/(we
 | Q7 | BNAT's WhatsApp link is `https://wa.me/message/F7QYDTUOIVCNI1`. This is a deliberate change: deployed BNAT currently goes to the menu page. |
 | Q8 | Local run: a new `payment-service/cmd/local/main.go` HTTP adapter on `:4041` that calls the same `handler.Generic`. It is not part of the Lambda build (`buildspec.yml` builds `main.go` only). |
 | Q9 | The local adapter loads **only the embedded `config.yaml`** (never Secrets Manager) and refuses to start if any Stripe key starts with `sk_live_`/`rk_live_`. |
-| Q10 | No new local-only settings in OrdeloAgent and no change to the `ordelo-agent-env` secret. For local testing the owner **temporarily hard-codes** `ms_settings.stripe_url_test` (§6.1) and does not commit it. The existing test routing (overwatch + `TEST_PAYMENT_REST_REFS`) decides which orders hit it. |
+| Q10 | No new local-only settings in OrdeloAgent and no change to the `ordelo-agent-env` secret. For local testing the owner **temporarily hard-codes** `ms_settings.stripe_url_test` (§6.1) and does not commit it. The existing test routing (overwatch + `retired restaurant-wide payment switch`) decides which orders hit it. |
 | Q11 | Delete the "Stripe may open the restaurant's WhatsApp page…" note from the frontend. Deploy the frontend last. |
 | Q12 | Branches as in the table above; commit, no push. |
 
@@ -552,7 +554,7 @@ Why here:
 - Live orders keep `ms_settings.stripe_url` (L223) and go to the deployed live service.
 - Which orders are "test" is unchanged:
   - `FoodOrder.uses_test_payment` (L196): `payment_mode == "test"`, or delivery from an overwatch number.
-  - `payment_mode` is set by `resolve_payment_mode` (`utils_common/payment_ms/payment_mode.py`): a restaurant in `ordelo_config.TEST_PAYMENT_REST_REFS`, or an overwatch recipient with `?isTest3100=true`.
+  - `payment_mode` is set by `resolve_payment_mode` (`utils_common/payment_ms/payment_mode.py`): a restaurant in `ordelo_config.retired restaurant-wide payment switch`, or an overwatch recipient with `?isTest3100=true`.
 
 `http://localhost:4041` works because OrdeloAgent and the runner are on the same Mac. `https://vavi-agg-test.ordelo.app` works too (via the tunnel), and the runner accepts the path with or without `/prod`.
 
@@ -608,7 +610,7 @@ cloudflared tunnel --config "$HOME/.cloudflared/config.yml" run
 
    -- which restaurants are always Stripe test
    SELECT config_key, config_value FROM ordelo_config
-   WHERE config_key IN ('WEB_STOREFRONT_URL', 'TEST_PAYMENT_REST_REFS', 'overwatch_list');
+   WHERE config_key IN ('WEB_STOREFRONT_URL', 'retired restaurant-wide payment switch', 'overwatch_list');
    ```
    If `ordelo_config.config_key` has no unique constraint, use `UPDATE … WHERE config_key='WEB_STOREFRONT_URL'` and an `INSERT` only if 0 rows were updated. Restart OrdeloAgent, or wait 60 s, after changing it.
 
@@ -639,7 +641,7 @@ Each call creates a real **test-mode** Checkout Session. Read the runner's `Crea
 | C6 | path `/prod/threads/T-LOCAL/orders/ELAS-TEST-1/payment-url` | same as C1 (adapter strips the stage) |
 | C7 | `"restRef":"bnat"` | 200; default success = BNAT's default from `config.yaml` (`wa.me/message/F7QYDTUOIVCNI1`) |
 
-**End to end through the tunnel**, with a test restaurant in `TEST_PAYMENT_REST_REFS` or an overwatch number:
+**End to end through the tunnel**, with a test restaurant in `retired restaurant-wide payment switch` or an overwatch number:
 
 | # | Flow | Steps | Expect |
 |---|---|---|---|
