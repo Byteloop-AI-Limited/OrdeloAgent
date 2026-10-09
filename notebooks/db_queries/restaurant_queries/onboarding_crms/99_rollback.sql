@@ -1,8 +1,5 @@
--- Updated for R3.1 (plan D35, 2026-10-05): there is no web allowlist or delivery-only
--- pause any more. A restaurant is on the web when it is in the code registries;
--- {REF}_WEB_ORDERING_PAUSED is the only web switch; every order of a restaurant in
--- TEST_PAYMENT_REST_REFS is a Stripe test payment. See ordelo-agg-db-switch.sql.
--- =============================================================================
+-- Payment testing uses an exact TEST3100 item; ordinary new baskets use live.
+-- ===
 -- CRMS onboarding · 99 · ROLLBACK. Pick the smallest level that solves the problem.
 -- All levels take effect within about 60 s (backend flag/CSV cache), with no deploy.
 -- =============================================================================
