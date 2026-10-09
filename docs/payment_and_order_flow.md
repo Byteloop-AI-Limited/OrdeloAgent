@@ -1,5 +1,7 @@
 # Ordelo Payment and Order Flow
 
+> Current test-order policy: new orders use Stripe test only with an exact `TEST3100` item. Test delivery offers go only to eligible overwatch riders. See [test-orders.md](test-orders.md) for the fixed payment environment and deployment cutover.
+
 **Version:** 1.0
 **Last Updated:** 2026-02-14
 

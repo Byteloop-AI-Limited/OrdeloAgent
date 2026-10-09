@@ -36,6 +36,10 @@ _Avoid_: restaurant admin, kitchen
 The operations audience responsible for monitoring fulfilment and investigating escalations.
 _Avoid_: all admins, restaurant staff
 
+**Overwatch rider**:
+A rider who is also a member of overwatch. Membership does not by itself establish availability for a delivery.
+_Avoid_: every operations contact, the ordering customer
+
 ## Events and communication
 
 **Order event**:
@@ -107,6 +111,22 @@ A communication conveying a customer's feedback or complaint to the restaurant's
 _Avoid_: order progress event
 
 ## Visibility and money
+
+**Test order**:
+An order designated for simulated payment and testing. Restaurant staff should recognise it on the receipt and should not prepare its food.
+_Avoid_: live customer order, free order
+
+**Test item**:
+A normal priced order item that designates the whole order as a test order and remains visible on its receipt.
+_Avoid_: hidden flag, discount, free marker
+
+**Test payment**:
+A simulated payment for testing that does not move real customer money.
+_Avoid_: payment authorization when the environment is unspecified
+
+**Live payment**:
+A payment that can authorize, charge or return real customer money.
+_Avoid_: web payment, production order when referring only to money
 
 **Detail level**:
 The amount of order information a viewer or subscriber may see: full details or status only.
