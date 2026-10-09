@@ -1,49 +1,12 @@
 # Configuration profiles and restoration
 
-The table is `public.ordelo_config`, with `config_key`, `config_value`,
-`description`, `created_at` and `updated_at`; there is no `rest_ref` column.
-The scripts upsert by the existing unique `config_key` and preserve descriptions
-on existing rows. They require no new tables or migrations.
+Payment testing is per order. Include a normal priced item named exactly `TEST3100`; this selects Stripe test and keeps the marker on the receipt. Delivery offers then go only to normally eligible overwatch riders. Without that item, a new order uses live payment regardless of customer number or restaurant.
 
-## SQL files
+The local/production SQL profiles change only `ORDELO_APP_URL` and `RESTAURANT_MENU_APP_URL`. Save their exact before values and restore those, rather than blindly applying a historical baseline. The scripts use standalone statements with returned verification. Local hostnames route services; they do not select a Stripe account.
 
-- [production-restore.sql](production-restore.sql): restore the documented
-  production routing and the production **before R1b rollout** profile.
-- [test-enable.sql](test-enable.sql): recreate the successful ELAS/BNAT local
-  R1b/R2 profile. Narrow both allowlists for a single-restaurant test if requested.
-- [inspect-order.sql](inspect-order.sql): read-only checks for one full order
-  number, resolving the payment service's short ID automatically.
+Older rollout flags are ignored by current code and should not be recreated. Browser/query test selectors have no effect. Confirm the response's payment mode and Stripe account before a manual payment test.
 
-These are manual, transactional SQL-editor files. Merely preparing them does not
-apply them. Run/export the initial SELECT separately before running a profile, then
-verify the after results. On a future test, restore its recorded before values;
-an established production pilot must not be disabled just because this older
-pre-rollout profile says false.
-
-| Key | Production before R1b rollout | Successful local ELAS/BNAT profile |
-| --- | --- | --- |
-| `ORDELO_APP_URL` | `https://rider-agent.ordelo.app` | `https://rider-agent-test.ordelo.app` |
-| `RESTAURANT_MENU_APP_URL` | `https://restaurant.ordelo.app` | `https://restaurant-test.ordelo.app` |
-| `PAYMENT_INBOX_ENABLED` | `true` | `true` |
-| `ORDER_CREATE_RPC_ENABLED` | `true` | `true` |
-| `ENABLE_PAYMENT_TEST_ROUTES` | `false` | `false` |
-| `CUSTOMER_NOTIFIER_ENABLED` | `false` | `true` |
-| `CUSTOMER_NOTIFIER_REST_REFS` | `BNAT` | `ELAS,BNAT` |
-| `TEST_PAYMENT_REST_REFS` | `BNAT` | `BNAT,ELAS` |
-
-The first two URLs come from the local runbook. R1a true and BNAT-only test-payment
-eligibility are the plan's 2026-10-01 production baseline. Notifier false is the
-predeployment choice for the locally implemented R1b release, not a claim that
-every future production environment must have the notifier disabled. A BNAT
-pilot is a separate rollout: after the deployed code is verified, explicitly
-enable the notifier with `CUSTOMER_NOTIFIER_REST_REFS=BNAT`.
-
-An empty/missing notifier allowlist means **all restaurants** when the flag is
-on. Do not use an empty string to mean disabled; use the flag itself. Test-payment
-eligibility needs `test_payment:true` as well; the URL flag alone does not force
-Stripe test mode. For WhatsApp the overwatch rule also applies.
-
-## Settings outside these eight keys
+## Other routing and service settings
 
 Current source and live reads on 2026-10-02 showed BNAT, ELAS and SFCS already
 using `https://bnat-agent.fly.dev/`, `https://elas-agg.ordelo.app` and
