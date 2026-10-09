@@ -1,3 +1,5 @@
+> Historical design/verification snapshot. Payment testing was superseded on 9 October 2026: new orders use test only with an exact `TEST3100` item, and test delivery offers are restricted to eligible overwatch riders. See the current test-orders guide.
+
 # R1b implementation and verification — 2 October 2026
 
 R1b is implemented locally on `release/ordelo-agg`. It is not deployed, and the
@@ -66,7 +68,7 @@ The shared Supabase is `pqsvhidiwiydgshynfib`. At inspection:
 | --- | --- |
 | `PAYMENT_INBOX_ENABLED` | `true` |
 | `ORDER_CREATE_RPC_ENABLED` | `true` |
-| `TEST_PAYMENT_REST_REFS` | `BNAT` |
+| `retired restaurant-wide payment switch` | `BNAT` |
 | `CUSTOMER_NOTIFIER_ENABLED` | absent, therefore off |
 | `CUSTOMER_NOTIFIER_REST_REFS` | absent |
 | `ORDELO_APP_URL` | `https://rider-agent.ordelo.app` |

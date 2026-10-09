@@ -1,5 +1,7 @@
 # Local setup and testing runbook
 
+> Current test-order policy: new orders use Stripe test only with an exact `TEST3100` item. Test delivery offers go only to eligible overwatch riders. See [test-orders.md](test-orders.md) for the fixed payment environment and deployment cutover.
+
 Run OrdeloAgent and restaurant-frontend locally, expose them through the existing Cloudflare Tunnel, and route shared services to these local instances during a maintenance window.
 
 ## Projects and ports

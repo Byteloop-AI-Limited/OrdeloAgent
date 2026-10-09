@@ -1,3 +1,5 @@
+> Historical design/verification snapshot. Payment testing was superseded on 9 October 2026: new orders use test only with an exact `TEST3100` item, and test delivery offers are restricted to eligible overwatch riders. See the current test-orders guide.
+
 # R3 live web ordering — local build and regression handover
 
 ## Status
@@ -31,7 +33,7 @@ new end-to-end WhatsApp delivery or collection tests.
 The change has high release criticality because it creates real orders and
 payment sessions. Test mode must be explicitly requested with
 `?isTest3100=true`; being an enabled web restaurant does not itself force test
-payments. The backend checks `TEST_PAYMENT_REST_REFS` and refuses an unauthorised
+payments. The backend checks `retired restaurant-wide payment switch` and refuses an unauthorised
 test-mode request rather than falling back to live payment.
 
 ## Implemented behavior
