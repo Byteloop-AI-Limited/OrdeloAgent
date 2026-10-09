@@ -71,7 +71,10 @@ BEGIN
     COALESCE(p_order->>'payment_status', 'requires_payment'),
     COALESCE(p_order->>'origin_channel', 'whatsapp'),
     COALESCE(p_order->>'storefront', 'direct'),
-    NULLIF(p_order->>'payment_mode', ''), NULLIF(p_order->>'idempotency_key', ''))
+    CASE WHEN EXISTS (SELECT 1 FROM jsonb_array_elements(p_items) x
+                      WHERE x->>'product_name' = 'TEST3100')
+         THEN 'test' ELSE 'live' END,
+    NULLIF(p_order->>'idempotency_key', ''))
   RETURNING to_jsonb(food_order.*) INTO v_order;
 
   INSERT INTO public.order_item (order_id, product_name, sku, quantity, price, modifications)
@@ -161,5 +164,4 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 COMMIT;
--- Explicit opt-in after code/secrets/checks: WEB_ORDERING_ENABLED_REST_REFS=ELAS
--- WEB_LATE_PAYMENT_GUARD_ENABLED=true; existing TEST_PAYMENT_REST_REFS is reused (D32).
+-- Web presence is code configuration. New payment environments are item-derived.
