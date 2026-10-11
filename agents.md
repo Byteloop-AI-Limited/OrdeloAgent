@@ -4,6 +4,8 @@
 
 > **Web ordering implementation:** see the [interactive playground](docs/web-ordering-playground.html) and [matching agent context](docs/web-ordering-playground.md) for checkout identity, tables, payment/fulfilment flows and differences from the separate proposal.
 
+> **Payment services and testing:** [human guide](docs/test-orders.html) and [agent context](docs/test-orders.md) document the retained `payment` and `wrenPayment` endpoints. Only an exact `TEST3100` item selects test for a new order; test delivery offers go only to eligible overwatch riders. There is no retrospective order repair requirement.
+
 This document maps the codebase structure and explains how agents, webhooks, messaging, and data layers work together. Use it as your starting point and as a quick index for searching code.
 
 For local startup of OrdeloAgent and the sibling restaurant-frontend, Python shell preparation (`venv`, `PYTHONPATH`, `envLoad`), Cloudflare Tunnel routing, and maintenance-window test/production URL switches, follow the [local testing runbook](docs/local-testing-runbook.md).

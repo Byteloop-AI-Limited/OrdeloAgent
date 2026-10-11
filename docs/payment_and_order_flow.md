@@ -143,11 +143,11 @@ Validates a UK postcode using the address resolver and returns the resolved addr
 **Source:** `utils_common/order_management/order_service.py:174-306` (`create_order_with_items`)
 
 1. **Sequence number**: Calls `get_next_daily_seq` RPC to get the daily sequence counter
-2. **Order reference**: Generates a 4-character hashed reference from the last 4 digits of the recipient phone number, a salt, and the order date via `create_order_reference()`
+2. **Order reference**: Uses `new_order_reference()` to derive phone-based references or generate random references for synthetic web customer keys.
 3. **Order ID**: `{order_reference}-{seq_number}` (e.g., `KDDV-21`)
 4. **Order number**: `{REST_REF}-{order_reference}-{seq_number}` (e.g., `ELAS-KDDV-21`)
-5. **food_order INSERT**: Inserts into `food_order` table with `payment_status = 'requires_payment'` and `action` set to `order_type`
-6. **order_item INSERT**: Inserts all order items linked to the order_id. If this fails, the food_order record is rolled back (deleted)
+5. **Atomic creation RPC**: `create_food_order_with_items` inserts `food_order` with `payment_status = 'requires_payment'`, the requested fulfilment action and item-derived `payment_mode`: exact `TEST3100` means test; otherwise live.
+6. **order_item INSERT**: The same RPC inserts all items linked to the order_id. Any failure rolls back the transaction; no separate compensating delete is used.
 7. **Final order value**: After insert, `FoodOrder.from_order_id()` is called, which triggers `update_final_order_value_in_db()` for delivery orders (calls pricing microservice to calculate fees)
 
 ### Payment URL Generation
@@ -164,7 +164,7 @@ Both functions POST to the Stripe payment service at the `payment_uri` derived f
 {stripe_url}/threads/{thread_id}/orders/{order_id}/payment-url
 ```
 
-Overwatch customers (configured test accounts) use `stripe_url_test` instead.
+The two services remain separate: `payment` uses `ms_settings.stripe_url` for live orders; `wrenPayment` uses `ms_settings.stripe_url_test` for test orders. Only an exact `TEST3100` item in a newly created order selects test mode. Customer overwatch membership, restaurant identity, URL parameters and application hostname do not select it. Capture and cancellation reuse the order's stored mode and selected endpoint. See [test-orders.md](test-orders.md#retained-payment-and-wren-services) for the endpoint table and complete lifecycle.
 
 **Response:**
 ```json

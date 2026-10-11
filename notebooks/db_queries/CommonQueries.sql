@@ -24,7 +24,7 @@ select * from customer_master;
 select rest_ref, count(*) from cust_rest_map where has_consent group by rest_ref;
 -- Check and close thread
 select * from thread where is_active order by dtts desc;
-update thread set is_active=False where is_active and recipient='447448440754';
+update thread set is_active=False where is_active and recipient='447919202938';
 update thread set is_active=False where agent='WEB';
 --ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d 
 --ORDELO-7006a159-8f54-4615-ac0e-6fe58fed32c7
@@ -37,6 +37,7 @@ select * from delivery_summary where order_number like 'SFCS-%'  order by dtts d
 select * from delivery_summary order by dtts desc;
 update delivery_summary set status='timedout' where order_number='SFCS-LSFC-25';
 
+select * from order_item where product_name='TEST3100';
 
 -- Cleanup of customer to simulate new customer
 -- 447919202938
@@ -487,9 +488,15 @@ Do it after R1b, so the test order never reaches a restaurant app. The plan has 
 
 SELECT config_key, config_value, updated_at
 FROM public.ordelo_config
-WHERE config_key IN ('ORDELO_APP_URL', 'RESTAURANT_MENU_APP_URL')
+WHERE config_key IN ('TEST_PAYMENT_REST_REFS', 'ORDELO_APP_URL', 'RESTAURANT_MENU_APP_URL')
    OR config_key LIKE '%\_WEB\_ORDERING\_PAUSED' ESCAPE '\'
    OR config_key LIKE '%\_WEB\_MAX\_DISCOUNT\_PERCENT' ESCAPE '\'
 ORDER BY config_key;
 select * from payment_event order by id desc limit 10;
--- Restaurant-wide test selection retired; use a TEST3100 order item.
+
+
+INSERT INTO public.ordelo_config (config_key, config_value, description)
+VALUES ('TEST_PAYMENT_REST_REFS', 'BNAT,ELAS', 'Restaurants whose orders always use Stripe test (R3.1)')
+ON CONFLICT (config_key) DO UPDATE
+SET config_value = EXCLUDED.config_value, description = EXCLUDED.description,
+    updated_at = CURRENT_TIMESTAMP;
