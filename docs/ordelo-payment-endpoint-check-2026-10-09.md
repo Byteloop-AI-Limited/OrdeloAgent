@@ -1,5 +1,7 @@
 # Ordelo payment endpoint check — 9 October 2026
 
+> Historical investigation before the TEST3100 redesign. Its former restaurant/customer selection rules are superseded. The retained live/Wren endpoint mapping and current item-only selection are documented in [test-orders.md](test-orders.md#retained-payment-and-wren-services). This report's observations describe the orders and runtime inspected at that time.
+
 ## Finding
 
 OrdeloAgent is calling the intended Wren/test payment endpoint for the two orders discussed in the shared chat. No wrong checkout/capture endpoint was found in `FoodOrder.payment_uri` for these orders.

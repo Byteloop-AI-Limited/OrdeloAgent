@@ -311,7 +311,7 @@ VIEWS.phase3 = {
         gotcha:'⚠ STATEMENT-LEVEL: This fires ONCE per INSERT statement regardless of how many rows were inserted. This is intentional batching to avoid N webhook calls for N riders.' }},
     { id:'dispatch_ep',label:'POST /delivery-dispatch',       sub:'delivery_hooks.py',             x:30,  y:220, w:200, h:50, layer:'api',
       detail:{ type:'FastAPI Endpoint', file:'watomation/routers/delivery_hooks.py', desc:'Receives bulk_dispatch list. Schedules one background task per rider: wa_send_delivery_dispatch_request_to_rider(). Returns immediately with {status: success}.',
-        gotcha:'⚠ OVERWATCH: If the customer is in the overwatch_list (test accounts), dispatch messages are ONLY sent to the rider whose rider_id matches the customer_id. All other riders silently skipped.' }},
+        gotcha:'⚠ TEST3100: Orders containing this exact item are restricted to eligible overwatch riders before dispatch creation. Initial and missed sends recheck membership. Customer identity does not trigger the restriction; ordinary baskets use the normal rider pool.' }},
     { id:'wa_riders',  label:'WhatsApp → Each Rider',         sub:'Accept/Decline + order details', x:30, y:460, w:200, h:50, layer:'whatsapp',
       detail:{ type:'WhatsApp Message', desc:'Interactive message per rider: order details, payout amount, distance, vehicle type, pickup time. Two buttons: Accept (/dispatchResponse status=accepted) and Decline (/dispatchResponse status=declined). Rider has ~30s before dispatch times out.' }},
   ],

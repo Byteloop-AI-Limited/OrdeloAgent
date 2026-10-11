@@ -8,6 +8,54 @@ New web and WhatsApp orders use Stripe test only when an accepted item has the e
 
 `TEST3100` is a normal priced item. Keep its quantity, price and modifications in normal totals, payment items, restaurant messages and paper receipts. Restaurant staff must not prepare its food. A delivery order containing it is offered only to normally eligible overwatch riders; collection creates no rider dispatch.
 
+## Retained payment and Wren services
+
+The accepted architecture keeps **two payment services**. Ordelo selects the service; neither service is being merged into the other or changed to choose test/live dynamically inside a single endpoint.
+
+Configured base URLs were rechecked on 9 October 2026:
+
+| Environment | Ordelo setting | Configured base URL | Lambda / repository |
+| --- | --- | --- | --- |
+| Live | `ms_stripe_url` → `ms_settings.stripe_url` | `https://z0hydw9v90.execute-api.eu-west-2.amazonaws.com/prod` | `payment` / sibling `payment-service` |
+| Test | `ms_stripe_url_test` → `ms_settings.stripe_url_test` | `https://0af50z1k40.execute-api.eu-west-2.amazonaws.com/prod` | `wrenPayment` / sibling `wren-payment-service` |
+
+The `/prod` stage suffix exists on **both** APIs. The hostname/integration and credentials determine the service environment; the stage name does not make Wren a live payment service. Wren is intended to mirror the payment behaviour using its test Stripe credentials and test payout account.
+
+For every new web or WhatsApp order, delivery or collection, `create_food_order_with_items` saves `payment_mode='test'` if any of that order's accepted items has the exact name `TEST3100`; otherwise it saves `live`. `FoodOrder.payment_uri` appends:
+
+```text
+/threads/{thread_id}/orders/{order_id}/payment-url
+```
+
+to the selected base. The path uses the short `order_id`, for example `MHZL-32`, rather than the restaurant-prefixed `order_number`.
+
+| New-order example | Service selected |
+| --- | --- |
+| Ordinary basket, ordinary customer | `payment` (live) |
+| Ordinary basket, overwatch customer | `payment` (live) |
+| Exact `TEST3100` item, ordinary or overwatch customer | `wrenPayment` (test) |
+| Exact `TEST3100` item, anonymous web customer | `wrenPayment` (test) |
+| Lowercase/padded/partial name, or marker only in SKU/notes/modifications | `payment` (live) |
+
+The whole order uses the selected service, including its other items and normal fees. Local/test application hostnames do not select Wren. Browser switches and the former restaurant list have no effect. The stored mode selects the endpoint on subsequent operations; the marker is not recalculated to switch an already-created payment's account.
+
+## Which operations use the selected endpoint
+
+| Operation | Ordelo path | Payment-service request |
+| --- | --- | --- |
+| Delivery checkout | `generate_payment_intent_url` | Manual authorisation, wire action `delivery` |
+| Collection checkout | `generate_takeaway_manual_payment_url` | Manual authorisation, wire action `collection` |
+| Delivery capture | `delivery_hooks.capture_payment` | `payment_mode='capture'`, at rider assignment |
+| Collection capture | `takeaway_hooks.capture_takeaway_payment` | `payment_mode='capture'`, at the finalized pickup-time boundary |
+| Cancellation/release | `delivery_hooks.cancel_payment`, also used by collection | `payment_mode='cancel'`; the payload does not need the marker because the order's stored environment selects the service |
+| Pay-at-restaurant print job | `generate_automatic_payment_url(..., is_print_only=True)` | `printonlyjob=true`; a receipt operation, not a Stripe payment |
+
+All these requests use the same selected `/payment-url` endpoint. A test checkout therefore continues through Wren for capture/cancellation; a live checkout continues through payment. The frontend displays the backend's reported mode and hosted Checkout URL; it does not choose an API base.
+
+Stripe authorisation webhooks are a separate configured route. They do not obtain their destination from `FoodOrder.payment_uri`. Each selected environment needs a compatible webhook handler and the matching Stripe account so the PaymentIntent mapping used for capture is saved. This documentation review rechecked Ordelo's base settings and source paths; it did not reverify webhook destinations, deployed binary parity or successful provider capture. The [9 October investigation](payment-service-investigation-2026-10-09.md) and [Wren comparison](wren-payment-service-parity-review-2026-10-09.md) record the earlier deployment mismatch as dated evidence.
+
+Source: [FoodOrder routing](../utils_common/order_management/food_order_pymodel.py), [atomic creation RPC](../ordelo_datamodels/jobs_n_functions/create_food_order_with_items.sql), [checkout helpers](../utils_common/payment_ms/payment.py), [delivery operations](../watomation/routers/delivery_hooks.py), and [collection capture](../watomation/routers/takeaway_hooks.py).
+
 ## Payment lifetime and dispatch audience
 
 The atomic `create_food_order_with_items` RPC derives and stores `food_order.payment_mode` from its accepted item array, ignoring any supplied mode. The order and items commit or roll back together. `FoodOrder.payment_uri` uses that stored mode throughout checkout, capture, cancellation and print-only handling.
