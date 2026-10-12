@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ordelo Restaurant Onboarding"
+  short_description: "Prepare restaurant records, menus and launch checks"
+  default_prompt: "Use $ordelo-restaurant-onboarding to prepare a new restaurant onboarding plan and SQL bundle."
