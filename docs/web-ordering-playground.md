@@ -297,7 +297,7 @@ Rejection takes precedence over completion in `derive`. The UI state is an inter
 
 Implemented in current source: guest checkout with W/WEB compatibility, per-order address isolation, local order idempotency, access grants, derived tracking, web customer notification isolation, cancellation jobs and daily audit. This documentation change does not alter application behavior, execute migrations, change configuration, send messages or deploy.
 
-The accepted plan's 6 October handover reports successful web delivery capture, order tracking and WhatsApp regression. It still lists manual collection capture as awaiting a payment-service fix/deploy; R3.1 built and owner-tested but its deployment pending/in progress; log privacy, accessibility, business/legal details and monitoring verification remain open. Older 2 October release docs describe previous allowlists/test-on-request rules; use current code for R3.1 behavior. Do not present these historical reports as a fresh production check.
+The accepted plan's 6 October handover reports successful web delivery capture, order tracking and WhatsApp regression. It still lists manual collection capture as awaiting a payment-service fix/deploy; R3.1 built and owner-tested but its deployment pending/in progress; log privacy, accessibility, business/legal details and monitoring verification remain open. Older 2 October release docs describe previous allowlists/test-on-request rules; use current code and [test-orders.md](test-orders.md) for the item-only behaviour. Do not present these historical reports as a fresh production check.
 
 ### Current configuration rules
 
@@ -305,8 +305,8 @@ The accepted plan's 6 October handover reports successful web delivery capture, 
 |---|---|
 | Backend `RESTAURANTS` + frontend registry/build mode | Web presence is code configuration; no current backend enablement allowlist row |
 | `{REST}_WEB_ORDERING_PAUSED` | Emergency block on new checkout/order creation; absent = open; tracked orders remain readable |
-| `TEST_PAYMENT_REST_REFS` | Every order at a listed restaurant is test mode, requested or not; lookup failure refuses mode resolution |
-| Explicit test request on a live restaurant | Requires permitted overwatch identity; anonymous web key cannot impersonate that phone and gets `test_payment_not_allowed` |
+| Exact `TEST3100` order item | Selects test for new orders; all other baskets select live. The RPC fixes the environment with the accepted items |
+| Test-order delivery | Only normally eligible overwatch riders receive dispatch offers; the ordering customer does not select the audience |
 | `{REST}_WEB_MAX_DISCOUNT_PERCENT` | Optional daily audit allowance; absent = 0%; does not price checkout |
 | `ORDELO_WEB_KEY` | Matching server secret at frontend/backend, minimum backend length 32; missing/short backend key gives `web_unavailable` |
 | `WEB_COOKIE_SECRET`, `NEXT_PUBLIC_WEB_ORDERING_MODE`, `ORDELO_APP_URL` | Frontend session/build/backend routing context; documented in accepted plan and deployment handover |

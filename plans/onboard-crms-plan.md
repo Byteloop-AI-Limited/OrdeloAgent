@@ -1,3 +1,5 @@
+> Historical design/verification snapshot. Payment testing was superseded on 9 October 2026: new orders use test only with an exact `TEST3100` item, and test delivery offers are restricted to eligible overwatch riders. See the current test-orders guide.
+
 # Onboarding plan: CRMS (Creams Orpington), web-only restaurant
 
 | | |
@@ -54,8 +56,8 @@ Files live in `notebooks/db_queries/restaurant_queries/onboarding_crms/`. Each o
 | `00_preflight_readonly.sql` | Any time before 01 | Checks CRMS/rest_id don't exist, the columns exist, and the current global web switches. Menu sanity: counts, bad prices, duplicate titles (the price audit matches by title). |
 | `01_restaurant_master.sql` | Before or after deploy (harmless alone) | Upserts the CRMS row (§A.1). |
 | `02_ordelo_config_crms_keys.sql` | With 01 | 7 `CRMS_*` keys; **`CRMS_WEB_ORDERING_PAUSED=true`**. |
-| `03_prod_test_enable.sql` | **After** both deploys | Appends CRMS to `WEB_ORDERING_ENABLED_REST_REFS` and `TEST_PAYMENT_REST_REFS` (never overwrites), unpauses, has a query to inspect test orders, and a commented re-pause block. |
-| `04_go_live.sql` | After the G3 gate | Real admins, live confirmation timeout, removes CRMS from `TEST_PAYMENT_REST_REFS`, unpauses. Refuses to commit while `<TODO_…>` placeholders remain. |
+| `03_prod_test_enable.sql` | **After** both deploys | Appends CRMS to `WEB_ORDERING_ENABLED_REST_REFS` and `retired restaurant-wide payment switch` (never overwrites), unpauses, has a query to inspect test orders, and a commented re-pause block. |
+| `04_go_live.sql` | After the G3 gate | Real admins, live confirmation timeout, removes CRMS from `retired restaurant-wide payment switch`, unpauses. Refuses to commit while `<TODO_…>` placeholders remain. |
 | `99_rollback.sql` | If needed | L1 pause all / L2 pause delivery / L3 remove from global lists / L4 full delete (only if no orders). |
 
 ### A.1 `restaurant_master` row
@@ -89,10 +91,10 @@ Files live in `notebooks/db_queries/restaurant_queries/onboarding_crms/`. Each o
 | `CRMS_WEB_ORDERING_PAUSED` | `true` → `false` | 02 → 03/04 | Per-restaurant kill switch |
 | `CRMS_WEB_DELIVERY_PAUSED` | `false` | 02 | Delivery-only kill switch |
 | `WEB_ORDERING_ENABLED_REST_REFS` | `+CRMS` | 03 | Global allowlist (append) |
-| `TEST_PAYMENT_REST_REFS` | `+CRMS` → `−CRMS` | 03 → 04 | Honour `?isTest3100=true` |
+| `retired restaurant-wide payment switch` | `+CRMS` → `−CRMS` | 03 → 04 | Honour `?isTest3100=true` |
 | ~~`CRMS_APP_URL`~~ | not created | n/a | D13 |
 
-> Caution: the global PAUSE profile in `notebooks/db_queries/ordelo-agg-db-switch.sql` **overwrites** `WEB_ORDERING_ENABLED_REST_REFS` (sets it to `''`) and `TEST_PAYMENT_REST_REFS` (`'BNAT'`). If anyone runs it, re-run the 03 append for CRMS.
+> Caution: the global PAUSE profile in `notebooks/db_queries/ordelo-agg-db-switch.sql` **overwrites** `WEB_ORDERING_ENABLED_REST_REFS` (sets it to `''`) and `retired restaurant-wide payment switch` (`'BNAT'`). If anyone runs it, re-run the 03 append for CRMS.
 
 ### A.3 Ordelo backend code (required with Part A)
 

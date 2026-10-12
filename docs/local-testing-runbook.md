@@ -1,6 +1,12 @@
 # Local setup and testing runbook
 
+> Current test-order policy: new orders use Stripe test only with an exact `TEST3100` item. Test delivery offers go only to eligible overwatch riders. See [test-orders.md](test-orders.md) for the fixed payment environment and deployment cutover.
+
 Run OrdeloAgent and restaurant-frontend locally, expose them through the existing Cloudflare Tunnel, and route shared services to these local instances during a maintenance window.
+
+## Payment endpoint selection
+
+Local versus deployed application routing is independent of Stripe mode. For every new web/WhatsApp order, only an exact `TEST3100` product name selects Wren: `ms_settings.stripe_url_test` → `wrenPayment`. Other new baskets use `ms_settings.stripe_url` → `payment`, including overwatch customers. Capture and cancellation reuse the stored mode. No browser toggle, restaurant list or test application hostname selects it. Keep the priced marker on the receipt; test delivery requires a normally eligible overwatch rider. See [the endpoint and lifecycle table](test-orders.md#retained-payment-and-wren-services).
 
 ## Projects and ports
 

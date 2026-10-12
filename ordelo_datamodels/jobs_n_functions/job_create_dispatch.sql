@@ -14,6 +14,7 @@ Invocation:
 
 Purpose:
     - Create new dispatch entries based on available riders (via get_available_riders()).
+    - TEST3100 orders are restricted to normally eligible overwatch riders.
     - Prioritize rider selection by priority during dispatch creation.
     - Update delivery_detail with `vehicle_type_timedout` when no more available riders exist for dispatch.
     - Control batch size of dispatches using config value `DISPATCH_BATCH_SIZE_` per vehicle type.
@@ -111,6 +112,16 @@ $$ LANGUAGE plpgsql;
 -- Exclude riders who are already assigned to the order OR dispatched already sent
 ----------------------------------------
 -- DROP FUNCTION IF EXISTS get_available_riders(text, text, text);
+-- Exact, order-scoped marker lookup. NULL means the order does not exist.
+CREATE OR REPLACE FUNCTION public.order_has_test_item(p_order_number text)
+RETURNS boolean LANGUAGE sql STABLE SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM order_item oi
+    WHERE oi.order_id = fo.order_id AND oi.product_name = 'TEST3100'
+  )
+  FROM food_order fo WHERE fo.order_number = p_order_number;
+$$;
+
 CREATE OR REPLACE FUNCTION get_available_riders(p_order_number text, p_town text, p_vehicle_type text)
 RETURNS TABLE(rider_id VARCHAR(12), priority INT) AS $$
 BEGIN
@@ -131,6 +142,17 @@ BEGIN
     LOWER(allRiders.town)=LOWER(p_town)
     AND allRiders.vehicle_type = p_vehicle_type
     AND allRiders.is_in_shift
+    -- Restrict before priority/batch ranking. Unknown orders have no candidates.
+    AND CASE public.order_has_test_item(p_order_number)
+      WHEN false THEN true
+      WHEN true THEN EXISTS (
+        SELECT 1 FROM ordelo_config oc,
+          LATERAL regexp_split_to_table(COALESCE(oc.config_value, ''), ',') AS member(number)
+        WHERE oc.config_key = 'overwatch_list'
+          AND btrim(member.number) = allRiders.rider_id
+      )
+      ELSE false
+    END
     AND NOT EXISTS 
     (SELECT 1 FROM ridersToExclude WHERE ridersToExclude.rider_id = allRiders.rider_id);
 

@@ -98,7 +98,7 @@ Behavior:
   - **Accept** → callback data `{ "command": "/dispatchResponse", "dispatch_id": ..., "order_number": ..., "status": "accepted" }`
   - **Decline** → same but `status: "declined"`.
 
-**Overwatch customer filtering:** Before dispatching, the handler checks if the customer is in the `overwatch_list` (from `ordelo_config`). If so, dispatch messages are sent **only** to the rider whose `rider_id` matches the `customer_id` (i.e., overwatch/test customers can only be served by themselves). All other riders are silently skipped for that order.
+**TEST3100 rider restriction:** An order containing the exact `TEST3100` item is offered only to normally eligible riders in `overwatch_list`, independent of the ordering customer's number. `get_available_riders` filters candidates before ranking, batching and dispatch-row creation. The dispatch and missed-notice senders recheck marker classification and current membership. Town, vehicle, shift, prior-offer and inflight exclusions remain; no eligible overwatch rider means the existing timeout path, with no fallback to ordinary riders. An ordinary basket placed by an overwatch customer uses the normal rider pool. See [test-orders.md](test-orders.md).
 
 ### 4. Rider Response Callback (WhatsApp → API)
 

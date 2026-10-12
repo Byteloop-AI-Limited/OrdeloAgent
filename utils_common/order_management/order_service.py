@@ -4,7 +4,7 @@ Order services for WhatsApp automation
   . Retrieves minimum order value from database or pricing service fallback
   . Resolves restaurant coordinates via explicit values or rest_ref lookup
   . Generates minimum order value messages based on coordinates
-  . Creates food orders with order items in database with rollback support
+  . Creates food orders atomically; the RPC fixes TEST3100-derived payment mode
   . Captures payments for orders using Stripe payment microservice
   . Integrates with Supabase for order persistence and httpx for async HTTP
 Functions/Classes:
@@ -221,7 +221,6 @@ async def create_order_with_items(
     notes: Optional[str] = None,
     origin_channel: str = "whatsapp",
     storefront: str = "direct",
-    payment_mode: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Creates a new food order with order items in the database.
@@ -235,7 +234,6 @@ async def create_order_with_items(
         notes: Optional order notes
         origin_channel: "whatsapp" (default) or "web" (plan D29)
         storefront: "direct" (default) or "ordelo" (plan D28)
-        payment_mode: "test" when a requested test payment was honoured (plan D32)
 
     Returns:
         Dict with success status, order_id, order_number, or error details
@@ -244,8 +242,6 @@ async def create_order_with_items(
         return {"success": False, "error": f"Invalid origin_channel: {origin_channel}"}
     if storefront not in STOREFRONTS:
         return {"success": False, "error": f"Invalid storefront: {storefront}"}
-    if payment_mode not in (None, "live", "test"):
-        return {"success": False, "error": f"Invalid payment_mode: {payment_mode}"}
 
     order_dt: str = datetime.now().strftime("%Y-%m-%d")
 
@@ -295,8 +291,6 @@ async def create_order_with_items(
             insert_payload["origin_channel"] = origin_channel
         if storefront != "direct":
             insert_payload["storefront"] = storefront
-        if payment_mode == "test":
-            insert_payload["payment_mode"] = payment_mode
 
         result = await _insert_order_rpc(insert_payload, order_items)
 

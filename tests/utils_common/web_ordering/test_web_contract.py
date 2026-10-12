@@ -280,6 +280,7 @@ async def test_status_only_view_redacts_before_return(monkeypatch):
                 "order_number": "ELAS-ABCD-1",
                 "order_id": "ABCD-1",
                 "total_price": 10,
+                "origin_channel": "web",
             }
         if "FROM restaurant_master" in sql:
             return {"rest_name": "Elai"}
@@ -329,6 +330,13 @@ def test_new_web_routes_require_server_secret(monkeypatch):
     assert (
         client.post(
             "/web/access/exchange", headers={"X-Ordelo-Web-Key": "wrong"}
+        ).status_code
+        == 401
+    )
+    assert (
+        client.post(
+            "/web/access/whatsapp-link",
+            json={"order_number": "ELAS-ABCD-1", "recipient": "447700900123"},
         ).status_code
         == 401
     )
@@ -815,3 +823,153 @@ async def test_start_stores_null_without_a_usable_delivery_postcode(monkeypatch,
     await web_checkout.start("ELAS", mode, "salisbury", "v1", "SP1", postcode=postcode)
     assert "SP1 2AB" not in web_checkout.query.await_args.args[1]
     assert None in web_checkout.query.await_args.args[1]
+
+
+# --- WhatsApp order page: link minting and view ---------------------------------
+
+WA_ORDER = {
+    "origin_channel": "whatsapp",
+    "recipient": "447700900123",
+    "payment_status": "authorised",
+}
+
+
+def _wa_one(monkeypatch, row):
+    monkeypatch.setattr(order_access, "one", AsyncMock(return_value=row))
+
+
+async def test_issue_for_whatsapp_inserts_grant_and_returns_token(monkeypatch):
+    _wa_one(monkeypatch, WA_ORDER)
+    expires = NOW + timedelta(days=30)
+    run = AsyncMock(return_value=[{"id": 1, "expires_at": expires}])
+    monkeypatch.setattr(order_access, "query", run)
+    token, got = await order_access.issue_for_whatsapp("ELAS-ABCD-1", "447700900123")
+    assert len(token) == 43 and got == expires
+    sql = run.await_args.args[0]
+    assert "origin_channel='whatsapp'" in sql and "recipient=%s" in sql
+    assert "payment_status<>'requires_payment'" in sql
+    assert token not in str(run.await_args.args[1])  # only the hash is stored
+
+
+@pytest.mark.parametrize(
+    "order_number,row,recipient,status,error",
+    [
+        ("ELAS-ABCD-1", None, "447700900123", 404, "not_found"),
+        ("ZZZZ-ABCD-1", WA_ORDER, "447700900123", 404, "not_found"),
+        ("ELAS-ABCD-1", WA_ORDER | {"origin_channel": "web"}, "447700900123", 409, "web_order"),
+        ("ELAS-ABCD-1", WA_ORDER | {"payment_status": "requires_payment"}, "447700900123", 409, "not_paid"),
+        ("ELAS-ABCD-1", WA_ORDER, "447700900999", 403, "forbidden"),
+    ],
+)
+async def test_issue_for_whatsapp_refusals_never_insert(
+    monkeypatch, order_number, row, recipient, status, error
+):
+    _wa_one(monkeypatch, row)
+    run = AsyncMock(return_value=[])
+    monkeypatch.setattr(order_access, "query", run)
+    with pytest.raises(WebError) as caught:
+        await order_access.issue_for_whatsapp(order_number, recipient)
+    assert (caught.value.status, caught.value.body["error"]) == (status, error)
+    run.assert_not_awaited()
+
+
+def _link_client(monkeypatch):
+    monkeypatch.setenv("ORDELO_WEB_KEY", "x" * 48)
+    app = FastAPI()
+    app.include_router(web_hooks.router, prefix="/web")
+
+    @app.exception_handler(WebError)
+    async def errors(request, exc):
+        return web_hooks.JSONResponse(exc.body, exc.status)
+
+    return TestClient(app)
+
+
+LINK_REQ = {"order_number": "ELAS-ABCD-1", "recipient": "447700900123"}
+LINK_HEADERS = {"X-Ordelo-Web-Key": "x" * 48}
+
+
+def test_whatsapp_link_503_without_storefront_url_and_no_grant(monkeypatch):
+    mint = AsyncMock()
+    monkeypatch.setattr(web_hooks.order_access, "issue_for_whatsapp", mint)
+    monkeypatch.setattr(web_hooks, "storefront_base", AsyncMock(return_value=None))
+    r = _link_client(monkeypatch).post("/web/access/whatsapp-link", json=LINK_REQ, headers=LINK_HEADERS)
+    assert r.status_code == 503 and r.json()["error"] == "link_unavailable"
+    mint.assert_not_awaited()
+
+
+def test_whatsapp_link_returns_private_url(monkeypatch):
+    token = "a" * 43
+    monkeypatch.setattr(
+        web_hooks.order_access,
+        "issue_for_whatsapp",
+        AsyncMock(return_value=(token, NOW + timedelta(days=30))),
+    )
+    monkeypatch.setattr(
+        web_hooks, "storefront_base", AsyncMock(return_value="https://restaurant.ordelo.app")
+    )
+    r = _link_client(monkeypatch).post("/web/access/whatsapp-link", json=LINK_REQ, headers=LINK_HEADERS)
+    assert r.status_code == 201
+    assert r.json()["url"] == f"https://restaurant.ordelo.app/o/{token}"
+    assert r.headers["cache-control"] == "private, no-store"
+
+
+def test_whatsapp_link_rejects_bad_order_number(monkeypatch):
+    r = _link_client(monkeypatch).post(
+        "/web/access/whatsapp-link",
+        json=LINK_REQ | {"order_number": "bad"},
+        headers=LINK_HEADERS,
+    )
+    assert r.status_code == 422
+
+
+def _view_one(origin, action="delivery"):
+    async def one(sql, params=()):
+        if "FROM food_order" in sql:
+            assert "'whatsapp'" in sql
+            return FOOD | {
+                "order_number": "ELAS-ABCD-1",
+                "order_id": "ABCD-1",
+                "total_price": 10,
+                "origin_channel": origin,
+                "action": action,
+                "payment_status": "authorised",
+            }
+        if "FROM restaurant_master" in sql:
+            return {"rest_name": "Elai"}
+        if "FROM delivery_summary" in sql:
+            return {"customer_address": "1 High St, Salisbury"}
+        if "FROM takeaway_summary" in sql:
+            return {"pickup_time": NOW}
+        if "FROM web_order_request" in sql:
+            assert origin == "web"
+            return {"address": {"display": "snapshot", "instructions": "ring"}}
+        return None
+
+    return one
+
+
+async def test_whatsapp_delivery_view(monkeypatch):
+    monkeypatch.setattr(customer_order_view, "one", _view_one("whatsapp"))
+    monkeypatch.setattr(customer_order_view, "query", AsyncMock(return_value=[]))
+    view = await customer_order_view.get_view("ELAS-ABCD-1")
+    assert view["origin_channel"] == "whatsapp"
+    assert view["delivery"]["address"] == "1 High St, Salisbury"
+    assert view["support"]["whatsapp_available"] is True
+    assert view["support"]["whatsapp_url"] == "https://wa.me/message/AIDICBLAE4KZH1"
+
+
+async def test_whatsapp_takeaway_view_reads_takeaway_summary(monkeypatch):
+    monkeypatch.setattr(customer_order_view, "one", _view_one("whatsapp", "takeaway"))
+    monkeypatch.setattr(customer_order_view, "query", AsyncMock(return_value=[]))
+    view = await customer_order_view.get_view("ELAS-ABCD-1")
+    assert view["mode"] == "collection" and "pickup_time" in view
+
+
+async def test_web_view_still_has_no_whatsapp_support(monkeypatch):
+    monkeypatch.setattr(customer_order_view, "one", _view_one("web"))
+    monkeypatch.setattr(customer_order_view, "query", AsyncMock(return_value=[]))
+    view = await customer_order_view.get_view("ELAS-ABCD-1")
+    assert view["origin_channel"] == "web"
+    assert view["support"]["whatsapp_available"] is False
+    assert "whatsapp_url" not in view["support"]

@@ -73,3 +73,62 @@ async def test_generate_takeaway_manual_payment_url_uses_collection_manual_captu
         "printonlyjob": False,
         "restRef": "ELAS",
     }
+
+
+_RETURN_URLS = {
+    "success_url": "https://restaurant-test.ordelo.app/checkout/return?order=ELAS-ABCD-1",
+    "cancel_url": "https://restaurant-test.ordelo.app/checkout?resume=1",
+}
+
+
+@respx.mock
+async def test_takeaway_manual_payment_url_adds_return_urls_when_given() -> None:
+    route = respx.post(_TakeawayOrder.payment_uri).mock(
+        return_value=httpx.Response(200, json={"url": "https://pay.example.com/manual"})
+    )
+
+    await payment.generate_takeaway_manual_payment_url(_TakeawayOrder(), return_urls=_RETURN_URLS)
+
+    payload = json.loads(route.calls[0].request.content)
+    assert payload["success_url"] == _RETURN_URLS["success_url"]
+    assert payload["cancel_url"] == _RETURN_URLS["cancel_url"]
+    assert payload["action"] == "collection" and payload["restRef"] == "ELAS"
+
+
+class _DeliveryOrder:
+    payment_uri = "https://payment.example.com/delivery-url"
+
+    async def gen_payment_intent_payload(self) -> dict:
+        return {
+            "items": [],
+            "currency": "GBP",
+            "action": "delivery",
+            "manual_mode_capture": True,
+            "notes": None,
+            "restRef": "elas",
+        }
+
+
+@respx.mock
+async def test_payment_intent_url_adds_return_urls_when_given() -> None:
+    route = respx.post(_DeliveryOrder.payment_uri).mock(
+        return_value=httpx.Response(200, json={"url": "https://pay.example.com/intent"})
+    )
+
+    assert await payment.generate_payment_intent_url(_DeliveryOrder(), return_urls=_RETURN_URLS) == "https://pay.example.com/intent"
+
+    payload = json.loads(route.calls[0].request.content)
+    assert payload["success_url"] == _RETURN_URLS["success_url"]
+    assert payload["cancel_url"] == _RETURN_URLS["cancel_url"]
+
+
+@respx.mock
+async def test_payment_intent_url_without_return_urls_leaves_payload_unchanged() -> None:
+    route = respx.post(_DeliveryOrder.payment_uri).mock(
+        return_value=httpx.Response(200, json={"url": "https://pay.example.com/intent"})
+    )
+
+    await payment.generate_payment_intent_url(_DeliveryOrder())
+
+    payload = json.loads(route.calls[0].request.content)
+    assert "success_url" not in payload and "cancel_url" not in payload

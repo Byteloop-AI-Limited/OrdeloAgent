@@ -3,7 +3,8 @@
 ## Test the deploye of these apps on fly.io
 ## INFO:     2a00:23c8:47bd:b201:9528:5ae4:7210:5f25:0 - "GET /location-hooks/live-location-map/SFCS-CORT-21 HTTP/1.1" 404 Not Found - Called when asked about location, this will be part of the redesign
 
-
+## Web collection, collection commission not set
+2026-10-09 11:16:48.042 | WARNING  | utils_common.order_management.food_order_pymodel:update_takeaway_financials_in_db:321 - collection_commission not set for %s, defaulting to 0
 
 ## Double ordering
 1. When there is an existing order, The UI should reject displaying the menu or checking out again - tell user to wait until the current order is finished. I think currently, the UI checks on thread being active. I can also do onething additional check on order being active or not. 

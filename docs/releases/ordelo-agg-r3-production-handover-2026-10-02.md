@@ -1,3 +1,5 @@
+> Historical design/verification snapshot. Payment testing was superseded on 9 October 2026: new orders use test only with an exact `TEST3100` item, and test delivery offers are restricted to eligible overwatch riders. See the current test-orders guide.
+
 # R3 production handover — 2 October 2026
 
 The owner intends to check in/deploy OrdeloAgent and restaurant-frontend and
@@ -46,7 +48,7 @@ IDs, concurrency testing and evidence limits.
 ## ordelo_config: verified current and target
 
 The table is **public.ordelo_config**, keyed by config_key; values below are
-config_value strings. On the owner's explicit approval, TEST_PAYMENT_REST_REFS
+config_value strings. On the owner's explicit approval, retired restaurant-wide payment switch
 was changed from BNAT,ELAS to BNAT and WEB_ORDERING_ENABLED_REST_REFS from ELAS
 to the empty string. WEB_LATE_PAYMENT_GUARD_ENABLED was already true and retained.
 All seven production URL/payment/notifier settings were verified unchanged
@@ -62,7 +64,7 @@ after commit. Before snapshot (private, mode 600):
 | ENABLE_PAYMENT_TEST_ROUTES | `false` | Keep `false` | `false` |
 | CUSTOMER_NOTIFIER_ENABLED | `true` | Keep `true` | `true` |
 | CUSTOMER_NOTIFIER_REST_REFS | `ELAS,BNAT` | Keep existing pilot | `ELAS,BNAT`; do not widen automatically |
-| TEST_PAYMENT_REST_REFS | `BNAT` | Restored documented production baseline | `BNAT` |
+| retired restaurant-wide payment switch | `BNAT` | Restored documented production baseline | `BNAT` |
 | WEB_ORDERING_ENABLED_REST_REFS | Empty string `''` | New web checkout paused | `ELAS` |
 | WEB_LATE_PAYMENT_GUARD_ENABLED | `true` | Keep `true` while any web payment/session can arrive | **Keep `true`**, required for live web |
 | WEB_PRICE_MONITOR_ENABLED | absent/off | Can stay off while checkout paused | `true`, after checking audit and ops alert destination |
