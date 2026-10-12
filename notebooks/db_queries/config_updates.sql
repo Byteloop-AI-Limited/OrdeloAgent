@@ -5,29 +5,39 @@ select * from ordelo_config where config_key like '%TIMEOUT%';
 select * from ordelo_config where config_key like '%ORDELO%';
 select * from ordelo_config where config_key like '%rider%';
 select * from ordelo_config where config_key like '%ELAS%';
-select * from ordelo_config where config_key like '%SFCS%';
+select * from ordelo_config where config_key like '%SIMULATE%';
 select * from ordelo_config where config_key like '%MENU%';
 select * from ordelo_config where config_key like '%BNAT%';
 
 -- Reset cache
 SELECT * FROM ordelo_post('ORDELO_APP_URL', '/restaurant-base-url-cache/reset');
+SELECT config_value FROM ordelo_config WHERE config_key='WEB_STOREFRONT_URL';
 
+-- Test Setup
+UPDATE ordelo_config SET config_value = 'true', updated_at = now() WHERE config_key = 'ENABLE_SIMULATE_PAYMENT';
 update ordelo_config set config_value = 'https://rider-agent-test.ordelo.app' where config_key = 'ORDELO_APP_URL'; 
+update ordelo_config set config_value = 'https://restaurant-test.ordelo.app' where config_key = 'RESTAURANT_MENU_APP_URL'; 
+update ordelo_config set config_value = 'https://restaurant-test.ordelo.app' where config_key = 'WEB_STOREFRONT_URL'; 
+
 update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'BNAT_APP_URL';
 update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'ELAS_APP_URL';
 update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' where config_key = 'SFCS_APP_URL';
 update ordelo_config set config_value = 'https://wren-agg-test.ordelo.app' where config_key = 'WREN_APP_URL';
-update ordelo_config set config_value = 'https://restaurant-test.ordelo.app' where config_key = 'RESTAURANT_MENU_APP_URL'; 
 --
 -- Dont forget to reset cache 
 https://rider-agent.ordelo.app/docs#/default/reset_restaurant_base_url_cache_endpoint_restaurant_base_url_cache_reset_post
 ;
+-- Revert to production setup
+
+UPDATE ordelo_config SET config_value = 'false', updated_at = now() WHERE config_key = 'ENABLE_SIMULATE_PAYMENT';
+
 update ordelo_config set config_value = 'https://rider-agent.ordelo.app' where config_key = 'ORDELO_APP_URL';
+update ordelo_config set config_value = 'https://restaurant.ordelo.app' where config_key = 'RESTAURANT_MENU_APP_URL'; 
+update ordelo_config set config_value = 'https://restaurant.ordelo.app' where config_key = 'WEB_STOREFRONT_URL'; 
+
 update ordelo_config set config_value = 'https://bnat-agent.fly.dev/' where config_key = 'BNAT_APP_URL';
 update ordelo_config set config_value = 'https://elas-agg.ordelo.app' where config_key = 'ELAS_APP_URL';
 update ordelo_config set config_value = 'https://sfcs-agent.fly.dev' where config_key = 'SFCS_APP_URL';
-update ordelo_config set config_value = 'https://restaurant.ordelo.app' where config_key = 'RESTAURANT_MENU_APP_URL'; 
-
 SELECT * FROM ordelo_post('ORDELO_APP_URL', '/restaurant-base-url-cache/reset', 'rest_ref=ELAS');
 
 select * from ordelo_config where config_key like 'ELAS_MENU_URL';
@@ -259,8 +269,10 @@ FROM ordelo_config
 WHERE config_key = 'ORDELO_APP_URL';
 
 
-select * from restaurant_
 
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('ENABLE_SIMULATE_PAYMENT', 'true', 'restaurant-frontend: show Simulate payment on TEST3100 orders')
+ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value, updated_at = now();
 
 -- Onboarding new restaurant
 INSERT INTO ordelo_config (config_key, config_value, description)
@@ -419,4 +431,9 @@ SET config_value = 'BNAT,ELAS', updated_at = now()
 WHERE config_key = 'TEST_PAYMENT_REST_REFS';
 
 select * from ordelo_config where config_key='CUSTOMER_NOTIFIER_ENABLED';
-CUSTOMER_NOTIFIER_REST_REFS
+CUSTOMER_NOTIFIER_REST_REFS;
+
+
+INSERT INTO ordelo_config (config_key, config_value)
+VALUES ('WEB_STOREFRONT_URL', 'https://restaurant-test.ordelo.app')
+ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value;

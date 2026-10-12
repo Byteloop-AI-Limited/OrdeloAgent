@@ -35,6 +35,7 @@ ALTER TABLE public.food_order
       CONSTRAINT food_order_origin_channel_chk CHECK (origin_channel IN ('whatsapp','web')),
   ADD COLUMN IF NOT EXISTS storefront TEXT NOT NULL DEFAULT 'direct'
       CONSTRAINT food_order_storefront_chk CHECK (storefront IN ('direct','ordelo')),
+  ADD COLUMN IF NOT EXISTS payment_mode TEXT NULL CHECK (payment_mode IN ('live','test')),
   ADD COLUMN IF NOT EXISTS idempotency_key TEXT NULL;   -- used by web create-order (R3)
 
 CREATE UNIQUE INDEX IF NOT EXISTS food_order_idempotency_key_uq
@@ -105,7 +106,7 @@ BEGIN
 
   INSERT INTO public.food_order (
     order_id, order_number, seq_id, recipient, notes, thread_id, action,
-    total_price, payment_status, origin_channel, storefront)
+    total_price, payment_status, origin_channel, storefront, payment_mode, idempotency_key)
   VALUES (
     p_order->>'order_id',
     p_order->>'order_number',
@@ -117,7 +118,11 @@ BEGIN
     (p_order->>'total_price')::double precision,
     COALESCE(p_order->>'payment_status', 'requires_payment'),
     COALESCE(p_order->>'origin_channel', 'whatsapp'),
-    COALESCE(p_order->>'storefront', 'direct'))
+    COALESCE(p_order->>'storefront', 'direct'),
+    CASE WHEN EXISTS (SELECT 1 FROM jsonb_array_elements(p_items) x
+                      WHERE x->>'product_name' = 'TEST3100')
+         THEN 'test' ELSE 'live' END,
+    NULLIF(p_order->>'idempotency_key', ''))
   RETURNING to_jsonb(food_order.*) INTO v_order;
 
   INSERT INTO public.order_item (order_id, product_name, sku, quantity, price, modifications)

@@ -5,6 +5,11 @@
 
 This document covers the takeaway order lifecycle within OrdeloAgent, from initialization through restaurant confirmation to pickup time confirmation. For delivery-specific flows, see `docs/delivery_process.md`.
 
+
+## Live and test payment services
+
+The two services remain separate. For new collection orders, an exact normal priced `TEST3100` item selects `wrenPayment` through `ms_settings.stripe_url_test`; other baskets select `payment` through `ms_settings.stripe_url`. The saved order environment is reused for authorisation, pickup-time capture, cancellation and pay-at-restaurant print-only requests. The marker remains in payment items and receipts so staff know not to prepare the test order. Customer overwatch membership and application hostname do not choose the payment endpoint. See [test-orders.md](test-orders.md#retained-payment-and-wren-services) for endpoint bases and the separate Stripe webhook configuration.
+
 ---
 
 ## Table of Contents

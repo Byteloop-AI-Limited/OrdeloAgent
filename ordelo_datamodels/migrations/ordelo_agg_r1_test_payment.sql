@@ -1,11 +1,11 @@
 -- ===========================================================================
--- ordelo-agg R1a addendum: test payments on request (plan D32)
+-- ordelo-agg R1a addendum: fixed payment environments
 -- ===========================================================================
 -- Run manually, once, after ordelo_agg_r1.sql. Idempotent and additive.
 --
 -- food_order.payment_mode records which payment service an order uses, chosen
--- once at create-order: 'test' when Ordelo honoured a ?isTest3100=true request,
--- 'live' or NULL otherwise (NULL = today's rule: overwatch + delivery -> test).
+-- once at create-order: 'test' only for an exact TEST3100 item, otherwise 'live'.
+-- Existing records, including NULL modes, are not backfilled by this migration.
 -- Capture and cancel read the same value, so they reach the same service.
 -- ===========================================================================
 
@@ -29,7 +29,7 @@ BEGIN
 
   INSERT INTO public.food_order (
     order_id, order_number, seq_id, recipient, notes, thread_id, action,
-    total_price, payment_status, origin_channel, storefront, payment_mode)
+    total_price, payment_status, origin_channel, storefront, payment_mode, idempotency_key)
   VALUES (
     p_order->>'order_id',
     p_order->>'order_number',
@@ -42,7 +42,10 @@ BEGIN
     COALESCE(p_order->>'payment_status', 'requires_payment'),
     COALESCE(p_order->>'origin_channel', 'whatsapp'),
     COALESCE(p_order->>'storefront', 'direct'),
-    NULLIF(p_order->>'payment_mode', ''))
+    CASE WHEN EXISTS (SELECT 1 FROM jsonb_array_elements(p_items) x
+                      WHERE x->>'product_name' = 'TEST3100')
+         THEN 'test' ELSE 'live' END,
+    NULLIF(p_order->>'idempotency_key', ''))
   RETURNING to_jsonb(food_order.*) INTO v_order;
 
   INSERT INTO public.order_item (order_id, product_name, sku, quantity, price, modifications)
@@ -62,9 +65,6 @@ END $$;
 
 COMMIT;
 
--- Then list the restaurants whose web orders may use test payments (comma-separated):
---   INSERT INTO ordelo_config (config_key, config_value, description)
---   VALUES ('TEST_PAYMENT_REST_REFS', 'BNAT', 'ordelo-agg D32: restaurants that honour ?isTest3100=true')
---   ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value, updated_at = now();
+-- No payment allowlist or request switch is created. Accepted items select mode.
 -- Verify:
 --   SELECT column_name FROM information_schema.columns WHERE table_name = 'food_order' AND column_name = 'payment_mode';

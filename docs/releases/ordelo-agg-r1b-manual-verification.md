@@ -1,3 +1,5 @@
+> Historical design/verification snapshot. Payment testing was superseded on 9 October 2026: new orders use test only with an exact `TEST3100` item, and test delivery offers are restricted to eligible overwatch riders. See the current test-orders guide.
+
 # R1b and R2: manual verification guide
 
 Use this with [the implementation notes](/Users/basavaraj/bloop/OrdeloAgent/docs/releases/ordelo-agg-r1b-2026-10-02.md), [the plan](/Users/basavaraj/bloop/OrdeloAgent/plans/ordelo-agg-plan-cc.md) (§18 and §22), and [the local testing runbook](/Users/basavaraj/bloop/OrdeloAgent/docs/local-testing-runbook.md).
@@ -95,12 +97,12 @@ WHERE config_key IN (
   'ORDELO_APP_URL', 'RESTAURANT_MENU_APP_URL', 'BNAT_APP_URL',
   'CUSTOMER_NOTIFIER_ENABLED', 'CUSTOMER_NOTIFIER_REST_REFS',
   'PAYMENT_INBOX_ENABLED', 'ORDER_CREATE_RPC_ENABLED',
-  'TEST_PAYMENT_REST_REFS', 'ENABLE_PAYMENT_TEST_ROUTES'
+  'retired restaurant-wide payment switch', 'ENABLE_PAYMENT_TEST_ROUTES'
 )
 ORDER BY config_key;
 ```
 
-Check that `PAYMENT_INBOX_ENABLED` is true, and BNAT is permitted by `TEST_PAYMENT_REST_REFS`. The existing R1a tables/RPCs must already be installed. An absent notifier flag means off. Do not change unrelated flags as part of this guide.
+Check that `PAYMENT_INBOX_ENABLED` is true, and BNAT is permitted by `retired restaurant-wide payment switch`. The existing R1a tables/RPCs must already be installed. An absent notifier flag means off. Do not change unrelated flags as part of this guide.
 
 **Actual shared impact:** changing the two service URLs below changes what production consumers of this database read too. Perform that switch only within the maintenance window, and restore the saved values afterward.
 

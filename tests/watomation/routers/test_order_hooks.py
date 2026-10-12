@@ -27,17 +27,6 @@ from utils_common.order_management.order_db_ops_new import OrderItem
 from watomation.routers import order_hooks
 
 
-@pytest.fixture(autouse=True)
-def _no_test_restaurants(monkeypatch):
-    """Payment-mode config boundary: no test restaurants, no overwatch numbers."""
-    from utils_common.payment_ms import payment_mode
-
-    async def _csv(key, **kwargs):
-        return frozenset()
-
-    monkeypatch.setattr(payment_mode, "config_csv", _csv)
-    monkeypatch.setattr(payment_mode, "get_overwatch_list", lambda: [])
-
 
 def _order_items() -> list[OrderItem]:
     return [OrderItem(order_id="placeholder", sku="burger", quantity=1, price=10.0, product_name="Burger")]
@@ -47,6 +36,7 @@ def _food_order(action: str = "delivery") -> SimpleNamespace:
     return SimpleNamespace(
         order_id="ABCD-1",
         order_number="ELAS-ABCD-1",
+        rest_ref="elas",
         recipient="447400000000",
         thread_id="thread-1",
         action=action,
@@ -118,15 +108,18 @@ async def test_get_min_order_value_by_postcode_resolves_addresses(monkeypatch) -
 
 async def test_create_order_returns_payment_url_for_delivery_and_takeaway(monkeypatch) -> None:
     payment_builders_called: list[str] = []
+    return_urls_seen: list[dict | None] = []
 
     async def _create_order(**kwargs):
         return {"success": True, "order_id": "ABCD-1", "order_number": "ELAS-ABCD-1"}
 
-    async def _delivery_url(food_order):
+    async def _delivery_url(food_order, **kwargs):
+        return_urls_seen.append(kwargs.get("return_urls"))
         payment_builders_called.append("delivery")
         return "https://pay.example.com/intent"
 
-    async def _takeaway_url(food_order):
+    async def _takeaway_url(food_order, **kwargs):
+        return_urls_seen.append(kwargs.get("return_urls"))
         payment_builders_called.append("takeaway")
         return "https://pay.example.com/manual"
 
@@ -150,6 +143,32 @@ async def test_create_order_returns_payment_url_for_delivery_and_takeaway(monkey
     )
     assert takeaway["payment_intent_url"] == "https://pay.example.com/manual"
     assert payment_builders_called == ["delivery", "takeaway"]
+    elas_wa = "https://wa.me/message/AIDICBLAE4KZH1"
+    assert return_urls_seen == [{"success_url": elas_wa, "cancel_url": elas_wa}] * 2
+
+
+async def test_create_order_sends_no_return_urls_for_unknown_restaurant(monkeypatch) -> None:
+    seen: list[dict | None] = []
+
+    async def _create_order(**kwargs):
+        return {"success": True, "order_id": "ABCD-1", "order_number": "CRMS-ABCD-1"}
+
+    async def _delivery_url(food_order, **kwargs):
+        seen.append(kwargs.get("return_urls"))
+        return "https://pay.example.com/intent"
+
+    food = _food_order("delivery")
+    food.rest_ref = "crms"
+    monkeypatch.setattr(order_hooks, "create_order_with_items", _create_order)
+    monkeypatch.setattr(order_hooks.FoodOrder, "from_order_id", staticmethod(lambda order_id: food))
+    monkeypatch.setattr(order_hooks, "generate_payment_intent_url", _delivery_url)
+
+    await order_hooks.create_order(
+        "CRMS",
+        order_hooks.CreateOrderRequest(recipient="447400000000", thread_id="thread-1", order_items=_order_items(), order_type="delivery"),
+    )
+
+    assert seen == [None]
 
 
 async def test_validate_postcode_returns_resolved_address(monkeypatch) -> None:
@@ -249,71 +268,27 @@ async def test_capture_address_skips_restaurant_app_for_web_customer_key(monkeyp
 
 
 
-# --- R3.1 (D35): the test restaurant list is the only payment switch ---------------------------
-
-def _payment_config(monkeypatch, *, test_refs=frozenset({"BNAT"}), overwatch=("447400000000",)):
-    from utils_common.payment_ms import payment_mode
-
-    async def _csv(key, **kwargs):
-        assert key == "TEST_PAYMENT_REST_REFS"
-        return frozenset(test_refs)
-
-    monkeypatch.setattr(payment_mode, "config_csv", _csv)
-    monkeypatch.setattr(payment_mode, "get_overwatch_list", lambda: list(overwatch))
-
-
-def _create_order_spy(monkeypatch, order_number):
+@pytest.mark.parametrize("product_name,expected", [("TEST3100", "test"), ("Burger", "live")])
+async def test_create_order_uses_reloaded_rpc_environment(monkeypatch, product_name, expected):
     received = {}
-
-    async def _create_order(**kwargs):
+    async def create(**kwargs):
         received.update(kwargs)
-        return {"success": True, "order_id": "ABCD-1", "order_number": order_number}
-
-    async def _url(food_order):
+        return {"success": True, "order_id": "ABCD-1", "order_number": "ELAS-ABCD-1"}
+    food = _food_order()
+    food.uses_test_payment = expected == "test"
+    async def url(order, **kwargs):
         return "https://pay.example.com/intent"
-
-    def _from_order_id(order_id):
-        food_order = _food_order("delivery")
-        food_order.payment_mode = received.get("payment_mode")
-        food_order.uses_test_payment = food_order.payment_mode == "test"
-        return food_order
-
-    monkeypatch.setattr(order_hooks, "create_order_with_items", _create_order)
-    monkeypatch.setattr(order_hooks.FoodOrder, "from_order_id", staticmethod(_from_order_id))
-    monkeypatch.setattr(order_hooks, "generate_payment_intent_url", _url)
-    return received
-
-
-async def test_test_restaurant_order_is_test_without_asking(monkeypatch) -> None:
-    _payment_config(monkeypatch)
-    received = _create_order_spy(monkeypatch, "BNAT-ABCD-1")
-
-    result = await order_hooks.create_order(
-        "BNAT",
-        order_hooks.CreateOrderRequest(recipient="447411111111", thread_id="t", order_items=_order_items(), order_type="delivery"),
-    )
-
-    assert received["payment_mode"] == "test"
-    assert result["payment_mode"] == "test"
-
-
-async def test_live_restaurant_is_live_unless_overwatch_asks(monkeypatch) -> None:
-    _payment_config(monkeypatch)
-    received = _create_order_spy(monkeypatch, "ELAS-ABCD-1")
-
-    customer = await order_hooks.create_order(
-        "ELAS",
-        order_hooks.CreateOrderRequest(recipient="447411111111", thread_id="t", order_items=_order_items(),
-                                       order_type="delivery", test_payment=True),
-    )
-    assert received["payment_mode"] is None and customer["payment_mode"] == "live"
-
-    overwatch = await order_hooks.create_order(
-        "ELAS",
-        order_hooks.CreateOrderRequest(recipient="447400000000", thread_id="t", order_items=_order_items(),
-                                       order_type="delivery", test_payment=True),
-    )
-    assert received["payment_mode"] == "test" and overwatch["payment_mode"] == "test"
+    monkeypatch.setattr(order_hooks, "create_order_with_items", create)
+    monkeypatch.setattr(order_hooks.FoodOrder, "from_order_id", staticmethod(lambda order_id: food))
+    monkeypatch.setattr(order_hooks, "generate_payment_intent_url", url)
+    items = _order_items()
+    items[0].product_name = product_name
+    result = await order_hooks.create_order("ELAS", order_hooks.CreateOrderRequest(
+        recipient="447411111111", thread_id="t", order_items=items, order_type="delivery",
+    ))
+    assert "payment_mode" not in received
+    assert result["payment_mode"] == expected
+    assert received["order_items"][0].product_name == product_name
 
 
 @respx.mock

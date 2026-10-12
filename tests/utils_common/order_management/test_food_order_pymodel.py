@@ -6,7 +6,7 @@ and overwatch dependencies are patched at module boundaries.
 Key Functions:
   - test_from_order_id_returns_model_without_pricing_update_when_final_value_exists
   - test_from_order_number_returns_none_for_missing_row
-  - test_payment_uri_uses_test_url_for_overwatch_delivery_customer
+  - test_payment_environment_is_fixed_and_independent_of_recipient
   - test_payment_mode_test_uses_test_url_and_is_not_dumped
   - test_rest_ref_derives_lowercase_prefix
   - test_update_final_order_value_in_db_updates_instance_fields
@@ -39,6 +39,7 @@ def _food_order_row(**overrides):
         "small_order_fee": 0.0,
         "commission_rate": 0.1,
         "payment_status": "requires_payment",
+        "payment_mode": "live",
     }
     row.update(overrides)
     return row
@@ -68,13 +69,16 @@ def test_from_order_number_returns_none_for_missing_row(patch_supabase_client) -
     assert FoodOrder.from_order_number("MISSING") is None
 
 
-def test_payment_uri_uses_test_url_for_overwatch_delivery_customer(monkeypatch) -> None:
-    import utils_common.order_management.food_order_pymodel as module
+def test_payment_environment_is_fixed_and_independent_of_recipient() -> None:
+    assert _food_order(payment_mode="live").payment_uri.startswith("https://test.example.com/stripe/")
+    assert _food_order(action="takeaway", payment_mode="test").payment_uri.startswith("https://test.example.com/stripe-test/")
+    assert _food_order(recipient="W7K2M9QX4TPA", payment_mode="test").uses_test_payment
 
-    monkeypatch.setattr(module, "get_overwatch_list", lambda: ["447400000000"])
 
-    assert _food_order().payment_uri == "https://test.example.com/stripe-test/threads/thread-1/orders/ABCD-1/payment-url"
-    assert _food_order(action="takeaway").payment_uri == "https://test.example.com/stripe/threads/thread-1/orders/ABCD-1/payment-url"
+def test_unresolved_legacy_payment_never_guesses_an_account() -> None:
+    import pytest
+    with pytest.raises(ValueError, match="Payment environment unresolved"):
+        _food_order(payment_mode=None).payment_uri
 
 
 def test_rest_ref_derives_lowercase_prefix() -> None:
@@ -205,13 +209,10 @@ async def test_takeaway_capture_payload_uses_collection_product_items(
 
 
 def test_payment_mode_test_uses_test_url_and_is_not_dumped(monkeypatch) -> None:
-    import utils_common.order_management.food_order_pymodel as module
-
-    monkeypatch.setattr(module, "get_overwatch_list", lambda: [])
     test_order = _food_order(action="takeaway", recipient="W7K2M9QX4TPA", payment_mode="test")
 
     assert test_order.uses_test_payment
     assert test_order.payment_uri.startswith("https://test.example.com/stripe-test/")
     assert "payment_mode" not in test_order.model_dump()  # restaurant-app payload unchanged
-    assert not _food_order(payment_mode=None).uses_test_payment
+    assert not _food_order(payment_mode="live").uses_test_payment
     assert _food_order().payment_uri.startswith("https://test.example.com/stripe/")

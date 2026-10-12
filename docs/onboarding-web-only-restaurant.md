@@ -39,8 +39,8 @@ For a WhatsApp restaurant (with an agent app), use [`notebooks/db_queries/restau
 | Pre-flight | `00_preflight_readonly.sql` | rest_ref/rest_id free, columns present, global switches noted, menu sanity |
 | restaurant_master | `01_restaurant_master.sql` | Upsert; `service_hours_json` is what the web enforces (`"24:00"` is allowed as the end) |
 | `{REF}_*` keys | `02_ordelo_config_crms_keys.sql` | Start with **`{REF}_WEB_ORDERING_PAUSED=true`**. Do **not** create `{REF}_APP_URL` |
-| Test window | `03_prod_test_enable.sql` | Since R3.1 only the `TEST_PAYMENT_REST_REFS` append and the unpause matter (every order of a listed restaurant is a test payment); the allowlist row is ignored |
-| Go live | `04_go_live.sql` | Real admins, live timeout, remove from `TEST_PAYMENT_REST_REFS`, unpause |
+| Test window | `03_prod_test_enable.sql` | Unpause and include a normal priced `TEST3100` item in each test basket; verify returned mode and receipt |
+| Go live | `04_go_live.sql` | Real admins, live timeout and unpause; ordinary baskets already use live payment |
 | Rollback | `99_rollback.sql` | L1 pause → L4 delete |
 
 Per-restaurant keys read by code:
@@ -54,7 +54,7 @@ Per-restaurant keys read by code:
 | `{REF}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | `process_restaurant_confirmation` | global default |
 | `{REF}_APP_URL` | restaurant-app webhooks, stale-thread job | **leave out for web-only** (skipped safely) |
 
-Global key (R3.1, D35): only `TEST_PAYMENT_REST_REFS`. Every order (web and WhatsApp) of a listed restaurant uses Stripe test; never list a restaurant with real customers. A restaurant is on the web when it is in the backend `RESTAURANTS` registry and frontend `webOrderingEnabled`; there is no allowlist row. Switches: `notebooks/db_queries/ordelo-agg-db-switch.sql`.
+Payment selection is per order: only an exact `TEST3100` item selects Stripe test for new orders. Its presence also restricts delivery offers to eligible overwatch riders. There is no global test-payment setting. See [test-orders.md](test-orders.md).
 
 Caches: flags/CSV 60 s; `RestaurantMaster` 1 h, cleared with `POST /internal/cache/reset?rest_ref={REF}`.
 
@@ -80,7 +80,7 @@ Run `pytest tests/utils_common/web_ordering/ && ruff check .`
 
 1. G0: external prerequisites (§1) and pre-flight.
 2. Deploy backend, then frontend. Run 01 and 02 (paused). Check the page renders and checkout says *paused*.
-3. Run 03 (test window). With `?isTest3100=true`: a collection order and a delivery order through to capture. Also test admin Accept/Decline, the confirmation timeout, both kill switches, hours/cutoff, and that every order has `payment_mode='test'`. Check the next-day price audit. Re-pause.
+3. Run 03 (test window). Include a normal priced `TEST3100` item in each basket: a collection order and a delivery order through to capture. Also test admin Accept/Decline, the confirmation timeout, both kill switches, hours/cutoff, and that every order has `payment_mode='test'`. Check the next-day price audit. Re-pause.
    - Visitors without the parameter pay **live** while the restaurant is unpaused. Keep the window short.
 4. G3: real admins (each has messaged the Ordelo WhatsApp number), live timeout. Run 04, then reset the cache.
 5. Off switch: `{REF}_WEB_ORDERING_PAUSED=true` (no deploy, takes effect within 60 s).

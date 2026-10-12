@@ -3,14 +3,13 @@ Order database operations and models (new version)
   . Defines OrderItem Pydantic model for individual order items
   . Generates unique order references with hashing and encoding
   . Creates order items from WhatsApp Order/Product objects
-  . Inserts orders and order items into database with validation
+  . Order writes use the atomic RPC in order_service; no independent insert path
   . Calculates order totals from WhatsApp orders
   Functions/Classes:
     . OrderItem
     . get_order_total
     . create_order_reference
     . create_order_items_from_order
-    . insert_wa_order
 """
 
 # %%
@@ -25,7 +24,7 @@ from pydantic import BaseModel
 from pywa.types import Order, Product
 
 # Local imports
-from config import client_ordelo, project_settings, logger
+from config import project_settings
 
 # %%
 SALT = project_settings.salt
@@ -106,123 +105,4 @@ async def create_order_items_from_order(
     return order_items
 
 
-# %% Insert into FoodOrder
-async def insert_order_items(order_id: str, wa_order: Order):
-    order_items: List[OrderItem] = await create_order_items_from_order(
-        wa_order, order_id
-    )
-
-    response = (
-        client_ordelo.table("order_item")
-        .insert([x.model_dump() for x in order_items])
-        .execute()
-    )
-
-    return response
-
-
-async def insert_wa_order(recipient: str, thread_id: str, wa_order: Order):
-    order_dt: str = datetime.now().strftime("%Y-%m-%d")
-    # Build the insert payload
-    # get next sequence number
-    seq_number = client_ordelo.rpc(
-        "get_next_daily_seq", {"input_date": order_dt}
-    ).execute()
-    # create order reference for given recipient and date
-    order_reference = create_order_reference(recipient, order_dt)
-    order_id = f"{order_reference}-{seq_number.data}"
-    # order_number = f"{REST_MASTER.rest_ref}-{order_reference}-{seq_number.data}"
-    order_number = "Dummy"
-    insert_payload = {
-        "order_id": order_id,
-        "order_number": order_number,
-        "seq_id": seq_number.data,
-        "recipient": recipient,
-        "thread_id": thread_id,
-        "action": "delivery",
-        "total_price": wa_order.total_price,
-        "payment_status": "requires_payment",
-    }
-
-    # Insert into FoodOrder
-    try:
-        food_order_response = (
-            client_ordelo.table("food_order").insert(insert_payload).execute()
-        )
-        if not food_order_response.data:
-            # Handle case where insert might appear successful but returns no data
-            logger.error(f"Warning: Inserting food order {order_id} returned no data.")
-            # Not attempting rollback here as nothing was confirmed inserted
-            return {
-                "success": False,
-                "error": "No data returned from food_order insert",
-            }
-    except Exception as e:
-        error_message = str(e)
-        logger.error(f"Error inserting food order {order_id}: {error_message}")
-        return {
-            "success": False,
-            "error": "Failed to insert food order",
-            "details": error_message,
-        }
-
-    # Create and Insert order_items - only proceed if food_order insert was successful
-    try:
-        order_items: List[OrderItem] = await create_order_items_from_order(
-            wa_order, order_id
-        )
-        order_items_response = (
-            client_ordelo.table("order_item")
-            .insert([x.model_dump() for x in order_items])
-            .execute()
-        )
-        if not order_items_response.data:
-            # Handle case where insert might appear successful but returns no data
-            logger.error(
-                f"Warning: Inserting order items for order {order_id} returned no data."
-            )
-            # Attempt to delete the potentially orphaned food_order
-            try:
-                client_ordelo.table("food_order").delete().eq(
-                    "order_id", order_id
-                ).execute()
-                logger.error(
-                    f"Rollback attempted: Deleted food_order {order_id} due to order_item insert issue (no data)."
-                )
-            except Exception as del_e:
-                logger.error(
-                    f"Error during rollback: Failed to delete food_order {order_id}: {del_e}"
-                )
-            return {
-                "success": False,
-                "error": "No data returned from order_item insert operation",
-                "details": "Insert seemed successful but no data was returned. Rollback attempted.",
-            }
-    except Exception as e:
-        error_message = str(e)
-        logger.error(
-            f"Error inserting order items for order {order_id}: {error_message}"
-        )
-        # Attempt to delete the potentially orphaned food_order
-        try:
-            client_ordelo.table("food_order").delete().eq(
-                "order_id", order_id
-            ).execute()
-            logger.error(
-                f"Rollback attempted: Deleted food_order {order_id} due to order_item insert failure."
-            )
-        except Exception as del_e:
-            logger.error(
-                f"Error during rollback: Failed to delete food_order {order_id}: {del_e}"
-            )
-        return {
-            "success": False,
-            "error": "Failed to insert order items",
-            "details": error_message + ". Rollback attempted.",
-        }
-
-    # If both inserts succeeded and returned data
-    return order_id, order_number
-
-
-
+# Orders are created through order_service.create_order_with_items and its atomic RPC.

@@ -141,6 +141,13 @@ An order whose origin channel is web. Always paid online with manual capture,
 and never sent to a restaurant app.
 _Avoid_: online order, site order
 
+### Order page link (WhatsApp)
+
+The private `/o/<token>` URL that opens the order page for a paid WhatsApp
+order. Minted by OrdeloAgent when the restaurant app builds the payment
+receipt, sent once as the receipt's last line, and never stored raw.
+_Avoid_: tracking link (on its own), magic link
+
 ### Restaurant app
 
 A restaurant-agents WhatsApp app that serves one restaurant's own customers.

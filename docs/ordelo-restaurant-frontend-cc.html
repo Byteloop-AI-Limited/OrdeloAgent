@@ -212,7 +212,7 @@ order: { title:'Order &amp; Payment (delivery)', blurb:
 
  {f:'ordelo',t:'ext',l:'POST …/payment-url (Stripe)',layer:'ext',
   code:'POST {stripe_url}/threads/{thread_id}/orders/{order_id}/payment-url\nX-Authorization: Bearer {stripe_token}\n\ndelivery → manual capture   (captured later, at rider assignment)',
-  d:'Overwatch (test) customers are routed to stripe_url_test instead. Returns a hosted Checkout url.',
+  d:'New orders with an exact TEST3100 item use stripe_url_test (wrenPayment); other new orders use stripe_url (payment). Returns a hosted Checkout URL.',
   src:[['utils_common/payment_ms/payment.py','26'],['utils_common/order_management/food_order_pymodel.py','192']]},
 
  {f:'ordelo',t:'next',l:'200 ← payment_intent_url',layer:'http',
@@ -649,7 +649,7 @@ const ENDPOINTS = [
  caller:['utils_common/order_management/food_order_pymodel.py','192'], impl:['utils_common/payment_ms/payment.py','26'],
  req:'intent | takeaway auth | print-only | capture | cancel — five payload shapes, one URL',
  res:'{ url }',
- d:'Overwatch customers are routed to stripe_url_test on delivery. Auth header is X-Authorization: Bearer {stripe_token}.'},
+ d:'Only new orders containing exact TEST3100 use stripe_url_test (wrenPayment), for delivery and collection; capture and cancel retain the stored environment. Auth header is X-Authorization: Bearer {stripe_token}.'},
 {m:'POST',p:'{pricing_url}',g:'ordelo-ext',s:'live',
  caller:['utils_common/order_management/order_service.py','38'], impl:['utils_common/order_management/food_order_pymodel.py','55'],
  req:'{ total_food_value, restaurant_lat/lon, customer_lat/lon, rest_ref, order_number }',

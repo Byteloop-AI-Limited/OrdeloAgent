@@ -32,8 +32,7 @@ ORDER BY config_key;
 -- 5. Global web switches. Note the current values; 03/04 append to them and never overwrite.
 SELECT config_key, config_value
 FROM public.ordelo_config
-WHERE config_key IN ('WEB_ORDERING_ENABLED_REST_REFS', 'TEST_PAYMENT_REST_REFS',
-                     'PAYMENT_INBOX_ENABLED', 'ORDER_CREATE_RPC_ENABLED',
+WHERE config_key IN ('WEB_ORDERING_ENABLED_REST_REFS', 'PAYMENT_INBOX_ENABLED', 'ORDER_CREATE_RPC_ENABLED',
                      'WEB_LATE_PAYMENT_GUARD_ENABLED', 'WEB_PRICE_MONITOR_ENABLED',
                      'DEFAULT_DELIVERY_PICKUP_TIME', 'DEFAULT_COLLECTION_PICKUP_TIME')
 ORDER BY config_key;

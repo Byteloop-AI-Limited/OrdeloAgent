@@ -165,8 +165,8 @@ Order payload template (replace example items and prices, do not submit literall
   "thread_id": "RETURNED_WEB_THREAD_ID",
   "order_items": [{
     "order_id": "",
-    "product_name": "APPROVED_PRODUCT",
-    "sku": "APPROVED_SKU",
+    "product_name": "TEST3100",
+    "sku": "APPROVED_TEST_ITEM_SKU",
     "quantity": 1,
     "price": 0,
     "modifications": []
@@ -174,16 +174,11 @@ Order payload template (replace example items and prices, do not submit literall
   "order_type": "delivery",
   "notes": "Local web payment-path test",
   "origin_channel": "web",
-  "storefront": "ordelo",
-  "test_payment": true
+  "storefront": "ordelo"
 }
 ```
 
-Expect the response's `payment_mode` to be `test` and the Checkout session ID to
-start `cs_test_`. The request flag can be refused, leaving an order in live mode;
-stop before payment in that case. For the frontend WhatsApp ordering entry the
-test query flag is `?isTest3100=true` (or `&isTest3100=true` when a query exists);
-it still passes through Ordelo's eligibility check.
+Expect the response's `payment_mode` to be `test` and the Checkout session ID to start `cs_test_`. Use the marker's actual configured price, not the placeholder above. Keep it in all payment/receipt items. The ordering customer and restaurant do not affect test selection. Delivery tests require an eligible on-shift overwatch rider; never broaden the audience to ordinary riders.
 
 ## 7. Pay in Chrome's Stripe sandbox and record the redirect
 

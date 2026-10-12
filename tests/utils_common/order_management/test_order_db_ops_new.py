@@ -7,8 +7,6 @@ Key Functions:
   - test_get_order_total_multiplies_price_by_quantity
   - test_create_order_reference_is_deterministic_and_uppercase
   - test_create_order_items_from_order_preserves_modifications
-  - test_insert_order_items_writes_model_dump_payloads
-  - test_insert_wa_order_success_and_rollback_on_item_failure
 """
 
 from __future__ import annotations
@@ -71,49 +69,3 @@ def test_create_order_items_from_order_preserves_modifications() -> None:
     assert result[0].order_id == "ABCD-1"
     assert result[0].product_name == "Burger"
     assert result[0].modifications == ["No onions"]
-
-
-async def test_insert_order_items_writes_model_dump_payloads(patch_supabase_client) -> None:
-    patch_supabase_client.register(
-        table="order_item",
-        verb="insert",
-        response=FakeSupabaseResponse(data=[{"id": 1}]),
-    )
-
-    await order_db_ops_new.insert_order_items("ABCD-1", _wa_order())
-
-    call = patch_supabase_client.calls[-1]
-    assert call.table == "order_item"
-    assert call.verb == "insert"
-    assert call.payload[0]["order_id"] == "ABCD-1"
-    assert call.payload[0]["modifications"] == ["No onions"]
-
-
-async def test_insert_wa_order_success_and_rollback_on_item_failure(patch_supabase_client) -> None:
-    patch_supabase_client.register_rpc("get_next_daily_seq", FakeSupabaseResponse(data=7))
-    patch_supabase_client.register(
-        table="food_order",
-        verb="insert",
-        response=FakeSupabaseResponse(data=[{"ok": True}]),
-    )
-    patch_supabase_client.register(
-        table="order_item",
-        verb="insert",
-        response=FakeSupabaseResponse(data=[{"ok": True}]),
-    )
-
-    order_id, order_number = await order_db_ops_new.insert_wa_order("447448440754", "thread-1", _wa_order())
-
-    assert order_id.endswith("-7")
-    assert order_number == "Dummy"
-
-    patch_supabase_client.register(
-        table="order_item",
-        verb="insert",
-        response=FakeSupabaseResponse(data=[]),
-    )
-    failed = await order_db_ops_new.insert_wa_order("447448440754", "thread-1", _wa_order())
-
-    assert failed["success"] is False
-    assert failed["error"] == "No data returned from order_item insert operation"
-    assert any(c.table == "food_order" and c.verb == "delete" for c in patch_supabase_client.calls)

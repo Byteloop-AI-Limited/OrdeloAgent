@@ -21,8 +21,10 @@ regression. A passing fixture checkout does not prove a real order or payment.
    - Backend entrypoint and routes: `watomation/fapp_ordelo_agent.py`,
      `watomation/routers/order_hooks.py`, `payment_hooks.py`, `delivery_hooks.py`.
    - Routing and payment mode: `config/params.py`, `config/feature_flags.py`,
-     `utils_common/payment_ms/payment_mode.py`, `food_order_pymodel.py` under
-     `utils_common/order_management/`.
+     `food_order_pymodel.py` and `test_order_dispatch.py` under
+     `utils_common/order_management/`, plus `create_food_order_with_items.sql`.
+     See `docs/test-orders.md`: the retained payment/Wren services use live/test
+     endpoints selected solely by an exact TEST3100 item on a new order.
    - Customer events: `utils_common/notify/customer_notifier.py` and its callers.
    - Frontend: `lib/web/mode.ts`, `lib/web/api.ts`, `config/restaurants.ts`,
      actual town/menu/order routes, checkout and configuration lookups.
