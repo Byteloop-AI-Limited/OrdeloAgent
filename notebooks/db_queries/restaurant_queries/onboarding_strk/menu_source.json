@@ -1,0 +1,479 @@
+{
+  "source": "User-supplied menu image, 2026-10-11",
+  "rest_ref_proposal": "STRK",
+  "currency": "GBP",
+  "currency_evidence": "Official site read via Chrome on 2026-10-11 displays £ prices.",
+  "website_comparison": "Website discrepancies are historical comparison only; image values govern the food seed.",
+  "availability": "unconfirmed; seed uses out of stock until approved",
+  "items": [
+    [
+      "The Warm Up",
+      "Marinated Sicilian Olives",
+      "3.50",
+      "",
+      "VE"
+    ],
+    [
+      "The Warm Up",
+      "Roasted Almonds",
+      "4.00",
+      "",
+      "VE"
+    ],
+    [
+      "The Warm Up",
+      "Dough Balls",
+      "5.50",
+      "Oregano, salt & pepper with a spicy tomato dip.",
+      "VE"
+    ],
+    [
+      "The Warm Up",
+      "Half-Time Skinny Fries",
+      "3.99",
+      "",
+      "VE"
+    ],
+    [
+      "The Warm Up",
+      "Cheesy Fries",
+      "5.00",
+      "",
+      "V"
+    ],
+    [
+      "The Warm Up",
+      "Sweet Potato Fries",
+      "4.00",
+      "",
+      "VE"
+    ],
+    [
+      "Kick Off",
+      "Mozzarella Sticks",
+      "7.50",
+      "Served with spicy tomato marmalade.",
+      "V"
+    ],
+    [
+      "Kick Off",
+      "Garlic Mushrooms",
+      "6.50",
+      "Crispy breaded garlic mushrooms served with sweet chilli sauce.",
+      "V"
+    ],
+    [
+      "Kick Off",
+      "Vegetable Samosa",
+      "5.25",
+      "Golden pastry filled with spiced potatoes, peas and herbs, served with tangy chutney.",
+      "VE"
+    ],
+    [
+      "Kick Off",
+      "Onion Bhaji",
+      "4.85",
+      "Crispy, deep-fried onion fritters in gram flour batter.",
+      "VE"
+    ],
+    [
+      "Kick Off",
+      "Vegetable Spring Rolls",
+      "4.75",
+      "Crispy wheat paper rolls filled with a medley of fresh vegetables, served with sweet chilli sauce.",
+      "VE"
+    ],
+    [
+      "Kick Off",
+      "Onion Rings",
+      "4.75",
+      "Crispy battered onion rings, fried until golden and served with a dipping sauce.",
+      "V"
+    ],
+    [
+      "Kick Off",
+      "Bruschetta",
+      "7.50",
+      "Toasted bread with chopped tomatoes, garlic, oregano and extra virgin olive oil.",
+      "VE"
+    ],
+    [
+      "Kick Off",
+      "Chicken Wings",
+      "8.50",
+      "Chicken wings marinated in a spiced blend and grilled for a smoky finish. Choose: Buffalo Hot, Smokey BBQ or Chipotle Mayo Sauce.",
+      ""
+    ],
+    [
+      "Kick Off",
+      "Crispy Chicken Tenders",
+      "8.45",
+      "Crispy breaded chicken tenders served with chipotle mayo sauce.",
+      ""
+    ],
+    [
+      "Kick Off",
+      "Stadium Loaded Nachos",
+      "7.25",
+      "Creamy cheese nachos topped with salsa, guacamole, jalapeños and herbs.",
+      "V"
+    ],
+    [
+      "Kick Off",
+      "Chilli & Garlic Calamari",
+      "8.25",
+      "Squid rings fried in batter and sprinkled with chilli and roasted garlic.",
+      ""
+    ],
+    [
+      "Kick Off",
+      "Arancini Sicilian",
+      "11.00",
+      "Arancini balls with saffron rice, beef ragù, peas and mozzarella.",
+      ""
+    ],
+    [
+      "Kick Off",
+      "Spicy & Sweet Chorizo",
+      "10.50",
+      "Chorizo cooked in red wine, honey and chilli.",
+      ""
+    ],
+    [
+      "The Main Event",
+      "Fish & Chips",
+      "14.00",
+      "Crispy battered fish served with golden chips and tartare sauce.",
+      ""
+    ],
+    [
+      "The Main Event",
+      "Homemade Lasagne",
+      "13.00",
+      "Oven-baked lasagne with Bolognese, béchamel, nutmeg, tomato sauce and mozzarella.",
+      ""
+    ],
+    [
+      "The Main Event",
+      "Pork Spare Ribs",
+      "14.00",
+      "In an American BBQ sauce.",
+      ""
+    ],
+    [
+      "The Main Event",
+      "Fillet Mignon 8oz",
+      "22.00",
+      "The most tender steak, recommended rare.",
+      ""
+    ],
+    [
+      "The Main Event",
+      "Chilli Con Carne",
+      "15.00",
+      "Minced meat, chilli and beans served with bread.",
+      ""
+    ],
+    [
+      "The Main Event",
+      "Mexican Chicken Thighs",
+      "13.00",
+      "Juicy marinated chicken thighs with smoky Mexican spice and served with Garlic Mayo or Spicy Mexican Sauce.",
+      ""
+    ],
+    [
+      "The Main Event",
+      "Chicken Shashlik",
+      "12.00",
+      "Tender pieces of chicken marinated in aromatic herbs and spices, grilled with green peppers and onions.",
+      ""
+    ],
+    [
+      "The Main Event",
+      "Baked Camembert",
+      "14.00",
+      "Baked with garlic and rosemary served with bread.",
+      "V"
+    ],
+    [
+      "Star Burgers",
+      "Strikers Smash Burger",
+      "13.50",
+      "Beef burger with melted cheese, fresh lettuce and tomato. Served with skinny fries.",
+      ""
+    ],
+    [
+      "Star Burgers",
+      "Vegan Burger",
+      "12.50",
+      "Plant-based burger served in a toasted bun with crisp lettuce, tomato and a tangy vegan sauce. Served with skinny fries.",
+      "VE"
+    ],
+    [
+      "Star Burgers",
+      "Crispy Chicken Burger",
+      "13.50",
+      "Crispy breaded chicken fillet with lettuce, tomato and chipotle mayo, served in a toasted bun. Served with skinny fries.",
+      ""
+    ],
+    [
+      "On The Green",
+      "Caesar Salad",
+      "10.50",
+      "Grilled chicken, lettuce, Caesar dressing, rosemary, parmesan shavings, croutons and chives.",
+      ""
+    ],
+    [
+      "On The Green",
+      "Caprese Salad",
+      "10.00",
+      "Fresh tomato, buffalo mozzarella and extra virgin olive oil.",
+      "V"
+    ],
+    [
+      "On The Green",
+      "Tuna Salad",
+      "11.00",
+      "Tuna with red onion, capers, cherry tomatoes, fresh salad leaves and olive oil dressing.",
+      ""
+    ],
+    [
+      "On The Green",
+      "Green Mango Salad",
+      "9.50",
+      "Fresh raw green mangoes with spices, chillies, peppers, onions and a tangy dressing.",
+      "VE"
+    ],
+    [
+      "Pass The Pizza",
+      "Margherita",
+      "11.50",
+      "The Italian classic with San Marzano tomato sauce and fior di latte mozzarella.",
+      "V"
+    ],
+    [
+      "Pass The Pizza",
+      "Pepperoni",
+      "13.00",
+      "San Marzano tomato sauce, fior di latte mozzarella and spicy pepperoni.",
+      ""
+    ],
+    [
+      "Pass The Pizza",
+      "Hot Hot",
+      "14.00",
+      "San Marzano tomato sauce, fior di latte mozzarella, spicy salami, jalapeños and chilli.",
+      ""
+    ],
+    [
+      "Pass The Pizza",
+      "Full Meat",
+      "14.50",
+      "San Marzano tomato sauce, fior di latte mozzarella, chicken, pepperoni and burger bits.",
+      ""
+    ],
+    [
+      "Pass The Pizza",
+      "Vegetarian",
+      "13.50",
+      "San Marzano tomato sauce, fior di latte mozzarella, roasted courgettes, peppers, aubergine and mushrooms.",
+      "V"
+    ],
+    [
+      "Off Side",
+      "Basket Of Mixed Bread",
+      "4.50",
+      "",
+      "VE"
+    ],
+    [
+      "Off Side",
+      "Butter Naan",
+      "3.50",
+      "Soft plain or butter naan.",
+      "V"
+    ],
+    [
+      "Off Side",
+      "Garlic Bread",
+      "4.00",
+      "",
+      "V"
+    ],
+    [
+      "Off Side",
+      "Garlic Bread With Cheese",
+      "4.75",
+      "",
+      "V"
+    ],
+    [
+      "Sweet Victory",
+      "Tiramisu",
+      "7.50",
+      "Italian ‘pick me up’ with sponge fingers soaked in espresso coffee, Amaretto and mascarpone cream.",
+      "V"
+    ],
+    [
+      "Sweet Victory",
+      "Affogato Al Caffè",
+      "7.50",
+      "Classic Italian dessert featuring vanilla ice cream ‘drowned’ with a shot of hot espresso coffee.",
+      "V"
+    ],
+    [
+      "Sweet Victory",
+      "Banoffee Pie",
+      "7.50",
+      "All butter digestive biscuit base topped with sea-salted toffee and smooth clotted cream, served with caramelised banana.",
+      "V"
+    ],
+    [
+      "Sweet Victory",
+      "Sticky Toffee Pudding",
+      "7.50",
+      "Rich toffee and date sponge with Devon cream toffee sauce, served with vanilla bean ice cream or vanilla custard.",
+      "V"
+    ],
+    [
+      "Sweet Victory",
+      "Brownie & Ice Cream",
+      "7.50",
+      "Chocolate brownie served with ice cream.",
+      "V"
+    ],
+    [
+      "Sweet Victory",
+      "Ice Cream Selection - 3 Scoops",
+      "7.50",
+      "Flavours available on request.",
+      "V"
+    ]
+  ],
+  "printed_options": {
+    "Chicken Wings": {
+      "step1": {
+        "label": "Choose sauce",
+        "options": [
+          {
+            "name": "Buffalo Hot"
+          },
+          {
+            "name": "Smokey BBQ"
+          },
+          {
+            "name": "Chipotle Mayo Sauce"
+          }
+        ],
+        "required": true,
+        "allow_multiple": false
+      }
+    },
+    "Mexican Chicken Thighs": {
+      "step1": {
+        "label": "Choose sauce",
+        "options": [
+          {
+            "name": "Garlic Mayo"
+          },
+          {
+            "name": "Spicy Mexican Sauce"
+          }
+        ],
+        "required": true,
+        "allow_multiple": false
+      }
+    },
+    "Sticky Toffee Pudding": {
+      "step1": {
+        "label": "Choose accompaniment",
+        "options": [
+          {
+            "name": "Vanilla Bean Ice Cream"
+          },
+          {
+            "name": "Vanilla Custard"
+          }
+        ],
+        "required": true,
+        "allow_multiple": false
+      }
+    },
+    "Star Burgers": {
+      "step1": {
+        "label": "Extra",
+        "options": [
+          {
+            "name": "Add Onion Rings",
+            "price_modifier": 2
+          }
+        ],
+        "required": false,
+        "allow_multiple": false
+      }
+    }
+  },
+  "review_notes": [
+    "49 dishes in eight sections. Category/title case normalised; descriptions retain source wording apart from burger inclusion note and wings choice note.",
+    "Green V and VE markers transcribed only where printed. Vegetarian/vegan interpretation requires confirmation; these are not allergen guarantees.",
+    "GBP is confirmed by the official site's £ prices; the supplied image itself has no visible currency symbol.",
+    "No item image URLs supplied; photographs in the menu are not individual image URLs. Website drinks data is captured separately in website_source.json.",
+    "Option selection constraints and no-extra-charge sauce/accompaniment mapping are proposals requiring confirmation.",
+    "Fillet cooking preference is recommended rare, not an explicit menu option list; no invented doneness choices.",
+    "Butter Naan says plain or butter: clarify the naming/choice and price. Ice cream flavours are unspecified; leave this dish unavailable until flavours are confirmed.",
+    "No TEST3100 item is printed; it has not been added. Agree a normal priced test item separately."
+  ],
+  "authority": "User confirmed the supplied menu image is the authoritative food menu.",
+  "sku_rule": "Trim and lowercase item name; replace runs of spaces or non-ASCII-alphanumeric characters with one underscore; strip leading/trailing underscores.",
+  "skus": {
+    "Marinated Sicilian Olives": "marinated_sicilian_olives",
+    "Roasted Almonds": "roasted_almonds",
+    "Dough Balls": "dough_balls",
+    "Half-Time Skinny Fries": "half_time_skinny_fries",
+    "Cheesy Fries": "cheesy_fries",
+    "Sweet Potato Fries": "sweet_potato_fries",
+    "Mozzarella Sticks": "mozzarella_sticks",
+    "Garlic Mushrooms": "garlic_mushrooms",
+    "Vegetable Samosa": "vegetable_samosa",
+    "Onion Bhaji": "onion_bhaji",
+    "Vegetable Spring Rolls": "vegetable_spring_rolls",
+    "Onion Rings": "onion_rings",
+    "Bruschetta": "bruschetta",
+    "Chicken Wings": "chicken_wings",
+    "Crispy Chicken Tenders": "crispy_chicken_tenders",
+    "Stadium Loaded Nachos": "stadium_loaded_nachos",
+    "Chilli & Garlic Calamari": "chilli_garlic_calamari",
+    "Arancini Sicilian": "arancini_sicilian",
+    "Spicy & Sweet Chorizo": "spicy_sweet_chorizo",
+    "Fish & Chips": "fish_chips",
+    "Homemade Lasagne": "homemade_lasagne",
+    "Pork Spare Ribs": "pork_spare_ribs",
+    "Fillet Mignon 8oz": "fillet_mignon_8oz",
+    "Chilli Con Carne": "chilli_con_carne",
+    "Mexican Chicken Thighs": "mexican_chicken_thighs",
+    "Chicken Shashlik": "chicken_shashlik",
+    "Baked Camembert": "baked_camembert",
+    "Strikers Smash Burger": "strikers_smash_burger",
+    "Vegan Burger": "vegan_burger",
+    "Crispy Chicken Burger": "crispy_chicken_burger",
+    "Caesar Salad": "caesar_salad",
+    "Caprese Salad": "caprese_salad",
+    "Tuna Salad": "tuna_salad",
+    "Green Mango Salad": "green_mango_salad",
+    "Margherita": "margherita",
+    "Pepperoni": "pepperoni",
+    "Hot Hot": "hot_hot",
+    "Full Meat": "full_meat",
+    "Vegetarian": "vegetarian",
+    "Basket Of Mixed Bread": "basket_of_mixed_bread",
+    "Butter Naan": "butter_naan",
+    "Garlic Bread": "garlic_bread",
+    "Garlic Bread With Cheese": "garlic_bread_with_cheese",
+    "Tiramisu": "tiramisu",
+    "Affogato Al Caffè": "affogato_al_caff",
+    "Banoffee Pie": "banoffee_pie",
+    "Sticky Toffee Pudding": "sticky_toffee_pudding",
+    "Brownie & Ice Cream": "brownie_ice_cream",
+    "Ice Cream Selection - 3 Scoops": "ice_cream_selection_3_scoops"
+  }
+}
