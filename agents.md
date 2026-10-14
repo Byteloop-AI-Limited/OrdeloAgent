@@ -10,6 +10,10 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 
 For local startup of OrdeloAgent and the sibling restaurant-frontend, Python shell preparation (`venv`, `PYTHONPATH`, `envLoad`), Cloudflare Tunnel routing, and maintenance-window test/production URL switches, follow the [local testing runbook](docs/local-testing-runbook.md).
 
+## Project Skills
+
+- **[telegram-api](.claude/skills/telegram-api/SKILL.md)** — Use for migrating this project's WhatsApp/PyWa messaging and handlers to Telegram with aiogram 3.31.0, or implementing Telegram interactions. Includes the Ordelo message inventory, official API documentation links, implementation examples, and source references for six FastAPI/aiogram repositories. Read the skill before Telegram migration work; preserve existing delivery/payment rules and LangGraph state.
+
 
 ## High‑Level Overview
 

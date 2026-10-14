@@ -28,6 +28,10 @@ _Avoid_: customer, restaurant admin
 A person authorized to confirm orders and manage preparation for a restaurant.
 _Avoid_: restaurant app
 
+**Restaurant acknowledgement**:
+The first valid accept or decline response by a restaurant admin to an order requiring manual confirmation. It is distinct from a message being sent or read, a timeout fallback, and the later choice of pickup time.
+_Avoid_: notification delivery, timeout auto-accept
+
 **Restaurant app**:
 A restaurant's customer-facing WhatsApp conversation service. It is distinct from the people operating the kitchen.
 _Avoid_: restaurant admin, kitchen
