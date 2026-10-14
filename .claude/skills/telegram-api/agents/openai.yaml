@@ -1,0 +1,3 @@
+interface:
+  display_name: "Telegram API"
+  short_description: "Migrate Ordelo WhatsApp workflows to aiogram"
