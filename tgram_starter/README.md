@@ -17,6 +17,8 @@ tgram_starter/
     basic.py        /help, formatting, typing, location + live location, media, echo (must be last)
   polling.py        run locally with no public URL
   webhook_cli.py    me | set | info | delete
+  notebook.py       `# %%` cells for ad-hoc calls against the real Bot API (VS Code / Jupyter / ipython)
+  explainer.html    open in a browser: diagrams of how the files fit together
   tests/            offline tests (no network)
 ```
 

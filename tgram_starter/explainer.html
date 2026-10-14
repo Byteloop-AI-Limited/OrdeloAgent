@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telegram Starter Kit: How It Fits Together</title>
+<style>
+  :root {
+    --bg:#fbfaf7; --panel:#ffffff; --ink:#1d2330; --muted:#5d6678; --line:#dcdfe6;
+    --blue:#1f6feb; --blue-soft:#e6efff; --green:#1a7f4b; --green-soft:#e3f4ea;
+    --amber:#a15c00; --amber-soft:#fff1d6; --purple:#6b46c1; --purple-soft:#efe8fb; --code:#f0f1f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#14171e; --panel:#1c212b; --ink:#e8eaf0; --muted:#9aa3b5; --line:#303746;
+      --blue:#6aa3ff; --blue-soft:#1b2a45; --green:#58c88a; --green-soft:#17301f;
+      --amber:#f0b24a; --amber-soft:#35290f; --purple:#b69cf2; --purple-soft:#2a2144; --code:#252b38;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:980px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:1.9rem; margin:0 0 6px; }
+  h2 { font-size:1.3rem; margin:44px 0 10px; padding-top:8px; border-top:1px solid var(--line); }
+  h3 { font-size:1.02rem; margin:18px 0 6px; }
+  p, li { color:var(--ink); }
+  .lede { color:var(--muted); margin:0 0 8px; max-width:70ch; }
+  code { background:var(--code); padding:1px 6px; border-radius:4px; font:0.88em ui-monospace,Menlo,Consolas,monospace; }
+  pre { background:var(--code); padding:12px 14px; border-radius:8px; overflow-x:auto; font:0.85rem/1.5 ui-monospace,Menlo,Consolas,monospace; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 18px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
+  .tag { display:inline-block; font-size:.72rem; font-weight:600; padding:1px 8px; border-radius:99px; margin-right:6px; vertical-align:middle; }
+  .t-blue{background:var(--blue-soft);color:var(--blue)} .t-green{background:var(--green-soft);color:var(--green)}
+  .t-amber{background:var(--amber-soft);color:var(--amber)} .t-purple{background:var(--purple-soft);color:var(--purple)}
+  table { width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden; font-size:.92rem; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { background:var(--code); font-weight:600; }
+  tr:last-child td { border-bottom:0; }
+  .scroll { overflow-x:auto; }
+  svg { width:100%; height:auto; display:block; }
+  svg text { font:13px system-ui,sans-serif; fill:var(--ink); }
+  svg .sub { font-size:11px; fill:var(--muted); }
+  svg .box { fill:var(--panel); stroke:var(--line); stroke-width:1.5; }
+  svg .b-blue { fill:var(--blue-soft); stroke:var(--blue); } svg .b-green { fill:var(--green-soft); stroke:var(--green); }
+  svg .b-amber { fill:var(--amber-soft); stroke:var(--amber); } svg .b-purple { fill:var(--purple-soft); stroke:var(--purple); }
+  svg .arrow { stroke:var(--muted); stroke-width:1.6; fill:none; }
+  svg .dash { stroke-dasharray:5 4; }
+  .callout { border-left:4px solid var(--amber); background:var(--amber-soft); padding:10px 14px; border-radius:0 8px 8px 0; margin:14px 0; }
+  ol.steps { padding-left:1.2rem; } ol.steps li { margin:6px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Telegram starter kit: how the files fit together</h1>
+  <p class="lede">A throwaway aiogram 3 + FastAPI bot. This page explains who calls whom, what each file owns, and how an
+  invite link turns into a linked Telegram identity. Everything lives in <code>tgram_starter/</code>; delete the folder to remove it.</p>
+
+  <h2>1. The big picture</h2>
+  <p>Telegram never connects to your laptop directly. Either Telegram <b>pushes</b> each update to a public HTTPS URL (webhook),
+  or your code <b>pulls</b> updates from Telegram (polling). The notebook is a third door: it calls the Bot API directly to send things.</p>
+  <div class="card scroll">
+  <svg viewBox="0 0 900 400" role="img" aria-label="Architecture: Telegram app to Telegram servers to webhook or polling into the dispatcher and routers, with the invites dict and the notebook calling the Bot API">
+    <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker></defs>
+    <!-- Telegram side -->
+    <rect class="box b-blue" x="10" y="30" width="150" height="60" rx="8"/><text x="85" y="58" text-anchor="middle">Telegram app</text><text class="sub" x="85" y="76" text-anchor="middle">you / rider / admin</text>
+    <rect class="box b-blue" x="10" y="160" width="150" height="70" rx="8"/><text x="85" y="188" text-anchor="middle">Telegram servers</text><text class="sub" x="85" y="206" text-anchor="middle">Bot API (api.telegram.org)</text>
+    <path class="arrow" marker-end="url(#ah)" d="M85 90V158"/>
+    <!-- delivery paths -->
+    <rect class="box b-amber" x="230" y="70" width="170" height="56" rx="8"/><text x="315" y="94" text-anchor="middle">Cloudflare / ngrok tunnel</text><text class="sub" x="315" y="112" text-anchor="middle">public HTTPS → localhost:3200</text>
+    <path class="arrow" marker-end="url(#ah)" d="M160 180C195 180 200 100 228 98"/><text class="sub" x="176" y="132">webhook push</text>
+    <path class="arrow dash" marker-end="url(#ah)" d="M300 245C240 245 200 225 162 215"/><text class="sub" x="150" y="262">polling asks "any news?"</text>
+    <!-- app -->
+    <rect class="box b-green" x="450" y="40" width="220" height="86" rx="8"/><text x="560" y="64" text-anchor="middle" style="font-weight:600">app.py (FastAPI)</text>
+    <text class="sub" x="560" y="84" text-anchor="middle">POST /telegram/webhook</text><text class="sub" x="560" y="100" text-anchor="middle">1. check secret header (403 if wrong)</text><text class="sub" x="560" y="116" text-anchor="middle">2. Update.model_validate → feed_update</text>
+    <path class="arrow" marker-end="url(#ah)" d="M400 98H448"/>
+    <rect class="box b-green" x="300" y="240" width="160" height="60" rx="8"/><text x="380" y="266" text-anchor="middle" style="font-weight:600">polling.py</text><text class="sub" x="380" y="284" text-anchor="middle">dev mode, no tunnel</text>
+    <!-- dispatcher -->
+    <rect class="box b-purple" x="450" y="170" width="220" height="60" rx="8"/><text x="560" y="194" text-anchor="middle" style="font-weight:600">Dispatcher</text><text class="sub" x="560" y="212" text-anchor="middle">built once by bot_factory.py</text>
+    <path class="arrow" marker-end="url(#ah)" d="M560 126V168"/><path class="arrow" marker-end="url(#ah)" d="M460 270C520 270 540 250 548 232"/>
+    <!-- routers -->
+    <rect class="box" x="700" y="30" width="190" height="62" rx="8"/><text x="795" y="54" text-anchor="middle">onboarding router</text><text class="sub" x="795" y="72" text-anchor="middle">/start, contact, /invite</text>
+    <rect class="box" x="700" y="110" width="190" height="62" rx="8"/><text x="795" y="134" text-anchor="middle">interactive router</text><text class="sub" x="795" y="152" text-anchor="middle">button callbacks</text>
+    <rect class="box" x="700" y="190" width="190" height="62" rx="8"/><text x="795" y="214" text-anchor="middle">basic router (last)</text><text class="sub" x="795" y="232" text-anchor="middle">text, location, media</text>
+    <path class="arrow" marker-end="url(#ah)" d="M670 192C688 192 684 61 698 61"/><path class="arrow" marker-end="url(#ah)" d="M670 200C686 200 684 141 698 141"/><path class="arrow" marker-end="url(#ah)" d="M670 208C686 208 684 221 698 221"/>
+    <!-- store -->
+    <rect class="box b-amber" x="700" y="290" width="190" height="70" rx="8"/><text x="795" y="314" text-anchor="middle" style="font-weight:600">invites.py</text><text class="sub" x="795" y="332" text-anchor="middle">TGRAM_INVITES dict</text><text class="sub" x="795" y="348" text-anchor="middle">(fake tgram_invites table)</text>
+    <path class="arrow" marker-end="url(#ah)" d="M830 94C880 150 880 260 840 288"/>
+    <path class="arrow" marker-end="url(#ah)" d="M795 254V288"/>
+    <!-- notebook -->
+    <rect class="box b-green" x="10" y="310" width="210" height="60" rx="8"/><text x="115" y="336" text-anchor="middle" style="font-weight:600">notebook.py</text><text class="sub" x="115" y="354" text-anchor="middle">ad-hoc calls: send, edit, inspect</text>
+    <path class="arrow" marker-end="url(#ah)" d="M60 308C45 280 60 250 78 232"/><text class="sub" x="92" y="290">Bot API calls</text>
+  </svg>
+  </div>
+  <p class="lede" style="margin-top:10px">Replies travel the other way: a handler calls <code>message.answer(...)</code> or <code>bot.send_message(...)</code>, which makes an HTTPS call to Telegram, which delivers it to the user's app.</p>
+
+  <h2>2. What each file owns</h2>
+  <div class="scroll"><table>
+    <tr><th>File</th><th>Responsibility</th><th>Talks to</th></tr>
+    <tr><td><code>config.py</code></td><td>Reads <code>TGRAM_*</code> env vars and <code>tgram_starter/.env</code> into a <code>Settings</code> object.</td><td>everything</td></tr>
+    <tr><td><code>bot_factory.py</code></td><td><code>build_bot()</code> (token, HTML parse mode) and <code>build_dispatcher()</code> (injects settings, attaches routers in order).</td><td>app, polling, webhook_cli, notebook</td></tr>
+    <tr><td><code>app.py</code></td><td>FastAPI app. Webhook route with secret check, plus <code>/invites</code>, <code>/send</code>, <code>/health</code>. Creates the bot in its lifespan, closes it on shutdown.</td><td>bot_factory, invites</td></tr>
+    <tr><td><code>polling.py</code></td><td>Local dev runner. Deletes any webhook, then long-polls.</td><td>bot_factory</td></tr>
+    <tr><td><code>webhook_cli.py</code></td><td><code>me | set | info | delete</code>. Registers the webhook URL with the secret.</td><td>Telegram API</td></tr>
+    <tr><td><code>handlers/onboarding.py</code></td><td><code>/start &lt;code&gt;</code> claims an invite; contact verification; <code>/whoami</code>; admin <code>/invite</code>.</td><td>invites, keyboards</td></tr>
+    <tr><td><code>handlers/interactive.py</code></td><td>Inline buttons: menu, demo order offer, counter, photo. Owns the fake order state used to show stale-tap handling.</td><td>keyboards</td></tr>
+    <tr><td><code>handlers/basic.py</code></td><td>Plain commands, formatting, location and live location, media, and the echo fallback. Attached last.</td><td>none</td></tr>
+    <tr><td><code>keyboards.py</code></td><td>Keyboard builders and typed <code>CallbackData</code> classes that pack to ≤64 bytes.</td><td>handlers</td></tr>
+    <tr><td><code>invites.py</code></td><td>The <code>TGRAM_INVITES</code> dict: create, atomic claim, lookup by Telegram id, phone verify, revoke.</td><td>handlers, app</td></tr>
+    <tr><td><code>notebook.py</code></td><td>Cell-based scratchpad for sending messages, inspecting state, and running the dispatcher inside a kernel.</td><td>Bot API directly</td></tr>
+    <tr><td><code>tests/</code></td><td>Offline tests: invite rules, callback size, webhook secret, admin key.</td><td>app, invites, keyboards</td></tr>
+  </table></div>
+
+  <h2>3. Life of one update</h2>
+  <ol class="steps">
+    <li>A user taps a button or sends text. Telegram wraps it in an <b>Update</b> with an <code>update_id</code> and one payload (<code>message</code>, <code>callback_query</code>, <code>edited_message</code>, …).</li>
+    <li><b>Webhook mode:</b> Telegram POSTs the JSON to <code>/telegram/webhook</code> with header <code>X-Telegram-Bot-Api-Secret-Token</code>. <code>app.py</code> compares it to your secret and returns 403 on mismatch. <b>Polling mode:</b> aiogram fetches the same Update via <code>getUpdates</code>.</li>
+    <li>The <b>Dispatcher</b> offers the update to routers in registration order: onboarding → interactive → basic. The first handler whose filter matches wins (<code>CommandStart()</code>, <code>F.contact</code>, <code>DemoOrder.filter()</code>, <code>F.location</code>, <code>F.text</code>, …). That is why the catch-all echo lives in the last router.</li>
+    <li>The handler runs. <code>settings</code> is injected because <code>bot_factory</code> stored it with <code>dp["settings"]</code>.</li>
+    <li>The handler replies with an awaited Bot API call. For a callback it must also call <code>query.answer()</code> so the button stops spinning.</li>
+    <li>The webhook route returns <code>{"ok": true}</code>. If it returns an error, Telegram retries.</li>
+  </ol>
+
+  <h3>Update types used here</h3>
+  <div class="scroll"><table>
+    <tr><th>User action</th><th>Update field</th><th>Handled by</th></tr>
+    <tr><td>Types text / <code>/command</code></td><td><code>message.text</code></td><td>onboarding, basic</td></tr>
+    <tr><td>Taps an inline button</td><td><code>callback_query</code></td><td>interactive</td></tr>
+    <tr><td>Taps a reply-keyboard button (location/contact)</td><td><code>message.location</code> / <code>message.contact</code></td><td>basic / onboarding</td></tr>
+    <tr><td>Live location moves</td><td><code>edited_message.location</code></td><td>basic</td></tr>
+    <tr><td>Sends photo / voice / file</td><td><code>message.photo</code> etc.</td><td>basic</td></tr>
+    <tr><td>URL button</td><td><i>none</i>: opens the link, bot is not told</td><td>-</td></tr>
+  </table></div>
+
+  <h2>4. Invite flow: from phone number to Telegram ids</h2>
+  <p>A bot cannot find a Telegram id from a phone number and cannot message anyone who hasn't pressed Start. The invite link is the bridge.</p>
+  <div class="card scroll">
+  <svg viewBox="0 0 900 330" role="img" aria-label="Sequence: admin creates invite, sends link by WhatsApp, rider taps Start, bot claims invite and stores user id and chat id">
+    <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker></defs>
+    <g>
+      <rect class="box b-blue" x="20" y="10" width="150" height="34" rx="6"/><text x="95" y="32" text-anchor="middle">Admin</text>
+      <rect class="box b-amber" x="250" y="10" width="150" height="34" rx="6"/><text x="325" y="32" text-anchor="middle">invites.py dict</text>
+      <rect class="box b-blue" x="480" y="10" width="150" height="34" rx="6"/><text x="555" y="32" text-anchor="middle">Rider (Telegram)</text>
+      <rect class="box b-green" x="710" y="10" width="170" height="34" rx="6"/><text x="795" y="32" text-anchor="middle">Bot (handlers)</text>
+    </g>
+    <g stroke="var(--line)" stroke-dasharray="3 4"><path d="M95 44V320"/><path d="M325 44V320"/><path d="M555 44V320"/><path d="M795 44V320"/></g>
+    <path class="arrow" marker-end="url(#ah2)" d="M95 80H323"/><text x="104" y="72" class="sub">1. create_invite("+44 7700 900123")</text>
+    <path class="arrow dash" marker-end="url(#ah2)" d="M323 110H97"/><text x="104" y="104" class="sub">code + link t.me/bot?start=CODE</text>
+    <path class="arrow" marker-end="url(#ah2)" d="M95 150H553"/><text x="104" y="142" class="sub">2. link sent by WhatsApp / SMS</text>
+    <path class="arrow" marker-end="url(#ah2)" d="M555 190H793"/><text x="566" y="182" class="sub">3. taps Start → "/start CODE"</text>
+    <path class="arrow" marker-end="url(#ah2)" d="M793 225H327"/><text x="338" y="217" class="sub">4. claim_invite(CODE, user_id, chat_id, …)</text>
+    <text x="338" y="243" class="sub">status → claimed; stores telegram_user_id, telegram_chat_id</text>
+    <path class="arrow dash" marker-end="url(#ah2)" d="M793 275H557"/><text x="566" y="267" class="sub">5. "Linked!" + "Share my phone" button</text>
+    <path class="arrow" marker-end="url(#ah2)" d="M555 308H793"/><text x="566" y="300" class="sub">6. shares contact → user_id check → phone_verified</text>
+  </svg>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><span class="tag t-blue">identity</span><b><code>telegram_user_id</code></b><br>The person (<code>from_user.id</code>). Authorise actions on this.</div>
+    <div class="card"><span class="tag t-green">destination</span><b><code>telegram_chat_id</code></b><br>Where the bot sends (<code>chat.id</code>). Equal to the user id in a private chat, but stored separately.</div>
+    <div class="card"><span class="tag t-amber">display only</span><b><code>telegram_username</code></b><br>Can change or be empty. Never an identity.</div>
+    <div class="card"><span class="tag t-purple">rules</span><b>Claim checks</b><br>Unknown, expired, revoked, or used by another account are refused. Same person pressing Start twice is fine.</div>
+  </div>
+
+  <h2>5. Three ways to run it</h2>
+  <div class="grid">
+    <div class="card"><span class="tag t-green">A</span><b>Polling</b><pre>python -m tgram_starter.polling</pre>No tunnel. Easiest for learning. Removes any webhook.</div>
+    <div class="card"><span class="tag t-amber">B</span><b>Webhook</b><pre>uvicorn tgram_starter.app:app --port 3200
+python -m tgram_starter.webhook_cli set</pre>How production works. Needs a public HTTPS URL.</div>
+    <div class="card"><span class="tag t-purple">C</span><b>Notebook</b><pre># %% cells in notebook.py</pre>Call the Bot API by hand. Cell 14 can run polling inside the kernel so the kernel's invites dict is the live one.</div>
+  </div>
+  <div class="callout"><b>Webhook and polling are mutually exclusive.</b> If <code>get_updates</code> returns a 409 conflict, a webhook is still set. Check with <code>webhook_cli info</code>.</div>
+
+  <h2>6. Gotchas that explain the design</h2>
+  <ul>
+    <li><b>Router order matters.</b> Specific handlers first, generic text echo last (<code>bot_factory.py</code>).</li>
+    <li><b>Always answer callbacks</b>, including rejected or stale ones. Answering only clears the spinner; it is not the business confirmation.</li>
+    <li><b>Callback data ≤ 64 bytes.</b> Typed classes like <code>DemoOrder</code> pack to <code>ord:1042:a</code>.</li>
+    <li><b>Escape user text</b> before putting it in HTML messages.</li>
+    <li><b>The dict is per process.</b> A restart forgets invites; two worker processes would not share them. Use one worker, and a real table later.</li>
+    <li><b>The webhook handler works inline.</b> Fine here; the real service needs update-id dedupe and a durable queue (see ADR 0011).</li>
+  </ul>
+</main>
+</body>
+</html>
