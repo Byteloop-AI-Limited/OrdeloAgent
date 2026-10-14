@@ -1,7 +1,8 @@
 # %% [markdown]
 # # Telegram bot scratchpad
 # Run cell by cell (VS Code "Run Cell", Jupyter, or `ipython`). Cells use top-level `await`.
-# Open the repo root as the working directory. Needs `tgram_starter/.env` (see README).
+# Open the repo root as the working directory. Needs `tgram_starter/.env_local` (see README).
+# Kernel/interpreter: pick `tgram_starter/.venv` (created by `uv sync --project tgram_starter`).
 #
 # Rules of thumb:
 # - Sending to a chat only works after that person pressed Start on the bot (or you did).

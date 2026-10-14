@@ -1,7 +1,0 @@
-aiogram==3.31.0
-fastapi
-uvicorn
-python-dotenv
-# tests only
-pytest
-httpx

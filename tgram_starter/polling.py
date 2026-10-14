@@ -1,4 +1,4 @@
-"""Local dev WITHOUT a public URL:  python -m tgram_starter.polling   (from the repo root)
+"""Local dev WITHOUT a public URL:  uv run --project tgram_starter python -m tgram_starter.polling   (from the repo root)
 Polling and webhooks are mutually exclusive - this deletes any webhook set on the bot."""
 import asyncio
 

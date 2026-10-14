@@ -1,11 +1,14 @@
-"""Settings from env vars (loads tgram_starter/.env if present). Deliberately independent of /config."""
+"""Settings from env vars (loads tgram_starter/.env_local, then .env). Deliberately independent of /config."""
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).parent / ".env")
+_HERE = Path(__file__).parent
+# load_dotenv never overrides values already set, so real env vars win, then .env_local, then .env.
+load_dotenv(_HERE / ".env_local")
+load_dotenv(_HERE / ".env")
 
 
 def _int_list(raw: str) -> set[int]:
