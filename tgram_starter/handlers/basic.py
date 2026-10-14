@@ -13,6 +13,7 @@ router = Router(name="basic")
 HELP = """<b>Commands</b>
 /start - greet (or claim an invite via link)
 /menu - inline buttons demo
+/app - open the Demo Kitchen mini app
 /whoami - show user id / chat id / link status
 /format - HTML formatting sample
 /typing - 'typing...' indicator then a reply

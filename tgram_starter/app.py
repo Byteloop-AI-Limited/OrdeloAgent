@@ -1,4 +1,4 @@
-"""FastAPI host (port 3200). Run either way:
+"""FastAPI host (port 3100). Run either way:
   from tgram_starter/:  uv run app.py
   from the repo root:   uv run --project tgram_starter python -m tgram_starter.app
 
@@ -25,6 +25,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from . import invites
 from .bot_factory import build_bot, build_dispatcher
 from .config import get_settings
+from .miniapp.router import router as miniapp_router
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Telegram starter kit", lifespan=lifespan)
+app.include_router(miniapp_router)  # Mini App page + API under /miniapp
 
 
 @app.get("/health")
@@ -82,7 +84,7 @@ def _require_admin(request: Request, key: str):
 async def create_invite(
     request: Request, phone_number: str, x_admin_key: str = Header(default="")
 ):
-    """curl -X POST 'localhost:3200/invites?phone_number=447700900123' -H 'X-Admin-Key: ...'"""
+    """curl -X POST 'localhost:3100/invites?phone_number=447700900123' -H 'X-Admin-Key: ...'"""
     _require_admin(request, x_admin_key)
     s = request.app.state.settings
     row = invites.create_invite(phone_number, s.invite_ttl_hours)

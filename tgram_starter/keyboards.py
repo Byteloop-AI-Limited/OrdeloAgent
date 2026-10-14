@@ -2,7 +2,7 @@
 from typing import Literal
 
 from aiogram.filters.callback_data import CallbackData
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
@@ -17,15 +17,17 @@ class Counter(CallbackData, prefix="cnt"):
     delta: int
 
 
-def main_menu():
+def main_menu(miniapp_url: str = ""):
     b = InlineKeyboardBuilder()
+    if miniapp_url.startswith("https://"):
+        b.button(text="🍽 Open mini app", web_app=WebAppInfo(url=miniapp_url))
     b.button(text="📦 Demo order offer", callback_data="demo:order")
     b.button(text="🔢 Counter (edits in place)", callback_data=Counter(value=0, delta=0).pack())
     b.button(text="📍 Ask for location", callback_data="demo:location")
     b.button(text="📞 Share my phone", callback_data="demo:contact")
     b.button(text="🌐 URL button", url="https://core.telegram.org/bots/api")
     b.button(text="🖼 Send a photo", callback_data="demo:photo")
-    b.adjust(1, 1, 2, 2)
+    b.adjust(*((1,) if miniapp_url.startswith("https://") else ()), 1, 1, 2, 2)
     return b.as_markup()
 
 

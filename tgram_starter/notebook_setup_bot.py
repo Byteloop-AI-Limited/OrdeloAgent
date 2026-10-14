@@ -64,12 +64,23 @@ from aiogram.types import BotCommand  # noqa: E402
 await bot.set_my_commands([
     BotCommand(command="start", description="Start / claim an invite"),
     BotCommand(command="menu", description="Interactive demo menu"),
+    BotCommand(command="app", description="Open the Demo Kitchen mini app"),
     BotCommand(command="whoami", description="Show my Telegram ids and link status"),
     BotCommand(command="format", description="Formatting sample"),
     BotCommand(command="typing", description="Typing indicator demo"),
     BotCommand(command="help", description="List commands"),
 ])
 print(await bot.get_my_commands())
+
+# %% 6b. Mini app: put an "Open" button next to the message box (needs the app reachable at that https URL)
+from aiogram.types import MenuButtonWebApp, WebAppInfo  # noqa: E402
+
+MINIAPP_URL = settings.miniapp_url or callback_url.rsplit("/telegram/webhook", 1)[0] + "/miniapp/"
+assert MINIAPP_URL.startswith("https://"), "Telegram only opens https:// mini apps"
+await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="Demo Kitchen", web_app=WebAppInfo(url=MINIAPP_URL)))
+print("menu button ->", MINIAPP_URL)
+print(await bot.get_chat_menu_button())
+# Reset to the default commands menu: await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
 
 # %% 7. Optional: smoke-test the live endpoint over HTTP (app must be running and reachable)
 import httpx  # noqa: E402

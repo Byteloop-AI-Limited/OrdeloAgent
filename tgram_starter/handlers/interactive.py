@@ -3,6 +3,7 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
+from ..config import Settings
 from ..keyboards import Counter, DemoOrder, contact_request_kb, counter_kb, location_request_kb, main_menu, order_offer
 
 router = Router(name="interactive")
@@ -12,14 +13,14 @@ ORDER_STATE: dict[int, str] = {}  # order_id -> offered | accepted | declined
 
 
 @router.message(Command("menu"))
-async def cmd_menu(message: Message):
-    await message.answer("<b>Demo menu</b>\nPick a feature:", reply_markup=main_menu())
+async def cmd_menu(message: Message, settings: Settings):
+    await message.answer("<b>Demo menu</b>\nPick a feature:", reply_markup=main_menu(settings.miniapp_url))
 
 
 @router.callback_query(F.data == "demo:menu")
-async def cb_menu(query: CallbackQuery):
+async def cb_menu(query: CallbackQuery, settings: Settings):
     await query.answer()
-    await query.message.edit_text("<b>Demo menu</b>\nPick a feature:", reply_markup=main_menu())
+    await query.message.edit_text("<b>Demo menu</b>\nPick a feature:", reply_markup=main_menu(settings.miniapp_url))
 
 
 @router.callback_query(F.data == "demo:order")

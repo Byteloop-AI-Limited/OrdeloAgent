@@ -9,7 +9,7 @@ from aiogram.filters import ExceptionTypeFilter
 from aiogram.types import ErrorEvent
 
 from .config import Settings
-from .handlers import basic, interactive, onboarding
+from .handlers import basic, interactive, miniapp, onboarding
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ def build_dispatcher(settings: Settings) -> Dispatcher:
         # Order matters: specific handlers first, generic text echo last.
         _dp.include_router(onboarding.router)
         _dp.include_router(interactive.router)
+        _dp.include_router(miniapp.router)
         _dp.include_router(basic.router)
         _dp.errors.register(_ignore_stale_callback, ExceptionTypeFilter(TelegramBadRequest))
     _dp["settings"] = settings  # injected into any handler that declares a `settings` argument

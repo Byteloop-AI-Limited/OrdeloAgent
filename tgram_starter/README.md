@@ -15,6 +15,8 @@ tgram_starter/
     onboarding.py   /start <code> claim, contact verification, /whoami, /invite, /invites
     interactive.py  inline buttons, callbacks, edit-in-place, stale-tap handling, photo/document
     basic.py        /help, formatting, typing, location + live location, media, echo (must be last)
+  miniapp/          Demo Kitchen Mini App: auth.py (verify initData) · store.py · router.py · static/index.html
+  handlers/miniapp.py  /app command that opens it
   notebook_setup_bot.py  `# %%` cells: validate token, SET/inspect/delete the webhook, bot commands
   notebook.py       `# %%` cells: ad-hoc sends and calls to the app's invite endpoints
   pyproject.toml    uv project (deps + venv in tgram_starter/.venv); uv.lock pins versions
@@ -47,7 +49,7 @@ The bot runs in **webhook mode only**: Telegram POSTs each update to your FastAP
 uv sync --project tgram_starter                                # creates tgram_starter/.venv from uv.lock
 cp tgram_starter/.env_local.example tgram_starter/.env_local   # then fill in your values (gitignored)
 
-uv run --project tgram_starter python -m tgram_starter.app    # the app on port 3200 (must be reachable at the base URL)
+uv run --project tgram_starter python -m tgram_starter.app    # the app on port 3100 (must be reachable at the base URL)
 ```
 
 Then register the webhook from **`notebook_setup_bot.py`** (open it in VS Code / Jupyter with the `tgram_starter/.venv` interpreter and run the cells):
@@ -72,7 +74,7 @@ A bot **cannot message someone first** and cannot look up a Telegram id from a p
 
 1. **Create the invite** (any of):
    - Telegram: as an admin, send your bot `/invite 447700900123`
-   - HTTP: `curl -X POST 'localhost:3200/invites?phone_number=447700900123' -H 'X-Admin-Key: <TGRAM_ADMIN_API_KEY>'`
+   - HTTP: `curl -X POST 'localhost:3100/invites?phone_number=447700900123' -H 'X-Admin-Key: <TGRAM_ADMIN_API_KEY>'`
    - Python: `invites.create_invite("447700900123")`
 2. **Send the link** `https://t.me/<bot_username>?start=<invite_code>` to that person over WhatsApp/SMS/email (the response/`/invite` reply contains it). On a phone it opens Telegram with a **Start** button. A QR of the same link works too.
 3. **They tap Start.** Telegram sends the bot `/start <invite_code>`. `onboarding.cmd_start` claims the code atomically and records their ids.
@@ -132,6 +134,40 @@ uv run --project tgram_starter pytest tgram_starter/tests -q
 ```
 Covers invite lifecycle (claim, reuse, expiry, revoke, phone check), callback ≤64 bytes, webhook secret rejection, and admin-key protection. These are offline; they do not prove real delivery to Telegram.
 
-## 7. Mapping to the real migration
+## 7. Mini app: "Demo Kitchen"
+
+A **Telegram Mini App** is a web page that opens *inside* Telegram (full-height sheet) from a bot button. It is served by the same FastAPI app, so there is nothing extra to host.
+
+**Try it**
+1. App running and reachable over **HTTPS** (Telegram will not open `http://`). `TGRAM_WEBHOOK_BASE_URL` (or `TGRAM_MINIAPP_URL`) must point at it; the page lives at `<base>/miniapp/`.
+2. Send the bot `/app` (or `/menu` → *Open mini app*) and tap the button.
+3. Optional: run cell **6b** of `notebook_setup_bot.py` to add a permanent "Demo Kitchen" button next to the message box.
+4. Add items, tap the Telegram **Checkout** button, confirm. The server prices the order, the bot sends a chat confirmation with a **Track order** button that reopens the page on that order, and the status moves placed → preparing → ready (a demo timer).
+
+**What it demonstrates**
+
+| Feature | Where |
+|---|---|
+| Open from an inline `web_app` button, `/app`, or the chat menu button | `handlers/miniapp.py`, `keyboards.py`, setup notebook 6b |
+| **Verifying `initData`** (HMAC with the bot token, `auth_date` freshness) | `miniapp/auth.py` |
+| Unverified `initDataUnsafe` vs server-verified identity, side by side | "What Telegram gave this page" panel |
+| Telegram-native chrome: `MainButton`, `BackButton`, `showConfirm`, haptics, theme colours | `static/index.html` |
+| Server-side pricing (page sends ids + quantities, never prices) and quantity limits | `miniapp/store.py` |
+| Idempotent checkout (double tap returns the same order, one chat message) | `store.create_order`, `router.place_order` |
+| Owner-only orders (someone else's id looks like a missing one) | `store.get_order_for` |
+| Bot ↔ page round trip: chat message → `?order=` deep link → page | `router._notify` |
+| Link to the invite table: the page shows the user's Ordelo phone if linked | `GET /miniapp/api/session` |
+
+**Rules worth remembering**
+- Never trust `initDataUnsafe` or a user id sent in a body/query. Every API call sends the signed `initData` in `X-Telegram-Init-Data`; the server verifies it and takes `user.id` from that.
+- A valid signature only proves Telegram produced it. Reject old ones (`TGRAM_MINIAPP_AUTH_MAX_AGE`, default 1 hour).
+- Opening a mini app from a keyboard button does not message the user by itself; the confirmation only arrives if the user has started the bot (the page reports `chat_notified: false` otherwise).
+- Build page DOM with `textContent` (display names are user-controlled).
+- Not covered here: payments (Telegram Stars/Stripe invoices), `sendData` via reply-keyboard buttons, `answerWebAppQuery` (inline-mode only), cloud/device storage.
+- Orders are an in-memory dict like invites: restarts forget them, run one worker.
+
+Offline checks: `tests/test_miniapp.py` (auth, pricing, idempotency, ownership, `/app` button). The page itself was exercised in headless Chromium with a stubbed Telegram bridge; that does not replace opening it in a real Telegram client.
+
+## 8. Mapping to the real migration
 
 Telegram `chat_id`/`user_id` are never WhatsApp phone ids; `tgram_invites` becomes the linking table that maps `rider_id`/admin → `(bot, telegram_user_id, telegram_chat_id)`. LangGraph thread selection, delivery state, durable ingress, message-id↔job indexing and 1-vs-2 bots are open decisions in the handoff doc and ADR 0011, not settled here.
