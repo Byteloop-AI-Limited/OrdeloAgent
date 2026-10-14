@@ -162,7 +162,7 @@
   <h2>5. Running it</h2>
   <div class="grid">
     <div class="card"><span class="tag t-green">1</span><b>Start the app</b><pre>uv run --project tgram_starter \
-uvicorn tgram_starter.app:app --port 3200</pre>Must be reachable at <code>TGRAM_WEBHOOK_BASE_URL</code> over HTTPS.</div>
+python -m tgram_starter.app   # port 3200</pre>Must be reachable at <code>TGRAM_WEBHOOK_BASE_URL</code> over HTTPS.</div>
     <div class="card"><span class="tag t-amber">2</span><b>Register the webhook</b><pre># %% cell 4 in notebook_setup_bot.py</pre>Calls <code>set_webhook</code> with the URL and secret. Re-run if the URL changes.</div>
     <div class="card"><span class="tag t-purple">3</span><b>Play</b><pre># %% cells in notebook.py</pre>Send messages by hand, create invites through the app, then talk to the bot in Telegram.</div>
   </div>

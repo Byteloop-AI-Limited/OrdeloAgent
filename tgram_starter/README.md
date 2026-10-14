@@ -47,7 +47,7 @@ The bot runs in **webhook mode only**: Telegram POSTs each update to your FastAP
 uv sync --project tgram_starter                                # creates tgram_starter/.venv from uv.lock
 cp tgram_starter/.env_local.example tgram_starter/.env_local   # then fill in your values (gitignored)
 
-uv run --project tgram_starter uvicorn tgram_starter.app:app --port 3200   # the app (must be reachable at the base URL)
+uv run --project tgram_starter python -m tgram_starter.app    # the app on port 3200 (must be reachable at the base URL)
 ```
 
 Then register the webhook from **`notebook_setup_bot.py`** (open it in VS Code / Jupyter with the `tgram_starter/.venv` interpreter and run the cells):
