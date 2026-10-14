@@ -5,6 +5,8 @@
 Telegram POSTs every update to /telegram/webhook with header X-Telegram-Bot-Api-Secret-Token.
 """
 
+import json
+import logging
 import secrets
 import sys
 from contextlib import asynccontextmanager
@@ -23,6 +25,8 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from . import invites
 from .bot_factory import build_bot, build_dispatcher
 from .config import get_settings
+
+log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -55,9 +59,15 @@ async def telegram_webhook(
     if not secrets.compare_digest(x_telegram_bot_api_secret_token, s.webhook_secret):
         raise HTTPException(403, "bad secret")
     bot, dp = request.app.state.bot, request.app.state.dp
-    update = Update.model_validate(await request.json(), context={"bot": bot})
+    payload = await request.json()
+    print("---- inbound update ----\n" + json.dumps(payload, indent=2, ensure_ascii=False), flush=True)  # demo: see the raw shape
+    update = Update.model_validate(payload, context={"bot": bot})
     # Fine for short demo handlers. Production: persist update_id first, ack fast, work in a worker.
-    await dp.feed_update(bot, update)
+    try:
+        await dp.feed_update(bot, update)
+    except Exception:
+        # Still return 200: a non-2xx makes Telegram redeliver the same update, which would fail again.
+        log.exception("Handler failed for update %s", update.update_id)
     return {"ok": True}
 
 
