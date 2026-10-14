@@ -37,17 +37,47 @@ print(f"@{me.username} id={me.id} name={me.first_name!r} can_join_groups={me.can
 # Private chat: chat_id == your Telegram user id. Press Start on the bot first!
 # Default: first admin id from TGRAM_ADMIN_IDS. Override by assigning CHAT_ID directly.
 CHAT_ID = next(iter(settings.admin_ids), None)
-CHAT_ID = 123456789
+CHAT_ID = 8715530031
 print("CHAT_ID =", CHAT_ID)
 
 # %% 4. Plain + formatted message
-msg = await bot.send_message(CHAT_ID, "Hello from the notebook 👋\n<b>bold</b> <i>italic</i> <code>code</code>")
+# msg = await bot.send_message(CHAT_ID, "Hello from the notebook 👋\n<b>bold</b> <i>italic</i> <code>code</code>")
+msg = await bot.send_message(CHAT_ID, "this is cool")
 print("sent message_id", msg.message_id)
 
 # %% 5. Reply to / edit / delete that message
 await bot.send_message(CHAT_ID, "This replies to the previous one", reply_to_message_id=msg.message_id)
 await bot.edit_message_text("Hello from the notebook (<b>edited</b>)", chat_id=CHAT_ID, message_id=msg.message_id)
 # await bot.delete_message(CHAT_ID, msg.message_id)
+
+
+# %% 5a. Delete a message
+# Bots can delete their own messages (and, in private chats, the user's) if they are < 48 hours old.
+# Deleting is silent: no notification, the message just disappears for both sides.
+import asyncio  # noqa: E402
+
+doomed = await bot.send_message(CHAT_ID, "This message will self-destruct in 3s 💣")
+doomed = await bot.send_message(CHAT_ID, "This message will self-destruct in 3s 💣")
+await asyncio.sleep(9)
+
+ok = await bot.delete_message(chat_id=CHAT_ID, message_id=doomed.message_id)
+print("deleted:", ok)
+# Any earlier message by id works too, e.g. the one from cell 4: await bot.delete_message(CHAT_ID, msg.message_id)
+# Several at once (1-100 ids): await bot.delete_messages(CHAT_ID, [id1, id2])
+
+# %% 5b. Draft message: stream a live "typing out" preview, then send the real message
+# Drafts are ephemeral (~30s preview, private chats only) and never stored in the chat; the final
+# send_message is what persists (and what notifies). Same draft_id -> updates animate in place.
+draft_id = 1
+await bot.send_message_draft(chat_id=CHAT_ID, draft_id=draft_id, text="")  # empty text = "Thinking…" placeholder
+await asyncio.sleep(2)
+text = ""
+for word in "Your order #1042 is ready for pickup at Demo Kitchen.".split():
+    text += word + " "
+    await bot.send_message_draft(chat_id=CHAT_ID, draft_id=draft_id, text=text)
+    await asyncio.sleep(0.5)
+final = await bot.send_message(CHAT_ID, text.strip())
+print("draft finalised as message_id", final.message_id)
 
 # %% 6. Inline keyboard (buttons wired to the running bot's callback handlers)
 # Only reacts if the FastAPI app is running and the webhook is set (notebook_setup_bot.py). Otherwise buttons just spin.
