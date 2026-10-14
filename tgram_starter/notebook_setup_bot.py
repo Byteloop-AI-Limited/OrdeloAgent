@@ -33,14 +33,17 @@ if settings.bot_username and settings.bot_username != me.username:
 # %% 3. What does Telegram currently have? (read-only)
 info = await bot.get_webhook_info()
 print(info.model_dump_json(indent=2, exclude_none=True))
+
 # Look at: url (empty = no webhook), pending_update_count, last_error_date/last_error_message.
 
 # %% 4. SET the webhook  (the step you came here for)
 assert settings.webhook_base_url.startswith("https://"), "set TGRAM_WEBHOOK_BASE_URL to a public https:// URL"
 assert settings.webhook_secret, "set TGRAM_WEBHOOK_SECRET"
 dp = build_dispatcher(settings)
+callback_url = "https://rider-agent-test.ordelo.app/telegram/webhook"
 await bot.set_webhook(
-    settings.webhook_url,
+    # settings.webhook_url,
+    url=callback_url,
     secret_token=settings.webhook_secret,                 # echoed back in X-Telegram-Bot-Api-Secret-Token
     allowed_updates=dp.resolve_used_update_types(),       # only the update types our handlers use
     drop_pending_updates=False,                           # keep anything queued while the webhook was down
