@@ -138,11 +138,51 @@ Covers invite lifecycle (claim, reuse, expiry, revoke, phone check), callback �
 
 A **Telegram Mini App** is a web page that opens *inside* Telegram (full-height sheet) from a bot button. It is served by the same FastAPI app, so there is nothing extra to host.
 
-**Try it**
-1. App running and reachable over **HTTPS** (Telegram will not open `http://`). `TGRAM_WEBHOOK_BASE_URL` (or `TGRAM_MINIAPP_URL`) must point at it; the page lives at `<base>/miniapp/`.
-2. Send the bot `/app` (or `/menu` → *Open mini app*) and tap the button.
-3. Optional: run cell **6b** of `notebook_setup_bot.py` to add a permanent "Demo Kitchen" button next to the message box.
-4. Add items, tap the Telegram **Checkout** button, confirm. The server prices the order, the bot sends a chat confirmation with a **Track order** button that reopens the page on that order, and the status moves placed → preparing → ready (a demo timer).
+### Setup checklist (do once)
+
+Nothing needs registering with BotFather: a mini app opened from an inline `web_app` button works for any bot. You do need:
+
+| # | Requirement | How to check / do it |
+|---|---|---|
+| 1 | **The deployed app runs this branch.** The host behind `TGRAM_WEBHOOK_BASE_URL` (e.g. `rider-agent-test.ordelo.app`) must have the `/miniapp` routes, and be restarted after deploy. | `curl -s -o /dev/null -w "%{http_code}" https://<host>/miniapp/` → `200` |
+| 2 | **HTTPS**, publicly reachable. Telegram refuses `http://` mini apps and opens the URL from the user's phone, not from your laptop. | Cell **6a** of `notebook_setup_bot.py` asserts this |
+| 3 | **Same bot token on that host.** `initData` is signed with the bot token; if the server's `TGRAM_BOT_TOKEN` differs from the bot you are chatting with, every API call is a 401. | `GET /miniapp/api/session` works in the app; cell 2 prints the bot you are using |
+| 4 | **Env on the host:** `TGRAM_BOT_TOKEN`, `TGRAM_WEBHOOK_SECRET`, and either `TGRAM_WEBHOOK_BASE_URL` or `TGRAM_MINIAPP_URL`. Optional: `TGRAM_MINIAPP_AUTH_MAX_AGE`. | see `.env_local.example` |
+| 5 | **Webhook registered** (cell 4 of `notebook_setup_bot.py`), only needed for `/app` and button taps in chat, not for the page itself. | cell 5: `url` set, `last_error_message` empty |
+| 6 | **You pressed Start on the bot at least once.** Otherwise the order succeeds but the chat confirmation cannot be delivered (`chat_notified: false`). | send `/start` |
+| 7 | **One worker process.** Orders and invites are in-memory dicts. | run a single uvicorn/gunicorn worker |
+
+### Try it
+
+Run the cells of `notebook_setup_bot.py` in order, interpreter `tgram_starter/.venv`:
+
+| Cell | What it does for the mini app |
+|---|---|
+| 1-2 | load `.env_local`, confirm the token belongs to the bot you expect |
+| 4-5 | set and verify the webhook (skip if already set) |
+| 6 | `/app` appears in the "/" command menu |
+| **6a** | **preflight**: page returns 200 with the Telegram script, API returns **401** without signed data. Fails with a hint if the deploy is old or not HTTPS |
+| **6b** | optional: permanent "Demo Kitchen" button beside the message box |
+| **6c** | sends **you** a message with an "Open Demo Kitchen" button |
+
+Then in Telegram:
+1. Tap **Open Demo Kitchen** (or send `/app`, or `/menu` → *Open mini app*, or the menu button from 6b).
+2. Add items, tap Telegram's **Checkout** button, confirm.
+3. You get a chat message "✅ Order M1001 received" with **Track order**; tap it and watch the status move placed → preparing → ready (about 40 seconds).
+4. Open "What Telegram gave this page": the verified row should show your user id (and your Ordelo phone if you claimed an invite).
+
+### If something goes wrong
+
+| Symptom | Likely cause |
+|---|---|
+| Button does nothing / "Bad Request: BUTTON_URL_INVALID" when sending | URL is not `https://` or has a typo; run cell 6a |
+| Page shows "Browser preview: ordering needs Telegram's signed data" | opened in a normal browser, not from the bot (expected) |
+| Page loads but says "Could not load: invalid Telegram initData: bad signature" | server `TGRAM_BOT_TOKEN` is a different bot's token than the one you opened it from |
+| "...initData expired" | blob older than `TGRAM_MINIAPP_AUTH_MAX_AGE` (default 1 h): close and reopen the mini app from the button |
+| Blank / old page after a deploy | Telegram webview caching: close the mini app fully and reopen (the server sends `no-store`) |
+| Order placed but no chat message | you never pressed Start / blocked the bot; response has `chat_notified: false` |
+| 6a says 404 on `/miniapp/` | host is running an older build; deploy this branch and restart |
+| Want to see the page's console | Telegram Desktop has an "Enable webview inspection" option under Settings → Advanced → Experimental (labels vary by version), then right-click the mini app → Inspect. Android: enable WebView debugging in Telegram's debug settings, then open `chrome://inspect` in desktop Chrome |
 
 **What it demonstrates**
 
