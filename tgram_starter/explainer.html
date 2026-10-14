@@ -56,27 +56,25 @@
   invite link turns into a linked Telegram identity. Everything lives in <code>tgram_starter/</code>; delete the folder to remove it.</p>
 
   <h2>1. The big picture</h2>
-  <p>Telegram never connects to your laptop directly. Either Telegram <b>pushes</b> each update to a public HTTPS URL (webhook),
-  or your code <b>pulls</b> updates from Telegram (polling). The notebook is a third door: it calls the Bot API directly to send things.</p>
+  <p>Telegram <b>pushes</b> each update to a public HTTPS URL (the webhook). You register that URL once from
+  <code>notebook_setup_bot.py</code>; after that the FastAPI app receives everything. <code>notebook.py</code> is a separate scratchpad that calls the Bot API directly to send things.</p>
   <div class="card scroll">
-  <svg viewBox="0 0 900 400" role="img" aria-label="Architecture: Telegram app to Telegram servers to webhook or polling into the dispatcher and routers, with the invites dict and the notebook calling the Bot API">
+  <svg viewBox="0 0 900 400" role="img" aria-label="Architecture: Telegram app to Telegram servers, webhook push to the FastAPI app, dispatcher and routers, invites dict; notebooks call the Bot API to set the webhook and send messages">
     <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker></defs>
     <!-- Telegram side -->
     <rect class="box b-blue" x="10" y="30" width="150" height="60" rx="8"/><text x="85" y="58" text-anchor="middle">Telegram app</text><text class="sub" x="85" y="76" text-anchor="middle">you / rider / admin</text>
     <rect class="box b-blue" x="10" y="160" width="150" height="70" rx="8"/><text x="85" y="188" text-anchor="middle">Telegram servers</text><text class="sub" x="85" y="206" text-anchor="middle">Bot API (api.telegram.org)</text>
     <path class="arrow" marker-end="url(#ah)" d="M85 90V158"/>
     <!-- delivery paths -->
-    <rect class="box b-amber" x="230" y="70" width="170" height="56" rx="8"/><text x="315" y="94" text-anchor="middle">Cloudflare / ngrok tunnel</text><text class="sub" x="315" y="112" text-anchor="middle">public HTTPS → localhost:3200</text>
+    <rect class="box b-amber" x="230" y="70" width="170" height="56" rx="8"/><text x="315" y="94" text-anchor="middle">Your public HTTPS host</text><text class="sub" x="315" y="112" text-anchor="middle">TGRAM_WEBHOOK_BASE_URL</text>
     <path class="arrow" marker-end="url(#ah)" d="M160 180C195 180 200 100 228 98"/><text class="sub" x="176" y="132">webhook push</text>
-    <path class="arrow dash" marker-end="url(#ah)" d="M300 245C240 245 200 225 162 215"/><text class="sub" x="150" y="262">polling asks "any news?"</text>
     <!-- app -->
     <rect class="box b-green" x="450" y="40" width="220" height="86" rx="8"/><text x="560" y="64" text-anchor="middle" style="font-weight:600">app.py (FastAPI)</text>
     <text class="sub" x="560" y="84" text-anchor="middle">POST /telegram/webhook</text><text class="sub" x="560" y="100" text-anchor="middle">1. check secret header (403 if wrong)</text><text class="sub" x="560" y="116" text-anchor="middle">2. Update.model_validate → feed_update</text>
     <path class="arrow" marker-end="url(#ah)" d="M400 98H448"/>
-    <rect class="box b-green" x="300" y="240" width="160" height="60" rx="8"/><text x="380" y="266" text-anchor="middle" style="font-weight:600">polling.py</text><text class="sub" x="380" y="284" text-anchor="middle">dev mode, no tunnel</text>
     <!-- dispatcher -->
     <rect class="box b-purple" x="450" y="170" width="220" height="60" rx="8"/><text x="560" y="194" text-anchor="middle" style="font-weight:600">Dispatcher</text><text class="sub" x="560" y="212" text-anchor="middle">built once by bot_factory.py</text>
-    <path class="arrow" marker-end="url(#ah)" d="M560 126V168"/><path class="arrow" marker-end="url(#ah)" d="M460 270C520 270 540 250 548 232"/>
+    <path class="arrow" marker-end="url(#ah)" d="M560 126V168"/>
     <!-- routers -->
     <rect class="box" x="700" y="30" width="190" height="62" rx="8"/><text x="795" y="54" text-anchor="middle">onboarding router</text><text class="sub" x="795" y="72" text-anchor="middle">/start, contact, /invite</text>
     <rect class="box" x="700" y="110" width="190" height="62" rx="8"/><text x="795" y="134" text-anchor="middle">interactive router</text><text class="sub" x="795" y="152" text-anchor="middle">button callbacks</text>
@@ -86,9 +84,11 @@
     <rect class="box b-amber" x="700" y="290" width="190" height="70" rx="8"/><text x="795" y="314" text-anchor="middle" style="font-weight:600">invites.py</text><text class="sub" x="795" y="332" text-anchor="middle">TGRAM_INVITES dict</text><text class="sub" x="795" y="348" text-anchor="middle">(fake tgram_invites table)</text>
     <path class="arrow" marker-end="url(#ah)" d="M830 94C880 150 880 260 840 288"/>
     <path class="arrow" marker-end="url(#ah)" d="M795 254V288"/>
-    <!-- notebook -->
-    <rect class="box b-green" x="10" y="310" width="210" height="60" rx="8"/><text x="115" y="336" text-anchor="middle" style="font-weight:600">notebook.py</text><text class="sub" x="115" y="354" text-anchor="middle">ad-hoc calls: send, edit, inspect</text>
-    <path class="arrow" marker-end="url(#ah)" d="M60 308C45 280 60 250 78 232"/><text class="sub" x="92" y="290">Bot API calls</text>
+    <!-- notebooks -->
+    <rect class="box b-green" x="10" y="300" width="215" height="64" rx="8"/><text x="117" y="326" text-anchor="middle" style="font-weight:600">notebook_setup_bot.py</text><text class="sub" x="117" y="344" text-anchor="middle">validate token, set_webhook</text>
+    <path class="arrow" marker-end="url(#ah)" d="M60 298C45 270 60 250 78 232"/><text class="sub" x="12" y="268">set_webhook (once)</text>
+    <rect class="box b-green" x="255" y="300" width="215" height="64" rx="8"/><text x="362" y="326" text-anchor="middle" style="font-weight:600">notebook.py</text><text class="sub" x="362" y="344" text-anchor="middle">ad-hoc sends, invite API calls</text>
+    <path class="arrow" marker-end="url(#ah)" d="M300 298C240 270 190 250 140 232"/><text class="sub" x="214" y="262">send / inspect</text>
   </svg>
   </div>
   <p class="lede" style="margin-top:10px">Replies travel the other way: a handler calls <code>message.answer(...)</code> or <code>bot.send_message(...)</code>, which makes an HTTPS call to Telegram, which delivers it to the user's app.</p>
@@ -97,23 +97,22 @@
   <div class="scroll"><table>
     <tr><th>File</th><th>Responsibility</th><th>Talks to</th></tr>
     <tr><td><code>config.py</code></td><td>Reads <code>TGRAM_*</code> env vars and <code>tgram_starter/.env_local</code> into a <code>Settings</code> object.</td><td>everything</td></tr>
-    <tr><td><code>bot_factory.py</code></td><td><code>build_bot()</code> (token, HTML parse mode) and <code>build_dispatcher()</code> (injects settings, attaches routers in order).</td><td>app, polling, webhook_cli, notebook</td></tr>
+    <tr><td><code>bot_factory.py</code></td><td><code>build_bot()</code> (token, HTML parse mode) and <code>build_dispatcher()</code> (injects settings, attaches routers in order).</td><td>app, notebooks</td></tr>
     <tr><td><code>app.py</code></td><td>FastAPI app. Webhook route with secret check, plus <code>/invites</code>, <code>/send</code>, <code>/health</code>. Creates the bot in its lifespan, closes it on shutdown.</td><td>bot_factory, invites</td></tr>
-    <tr><td><code>polling.py</code></td><td>Local dev runner. Deletes any webhook, then long-polls.</td><td>bot_factory</td></tr>
-    <tr><td><code>webhook_cli.py</code></td><td><code>me | set | info | delete</code>. Registers the webhook URL with the secret.</td><td>Telegram API</td></tr>
+    <tr><td><code>notebook_setup_bot.py</code></td><td>Cell-based setup: validate the token, <b>set</b> / inspect / delete the webhook (URL + secret), set the "/" command menu, smoke-test the live endpoint.</td><td>bot_factory, Bot API, your app's <code>/health</code></td></tr>
     <tr><td><code>handlers/onboarding.py</code></td><td><code>/start &lt;code&gt;</code> claims an invite; contact verification; <code>/whoami</code>; admin <code>/invite</code>.</td><td>invites, keyboards</td></tr>
     <tr><td><code>handlers/interactive.py</code></td><td>Inline buttons: menu, demo order offer, counter, photo. Owns the fake order state used to show stale-tap handling.</td><td>keyboards</td></tr>
     <tr><td><code>handlers/basic.py</code></td><td>Plain commands, formatting, location and live location, media, and the echo fallback. Attached last.</td><td>none</td></tr>
     <tr><td><code>keyboards.py</code></td><td>Keyboard builders and typed <code>CallbackData</code> classes that pack to ≤64 bytes.</td><td>handlers</td></tr>
     <tr><td><code>invites.py</code></td><td>The <code>TGRAM_INVITES</code> dict: create, atomic claim, lookup by Telegram id, phone verify, revoke.</td><td>handlers, app</td></tr>
-    <tr><td><code>notebook.py</code></td><td>Cell-based scratchpad for sending messages, inspecting state, and running the dispatcher inside a kernel.</td><td>Bot API directly</td></tr>
+    <tr><td><code>notebook.py</code></td><td>Cell-based scratchpad: send messages, and create/list invites or push messages through the running app's HTTP endpoints.</td><td>Bot API directly</td></tr>
     <tr><td><code>tests/</code></td><td>Offline tests: invite rules, callback size, webhook secret, admin key.</td><td>app, invites, keyboards</td></tr>
   </table></div>
 
   <h2>3. Life of one update</h2>
   <ol class="steps">
     <li>A user taps a button or sends text. Telegram wraps it in an <b>Update</b> with an <code>update_id</code> and one payload (<code>message</code>, <code>callback_query</code>, <code>edited_message</code>, …).</li>
-    <li><b>Webhook mode:</b> Telegram POSTs the JSON to <code>/telegram/webhook</code> with header <code>X-Telegram-Bot-Api-Secret-Token</code>. <code>app.py</code> compares it to your secret and returns 403 on mismatch. <b>Polling mode:</b> aiogram fetches the same Update via <code>getUpdates</code>.</li>
+    <li>Telegram POSTs the JSON to <code>/telegram/webhook</code> with header <code>X-Telegram-Bot-Api-Secret-Token</code>. <code>app.py</code> compares it to your secret and returns 403 on mismatch.</li>
     <li>The <b>Dispatcher</b> offers the update to routers in registration order: onboarding → interactive → basic. The first handler whose filter matches wins (<code>CommandStart()</code>, <code>F.contact</code>, <code>DemoOrder.filter()</code>, <code>F.location</code>, <code>F.text</code>, …). That is why the catch-all echo lives in the last router.</li>
     <li>The handler runs. <code>settings</code> is injected because <code>bot_factory</code> stored it with <code>dp["settings"]</code>.</li>
     <li>The handler replies with an awaited Bot API call. For a callback it must also call <code>query.answer()</code> so the button stops spinning.</li>
@@ -160,17 +159,14 @@
     <div class="card"><span class="tag t-purple">rules</span><b>Claim checks</b><br>Unknown, expired, revoked, or used by another account are refused. Same person pressing Start twice is fine.</div>
   </div>
 
-  <h2>5. Three ways to run it</h2>
+  <h2>5. Running it</h2>
   <div class="grid">
-    <div class="card"><span class="tag t-green">A</span><b>Polling</b><pre>uv run --project tgram_starter \
-python -m tgram_starter.polling</pre>No tunnel. Easiest for learning. Removes any webhook.</div>
-    <div class="card"><span class="tag t-amber">B</span><b>Webhook</b><pre>uv run --project tgram_starter \
-uvicorn tgram_starter.app:app --port 3200
-uv run --project tgram_starter \
-python -m tgram_starter.webhook_cli set</pre>How production works. Needs a public HTTPS URL.</div>
-    <div class="card"><span class="tag t-purple">C</span><b>Notebook</b><pre># %% cells in notebook.py</pre>Call the Bot API by hand. Cell 14 can run polling inside the kernel so the kernel's invites dict is the live one.</div>
+    <div class="card"><span class="tag t-green">1</span><b>Start the app</b><pre>uv run --project tgram_starter \
+uvicorn tgram_starter.app:app --port 3200</pre>Must be reachable at <code>TGRAM_WEBHOOK_BASE_URL</code> over HTTPS.</div>
+    <div class="card"><span class="tag t-amber">2</span><b>Register the webhook</b><pre># %% cell 4 in notebook_setup_bot.py</pre>Calls <code>set_webhook</code> with the URL and secret. Re-run if the URL changes.</div>
+    <div class="card"><span class="tag t-purple">3</span><b>Play</b><pre># %% cells in notebook.py</pre>Send messages by hand, create invites through the app, then talk to the bot in Telegram.</div>
   </div>
-  <div class="callout"><b>Webhook and polling are mutually exclusive.</b> If <code>get_updates</code> returns a 409 conflict, a webhook is still set. Check with <code>webhook_cli info</code>.</div>
+  <div class="callout"><b>If nothing arrives,</b> run cell 5 of <code>notebook_setup_bot.py</code>: <code>last_error_message</code> and <code>pending_update_count</code> show whether Telegram can reach the app. A 403 in your logs means the secret header didn't match.</div>
 
   <h2>6. Gotchas that explain the design</h2>
   <ul>

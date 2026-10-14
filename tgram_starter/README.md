@@ -7,7 +7,7 @@ A small, self-contained aiogram 3.31 + FastAPI bot for learning how Telegram wor
 ```
 tgram_starter/
   app.py            FastAPI host: webhook endpoint + invite/send HTTP endpoints
-  bot_factory.py    builds Bot + Dispatcher (shared by webhook and polling)
+  bot_factory.py    builds Bot + Dispatcher
   config.py         env settings (TGRAM_*), reads tgram_starter/.env_local (then .env)
   invites.py        TGRAM_INVITES dict = the fake `tgram_invites` table (+ SQL for the real one)
   keyboards.py      inline/reply keyboards, typed callback data
@@ -15,9 +15,8 @@ tgram_starter/
     onboarding.py   /start <code> claim, contact verification, /whoami, /invite, /invites
     interactive.py  inline buttons, callbacks, edit-in-place, stale-tap handling, photo/document
     basic.py        /help, formatting, typing, location + live location, media, echo (must be last)
-  polling.py        run locally with no public URL
-  webhook_cli.py    me | set | info | delete
-  notebook.py       `# %%` cells for ad-hoc calls against the real Bot API (VS Code / Jupyter / ipython)
+  notebook_setup_bot.py  `# %%` cells: validate token, SET/inspect/delete the webhook, bot commands
+  notebook.py       `# %%` cells: ad-hoc sends and calls to the app's invite endpoints
   pyproject.toml    uv project (deps + venv in tgram_starter/.venv); uv.lock pins versions
   .env_local.example  placeholder-only reference for your real, gitignored .env_local
   .gitignore        keeps secrets, .venv and caches out of git
@@ -32,7 +31,7 @@ tgram_starter/
 | **Bot token** | Telegram app → chat with **@BotFather** → `/newbot` → pick a name and a username ending in `bot`. BotFather replies with `123456789:AA...`. | Every Bot API call. It is a password: never commit it. If leaked, `/revoke` in BotFather. |
 | **Bot username** | Same step (e.g. `my_ordelo_test_bot`). | Building invite links `https://t.me/<username>?start=<code>`. |
 | **Webhook secret** | You invent it: `python -c "import secrets; print(secrets.token_urlsafe(32))"` (chars `A-Za-z0-9_-`, ≤256). | Telegram sends it back in `X-Telegram-Bot-Api-Secret-Token` on every update; we reject requests without it. |
-| **Public HTTPS URL** | Cloudflare Tunnel / ngrok pointing at your FastAPI port (see `docs/local-testing-runbook.md`). Telegram only calls HTTPS on ports 443, 80, 88 or 8443. | Webhook mode only. Skip it by using polling. |
+| **Public HTTPS URL** | Wherever your FastAPI app is hosted. Telegram only calls HTTPS on ports 443, 80, 88 or 8443. | `TGRAM_WEBHOOK_BASE_URL`; registered with `notebook_setup_bot.py`. |
 | **Your Telegram user id** | Message **@userinfobot** (or send `/whoami` to your bot). | `TGRAM_ADMIN_IDS` so you can use `/invite`. |
 
 No phone number, API id/hash, or Business account is needed. (Those are for user-account/MTProto automation, which this does not do.)
@@ -41,33 +40,31 @@ Optional BotFather polish: `/setdescription`, `/setuserpic`, `/setcommands` (pas
 
 ## 2. Run it
 
+The bot runs in **webhook mode only**: Telegram POSTs each update to your FastAPI app. Set `TGRAM_WEBHOOK_BASE_URL` to the public HTTPS URL where the app is reachable (wherever you host it).
+
 ```bash
 # from the repo root
-uv sync --project tgram_starter                         # creates tgram_starter/.venv from uv.lock
+uv sync --project tgram_starter                                # creates tgram_starter/.venv from uv.lock
 cp tgram_starter/.env_local.example tgram_starter/.env_local   # then fill in your values (gitignored)
 
-uv run --project tgram_starter python -m tgram_starter.webhook_cli me                  # sanity check: prints @yourbot if token is valid
+uv run --project tgram_starter uvicorn tgram_starter.app:app --port 3200   # the app (must be reachable at the base URL)
 ```
 
-**Option A: polling (easiest, no tunnel).** Telegram → your machine by long polling. This removes any webhook on the bot.
-```bash
-uv run --project tgram_starter python -m tgram_starter.polling
-```
-Note: polling mode only runs the bot; the HTTP endpoints (`/invites`, `/send`) live in the FastAPI app.
+Then register the webhook from **`notebook_setup_bot.py`** (open it in VS Code / Jupyter with the `tgram_starter/.venv` interpreter and run the cells):
 
-**Option B: webhook on FastAPI (how production works).**
-```bash
-uv run --project tgram_starter uvicorn tgram_starter.app:app --port 3200               # terminal 1
-cloudflared tunnel --url http://localhost:3200          # terminal 2 → copy the https URL into TGRAM_WEBHOOK_BASE_URL
-uv run --project tgram_starter python -m tgram_starter.webhook_cli set                 # registers <base>/telegram/webhook with the secret
-uv run --project tgram_starter python -m tgram_starter.webhook_cli info                # check url, pending_update_count, last_error_message
-```
-A bot can have **either** a webhook **or** polling, never both. Tunnel URLs change on restart; run `set` again.
-`webhook_cli delete` removes it. Updates that arrive while the webhook is down are queued by Telegram (up to 24h) unless you drop them.
+| Cell | Does |
+|---|---|
+| 1-2 | load settings, validate the token (`get_me`) |
+| 3 | `get_webhook_info`: what Telegram has now (read-only) |
+| 4 | **`set_webhook`**: `<TGRAM_WEBHOOK_BASE_URL>/telegram/webhook` + secret token, `drop_pending_updates=False` |
+| 5 | verify URL, pending count, last error |
+| 6 | optional: set the "/" command menu |
+| 7 | optional: hit `/health` and confirm a wrong secret gets 403 |
+| 8 | `delete_webhook` (commented out) |
 
-Notebook (`notebook.py`): in VS Code choose the interpreter `tgram_starter/.venv` (it includes `ipykernel`), then *Run Cell* on any `# %%` block.
+Re-run cell 4 whenever the base URL changes. Updates that arrive while the webhook is down are queued by Telegram (about 24h) unless you drop them.
 
-Add a dependency with `uv add --project tgram_starter <pkg>`; the root project's `uv.lock` is not touched.
+`notebook.py` is the separate scratchpad for sending messages and calling the app's invite endpoints. Add a dependency with `uv add --project tgram_starter <pkg>`; the root project's `uv.lock` is not touched.
 
 ## 3. Invites: how a person gets linked
 

@@ -6,7 +6,7 @@
 #
 # Rules of thumb:
 # - Sending to a chat only works after that person pressed Start on the bot (or you did).
-# - `get_updates` (cell 11) cannot be used while a webhook is set; Telegram returns a 409 conflict.
+# - Webhook registration lives in notebook_setup_bot.py. This notebook only sends and inspects.
 # - This talks to the REAL Bot API. Anything you send is really sent.
 
 # %% 1. Setup: imports, settings, bot
@@ -21,7 +21,6 @@ from aiogram.types import (  # noqa: E402
     KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove,  # noqa: F401 (used in commented cell)
 )
 
-from tgram_starter import invites  # noqa: E402
 from tgram_starter.bot_factory import build_bot  # noqa: E402
 from tgram_starter.config import get_settings  # noqa: E402
 from tgram_starter.keyboards import order_offer  # noqa: E402
@@ -51,7 +50,7 @@ await bot.edit_message_text("Hello from the notebook (<b>edited</b>)", chat_id=C
 # await bot.delete_message(CHAT_ID, msg.message_id)
 
 # %% 6. Inline keyboard (buttons wired to the running bot's callback handlers)
-# Only reacts if the bot is running (polling.py or the FastAPI webhook). Otherwise buttons just spin.
+# Only reacts if the FastAPI app is running and the webhook is set (notebook_setup_bot.py). Otherwise buttons just spin.
 await bot.send_message(CHAT_ID, "🛵 <b>Notebook order offer</b>", reply_markup=order_offer(order_id=777))
 
 # %% 7. Ad-hoc keyboard of your own
@@ -76,52 +75,34 @@ await bot.send_dice(CHAT_ID, emoji="🎲")
 # %% 10. Files: photo / document from bytes (use FSInputFile(path), a URL, or a file_id too)
 await bot.send_document(CHAT_ID, BufferedInputFile(b"id,name\n1,demo\n", "demo.csv"), caption="A CSV")
 
-# %% 11. Peek at pending updates (ONLY works when no webhook is set, and stops the bot if it is polling)
-# Each update is consumed once you pass offset=last_update_id + 1.
-updates = await bot.get_updates(timeout=1, limit=10)
-for u in updates:
-    print(u.update_id, u.event_type, u.model_dump(exclude_none=True, exclude={"update_id"}))
+# %% 11. Invites on the RUNNING app (its dict is the live one): create one via HTTP
+# Needs the app running + reachable at TGRAM_WEBHOOK_BASE_URL and TGRAM_ADMIN_API_KEY set.
+import httpx  # noqa: E402
 
-# %% 12. Invites: create, link, inspect (in-memory dict; lives in this kernel only)
+API = settings.webhook_base_url
+HEADERS = {"X-Admin-Key": settings.admin_api_key}
+r = httpx.post(f"{API}/invites", params={"phone_number": "+44 7700 900123"}, headers=HEADERS, timeout=10)
+r.raise_for_status()
+print(r.json()["link"])  # send this to the person; they tap Start
+
+# %% 12. List invites on the running app (watch status flip pending -> claimed after they tap Start)
+for row in httpx.get(f"{API}/invites", headers=HEADERS, timeout=10).json():
+    print(row["invite_code"], row["phone_number"], row["status"], row["telegram_user_id"], row["telegram_chat_id"])
+
+# %% 13. Proactive message to a linked user through the running app
+# Works only after they pressed Start (that's what stores their chat id).
+# r = httpx.post(f"{API}/send", params={"telegram_user_id": 123456789, "text": "hello"}, headers=HEADERS, timeout=10)
+# print(r.status_code, r.json())
+
+# %% 14. Local-only invite logic (this kernel's own dict; NOT shared with the running app)
+from tgram_starter import invites  # noqa: E402
+
 row = invites.create_invite("+44 7700 900123", settings.invite_ttl_hours)
 print(invites.invite_link(settings.bot_username, row["invite_code"]))
-print(invites.TGRAM_INVITES)
-# NOTE: this dict is separate from the running server's dict. To claim it end to end,
-# run the bot IN this kernel (cell 14), or use POST /invites on the running app.
-
-# %% 13. Simulate a claim without Telegram (what /start <code> does)
-print(invites.claim_invite(row["invite_code"], user_id=1, chat_id=1, username="demo", first_name="Demo", language_code="en"))
+print(invites.claim_invite(row["invite_code"], user_id=1, chat_id=1, username="demo", first_name="Demo", language_code="en")[0])
 print(invites.find_by_telegram_user(1))
 
-# %% 14. Run the bot's polling loop INSIDE this kernel as a background task (shares this invites dict)
-import asyncio  # noqa: E402
-
-from tgram_starter.bot_factory import build_dispatcher  # noqa: E402
-
-dp = build_dispatcher(settings)
-await bot.delete_webhook(drop_pending_updates=False)  # polling and webhook are mutually exclusive
-poll_task = asyncio.create_task(dp.start_polling(bot, handle_signals=False,
-                                                 allowed_updates=dp.resolve_used_update_types()))
-await asyncio.sleep(1)  # let the task start
-print("polling in background; now message the bot. Check invites.TGRAM_INVITES afterwards.")
-
-# %% 15. Stop the background polling
-try:
-    await dp.stop_polling()
-    await poll_task
-except (RuntimeError, NameError):
-    print("polling was not running")
-
-# %% 16. Webhook inspection (read-only)
-info = await bot.get_webhook_info()
-print(info.model_dump_json(indent=2, exclude_none=True))
-
-# %% 17. Set webhook back to the FastAPI app (needs TGRAM_WEBHOOK_BASE_URL; stops polling from working)
-# await bot.set_webhook(settings.webhook_url, secret_token=settings.webhook_secret,
-#                       allowed_updates=build_dispatcher(settings).resolve_used_update_types(),
-#                       drop_pending_updates=False)
-
-# %% 18. Error handling: what failure looks like (blocked bot, bad chat, etc.)
+# %% 15. Error handling: what failure looks like (blocked bot, bad chat, etc.)
 from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError, TelegramRetryAfter  # noqa: E402
 
 try:
@@ -133,5 +114,5 @@ except TelegramRetryAfter as e:
 except TelegramAPIError as e:
     print("other API error:", type(e).__name__, e)
 
-# %% 19. Cleanup: close the HTTP session (run last; re-run cell 1 to start again)
+# %% 16. Cleanup: close the HTTP session (run last; re-run cell 1 to start again)
 await bot.session.close()
