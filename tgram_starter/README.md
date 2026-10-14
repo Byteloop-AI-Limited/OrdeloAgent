@@ -203,7 +203,7 @@ Then in Telegram:
 - A valid signature only proves Telegram produced it. Reject old ones (`TGRAM_MINIAPP_AUTH_MAX_AGE`, default 1 hour).
 - Opening a mini app from a keyboard button does not message the user by itself; the confirmation only arrives if the user has started the bot (the page reports `chat_notified: false` otherwise).
 - Build page DOM with `textContent` (display names are user-controlled).
-- Not covered here: payments (Telegram Stars/Stripe invoices), `sendData` via reply-keyboard buttons, `answerWebAppQuery` (inline-mode only), cloud/device storage.
+- Not covered here: payments (Telegram Stars/Stripe invoices), `Telegram.WebApp.sendData` (only for Mini Apps opened from a *reply-keyboard* button; delivers `message.web_app_data` to the bot and closes the app), `answerWebAppQuery` (works for inline-button and menu-button launches via the `query_id` in `initData`; posts a message on the user's behalf and closes the app), cloud/device storage.
 - Orders are an in-memory dict like invites: restarts forget them, run one worker.
 
 Offline checks: `tests/test_miniapp.py` (auth, pricing, idempotency, ownership, `/app` button). The page itself was exercised in headless Chromium with a stubbed Telegram bridge; that does not replace opening it in a real Telegram client.
