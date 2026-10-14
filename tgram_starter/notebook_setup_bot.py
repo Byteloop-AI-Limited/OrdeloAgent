@@ -7,6 +7,10 @@
 # and which secret header to send. Telegram only calls public HTTPS URLs (ports 443, 80, 88, 8443),
 # so put wherever your app is hosted in `TGRAM_WEBHOOK_BASE_URL` (no trailing slash).
 # These calls hit the REAL Bot API. Set/delete changes live behaviour for this bot.
+#
+# Order of play (first time):  1-2 token check -> 4 set webhook -> 5 verify -> 6 commands
+#   -> 6a mini-app preflight -> 6c send yourself the launch button (6b = permanent menu button, optional).
+# Cell 4 and 6a need the app already running at your public HTTPS URL (the branch with /miniapp deployed).
 
 # %% 1. Load settings and build the bot
 import sys
@@ -72,15 +76,47 @@ await bot.set_my_commands([
 ])
 print(await bot.get_my_commands())
 
-# %% 6b. Mini app: put an "Open" button next to the message box (needs the app reachable at that https URL)
+# %% 6a. MINI APP preflight: is the page reachable over HTTPS from the public internet?
+# Run this BEFORE 6b/6c. Telegram opens the URL from the user's phone, so "works on localhost" is not enough.
+import httpx  # noqa: E402
+
+base = settings.webhook_base_url or callback_url.rsplit("/telegram/webhook", 1)[0]
+MINIAPP_URL = settings.miniapp_url or base + "/miniapp/"
+print("MINIAPP_URL =", MINIAPP_URL)
+assert MINIAPP_URL.startswith("https://"), "Telegram only opens https:// mini apps (set TGRAM_WEBHOOK_BASE_URL or TGRAM_MINIAPP_URL)"
+
+page = httpx.get(MINIAPP_URL, timeout=10, follow_redirects=True)
+assert page.status_code == 200 and "telegram-web-app.js" in page.text, (
+    f"page check failed ({page.status_code}): is the deployed app running THIS branch (it needs the /miniapp routes) and restarted?")
+print("page            ->", page.status_code, "OK (serves the mini app HTML)")
+
+api = httpx.get(MINIAPP_URL.rstrip("/") + "/api/menu", timeout=10)  # no initData on purpose
+assert api.status_code == 401, f"expected 401 without signed initData, got {api.status_code}: the API must reject unsigned calls"
+print("api w/o initData ->", api.status_code, "OK (rejects unsigned calls)")
+
+# %% 6b. Mini app: put a "Demo Kitchen" button next to the message box (the bot's menu button)
 from aiogram.types import MenuButtonWebApp, WebAppInfo  # noqa: E402
 
-MINIAPP_URL = settings.miniapp_url or callback_url.rsplit("/telegram/webhook", 1)[0] + "/miniapp/"
-assert MINIAPP_URL.startswith("https://"), "Telegram only opens https:// mini apps"
 await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="Demo Kitchen", web_app=WebAppInfo(url=MINIAPP_URL)))
 print("menu button ->", MINIAPP_URL)
 print(await bot.get_chat_menu_button())
-# Reset to the default commands menu: await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+# This sets the DEFAULT for all chats with the bot. Undo: await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+# Per-chat instead of global: await bot.set_chat_menu_button(chat_id=TEST_CHAT_ID, menu_button=...)
+
+# %% 6c. Send YOURSELF the launch button (fastest way to try it; no /app command or webhook needed)
+# Prerequisite: you pressed Start on the bot once. Set TEST_CHAT_ID to your Telegram user id if TGRAM_ADMIN_IDS is empty.
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup  # noqa: E402
+
+TEST_CHAT_ID = next(iter(settings.admin_ids), None)
+# TEST_CHAT_ID = 123456789
+assert TEST_CHAT_ID, "set TEST_CHAT_ID (message @userinfobot to find your numeric id)"
+await bot.send_message(
+    TEST_CHAT_ID,
+    "Tap to open the mini app inside Telegram:",
+    reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🍽 Open Demo Kitchen", web_app=WebAppInfo(url=MINIAPP_URL))]]),
+)
+print("sent launch button to", TEST_CHAT_ID)
 
 # %% 7. Optional: smoke-test the live endpoint over HTTP (app must be running and reachable)
 import httpx  # noqa: E402
