@@ -1,10 +1,11 @@
-"""FastAPI host.   Run (from the repo root):  uv run --project tgram_starter uvicorn tgram_starter.app:app --port 3200
+"""FastAPI host.   Run (from the repo root):  uv run --project tgram_starter python -m tgram_starter.app   (port 3200)
 
 Telegram POSTs every update to /telegram/webhook with header X-Telegram-Bot-Api-Secret-Token.
 """
 import secrets
 from contextlib import asynccontextmanager
 
+import uvicorn
 from aiogram.types import Update
 from fastapi import FastAPI, Header, HTTPException, Request
 
@@ -77,3 +78,9 @@ async def send_message(request: Request, telegram_user_id: int, text: str, x_adm
         raise HTTPException(404, "user not linked")
     msg = await request.app.state.bot.send_message(row["telegram_chat_id"], text)
     return {"message_id": msg.message_id, "chat_id": row["telegram_chat_id"]}
+
+
+# %%
+if __name__ == "__main__":
+    # Run from the repo root as a module so the relative imports resolve: python -m tgram_starter.app
+    uvicorn.run("tgram_starter.app:app", host="0.0.0.0", port=3200, reload=True, reload_dirs=["tgram_starter"])
