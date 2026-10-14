@@ -1,4 +1,4 @@
-"""Builds the Bot + Dispatcher once. Shared by webhook (app.py) and polling (polling.py)."""
+"""Builds the Bot + Dispatcher once. Used by app.py and the notebooks."""
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
