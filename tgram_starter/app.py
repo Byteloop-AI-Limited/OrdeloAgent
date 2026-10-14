@@ -1,4 +1,4 @@
-"""FastAPI host.   Run:  uvicorn tgram_starter.app:app --port 3200   (from the repo root)
+"""FastAPI host.   Run (from the repo root):  uv run --project tgram_starter uvicorn tgram_starter.app:app --port 3200
 
 Telegram POSTs every update to /telegram/webhook with header X-Telegram-Bot-Api-Secret-Token.
 """
@@ -17,7 +17,7 @@ from .config import get_settings
 async def lifespan(app: FastAPI):
     settings = get_settings()
     if not settings.bot_token or not settings.webhook_secret:
-        raise RuntimeError("Set TGRAM_BOT_TOKEN and TGRAM_WEBHOOK_SECRET (see tgram_starter/.env.example)")
+        raise RuntimeError("Set TGRAM_BOT_TOKEN and TGRAM_WEBHOOK_SECRET (see tgram_starter/.env_local.example)")
     app.state.settings = settings
     app.state.bot = build_bot(settings)
     app.state.dp = build_dispatcher(settings)

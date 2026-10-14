@@ -1,4 +1,4 @@
-"""Webhook admin:  python -m tgram_starter.webhook_cli {me|set|info|delete}"""
+"""Webhook admin:  uv run --project tgram_starter python -m tgram_starter.webhook_cli {me|set|info|delete}"""
 import asyncio
 import sys
 

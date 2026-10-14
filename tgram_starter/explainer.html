@@ -96,7 +96,7 @@
   <h2>2. What each file owns</h2>
   <div class="scroll"><table>
     <tr><th>File</th><th>Responsibility</th><th>Talks to</th></tr>
-    <tr><td><code>config.py</code></td><td>Reads <code>TGRAM_*</code> env vars and <code>tgram_starter/.env</code> into a <code>Settings</code> object.</td><td>everything</td></tr>
+    <tr><td><code>config.py</code></td><td>Reads <code>TGRAM_*</code> env vars and <code>tgram_starter/.env_local</code> into a <code>Settings</code> object.</td><td>everything</td></tr>
     <tr><td><code>bot_factory.py</code></td><td><code>build_bot()</code> (token, HTML parse mode) and <code>build_dispatcher()</code> (injects settings, attaches routers in order).</td><td>app, polling, webhook_cli, notebook</td></tr>
     <tr><td><code>app.py</code></td><td>FastAPI app. Webhook route with secret check, plus <code>/invites</code>, <code>/send</code>, <code>/health</code>. Creates the bot in its lifespan, closes it on shutdown.</td><td>bot_factory, invites</td></tr>
     <tr><td><code>polling.py</code></td><td>Local dev runner. Deletes any webhook, then long-polls.</td><td>bot_factory</td></tr>
@@ -162,8 +162,11 @@
 
   <h2>5. Three ways to run it</h2>
   <div class="grid">
-    <div class="card"><span class="tag t-green">A</span><b>Polling</b><pre>python -m tgram_starter.polling</pre>No tunnel. Easiest for learning. Removes any webhook.</div>
-    <div class="card"><span class="tag t-amber">B</span><b>Webhook</b><pre>uvicorn tgram_starter.app:app --port 3200
+    <div class="card"><span class="tag t-green">A</span><b>Polling</b><pre>uv run --project tgram_starter \
+python -m tgram_starter.polling</pre>No tunnel. Easiest for learning. Removes any webhook.</div>
+    <div class="card"><span class="tag t-amber">B</span><b>Webhook</b><pre>uv run --project tgram_starter \
+uvicorn tgram_starter.app:app --port 3200
+uv run --project tgram_starter \
 python -m tgram_starter.webhook_cli set</pre>How production works. Needs a public HTTPS URL.</div>
     <div class="card"><span class="tag t-purple">C</span><b>Notebook</b><pre># %% cells in notebook.py</pre>Call the Bot API by hand. Cell 14 can run polling inside the kernel so the kernel's invites dict is the live one.</div>
   </div>

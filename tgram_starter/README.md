@@ -8,7 +8,7 @@ A small, self-contained aiogram 3.31 + FastAPI bot for learning how Telegram wor
 tgram_starter/
   app.py            FastAPI host: webhook endpoint + invite/send HTTP endpoints
   bot_factory.py    builds Bot + Dispatcher (shared by webhook and polling)
-  config.py         env settings (TGRAM_*), reads tgram_starter/.env
+  config.py         env settings (TGRAM_*), reads tgram_starter/.env_local (then .env)
   invites.py        TGRAM_INVITES dict = the fake `tgram_invites` table (+ SQL for the real one)
   keyboards.py      inline/reply keyboards, typed callback data
   handlers/
@@ -18,6 +18,9 @@ tgram_starter/
   polling.py        run locally with no public URL
   webhook_cli.py    me | set | info | delete
   notebook.py       `# %%` cells for ad-hoc calls against the real Bot API (VS Code / Jupyter / ipython)
+  pyproject.toml    uv project (deps + venv in tgram_starter/.venv); uv.lock pins versions
+  .env_local.example  placeholder-only reference for your real, gitignored .env_local
+  .gitignore        keeps secrets, .venv and caches out of git
   explainer.html    open in a browser: diagrams of how the files fit together
   tests/            offline tests (no network)
 ```
@@ -40,27 +43,31 @@ Optional BotFather polish: `/setdescription`, `/setuserpic`, `/setcommands` (pas
 
 ```bash
 # from the repo root
-uv pip install -r tgram_starter/requirements.txt        # or: pip install -r ...
-cp tgram_starter/.env.example tgram_starter/.env        # then edit it
+uv sync --project tgram_starter                         # creates tgram_starter/.venv from uv.lock
+cp tgram_starter/.env_local.example tgram_starter/.env_local   # then fill in your values (gitignored)
 
-python -m tgram_starter.webhook_cli me                  # sanity check: prints @yourbot if token is valid
+uv run --project tgram_starter python -m tgram_starter.webhook_cli me                  # sanity check: prints @yourbot if token is valid
 ```
 
 **Option A: polling (easiest, no tunnel).** Telegram → your machine by long polling. This removes any webhook on the bot.
 ```bash
-python -m tgram_starter.polling
+uv run --project tgram_starter python -m tgram_starter.polling
 ```
 Note: polling mode only runs the bot; the HTTP endpoints (`/invites`, `/send`) live in the FastAPI app.
 
 **Option B: webhook on FastAPI (how production works).**
 ```bash
-uvicorn tgram_starter.app:app --port 3200               # terminal 1
+uv run --project tgram_starter uvicorn tgram_starter.app:app --port 3200               # terminal 1
 cloudflared tunnel --url http://localhost:3200          # terminal 2 → copy the https URL into TGRAM_WEBHOOK_BASE_URL
-python -m tgram_starter.webhook_cli set                 # registers <base>/telegram/webhook with the secret
-python -m tgram_starter.webhook_cli info                # check url, pending_update_count, last_error_message
+uv run --project tgram_starter python -m tgram_starter.webhook_cli set                 # registers <base>/telegram/webhook with the secret
+uv run --project tgram_starter python -m tgram_starter.webhook_cli info                # check url, pending_update_count, last_error_message
 ```
 A bot can have **either** a webhook **or** polling, never both. Tunnel URLs change on restart; run `set` again.
 `webhook_cli delete` removes it. Updates that arrive while the webhook is down are queued by Telegram (up to 24h) unless you drop them.
+
+Notebook (`notebook.py`): in VS Code choose the interpreter `tgram_starter/.venv` (it includes `ipykernel`), then *Run Cell* on any `# %%` block.
+
+Add a dependency with `uv add --project tgram_starter <pkg>`; the root project's `uv.lock` is not touched.
 
 ## 3. Invites: how a person gets linked
 
@@ -124,7 +131,7 @@ Ids can exceed 32 bits, so use `bigint` in SQL.
 ## 6. Tests
 
 ```bash
-python -m pytest tgram_starter/tests -q
+uv run --project tgram_starter pytest tgram_starter/tests -q
 ```
 Covers invite lifecycle (claim, reuse, expiry, revoke, phone check), callback ≤64 bytes, webhook secret rejection, and admin-key protection. These are offline; they do not prove real delivery to Telegram.
 
