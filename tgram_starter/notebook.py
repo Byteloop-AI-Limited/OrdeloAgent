@@ -37,7 +37,7 @@ print(f"@{me.username} id={me.id} name={me.first_name!r} can_join_groups={me.can
 # Private chat: chat_id == your Telegram user id. Press Start on the bot first!
 # Default: first admin id from TGRAM_ADMIN_IDS. Override by assigning CHAT_ID directly.
 CHAT_ID = next(iter(settings.admin_ids), None)
-# CHAT_ID = 123456789
+CHAT_ID = 123456789
 print("CHAT_ID =", CHAT_ID)
 
 # %% 4. Plain + formatted message

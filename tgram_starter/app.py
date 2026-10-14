@@ -1,9 +1,20 @@
-"""FastAPI host.   Run (from the repo root):  uv run --project tgram_starter python -m tgram_starter.app   (port 3200)
+"""FastAPI host (port 3200). Run either way:
+  from tgram_starter/:  uv run app.py
+  from the repo root:   uv run --project tgram_starter python -m tgram_starter.app
 
 Telegram POSTs every update to /telegram/webhook with header X-Telegram-Bot-Api-Secret-Token.
 """
+
 import secrets
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
+
+if (
+    not __package__
+):  # run as a script (`uv run app.py`): make the relative imports below resolve
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    __package__ = "tgram_starter"
 
 import uvicorn
 from aiogram.types import Update
@@ -18,7 +29,9 @@ from .config import get_settings
 async def lifespan(app: FastAPI):
     settings = get_settings()
     if not settings.bot_token or not settings.webhook_secret:
-        raise RuntimeError("Set TGRAM_BOT_TOKEN and TGRAM_WEBHOOK_SECRET (see tgram_starter/.env_local.example)")
+        raise RuntimeError(
+            "Set TGRAM_BOT_TOKEN and TGRAM_WEBHOOK_SECRET (see tgram_starter/.env_local.example)"
+        )
     app.state.settings = settings
     app.state.bot = build_bot(settings)
     app.state.dp = build_dispatcher(settings)
@@ -35,8 +48,9 @@ async def health():
 
 
 @app.post("/telegram/webhook")
-async def telegram_webhook(request: Request,
-                           x_telegram_bot_api_secret_token: str = Header(default="")):
+async def telegram_webhook(
+    request: Request, x_telegram_bot_api_secret_token: str = Header(default="")
+):
     s = request.app.state.settings
     if not secrets.compare_digest(x_telegram_bot_api_secret_token, s.webhook_secret):
         raise HTTPException(403, "bad secret")
@@ -55,7 +69,9 @@ def _require_admin(request: Request, key: str):
 
 
 @app.post("/invites")
-async def create_invite(request: Request, phone_number: str, x_admin_key: str = Header(default="")):
+async def create_invite(
+    request: Request, phone_number: str, x_admin_key: str = Header(default="")
+):
     """curl -X POST 'localhost:3200/invites?phone_number=447700900123' -H 'X-Admin-Key: ...'"""
     _require_admin(request, x_admin_key)
     s = request.app.state.settings
@@ -70,7 +86,12 @@ async def list_invites(request: Request, x_admin_key: str = Header(default="")):
 
 
 @app.post("/send")
-async def send_message(request: Request, telegram_user_id: int, text: str, x_admin_key: str = Header(default="")):
+async def send_message(
+    request: Request,
+    telegram_user_id: int,
+    text: str,
+    x_admin_key: str = Header(default=""),
+):
     """Proactive message to a LINKED user - only works after they pressed Start."""
     _require_admin(request, x_admin_key)
     row = invites.find_by_telegram_user(telegram_user_id)
@@ -82,5 +103,10 @@ async def send_message(request: Request, telegram_user_id: int, text: str, x_adm
 
 # %%
 if __name__ == "__main__":
-    # Run from the repo root as a module so the relative imports resolve: python -m tgram_starter.app
-    uvicorn.run("tgram_starter.app:app", host="0.0.0.0", port=3200, reload=True, reload_dirs=["tgram_starter"])
+    uvicorn.run(
+        "tgram_starter.app:app",
+        host="0.0.0.0",
+        port=3100,
+        reload=True,
+        reload_dirs=[str(Path(__file__).resolve().parent)],
+    )
