@@ -24,6 +24,11 @@ class Settings:
     admin_ids: set[int] = field(default_factory=lambda: _int_list(os.getenv("TGRAM_ADMIN_IDS", "")))
     admin_api_key: str = field(default_factory=lambda: os.getenv("TGRAM_ADMIN_API_KEY", ""))
     invite_ttl_hours: int = field(default_factory=lambda: int(os.getenv("TGRAM_INVITE_TTL_HOURS", "48")))
+    # Mini app: public HTTPS URL of the page (defaults to <webhook_base_url>/miniapp/).
+    miniapp_url: str = field(default_factory=lambda: os.getenv("TGRAM_MINIAPP_URL", "") or (
+        os.getenv("TGRAM_WEBHOOK_BASE_URL", "").rstrip("/") + "/miniapp/" if os.getenv("TGRAM_WEBHOOK_BASE_URL") else ""))
+    # How old Telegram's signed initData may be before the API rejects it (seconds).
+    miniapp_auth_max_age: int = field(default_factory=lambda: int(os.getenv("TGRAM_MINIAPP_AUTH_MAX_AGE", "3600")))
 
     @property
     def webhook_path(self) -> str:

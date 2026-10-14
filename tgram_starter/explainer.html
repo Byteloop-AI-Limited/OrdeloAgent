@@ -103,6 +103,8 @@
     <tr><td><code>handlers/onboarding.py</code></td><td><code>/start &lt;code&gt;</code> claims an invite; contact verification; <code>/whoami</code>; admin <code>/invite</code>.</td><td>invites, keyboards</td></tr>
     <tr><td><code>handlers/interactive.py</code></td><td>Inline buttons: menu, demo order offer, counter, photo. Owns the fake order state used to show stale-tap handling.</td><td>keyboards</td></tr>
     <tr><td><code>handlers/basic.py</code></td><td>Plain commands, formatting, location and live location, media, and the echo fallback. Attached last.</td><td>none</td></tr>
+    <tr><td><code>handlers/miniapp.py</code></td><td><code>/app</code>: replies with an inline <code>web_app</code> button that opens the mini app.</td><td>config</td></tr>
+    <tr><td><code>miniapp/</code></td><td>The Demo Kitchen Mini App. <code>router.py</code> serves the page and a small JSON API; <code>auth.py</code> verifies Telegram's signed <code>initData</code>; <code>store.py</code> holds the menu and in-memory orders; <code>static/index.html</code> is the page.</td><td>app.py, invites, Bot API</td></tr>
     <tr><td><code>keyboards.py</code></td><td>Keyboard builders and typed <code>CallbackData</code> classes that pack to ≤64 bytes.</td><td>handlers</td></tr>
     <tr><td><code>invites.py</code></td><td>The <code>TGRAM_INVITES</code> dict: create, atomic claim, lookup by Telegram id, phone verify, revoke.</td><td>handlers, app</td></tr>
     <tr><td><code>notebook.py</code></td><td>Cell-based scratchpad: send messages, and create/list invites or push messages through the running app's HTTP endpoints.</td><td>Bot API directly</td></tr>
@@ -162,11 +164,22 @@
   <h2>5. Running it</h2>
   <div class="grid">
     <div class="card"><span class="tag t-green">1</span><b>Start the app</b><pre>uv run --project tgram_starter \
-python -m tgram_starter.app   # port 3200</pre>Must be reachable at <code>TGRAM_WEBHOOK_BASE_URL</code> over HTTPS.</div>
+python -m tgram_starter.app   # port 3100</pre>Must be reachable at <code>TGRAM_WEBHOOK_BASE_URL</code> over HTTPS.</div>
     <div class="card"><span class="tag t-amber">2</span><b>Register the webhook</b><pre># %% cell 4 in notebook_setup_bot.py</pre>Calls <code>set_webhook</code> with the URL and secret. Re-run if the URL changes.</div>
     <div class="card"><span class="tag t-purple">3</span><b>Play</b><pre># %% cells in notebook.py</pre>Send messages by hand, create invites through the app, then talk to the bot in Telegram.</div>
   </div>
   <div class="callout"><b>If nothing arrives,</b> run cell 5 of <code>notebook_setup_bot.py</code>: <code>last_error_message</code> and <code>pending_update_count</code> show whether Telegram can reach the app. A 403 in your logs means the secret header didn't match.</div>
+
+  <h2>5b. Mini app flow</h2>
+  <p>A Mini App is a web page that opens inside Telegram. It is not an update to the webhook: the page talks to <b>your</b> FastAPI routes directly, and proves who it is with Telegram's signed <code>initData</code>.</p>
+  <ol class="steps">
+    <li>User taps the <code>web_app</code> button (from <code>/app</code>, <code>/menu</code>, or the chat menu button). Telegram opens <code>&lt;base&gt;/miniapp/</code> in a webview and injects the <b>signed</b> <code>initData</code> string.</li>
+    <li><code>index.html</code> calls <code>GET /miniapp/api/menu</code> and <code>/session</code> with header <code>X-Telegram-Init-Data</code>.</li>
+    <li><code>auth.validate_init_data</code> recomputes the HMAC using the bot token, checks <code>auth_date</code> is recent, and returns the user id. A forged or stale blob is a 401.</li>
+    <li>On Checkout (Telegram's own <code>MainButton</code>) the page POSTs item ids + quantities + an idempotency key. The server prices the order and stores it against the <i>verified</i> user id.</li>
+    <li>The server then calls <code>bot.send_message</code> to that user's chat with a <b>Track order</b> <code>web_app</code> button (<code>?order=M1001</code>), which reopens the page on that order.</li>
+  </ol>
+  <div class="callout"><b>Unsafe vs verified:</b> <code>Telegram.WebApp.initDataUnsafe</code> is just JavaScript; anyone can fake it in a browser. Only data that passed the HMAC check on the server is identity. The page's "What Telegram gave this page" panel shows both side by side.</div>
 
   <h2>6. Gotchas that explain the design</h2>
   <ul>
