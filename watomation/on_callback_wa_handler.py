@@ -9,6 +9,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . Allows assigned rider to decline the same inflight job pre‑pickup, forwarding to cancel flow
     . Serves as entry point into the LangGraph agent workflow
     . Processes restaurant confirmation of food preparation time
+    . Restaurant Accept/Decline and pickup-time taps go through utils_common.order_management.restaurant_decision (shared with Telegram): first decision wins atomically in SQL, a losing tap is told who decided
     . Uses asyncio.create_task for long-running RPC calls to avoid timeouts
     . Guards pickup-time updates so stale or repeated button taps cannot overwrite existing pickup times
     . Supports admin pickup-time adjustment after pickup_time is set, flagging restaurant_pickuptime_adjusted to notify the inflight rider
@@ -47,6 +48,7 @@ from ordelo.delivery_progress import (
     check_delivery_progress,
 )
 from ordelo_datamodels.delivery_pymodels import DeliveryDispatch
+from utils_common.order_management import restaurant_decision
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 from datetime import datetime, timezone
 from utils_common.tz_utils import fmt_uk_time
@@ -238,41 +240,44 @@ async def handle_admin_availability(wa: WhatsApp, msg: Message):
     logger.info(f"Admin availability confirmed for {recipient}")
 
 
+_STATUS_TO_DECISION = {"restaurant_accept": "accept", "restaurant_decline": "decline"}
+
+
 async def _update_restaurant_order_status(
     order_number: str,
     status: str,
     msg: Message,
     order_type: str = "delivery",
 ):
-    """Background task to update restaurant order status."""
+    """Background task: record an admin's Accept/Decline tap through the shared decision function.
+
+    The first decision on any channel wins (restaurant_decision.decide). A tap that loses is told who decided.
+    """
+    decision = _STATUS_TO_DECISION.get(status)
+    if decision is None:
+        logger.error(f"Ignoring restaurant order status {status!r} for {order_number} ({order_type})")
+        return
     try:
-        target_table = (
-            "takeaway_summary" if order_type == "takeaway" else "delivery_summary"
+        outcome = await restaurant_decision.decide(
+            order_number, order_type, decision, msg.sender, "whatsapp"
         )
-        result = await asyncio.to_thread(
-            lambda: (
-                client_ordelo.table(target_table)
-                .update(
-                    {
-                        "restaurant_confirmation_status": status,
-                        "restaurant_admin": msg.sender,
-                    }
-                )
-                .eq("order_number", order_number)
-                .eq("restaurant_confirmation_status", "restaurant_unconfirmed")
-                .execute()
-            )
-        )
-        if result.data:
+        if outcome.result == "ok":
             logger.info(
                 f"Restaurant order status updated ({order_type}): {order_number} -> {status}"
             )
-        else:
-            await msg.reply(text="Order Already Accepted")
+        elif outcome.result == "already_decided":
+            await msg.reply(
+                text=f"Order already {restaurant_decision.describe(outcome.state, outcome.decided_by)}"
+            )
             logger.info(
-                "Skipped restaurant order status update for %s (%s); current status is not restaurant_unconfirmed",
+                "Skipped restaurant order status update for %s (%s); already decided: %s",
                 order_number,
                 order_type,
+                outcome.state,
+            )
+        else:
+            logger.error(
+                f"Restaurant order {order_number} ({order_type}) not found for status update"
             )
     except Exception as e:
         logger.error(
@@ -326,48 +331,35 @@ async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
     pickup_time = callback_data.pickup_time
     recipient = msg.sender
     order_type = getattr(callback_data, "order_type", "delivery")
-    target_table = (
-        "takeaway_summary" if order_type == "takeaway" else "delivery_summary"
-    )
-    target_status = "pickup_confirmed" if order_type == "takeaway" else "unassigned"
 
     logger.info(
-        f"Updating pickup time for {order_type} order {order_number} to {pickup_time} (status -> {target_status})",
+        f"Updating pickup time for {order_type} order {order_number} to {pickup_time}",
     )
 
     try:
-        update_vals = {
-            "pickup_time": pickup_time,
-            "status": target_status,
-            "restaurant_admin": recipient,
-            "restaurant_update_dtts": datetime.now(timezone.utc).isoformat(),
-        }
-        result = await asyncio.to_thread(
-            lambda: (
-                client_ordelo.table(target_table)
-                .update(update_vals)
-                .eq("order_number", order_number)
-                .eq("restaurant_confirmation_status", "restaurant_accept")
-                .filter("pickup_time", "is", "null")
-                .execute()
-            )
+        outcome = await restaurant_decision.set_pickup(
+            order_number, order_type, pickup_time, recipient, "whatsapp"
         )
-
-        if result.data:
+        if outcome.result == "ok":
             await msg.reply(text="Pickup time updated")
             logger.info(
-                "Pickup time updated for %s order %s to %s (status -> %s)",
+                "Pickup time updated for %s order %s to %s",
                 order_type,
                 order_number,
                 pickup_time,
-                target_status,
             )
-        else:
+        elif outcome.result in ("already_set", "not_accepted"):
             await msg.reply(text="Pickup time already updated")
             logger.info(
-                "Skipped pickup time update for %s (%s); status is not restaurant_accept or pickup_time already set",
+                "Skipped pickup time update for %s (%s); %s (state %s)",
                 order_number,
                 order_type,
+                outcome.result,
+                outcome.state,
+            )
+        else:
+            logger.error(
+                f"Order {order_number} ({order_type}) not found for pickup time update"
             )
     except Exception as e:
         logger.error(

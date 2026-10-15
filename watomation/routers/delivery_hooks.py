@@ -50,7 +50,7 @@ Delivery webhook handlers for Ordelo delivery system
     . restaurant_confirmation_flow - Handles restaurant confirmation workflow (unconfirmed, accept, decline, timedout)
     . _handle_restaurant_unconfirmed - Sends order confirmation request to restaurant
     . _handle_restaurant_accept - Sends pickup time selection to restaurant
-    . _handle_restaurant_decline - Updates status to unassigned on decline
+    . _handle_restaurant_decline - Terminal decline (status 'declined'): cancels the payment and tells the customer (mirrors takeaway)
     . _handle_restaurant_timedout - Logs restaurant confirmation timeout event
     . _handle_restaurant_pickuptime_adjusted - Notifies the inflight rider when an admin adjusts the pickup time (skipped after pickup)
     . close_threads - Closes inactive threads and sends goodbye messages
@@ -1355,7 +1355,13 @@ async def _handle_restaurant_decline(
     food_order: FoodOrder,
 ) -> dict:
     """
-    Handle restaurant_decline trigger: update delivery_summary status to unassigned.
+    Handle restaurant_decline trigger (R1-a): the order is terminal, the payment is cancelled, the customer is told.
+
+    Mirrors takeaway_hooks._handle_restaurant_decline. The decision function
+    (restaurant_order_decide, migrations/restaurant_order_decision.sql) already set
+    delivery_summary.status = 'declined' atomically with the decision, so the order was never dispatchable.
+    The guarded update below only covers a decline written by hand (manual SQL) that left the order
+    'restaurant_unconfirmed'; it never touches an order that has moved on.
 
     Args:
         delivery_summary: Delivery summary data
@@ -1364,19 +1370,57 @@ async def _handle_restaurant_decline(
     Returns:
         dict: Status response with order_number
     """
-    # Update delivery_summary status to unassigned
-    client.table("delivery_summary").update({"status": "unassigned"}).eq(
-        "order_number", food_order.order_number
-    ).execute()
-
-    logger.info(
-        f"Restaurant declined order {food_order.order_number}, status updated to unassigned"
+    order_number = food_order.order_number
+    await asyncio.to_thread(
+        lambda: (
+            client_ordelo.table("delivery_summary")
+            .update({"status": "declined"})
+            .eq("order_number", order_number)
+            .eq("restaurant_confirmation_status", "restaurant_decline")
+            .eq("status", "restaurant_unconfirmed")
+            .execute()
+        )
     )
+
+    cancel_result = None
+    if food_order.payment_status != "pay_at_rest":
+        try:
+            cancel_result = await cancel_payment(order_number=order_number)
+        except Exception:
+            logger.exception(
+                "Payment cancellation failed during delivery decline",
+                extra={"order_number": order_number},
+            )
+        customer_text = (
+            f"Sorry, your order {order_number} could not be accepted by {delivery_summary.rest_name}.\n"
+            "Your payment has been cancelled."
+        )
+    else:
+        customer_text = f"Sorry, your order {order_number} could not be accepted by {delivery_summary.rest_name}."
+
+    if is_web_customer_key(delivery_summary.customer_id):
+        if cancel_result is None and food_order.payment_status != "pay_at_rest":
+            from utils_common.web_ordering.lifecycle import queue_release
+
+            await queue_release(order_number, "restaurant_declined")
+        await customer_notifier.publish(
+            order_number,
+            CustomerOrderEvent(
+                "restaurant_declined",
+                "restaurant_declined",
+                "web-restaurant-declined",
+                {"payment_cancelled": cancel_result is not None},
+            ),
+        )
+    else:
+        await _async_wa_client.send_message(to=delivery_summary.customer_id, text=customer_text)
+
+    logger.info(f"Restaurant declined order {order_number}: status declined, customer notified")
 
     return {
         "status": "success",
-        "action": "status_updated_to_unassigned",
-        "order_number": food_order.order_number,
+        "action": "declined",
+        "order_number": order_number,
     }
 
 
