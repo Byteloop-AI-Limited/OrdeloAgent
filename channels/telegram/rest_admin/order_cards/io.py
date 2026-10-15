@@ -1,0 +1,97 @@
+"""TelegramIO: send, edit and delete order-card messages, mapping Telegram errors to a small vocabulary.
+
+    . send   -> message_id | None      None = the chat can not receive it (bot blocked, kicked, chat gone) or
+                                       the send failed; the caller skips that destination
+    . edit   -> 'edited' | 'gone' | 'retry'
+    . delete -> 'deleted' | 'gone' | 'retry'
+    . 'retry' means "leave the ledger row claimed": the sweep offers it again after 30 seconds
+    . Error mapping (plans/telegram-rest-admin-scaffold-plan.md): "message is not modified" = edited;
+      "message to edit/delete not found", "message can't be edited/deleted", "chat not found" and
+      TelegramForbiddenError = gone; TelegramRetryAfter = sleep retry_after once, then retry once;
+      anything else = retry.
+  Classes/Functions:
+    . TelegramIO
+"""
+
+import asyncio
+from typing import Literal
+
+from aiogram import Bot
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramForbiddenError, TelegramRetryAfter
+from loguru import logger
+
+from .model import View
+
+MAX_RETRY_AFTER_SECS = 30
+_GONE_MARKERS = ("not found", "can't be edited", "can't be deleted", "message_id_invalid", "chat not found")
+
+
+def _is_not_modified(e: TelegramBadRequest) -> bool:
+    return "message is not modified" in str(e).lower()
+
+
+def _is_gone(e: Exception) -> bool:
+    if isinstance(e, TelegramForbiddenError):
+        return True
+    text = str(e).lower()
+    return isinstance(e, TelegramBadRequest) and any(m in text for m in _GONE_MARKERS)
+
+
+class TelegramIO:
+    def __init__(self, bot: Bot):
+        self._bot = bot
+
+    async def _with_backoff(self, call):
+        try:
+            return await call()
+        except TelegramRetryAfter as e:
+            await asyncio.sleep(min(e.retry_after, MAX_RETRY_AFTER_SECS))
+            return await call()
+
+    async def send(self, tcid: int, view: View) -> int | None:
+        try:
+            msg = await self._with_backoff(
+                lambda: self._bot.send_message(tcid, view.text, parse_mode="HTML", reply_markup=view.keyboard)
+            )
+            return msg.message_id
+        except (TelegramAPIError, OSError) as e:
+            level = "info" if _is_gone(e) else "error"
+            logger.log(level.upper(), f"telegram: order card send to chat {tcid} failed: {e}")
+            return None
+
+    async def edit(self, copy, view: View) -> Literal["edited", "gone", "retry"]:
+        try:
+            await self._with_backoff(
+                lambda: self._bot.edit_message_text(
+                    view.text, chat_id=copy.tcid, message_id=copy.message_id, parse_mode="HTML",
+                    reply_markup=view.keyboard,
+                )
+            )
+            return "edited"
+        except TelegramBadRequest as e:
+            if _is_not_modified(e):
+                return "edited"
+            if _is_gone(e):
+                return "gone"
+            logger.error(f"telegram: edit of {copy.tcid}/{copy.message_id} failed: {e}")
+            return "retry"
+        except TelegramForbiddenError:
+            return "gone"
+        except (TelegramAPIError, OSError) as e:
+            logger.error(f"telegram: edit of {copy.tcid}/{copy.message_id} failed: {e}")
+            return "retry"
+
+    async def delete(self, copy) -> Literal["deleted", "gone", "retry"]:
+        try:
+            await self._with_backoff(lambda: self._bot.delete_message(copy.tcid, copy.message_id))
+            return "deleted"
+        except TelegramForbiddenError:
+            return "gone"
+        except TelegramBadRequest as e:
+            if _is_gone(e):
+                return "gone"
+            logger.error(f"telegram: delete of {copy.tcid}/{copy.message_id} failed: {e}")
+            return "retry"
+        except (TelegramAPIError, OSError) as e:
+            logger.error(f"telegram: delete of {copy.tcid}/{copy.message_id} failed: {e}")
+            return "retry"

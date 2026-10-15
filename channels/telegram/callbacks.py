@@ -24,3 +24,17 @@ class InviteDecision(CallbackData, prefix="inv"):
 
     code: str
     action: Literal["y", "n"]
+
+
+class OrderAction(CallbackData, prefix="ord"):
+    """A tap on an order card, e.g. 'ord:ELAS-CEKT-22:d:pk:15'.
+
+    o: order number; t: 'd' delivery / 't' takeaway; a: 'acc' accept, 'dec' decline, 'pk' pickup
+    time; m: minutes after the order time for 'pk' (0 otherwise). Carries no authority: the
+    database re-checks who tapped and the order's current state on every tap.
+    """
+
+    o: str
+    t: Literal["d", "t"]
+    a: Literal["acc", "dec", "pk"]
+    m: int = 0
