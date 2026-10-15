@@ -500,3 +500,10 @@ VALUES ('TEST_PAYMENT_REST_REFS', 'BNAT,ELAS', 'Restaurants whose orders always 
 ON CONFLICT (config_key) DO UPDATE
 SET config_value = EXCLUDED.config_value, description = EXCLUDED.description,
     updated_at = CURRENT_TIMESTAMP;
+    
+
+select * from invite_code where rest_ref='BNAT' order by dtts desc;
+select * from t_invites limit 10;
+
+
+select * from ordelo_config where config_key like '%TGRAM%';

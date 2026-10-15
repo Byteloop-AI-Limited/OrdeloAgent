@@ -1,104 +1,33 @@
 [
  {
-  "column_name": "id",
-  "data_type": "bigint",
-  "is_nullable": "NO",
-  "column_default": null
- },
- {
-  "column_name": "created_at",
-  "data_type": "timestamp with time zone",
-  "is_nullable": "YES",
-  "column_default": "now()"
- },
- {
-  "column_name": "title",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": null
- },
- {
-  "column_name": "sku",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": null
- },
- {
-  "column_name": "description",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": null
- },
- {
-  "column_name": "availability",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": null
- },
- {
-  "column_name": "price",
-  "data_type": "numeric",
-  "is_nullable": "YES",
-  "column_default": null
- },
- {
-  "column_name": "currency",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": "'GBP'::text"
- },
- {
-  "column_name": "branch_link",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": "'https://sfc-salisbury.co.uk'::text"
- },
- {
-  "column_name": "image_link",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": null
- },
- {
-  "column_name": "branch_name",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": "'Salisbury'::text"
- },
- {
-  "column_name": "category",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": null
- },
- {
-  "column_name": "discounted_price",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": null
- },
- {
-  "column_name": "sub_category",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": null
- },
- {
-  "column_name": "addons",
-  "data_type": "jsonb",
-  "is_nullable": "YES",
-  "column_default": null
- },
- {
-  "column_name": "sub_category_description",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": null
- },
- {
-  "column_name": "dietary_requirements",
-  "data_type": "text",
-  "is_nullable": "YES",
-  "column_default": null
+  "order_number": "ELAS-NVKO-27",
+  "rest_id": "447914844933",
+  "rest_name": "Elai - Salisbury",
+  "rest_lon": "-1.79717268758398",
+  "rest_lat": "51.0726635283769",
+  "rest_address": "Mill Stream Approach Castle St dummy SP1 3TA",
+  "town": "dummy",
+  "customer_id": "447448440754",
+  "customer_name": "10hith",
+  "customer_lon": "-1.7972295",
+  "customer_lat": "51.0725095",
+  "customer_address": "1  Salisbury SP1 3TA",
+  "restaurant_confirmation_status": "auto_accept",
+  "restaurant_update_dtts": "2026-10-15 17:34:34.607522+00",
+  "restaurant_admin": null,
+  "status": "timedout",
+  "rest_confirmation_code": 70,
+  "cust_confirmation_code": 47,
+  "rest_prep_time_minutes": null,
+  "rest_confirmation_method": null,
+  "restaurant_msg_id": null,
+  "rider_msg_id": null,
+  "customer_msg_id": null,
+  "pickup_time": "2026-10-15 22:34:03.842437+00",
+  "pickup_date": "2026-10-15",
+  "rest_ref": "ELAS",
+  "dt": "2026-10-15",
+  "dtts": "2026-10-15 17:34:03.842437+00",
+  "redispatch_dtts": null
  }
 ]
