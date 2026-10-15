@@ -1,0 +1,30 @@
+[project]
+name = "tgram-starter"
+version = "0.1.0"
+description = "Throwaway Telegram starter kit (aiogram 3 + FastAPI)"
+requires-python = ">=3.11"
+dependencies = [
+    "aiogram==3.31.0",
+    "fastapi",
+    "uvicorn",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "httpx",
+    "ruff",
+    "ipykernel",  # lets VS Code / Jupyter run the `# %%` cells in notebook.py
+]
+
+[tool.uv]
+package = false  # virtual project: manages deps/venv only; code is run from the repo root as `tgram_starter.*`
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".."]  # repo root, so `import tgram_starter` works
+
+[tool.ruff.lint]
+select = ["F"]
+ignore = ["F704"]  # top-level await in notebook.py cells

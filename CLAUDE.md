@@ -95,6 +95,7 @@ Full details in `docs/delivery_process.md`.
 | `ordelo/agent_app_handlers.py` | Glue between agent tools, WhatsApp, and DB/webhooks |
 | `watomation/` | FastAPI app, routers, WhatsApp handlers |
 | `ordelo_datamodels/` | Pydantic models and SQL schema definitions |
+| `channels/telegram/` | Telegram bots (aiogram): registry, routers, DB wrappers over RPCs. See `docs/telegram-layer.md` |
 | `utils_common/db_utils/` | Supabase REST + psycopg async pool operations |
 | `utils_common/thread_management/` | LangGraph thread CRUD (ThreadHandler) |
 | `utils_common/waba_utils/` | WhatsApp message senders |
@@ -105,9 +106,25 @@ Full details in `docs/delivery_process.md`.
 
 - **PostgreSQL via Supabase** — primary data store
 - **Async pool**: `AsyncConnectionPool` (1–5 connections) via `pg_settings`
-- **REST client**: `client_ordelo` (Supabase REST) for CRUD operations — **synchronous/blocking**; always wrap in `asyncio.to_thread()` when calling from an `async def`. The codebase has existing violations of this rule, but all new or changed code must follow it.
+- **REST clients**: `client_ordelo` (Supabase REST, anon key) for CRUD operations; `client_ordelo_service` (service-role key, bypasses RLS) only for server-only objects such as the `t_invites` RPCs — **synchronous/blocking**; always wrap in `asyncio.to_thread()` when calling from an `async def`. The codebase has existing violations of this rule, but all new or changed code must follow it.
 - **Pydantic models** in `ordelo_datamodels/` with class methods like `.from_rest_ref()`, `.from_customer_id()`
 - **No full ORM** — mix of Pydantic + raw SQL + Supabase REST
+
+### Database-backed logic: RPC pattern and cross-references (good practice)
+
+When a feature needs rules or multi-step changes in the database, put that logic in a **Postgres function (RPC)** and keep the Python thin. Reference example: `channels/telegram/invites.py` wraps `t_invite_preview`, `t_claim_invite` and `t_linked_restaurants`, all defined in `ordelo_datamodels/migrations/create_t_invites.sql` (see [`docs/telegram-layer.md`](docs/telegram-layer.md)).
+
+1. **RPC owns the logic.** Atomic, race-safe rules (claims, status changes, uniqueness) are one SQL function returning `jsonb` with a `result` string, not a read-modify-write sequence in Python.
+2. **Define RPCs where the tables are defined.** The table(s), view(s), RPCs, grants and operator SQL live in the same migration file in `ordelo_datamodels/migrations/`. Give the file a header: what it adds, how the pieces fit with other tables and services, lifecycle, security model, not-yet-done. Keep it idempotent.
+3. **One Python wrapper module per domain.** A typed `async def` per RPC, `asyncio.to_thread` around the Supabase call, a small outcome dataclass. Handlers call the wrapper; they never query the table or repeat the rule.
+4. **Cross-reference both ways, in the same change.**
+   - The wrapper's **module docstring** names the SQL file that defines the RPCs and maps each Python function to the RPC it calls.
+   - The SQL file's **header** names the Python module and functions that call each RPC.
+   - The feature's doc (for Telegram: `docs/telegram-layer.md` section 6, and its HTML companion) has a row per database object with its defining file, Python caller and tests.
+   - When you add, rename or change an RPC or table, update all of these together. Never leave a docstring pointing at an old name.
+5. **Lock server-only objects.** Enable RLS on the table, `REVOKE ALL ... FROM PUBLIC, anon, authenticated` on its functions and views, and call them with `client_ordelo_service`. The anon `client_ordelo` is denied by design.
+6. **Tests fake the RPC contract.** Mimic the RPC's return shapes in a fake (see `FakeInviteDb`), cover every `result` value, and change the fake whenever the RPC changes.
+7. **Apply the migration before deploying** the code that calls it, and provide a drop/cleanup script when you rename database objects.
 
 ### Configuration
 

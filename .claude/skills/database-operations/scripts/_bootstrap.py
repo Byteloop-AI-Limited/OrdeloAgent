@@ -31,12 +31,35 @@ def ensure_repo_on_path() -> Path:
     )
 
 
-def get_client_ordelo(schema: Optional[str] = None):
-    ensure_repo_on_path()
-    from config import pg_settings  # type: ignore
+# Postgres 42501 = permission denied / RLS violation; PGRST301/302 = JWT / role problems.
+PERMISSION_ERROR_CODES = {"42501", "PGRST301", "PGRST302"}
 
-    client_ordelo = pg_settings.client
-    return client_ordelo.schema(schema) if schema else client_ordelo
+
+def execute_with_fallback(build, schema: Optional[str] = None, *, service: bool = False):
+    """Run `build(client).execute()`-style callable: anon `client_ordelo` first, service role only on a permission error.
+
+    `build` receives a Supabase client and must return the executed response.
+    Pass service=True to skip the anon attempt (e.g. when RLS silently returns zero rows instead of erroring).
+    """
+    ensure_repo_on_path()
+    from config import client_ordelo, client_ordelo_service  # type: ignore
+    from postgrest.exceptions import APIError  # type: ignore
+
+    def scoped(client):
+        return client.schema(schema) if schema else client
+
+    if service:
+        return build(scoped(client_ordelo_service))
+    try:
+        return build(scoped(client_ordelo))
+    except APIError as exc:
+        if exc.code not in PERMISSION_ERROR_CODES:
+            raise
+        print(
+            f"[db-ops] anon client_ordelo denied ({exc.code}: {exc.message}); retrying with the service-role key",
+            file=sys.stderr,
+        )
+        return build(scoped(client_ordelo_service))
 
 
 def load_json(*, json_str: Optional[str], json_file: Optional[str]) -> Any:

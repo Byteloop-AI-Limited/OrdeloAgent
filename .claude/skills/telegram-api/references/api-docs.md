@@ -1,0 +1,41 @@
+# Official API documentation
+
+Baseline: [aiogram 3.31.0](https://docs.aiogram.dev/en/v3.31.0/index.html), inspected 13 October 2026. Open the specific linked page for signatures and limitations. Core Telegram docs are current, so compare availability with the installed SDK; do not silently switch to `latest`.
+
+## Runtime and identity
+
+- [Bot](https://docs.aiogram.dev/en/v3.31.0/api/bot.html), [DefaultBotProperties](https://docs.aiogram.dev/en/v3.31.0/api/defaults.html): current initialization, not legacy `Bot(parse_mode=...)`.
+- [Router](https://docs.aiogram.dev/en/v3.31.0/dispatcher/router.html), [Dispatcher](https://docs.aiogram.dev/en/v3.31.0/dispatcher/dispatcher.html), [Webhook](https://docs.aiogram.dev/en/v3.31.0/dispatcher/webhook.html): FastAPI can feed validated updates; documented request handlers use aiohttp and are not FastAPI route objects.
+- [Command](https://docs.aiogram.dev/en/v3.31.0/dispatcher/filters/command.html), [Magic filters](https://docs.aiogram.dev/en/v3.31.0/dispatcher/filters/magic_filters.html), [Dependency injection](https://docs.aiogram.dev/en/v3.31.0/dispatcher/dependency_injection.html), [Middleware](https://docs.aiogram.dev/en/v3.31.0/dispatcher/middlewares.html).
+- [Update](https://docs.aiogram.dev/en/v3.31.0/api/types/update.html), [Message](https://docs.aiogram.dev/en/v3.31.0/api/types/message.html), [User](https://docs.aiogram.dev/en/v3.31.0/api/types/user.html), [Chat](https://docs.aiogram.dev/en/v3.31.0/api/types/chat.html): actor and destination are separate.
+- [Bot introduction](https://core.telegram.org/bots), [Deep links](https://docs.aiogram.dev/en/v3.31.0/utils/deep_linking.html), [Bot features](https://core.telegram.org/bots/features): onboarding, commands and supported interactions. Ordinary private-chat bots require user initiation; phone numbers are not arbitrary send targets. Store numeric IDs using suitable 64-bit representation.
+- [setWebhook](https://docs.aiogram.dev/en/v3.31.0/api/methods/set_webhook.html), [getWebhookInfo](https://docs.aiogram.dev/en/v3.31.0/api/methods/get_webhook_info.html), [deleteWebhook](https://docs.aiogram.dev/en/v3.31.0/api/methods/delete_webhook.html), [Long polling](https://docs.aiogram.dev/en/v3.31.0/dispatcher/long_polling.html): one delivery mode per bot token; do not drop pending updates by default.
+- [Errors](https://docs.aiogram.dev/en/v3.31.0/dispatcher/errors.html), [ResponseParameters](https://docs.aiogram.dev/en/v3.31.0/api/types/response_parameters.html), [FAQ](https://core.telegram.org/bots/faq): retries/rate limits. Inspect `TelegramRetryAfter.retry_after`, forbidden/bad-request/network handling; do not blindly retry ambiguous sends.
+
+## Text and interactive controls
+
+- [sendMessage](https://docs.aiogram.dev/en/v3.31.0/api/methods/send_message.html), [Formatting](https://docs.aiogram.dev/en/v3.31.0/utils/formatting.html), [LinkPreviewOptions](https://docs.aiogram.dev/en/v3.31.0/api/types/link_preview_options.html): 4096-character text after entity parsing; render WA header/footer yourself and escape data for parse mode.
+- [InlineKeyboardButton](https://docs.aiogram.dev/en/v3.31.0/api/types/inline_keyboard_button.html), [InlineKeyboardMarkup](https://docs.aiogram.dev/en/v3.31.0/api/types/inline_keyboard_markup.html), [Keyboard builder](https://docs.aiogram.dev/en/v3.31.0/utils/keyboard.html): callback/URL/Web App actions are distinct; select one action per button.
+- [CallbackData](https://docs.aiogram.dev/en/v3.31.0/dispatcher/filters/callback_data.html): typed `pack`, `unpack`, filters; **1–64 UTF-8 bytes** for callback payload.
+- [CallbackQuery](https://docs.aiogram.dev/en/v3.31.0/api/types/callback_query.html), [answerCallbackQuery](https://docs.aiogram.dev/en/v3.31.0/api/methods/answer_callback_query.html), [Callback answer middleware](https://docs.aiogram.dev/en/v3.31.0/utils/callback_answer.html): clear spinner even when no popup is needed; message can be absent/inaccessible.
+- [editMessageReplyMarkup](https://docs.aiogram.dev/en/v3.31.0/api/methods/edit_message_reply_markup.html), [editMessageText](https://docs.aiogram.dev/en/v3.31.0/api/methods/edit_message_text.html): remove/update old controls, while retaining server-side stale guards.
+- [ReplyParameters](https://docs.aiogram.dev/en/v3.31.0/api/types/reply_parameters.html): use actual Telegram message reference, not a WA ID.
+- [KeyboardButton](https://docs.aiogram.dev/en/v3.31.0/api/types/keyboard_button.html), [ReplyKeyboardMarkup](https://docs.aiogram.dev/en/v3.31.0/api/types/reply_keyboard_markup.html), [ReplyKeyboardRemove](https://docs.aiogram.dev/en/v3.31.0/api/types/reply_keyboard_remove.html), [ForceReply](https://docs.aiogram.dev/en/v3.31.0/api/types/force_reply.html): ordinary reply buttons emit text; contact/location requests require private chat.
+- [setMyCommands](https://docs.aiogram.dev/en/v3.31.0/api/methods/set_my_commands.html), [BotCommand](https://docs.aiogram.dev/en/v3.31.0/api/types/bot_command.html): menu command names omit `/`; handlers still require authorization.
+
+## Location, contact and media
+
+- [sendLocation](https://docs.aiogram.dev/en/v3.31.0/api/methods/send_location.html), [sendVenue](https://docs.aiogram.dev/en/v3.31.0/api/methods/send_venue.html), [Location](https://docs.aiogram.dev/en/v3.31.0/api/types/location.html): no WA `current_location` flag; optional accuracy is not authenticity evidence.
+- [editMessageLiveLocation](https://docs.aiogram.dev/en/v3.31.0/api/methods/edit_message_live_location.html), [stopMessageLiveLocation](https://docs.aiogram.dev/en/v3.31.0/api/methods/stop_message_live_location.html): bot-owned live pin, distinct from OwnTracks and user-shared live location.
+- [sendContact](https://docs.aiogram.dev/en/v3.31.0/api/methods/send_contact.html), [Contact](https://docs.aiogram.dev/en/v3.31.0/api/types/contact.html), [KeyboardButton](https://docs.aiogram.dev/en/v3.31.0/api/types/keyboard_button.html): sending requires phone/first name; incoming contact might belong to somebody else. For self-linking check `contact.user_id` against actor; missing value is not verified ownership.
+- [sendPhoto](https://docs.aiogram.dev/en/v3.31.0/api/methods/send_photo.html), [sendDocument](https://docs.aiogram.dev/en/v3.31.0/api/methods/send_document.html), [File uploads](https://docs.aiogram.dev/en/v3.31.0/api/upload_file.html): URL, file ID, `FSInputFile`, `BufferedInputFile`; consult per-method caption/file constraints.
+- If source tracing reveals other media: [sendVideo](https://docs.aiogram.dev/en/v3.31.0/api/methods/send_video.html), [sendAudio](https://docs.aiogram.dev/en/v3.31.0/api/methods/send_audio.html), [sendVoice](https://docs.aiogram.dev/en/v3.31.0/api/methods/send_voice.html), [sendMediaGroup](https://docs.aiogram.dev/en/v3.31.0/api/methods/send_media_group.html).
+
+## Forms, catalogs and payment decisions
+
+- [FSM](https://docs.aiogram.dev/en/v3.31.0/dispatcher/finite_state_machine/index.html), [Storages](https://docs.aiogram.dev/en/v3.31.0/dispatcher/finite_state_machine/storages.html): conversational address steps, not replacement of LangGraph delivery state.
+- [WebAppInfo](https://docs.aiogram.dev/en/v3.31.0/api/types/web_app_info.html), [WebAppData](https://docs.aiogram.dev/en/v3.31.0/api/types/web_app_data.html), [Telegram Mini Apps](https://core.telegram.org/bots/webapps), [aiogram validation helpers](https://docs.aiogram.dev/en/v3.31.0/utils/web_app.html), [answerWebAppQuery](https://docs.aiogram.dev/en/v3.31.0/api/methods/answer_web_app_query.html).
+- Validate raw Mini App `initData` on backend plus freshness/session; do not trust `initDataUnsafe`. Keyboard-launched `sendData` produces `web_app_data`; inline apps have different backend/result paths. WA Flow JSON and Meta cart/catalog have no direct interpreter/equivalent.
+- Keep Ordelo Stripe checkout links unless payment migration is requested. If it is, consult [Telegram payments](https://core.telegram.org/bots/payments), [sendInvoice](https://docs.aiogram.dev/en/v3.31.0/api/methods/send_invoice.html), [answerPreCheckoutQuery](https://docs.aiogram.dev/en/v3.31.0/api/methods/answer_pre_checkout_query.html); invoice UI is not payment collection evidence.
+
+Normal bot API success is transport acceptance, not a human read/delivery receipt. Preserve that distinction in logs/outbox/UI.

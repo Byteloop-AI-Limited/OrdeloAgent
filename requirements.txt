@@ -15,6 +15,8 @@ langgraph==1.1.5
 langgraph-checkpoint-postgres==3.0.5
 pywa==3.6.1
 pywa[cryptography]
+# telegram
+aiogram==3.31.0
 # data transforms
 supabase==2.15.3
 duckdb==1.2.0
