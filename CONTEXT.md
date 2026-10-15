@@ -261,6 +261,34 @@ number, restaurant, generated code). The person confirms in the bot; the first
 confirmation wins. `phone_verified` is reserved for a later contact-share flow.
 _Avoid_: invite token, signup link
 
+### Restaurant decision
+
+An admin's Accept or Decline of an order, and the pickup time chosen after an accept,
+recorded by one database function per step (`restaurant_order_decide`,
+`restaurant_order_set_pickup`) that every channel uses. The first decision wins; a later
+tap is told who decided. A decline is terminal: the delivery order's status becomes
+`declined` in the same update, so it can never be dispatched.
+_Avoid_: confirmation update, order status update
+
+### Telegram inbox
+
+The `t_inbox` table: one row per Telegram update the bot has started to handle,
+keyed by `(bot_key, update_id)`. Claiming a row is the first thing the bot does with an
+update, so a Telegram retry of the same update is skipped (at-most-once). `tuid` is the
+sender's Telegram user id.
+_Avoid_: message queue, update log
+
+### Order card
+
+The Telegram message an admin sees for one order: a status line, the order number, total,
+type and items, and Accept / Decline or pickup-time buttons. It is an immutable value
+changed only by events (reminded, accepted, declined, pickup chosen, auto-accepted,
+vanished) and always rebuilt from the order in the database, so it can never show a state
+the database is not in. Each admin's chat holds at most one live copy; the `t_sent_messages`
+ledger only remembers where copies are so they can be edited or deleted.
+The buttons are authorised per tap by Telegram user id (never chat id), so the same card works in a private chat or a group.
+_Avoid_: notification, alert message
+
 ### Telegram identity
 
 The link from a Telegram account (user id and chat id) to a restaurant, created
