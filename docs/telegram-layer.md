@@ -23,8 +23,11 @@ Telegram ──POST /telegram/rest-admin/webhook──▶ Cloudflare tunnel / lo
   watomation/routers/telegram_webhook.py
     1. find the bot by URL slug            channels/telegram/bots.py  find_by_slug()
     2. compare X-Telegram-Bot-Api-Secret-Token (constant time)       403 if wrong, 404 if no such bot
-    3. validate the Update; log delivery_lag; run the handler with a 25 s timeout
+    3. validate the Update, answer 200 at once, and run the handler (25 s timeout) in a BackgroundTask so a slow Telegram call cannot stall the bot's later updates; updates may now run concurrently
     4. dp.feed_update(bot, update)         aiogram Dispatcher for THIS bot only
+         channels/telegram/inbox.py  InboxMiddleware (outer middleware on dp.update)
+           claim → RPC t_inbox_claim   'new' → run the handlers; 'duplicate' → skip (Telegram retry)
+           after the handlers: RPC t_inbox_finish → row 'done' or 'failed'  (inbox down → fail OPEN, log, handle anyway)
          channels/telegram/rest_admin/router.py
            /start <code>   → invites.preview_invite()  → RPC t_invite_preview   → "Link this chat to <b>name</b>?" [Yes][No]
            tap Yes         → invites.claim_invite()    → RPC t_claim_invite     → "You've been onboarded successfully."
@@ -40,22 +43,35 @@ The webhook route does not contain business logic. Per-bot objects are created i
 |---|---|---|
 | Settings | `config/tgram_setting.py` | `TgramBotSettings.for_bot("rest_admin", agent_env)` reads `tgram_rest_admin_*` keys; `build_bot()`; module values `tgram_rest_admin_settings`, `rest_admin_bot` (re-exported from `config/__init__.py`) |
 | DB clients | `config/pg_setting.py` | `client_ordelo` (anon key) and `client_ordelo_service` (service-role key, used by `invites.py`) |
-| Registry | `channels/telegram/bots.py` | `TelegramBot` (settings + bot + dispatcher), `build_registry`, `default_registry`, `find_by_slug`, `close_registry`, `DISPATCHER_FACTORIES` (one factory per bot key) |
+| Registry | `channels/telegram/bots.py` | `TelegramBot` (settings + bot + dispatcher + `cards`), `build_registry`, `default_registry`, `find_by_slug`, `close_registry`, `DISPATCHER_FACTORIES` (one factory per bot key) |
 | Errors | `channels/telegram/errors.py` | Dispatcher error handlers (ignores stale/too-old callback queries) |
-| Callback data | `channels/telegram/callbacks.py` | `InviteDecision` (`inv:<code>:y\|n`), the 64-byte limit check |
+| Callback data | `channels/telegram/callbacks.py` | `InviteDecision` (`inv:<code>:y\|n`), `OrderAction` (`ord:<order>:d\|t:acc\|dec\|pk:<minutes>`), the 64-byte limit check |
 | Keyboards | `channels/telegram/keyboards.py` | `invite_confirm_kb(code)`; `contact_request_kb()` (unused for now, kept for the later phone-verified flow) |
+| Decision rule (shared) | `utils_common/order_management/restaurant_decision.py` | `decide`, `set_pickup`, `describe`: thin wrappers over `restaurant_order_decide` / `restaurant_order_set_pickup`. Used by the WhatsApp handlers; Telegram reaches the same SQL through `t_order_decide` / `t_order_set_pickup` (`CardStore.decide` / `set_pickup`) |
+| Inbox | `channels/telegram/inbox.py` | `claim`, `finish` (thin wrappers over `t_inbox_claim` / `t_inbox_finish`) and `InboxMiddleware(bot_key)`, registered once per bot in `bots.py`: at-most-once handling per `(bot_key, update_id)` |
+| Order cards | `channels/telegram/rest_admin/order_cards/` | `OrderCards(bot, bot_key)` with `remind(order, n, of)`, `refresh(order)` and `tap(query, action)`; public names `OrderCards`, `OrderRef`. `model.py` is pure (immutable `Card` changed by events, every text, button and toast), `store.py` (`CardStore`: the RPCs), `io.py` (`TelegramIO`: send / edit / delete and Telegram error mapping) |
+| Order buttons | `channels/telegram/rest_admin/orders.py` | `build_orders_router()`: ONE handler, `OrderAction.filter()` → `order_cards.tap(query, callback_data)`; included by `router.build_router()`; `order_cards` is injected from `dp["order_cards"]` |
+| Order alerts route | `watomation/routers/telegram_order_alerts.py` | `POST /telegram/rest-admin/order-alerts`, called by `job_t_order_alerts()`: 503 without a bot (checkpoints stay pending), otherwise 200 and background `remind` / `refresh` |
 | **DB access** | `channels/telegram/invites.py` | `preview_invite`, `claim_invite`, `linked_restaurants`: thin async wrappers over the three RPCs |
 | Restaurant-admin bot | `channels/telegram/rest_admin/router.py` | `build_router()` returns a NEW router per call; `/start`, `/help`, `/whoami`, the Yes/No callback, a text fallback |
 | | `channels/telegram/rest_admin/commands.py` | command menu and help text |
 | Webhook | `watomation/routers/telegram_webhook.py` | `POST /telegram/{bot_slug}/webhook` |
 | App wiring | `watomation/fapp_ordelo_agent.py` | lifespan builds and closes the registry; `include_router(telegram_webhook.router)` |
 | **Database** | `ordelo_datamodels/migrations/create_t_invites.sql` | `t_invites` table, `t_invites_shareable` view, the three RPC functions, grants, operator SQL. **The one place that defines the invite database objects** |
+| | `ordelo_datamodels/migrations/restaurant_order_decision.sql` | `delivery_summary_status_check` now allows `'declined'` (R1-a), `restaurant_admin_label`, `restaurant_order_decide`, `restaurant_order_set_pickup`, and the Telegram wrappers `t_order_admin_phone`, `t_order_decide`, `t_order_set_pickup` (D14 authorisation) |
+| | `ordelo_datamodels/migrations/create_t_inbox.sql` | `t_inbox` table, `t_inbox_claim`, `t_inbox_finish`, grants |
+| | `ordelo_datamodels/migrations/create_t_order_alerts.sql` | `t_order_alerts` (schedule), `t_sent_messages` (ledger), the card functions, `job_t_order_alerts()` (the 5 s sweep), `t_housekeeping()`, config rows, operator `cron.schedule` lines |
 | | `ordelo_datamodels/migrations/drop_tgram_invites.sql` | cleanup of the old `tgram_` names (run once before the `t_` migration) |
 | Operations | `notebooks/telegram/tgram_setup_bot.py` | token check, set/verify webhook (`allowed_updates` computed from the handlers), set command menu, smoke tests |
 | | `notebooks/telegram/tgram_scratchpad.py` | send/edit/reply experiments |
 | Tests | `tests/config/test_tgram_setting.py` | settings, fail-fast, secret hygiene |
 | | `tests/channels/telegram/` | `conftest.py` (RecordingSession, `FakeInviteDb` that mimics the RPC contract), `test_bots.py`, `test_invites.py`, `test_rest_admin_router.py` |
-| | `tests/watomation/routers/test_telegram_webhook.py` | 404 / 403 / invalid update / handler failure still 200 |
+| | `tests/channels/telegram/test_inbox.py` | `FakeInboxDb` (conftest) mimics the inbox RPCs: duplicate skipped, failed/cancelled handler recorded, fail-open |
+| | `tests/channels/telegram/test_order_card_model.py`, `test_order_cards.py` | the pure card model (transitions, views per viewer, toasts) and `remind` / `refresh` against `FakeCardStore` (conftest, mimics the card RPCs) + `RecordingSession` |
+| | `tests/channels/telegram/test_order_taps.py`, `test_order_card_store.py` | taps through a real `Dispatcher` (accept / decline / pickup / refused / revoked / group-shaped / duplicate delivery) and the `CardStore` RPC contract |
+| | `tests/watomation/routers/test_telegram_order_alerts.py` | 503 without a bot, background calls, payload validation |
+| | `tests/sql/` | isolated-database tests of the migrations (skipped without `ORDELO_TEST_DB_URI`; local throwaway Postgres only) |
+| | `tests/watomation/routers/test_telegram_webhook.py` | 404 / 403 / invalid update / handler failure still 200 / retried update handled once |
 | Docs | `docs/adr/0011-...md`, `docs/local-testing-runbook.md` (Telegram section), `CONTEXT.md`, `.claude/skills/database-operations/SKILL.md` (invite SOP) | decisions, local setup, vocabulary, operator procedure |
 
 ## 4. Settings, secrets and clients
@@ -116,6 +132,30 @@ When you add, rename or change an RPC, update **all three** in the same change.
 | RPC `t_claim_invite(...)` | `create_t_invites.sql` | `invites.claim_invite` | Yes button | `test_invites.py`, `test_rest_admin_router.py` |
 | RPC `t_linked_restaurants(p_bot_key, p_user_id)` | `create_t_invites.sql` | `invites.linked_restaurants` | `/start`, `/whoami` | `test_invites.py`, `test_rest_admin_router.py` |
 | config row `ordelo_config.TGRAM_REST_ADMIN_BOT_USERNAME` | operator SQL (runbook) | none (read by the view) | n/a | n/a |
+| table `t_inbox` | `create_t_inbox.sql` | none directly (through the RPCs) | n/a | `FakeInboxDb` mimics it; `tests/sql/test_t_inbox_sql.py` |
+| RPC `t_inbox_claim(p_bot_key, p_update_id, p_kind, p_tuid)` | `create_t_inbox.sql` | `inbox.claim` (via `InboxMiddleware`) | every update | `test_inbox.py`, `test_telegram_webhook.py`, `tests/sql/test_t_inbox_sql.py` |
+| RPC `t_inbox_finish(p_bot_key, p_update_id, p_status, p_error)` | `create_t_inbox.sql` | `inbox.finish` (via `InboxMiddleware`) | every update | `test_inbox.py`, `tests/sql/test_t_inbox_sql.py` |
+| constraint `delivery_summary_status_check` | `restaurant_order_decision.sql` (and `summary.sql`) | none | n/a | `tests/sql/test_restaurant_decision_sql.py` |
+| function `restaurant_admin_label(p_phone)` | `restaurant_order_decision.sql` | none directly (called inside the two functions below) | "by X" in replies | `tests/sql/test_restaurant_decision_sql.py` |
+| RPC `restaurant_order_decide(p_order_number, p_order_type, p_decision, p_admin_phone, p_channel)` | `restaurant_order_decision.sql` | `restaurant_decision.decide` | WhatsApp Accept tap (`_update_restaurant_order_status`) | `test_restaurant_decision.py`, `test_on_callback_wa_handler.py`, `tests/sql/test_restaurant_decision_sql.py` |
+| RPC `restaurant_order_set_pickup(p_order_number, p_order_type, p_pickup_time, p_admin_phone, p_channel)` | `restaurant_order_decision.sql` | `restaurant_decision.set_pickup` | WhatsApp pickup-time tap (`handle_pickup_time_selection`) | `test_restaurant_decision.py`, `test_on_callback_wa_handler.py`, `tests/sql/test_restaurant_decision_sql.py` |
+| table `t_order_alerts` | `create_t_order_alerts.sql` | none (written and read by the sweep only) | n/a | `tests/sql/test_order_cards_sql.py` |
+| table `t_sent_messages` | `create_t_order_alerts.sql` | none directly (through the RPCs) | n/a | `FakeCardStore` mimics it; `tests/sql/test_order_cards_sql.py` |
+| function `t_order_admin_phone(p_bot_key, p_tuid, p_rest_ref)` | `restaurant_order_decision.sql` | none (used by the two RPCs below) | n/a | `tests/sql/test_order_taps_sql.py` (D14: claimed invite for the restaurant + phone in `admins`) |
+| RPC `t_order_decide(p_bot_key, p_tuid, p_order_number, p_order_type, p_decision)` | `restaurant_order_decision.sql` | `CardStore.decide` | Accept / Decline buttons (`OrderCards.tap`) | `test_order_taps.py`, `test_order_card_store.py`, `tests/sql/test_order_taps_sql.py` (incl. 6 concurrent taps: one winner) |
+| RPC `t_order_set_pickup(p_bot_key, p_tuid, p_order_number, p_order_type, p_minutes)` | `restaurant_order_decision.sql` | `CardStore.set_pickup` | pickup-time buttons (`OrderCards.tap`) | `test_order_taps.py`, `test_order_card_store.py`, `tests/sql/test_order_taps_sql.py` (pickup = order time + minutes) |
+| function `t_order_card_status(p_rcs, p_pickup)` | `create_t_order_alerts.sql` | none (used by the functions below) | n/a | `tests/sql/test_order_cards_sql.py`; keys match `model.Status` |
+| function `t_order_card_row(p_order_number, p_order_type)` | `create_t_order_alerts.sql` | none (used by the functions below) | n/a | `tests/sql/test_order_cards_sql.py` |
+| function `t_order_card_destinations(p_bot_key, p_rest_ref)` | `create_t_order_alerts.sql` | none directly (inside the snapshot) | n/a | `tests/sql/test_order_cards_sql.py` (the one place that says where cards go) |
+| RPC `t_order_card_snapshot(p_bot_key, p_order_number, p_order_type)` | `create_t_order_alerts.sql` | `CardStore.snapshot` | `OrderCards.remind`, `refresh` | `test_order_cards.py`, `tests/sql/test_order_cards_sql.py` |
+| RPC `t_order_card_sent(...)` | `create_t_order_alerts.sql` | `CardStore.card_sent` | `OrderCards.remind` | `test_order_cards.py`, `tests/sql/test_order_cards_sql.py` |
+| function `t_order_cards_stale(p_bot_key, p_order_number, p_order_type)` | `create_t_order_alerts.sql` | none (used by take and the sweep) | n/a | `tests/sql/test_order_cards_sql.py` |
+| RPC `t_order_cards_take(p_bot_key, p_order_number, p_order_type)` | `create_t_order_alerts.sql` | `CardStore.take_for_refresh` | `OrderCards.refresh` | `test_order_cards.py`, `tests/sql/test_order_cards_sql.py` (6 concurrent workers, each copy claimed once) |
+| RPC `t_order_card_mark(p_id, p_outcome, p_card_status, p_close)` | `create_t_order_alerts.sql` | `CardStore.mark` | `OrderCards.remind`, `refresh` | `test_order_cards.py`, `tests/sql/test_order_cards_sql.py` |
+| function `job_t_order_alerts()` | `create_t_order_alerts.sql` | none (pg_cron every 5 s, operator step) | POSTs `/telegram/rest-admin/order-alerts` | `tests/sql/test_order_cards_sql.py` (seed, cancel, collapse, mark only on 2xx, stale refreshes) |
+| function `t_housekeeping()` | `create_t_order_alerts.sql` | none (pg_cron daily, operator step) | n/a | `tests/sql/test_order_cards_sql.py` |
+| config rows `TGRAM_ORDER_ALERT_OFFSETS_SECS`, `TGRAM_INBOX_RETENTION_DAYS`, `TGRAM_LEDGER_RETENTION_DAYS` | `create_t_order_alerts.sql` | none (read by the SQL) | n/a | `tests/sql/test_order_cards_sql.py` |
+| existing function `parse_alert_offsets(p_config_key)` | `jobs_n_functions/job_rider_pickup_alerts.sql` | none | n/a | copied into `tests/sql/minimal_schema.sql` |
 | existing table `restaurant_master` | existing migrations | none (joined inside the RPCs for the restaurant name) | n/a | n/a |
 
 ## 7. Invite lifecycle and operations
@@ -130,17 +170,24 @@ Setup for a new bot or environment: add the AWS keys, set the `ordelo_config` us
 
 - `tests/conftest.py` stubs the AWS secret (including the `tgram_rest_admin_*` keys), so `import config` works in tests.
 - Handlers are tested through a real aiogram `Dispatcher` with a `RecordingSession` (no network); the database is replaced by `FakeInviteDb`, which mimics the three RPCs' return shapes. If an RPC's contract changes, change the fake in the same commit.
-- The webhook tests cover 404 (unknown bot), 403 (bad or missing secret), invalid updates, and handler failure still returning 200.
+- The webhook tests cover 404 (unknown bot), 403 (bad or missing secret), invalid updates, handler failure still returning 200, and a retried update being handled once (the `t_inbox` outcome is asserted, not just the 200).
+- **SQL against an isolated database:** `tests/sql/` applies the real migration files to a throwaway local Postgres and tests the functions, grants and races (8 concurrent claims -> exactly one winner). Set `ORDELO_TEST_DB_URI` to a local server (`tests/sql/conftest.py` refuses non-local hosts and resets the `public` schema); without it the tests are skipped. Never point it at the shared Supabase database.
 - Nothing here proves the SQL itself: it has been parsed, and exercised live for `t_invite_preview` and the insert path, but the full claim path needs a real tap in Telegram.
 
 ## 9. Not done yet
 
-- **Durable inbox** (`(bot_key, update_id)` dedupe) before any state-changing handler. Today the route processes inline.
-- **Order actions** (accept, pickup time, ready) must re-check that the person's invite is still `claimed` for that restaurant, and a decision is pending on whether the phone must also be in `restaurant_master.admins`.
+- **Alias order prefixes:** order cards are looked up by the order number's prefix; a restaurant whose orders use an alias prefix (`_REST_REF_ALIAS_MAP`) gets no cards until `t_order_card_destinations()` resolves the alias.
+- **Scheduling is an operator step:** `create_t_order_alerts.sql` ends with commented `cron.schedule` lines (the 5 s sweep and the daily `t_housekeeping()`); until they run nothing is sent and nothing is purged.
+- **Long cards:** an order with a very long item list is not truncated to Telegram's 4096 characters.
+- **Order actions** are authorised per tap (claimed invite for the restaurant AND the invite phone in `restaurant_master.admins`). Not built: a "ready" action, adjusting an already-set pickup time from Telegram, and a tap on a card that has no ledger row (an old card sent before the migration is answered but not redrawn).
 - **Rider bot** (`DISPATCHER_FACTORIES` is ready for a second key) and the **phone-verified** contact flow.
 
 ## Change log
 
 Add one line per change, newest first: date, what changed, files.
 
+- 2026-10-15: Phase 5, Telegram taps: `OrderCards.tap`, `rest_admin/orders.py` (`build_orders_router`, one `OrderAction` handler), `CardStore.decide` / `set_pickup`, SQL `t_order_admin_phone` / `t_order_decide` / `t_order_set_pickup` appended to `restaurant_order_decision.sql` (re-run it), `FakeCardStore` decide/set_pickup, dispatcher-level tap tests, SQL tap tests. Authorised by the Telegram user id only (group-ready).
+- 2026-10-15: Phase 4, order cards (remind / refresh) + ledger: `create_t_order_alerts.sql` (`t_order_alerts`, `t_sent_messages`, card functions, `job_t_order_alerts`, `t_housekeeping`), `channels/telegram/rest_admin/order_cards/` (`model`, `store`, `io`, `OrderCards`), `OrderAction`, `TelegramBot.cards`, `POST /telegram/rest-admin/order-alerts`, `FakeCardStore`, model / cards / route / SQL tests. Run the migration, deploy, then schedule the two cron jobs.
+- 2026-10-15: Phase 3, shared decision functions + R1-a: `restaurant_order_decision.sql` (`'declined'` allowed on `delivery_summary.status`, `restaurant_admin_label`, `restaurant_order_decide`, `restaurant_order_set_pickup`), `utils_common/order_management/restaurant_decision.py`, WhatsApp accept/decline/pickup handlers switched to it (a losing tap is told who decided), delivery decline handler now terminal + payment cancel + customer notice (mirrors takeaway), `FakeDecisionDb`, SQL tests. Run the migration before deploying.
+- 2026-10-15: Phase 2, durable inbox: `t_inbox` + `t_inbox_claim` / `t_inbox_finish` (`create_t_inbox.sql`), `channels/telegram/inbox.py` (`InboxMiddleware`, at-most-once, fail open), registered in `bots.py`; `FakeInboxDb`, `tests/channels/telegram/test_inbox.py`, `tests/sql/` isolated-database tests. Run the migration before deploying.
 - 2026-10-15: Telegram layer scaffold: settings (fail-fast), registry, webhook route, restaurant-admin bot, invite flow (`t_invites`, three RPCs, `invites.py`), service-role client, delivery-lag logging, notebooks, tests, docs. Renamed `tgram_*` database objects to `t_*` (run `drop_tgram_invites.sql`, then `create_t_invites.sql`).

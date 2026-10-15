@@ -453,3 +453,45 @@ the sections above are otherwise unchanged.
   serves as the restaurant-admin test bot. A bot has one webhook, so whichever
   URL was set last receives all updates.
 
+
+## Amendment 2 - 15 October 2026 (restaurant-admin order alerts, phases 2-5)
+
+Decided in the second grilling session of
+[the plan](../../plans/telegram-rest-admin-scaffold-plan.md) (decisions D11-D27).
+It supersedes "Ingress in step 1" above where they differ.
+
+- **At-most-once inbox (D21).** Every update is claimed in `t_inbox` by
+  `(bot_key, update_id)` before any handler runs (`InboxMiddleware`, an outer
+  middleware on `dp.update`), and a duplicate is skipped even when the first attempt
+  failed. If the inbox is unreachable the update is handled anyway (fail open): the
+  state-changing SQL functions are atomic on their own, so a double delivery cannot
+  double-apply an order action. The webhook route still answers 200 after the secret
+  check; the real outcome is the `t_inbox` row.
+- **Shared decision functions (D18).** WhatsApp and Telegram both record an
+  Accept/Decline and the pickup time through `restaurant_order_decide` and
+  `restaurant_order_set_pickup`, so there is one atomic rule and one result
+  vocabulary. The existing `restaurant_confirmation_status` trigger still fires the
+  webhook that handles payment, customer messages and WhatsApp pickup prompts.
+- **Terminal delivery decline (D15/D16, fixes R1-a).** The decline sets
+  `delivery_summary.status = 'declined'` in the same `UPDATE` as the decision (the
+  constraint now allows it); the old handler set `'unassigned'` afterwards, which made a
+  declined order dispatchable. The delivery decline handler mirrors takeaway: cancel
+  the payment unless pay-at-restaurant, web customers get a `restaurant_declined`
+  event (with a `queue_release` fallback), WhatsApp customers a direct text. The
+  WhatsApp Decline button stays commented out (D17): Decline is Telegram-only.
+- **Order cards (D24, D26).** An order alert is one deep module, `OrderCards`
+  (`remind`, `refresh`; `tap` in phase 5). The database is authoritative and is read
+  before every send and again after it; the `t_sent_messages` ledger is cleanup only.
+  A repeated reminder is a new message and the previous copy in that chat is deleted
+  (so the phone notifies); when the order is decided every open copy is edited to the
+  final state, never deleted. A 5-second SQL sweep (`job_t_order_alerts`) seeds the
+  reminder schedule, finds stale copies and posts to the app; checkpoints are marked
+  only on a 2xx. Copies are claimed in SQL (`FOR UPDATE SKIP LOCKED`), so up to three
+  workers need no shared state.
+- **Order taps (D14, D25, D27).** Every tap goes through one handler, `OrderCards.tap`,
+  and the SQL wrappers `t_order_decide` / `t_order_set_pickup`, which authorise the
+  Telegram **user** (a claimed invite for the order's restaurant and the invite phone in
+  `restaurant_master.admins`) and then call the same shared decision functions as
+  WhatsApp. A chat id never authorises anything, so a group chat works unchanged. The
+  tapper's own copy and everyone else's are redrawn from the database after every
+  outcome, including a refused tap.
