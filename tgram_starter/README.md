@@ -15,6 +15,9 @@ tgram_starter/
     onboarding.py   /start <code> claim, contact verification, /whoami, /invite, /invites
     interactive.py  inline buttons, callbacks, edit-in-place, stale-tap handling, photo/document
     basic.py        /help, formatting, typing, location + live location, media, echo (must be last)
+  order_card/       restaurant order card: ONE message per admin, edited as the order moves
+                    state.py (transitions) · render.py (pure text/buttons) · service.py (send/edit) ·
+                    handlers.py (button taps) · demo_api.py (stand-in delivery hooks, /demo/order-card)
   miniapp/          Demo Kitchen Mini App: auth.py (verify initData) · store.py · router.py · static/index.html
   handlers/miniapp.py  /app command that opens it
   notebook_setup_bot.py  `# %%` cells: validate token, SET/inspect/delete the webhook, bot commands

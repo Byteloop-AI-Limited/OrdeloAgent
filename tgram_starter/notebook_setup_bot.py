@@ -27,6 +27,7 @@ bot = build_bot(settings)
 print("token set:     ", bool(settings.bot_token))
 print("secret set:    ", bool(settings.webhook_secret))
 print("webhook URL:   ", settings.webhook_url if settings.webhook_base_url else "(TGRAM_WEBHOOK_BASE_URL not set)")
+print("mini app:     ", bool(settings.mini_app_url))
 
 # %% 2. Validate the token
 me = await bot.get_me()
@@ -81,7 +82,9 @@ print(await bot.get_my_commands())
 import httpx  # noqa: E402
 
 base = settings.webhook_base_url or callback_url.rsplit("/telegram/webhook", 1)[0]
+print("base URL      =", base)
 MINIAPP_URL = settings.miniapp_url or base + "/miniapp/"
+# %%
 print("MINIAPP_URL =", MINIAPP_URL)
 assert MINIAPP_URL.startswith("https://"), "Telegram only opens https:// mini apps (set TGRAM_WEBHOOK_BASE_URL or TGRAM_MINIAPP_URL)"
 
