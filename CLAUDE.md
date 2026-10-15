@@ -10,6 +10,8 @@ OrdeloAgent is an AI-powered on-demand food delivery orchestration system. It us
 
 Follow the [local testing runbook](docs/local-testing-runbook.md) to run OrdeloAgent and the sibling restaurant-frontend, expose them through Cloudflare Tunnel, and switch/restore shared `ordelo_config` URLs during maintenance. Before any Python command, activate `venv` (or `.venv`), set `PYTHONPATH="$PWD"`, and load `.env` using `envLoad` as documented there.
 
+For aiogram bot changes, use the project [Telegram Vertification Loop skill](.claude/skills/telegram-vertification-loop/SKILL.md) to verify dispatcher, webhook, database, and live Telegram evidence.
+
 ```bash
 # Dev server
 uv run watomation/fapp_ordelo_agent.py  # port 3100; use --active with venv
