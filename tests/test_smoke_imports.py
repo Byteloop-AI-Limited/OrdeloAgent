@@ -34,6 +34,13 @@ import pytest
         # utils_common
         # telegram channel
         "channels.telegram.bots",
+        "channels.telegram.inbox",
+        "channels.telegram.rest_admin.order_cards",
+        "channels.telegram.rest_admin.order_cards.model",
+        "channels.telegram.rest_admin.order_cards.store",
+        "channels.telegram.rest_admin.order_cards.io",
+        "watomation.routers.telegram_order_alerts",
+        "utils_common.order_management.restaurant_decision",
         "channels.telegram.rest_admin.router",
         "watomation.routers.telegram_webhook",
         "utils_common.tz_utils",

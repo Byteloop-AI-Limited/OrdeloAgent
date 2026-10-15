@@ -18,7 +18,8 @@ CREATE TABLE delivery_summary (
     restaurant_update_dtts TIMESTAMP WITH TIME ZONE, -- nullable, set when restaurant_confirmation_status changes
     restaurant_admin VARCHAR(12), -- nullable, stores the admin phone who confirmed the order
     -- Delivery lifecycle status
-    status          VARCHAR(50) NOT NULL CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed')),
+    -- 'declined' added by migrations/restaurant_order_decision.sql (R1-a): a declined delivery is never dispatchable
+    status          VARCHAR(50) NOT NULL CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed', 'declined')),
     rest_confirmation_code INTEGER NOT NULL,
     cust_confirmation_code INTEGER NOT NULL,
     rest_prep_time_minutes INTEGER,

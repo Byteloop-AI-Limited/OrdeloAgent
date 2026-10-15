@@ -12,6 +12,8 @@ from config.tgram_setting import TgramBotSettings
 
 from .conftest import callback_update, message_update
 
+pytestmark = pytest.mark.usefixtures("inbox_db")  # the dispatcher claims every update in the inbox
+
 SETTINGS = TgramBotSettings.for_bot(
     "rest_admin",
     {"tgram_rest_admin_bot_token": "123456:TEST-token", "tgram_rest_admin_webhook_secret": "abc"},
@@ -156,3 +158,26 @@ def test_invite_callback_fits_telegram_limit():
 
     assert fits_callback_limit(InviteDecision(code="Ab3_xY9kLm0Q", action="y"))  # issued 12-char code
     assert fits_callback_limit(InviteDecision(code="A" * 50, action="n"))  # generous headroom
+
+
+async def test_hanging_callback_answer_does_not_block_the_invite_claim(recording_bot, invite_db, monkeypatch):
+    import asyncio
+
+    from aiogram.methods import AnswerCallbackQuery
+
+    from channels.telegram import replies
+
+    monkeypatch.setattr(replies, "CALLBACK_ANSWER_TIMEOUT_SECS", 0.05)
+    bot, session = recording_bot
+    code = invite_db.add()
+    real = session.make_request
+
+    async def make_request(b, method, timeout=None):
+        if isinstance(method, AnswerCallbackQuery):
+            await asyncio.sleep(30)
+        return await real(b, method, timeout)
+
+    session.make_request = make_request
+    await asyncio.wait_for(feed(bot, callback_update(f"inv:{code}:y", user_id=111, username="ada")), timeout=5)
+    assert invite_db.invites[code]["status"] == "claimed"
+    assert session.edited_texts == ["✅ You've been onboarded successfully."]

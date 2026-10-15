@@ -109,3 +109,16 @@ def test_module_level_rest_admin_values_use_stub_env():
 
     assert tgram_rest_admin_settings.bot_key == REST_ADMIN_BOT_KEY == "rest_admin"
     assert rest_admin_bot is not None
+
+
+async def test_bot_session_fails_fast_and_drops_idle_connections():
+    """A dead idle connection must not hang a Bot API call for aiogram's default 60 s."""
+    from config.tgram_setting import BOT_KEEPALIVE_SECS, BOT_REQUEST_TIMEOUT_SECS
+
+    bot = build_bot(TgramBotSettings.for_bot("rest_admin", ENV))
+    try:
+        assert bot.session.timeout == BOT_REQUEST_TIMEOUT_SECS <= 10
+        client = await bot.session.create_session()  # also proves the connector options are accepted
+        assert client.connector._keepalive_timeout == BOT_KEEPALIVE_SECS
+    finally:
+        await bot.session.close()
