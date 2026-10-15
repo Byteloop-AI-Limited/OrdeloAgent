@@ -6,6 +6,7 @@ restaurant it would link and asks for confirmation, and a tap on Yes claims the 
 (plans/telegram-rest-admin-scaffold-plan.md).
 """
 
+import asyncio
 from html import escape as _html_escape
 
 from aiogram import F, Router
@@ -19,7 +20,10 @@ from config.tgram_setting import TgramBotSettings
 from .. import invites
 from ..callbacks import InviteDecision
 from ..keyboards import invite_confirm_kb
+from ..replies import answer_quietly
 from .commands import HELP_TEXT
+from .order_cards.model import TROUBLE
+from .orders import build_orders_router
 
 
 
@@ -33,7 +37,6 @@ NOT_LINKED = (
     "This chat isn't linked to a restaurant yet. Open the invite link you were sent, "
     "or ask your Ordelo contact for a new one."
 )
-TROUBLE = "Sorry, something went wrong on our side. Please try again in a minute."
 PRIVATE_ONLY = "Please open the invite link in a private chat with this bot."
 
 # Messages for invites that cannot be used.
@@ -95,7 +98,15 @@ async def _finish(query: CallbackQuery, text: str) -> None:
 
 
 async def on_invite_decision(query: CallbackQuery, callback_data: InviteDecision, tgram_settings: TgramBotSettings):
-    await query.answer()  # clear the button spinner promptly
+    # Clear the spinner beside the real work, never before it: a hung answer must not block the claim.
+    answered = asyncio.create_task(answer_quietly(query))
+    try:
+        await _apply_invite_decision(query, callback_data, tgram_settings)
+    finally:
+        await answered
+
+
+async def _apply_invite_decision(query: CallbackQuery, callback_data: InviteDecision, tgram_settings: TgramBotSettings):
     bot_key, user = tgram_settings.bot_key, query.from_user
     if callback_data.action == "n":
         await _finish(query, "Okay, this chat is not linked. Your invite link stays valid until it expires.")
@@ -157,5 +168,6 @@ def build_router() -> Router:
     router.message.register(cmd_help, Command("help"))
     router.message.register(cmd_whoami, Command("whoami"))
     router.callback_query.register(on_invite_decision, InviteDecision.filter())
+    router.include_router(build_orders_router())  # order-card buttons (callback queries; the text fallback is a message handler)
     router.message.register(fallback, F.text)  # last: swallows any other text
     return router
