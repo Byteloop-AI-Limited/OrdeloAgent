@@ -1,0 +1,3 @@
+interface:
+  display_name: "Telegram Vertification Loop"
+  short_description: "Verify Ordelo aiogram bot changes"
