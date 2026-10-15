@@ -121,6 +121,9 @@ class PgSetting(BaseSettings):
 
 pg_settings = PgSetting(**agent_env)
 client_ordelo = pg_settings.client
+# Service-role client: bypasses RLS and may call service_role-only functions (e.g. tgram_* invite RPCs).
+# Use only for server-side code paths that must not be reachable with the anon key.
+client_ordelo_service = create_client(pg_settings.rest_url, pg_settings.service_key)
 client_elas = create_client(
     pg_settings.rest_url,
     pg_settings.rest_key,
