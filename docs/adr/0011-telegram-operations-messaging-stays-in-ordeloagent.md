@@ -408,3 +408,48 @@ Principal source checks: `on_callback_wa_handler.dispatch_response`,
   splitting the repository, consider running the same image as a second
   process with a different entrypoint.
 - A different owner takes over operations messaging.
+
+## Amendment - 15 October 2026 (step-1 restaurant-admin scaffold)
+
+Decided while planning [the scaffold](../../plans/telegram-rest-admin-scaffold-plan.md);
+the sections above are otherwise unchanged.
+
+- **Settings file and keys.** The settings module is `config/tgram_setting.py`
+  (singular, matching `waba_setting.py`), not `config/telegram_setting.py`. One
+  `TgramBotSettings` class is built per bot from AWS secret keys
+  `tgram_<bot_key>_{bot_token,bot_username,webhook_secret,webhook_base_url}`.
+  Keys are required (revised 15 Oct 2026): a missing or malformed bot token or webhook
+  secret raises at import and the service refuses to start; it never runs silently without the bot.
+- **Bot key and route.** The restaurant-admin bot's key is `rest_admin`; its
+  route is `POST /telegram/rest-admin/webhook` (slug = key with `_` -> `-`).
+  The rider bot later adds `tgram_rider_*` keys and `/telegram/rider/webhook`.
+- **Construction timing.** aiogram `Bot` objects are built when `config` is
+  imported (`from config import rest_admin_bot`), because building one opens no
+  connection and it matches how `_async_wa_client` is exported. This refines
+  "Startup construction must become explicit": Dispatchers and router trees are
+  built in the FastAPI lifespan by `channels/telegram/bots.py` (fresh per bot),
+  and bot sessions are closed on shutdown. Dispatchers stay out of `config` to
+  avoid a circular import with domain modules.
+- **Restaurant-admin identity (revised 15 Oct 2026, replaces the earlier contact-share plan).**
+  Admins are linked by a private invite, not by matching a shared contact.
+  `t_invites` rows (`rest_ref`, `phone_number`, database-generated
+  `invite_code`, status, expiry) are created by the operator and sent over a
+  private channel as `t.me/<bot>?start=<code>`. `/start <code>` shows the
+  restaurant name and asks for confirmation; a tap on Yes claims the invite in
+  one atomic `UPDATE` (`t_claim_invite`), filling `telegram_user_id`,
+  `telegram_chat_id`, username and `claimed_at`. The contact-share check was
+  dropped because the links go only to numbers the operator entered and
+  admins were reluctant to share their number; `phone_verified` stays in the
+  table (never set yet) for a later flow. The residual risk is a forwarded link
+  claimed by the wrong person first: the operator sees the Telegram name on the
+  claimed row and revokes (`status = 'revoked'`). A claimed invite only
+  authenticates; future restaurant actions must still check the row is
+  `claimed` (revocation takes effect on the next action) and the restaurant.
+- **Ingress in step 1.** Step 1 handles updates inline (secret check, timeout,
+  log failures, always 200) and only serves read-only commands. The durable
+  inbox in "Acknowledgement and durable work" is a hard gate before the first
+  state-changing handler (order acceptance, pickup time, ready).
+- **Test bot.** Until a dedicated bot exists, the `tgram_starter` dev bot also
+  serves as the restaurant-admin test bot. A bot has one webhook, so whichever
+  URL was set last receives all updates.
+

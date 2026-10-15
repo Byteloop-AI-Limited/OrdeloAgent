@@ -329,6 +329,11 @@ ON CONFLICT (config_key) DO UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description;
 
+
+  INSERT INTO ordelo_config (config_key, config_value, description)
+  VALUES ('TGRAM_REST_ADMIN_BOT_USERNAME', 'OrdeloRestaurantBot', 'Restaurant-admin Telegram bot')
+  ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value, updated_at = now();
+
 -- Restaurant-specific overrides (insert per restaurant as needed, e.g. SFCS)
 INSERT INTO ordelo_config (config_key, config_value, description)
 VALUES

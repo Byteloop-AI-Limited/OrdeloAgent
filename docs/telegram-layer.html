@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ordelo · Telegram layer</title>
+<!--
+  Companion to docs/telegram-layer.md. Self-contained: no network, no build step.
+  TO EXTEND: edit the DATA block in the script at the bottom (FLOWS, FILES, XREF, STATES, CHECKLIST, CHANGELOG).
+  Keep it in step with the markdown file; change both in the same commit.
+-->
+<style>
+:root{--bg:#f5f7fa;--panel:#fff;--ink:#16222e;--muted:#566677;--line:#d8e1ea;--accent:#0b6b5e;--accent-ink:#fff;--soft:#e6f4ef;--code:#e9eff5;--warn:#9a5b00;--warn-bg:#fff3dc;--node:#f0f4f8;--shadow:0 10px 40px #12263a10}
+:root[data-theme=dark]{--bg:#0f1a24;--panel:#162531;--ink:#e8f1f7;--muted:#9fb4c5;--line:#32485a;--accent:#6fdcc0;--accent-ink:#0b1f1a;--soft:#1d3a37;--code:#26394a;--warn:#ffcf7a;--warn-bg:#3a2e14;--node:#1c2f3d;--shadow:none}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1a24;--panel:#162531;--ink:#e8f1f7;--muted:#9fb4c5;--line:#32485a;--accent:#6fdcc0;--accent-ink:#0b1f1a;--soft:#1d3a37;--code:#26394a;--warn:#ffcf7a;--warn-bg:#3a2e14;--node:#1c2f3d;--shadow:none}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+code{background:var(--code);padding:1px 6px;border-radius:5px;font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
+a{color:var(--accent)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid #e3a53b;outline-offset:2px}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:24px 16px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+header .wrap{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.6px;color:var(--accent);text-transform:uppercase}
+h1{font-size:clamp(24px,3vw,38px);line-height:1.15;margin:6px 0 8px;letter-spacing:-.8px}
+header p{margin:0;color:var(--muted);max-width:760px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:8px 14px;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+nav.tabs{background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto;padding-top:6px}
+nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font-weight:650;color:var(--muted);white-space:nowrap}
+nav.tabs button[aria-selected=true]{color:var(--accent);border-bottom-color:var(--accent)}
+main{padding:24px 0 60px}
+section.panel{display:none}
+section.panel.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow);margin-bottom:18px}
+h2{font-size:22px;margin:0 0 6px}
+.lead{color:var(--muted);margin:0 0 16px}
+.note{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 14px;margin:12px 0;font-size:14px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 12px;font-size:13px;font-weight:600}
+.chip[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+input[type=search]{flex:1;min-width:200px;border:1px solid var(--line);border-radius:9px;padding:8px 12px;background:var(--panel)}
+/* flow */
+.pipe{display:flex;gap:6px;overflow-x:auto;padding:4px 2px 12px}
+.node{flex:1 0 118px;background:var(--node);border:2px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center;font-size:13px;line-height:1.35;position:relative}
+.node b{display:block;font-size:13px}
+.node small{color:var(--muted)}
+.node.on{border-color:var(--accent);background:var(--soft)}
+.node.done{opacity:.6}
+.node:not(:last-child)::after{content:"→";position:absolute;right:-12px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:700}
+.stepbox{border-left:4px solid var(--accent);padding:6px 0 6px 16px;min-height:130px}
+.stepbox h3{margin:0 0 4px;font-size:18px}
+.stepbox .file{color:var(--muted);font-size:13px}
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+tr.click{cursor:pointer}
+tr.click:hover td,tr.sel td{background:var(--soft)}
+td .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:1px 7px;background:var(--code);margin-right:4px}
+.detail{background:var(--soft);border-radius:10px;padding:12px 14px;margin-top:12px;font-size:14px}
+.tablewrap{overflow-x:auto}
+/* states */
+.states{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0 16px}
+.state{border:2px solid var(--line);border-radius:12px;padding:10px 18px;background:var(--node);font-weight:700}
+.state[aria-pressed=true]{border-color:var(--accent);background:var(--soft)}
+/* checklist */
+.check{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)}
+.check input{margin-top:6px;width:18px;height:18px}
+.bar{height:8px;background:var(--code);border-radius:6px;overflow:hidden;margin:6px 0 14px}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+ul.log{padding-left:18px}ul.log li{margin:8px 0}
+@media (max-width:640px){header{padding:18px 8px}.card{padding:14px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">Ordelo · living guide</div>
+      <h1>Telegram layer</h1>
+      <p>How OrdeloAgent receives Telegram updates, where each piece lives, and how database functions (RPCs) are wired to Python. Same content as <a href="telegram-layer.md"><code>telegram-layer.md</code></a>; this page adds the clickable parts. Last reviewed 15 October 2026 (code review, not a live audit).</p>
+    </div>
+    <button class="btn" id="theme" aria-label="Toggle light and dark theme">Theme</button>
+  </div>
+</header>
+<nav class="tabs" role="tablist" aria-label="Sections"><div class="wrap" id="tabs"></div></nav>
+<main><div class="wrap">
+
+<section class="panel" id="p-flow" role="tabpanel">
+  <div class="card">
+    <h2>Request flow</h2>
+    <p class="lead">Pick a scenario and step through it. The highlighted box is where the update is now.</p>
+    <div class="row" id="scenarios" role="group" aria-label="Scenario"></div>
+    <div class="pipe" id="pipe" aria-hidden="true"></div>
+    <div class="stepbox" id="stepbox" aria-live="polite"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="prev">Back</button>
+      <button class="btn primary" id="next">Next</button>
+      <span id="stepcount" style="color:var(--muted);font-size:14px"></span>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Rules that hold everywhere</h2>
+    <ul>
+      <li>The webhook route has no business logic and <strong>always answers 200</strong> after the secret check (Telegram retries anything else).</li>
+      <li>Each bot has its <strong>own</strong> aiogram <code>Dispatcher</code> and router tree. Routers are built fresh per bot, never shared.</li>
+      <li>The app <strong>never</strong> calls <code>set_webhook</code> or <code>delete_webhook</code>. That is notebook cell 4.</li>
+      <li>One webhook per bot token: a token shared with another service sends every update to the last URL set.</li>
+      <li>Missing or malformed <code>tgram_rest_admin_bot_token</code> / <code>_webhook_secret</code> stops the service at import.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="panel" id="p-files" role="tabpanel">
+  <div class="card">
+    <h2>File map</h2>
+    <p class="lead">Click a row for the names defined in the file. Filter by area or search.</p>
+    <div class="row"><input type="search" id="fsearch" placeholder="Search files, functions, tables" aria-label="Search files"></div>
+    <div class="row" id="fareas" role="group" aria-label="Area filter"></div>
+    <div class="tablewrap"><table><thead><tr><th>File</th><th>Area</th><th>What it does</th></tr></thead><tbody id="ftable"></tbody></table></div>
+    <div class="detail" id="fdetail" hidden></div>
+  </div>
+</section>
+
+<section class="panel" id="p-xref" role="tabpanel">
+  <div class="card">
+    <h2>Database object ↔ code ↔ tests</h2>
+    <p class="lead">The cross-reference rule: the Python wrapper's docstring names the SQL file and each RPC; the SQL header names the Python callers; this table names both. Click a row to see the chain.</p>
+    <div class="row"><input type="search" id="xsearch" placeholder="Search a table, RPC, function or file" aria-label="Search cross-reference"></div>
+    <div class="tablewrap"><table><thead><tr><th>Database object</th><th>Kind</th><th>Python caller</th><th>Handler</th></tr></thead><tbody id="xtable"></tbody></table></div>
+    <div class="detail" id="xdetail" hidden></div>
+  </div>
+  <div class="card">
+    <h2>The pattern</h2>
+    <p><strong>The RPC owns the logic. One Python wrapper per domain. Both files name each other.</strong></p>
+    <ol>
+      <li>Table(s) and their RPCs live in <strong>one migration file</strong> (<code>create_t_invites.sql</code>).</li>
+      <li>The RPC is atomic and returns <code>jsonb</code> with a <code>result</code> string (<code>ok</code>, <code>expired</code>, <code>revoked</code> ...).</li>
+      <li>The Python wrapper (<code>invites.py</code>) is a typed <code>async def</code> per RPC: <code>asyncio.to_thread</code>, service-role client, a small outcome dataclass.</li>
+      <li>Handlers call the wrapper only; they never query the table or re-implement the rule.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="panel" id="p-life" role="tabpanel">
+  <div class="card">
+    <h2>Invite lifecycle (<code>t_invites.status</code>)</h2>
+    <p class="lead">Click a state. There is no path back to <code>pending</code>: issue a new invite.</p>
+    <div class="states" id="states" role="group" aria-label="Invite state"></div>
+    <div class="detail" id="sdetail"></div>
+    <div class="note">Claiming proves the person held the link and tapped Yes. It does not prove their phone number; <code>phone_verified</code> is reserved for a later flow and is never set today.</div>
+  </div>
+</section>
+
+<section class="panel" id="p-add" role="tabpanel">
+  <div class="card">
+    <h2>Adding a database-backed Telegram feature</h2>
+    <p class="lead">Tick as you go (kept in this browser only).</p>
+    <div class="bar"><i id="bar"></i></div>
+    <div id="checklist"></div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="reset">Reset checklist</button></div>
+  </div>
+</section>
+
+<section class="panel" id="p-log" role="tabpanel">
+  <div class="card">
+    <h2>Not done yet</h2>
+    <ul id="todo"></ul>
+  </div>
+  <div class="card">
+    <h2>Change log</h2>
+    <p class="lead">Newest first. Add a line here and in the markdown file for every change.</p>
+    <ul class="log" id="changelog"></ul>
+  </div>
+</section>
+
+</div></main>
+
+<script>
+/* ============================== DATA (edit here) ============================== */
+const NODES = [
+  {id:"tg",   name:"Telegram",        sub:"sends the update"},
+  {id:"edge", name:"Tunnel / LB",     sub:"Cloudflare to FastAPI"},
+  {id:"route",name:"Webhook route",   sub:"telegram_webhook.py"},
+  {id:"reg",  name:"Registry",        sub:"bots.py"},
+  {id:"rtr",  name:"Router",          sub:"rest_admin/router.py"},
+  {id:"inv",  name:"invites.py",      sub:"Python wrapper"},
+  {id:"db",   name:"Postgres RPC",    sub:"create_t_invites.sql"}
+];
+const FLOWS = {
+  "/start <code>": [
+    {n:"tg",   t:"Admin taps the invite link", d:"The link is `https://t.me/<bot>?start=<code>`. Telegram sends the message `/start <code>` to the webhook URL set on that bot, with the secret in the `X-Telegram-Bot-Api-Secret-Token` header.", f:"t_invites_shareable view builds the link"},
+    {n:"edge", t:"Tunnel forwards the request", d:"Locally this is a Cloudflare tunnel to the FastAPI port. Cloudflared logs only errors, so a quiet log does not mean slow or fast.", f:"docs/local-testing-runbook.md"},
+    {n:"route",t:"Webhook route checks the secret", d:"`POST /telegram/{bot_slug}/webhook`: 404 for an unknown bot, 403 for a wrong secret (constant-time compare). Then it validates the Update and logs `delivery_lag` and `handled_ms`.", f:"watomation/routers/telegram_webhook.py"},
+    {n:"reg",  t:"Registry finds this bot's dispatcher", d:"`find_by_slug(app.state.telegram_bots, 'rest-admin')` returns the `TelegramBot` (settings + `Bot` + `Dispatcher`). The route calls `dp.feed_update(bot, update)` with a 25 s timeout.", f:"channels/telegram/bots.py"},
+    {n:"rtr",  t:"`cmd_start` handles the command", d:"Private chats only. With a code it asks the wrapper to preview the invite, then shows 'Link this chat to **name**?' with Yes / No buttons (callback data `inv:<code>:y|n`).", f:"channels/telegram/rest_admin/router.py"},
+    {n:"inv",  t:"`preview_invite()` calls the RPC", d:"Validates the code shape, then `client_ordelo_service.rpc('t_invite_preview', ...)` inside `asyncio.to_thread`, and wraps the JSON in an `InviteOutcome`.", f:"channels/telegram/invites.py"},
+    {n:"db",   t:"`t_invite_preview` classifies the code", d:"Read-only. Returns `pending` (with the restaurant name), `claimed_by_you`, `used`, `expired`, `revoked` or `unknown`. Nothing is written yet.", f:"ordelo_datamodels/migrations/create_t_invites.sql"}
+  ],
+  "tap Yes (claim)": [
+    {n:"tg",   t:"Admin taps 'Yes, link this chat'", d:"Telegram sends a callback query with data `inv:<code>:y` to the same webhook URL.", f:"callbacks.py: InviteDecision"},
+    {n:"route",t:"Webhook route", d:"Same secret check and logging as for messages. `delivery_lag` is n/a for callback queries.", f:"watomation/routers/telegram_webhook.py"},
+    {n:"reg",  t:"Registry and dispatcher", d:"The bot's own dispatcher routes it to the `InviteDecision` callback filter.", f:"channels/telegram/bots.py"},
+    {n:"rtr",  t:"`on_invite_decision` handles the tap", d:"Answers the callback immediately (clears the spinner). Yes calls the wrapper; No just says the chat was not linked. The message is edited in place, with a fallback to a new message.", f:"channels/telegram/rest_admin/router.py"},
+    {n:"inv",  t:"`claim_invite()` calls the RPC", d:"Passes code, bot key, Telegram user id, chat id, username and first name to `t_claim_invite`.", f:"channels/telegram/invites.py"},
+    {n:"db",   t:"`t_claim_invite` claims atomically", d:"One conditional `UPDATE ... WHERE status='pending' AND expires_at > now()` decides the winner, so two workers or a retry cannot double-claim. It fills `telegram_user_id`, `telegram_chat_id`, username, first name and `claimed_at`. The unique index blocks the same person holding two claimed invites for one restaurant. Returns `ok`, `already_linked`, or the reason it failed. The bot then says 'You've been onboarded successfully.'", f:"ordelo_datamodels/migrations/create_t_invites.sql"}
+  ],
+  "/start (no code)": [
+    {n:"tg",   t:"Admin sends `/start` or `/whoami`", d:"No invite code in the message.", f:""},
+    {n:"route",t:"Webhook route", d:"Secret check, validation, timing log.", f:"watomation/routers/telegram_webhook.py"},
+    {n:"rtr",  t:"Router asks who this user is", d:"`cmd_start` and `cmd_whoami` ask the wrapper which restaurants this Telegram user is linked to.", f:"channels/telegram/rest_admin/router.py"},
+    {n:"inv",  t:"`linked_restaurants()` calls the RPC", d:"Calls `t_linked_restaurants(bot_key, user_id)`; returns a list of `LinkedRestaurant`.", f:"channels/telegram/invites.py"},
+    {n:"db",   t:"`t_linked_restaurants` reads claimed invites", d:"Returns restaurant ref and name for each `claimed` invite of that user and bot (joined to `restaurant_master`). The bot answers 'Welcome back, linked to ...' or 'This chat isn't linked to a restaurant yet.'", f:"ordelo_datamodels/migrations/create_t_invites.sql"}
+  ],
+  "wrong secret": [
+    {n:"tg",   t:"Someone posts to the webhook URL", d:"Anyone who discovers the URL can POST to it. Only Telegram knows the secret.", f:""},
+    {n:"route",t:"Rejected with 403", d:"The header is missing or does not match (compared with `secrets.compare_digest` on bytes, so a non-ASCII header cannot crash it). An unknown bot slug gets 404. Nothing reaches the dispatcher.", f:"watomation/routers/telegram_webhook.py"}
+  ]
+};
+const FILES = [
+  {p:"config/tgram_setting.py", a:"Settings", w:"Per-bot settings from the AWS secret, fail-fast on missing token or webhook secret, builds the aiogram Bot.", n:"`TgramBotSettings`, `for_bot()`, `build_bot()`, `tgram_rest_admin_settings`, `rest_admin_bot`"},
+  {p:"config/pg_setting.py", a:"Settings", w:"Supabase clients. `client_ordelo_service` (service-role key) is what invites.py uses.", n:"`client_ordelo` (anon), `client_ordelo_service`"},
+  {p:"channels/telegram/bots.py", a:"Core", w:"Registry of bots; one Dispatcher and router tree per bot; closes sessions on shutdown; never touches the webhook.", n:"`TelegramBot`, `build_rest_admin_dispatcher`, `DISPATCHER_FACTORIES`, `build_registry`, `default_registry`, `find_by_slug`, `close_registry`"},
+  {p:"channels/telegram/errors.py", a:"Core", w:"Dispatcher error handlers shared by every bot (ignores stale callback queries).", n:"`ignore_stale_callback`, `register_error_handlers`"},
+  {p:"channels/telegram/callbacks.py", a:"Core", w:"Callback-data conventions; 64-byte limit.", n:"`InviteDecision` (prefix `inv`), `fits_callback_limit`"},
+  {p:"channels/telegram/keyboards.py", a:"Core", w:"Keyboard builders shared by bots.", n:"`invite_confirm_kb`, `contact_request_kb` (unused for now)"},
+  {p:"channels/telegram/invites.py", a:"DB access", w:"Thin async wrapper over the three invite RPCs. Docstring names the SQL file and each RPC.", n:"`preview_invite`, `claim_invite`, `linked_restaurants`, `InviteOutcome`, `LinkedRestaurant`"},
+  {p:"channels/telegram/rest_admin/router.py", a:"Restaurant-admin bot", w:"Router factory: /start, /help, /whoami, the Yes/No callback, a text fallback. Deterministic, no LangGraph agent.", n:"`build_router()`, `cmd_start`, `on_invite_decision`, `cmd_help`, `cmd_whoami`, `fallback`"},
+  {p:"channels/telegram/rest_admin/commands.py", a:"Restaurant-admin bot", w:"Command menu published by the setup notebook, and the help text.", n:"`REST_ADMIN_COMMANDS`, `HELP_TEXT`"},
+  {p:"watomation/routers/telegram_webhook.py", a:"Webhook", w:"`POST /telegram/{bot_slug}/webhook`: secret check, validate, feed dispatcher, timing log, always 200.", n:"`telegram_webhook`, `HANDLER_TIMEOUT_SECS`"},
+  {p:"watomation/fapp_ordelo_agent.py", a:"Webhook", w:"Lifespan builds the registry and closes it; includes the webhook router.", n:"`app.state.telegram_bots`"},
+  {p:"ordelo_datamodels/migrations/create_t_invites.sql", a:"Database", w:"The one place that defines the invite table, view, trigger, RPCs, grants and operator SQL.", n:"`t_invites`, `t_invites_shareable`, `t_new_invite_code`, `t_invites_normalize_phone`, `t_invite_preview`, `t_claim_invite`, `t_linked_restaurants`"},
+  {p:"ordelo_datamodels/migrations/drop_tgram_invites.sql", a:"Database", w:"Cleanup of the old `tgram_` names; run once before the `t_` migration. Destructive.", n:"drops the old view, functions and table"},
+  {p:"notebooks/telegram/tgram_setup_bot.py", a:"Operations", w:"Token check, set and verify the webhook (`allowed_updates` from the handlers), set the command menu, smoke tests.", n:"cell 4 sets the webhook"},
+  {p:"notebooks/telegram/tgram_scratchpad.py", a:"Operations", w:"Send, edit and reply experiments.", n:""},
+  {p:"tests/config/test_tgram_setting.py", a:"Tests", w:"Settings, fail-fast, no secrets in repr or errors.", n:""},
+  {p:"tests/channels/telegram/", a:"Tests", w:"conftest (RecordingSession, FakeInviteDb mimics the RPC contract), test_bots, test_invites, test_rest_admin_router.", n:"`FakeInviteDb`, `recording_bot`"},
+  {p:"tests/watomation/routers/test_telegram_webhook.py", a:"Tests", w:"404, 403, invalid update, handler failure still 200.", n:""},
+  {p:"docs/adr/0011-...md · docs/local-testing-runbook.md · CONTEXT.md · .claude/skills/database-operations/SKILL.md", a:"Docs", w:"Decisions (with the 15 Oct amendment), local setup, vocabulary, operator SOP for invites.", n:""},
+  {p:"tgram_starter/", a:"Reference", w:"Standalone starter kit, kept unchanged for later. Nothing imports it.", n:""}
+];
+const XREF = [
+  {o:"t_invites", k:"table", def:"create_t_invites.sql", py:"none directly (through the RPCs)", h:"n/a", t:"FakeInviteDb mimics it", d:"One row per invite: code, restaurant, phone, status, expiry, Telegram ids, `phone_verified`. RLS on, no policies."},
+  {o:"t_invites_shareable", k:"view", def:"create_t_invites.sql", py:"none (operators and agents)", h:"n/a", t:"n/a", d:"`t_invites` plus the ready-to-send `invite_link`, built from `ordelo_config.TGRAM_<BOT_KEY>_BOT_USERNAME`. `security_invoker`."},
+  {o:"t_new_invite_code()", k:"function", def:"create_t_invites.sql", py:"none (column default)", h:"n/a", t:"n/a", d:"12 URL-safe characters from 9 random bytes."},
+  {o:"t_invites_normalize_phone()", k:"trigger fn", def:"create_t_invites.sql", py:"none (trigger)", h:"n/a", t:"n/a", d:"Keeps `phone_number` digits-only."},
+  {o:"t_invite_preview(p_code, p_bot_key, p_user_id)", k:"RPC", def:"create_t_invites.sql", py:"invites.preview_invite", h:"/start <code>", t:"test_invites.py, test_rest_admin_router.py", d:"Read-only classification: pending, claimed_by_you, used, expired, revoked, unknown."},
+  {o:"t_claim_invite(...)", k:"RPC", def:"create_t_invites.sql", py:"invites.claim_invite", h:"Yes button", t:"test_invites.py, test_rest_admin_router.py", d:"Atomic claim; first valid caller wins; fills TID/TCID, username, first name."},
+  {o:"t_linked_restaurants(p_bot_key, p_user_id)", k:"RPC", def:"create_t_invites.sql", py:"invites.linked_restaurants", h:"/start, /whoami", t:"test_invites.py, test_rest_admin_router.py", d:"Restaurants this Telegram user is currently linked to."},
+  {o:"ordelo_config.TGRAM_REST_ADMIN_BOT_USERNAME", k:"config row", def:"operator SQL (runbook)", py:"none (read by the view)", h:"n/a", t:"n/a", d:"Change this row when you change bots, and re-run the webhook notebook cell."},
+  {o:"restaurant_master", k:"existing table", def:"existing migrations", py:"none (joined inside the RPCs)", h:"n/a", t:"n/a", d:"Source of `rest_ref` (foreign key) and `rest_name`. Its `admins` list is not read by the invite flow yet."}
+];
+const STATES = {
+  pending:{d:"Created by the operator. Valid until `expires_at` (default 48 hours). Can be claimed once.", to:["claimed: the person confirms in the bot before expiry","expired: `expires_at` passes (also treated as expired on the fly)","revoked: the operator sets it"]},
+  claimed:{d:"Linked to one Telegram user and chat. `telegram_user_id`, `telegram_chat_id`, username and first name are filled. A unique index stops the same person holding two claimed invites for one restaurant and bot.", to:["revoked: the operator sets it; the person loses access on their next action"]},
+  expired:{d:"Past `expires_at` without a claim. Recorded on the next claim attempt, and computed on the fly before that.", to:["terminal: issue a new invite"]},
+  revoked:{d:"Cut off by the operator. There is no un-revoke.", to:["terminal: issue a new invite"]}
+};
+const CHECKLIST = [
+  "Add the table and its RPC(s) to a migration in `ordelo_datamodels/migrations/` (extend the file for the same domain). Write the header: what it adds, how it fits with other tables, lifecycle, security, not-yet-done.",
+  "`REVOKE ALL ... FROM PUBLIC, anon, authenticated` on functions and views; enable RLS on the table; return `jsonb` with a `result` string.",
+  "Add one wrapper per RPC in the domain's Python module: `client_ordelo_service`, `asyncio.to_thread`, a typed outcome.",
+  "Update the Python module docstring: the SQL file that defines the RPCs and each function to RPC.",
+  "Update the SQL header's list of Python callers.",
+  "Extend the test fake to match the RPC contract and test every `result` value.",
+  "Add a row to the cross-reference table (markdown and this page) and a line to the change log.",
+  "Apply the migration in Supabase BEFORE deploying the code that calls it."
+];
+const TODO = [
+  "Durable inbox (`(bot_key, update_id)` dedupe) before any state-changing handler. Today the route processes inline.",
+  "Order actions (accept, pickup time, ready) must re-check that the person's invite is still `claimed` for that restaurant. Decision pending: must the phone also be in `restaurant_master.admins`?",
+  "Rider bot (`DISPATCHER_FACTORIES` is ready for a second key) and the phone-verified contact flow."
+];
+const CHANGELOG = [
+  {d:"2026-10-15", t:"Telegram layer scaffold: fail-fast settings, registry, webhook route, restaurant-admin bot, invite flow (`t_invites`, three RPCs, `invites.py`), service-role client, delivery-lag logging, notebooks, tests, docs. Renamed `tgram_*` database objects to `t_*`."}
+];
+const TABS = [["flow","Request flow"],["files","File map"],["xref","DB ↔ Code"],["life","Invite lifecycle"],["add","Add a feature"],["log","Not done · Log"]];
+/* ============================== /DATA ============================== */
+
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const md = s => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+/* theme */
+const root = document.documentElement;
+const savedTheme = store.get("tg-theme"); if (savedTheme) root.dataset.theme = savedTheme;
+$("#theme").onclick = () => {
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme:dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark"; store.set("tg-theme", root.dataset.theme);
+};
+
+/* tabs */
+const tabsEl = $("#tabs");
+function showTab(id){
+  document.querySelectorAll("section.panel").forEach(p => p.classList.toggle("on", p.id === "p-"+id));
+  tabsEl.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.id === id)));
+  store.set("tg-tab", id);
+}
+TABS.forEach(([id,label]) => { const b = document.createElement("button"); b.textContent = label; b.dataset.id = id; b.setAttribute("role","tab"); b.onclick = () => showTab(id); tabsEl.appendChild(b); });
+showTab(TABS.some(t => t[0] === store.get("tg-tab")) ? store.get("tg-tab") : "flow");
+
+/* flow */
+let scen = Object.keys(FLOWS)[0], step = 0;
+function renderFlow(){
+  const steps = FLOWS[scen], cur = steps[step];
+  $("#pipe").innerHTML = NODES.map((n,i) => {
+    const idx = steps.findIndex(s => s.n === n.id);
+    const cls = n.id === cur.n ? "on" : (idx >= 0 && idx < step ? "done" : "");
+    return `<div class="node ${cls}"><b>${esc(n.name)}</b><small>${esc(n.sub)}</small></div>`;
+  }).join("");
+  const on = $("#pipe .on"); if (on) on.scrollIntoView({inline:"center", block:"nearest"});
+  $("#stepbox").innerHTML = `<h3>${md(cur.t)}</h3><p>${md(cur.d)}</p>${cur.f ? `<div class="file">${md("`"+cur.f+"`")}</div>` : ""}`;
+  $("#stepcount").textContent = `Step ${step+1} of ${steps.length}`;
+  $("#prev").disabled = step === 0; $("#next").disabled = step === steps.length-1;
+  $("#scenarios").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.s === scen)));
+}
+Object.keys(FLOWS).forEach(k => { const b = document.createElement("button"); b.className = "chip"; b.dataset.s = k; b.textContent = k; b.onclick = () => { scen = k; step = 0; renderFlow(); }; $("#scenarios").appendChild(b); });
+$("#prev").onclick = () => { if (step > 0) { step--; renderFlow(); } };
+$("#next").onclick = () => { if (step < FLOWS[scen].length-1) { step++; renderFlow(); } };
+renderFlow();
+
+/* files */
+let area = "All", fq = "";
+const areas = ["All", ...new Set(FILES.map(f => f.a))];
+areas.forEach(a => { const b = document.createElement("button"); b.className = "chip"; b.textContent = a; b.dataset.a = a; b.onclick = () => { area = a; renderFiles(); }; $("#fareas").appendChild(b); });
+$("#fsearch").oninput = e => { fq = e.target.value.toLowerCase(); renderFiles(); };
+function renderFiles(){
+  $("#fareas").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.a === area)));
+  const rows = FILES.filter(f => (area === "All" || f.a === area) && (f.p+" "+f.w+" "+f.n).toLowerCase().includes(fq));
+  $("#ftable").innerHTML = rows.map(f => `<tr class="click" tabindex="0" data-p="${esc(f.p)}"><td><code>${esc(f.p)}</code></td><td><span class="tag">${esc(f.a)}</span></td><td>${md(f.w)}</td></tr>`).join("") || `<tr><td colspan="3">No match.</td></tr>`;
+  $("#ftable").querySelectorAll("tr.click").forEach(tr => { const open = () => { const f = FILES.find(x => x.p === tr.dataset.p); $("#ftable").querySelectorAll("tr").forEach(r => r.classList.remove("sel")); tr.classList.add("sel"); const d = $("#fdetail"); d.hidden = false; d.innerHTML = `<strong>${esc(f.p)}</strong><br>${f.n ? "Defines / key names: "+md(f.n) : "No named definitions."}`; }; tr.onclick = open; tr.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } }; });
+}
+renderFiles();
+
+/* xref */
+let xq = "";
+$("#xsearch").oninput = e => { xq = e.target.value.toLowerCase(); renderX(); };
+function renderX(){
+  const rows = XREF.filter(x => Object.values(x).join(" ").toLowerCase().includes(xq));
+  $("#xtable").innerHTML = rows.map(x => `<tr class="click" tabindex="0" data-o="${esc(x.o)}"><td><code>${esc(x.o)}</code></td><td><span class="tag">${esc(x.k)}</span></td><td>${md(x.py)}</td><td>${md(x.h)}</td></tr>`).join("") || `<tr><td colspan="4">No match.</td></tr>`;
+  $("#xtable").querySelectorAll("tr.click").forEach(tr => { const open = () => { const x = XREF.find(v => v.o === tr.dataset.o); $("#xtable").querySelectorAll("tr").forEach(r => r.classList.remove("sel")); tr.classList.add("sel"); const d = $("#xdetail"); d.hidden = false; d.innerHTML = `<strong>${esc(x.o)}</strong> (${esc(x.k)})<br>${md(x.d)}<br><br>Defined in: ${md("`"+x.def+"`")}<br>Python caller: ${md(x.py)}<br>Handler: ${md(x.h)}<br>Tests: ${md(x.t)}`; }; tr.onclick = open; tr.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } }; });
+}
+renderX();
+
+/* states */
+let st = "pending";
+function renderStates(){
+  $("#states").innerHTML = Object.keys(STATES).map(k => `<button class="state" aria-pressed="${k===st}" data-s="${k}">${k}</button>`).join("");
+  $("#states").querySelectorAll("button").forEach(b => b.onclick = () => { st = b.dataset.s; renderStates(); });
+  const s = STATES[st];
+  $("#sdetail").innerHTML = `<p style="margin:0 0 8px">${md(s.d)}</p><strong>Moves to:</strong><ul style="margin:6px 0 0">${s.to.map(t => `<li>${md(t)}</li>`).join("")}</ul>`;
+}
+renderStates();
+
+/* checklist */
+const ck = () => { try { return JSON.parse(store.get("tg-check") || "[]"); } catch(e) { return []; } };
+function renderCheck(){
+  const done = ck();
+  $("#checklist").innerHTML = CHECKLIST.map((t,i) => `<label class="check"><input type="checkbox" data-i="${i}" ${done.includes(i) ? "checked" : ""}><span>${md(t)}</span></label>`).join("");
+  $("#checklist").querySelectorAll("input").forEach(c => c.onchange = () => { const s = new Set(ck()); c.checked ? s.add(+c.dataset.i) : s.delete(+c.dataset.i); store.set("tg-check", JSON.stringify([...s])); renderCheck(); });
+  $("#bar").style.width = (done.length / CHECKLIST.length * 100) + "%";
+}
+$("#reset").onclick = () => { store.set("tg-check", "[]"); renderCheck(); };
+renderCheck();
+
+/* log */
+$("#todo").innerHTML = TODO.map(t => `<li>${md(t)}</li>`).join("");
+$("#changelog").innerHTML = CHANGELOG.map(c => `<li><strong>${esc(c.d)}</strong> ${md(c.t)}</li>`).join("");
+</script>
+</body>
+</html>

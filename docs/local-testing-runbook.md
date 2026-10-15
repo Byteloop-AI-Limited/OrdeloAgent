@@ -175,6 +175,25 @@ The `run` command uses the tunnel defined in the configuration. Keep it running 
 
 These checks confirm reachability. Exercise the actual menu/API flow to verify service-to-service routing.
 
+### Telegram restaurant-admin bot (required)
+
+OrdeloAgent also serves the restaurant-admin Telegram bot at
+`POST /telegram/rest-admin/webhook` (the service **refuses to start** unless `tgram_rest_admin_bot_token` and
+`tgram_rest_admin_webhook_secret` are in the AWS secret or exported as
+`TGRAM_REST_ADMIN_*` environment variables). A bot has **one** webhook: the test bot is shared
+with `tgram_starter`, so whichever URL was set last receives every update. The app never sets
+the webhook itself.
+
+- Point the bot at the tunnel: run `notebooks/telegram/tgram_setup_bot.py` cells 1-5
+  (set `tgram_rest_admin_webhook_base_url` to `https://rider-agent-test.ordelo.app`).
+- Restore the starter: run cell 8 of the same notebook (fill in the starter's URL and secret).
+- Check state any time with cell 3 (`pending_update_count`, `last_error_message`).
+- After adding handlers that use new update types (the invite buttons use `callback_query`), **re-run cell 4**
+  so Telegram's `allowed_updates` includes them.
+- Invites: run `ordelo_datamodels/migrations/create_t_invites.sql` once, set
+  `ordelo_config.TGRAM_REST_ADMIN_BOT_USERNAME`, then insert into `t_invites` and read the link from
+  `t_invites_shareable` (queries at the bottom of the SQL file).
+
 ## 5. Switch shared routing to local testing
 
 `ordelo_config.config_key` identifies each service URL. Both local and production consumers reading the same database see these shared values. **Switch during the maintenance window:** production consumers will also route to the test hostnames while these values are set, which is the accepted operating model for this workflow.
