@@ -1,9 +1,13 @@
 # Ordelo — Telegram Operational Messaging Migration
-## Implementation-agent handoff | 14 October 2026
+## Implementation-agent handoff | Updated 15 October 2026
 
 > **Purpose:** Complete context and actionable implementation guidance for migrating **rider and restaurant operational coordination** from WhatsApp Business Platform (PyWA) and/or Raspberry Pi thermal printers toward **Telegram Bot API + aiogram 3**, while keeping the existing customer-facing WhatsApp and web ordering journeys intact. This is a handoff of discussion, proposed design, sample patterns, constraints, and decisions. It is **not** a claim that the target functionality has been implemented in the codebase.
 
-> **Session review — 14 October 2026:** Read [proposed ADR 0011](adr/0011-telegram-operations-messaging-stays-in-ordeloagent.md) for the consolidated repository recommendation and ownership rules. The discussion below is retained as source material. Its repeated prescriptions for one LangGraph thread per rider/job, including schema, implementation phases and acceptance criteria, are **superseded**: thread cardinality and concurrent rider jobs are separate, undecided choices. Telegram message-to-job/thread indexing is still required. One versus two bots is also open. Restaurant rejection, post-Accept pickup reminders, live-location storage and printer retirement are separate decisions, not consequences of choosing Telegram. Preserve accepted ADRs 0001–0010; do not infer a change to timeout, capture or print behaviour from examples below. Durable ingress and reminder recovery must follow the distinctions in ADR 0011.
+> **Session review — 14 October 2026:** Read [proposed ADR 0011](adr/0011-telegram-operations-messaging-stays-in-ordeloagent.md) for the consolidated repository recommendation and ownership rules. **Two bots are now decided:** a restaurant-admin bot for deterministic order actions and delivery notifications (no agent), and a rider bot using the existing LangGraph agent. Give each its own commands, handlers, token, webhook secret and Dispatcher while sharing Ordelo's domain modules. `tgram_starter/` is a learning reference, not the production implementation.
+>
+> **Sequencing decision — 15 October 2026:** Implement the **restaurant-admin bot first**, including deterministic order actions and restaurant-facing delivery notifications. Rider migration, graph refactoring and thread changes are deferred. [ADR 0012](adr/0012-rider-threads-follow-dispatch-assignments.md) records the selected later thread design: `ordelo:rider:dispatch:<dispatch_id>`, one conversation per assigned dispatch. This is a design decision, not current behaviour. Phase one requires no rider thread/checkpoint migration.
+>
+> The discussion below includes later capabilities and historical examples. Multiple simultaneous rider deliveries, restaurant rejection, post-Accept pickup reminders, live-location storage and printer retirement remain separate decisions. Preserve accepted ADRs 0001–0010; do not infer a change to timeout, capture or print behaviour from examples below. Durable ingress and reminder recovery must follow ADR 0011.
 
 ## 0. Read first — goals, constraints, and status
 
@@ -19,12 +23,13 @@
 ### Explicit architectural preference
 - **Existing FastAPI + Supabase + LangGraph stays the system of record and orchestration layer**. Telegram is a messaging/interaction transport. Reuse existing services, job assignments, authorisation, sessions and agent graph rather than clone them.
 - Preserve customer WhatsApp/web ordering. Telegram addresses **rider dispatch + restaurant operational communication**, not a forced customer migration.
-- On a rider delivery offer, create an **initial/root Telegram message**; all related exchanges should be presented as replies to the original order message where possible. There is **one LangGraph thread per rider×delivery job**, separate from Telegram's persistent private chat.
-- Human operator must be able to **take over one rider/job conversation**, manually reply **through the bot**, then return the job to the agent.
+- **First implementation phase: restaurant admins only.** Cover onboarding, commands, acceptance, pickup-time/ready actions, delivery notices and durable acknowledgement reminders. Preserve fulfilment events that notify the existing assigned-rider graph; the restaurant bot itself has no agent.
+- **Later rider phase:** index each offer's root Telegram message; initialize one LangGraph thread per **confirmed assigned dispatch**, using ADR 0012. Replies belong to that conversation, separate from Telegram's persistent private chat. An unaccepted offer needs no graph.
+- Human operator takeover of a rider/job conversation remains a later requested capability; its surface and implementation are outside the restaurant-admin phase.
 
 ### Essential caveats / unresolved choices
 1. **Notification reliability is the biggest risk.** Bot messages can be repeated; Telegram, Android and user settings can still mute, batch or suppress audible alerts. A Telegram Mini App can loop audio while visible/active but is **not a reliable background/locked-screen alarm**.
-2. **Choose whether to run one or two bots.** Recommended two (`Ordelo Rider Bot`, `Ordelo Restaurant Bot`) for roles/permissions; both may use same FastAPI instance, but must have separate tokens/webhooks/dispatchers.
+2. **Two bots confirmed in the session:** `Ordelo Rider Bot` and `Ordelo Restaurant Bot`, with separate commands, tokens, webhook secrets and dispatchers in the same backend. The restaurant bot has no LangGraph agent.
 3. **One bot token has one active Telegram webhook URL at a time.** For everyday local tests use a separate dev bot rather than temporarily stealing live production updates.
 4. **Verify product- and provider-specific WhatsApp prices with the live Meta rate card and invoices.** Numbers below are illustrative analysis, not a guaranteed ROI calculation.
 5. Whether restaurants can keep Telegram audible and responsive during peak hours must be tested in live conditions before committing to remove printers.
@@ -73,13 +78,17 @@ For a **31-day** month, using 12-day observed counts:
 - **Riders:** relatively good candidates for Telegram: offers, accept/decline, pickup and delivery codes, location-sharing, coordination.
 - **Restaurants:** more hesitant because of existing Deliveroo/Just Eat/POS workflows, shift handovers and notifications; usability and missed-order rate matter more than whether Telegram looks unconventional.
 - Do **not** tell the implementation agent to build a new customer Telegram checkout. Existing WhatsApp/Next.js journeys remain.
-- Pilot recommendation: 3–5 riders plus 2–3 Android-heavy restaurants for 1–2 weeks. Test locked screens, backgrounded app, muted/battery-saver/DND conditions, peak loads, multiple staff, internet outages. Monitor `ack latency`, `% ack ≤30/60/120s`, misses, escalation count, stale offline delivery, satisfaction and manual fallback use.
+- First-phase pilot recommendation: 2–3 Android-heavy restaurants for 1–2 weeks. Test locked screens, backgrounded app, muted/battery-saver/DND conditions, peak loads, multiple staff, internet outages. Monitor `ack latency`, `% ack ≤30/60/120s`, misses, escalation count, stale offline delivery, satisfaction and manual fallback use. Plan a separate rider pilot when the deferred rider work is ready.
 - Suggested success target from discussion: **95% acknowledged within 60s**, explicitly a *proposed internal target*, not an industry guarantee.
-- Consider two separate Telegram bots so riders and restaurants have distinct names, permissions, operational handling and message styles.
+- Two separate bots are decided; build the restaurant-admin bot first and the rider bot later.
 
 ---
 
 ## 3. Target platform architecture
+
+This is the eventual architecture. The first phase implements the restaurant
+branch and preserves its fulfilment events into the existing rider workflow.
+The rider Telegram branch and graph changes are deferred.
 
 ```text
 Customer WhatsApp (PyWA) ───┐
@@ -95,7 +104,7 @@ Admin Telegram group or forum topics ── same bot ── human relay
 Next.js Telegram Mini App (optional, active-screen restaurant UI)
 ```
 
-Suggested modules:
+Historical illustrative modules (not the repository layout to implement):
 
 ```text
 app/
@@ -123,11 +132,20 @@ app/
 scripts/telegram_webhook.py
 ```
 
-**Do not duplicate Supabase schema unnecessarily**; adapt mappings to the real tables and identifiers (`rider_ref`, `rest_ref`, delivery/order refs). Retain domain services as the only authority for state changes.
+Use **ADR 0011's repository layout** for implementation: thin routes under
+`watomation/routers/`, the Telegram adapter under `channels/telegram/`, and
+domain modules under `ordelo/`. Build only the restaurant-admin portion in
+phase one. **Do not duplicate Supabase schema unnecessarily**; adapt mappings
+to real tables and identifiers. Retain domain services as the authority for
+state changes.
 
 ---
 
 ## 4. aiogram core implementation patterns
+
+These are API illustrations, not production scaffolding. Rider examples are
+for the deferred rider phase. Production ingress follows ADR 0011's durable
+receipt/recovery contract and existing repository conventions.
 
 Install (sample):
 
@@ -145,7 +163,7 @@ from aiogram.types import Update
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-# dp.include_router(rider_router); dp.include_router(admin_router), etc.
+# dp.include_router(restaurant_router)  # first phase
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -154,7 +172,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-@app.post('/telegram/rider/webhook')
+@app.post('/telegram/restaurant/webhook')
 async def tg_update(payload: dict,
                     x_telegram_bot_api_secret_token: str | None = Header(None)):
     if x_telegram_bot_api_secret_token != WEBHOOK_SECRET:
@@ -245,11 +263,11 @@ Use one consolidated router/handler per update type (above snippets are alternat
 sent = await bot.send_message(
     chat_id=rider_telegram_chat_id,
     text=f'🚴 Delivery {job_ref}: collect from {restaurant_name}',
-    reply_markup=offer_keyboard(job_ref),
+    reply_markup=offer_keyboard(dispatch_id),
 )
 await save_job_root(chat_id=sent.chat.id, message_id=sent.message_id,
-                    job_ref=job_ref, rider_ref=rider_ref,
-                    langgraph_thread_id=thread_id)
+                    dispatch_id=dispatch_id, job_ref=job_ref, rider_ref=rider_ref,
+                    langgraph_thread_id=None)  # initialized only after assignment
 ```
 
 Use `chat_id` for **delivery destination**, `from_user.id` for **identity**, `message_id` for **in-chat reference**, and your own `langgraph_thread_id` for agent state. Don't store only a `message_id`: it is scoped to a chat.
@@ -293,7 +311,7 @@ async def start(message, command: CommandObject):
 | `telegram_chat_id` | Where the bot messages rider | Stable for same private bot chat; typically equals user ID |
 | `telegram_username` | Optional public handle | Mutable; not authoritative identity |
 | `telegram_message_id` | Specific job/message | Distinct per sent message; scoped to chat |
-| `langgraph_thread_id` | Ordelo graph's per-job conversation | Defined by application |
+| `langgraph_thread_id` | Later rider graph's assigned-dispatch conversation | `ordelo:rider:dispatch:<dispatch_id>` (ADR 0012) |
 
 - `/start` again **does not reset** Telegram chat ID or user ID for the same account. Don't create new rider record or discard active threads when it is used again.
 - Replacing phone number on the **same Telegram account** normally retains Telegram IDs; deleting account/re-registering can change them. Blocking the bot causes sending errors, not a fresh chat ID.
@@ -302,26 +320,39 @@ async def start(message, command: CommandObject):
 
 ---
 
-## 6. Per-job conversations, reply chains, and LangGraph
+## 6. Dispatch conversations, reply chains, and LangGraph — deferred rider phase
 
-**Critical design:** One rider private chat can contain several jobs, each with its own root Telegram message and **distinct** `LangGraph thread_id`, e.g. `delivery:<job_ref>:rider:<rider_ref>`.
+**Selected design, not implemented:** use `ordelo:rider:dispatch:<dispatch_id>`,
+for example `ordelo:rider:dispatch:84217`. [ADR 0012](adr/0012-rider-threads-follow-dispatch-assignments.md)
+contains the full lifecycle, concurrency, debug and source-impact review.
+One rider private chat can contain histories from several assignments, each
+with its own root message and distinct graph thread. This does not enable
+multiple simultaneous deliveries. The restaurant-admin phase needs no graph.
+
+Telegram `from_user.id` identifies the actor and `chat.id` the destination;
+both map through the adapter to the existing internal rider identity. The
+dispatch binds that rider to an order/assignment attempt. A compact callback
+such as `rd1:84217:accept` carries the action and dispatch reference; after
+authorization/state validation, derive the stable thread ID. Do not use the
+whole packed callback as the thread ID: other actions must share the history.
 
 ```text
 rider private chat (chat_id=123456789)
-  message 501: job A offer / instructions    ↔ graph thread A
+  message 501: assigned job A instructions   ↔ graph thread A
   message 502: reply to message 501          ↔ graph thread A
   message 503: bot reply to message 501      ↔ graph thread A
-  message 524: job B offer / instructions    ↔ graph thread B
+  message 524: assigned job B instructions   ↔ graph thread B
   message 525: rider reply to message 524    ↔ graph thread B
 ```
 
 - For bot replies use `ReplyParameters(message_id=root_message_id)` along with `chat_id`.
 - For inbound `Message`, `message.reply_to_message.message_id` points to **the immediate message being replied to**, which may not be the root. Therefore index **every job-related sent and received `(chat_id, message_id)` to the job/thread**. A rider replying to message 503 must still resolve thread A.
 - For callbacks, use short offer/job ID in `callback_data`, validate that original user owns the offered action, then derive thread id from DB.
-- For inbound text **without a reply**, route only if there is one unambiguous active job; otherwise ask rider to choose among jobs using an inline keyboard. Don't silently route to the latest job if multiple active jobs exist.
+- For inbound text **without a reply**, route only if there is one unambiguous eligible conversation; otherwise ask the rider to choose. Cancellation-reason capture for an old dispatch can overlap a new job's conversation without allowing two active deliveries. Never silently choose the latest thread.
 - Chat ID persists across jobs; **never** equate Telegram chat to LangGraph thread.
-- For initial broadcast offers to multiple riders, distinguish each rider's graph and reply routing. Race on acceptance must resolve atomically so only one rider wins. Respond gracefully to stale callbacks and edited/deleted messages.
+- For initial broadcast offers, index each rider's dispatch/message independently, with no graph required yet. Resolve acceptance/assignment atomically, then initialize only the confirmed winner's thread. Duplicate initialization must not repeat instructions or effects. Respond gracefully to stale callbacks and edited/deleted messages.
 - Persist inbound/outbound messages in the conversational record as needed (human takeover and agent re-entry). Do not rely on Telegram as the durable store of agent history.
+- Pass the exact thread through graph updates, invocation, alert cleanup and closure; never re-resolve by recipient midway. Serialize work per thread. Debug reads must select the exact thread without creating or touching it. Preserve historical IDs and customer/WEB thread lifecycles.
 
 Example reply:
 
@@ -339,6 +370,9 @@ Keep a mapping from the newly returned outbound `sent.message_id` to the same La
 ---
 
 ## 7. Human-in-the-loop: operator takeover without changing rider chat
+
+**Later rider capability; outside phase one.** The control surface and delivery
+scope require their own implementation planning.
 
 - User needs an operator to **take control of a specific delivery conversation**, reply directly to the rider, then hand back to LangGraph.
 - Bot can't impersonate a personal human Telegram account. Operator types in **private Ordelo Operations group/forum topic** or Next.js support dashboard; backend **sends through the same Rider Bot**. Rider's `chat_id` and bot identity stay unchanged.
@@ -382,14 +416,19 @@ Note: this is an illustrative partial handler; production must handle non-text/m
 Suggested lifecycle:
 
 ```text
-Order created → durable pending acknowledgement record
-→ Bot sends initial order with Accept / Reject buttons
+Order becomes eligible for manual acknowledgement → durable pending record
+→ Bot sends initial order with supported acknowledgement actions
 → after 20–30s without ACK: reminder notification
 → repeat at configured interval (e.g. 30s), limited to avoid spam/rate limits
 → escalate after ~90s to owner / additional staff / ops
-→ restaurant accepts/rejects → atomic status transition
-→ cancellation of ALL future reminders / update original messages
+→ authorized acknowledgement or terminal order state → atomic transition
+→ stop initial-acknowledgement reminders / update original messages
 ```
+
+Use ADR 0011's stage-specific stop rules: acknowledging the order and providing
+a missing pickup time are distinct. Post-Accept pickup reminders are a separate
+policy decision. This example does not add a Reject button, alter timeouts or
+override configured-auto suppression. Reminder timings below are proposals.
 
 - Important difference: `disable_notification=False` asks for normal notification only. It **does not force an alarm** or override mute, DND, battery settings or notification batching.
 - Implement retries with **durable schedule/outbox**, not per-request `asyncio.create_task` or in-memory `pending_orders` for production; application/server restarts must not lose alerts, duplicate them, or keep pinging an already-accepted order.
@@ -407,7 +446,7 @@ Order created → durable pending acknowledgement record
 - Test muted chat, app swiped away, locked screen, battery saver, background, offline/reconnection, multiple notifications in short succession and different manufacturer devices.
 
 ### Telegram Mini App experiment
-- Next.js webview opened from Telegram bot, with order list, Accept/Reject and Supabase Realtime/WebSocket subscriptions.
+- Next.js webview opened from Telegram bot, with an order list, supported restaurant actions and Supabase Realtime/WebSocket subscriptions; no new Reject policy is implied.
 - `new Audio(...).loop = true` (or Web Audio) can provide a **continuous alarm while Mini App is open/active** following an explicit user gesture to unlock audio/autoplay.
 - **Cannot guarantee background/locked-screen playback.** Home-screen shortcut does not grant native Android foreground-service capability. Don't treat this as equivalent to printer or dedicated order terminal.
 - If unacceptable pilot miss rate: consider small **Android native/Capacitor companion**, FCM notification channels + permissible foreground service / full-screen flows subject to Android's modern OS restrictions and permissions. Still no unconditional guarantee through mute/DND. A conventional PWA has similar background audio limitations.
@@ -417,10 +456,10 @@ Order created → durable pending acknowledgement record
 ## 9. Local Telegram webhook testing and switching
 
 - Telegram bot supports exactly **one active webhook per bot token**. `setWebhook` replaces current endpoint **immediately**; `getWebhookInfo` inspects it.
-- Expose local FastAPI using `cloudflared tunnel --url http://localhost:8000`; receive `https://<random>.trycloudflare.com` then set `<base>/telegram/rider/webhook`.
+- Use the [local testing runbook](local-testing-runbook.md) for the actual FastAPI port and tunnel. Phase-one examples below target `<base>/telegram/restaurant/webhook` with a dedicated restaurant dev bot; rider webhook setup is deferred.
 - Do **not** automatically call `set_webhook` in FastAPI lifespan/startup: local and production restarts will fight over ownership.
 - `drop_pending_updates=False` avoids deliberately dropping queued updates, but webhook switch can still race with in-flight events. Proper idempotency required.
-- For a live bot, **all** incoming updates go to local during test, including actual rider updates; safer to use **separate test bot tokens**.
+- For a live bot, **all** incoming updates go to local during test, including actual staff updates; use **separate test bot tokens** for development.
 
 ```bash
 # Inspect current URL and errors (ensure BOT_TOKEN is securely populated)
@@ -428,13 +467,13 @@ curl -sS "https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo" | jq
 
 # Switch to local tunnel
 curl -sS "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
-  -d "url=${TUNNEL_BASE}/telegram/rider/webhook" \
+  -d "url=${TUNNEL_BASE}/telegram/restaurant/webhook" \
   -d "secret_token=${WEBHOOK_SECRET}" \
   -d "drop_pending_updates=false"
 
 # Restore production
 curl -sS "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
-  -d "url=${PROD_BASE}/telegram/rider/webhook" \
+  -d "url=${PROD_BASE}/telegram/restaurant/webhook" \
   -d "secret_token=${WEBHOOK_SECRET}" \
   -d "drop_pending_updates=false"
 ```
@@ -449,14 +488,22 @@ Official: https://core.telegram.org/bots/api#setwebhook
 
 ## 10. Suggested Supabase entities (adapt to existing schema)
 
+These are logical responsibilities, not a requirement to create every table
+up front. **Phase one** needs restaurant identity/invites, durable ingress,
+restaurant/order message correlation and acknowledgement/reminder recovery.
+Reuse existing storage where suitable. Conversation, rider location and
+operator-relay changes are later work; no rider schema change is required to
+ship the restaurant-admin bot. ADR 0011 distinguishes inbox deduplication
+from the alert ledger and outbound attempt state.
+
 1. `telegram_identities`: internal actor ref/type (`rider` / `restaurant_staff` / `operator`), `bot_key`, `telegram_user_id`, `telegram_chat_id`, username snapshot, linked_at, revoked_at, verification state, unique indexes.
 2. `telegram_invites`: invite token hash, actor ref, bot, expires_at, claimed_at, claim user ID, retries, revoke state. Claim atomically.
-3. `delivery_conversations`: `job_ref`, `rider_ref`, `bot_key`, `telegram_chat_id`, `root_message_id`, `langgraph_thread_id`, status, control mode, operator ID, control generation, timestamps. One per rider×job.
-4. `telegram_message_index`: `(bot_key, chat_id, message_id)` composite key → `langgraph_thread_id`, job_ref, actor, direction, reply_to_id, timestamp, optional message content pointer.
+3. Later rider conversation metadata: `dispatch_id` (unique assignment identity), `order_number`, internal `rider_id`, `langgraph_thread_id`, lifecycle and message references; extend the existing thread model where appropriate. Operator control fields belong to later takeover work. Preserve audit metadata when offer rows are cleaned up.
+4. `telegram_message_index`: `(bot_key, chat_id, message_id)` composite key → restaurant/order or rider dispatch, actor, direction, reply_to_id, timestamp, optional content pointer. Restaurant messages require no graph reference. Later rider offers may have no initialized graph; link the winning dispatch to its thread after assignment.
 5. `telegram_ops_relay_index`: `(bot_key, ops_chat_id, ops_message_id)` → delivery thread, origin message, actor metadata.
 6. `restaurant_order_alerts`: restaurant ref, order ref, status, created/acknowledged_at, ack actor, reminder policy, next_due_at, attempt count, escalation state.
 7. `message_outbox`: recipient/bot, kind, payload/message refs, idempotency key, deliver_after, attempts, last error, status; worker claims due items with concurrency-safe leasing.
-8. `rider_locations`: rider ref, job ref, lat/lon, observed_at, Telegram source message id/live_period, consent/expires_at; apply retention policy.
+8. Later location integration: first reuse existing location demands, observations and assignment validation. A new `rider_locations` store and Telegram live-location ingestion are not decided or required for phase one.
 9. `conversation_events`: immutable audit for agent outputs, callbacks, HITL transitions, human messages, race results.
 
 Ensure DB unique constraints and transactional dispatch accept action. RLS/service role design should be reviewed against existing Supabase architecture. Treat Telegram payloads as untrusted; one rider must not access another rider's job simply by tampering with callback_data.
@@ -465,24 +512,33 @@ Ensure DB unique constraints and transactional dispatch accept action. RLS/servi
 
 ## 11. Tests and acceptance criteria
 
+**Phase one:** restaurant onboarding/authorization, deterministic order actions,
+all restaurant-facing senders, acknowledgement reliability, durable ingress
+and deployment checks. Cover delivery and collection from web and WhatsApp
+orders. Verify food-ready and pickup-time changes still reach the assigned
+rider via the existing workflow, and preserve payment/timeout/auto-mode rules.
+The rider routing, location and HITL gates below apply only to their later
+implementation phases.
+
 ### Core onboarding
 - Invite token valid/invalid/expired/reused; concurrent claim race; duplicate `/start`; re-link flow; blocked bot/unblocked bot; user's phone changes; old Telegram account lost.
 - Bot cannot send before first `/start`; thereafter can send to chat id subject to permissions, blocks and rate limits.
 
-### Conversation routing
-- Offer to N riders → independently indexed root messages and graph threads.
-- Reply to root; reply to reply; callback; message with no reply; multiple concurrent jobs; stale or deleted root; unsupported media; out-of-order webhook update; duplicate update.
+### Conversation routing — later rider phase
+- Offer to N riders → independently indexed dispatch/root messages; initialize a graph only for the confirmed assigned dispatch.
+- Reply to root; reply to reply; callback; ambiguous message without a reply; cancellation aftercare for A while B starts; stale/deleted root; unsupported media; out-of-order and duplicate updates; duplicate initialization and concurrent graph events.
+- Completing or cleaning up A must not change B. Debug reads must not create/touch threads. Multiple simultaneous deliveries require a separate product decision.
 - A rider who presses `/start` mid-job must not lose context.
 - First valid offer acceptance atomic, rest declined as stale.
 
-### Location
+### Location — later rider phase
 - Requested one-off location; manually shared location; active live location edited updates; expired/stopped sharing; sender not authorised; location for wrong/multiple jobs; no updates due to background constraints.
 
 ### Restaurant alert reliability
-- Original order + inline buttons; repeat on configurable cadence while unacknowledged; cancel future reminders immediately after backend ACK; restaurant reject path; owner escalation; multiple staff; all phones locked; offline; mute/DND/battery saver; service restart and worker race; alert delivery failures; rate-limit flood.
+- Original order + supported inline actions; repeat on configurable cadence while eligible/unacknowledged; stop reminders after authoritative ACK/terminal state; owner escalation; multiple staff; all phones locked; offline; mute/DND/battery saver; service restart and worker race; send failures; rate-limit flood. Preserve existing rejection semantics; a new Reject button is a separate decision.
 - Track real observed sound/ack behaviour, not just Bot API success responses.
 
-### HITL
+### HITL — later capability
 - Operator takes over exactly one thread; other job for same rider remains AGENT; all messages relayed and mapped; only authorised operator can reply/release; in-flight agent response doesn't leak during HUMAN mode; operator replies are recorded for later graph context; release resumes without double reply.
 
 ### Deployment
@@ -492,31 +548,22 @@ Ensure DB unique constraints and transactional dispatch accept action. RLS/servi
 
 ## 12. Prioritised work plan for implementing agent
 
-**Phase 0 — inspect actual repos and existing architecture**
-- User previously cited local repositories (machine-specific and **not available in this handoff workspace**): `/Users/basavaraj/bloop/restaurant-frontend` (Next.js front end), `/Users/basavaraj/bloop/OrdeloAgent` (WhatsApp-facing backend), and `ordelo-restaurant-frontend-agents.md` documentation. Ask for repo access/current paths; don't assume the names reflect final deployment structure.
-- Identify existing domain services, Supabase schema, rider / restaurant refs, job assignment transaction, LangGraph thread creation/checkpointer, PyWA callbacks, existing human support workflow, and webhook infrastructure.
+**Phase 1 — restaurant admins only (first implementation scope)**
+1. Refresh the source inventory in ADR 0011 against current code. Trace every restaurant-facing send, including those in delivery/takeaway/location/customer hooks, rider tools and admin/overwatch producers. Extract the relevant restaurant actions into transport-neutral fulfilment handlers and the corresponding outbound intents into the messaging port.
+2. Build the restaurant bot adapter in this repository and its thin route in `watomation/routers/`. Use a dedicated dev bot, a bot-specific command menu, secret verification, durable update receipt/deduplication and recoverable processing. Implement authorized staff onboarding, invite claim, revocation/relink and restaurant membership checks.
+3. Implement existing order acceptance, pickup-time selection/adjustment and ready actions, plus restaurant-facing order/delivery notifications. Keep acknowledgement/stop/escalation rules in the shared restaurant acknowledgement module for both fulfilment modes. Preserve payment timing, timeout rules, configured-auto suppression and TEST3100 restrictions. Do not add a new Reject policy.
+4. Verify the event bridge: restaurant actions update authoritative fulfilment state and resulting events still notify the existing assigned rider. No restaurant agent, rider bot or rider thread migration is required.
+5. Complete durable reminder/recovery checks and the restaurant Android pilot. Set measurable acknowledgement targets, escalation ownership and operational runbooks before production rollout. Notification audibility and printer retirement remain separate decisions. Bot provisioning, live messages and deployment require their own operational authorization.
 
-**Phase 1 — skeletal bot and developer experience**
-- Create dedicated **dev rider bot** with BotFather; implement FastAPI aiogram webhook, typed callback data, `/start`, `/demo`, secret header check, tunnel testing, and webhook CLI.
-- No unsolicited production webhook changes or live rider messaging.
+**Phase 2 — rider bot and graph/thread migration (deferred)**
+- Implement rider onboarding and commands, shared dispatch rules, all rider outbound intents and graph transport decoupling.
+- Implement ADR 0012 end to end: `ordelo:rider:dispatch:<dispatch_id>`, confirmed-assignment initialization, exact job routing, idempotency, serialized graph work, precise cleanup/closure, historical metadata and read-only debug. Keep existing persisted IDs intact; plan how already-active jobs finish before enabling the new design.
+- Add dispatch/message reply indexing and deterministic location-request correlation. Verify stale taps, assignment races, cancellation aftercare and graph effects. This phase does not imply multiple simultaneous deliveries.
 
-**Phase 2 — secure rider onboarding**
-- One-time invite tokens sent to known phone contacts, bind Telegram user/chat ID to `rider_ref`, revocation/relink and command authorization.
-
-**Phase 3 — rider dispatch MVP**
-- Send job offer, Accept/Decline callbacks, save root message ID, map all inbound/outbound messages, route to per-job LangGraph thread, handle concurrent jobs and race conditions; request one-off location.
-
-**Phase 4 — live location and HITL**
-- Receive live location edits; implement operator group relay with takeover/release and audited per-thread mode; prevent in-flight agent replies after operator control acquired.
-
-**Phase 5 — restaurant pilot**
-- Secure restaurant admin/staff onboarding, order Accept/Reject, durable repeat-alert worker, escalation, multi-device staff support, Android test checklist and telemetry.
-
-**Phase 6 — optional UX experiments**
-- Next.js Telegram Mini App (active foreground alarm and dashboard), compare with lightweight Capacitor/Kotlin Android companion if reliable background audible alarm proves essential.
-
-**Phase 7 — staged cutover**
-- Controlled migration with PyWA fallback, operational runbooks, incident alerting, on-call owner, emergency rollback and cost/performance comparison. Do not retire printer/WhatsApp fallback until acceptance metrics support it.
+**Later capabilities — separately planned**
+- Operator takeover/release and its group or dashboard surface, with per-thread history and protection against stale agent sends.
+- Telegram live-location ingestion, if selected after reviewing the existing location lifecycle.
+- Optional Mini App or Android companion experiments if the restaurant pilot establishes a need. Printer retirement requires an explicit decision across its owners.
 
 ---
 
@@ -556,37 +603,40 @@ MCP servers that log in as a **user** may need Telegram API ID/hash and session 
 | Item | Status |
 |---|---|
 | Keep customer WhatsApp/web ordering | Agreed scope |
-| Move rider/restaurant operations toward Telegram | Preferred direction, pilot first |
+| Move restaurant admins first | Confirmed implementation sequence, 15 October 2026; pilot before production rollout |
+| Rider Telegram migration and agent/thread refactor | Deferred implementation |
 | Existing FastAPI + Supabase + LangGraph own logic/state | Strong architectural intent |
 | User already knows PyWA handlers | Confirmed |
 | ~20 riders, phone numbers known, Telegram IDs unknown | Confirmed contextual input |
 | Restaurants mostly Android | Confirmed |
 | Avoid Pi/printer capital/setup cost | Key business motivation |
 | Telegram private chat ID stable across `/start` | Telegram behavior |
-| Use per-job LangGraph thread and root message mapping | Requested implementation design |
+| Rider thread ID `ordelo:rider:dispatch:<dispatch_id>` | Selected later design in ADR 0012; initialized only after confirmed assignment |
+| Multiple simultaneous rider deliveries | Separate, undecided capability |
 | Support human takeover through same bot | Requested capability |
-| Two bots rather than one | Recommendation, not final decision |
+| Two bots with distinct commands and responsibilities | Confirmed target; restaurant-admin bot first, rider bot later |
 | Dedicated admin group/forum for HITL | Recommendation, not final decision |
 | Telegram repeated notifications will be audible/reliable | **Unproven: test** |
 | Mini App will ring with screen locked | **No reliable guarantee** |
 | WhatsApp £82.81 monthly scenario | **Estimate contingent on assumptions** |
-| Production repo/database details | **Must inspect** |
+| Repository/thread source review | Reviewed in ADRs 0011/0012; refresh before implementation; deployed database not verified by this documentation |
 
-## 15. Critical questions for the implementing agent before coding beyond MVP
+## 15. Remaining implementation decisions
 
-1. Are riders and restaurant staff already modelled with distinct actor/user IDs and authorisation relationships in Supabase? Which tables should be extended?
-2. Is one Telegram bot or two preferable given the existing deployment structure, distinct branding and handler separation?
-3. What are current LangGraph checkpointer and per-job thread-ID conventions? Is the per-rider offer state already separate?
-4. How are outgoing operational messages currently persisted? Is there an outbox/retry worker already?
-5. Does a rider need **multiple jobs simultaneously**, and how should no-reply messages be routed?
-6. Can restaurant staff use two or more phones and is the order accepted at restaurant or per-staff account level?
-7. What constitutes order acceptance, rejection, escalation and automatic cancellation? SLA requirements and on-call contact?
-8. Which phones/Android versions are in the restaurant pilot? Can a dedicated always-on device be expected, or do staff use personal phones in background?
-9. What human support permission model exists? Group vs dashboard; audit / PII retention requirements?
-10. What are actual Meta invoices/recipient countries and measurable messaging costs per order/job/restaurant, for migration ROI?
+### Restaurant-admin phase
+1. Which existing restaurant membership records should Telegram staff bindings use, and how are multiple staff/phones revoked or transferred between shifts?
+2. Which existing storage/workers can support durable ingress and reminder recovery? Define retry and escalation ownership without reusing the customer's at-most-once callback policy.
+3. What acknowledgement target, escalation contact and tested Android/device setup will the restaurant pilot use? Preserve current acceptance/timeout/payment rules unless a separate change is approved.
+4. What are actual invoices and measured costs/acknowledgement outcomes per restaurant for the migration comparison?
+
+### Deferred rider work — does not block phase one
+1. Verify the deployed thread schema/cleanup jobs against ADR 0012's source review and define the boundary for existing active jobs.
+2. Decide whether simultaneous rider deliveries are needed; current scope does not enable them. Ambiguous no-reply messages require explicit selection even with cancellation aftercare alone.
+3. Select the operator support surface, permissions and history/retention rules before implementing takeover.
+4. Decide whether Telegram live location adds value beyond the existing location lifecycle.
 
 ---
 
 ## 16. Short agent directive
 
-> Read this document, then inspect the actual Ordelo codebases before proposing changes. Implement a **minimal, testable aiogram 3 adapter** on the existing FastAPI service, starting with a dev rider bot and webhook CLI. Securely link invited riders to stable Telegram IDs; map every `(bot, chat_id, message_id)` to the correct rider/job LangGraph thread; support typed inline callbacks, request location and live-location edits; enable per-thread human takeover through an operations group. Prototype restaurant acknowledgement with durable repeat alerts and multi-staff escalation. Treat notification audibility as an empirical Android pilot requirement and do not remove the printer/WhatsApp fallback until validated. Keep domain state in existing services/Supabase. Present a phased architecture plan, schema migration, API/event contracts, failure modes, tests, security considerations and rollback steps before production cutover.
+> Read this document and ADRs 0011/0012, then refresh the relevant source review. The **first implementation scope is the restaurant-admin Telegram bot only**, in the existing FastAPI repository. Securely link authorized staff, implement deterministic restaurant actions and all restaurant-facing notifications through domain intents, and provide durable acknowledgement/reminder recovery for delivery and collection. Preserve existing fulfilment/payment rules and restaurant events that notify the assigned rider through its current workflow. Validate Android notification behaviour in the restaurant pilot. **Defer the rider bot, graph refactor and dispatch-based thread implementation** to a later phase; preserve existing rider and customer threads now. Present concrete changes and acceptance evidence before production rollout. This documentation update is not authorization to implement, provision bots, send live messages or deploy.

@@ -10,6 +10,7 @@ from aiogram.types import ErrorEvent
 
 from .config import Settings
 from .handlers import basic, interactive, miniapp, onboarding
+from .order_card import handlers as order_card
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ def build_dispatcher(settings: Settings) -> Dispatcher:
         _dp.include_router(onboarding.router)
         _dp.include_router(interactive.router)
         _dp.include_router(miniapp.router)
+        _dp.include_router(order_card.router)
         _dp.include_router(basic.router)
         _dp.errors.register(_ignore_stale_callback, ExceptionTypeFilter(TelegramBadRequest))
     _dp["settings"] = settings  # injected into any handler that declares a `settings` argument

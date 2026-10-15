@@ -26,6 +26,7 @@ from . import invites
 from .bot_factory import build_bot, build_dispatcher
 from .config import get_settings
 from .miniapp.router import router as miniapp_router
+from .order_card.demo_api import router as order_card_router
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Telegram starter kit", lifespan=lifespan)
 app.include_router(miniapp_router)  # Mini App page + API under /miniapp
+app.include_router(order_card_router)  # demo delivery hooks for the order card under /demo/order-card
 
 
 @app.get("/health")
