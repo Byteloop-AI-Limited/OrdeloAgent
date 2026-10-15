@@ -9,6 +9,7 @@ Telegram bot settings for OrdeloAgent.
     . Depends on: pydantic_settings, aiogram, loguru, aws_setting
   Classes/Functions:
     . TgramBotSettings
+    . build_session (10 s request timeout, 5 s keep-alive: a dead idle connection must not hang a call)
     . build_bot
   Module values:
     . REST_ADMIN_BOT_KEY
@@ -22,6 +23,7 @@ from typing import Any, Mapping
 
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.utils.token import TokenValidationError
 from loguru import logger
@@ -97,11 +99,27 @@ class TgramBotSettings(BaseSettings):
             ) from None
 
 
+# Bot API calls must fail fast. aiogram's default request timeout is 60 s, and a pooled keep-alive connection that
+# died while idle (NAT / tunnel / load balancer) hangs the first call after a quiet period until that timeout, which
+# is longer than the webhook handler's 25 s limit: a tap then did its database work but never answered or redrew.
+BOT_REQUEST_TIMEOUT_SECS = 10
+BOT_KEEPALIVE_SECS = 5  # drop idle pooled connections quickly; reuse only inside a burst of calls
+
+
+def build_session() -> AiohttpSession:
+    """aiohttp session with a short request timeout and short-lived idle connections."""
+    session = AiohttpSession(timeout=BOT_REQUEST_TIMEOUT_SECS)
+    # aiogram exposes no public hook for connector options; tests/config/test_tgram_setting.py checks they apply.
+    session._connector_init.update(keepalive_timeout=BOT_KEEPALIVE_SECS, enable_cleanup_closed=True)
+    return session
+
+
 def build_bot(settings: TgramBotSettings) -> Bot:
     """Bot for the given settings. Raises RuntimeError on a malformed token (no network call)."""
     try:
         bot = Bot(
             token=settings.bot_token.get_secret_value(),
+            session=build_session(),
             default=DefaultBotProperties(parse_mode=ParseMode.HTML),
         )
     except TokenValidationError:

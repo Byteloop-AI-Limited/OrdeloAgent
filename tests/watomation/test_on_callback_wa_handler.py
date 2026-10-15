@@ -11,8 +11,14 @@ Key Functions:
   - test_handle_shift_availability_yes_no_and_on_job_paths
   - test_handle_admin_availability_replies
   - test_update_restaurant_order_status_success_and_stale_tap
+  - test_update_restaurant_order_status_decline_and_stale_tap_names_the_decliner
+  - test_update_restaurant_order_status_after_timeout_says_auto_accepted
+  - test_update_restaurant_order_status_unknown_order_or_status_does_not_reply
+  - test_update_restaurant_order_status_swallows_database_errors
   - test_restaurant_order_accept_decline_schedules_update
   - test_handle_pickup_time_selection_success_and_already_updated
+  - test_handle_pickup_time_selection_takeaway_and_not_accepted
+  - test_handle_pickup_time_selection_swallows_database_errors
   - test_admin_collection_ready_runs_rider_graph
   - test_admin_collection_ready_skips_once_food_is_picked_up
   - test_admin_collection_ready_skips_when_no_longer_in_progress
@@ -136,18 +142,70 @@ async def test_handle_admin_availability_replies() -> None:
     assert msg.replies == [{"text": "Great! You will receive notification for new orders for the next 24 hrs!"}]
 
 
-async def test_update_restaurant_order_status_success_and_stale_tap(patch_supabase_client) -> None:
-    patch_supabase_client.register(table="delivery_summary", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
-    msg = FakeMessage(sender="ADMIN01")
+ORDER = "ELAS-ABCD-1"
+ADMIN = "447700900123"
+OTHER_ADMIN = "447700900999"
 
-    await handler._update_restaurant_order_status("ELAS-ABCD-1", "restaurant_accept", msg)
 
-    assert patch_supabase_client.calls[-1].payload["restaurant_confirmation_status"] == "restaurant_accept"
+async def test_update_restaurant_order_status_success_and_stale_tap(decision_db) -> None:
+    decision_db.add(ORDER)
+    msg = FakeMessage(sender=ADMIN)
+
+    await handler._update_restaurant_order_status(ORDER, "restaurant_accept", msg)
+
+    assert decision_db.calls[-1] == ("restaurant_order_decide", {
+        "p_order_number": ORDER, "p_order_type": "delivery", "p_decision": "accept",
+        "p_admin_phone": ADMIN, "p_channel": "whatsapp"})
     assert msg.replies == []
 
-    patch_supabase_client.register(table="delivery_summary", verb="update", response=FakeSupabaseResponse(data=[]))
-    await handler._update_restaurant_order_status("ELAS-ABCD-1", "restaurant_accept", msg)
-    assert msg.replies[-1] == {"text": "Order Already Accepted"}
+    late = FakeMessage(sender=OTHER_ADMIN)
+    await handler._update_restaurant_order_status(ORDER, "restaurant_accept", late)
+    assert late.replies[-1] == {"text": "Order already accepted by …0123"}
+
+
+async def test_update_restaurant_order_status_decline_and_stale_tap_names_the_decliner(decision_db) -> None:
+    decision_db.add(ORDER, kind="takeaway")
+    msg = FakeMessage(sender=ADMIN)
+
+    await handler._update_restaurant_order_status(ORDER, "restaurant_decline", msg, order_type="takeaway")
+
+    assert decision_db.calls[-1][1]["p_decision"] == "decline"
+    assert decision_db.calls[-1][1]["p_order_type"] == "takeaway"
+    assert decision_db.orders[("takeaway", ORDER)]["rcs"] == "restaurant_decline"
+    late = FakeMessage(sender=OTHER_ADMIN)
+    await handler._update_restaurant_order_status(ORDER, "restaurant_accept", late, order_type="takeaway")
+    assert late.replies[-1] == {"text": "Order already declined by …0123"}
+
+
+async def test_update_restaurant_order_status_after_timeout_says_auto_accepted(decision_db) -> None:
+    decision_db.add(ORDER, rcs="auto_accept")
+    msg = FakeMessage(sender=ADMIN)
+
+    await handler._update_restaurant_order_status(ORDER, "restaurant_accept", msg)
+
+    assert msg.replies[-1] == {"text": "Order already auto-accepted (no answer in time)"}
+
+
+async def test_update_restaurant_order_status_unknown_order_or_status_does_not_reply(decision_db) -> None:
+    msg = FakeMessage(sender=ADMIN)
+
+    await handler._update_restaurant_order_status("NOPE-1", "restaurant_accept", msg)
+    await handler._update_restaurant_order_status(ORDER, "restaurant_unconfirmed", msg)
+
+    assert msg.replies == []
+    assert [c[1]["p_order_number"] for c in decision_db.calls] == ["NOPE-1"]   # a bad status never reaches the database
+
+
+async def test_update_restaurant_order_status_swallows_database_errors(monkeypatch) -> None:
+    async def boom(*args, **kwargs):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(handler.restaurant_decision, "decide", boom)
+    msg = FakeMessage(sender=ADMIN)
+
+    await handler._update_restaurant_order_status(ORDER, "restaurant_accept", msg)   # must not raise
+
+    assert msg.replies == []
 
 
 async def test_restaurant_order_accept_decline_schedules_update(monkeypatch, fake_async_wa: FakeAsyncWhatsApp) -> None:
@@ -170,18 +228,44 @@ async def test_restaurant_order_accept_decline_schedules_update(monkeypatch, fak
     assert len(scheduled) == 1
 
 
-async def test_handle_pickup_time_selection_success_and_already_updated(patch_supabase_client) -> None:
-    data = json.dumps({"action": "/PickupTime", "order_number": "ELAS-ABCD-1", "pickup_time": 1_700_000_000, "order_type": "delivery"})
-    msg = FakeMessage(sender="ADMIN01", data=data)
-    patch_supabase_client.register(table="delivery_summary", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
+async def test_handle_pickup_time_selection_success_and_already_updated(decision_db) -> None:
+    pickup = "2026-10-15T12:15:00+01:00"
+    data = json.dumps({"action": "/PickupTime", "order_number": ORDER, "pickup_time": pickup, "order_type": "delivery"})
+    decision_db.add(ORDER, rcs="restaurant_accept")
+    msg = FakeMessage(sender=ADMIN, data=data)
 
     await handler.handle_pickup_time_selection(FakeAsyncWhatsApp(), msg)
     assert msg.replies[-1] == {"text": "Pickup time updated"}
-    assert patch_supabase_client.calls[-1].filters["is:pickup_time"] == "null"
+    assert decision_db.calls[-1] == ("restaurant_order_set_pickup", {
+        "p_order_number": ORDER, "p_order_type": "delivery", "p_pickup_time": pickup,
+        "p_admin_phone": ADMIN, "p_channel": "whatsapp"})
 
-    patch_supabase_client.register(table="delivery_summary", verb="update", response=FakeSupabaseResponse(data=[]))
     await handler.handle_pickup_time_selection(FakeAsyncWhatsApp(), msg)
     assert msg.replies[-1] == {"text": "Pickup time already updated"}
+
+
+async def test_handle_pickup_time_selection_takeaway_and_not_accepted(decision_db) -> None:
+    data = json.dumps({"action": "/PickupTime", "order_number": ORDER, "pickup_time": "2026-10-15T12:15:00+01:00", "order_type": "takeaway"})
+    decision_db.add(ORDER, kind="takeaway", rcs="auto_accept")   # timed out before the admin chose
+    msg = FakeMessage(sender=ADMIN, data=data)
+
+    await handler.handle_pickup_time_selection(FakeAsyncWhatsApp(), msg)
+
+    assert decision_db.calls[-1][1]["p_order_type"] == "takeaway"
+    assert msg.replies[-1] == {"text": "Pickup time already updated"}
+
+
+async def test_handle_pickup_time_selection_swallows_database_errors(monkeypatch) -> None:
+    async def boom(*args, **kwargs):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(handler.restaurant_decision, "set_pickup", boom)
+    data = json.dumps({"action": "/PickupTime", "order_number": ORDER, "pickup_time": "2026-10-15T12:15:00+01:00"})
+    msg = FakeMessage(sender=ADMIN, data=data)
+
+    await handler.handle_pickup_time_selection(FakeAsyncWhatsApp(), msg)   # must not raise
+
+    assert msg.replies == []
 
 
 def _adjust_callback(**overrides) -> _FakeCallback:

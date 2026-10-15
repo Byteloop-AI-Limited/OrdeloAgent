@@ -41,6 +41,11 @@ Key Functions:
   - test_process_rider_pickup_alerts_rest_admins_audience_skipped_on_phase_mismatch
   - test_process_rider_pickup_alerts_three_audiences_on_one_tick_are_all_delivered
   - test_process_rider_pickup_alerts_sends_to_the_rider_on_the_live_inflight_row
+  - test_handle_restaurant_decline_is_terminal_cancels_payment_and_tells_whatsapp_customer
+  - test_handle_restaurant_decline_pay_at_rest_skips_payment_cancel
+  - test_handle_restaurant_decline_web_customer_gets_event_not_a_whatsapp_message
+  - test_handle_restaurant_decline_web_customer_queues_release_when_cancel_fails
+  - test_handle_restaurant_decline_survives_payment_cancel_exception
   - test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config
   - test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config
   - test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery
@@ -1048,3 +1053,113 @@ async def test_process_rider_pickup_alerts_sends_to_the_rider_on_the_live_inflig
 
     assert [c["recipient"] for c in calls] == ["RIDER_NEW"]
     assert cue_clears == ["RIDER_NEW"]
+
+
+# ---- restaurant decline (R1-a): terminal, payment cancelled, customer told, never dispatchable ----------
+
+
+class _DeclineFakes:
+    def __init__(self):
+        self.cancelled: list[str] = []
+        self.cancel_result: object = "cancelled"
+        self.cancel_raises = False
+        self.released: list[tuple[str, str]] = []
+        self.events: list[tuple[str, object]] = []
+
+
+@pytest.fixture
+def decline_fakes(monkeypatch, patch_supabase_client, patch_async_wa_client):
+    fakes = _DeclineFakes()
+    monkeypatch.setattr(delivery_hooks, "client_ordelo", patch_supabase_client)
+    patch_supabase_client.register(table="delivery_summary", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
+
+    async def _cancel(order_number):
+        fakes.cancelled.append(order_number)
+        if fakes.cancel_raises:
+            raise RuntimeError("stripe down")
+        return fakes.cancel_result
+
+    async def _publish(order_number, event):
+        fakes.events.append((order_number, event))
+
+    async def _release(order_number, reason):
+        fakes.released.append((order_number, reason))
+
+    monkeypatch.setattr(delivery_hooks, "cancel_payment", _cancel)
+    monkeypatch.setattr(delivery_hooks.customer_notifier, "publish", _publish)
+    monkeypatch.setattr("utils_common.web_ordering.lifecycle.queue_release", _release)
+    fakes.wa = patch_async_wa_client
+    fakes.db = patch_supabase_client
+    return fakes
+
+
+def _decline_models(customer_id="447400000000", payment_status="requires_payment"):
+    payload = _restaurant_payload("restaurant_decline")
+    payload["delivery_summary"]["customer_id"] = customer_id
+    payload["delivery_summary"]["restaurant_confirmation_status"] = "restaurant_decline"
+    payload["food_order"]["payment_status"] = payment_status
+    model = delivery_hooks.RestaurantConfirmationPayload(**payload)
+    return model.delivery_summary, model.food_order
+
+
+async def test_handle_restaurant_decline_is_terminal_cancels_payment_and_tells_whatsapp_customer(decline_fakes) -> None:
+    summary, food_order = _decline_models()
+
+    result = await delivery_hooks._handle_restaurant_decline(summary, food_order)
+
+    assert result == {"status": "success", "action": "declined", "order_number": "ELAS-ABCD-1"}
+    update = next(c for c in decline_fakes.db.calls if c.table == "delivery_summary")
+    assert update.payload["status"] == "declined"                      # never 'unassigned': not dispatchable
+    assert update.filters["eq:order_number"] == "ELAS-ABCD-1"
+    assert update.filters["eq:restaurant_confirmation_status"] == "restaurant_decline"
+    assert update.filters["eq:status"] == "restaurant_unconfirmed"      # only a not-yet-terminal order is touched
+    assert decline_fakes.cancelled == ["ELAS-ABCD-1"]
+    sent = decline_fakes.wa.sent[-1].kwargs
+    assert sent["to"] == "447400000000"
+    assert "ELAS-ABCD-1" in sent["text"] and "Elai" in sent["text"] and "payment has been cancelled" in sent["text"]
+    assert decline_fakes.events == [] and decline_fakes.released == []
+
+
+async def test_handle_restaurant_decline_pay_at_rest_skips_payment_cancel(decline_fakes) -> None:
+    summary, food_order = _decline_models(payment_status="pay_at_rest")
+
+    await delivery_hooks._handle_restaurant_decline(summary, food_order)
+
+    assert decline_fakes.cancelled == []
+    assert "payment" not in decline_fakes.wa.sent[-1].kwargs["text"]
+    assert decline_fakes.db.calls[-1].payload["status"] == "declined"
+
+
+async def test_handle_restaurant_decline_web_customer_gets_event_not_a_whatsapp_message(decline_fakes) -> None:
+    summary, food_order = _decline_models(customer_id="WABCDEFGHIJK")
+
+    await delivery_hooks._handle_restaurant_decline(summary, food_order)
+
+    assert decline_fakes.wa.sent == []                                  # a W-id is not a phone number
+    assert len(decline_fakes.events) == 1
+    order_number, event = decline_fakes.events[0]
+    assert order_number == "ELAS-ABCD-1"
+    assert (event.event_type, event.event_key, event.webhook_type) == ("restaurant_declined", "restaurant_declined", "web-restaurant-declined")
+    assert event.payload == {"payment_cancelled": True}
+    assert decline_fakes.released == []
+
+
+async def test_handle_restaurant_decline_web_customer_queues_release_when_cancel_fails(decline_fakes) -> None:
+    decline_fakes.cancel_result = None
+    summary, food_order = _decline_models(customer_id="WABCDEFGHIJK")
+
+    await delivery_hooks._handle_restaurant_decline(summary, food_order)
+
+    assert decline_fakes.released == [("ELAS-ABCD-1", "restaurant_declined")]
+    assert decline_fakes.events[0][1].payload == {"payment_cancelled": False}
+
+
+async def test_handle_restaurant_decline_survives_payment_cancel_exception(decline_fakes) -> None:
+    decline_fakes.cancel_raises = True
+    summary, food_order = _decline_models(customer_id="WABCDEFGHIJK")
+
+    result = await delivery_hooks._handle_restaurant_decline(summary, food_order)
+
+    assert result["action"] == "declined"
+    assert decline_fakes.released == [("ELAS-ABCD-1", "restaurant_declined")]
+    assert decline_fakes.events[0][1].payload == {"payment_cancelled": False}
