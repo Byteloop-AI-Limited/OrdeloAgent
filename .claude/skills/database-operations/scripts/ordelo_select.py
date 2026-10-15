@@ -1,12 +1,12 @@
 import argparse
 import json
 
-from _bootstrap import ensure_repo_on_path, parse_key_value
+from _bootstrap import execute_with_fallback, parse_key_value
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Select rows from an Ordelo table using pg_settings.client (Supabase)."
+        description="Select rows from an Ordelo table using the service-role client (Supabase)."
     )
     parser.add_argument(
         "--schema", default=None, help="Optional schema (default: public)"
@@ -54,36 +54,34 @@ def main() -> int:
         help='Order by "col" or "col:asc" or "col:desc"',
     )
 
+    parser.add_argument("--service", action="store_true", help="Skip the anon client and use the service-role key")
     args = parser.parse_args()
 
-    ensure_repo_on_path()
-    from config import pg_settings  # type: ignore
-
-    client_ordelo = pg_settings.client
-    if args.schema:
-        client_ordelo = client_ordelo.schema(args.schema)
-
-    q = client_ordelo.table(args.table).select(args.select_)
-
+    filters = []
     for col, value in parse_key_value(args.eq):
-        q = q.eq(col, value)
+        filters.append(("eq", col, value))
     for col, value in parse_key_value(args.like):
-        q = q.like(col, value)
+        filters.append(("like", col, value))
     for col, value in parse_key_value(args.ilike):
-        q = q.ilike(col, value)
+        filters.append(("ilike", col, value))
     for col, value in parse_key_value(args.in_):
         if not isinstance(value, list):
             raise ValueError(f"--in expects JSON list values; got {col}={value!r}")
-        q = q.in_(col, value)
+        filters.append(("in_", col, value))
 
-    if args.order:
-        if ":" in args.order:
-            col, direction = args.order.split(":", 1)
-            q = q.order(col, desc=(direction.lower() == "desc"))
-        else:
-            q = q.order(args.order)
+    def run(c):
+        q = c.table(args.table).select(args.select_)
+        for op, col, value in filters:
+            q = getattr(q, op)(col, value)
+        if args.order:
+            if ":" in args.order:
+                col, direction = args.order.split(":", 1)
+                q = q.order(col, desc=(direction.lower() == "desc"))
+            else:
+                q = q.order(args.order)
+        return q.limit(args.limit).execute()
 
-    res = q.limit(args.limit).execute()
+    res = execute_with_fallback(run, args.schema, service=args.service)
     print(json.dumps(res.data, indent=2, sort_keys=True, default=str))
     return 0
 
