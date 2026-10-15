@@ -245,3 +245,26 @@ _Avoid_: order token, login
 A one-time code that links a WhatsApp sender to a web order so they can follow
 it on WhatsApp.
 _Avoid_: OTP, verification code
+
+### Restaurant-admin bot
+
+The Telegram bot (`bot_key` `rest_admin`) restaurant admins use for order
+actions and notifications alongside WhatsApp. It is deterministic and never
+runs a LangGraph agent. It is not a customer channel.
+_Avoid_: restaurant agent, restaurant chatbot
+
+### Telegram invite
+
+A single-use, expiring link the operator sends privately so one restaurant
+admin can link their Telegram account to one restaurant (`t_invites`: phone
+number, restaurant, generated code). The person confirms in the bot; the first
+confirmation wins. `phone_verified` is reserved for a later contact-share flow.
+_Avoid_: invite token, signup link
+
+### Telegram identity
+
+The link from a Telegram account (user id and chat id) to a restaurant, created
+when an invite is claimed. It only authenticates: it can be revoked at any time
+by setting the invite's status, and a chat id or button payload alone
+authorizes nothing.
+_Avoid_: Telegram login, Telegram user

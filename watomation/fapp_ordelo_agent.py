@@ -5,6 +5,7 @@ FastAPI application for Ordelo WhatsApp automation service.
     . Exposes diagnostic endpoints for debugging agent state and flows
     . Serves as entry point when running OrdeloAgent with WhatsApp integration
     . Recovers unattempted customer notifications with an application-owned sweep
+    . Serves Telegram webhooks (restaurant-admin bot) and builds/closes the Telegram bot registry
   Functions/Classes:
     . app - FastAPI application instance
     . custom_404_handler - Handles 404 errors with template response
@@ -34,7 +35,8 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from config import waba_business_settings, pg_settings, client_ordelo
 from utils_common.notify.customer_notifier import run_sweeper
-from watomation.routers import web_hooks
+from channels.telegram.bots import close_registry, default_registry
+from watomation.routers import telegram_webhook, web_hooks
 from utils_common.web_ordering.common import WebError
 from ordelo.agents.rider_agent import builder
 from ordelo.agent_app_handlers import (
@@ -123,6 +125,7 @@ POOL_MAX_SIZE = 25
 # Define and set the app, call import soon after
 @asynccontextmanager
 async def lifespan(app):
+    app.state.telegram_bots = default_registry()
     task = asyncio.create_task(run_sweeper())
     try:
         yield
@@ -130,6 +133,7 @@ async def lifespan(app):
         task.cancel()
         with suppress(asyncio.CancelledError):
             await task
+        await close_registry(app.state.telegram_bots)
 
 
 app = FastAPI(title="OrdeloAgent", lifespan=lifespan)
@@ -160,6 +164,7 @@ app.include_router(order_hooks.router, prefix="/order-hooks")
 app.include_router(payment_hooks.router, prefix="/payment-hooks")
 app.include_router(wa_location_hooks.router)
 app.include_router(web_hooks.router, prefix="/web")
+app.include_router(telegram_webhook.router)
 
 @app.exception_handler(WebError)
 async def web_error_handler(request, exc):

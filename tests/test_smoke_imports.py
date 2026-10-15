@@ -25,12 +25,17 @@ import pytest
         "config.project_setting",
         "config.pg_setting",
         "config.waba_setting",
+        "config.tgram_setting",
         "config.llm_setting",
         "config.microservices_setting",
         "config.google_setting",
         "config.params",
         "config.logger_setting",
         # utils_common
+        # telegram channel
+        "channels.telegram.bots",
+        "channels.telegram.rest_admin.router",
+        "watomation.routers.telegram_webhook",
         "utils_common.tz_utils",
         "utils_common.params",
         "utils_common.thread_handlers",

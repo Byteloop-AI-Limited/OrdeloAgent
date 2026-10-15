@@ -94,6 +94,11 @@ _STUB_AGENT_ENV: dict = {
     # base64.b64decode/json.loads pair before our patched class kicks in.
     "google_service_account_encoded_credentials": "e30=",  # base64 of "{}"
     "google_service_account_maps_api_key": "test-maps-api-key",
+    # Telegram (restaurant-admin bot)
+    "tgram_rest_admin_bot_token": "123456:TEST-token",
+    "tgram_rest_admin_bot_username": "test_rest_admin_bot",
+    "tgram_rest_admin_webhook_secret": "test-tgram-secret",
+    "tgram_rest_admin_webhook_base_url": "https://test.example.com",
 }
 
 

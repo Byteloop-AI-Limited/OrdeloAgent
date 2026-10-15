@@ -1,5 +1,7 @@
 # OrdeloAgent — Agents, Modules, and How Things Fit Together
 
+> **Telegram layer:** [interactive guide](docs/telegram-layer.html) and [agent context](docs/telegram-layer.md) cover the restaurant-admin bot, the webhook route, the bot registry, the invite flow and the database-function (RPC) pattern with its cross-reference table. Add to the change log there whenever the Telegram layer changes.
+
 > **Alerts and notifications:** [interactive guide](docs/alerts-and-notifications.html), [agent context](docs/alerts-and-notifications.md), and [canonical vocabulary](GLOSSARY.md) cover customer progress, restaurant-app callbacks, rider/admin alerts and overwatch. Existing transport statuses must not be described as confirmed message delivery.
 
 > **Web ordering implementation:** see the [interactive playground](docs/web-ordering-playground.html) and [matching agent context](docs/web-ordering-playground.md) for checkout identity, tables, payment/fulfilment flows and differences from the separate proposal.
@@ -9,6 +11,10 @@
 This document maps the codebase structure and explains how agents, webhooks, messaging, and data layers work together. Use it as your starting point and as a quick index for searching code.
 
 For local startup of OrdeloAgent and the sibling restaurant-frontend, Python shell preparation (`venv`, `PYTHONPATH`, `envLoad`), Cloudflare Tunnel routing, and maintenance-window test/production URL switches, follow the [local testing runbook](docs/local-testing-runbook.md).
+
+## Project Skills
+
+- **[telegram-api](.claude/skills/telegram-api/SKILL.md)** — Use for migrating this project's WhatsApp/PyWa messaging and handlers to Telegram with aiogram 3.31.0, or implementing Telegram interactions. Includes the Ordelo message inventory, official API documentation links, implementation examples, and source references for six FastAPI/aiogram repositories. Read the skill before Telegram migration work; preserve existing delivery/payment rules and LangGraph state.
 
 
 ## High‑Level Overview
@@ -182,6 +188,7 @@ For local startup of OrdeloAgent and the sibling restaurant-frontend, Python she
 
 - Postgres/Supabase tables (most used):
   - `delivery_detail` (per‑order detail), `delivery_summary` (joined status view), `delivery_dispatch` (rider offers), `delivery_inflight` (active jobs), `rider_location`, `rider_location_event`, `thread` (agent chat context).
+- Supabase RPC/functions follow one pattern: the logic lives in the database function, defined next to its table in `ordelo_datamodels/migrations/`, wrapped by one Python module, and both sides name each other (see "Add database-backed logic" under Extending the System). Telegram example: `t_invites` and `t_claim_invite` in `create_t_invites.sql`, called from `channels/telegram/invites.py`.
 - Supabase RPC/functions (key ones referenced):
   - `dispatch_accept_func`, `dispatch_complete_func`, `dispatch_cancel_before_pickup` (pre‑pickup rollback), `process_delivery` (scheduled), `clear_dispatch` (testing), `init_delivery` (testing).
 - Dispatch lifecycle data is stored per rider offer in `delivery_dispatch`:
@@ -275,6 +282,12 @@ INSTALL_DEV=1 source run_setup.sh
 
 
 ## Extending the System
+
+- Add database-backed logic (RPC pattern; reference: `channels/telegram/invites.py` + `ordelo_datamodels/migrations/create_t_invites.sql`):
+  1. Put the rule in a Postgres function that returns `jsonb` with a `result` string (atomic, race-safe). Define it **in the same migration file as the table(s) it works on**, with the grants (`REVOKE ... FROM PUBLIC, anon, authenticated`, RLS on) and a header explaining what the file adds, how it interacts with other tables and services, its lifecycle and security model.
+  2. Add one thin typed `async def` per RPC in a single Python module for that domain (`asyncio.to_thread`, `client_ordelo_service` for service-only objects, a small outcome dataclass). Handlers call the wrapper, never the table.
+  3. **Cross-reference both ways in the same change:** the Python module docstring names the SQL file and maps each function to its RPC; the SQL header names the Python callers; the feature doc has a database-object ↔ code ↔ tests row.
+  4. Mimic the RPC contract in the test fake and cover every `result` value. Apply the migration before deploying the code that calls it.
 
 - Add a new tool for the Rider Agent:
   1. Implement async function in `ordelo/agents/rider_agent.py` (use `RunnableConfig`, `InjectedState`, and return a `Command` with updates).
