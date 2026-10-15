@@ -198,6 +198,10 @@ dispatch = DeliveryDispatch.from_dispatch_id(432)
 | `thread` | `thread_id` | `rider_id`, `dispatch_id` | — |
 | `t_invites` | `invite_code` | `rest_ref`, `phone_number`, `status`, `expires_at`, `telegram_user_id`, `telegram_chat_id` (see Telegram Invites) | — |
 | `t_invites_shareable` (view) | `invite_code` | everything in `t_invites` plus `invite_link` | — |
+| `delivery_summary` / `takeaway_summary` decisions | — | Accept/Decline/pickup go through the RPCs `restaurant_order_decide` / `restaurant_order_set_pickup` (service role; Telegram taps reach them through `t_order_decide` / `t_order_set_pickup`, which check the tapper is a linked admin); do not hand-edit `restaurant_confirmation_status`. `delivery_summary.status` may now be `declined` | — |
+| `t_inbox` | `bot_key, update_id` | `kind`, `tuid`, `status` (`processing`/`done`/`failed`), `error`, `received_at` — Telegram updates handled; service-role only; purged by `t_housekeeping()` (`create_t_order_alerts.sql`, operator-scheduled daily) | — |
+| `t_order_alerts` | `id` | `bot_key, order_number, order_type, rest_ref, offset_secs, n, of_n, due_at, status` (`pending`/`sent`/`superseded`/`cancelled`) — Telegram order-alert schedule written by `job_t_order_alerts()`; service-role only | — |
+| `t_sent_messages` | `id` (unique `bot_key, tcid, message_id`) | `tcid`, `tuid` (NULL = group), `subject_ref`, `order_type`, `card_status`, `state` (`live`/`taken`/`closed`), `taken_for`, `close_reason` — where each Telegram order-card copy lives; cleanup only; service-role only | — |
 
 ## Telegram Invites (`t_invites`)
 
