@@ -114,7 +114,7 @@ Full details in `docs/delivery_process.md`.
 
 ### Database-backed logic: RPC pattern and cross-references (good practice)
 
-When a feature needs rules or multi-step changes in the database, put that logic in a **Postgres function (RPC)** and keep the Python thin. Reference example: `channels/telegram/invites.py` wraps `t_invite_preview`, `t_claim_invite` and `t_linked_restaurants`, all defined in `ordelo_datamodels/telegram/create_t_invites.sql` (see [`docs/telegram-layer.md`](docs/telegram-layer.md)).
+When a feature needs rules or multi-step changes in the database, put that logic in a **Postgres function (RPC)** and keep the Python thin. Reference example: `channels/telegram/invites.py` wraps `t_invite_preview`, `t_claim_invite` and `t_linked_restaurants`, all defined in `ordelo_datamodels/telegram/t_invites.sql` (see [`docs/telegram-layer.md`](docs/telegram-layer.md)).
 
 1. **RPC owns the logic.** Atomic, race-safe rules (claims, status changes, uniqueness) are one SQL function returning `jsonb` with a `result` string, not a read-modify-write sequence in Python.
 2. **Define RPCs where the tables are defined.** The table(s), view(s), RPCs, grants and operator SQL live in the same SQL file, and that file lives in a **feature folder** of `ordelo_datamodels/` (`telegram/` for the `t_` layer, `restaurant_admin/` for the restaurant kitchen actions; add a folder for a new feature). It is the authoritative description of how the feature works in the database, so it is never filed under `migrations/`, which is only for one-off schema changes. Give the file a header: what it adds, how the pieces fit with other tables and services, lifecycle, security model, not-yet-done. Keep it idempotent.
@@ -149,4 +149,4 @@ Runtime configuration stored in `ordelo_config` DB table, keyed by restaurant (e
 - **Async-first**: handlers use `async/await` throughout
 - **Linting**: Ruff with `F` rules only (`F704` ignored)
 - **Testing**: pytest + pytest-asyncio, tests in `tests/`, mocks for external deps (psycopg, langgraph, pywa, config)
-- **Live testing**: `ordelo_datamodels/misc_sql/test_restaurant_notices.sql` (fake `STRK-TEST-*` orders, stages 0-10) is the reusable harness for restaurant-admin flows on WhatsApp and Telegram; read `docs/live-order-test-harness.md` first and change the script and `tests/sql/test_restaurant_notices_script_sql.py` together
+- **Live testing**: `ordelo_datamodels/test_support/test_restaurant_notices.sql` (fake `STRK-TEST-*` orders, stages 0-10) is the reusable harness for restaurant-admin flows on WhatsApp and Telegram; read `docs/live-order-test-harness.md` first and change the script and `tests/sql/test_restaurant_notices_script_sql.py` together

@@ -1,4 +1,4 @@
--- See also (paths under ordelo_datamodels/): the accept / decline rule that wins races against this timeout is in restaurant_admin/restaurant_order_decision.sql; Telegram order cards are in telegram/create_t_order_alerts.sql.
+-- See also (paths under ordelo_datamodels/): the accept / decline rule that wins races against this timeout is in restaurant_admin/restaurant_order_decision.sql; Telegram order cards are in telegram/t_order_alerts.sql.
 /**
 Restaurant Confirmation Timeout Job
 

@@ -1,4 +1,4 @@
--- See also (paths under ordelo_datamodels/): the accept / decline / pickup-time rule shared by WhatsApp and Telegram is in restaurant_admin/restaurant_order_decision.sql; Telegram order cards are in telegram/create_t_order_alerts.sql.
+-- See also (paths under ordelo_datamodels/): the accept / decline / pickup-time rule shared by WhatsApp and Telegram is in restaurant_admin/restaurant_order_decision.sql; Telegram order cards are in telegram/t_order_alerts.sql.
 /**
 Restaurant Confirmation Timeout Management
 
@@ -38,7 +38,7 @@ Timeout Conditions:
 See also:
     - docs/restaurant_confirmation_flow.md for the full restaurant confirmation journey.
     - watomation/routers/delivery_hooks.py for the webhook handler.
-    - ordelo_datamodels/summary.sql for the trigger definition.
+    - ordelo_datamodels/delivery/delivery_summary.sql for the trigger definition.
 **/
 
 CREATE OR REPLACE FUNCTION process_restaurant_confirmation() 

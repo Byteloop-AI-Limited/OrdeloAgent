@@ -1,4 +1,4 @@
-"""Step 7d.1: why the STRK harness orders (ordelo_datamodels/misc_sql/test_restaurant_notices.sql) cannot cause a LIVE payment.
+"""Step 7d.1: why the STRK harness orders (ordelo_datamodels/test_support/test_restaurant_notices.sql) cannot cause a LIVE payment.
 
 Every harness order carries an exact TEST3100 item, so food_order.payment_mode = 'test' (the isolated-database test of the
 script proves the rows; create_food_order_with_items derives the mode). These offline tests prove the Python side:

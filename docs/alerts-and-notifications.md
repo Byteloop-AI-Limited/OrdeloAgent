@@ -58,7 +58,7 @@ Origin is immutable on FoodOrder. Default routing chooses `web_page` when origin
 
 Subscriptions are not marketing consent. The current web checkout has no customer phone. A page event does not become a WhatsApp message, email, SMS or browser push. No customer SSE/WebSocket/service-worker notification transport is implemented in this order-status path.
 
-Source: [customer_notifier.py](../utils_common/notify/customer_notifier.py), [notification DDL](../ordelo_datamodels/order_notification_customer_event_outbox.sql), [web-isolation ADR](../docs/adr/0003-web-orders-never-reach-restaurant-apps.md).
+Source: [customer_notifier.py](../utils_common/notify/customer_notifier.py), [notification DDL](../ordelo_datamodels/notifications/notification_outbox.sql), [web-isolation ADR](../docs/adr/0003-web-orders-never-reach-restaurant-apps.md).
 
 ### Event catalog: producers, transports and gaps
 
@@ -154,7 +154,7 @@ Example, scheduled pickup noon: at 11:50 restaurant admins can hear “due in ~1
 
 **Important delivery limit:** ledger `sent` records a successful webhook acknowledgment, not proof that the background WhatsApp operation succeeded. A crash/send failure after 2xx can permanently lose that checkpoint's communication. An ambiguous POST failure can also cause another webhook attempt; the scheduler is not an end-to-end exactly-once messaging system.
 
-Sources: [timing SQL](../ordelo_datamodels/jobs_n_functions/job_rider_pickup_alerts.sql), [progress gate](../ordelo/delivery_progress.py), [alert processing](../watomation/routers/delivery_hooks.py), [senders](../utils_common/waba_utils/wa_senders.py).
+Sources: [timing SQL](../ordelo_datamodels/dispatch/job_rider_pickup_alerts.sql), [progress gate](../ordelo/delivery_progress.py), [alert processing](../watomation/routers/delivery_hooks.py), [senders](../utils_common/waba_utils/wa_senders.py).
 
 ## Operations and failures
 
@@ -174,7 +174,7 @@ Sources: [timing SQL](../ordelo_datamodels/jobs_n_functions/job_rider_pickup_ale
 
 `WALogger._send` uses `asyncio.gather(..., return_exceptions=True)` without checking individual results. A caller that labels its result “sent” after this await cannot establish each recipient received it. There is no WALogger outbox or durable per-recipient receipt ledger here. Missing/failed overwatch lookup and aggregate call exceptions can be logged, but swallowed recipient failures are not promoted to that level automatically.
 
-Sources: [WALogger](../config/waba_setting.py), [recipient lookup](../config/params.py), [init reconciler SQL](../ordelo_datamodels/jobs_n_functions/job_payment_init_reconciler.sql), [web lifecycle](../utils_common/web_ordering/lifecycle.py), [audit](../utils_common/web_ordering/monitoring.py).
+Sources: [WALogger](../config/waba_setting.py), [recipient lookup](../config/params.py), [init reconciler SQL](../ordelo_datamodels/payment/job_payment_init_reconciler.sql), [web lifecycle](../utils_common/web_ordering/lifecycle.py), [audit](../utils_common/web_ordering/monitoring.py).
 
 ### Persistence and outcome meanings
 

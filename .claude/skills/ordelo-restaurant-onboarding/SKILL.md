@@ -33,9 +33,9 @@ they request it; verify existing state instead.
 
 Unless the user chooses other paths, write a new `plans/onboard-{slug}-plan.md`
 and `notebooks/db_queries/restaurant_queries/onboarding_{slug}/`. Include read-only
-preflight, `restaurant_master` insertion, per-restaurant configuration, **`menu.sql`
+preflight, `restaurant_master` insertion, per-restaurant configuration, **`core/menus.sql`
 to create `public.{slug}_menu`**, supplied menu seed data, test-window/go-live SQL,
-and scoped rollback. Keep the shared `ordelo_datamodels/menu.sql` as the schema
+and scoped rollback. Keep the shared `ordelo_datamodels/core/menus.sql` as the schema
 reference rather than replacing its CRMS table for a new restaurant.
 
 Use standalone statements with `RETURNING` or verification `SELECT`s for manual

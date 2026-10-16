@@ -416,7 +416,7 @@ fly machine list -a sfcs-agent    # note the Machine ID (FLY_MACHINE_ID)
 
 ### 10b. `fly_config` table
 
-`ordelo_datamodels/fly_config.sql` — one row per app, keyed by `app_name`, storing the token, machine id, and region. Because the token can stop/start prod, the table is **locked out of the public API**: RLS is enabled with no policies (deny-all) and grants are revoked from `anon`/`authenticated`. Only `fly_post` (SECURITY DEFINER) reads it.
+`ordelo_datamodels/platform/fly_config.sql` — one row per app, keyed by `app_name`, storing the token, machine id, and region. Because the token can stop/start prod, the table is **locked out of the public API**: RLS is enabled with no policies (deny-all) and grants are revoked from `anon`/`authenticated`. Only `fly_post` (SECURITY DEFINER) reads it.
 
 Seed the row (values from 10a):
 ```sql
@@ -426,7 +426,7 @@ VALUES ('sfcs-agent', '<FLY_MACHINE_ID>', 'lhr', '<FLY_API_TOKEN>', 'nightly sto
 
 ### 10c. `fly_post(app_name, action)` function
 
-`ordelo_datamodels/jobs_n_functions/fly_post.sql` — validates `action ∈ {start, stop, suspend}`, looks up the token + machine id, and `POST`s to `https://api.machines.dev/v1/apps/<app>/machines/<id>/<action>` with an `Authorization: Bearer` header. Returns `(status, content)`.
+`ordelo_datamodels/platform/fly_post.sql` — validates `action ∈ {start, stop, suspend}`, looks up the token + machine id, and `POST`s to `https://api.machines.dev/v1/apps/<app>/machines/<id>/<action>` with an `Authorization: Bearer` header. Returns `(status, content)`.
 
 ```sql
 SELECT * FROM fly_post('sfcs-agent', 'stop');    -- nightly shutdown

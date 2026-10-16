@@ -99,7 +99,7 @@ collects very late finds those checkpoints already passed and gets one
 immediate "you are well past pickup" nudge rather than a fresh ladder.
 
 Scheduling is entirely in `job_rider_pickup_alerts()`
-(`ordelo_datamodels/jobs_n_functions/job_rider_pickup_alerts.sql`); the FastAPI
+(`ordelo_datamodels/dispatch/job_rider_pickup_alerts.sql`); the FastAPI
 endpoint is only called when a checkpoint is actually due. When several are due
 at once - a cron outage, or a rider who collected long after the pickup time - only
 the **largest** fires and the rest are marked `superseded`, because the largest

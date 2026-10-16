@@ -11,12 +11,12 @@ def _read(relative_path: str) -> str:
 
 
 def test_canonical_sql_installs_auto_accept_schema_policy_and_takeaway_insert_trigger() -> None:
-    masterdata = _read("ordelo_datamodels/masterdata.sql")
-    delivery_summary = _read("ordelo_datamodels/summary.sql")
+    masterdata = _read("ordelo_datamodels/core/restaurant_master.sql")
+    delivery_summary = _read("ordelo_datamodels/delivery/delivery_summary.sql")
     resolver = _read(
-        "ordelo_datamodels/jobs_n_functions/resolve_initial_restaurant_acceptance.sql"
+        "ordelo_datamodels/restaurant_admin/resolve_initial_restaurant_acceptance.sql"
     )
-    takeaway_summary = _read("ordelo_datamodels/takeaway_summary.sql")
+    takeaway_summary = _read("ordelo_datamodels/takeaway/takeaway_summary.sql")
 
     assert "auto_accept BOOLEAN NOT NULL DEFAULT FALSE" in masterdata
     assert "rest_confirmation_method IS NULL" in delivery_summary
@@ -26,8 +26,8 @@ def test_canonical_sql_installs_auto_accept_schema_policy_and_takeaway_insert_tr
 
 
 def test_initializers_map_configured_auto_to_dispatch_ready_states() -> None:
-    delivery = _read("ordelo_datamodels/jobs_n_functions/init_delivery.sql")
-    takeaway = _read("ordelo_datamodels/jobs_n_functions/init_takeaway.sql")
+    delivery = _read("ordelo_datamodels/delivery/init_delivery.sql")
+    takeaway = _read("ordelo_datamodels/takeaway/init_takeaway.sql")
 
     assert "resolve_initial_restaurant_acceptance" in delivery
     assert "CASE WHEN v_auto_accept THEN 'unassigned' ELSE 'restaurant_unconfirmed' END" in delivery
@@ -44,8 +44,8 @@ def test_initializers_qualify_acceptance_result_columns() -> None:
         "        acceptance.pickup_time"
     )
     for relative_path in (
-        "ordelo_datamodels/jobs_n_functions/init_delivery.sql",
-        "ordelo_datamodels/jobs_n_functions/init_takeaway.sql",
+        "ordelo_datamodels/delivery/init_delivery.sql",
+        "ordelo_datamodels/takeaway/init_takeaway.sql",
     ):
         initializer = _read(relative_path)
         assert qualified_select in initializer
@@ -54,7 +54,7 @@ def test_initializers_qualify_acceptance_result_columns() -> None:
 
 def test_acceptance_policy_uses_restaurant_config_before_global_fallback() -> None:
     resolver = _read(
-        "ordelo_datamodels/jobs_n_functions/resolve_initial_restaurant_acceptance.sql"
+        "ordelo_datamodels/restaurant_admin/resolve_initial_restaurant_acceptance.sql"
     )
 
     assert "'_DEFAULT_DELIVERY_PICKUP_TIME'" in resolver
@@ -66,7 +66,7 @@ def test_acceptance_policy_uses_restaurant_config_before_global_fallback() -> No
 
 
 def test_takeaway_pickup_trigger_supports_auto_accept_insert() -> None:
-    takeaway_summary = _read("ordelo_datamodels/takeaway_summary.sql")
+    takeaway_summary = _read("ordelo_datamodels/takeaway/takeaway_summary.sql")
 
     assert "AFTER INSERT ON public.takeaway_summary" in takeaway_summary
     assert "WHEN (NEW.pickup_time IS NOT NULL)" in takeaway_summary

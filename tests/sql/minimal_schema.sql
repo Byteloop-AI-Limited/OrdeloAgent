@@ -73,10 +73,10 @@ DROP TRIGGER IF EXISTS test_restaurant_updates ON public.takeaway_summary;
 CREATE TRIGGER test_restaurant_updates AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON public.takeaway_summary
     FOR EACH ROW EXECUTE FUNCTION public.test_log_restaurant_update();
 
--- create_t_invites.sql ends with operator SQL that inserts an invite for ELAS, so the restaurant must exist.
+-- t_invites.sql ends with operator SQL that inserts an invite for ELAS, so the restaurant must exist.
 INSERT INTO public.restaurant_master (rest_ref, rest_name) VALUES ('ELAS', 'Elas Kitchen') ON CONFLICT DO NOTHING;
 
--- ---- create_t_order_alerts.sql needs the order lines, the http extension and parse_alert_offsets -------------------
+-- ---- t_order_alerts.sql needs the order lines, the http extension and parse_alert_offsets -------------------
 CREATE TABLE IF NOT EXISTS public.food_order (
     order_id    text PRIMARY KEY,
     order_number text UNIQUE,
@@ -128,7 +128,7 @@ BEGIN
     RETURN ROW(s, 'application/json', NULL, '{}')::public.http_response;
 END $$;
 
--- Verbatim from ordelo_datamodels/jobs_n_functions/job_rider_pickup_alerts.sql (section 3).
+-- Verbatim from ordelo_datamodels/dispatch/job_rider_pickup_alerts.sql (section 3).
 CREATE OR REPLACE FUNCTION parse_alert_offsets(p_config_key text)
 RETURNS int[] LANGUAGE sql STABLE AS $$
     SELECT array_agg(DISTINCT btrim(t.x)::int ORDER BY btrim(t.x)::int)

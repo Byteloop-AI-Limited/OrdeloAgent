@@ -1,7 +1,7 @@
 -- =============================================================================================
 -- Feature SQL: shared restaurant decision functions (accept / decline / pickup time) + R1-a
 -- =============================================================================================
--- See also (paths under ordelo_datamodels/): sibling files: restaurant_admin/restaurant_ready_adjust_notices.sql (Ready / adjust / receipts / notices, run after this one), telegram/create_t_order_alerts.sql (Telegram order cards).
+-- See also (paths under ordelo_datamodels/): sibling files: restaurant_admin/restaurant_ready_adjust_notices.sql (Ready / adjust / receipts / notices, run after this one), telegram/t_order_alerts.sql (Telegram order cards).
 -- Run in the Supabase SQL editor (operator step; the implementing agent never runs it).
 -- Repeatable: the constraint change is DROP IF EXISTS + ADD, every function is CREATE OR REPLACE.
 -- Run it BEFORE deploying the code that calls it (utils_common/order_management/restaurant_decision.py).
@@ -25,8 +25,8 @@
 --   dispatched (dispatch only selects status = 'unassigned').
 --
 -- HOW THE PIECES FIT TOGETHER
---   Tables used (defined elsewhere): ordelo_datamodels/summary.sql (delivery_summary),
---     ordelo_datamodels/takeaway_summary.sql (takeaway_summary), create_t_invites.sql (t_invites, for the label).
+--   Tables used (defined elsewhere): ordelo_datamodels/delivery/delivery_summary.sql (delivery_summary),
+--     ordelo_datamodels/takeaway/takeaway_summary.sql (takeaway_summary), create_t_invites.sql (t_invites, for the label).
 --   Triggers (unchanged): trigger_restaurant_updates / trigger_takeaway_restaurant_updates fire on every
 --     restaurant_confirmation_status change and POST /delivery-hooks|/takeaway-hooks .../restaurant-confirmation-request.
 --     Payment capture/cancel, customer messages and the WhatsApp pickup prompts keep working through that webhook.

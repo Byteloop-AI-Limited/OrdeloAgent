@@ -1,7 +1,7 @@
 -- =============================================================================================
 -- Feature SQL: kitchen actions (Ready, adjust pickup) shared by WhatsApp and Telegram + Telegram kitchen receipts and notices
 -- =============================================================================================
--- See also (paths under ordelo_datamodels/): sibling files: restaurant_admin/restaurant_order_decision.sql (accept / decline, run before this one), telegram/create_t_order_alerts.sql (order cards and the t_sent_messages ledger this file reuses), telegram/create_t_invites.sql (who is an admin).
+-- See also (paths under ordelo_datamodels/): sibling files: restaurant_admin/restaurant_order_decision.sql (accept / decline, run before this one), telegram/t_order_alerts.sql (order cards and the t_sent_messages ledger this file reuses), telegram/t_invites.sql (who is an admin).
 -- Run once in the Supabase SQL editor (operator step; the implementing agent never runs it).
 -- Repeatable: ADD COLUMN IF NOT EXISTS / CREATE INDEX IF NOT EXISTS / CREATE OR REPLACE. Nothing is dropped or rewritten.
 -- Run it AFTER restaurant_order_decision.sql and create_t_order_alerts.sql (it reads restaurant_admin_label(),
@@ -46,9 +46,9 @@
 --   delivered, feedback) are sent to the same destinations and recorded for audit.
 --
 -- HOW THE PIECES FIT TOGETHER
---   Tables used (defined elsewhere): delivery_summary (summary.sql), takeaway_summary (takeaway_summary.sql),
---     delivery_inflight (inflight.sql), delivery_dispatch (dispatch.sql), rider_master (masterdata.sql),
---     food_order / order_item (utils_common/order_management/food_order.sql), restaurant_master (masterdata.sql),
+--   Tables used (defined elsewhere): delivery_summary (delivery/delivery_summary.sql), takeaway_summary (takeaway/takeaway_summary.sql),
+--     delivery_inflight (dispatch/delivery_inflight.sql), delivery_dispatch (dispatch/delivery_dispatch.sql), rider_master (core/restaurant_master.sql),
+--     food_order / order_item (utils_common/order_management/food_order.sql), restaurant_master (core/restaurant_master.sql),
 --     t_invites (create_t_invites.sql), t_sent_messages (create_t_order_alerts.sql).
 --   Triggers (unchanged): trigger_restaurant_updates is AFTER UPDATE OF restaurant_confirmation_status, so the adjust
 --     UPDATE (which sets it to 'restaurant_pickuptime_adjusted') still POSTs /delivery-hooks/restaurant-confirmation-request

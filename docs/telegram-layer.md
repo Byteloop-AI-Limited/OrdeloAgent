@@ -12,7 +12,7 @@ OrdeloAgent's existing FastAPI service also receives Telegram webhooks. One **bo
 - **Registry** of bots (`channels/telegram/bots.py`), each with its own aiogram `Bot` and its own `Dispatcher` and router tree.
 - **One thin webhook route** (`watomation/routers/telegram_webhook.py`): checks the secret header, feeds the update to the right bot's dispatcher, always answers 200.
 - **Deterministic handlers** (`channels/telegram/rest_admin/router.py`): commands and buttons, no LangGraph agent.
-- **Database-backed logic behind RPCs** (`channels/telegram/invites.py` calls functions defined in `ordelo_datamodels/telegram/create_t_invites.sql`). See [section 5](#5-the-design-pattern-to-reuse-rpc-owns-the-logic-one-python-wrapper-per-domain).
+- **Database-backed logic behind RPCs** (`channels/telegram/invites.py` calls functions defined in `ordelo_datamodels/telegram/t_invites.sql`). See [section 5](#5-the-design-pattern-to-reuse-rpc-owns-the-logic-one-python-wrapper-per-domain).
 
 `tgram_starter/` (the standalone starter kit) is kept unchanged for later reference. Nothing imports it.
 
@@ -61,12 +61,12 @@ The webhook route does not contain business logic. Per-bot objects are created i
 | | `channels/telegram/rest_admin/commands.py` | command menu and help text |
 | Webhook | `watomation/routers/telegram_webhook.py` | `POST /telegram/{bot_slug}/webhook` |
 | App wiring | `watomation/fapp_ordelo_agent.py` | lifespan builds and closes the registry; `include_router(telegram_webhook.router)` |
-| **Database** | `ordelo_datamodels/telegram/create_t_invites.sql` | `t_invites` table, `t_invites_shareable` view, the three RPC functions, grants, operator SQL. **The one place that defines the invite database objects** |
+| **Database** | `ordelo_datamodels/telegram/t_invites.sql` | `t_invites` table, `t_invites_shareable` view, the three RPC functions, grants, operator SQL. **The one place that defines the invite database objects** |
 | | `ordelo_datamodels/restaurant_admin/restaurant_order_decision.sql` | `delivery_summary_status_check` now allows `'declined'` (R1-a), `restaurant_admin_label`, `restaurant_order_decide`, `restaurant_order_set_pickup`, and the Telegram wrappers `t_order_admin_phone`, `t_order_decide`, `t_order_set_pickup` (D14 authorisation) |
-| | `ordelo_datamodels/telegram/create_t_inbox.sql` | `t_inbox` table, `t_inbox_claim`, `t_inbox_finish`, grants |
-| | `ordelo_datamodels/telegram/create_t_order_alerts.sql` | `t_order_alerts` (schedule), `t_sent_messages` (ledger), the card functions, `job_t_order_alerts()` (the 5 s sweep), `t_housekeeping()`, config rows, operator `cron.schedule` lines |
+| | `ordelo_datamodels/telegram/t_inbox.sql` | `t_inbox` table, `t_inbox_claim`, `t_inbox_finish`, grants |
+| | `ordelo_datamodels/telegram/t_order_alerts.sql` | `t_order_alerts` (schedule), `t_sent_messages` (ledger), the card functions, `job_t_order_alerts()` (the 5 s sweep), `t_housekeeping()`, config rows, operator `cron.schedule` lines |
 | | `ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql` | Phases 7-8: Ready / adjust-pickup columns on the summaries, the shared RPCs `restaurant_order_ready` / `restaurant_order_adjust_pickup`, their `t_` wrappers, the receipt functions (`t_receipt_status`, `t_receipt_snapshot`, `t_receipt_sent`, `t_receipts_stale`, `t_receipts_take`), the notice functions (`t_notice_targets`, `t_notice_sent`) and `job_t_receipt_refresh()` (the second 5 s sweep) |
-| | `ordelo_datamodels/misc_sql/test_restaurant_notices.sql` | fake-row script for the live check: `STRK-TEST-*` orders in town `dummy`, one stage per notice; guide: `docs/live-order-test-harness.md` |
+| | `ordelo_datamodels/test_support/test_restaurant_notices.sql` | fake-row script for the live check: `STRK-TEST-*` orders in town `dummy`, one stage per notice; guide: `docs/live-order-test-harness.md` |
 | | `ordelo_datamodels/migrations/drop_tgram_invites.sql` | cleanup of the old `tgram_` names (run once before the `t_` migration) |
 | Operations | `notebooks/telegram/tgram_setup_bot.py` | token check, set/verify webhook (`allowed_updates` computed from the handlers), set command menu, smoke tests |
 | | `notebooks/telegram/tgram_scratchpad.py` | send/edit/reply experiments |
@@ -144,7 +144,7 @@ When you add, rename or change an RPC, update **all three** in the same change.
 | table `t_inbox` | `create_t_inbox.sql` | none directly (through the RPCs) | n/a | `FakeInboxDb` mimics it; `tests/sql/test_t_inbox_sql.py` |
 | RPC `t_inbox_claim(p_bot_key, p_update_id, p_kind, p_tuid)` | `create_t_inbox.sql` | `inbox.claim` (via `InboxMiddleware`) | every update | `test_inbox.py`, `test_telegram_webhook.py`, `tests/sql/test_t_inbox_sql.py` |
 | RPC `t_inbox_finish(p_bot_key, p_update_id, p_status, p_error)` | `create_t_inbox.sql` | `inbox.finish` (via `InboxMiddleware`) | every update | `test_inbox.py`, `tests/sql/test_t_inbox_sql.py` |
-| constraint `delivery_summary_status_check` | `restaurant_order_decision.sql` (and `summary.sql`) | none | n/a | `tests/sql/test_restaurant_decision_sql.py` |
+| constraint `delivery_summary_status_check` | `restaurant_order_decision.sql` (and `delivery/delivery_summary.sql`) | none | n/a | `tests/sql/test_restaurant_decision_sql.py` |
 | function `restaurant_admin_label(p_phone)` | `restaurant_order_decision.sql` | none directly (called inside the two functions below) | "by X" in replies | `tests/sql/test_restaurant_decision_sql.py` |
 | RPC `restaurant_order_decide(p_order_number, p_order_type, p_decision, p_admin_phone, p_channel)` | `restaurant_order_decision.sql` | `restaurant_decision.decide` | WhatsApp Accept tap (`_update_restaurant_order_status`) | `test_restaurant_decision.py`, `test_on_callback_wa_handler.py`, `tests/sql/test_restaurant_decision_sql.py` |
 | RPC `restaurant_order_set_pickup(p_order_number, p_order_type, p_pickup_time, p_admin_phone, p_channel)` | `restaurant_order_decision.sql` | `restaurant_decision.set_pickup` | WhatsApp pickup-time tap (`handle_pickup_time_selection`) | `test_restaurant_decision.py`, `test_on_callback_wa_handler.py`, `tests/sql/test_restaurant_decision_sql.py` |
@@ -176,7 +176,7 @@ When you add, rename or change an RPC, update **all three** in the same change.
 | function `job_t_order_alerts()` | `create_t_order_alerts.sql` | none (pg_cron every 5 s, operator step) | POSTs `/telegram/rest-admin/order-alerts` | `tests/sql/test_order_cards_sql.py` (seed, cancel, collapse, mark only on 2xx, stale refreshes) |
 | function `t_housekeeping()` | `create_t_order_alerts.sql` | none (pg_cron daily, operator step) | n/a | `tests/sql/test_order_cards_sql.py` |
 | config rows `TGRAM_ORDER_ALERT_OFFSETS_SECS`, `TGRAM_INBOX_RETENTION_DAYS`, `TGRAM_LEDGER_RETENTION_DAYS` | `create_t_order_alerts.sql` | none (read by the SQL) | n/a | `tests/sql/test_order_cards_sql.py` |
-| existing function `parse_alert_offsets(p_config_key)` | `jobs_n_functions/job_rider_pickup_alerts.sql` | none | n/a | copied into `tests/sql/minimal_schema.sql` |
+| existing function `parse_alert_offsets(p_config_key)` | `dispatch/job_rider_pickup_alerts.sql` | none | n/a | copied into `tests/sql/minimal_schema.sql` |
 | existing table `restaurant_master` | existing migrations | none (joined inside the RPCs for the restaurant name) | n/a | n/a |
 
 ## 7. Invite lifecycle and operations
@@ -201,7 +201,7 @@ Setup for a new bot or environment: add the AWS keys, set the `ordelo_config` us
 - **Scheduling is an operator step:** `create_t_order_alerts.sql` ends with commented `cron.schedule` lines (the 5 s sweep and the daily `t_housekeeping()`); until they run nothing is sent and nothing is purged.
 - **Long cards:** an order with a very long item list is not truncated to Telegram's 4096 characters.
 - **Order actions** are authorised per tap (claimed invite for the restaurant AND the invite phone in `restaurant_master.admins`). Ready and +10 / +20 are built (Phases 7-8, on the kitchen receipt). Not built: adjusting a takeaway pickup time, a takeaway `completed` writer (its receipt stays "ready"), and a tap on a card that has no ledger row (an old card sent before the migration is answered but not redrawn).
-- **Phases 7-8 are scheduling and live checks for the owner:** apply `restaurant_ready_adjust_notices.sql`, schedule `job_t_receipt_refresh()`, put the dummy rider in `overwatch_list`, deploy, then run the live script (`misc_sql/test_restaurant_notices.sql`). Out of scope: rider-nearby (G) and availability enquiry (J).
+- **Phases 7-8 are scheduling and live checks for the owner:** apply `restaurant_ready_adjust_notices.sql`, schedule `job_t_receipt_refresh()`, put the dummy rider in `overwatch_list`, deploy, then run the live script (`test_support/test_restaurant_notices.sql`). Out of scope: rider-nearby (G) and availability enquiry (J).
 - **Rider bot** (`DISPATCHER_FACTORIES` is ready for a second key) and the **phone-verified** contact flow.
 
 ## Change log

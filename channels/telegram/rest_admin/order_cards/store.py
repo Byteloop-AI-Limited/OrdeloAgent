@@ -1,6 +1,6 @@
 """CardStore: the order-card side of the database (all calls are RPCs, see create_t_order_alerts.sql).
 
-    . RPCs and tables are DEFINED in: ordelo_datamodels/telegram/create_t_order_alerts.sql
+    . RPCs and tables are DEFINED in: ordelo_datamodels/telegram/t_order_alerts.sql
       (keep this list and that file's header in sync whenever either changes)
     . Python method -> RPC it calls:
         snapshot          -> t_order_card_snapshot(p_bot_key, p_order_number, p_order_type)
