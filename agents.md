@@ -12,6 +12,13 @@ This document maps the codebase structure and explains how agents, webhooks, mes
 
 For local startup of OrdeloAgent and the sibling restaurant-frontend, Python shell preparation (`venv`, `PYTHONPATH`, `envLoad`), Cloudflare Tunnel routing, and maintenance-window test/production URL switches, follow the [local testing runbook](docs/local-testing-runbook.md).
 
+## Related projects
+
+- `/Users/basavaraj/bloop/restaurant-frontend` — the Next.js restaurant frontend. Inspect this project for storefront, checkout, and frontend session-validation behavior.
+- `/Users/basavaraj/bloop/restaurant-agents` — the restaurant agents, which have their own WhatsApp ordering channel. Inspect this project for restaurant-side conversations, active threads, and the endpoints called by OrdeloAgent.
+
+Trace cross-project issues through these folders as needed, reading each project's `AGENTS.md` before working there. WhatsApp ordering session validation runs from the frontend's `/api/verify-session` through OrdeloAgent's `/order-hooks/get-active-thread/{rest_ref}/{recipient}` to the restaurant agent's `/thread-hooks/get-active-thread/{rest_ref}/{recipient}`; OrdeloAgent resolves the restaurant service using `ordelo_config.<REST_REF>_APP_URL`.
+
 ## Project Skills
 
 - **[telegram-api](.claude/skills/telegram-api/SKILL.md)** — Use for migrating this project's WhatsApp/PyWa messaging and handlers to Telegram with aiogram 3.31.0, or implementing Telegram interactions. Includes the Ordelo message inventory, official API documentation links, implementation examples, and source references for six FastAPI/aiogram repositories. Read the skill before Telegram migration work; preserve existing delivery/payment rules and LangGraph state.
@@ -189,7 +196,7 @@ For local startup of OrdeloAgent and the sibling restaurant-frontend, Python she
 
 - Postgres/Supabase tables (most used):
   - `delivery_detail` (per‑order detail), `delivery_summary` (joined status view), `delivery_dispatch` (rider offers), `delivery_inflight` (active jobs), `rider_location`, `rider_location_event`, `thread` (agent chat context).
-- Supabase RPC/functions follow one pattern: the logic lives in the database function, defined next to its table in `ordelo_datamodels/migrations/`, wrapped by one Python module, and both sides name each other (see "Add database-backed logic" under Extending the System). Telegram example: `t_invites` and `t_claim_invite` in `create_t_invites.sql`, called from `channels/telegram/invites.py`.
+- Supabase RPC/functions follow one pattern: the logic lives in the database function, defined next to its table in a feature folder of `ordelo_datamodels/` (`telegram/`, `restaurant_admin/`; not `migrations/`), wrapped by one Python module, and both sides name each other (see "Add database-backed logic" under Extending the System). Telegram example: `t_invites` and `t_claim_invite` in `create_t_invites.sql`, called from `channels/telegram/invites.py`.
 - Supabase RPC/functions (key ones referenced):
   - `dispatch_accept_func`, `dispatch_complete_func`, `dispatch_cancel_before_pickup` (pre‑pickup rollback), `process_delivery` (scheduled), `clear_dispatch` (testing), `init_delivery` (testing).
 - Dispatch lifecycle data is stored per rider offer in `delivery_dispatch`:
@@ -284,7 +291,7 @@ INSTALL_DEV=1 source run_setup.sh
 
 ## Extending the System
 
-- Add database-backed logic (RPC pattern; reference: `channels/telegram/invites.py` + `ordelo_datamodels/migrations/create_t_invites.sql`):
+- Add database-backed logic (RPC pattern; reference: `channels/telegram/invites.py` + `ordelo_datamodels/telegram/create_t_invites.sql`):
   1. Put the rule in a Postgres function that returns `jsonb` with a `result` string (atomic, race-safe). Define it **in the same migration file as the table(s) it works on**, with the grants (`REVOKE ... FROM PUBLIC, anon, authenticated`, RLS on) and a header explaining what the file adds, how it interacts with other tables and services, its lifecycle and security model.
   2. Add one thin typed `async def` per RPC in a single Python module for that domain (`asyncio.to_thread`, `client_ordelo_service` for service-only objects, a small outcome dataclass). Handlers call the wrapper, never the table.
   3. **Cross-reference both ways in the same change:** the Python module docstring names the SQL file and maps each function to its RPC; the SQL header names the Python callers; the feature doc has a database-object ↔ code ↔ tests row.
