@@ -1,19 +1,19 @@
-CREATE TABLE delivery_option (
-    id                      SERIAL PRIMARY KEY,
-    vehicle_type            VARCHAR(20) NOT NULL,
-    minimum_order_value     DOUBLE PRECISION NOT NULL,
-    byteloop_commission_fee DOUBLE PRECISION,
-    byteloop_commission_percentage DOUBLE PRECISION,
-    rest_cost               DOUBLE PRECISION,
-    driver_payout           DOUBLE PRECISION,
-    breakdown               JSONB,
-    rank                    INTEGER,
-    final_order_value       DOUBLE PRECISION,
-    total_customer_charge   DOUBLE PRECISION,
-    order_number            VARCHAR(100),
-    message                 TEXT,
-    dt                      DATE NOT NULL DEFAULT CURRENT_DATE,
-    dtts                    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+CREATE TABLE IF NOT EXISTS public.delivery_option (
+    id serial NOT NULL,
+    order_number character varying(100),
+    vehicle_type character varying(50),
+    rank integer,
+    final_order_value double precision,
+    total_customer_charge double precision,
+    rest_cost double precision,
+    driver_payout double precision,
+    byteloop_commission_percentage double precision,
+    byteloop_commission_fee double precision,
+    breakdown jsonb,
+    message text,
+    minimum_order_value double precision NOT NULL DEFAULT 0.0,
+    CONSTRAINT delivery_option_pkey PRIMARY KEY (id),
+    CONSTRAINT delivery_option_order_number_fkey FOREIGN KEY (order_number) REFERENCES delivery_pricing_detail(order_number)
 );
 
 -- change driver_payout to rider_payout

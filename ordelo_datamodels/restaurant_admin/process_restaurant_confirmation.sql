@@ -40,7 +40,6 @@ See also:
     - watomation/routers/delivery_hooks.py for the webhook handler.
     - ordelo_datamodels/delivery/delivery_summary.sql for the trigger definition.
 **/
-
 CREATE OR REPLACE FUNCTION process_restaurant_confirmation() 
 RETURNS TABLE(action TEXT) 
 LANGUAGE plpgsql AS $$
@@ -94,6 +93,13 @@ BEGIN
 END;
 $$;
 
+-- pg_cron job 'process_restaurant_confirmation' (live schedule: 10 seconds, active). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('process_restaurant_confirmation', '10 seconds', $cron$SELECT public.process_restaurant_confirmation()$cron$);
+
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
+
 -- Schedule this function to run every 5 seconds via pg_cron
 -- SELECT cron.schedule('process_restaurant_confirmation', '*/5 * * * * *', 'SELECT * FROM process_restaurant_confirmation()');
 
@@ -101,4 +107,4 @@ $$;
 -- SELECT cron.unschedule('process_restaurant_confirmation');
 
 -- Manual test:
-SELECT * FROM process_restaurant_confirmation();
+-- SELECT * FROM process_restaurant_confirmation();

@@ -100,20 +100,7 @@
 -- ---------------------------------------------------------------------------------------------
 -- 1. Columns. Nullable, no defaults: no table rewrite, only a catalog update.
 -- ---------------------------------------------------------------------------------------------
-ALTER TABLE public.delivery_summary
-    ADD COLUMN IF NOT EXISTS ready_at            timestamptz,
-    ADD COLUMN IF NOT EXISTS ready_by            text,          -- admin phone (digits); label via restaurant_admin_label()
-    ADD COLUMN IF NOT EXISTS ready_dispatch_id   integer,       -- the dispatch the Ready was for (D35)
-    ADD COLUMN IF NOT EXISTS pickup_time_initial timestamptz,   -- pickup before the FIRST adjust (D32)
-    ADD COLUMN IF NOT EXISTS pickup_adjusted_by  text,
-    ADD COLUMN IF NOT EXISTS pickup_adjusted_at  timestamptz;
-ALTER TABLE public.takeaway_summary
-    ADD COLUMN IF NOT EXISTS ready_at timestamptz,
-    ADD COLUMN IF NOT EXISTS ready_by text;
-ALTER TABLE public.t_sent_messages
-    ADD COLUMN IF NOT EXISTS dispatch_id integer;               -- receipts only: which rider's receipt this copy is
-CREATE INDEX IF NOT EXISTS t_sent_messages_receipts
-    ON public.t_sent_messages (subject_ref, tcid) WHERE kind = 'receipt' AND state <> 'closed';
+-- (The statement that followed this comment is now generated from live in delivery/delivery_summary.sql.)
 
 -- ---------------------------------------------------------------------------------------------
 -- 2. restaurant_order_ready(order_number, order_type, admin_phone, channel): Ready, shared by every channel.
@@ -201,6 +188,11 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------------------------------
+-- Server-only objects: nobody but the service key may call them.
+-- ---------------------------------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public.restaurant_order_ready(text, text, text, text) FROM PUBLIC, anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------
 -- 3. restaurant_order_adjust_pickup(order_number, target, admin_phone, channel): +10/+20, delivery only (D32).
 --    The target is an absolute time: WhatsApp's buttons carry one already; Telegram's wrapper computes it from
 --    COALESCE(pickup_time_initial, pickup_time) + minutes, so repeated taps are never cumulative.
@@ -254,6 +246,8 @@ BEGIN
         'by', public.restaurant_admin_label(p_admin_phone), 'by_phone', p_admin_phone);
 END $$;
 
+REVOKE ALL ON FUNCTION public.restaurant_order_adjust_pickup(text, timestamptz, text, text) FROM PUBLIC, anon, authenticated;
+
 -- ---------------------------------------------------------------------------------------------
 -- 4. Telegram wrappers: authorise (D14) first, then call the shared function with the person's admin phone.
 --    Same shape as t_order_decide / t_order_set_pickup (restaurant_order_decision.sql sections 6 and 7).
@@ -282,6 +276,8 @@ BEGIN
     RETURN public.restaurant_order_ready(p_order_number, p_order_type, v_phone, 'telegram');
 END $$;
 
+REVOKE ALL ON FUNCTION public.t_order_ready(text, bigint, text, text) FROM PUBLIC, anon, authenticated;
+
 -- minutes must be 10 or 20; the target is COALESCE(pickup_time_initial, pickup_time) + minutes (delivery only).
 CREATE OR REPLACE FUNCTION public.t_order_adjust_pickup(
     p_bot_key text, p_tuid bigint, p_order_number text, p_minutes int)
@@ -309,6 +305,8 @@ BEGIN
     RETURN public.restaurant_order_adjust_pickup(
         p_order_number, v_base + make_interval(mins => p_minutes), v_phone, 'telegram');
 END $$;
+
+REVOKE ALL ON FUNCTION public.t_order_adjust_pickup(text, bigint, text, int) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 5. t_receipt_status(order_number, order_type, dispatch_id): the receipt status key (plan section 3.4).
@@ -346,6 +344,8 @@ RETURNS text LANGUAGE sql STABLE SET search_path = public AS $$
         ELSE NULL
     END
 $$;
+
+REVOKE ALL ON FUNCTION public.t_receipt_status(text, text, integer) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 6. t_receipt_snapshot(bot_key, order_number, order_type, dispatch_id): everything needed to draw ONE receipt.
@@ -450,6 +450,8 @@ BEGIN
                FROM public.t_order_card_destinations(p_bot_key, v_rest_ref) d), '[]'::jsonb));
 END $$;
 
+REVOKE ALL ON FUNCTION public.t_receipt_snapshot(text, text, text, integer) FROM PUBLIC, anon, authenticated;
+
 -- ---------------------------------------------------------------------------------------------
 -- 7. t_receipt_sent(...): record a receipt copy that was just sent and take this chat's OLDER receipt copies of the
 --    order for deletion (D35: a new rider's receipt replaces the previous rider's). One transaction. Idempotent on
@@ -501,6 +503,8 @@ BEGIN
         'status', v_status);
 END $$;
 
+REVOKE ALL ON FUNCTION public.t_receipt_sent(text, bigint, bigint, bigint, text, text, text, integer, text) FROM PUBLIC, anon, authenticated;
+
 -- ---------------------------------------------------------------------------------------------
 -- 8. t_receipts_stale(bot_key, order_number?, order_type?): receipt copies that need work (read-only).
 --    A 'live' copy needs work when its key differs from the database or its chat is no longer a destination (invite
@@ -527,6 +531,8 @@ LANGUAGE sql STABLE SET search_path = public AS $$
                      OR d.tcid IS NULL))
             OR (m.state = 'taken' AND m.taken_at < now() - interval '30 seconds'))
 $$;
+
+REVOKE ALL ON FUNCTION public.t_receipts_stale(text, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 9. t_receipts_take(bot_key, order_number, order_type): claim this order's stale receipt copies for ONE refresh pass.
@@ -564,6 +570,8 @@ BEGIN
     RETURN jsonb_build_object('rows', v_rows);
 END $$;
 
+REVOKE ALL ON FUNCTION public.t_receipts_take(text, text, text) FROM PUBLIC, anon, authenticated;
+
 -- ---------------------------------------------------------------------------------------------
 -- 10. Plain notices (D36). t_notice_targets(bot_key, rest_ref, order_number, reply_kind): where a notice goes
 --     (the same destinations as order cards) and which message to reply to: the newest existing copy in that chat of
@@ -586,6 +594,8 @@ LANGUAGE sql STABLE SET search_path = public AS $$
       FROM public.t_order_card_destinations(p_bot_key, p_rest_ref) d
 $$;
 
+REVOKE ALL ON FUNCTION public.t_notice_targets(text, text, text, text) FROM PUBLIC, anon, authenticated;
+
 -- t_notice_sent: audit row for a notice copy, closed at once (nothing to edit or delete). Purged by t_housekeeping().
 -- subject_type 'order' with the order number, or 'rest' with the restaurant ref for a notice that has no order.
 CREATE OR REPLACE FUNCTION public.t_notice_sent(
@@ -601,6 +611,8 @@ RETURNS void LANGUAGE sql SET search_path = public AS $$
             'closed', 'sent', now())
     ON CONFLICT (bot_key, tcid, message_id) DO NOTHING
 $$;
+
+REVOKE ALL ON FUNCTION public.t_notice_sent(text, bigint, bigint, bigint, text, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 11. job_t_receipt_refresh(): the receipt sweep, every 5 seconds. Structure follows job_t_order_alerts()
@@ -648,21 +660,10 @@ BEGIN
     RETURN true;
 END $$;
 
--- ---------------------------------------------------------------------------------------------
--- Server-only objects: nobody but the service key may call them.
--- ---------------------------------------------------------------------------------------------
-REVOKE ALL ON FUNCTION public.restaurant_order_ready(text, text, text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.restaurant_order_adjust_pickup(text, timestamptz, text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_order_ready(text, bigint, text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_order_adjust_pickup(text, bigint, text, int) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_receipt_status(text, text, integer) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_receipt_snapshot(text, text, text, integer) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_receipt_sent(text, bigint, bigint, bigint, text, text, text, integer, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_receipts_stale(text, text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_receipts_take(text, text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_notice_targets(text, text, text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_notice_sent(text, bigint, bigint, bigint, text, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.job_t_receipt_refresh() FROM PUBLIC, anon, authenticated;
+
+-- pg_cron job 'job_t_receipt_refresh' (live schedule: 5 seconds, active). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('job_t_receipt_refresh', '5 seconds', $cron$SELECT public.job_t_receipt_refresh()$cron$);
 
 -- ---------------------------------------------------------------------------------------------
 -- OPERATOR SQL (run by hand after the code is deployed; commented out on purpose)

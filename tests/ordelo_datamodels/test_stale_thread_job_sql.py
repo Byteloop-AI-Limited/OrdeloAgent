@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -16,8 +17,16 @@ INDEX_SQL_PATH = (
 )
 
 
+def _new_job_definition() -> str:
+    """Only the active job's definition: the file also keeps the old, unscheduled job_terminate_stale_active_threads()."""
+    text = JOB_SQL_PATH.read_text()
+    start = re.search(r"CREATE OR REPLACE FUNCTION (public\.)?job_terminate_stale_active_threads_new\b", text).start()
+    nxt = re.search(r"CREATE OR REPLACE FUNCTION", text[start + 10 :])
+    return text[start : start + 10 + nxt.start()] if nxt else text[start:]
+
+
 def test_stale_thread_job_owns_selection_and_dispatch_contract():
-    sql = JOB_SQL_PATH.read_text()
+    sql = _new_job_definition()
 
     assert "RETURNS JSONB" in sql
     assert "upper(split_part(t.thread_id, '-', 1))" in sql
@@ -40,8 +49,9 @@ def test_stale_thread_job_is_not_invoked_while_loading_definition():
         if line.strip() and not line.lstrip().startswith("--")
     ]
 
-    assert "select job_terminate_stale_active_threads();" not in executable_lines
-    assert "select * from job_terminate_stale_active_threads();" not in executable_lines
+    for name in ("job_terminate_stale_active_threads", "job_terminate_stale_active_threads_new"):
+        assert f"select {name}();" not in executable_lines
+        assert f"select * from {name}();" not in executable_lines
 
 
 def test_stale_thread_dispatch_index_supports_prefix_and_age_lookup():

@@ -1,4 +1,5 @@
 DROP FUNCTION IF EXISTS test_reset_takeaway_order(text);
+
 CREATE OR REPLACE FUNCTION test_reset_takeaway_order(p_order_number text)
 RETURNS TEXT AS $$
 DECLARE
@@ -21,7 +22,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-select test_reset_takeaway_order('ELAS-AZML-22');
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
 
+-- select test_reset_takeaway_order('ELAS-AZML-22');
 
-select * from takeaway_summary where order_number='ELAS-AZML-22';
+-- select * from takeaway_summary where order_number='ELAS-AZML-22';

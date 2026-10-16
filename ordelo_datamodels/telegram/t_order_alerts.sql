@@ -78,49 +78,27 @@
 -- 1. Tables
 -- ---------------------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.t_order_alerts (
-    id           bigserial PRIMARY KEY,
-    bot_key      text        NOT NULL DEFAULT 'rest_admin',
-    order_number text        NOT NULL,
-    order_type   text        NOT NULL CHECK (order_type IN ('delivery', 'takeaway')),
-    rest_ref     text        NOT NULL,
-    offset_secs  int         NOT NULL,
-    n            int         NOT NULL,                       -- 1-based position in the offset list ("reminder n of of_n")
-    of_n         int         NOT NULL,
-    due_at       timestamptz NOT NULL,                       -- summary.dtts + offset
-    status       text        NOT NULL DEFAULT 'pending'
-                 CHECK (status IN ('pending', 'sent', 'superseded', 'cancelled')),
-    created_at   timestamptz NOT NULL DEFAULT now(),
-    swept_at     timestamptz,
-    UNIQUE (bot_key, order_number, offset_secs)
+    id bigserial NOT NULL,
+    bot_key text NOT NULL DEFAULT 'rest_admin'::text,
+    order_number text NOT NULL,
+    order_type text NOT NULL,
+    rest_ref text NOT NULL,
+    offset_secs integer NOT NULL,
+    n integer NOT NULL, -- 1-based position in the offset list ("reminder n of of_n")
+    of_n integer NOT NULL,
+    due_at timestamp with time zone NOT NULL, -- summary.dtts + offset
+    status text NOT NULL DEFAULT 'pending'::text,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    swept_at timestamp with time zone,
+    CONSTRAINT t_order_alerts_pkey PRIMARY KEY (id),
+    CONSTRAINT t_order_alerts_bot_key_order_number_offset_secs_key UNIQUE (bot_key, order_number, offset_secs),
+    CONSTRAINT t_order_alerts_order_type_check CHECK ((order_type = ANY (ARRAY['delivery'::text, 'takeaway'::text]))),
+    CONSTRAINT t_order_alerts_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'superseded'::text, 'cancelled'::text])))
 );
-CREATE INDEX IF NOT EXISTS t_order_alerts_due ON public.t_order_alerts (due_at) WHERE status = 'pending';
 
-CREATE TABLE IF NOT EXISTS public.t_sent_messages (
-    id            bigserial PRIMARY KEY,
-    bot_key       text        NOT NULL,
-    tcid          bigint      NOT NULL,                      -- chat holding the message (send/edit/delete target)
-    message_id    bigint      NOT NULL,
-    tuid          bigint,                                    -- admin the copy was sent to; NULL = shared (group) chat (D27)
-    subject_type  text        NOT NULL,                      -- 'order' (other bots may add others)
-    subject_ref   text        NOT NULL,                      -- order_number
-    order_type    text,                                      -- 'delivery' | 'takeaway' when subject_type = 'order'
-    kind          text        NOT NULL,                      -- 'order_card' | 'receipt' | 'notice' (the last two: restaurant_ready_adjust_notices.sql)
-    rest_ref      text,
-    card_status   text,                                      -- status key the copy currently shows
-    state         text        NOT NULL DEFAULT 'live' CHECK (state IN ('live', 'taken', 'closed')),
-    taken_for     text        CHECK (taken_for IN ('delete', 'edit')),
-    taken_at      timestamptz,
-    close_reason  text,                                      -- 'deleted' | 'edited' | 'gone'
-    sent_at       timestamptz NOT NULL DEFAULT now(),
-    updated_at    timestamptz NOT NULL DEFAULT now(),
-    closed_at     timestamptz,
-    UNIQUE (bot_key, tcid, message_id)
-);
-CREATE INDEX IF NOT EXISTS t_sent_messages_subject ON public.t_sent_messages (subject_type, subject_ref) WHERE state <> 'closed';
-CREATE INDEX IF NOT EXISTS t_sent_messages_closed  ON public.t_sent_messages (closed_at) WHERE state = 'closed';
+CREATE INDEX IF NOT EXISTS t_order_alerts_due ON public.t_order_alerts USING btree (due_at) WHERE (status = 'pending'::text);
 
-ALTER TABLE public.t_order_alerts  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.t_sent_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.t_order_alerts ENABLE ROW LEVEL SECURITY;
 
 -- ---------------------------------------------------------------------------------------------
 -- 2. t_order_card_status(restaurant_confirmation_status, pickup_time): the card status key.
@@ -141,6 +119,11 @@ RETURNS text LANGUAGE sql IMMUTABLE AS $$
 $$;
 
 -- ---------------------------------------------------------------------------------------------
+-- Server-only objects: nobody but the service key may call them.
+-- ---------------------------------------------------------------------------------------------
+REVOKE ALL ON FUNCTION public.t_order_card_status(text, timestamptz) FROM PUBLIC, anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------
 -- 3. t_order_card_row(order_number, order_type): the order's current state (0 or 1 row).
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_order_card_row(p_order_number text, p_order_type text)
@@ -157,6 +140,8 @@ LANGUAGE sql STABLE SET search_path = public AS $$
       FROM public.takeaway_summary s
      WHERE p_order_type = 'takeaway' AND s.order_number = p_order_number
 $$;
+
+REVOKE ALL ON FUNCTION public.t_order_card_row(text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 4. t_order_card_destinations(bot_key, rest_ref): WHERE cards for this restaurant go. The ONE place that says so.
@@ -178,6 +163,8 @@ LANGUAGE sql STABLE SET search_path = public AS $$
        AND i.phone_number IN (SELECT regexp_replace(a, '\D', '', 'g') FROM unnest(rm.admins) AS a)
      ORDER BY i.telegram_chat_id, i.claimed_at DESC NULLS LAST
 $$;
+
+REVOKE ALL ON FUNCTION public.t_order_card_destinations(text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 5. t_order_card_snapshot(bot_key, order_number, order_type): everything needed to draw the card.
@@ -225,52 +212,7 @@ BEGIN
                FROM public.t_order_card_destinations(p_bot_key, o.rest_ref) d), '[]'::jsonb));
 END $$;
 
--- ---------------------------------------------------------------------------------------------
--- 6. t_order_card_sent(...): record a copy that was just sent and take this chat's OLDER copies of the order.
---    One transaction. Returns jsonb {previous:[{id, tcid, message_id}], order_status} where order_status is the
---    order's status RIGHT NOW ('gone' if the order vanished): the "DB check after sending" (D24).
---    Idempotent on (bot_key, tcid, message_id).
--- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_order_card_sent(
-    p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint,
-    p_order_number text, p_order_type text, p_rest_ref text, p_card_status text)
-RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $$
-DECLARE
-    v_id bigint;
-    v_prev jsonb;
-    o record;
-BEGIN
-    INSERT INTO public.t_sent_messages
-           (bot_key, tcid, message_id, tuid, subject_type, subject_ref, order_type, kind, rest_ref, card_status)
-    VALUES (p_bot_key, p_tcid, p_message_id, p_tuid, 'order', p_order_number, p_order_type, 'order_card', p_rest_ref, p_card_status)
-    ON CONFLICT (bot_key, tcid, message_id) DO NOTHING
-    RETURNING id INTO v_id;
-    IF v_id IS NULL THEN
-        SELECT m.id INTO v_id FROM public.t_sent_messages m
-         WHERE m.bot_key = p_bot_key AND m.tcid = p_tcid AND m.message_id = p_message_id;
-    END IF;
-
-    WITH older AS (
-        SELECT m.id FROM public.t_sent_messages m
-         WHERE m.bot_key = p_bot_key AND m.tcid = p_tcid
-           AND m.subject_type = 'order' AND m.subject_ref = p_order_number
-           AND m.order_type IS NOT DISTINCT FROM p_order_type AND m.kind = 'order_card'
-           AND m.state = 'live' AND m.id < v_id
-         FOR UPDATE SKIP LOCKED
-    ), taken AS (
-        UPDATE public.t_sent_messages m
-           SET state = 'taken', taken_for = 'delete', taken_at = now(), updated_at = now()
-          FROM older WHERE m.id = older.id
-        RETURNING m.id, m.tcid, m.message_id
-    )
-    SELECT COALESCE(jsonb_agg(jsonb_build_object('id', t.id, 'tcid', t.tcid, 'message_id', t.message_id)), '[]'::jsonb)
-      INTO v_prev FROM taken t;
-
-    SELECT * INTO o FROM public.t_order_card_row(p_order_number, p_order_type);
-    RETURN jsonb_build_object(
-        'previous', v_prev,
-        'order_status', COALESCE(public.t_order_card_status(o.rcs, o.pickup_time), 'gone'));
-END $$;
+REVOKE ALL ON FUNCTION public.t_order_card_snapshot(text, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 7. t_order_cards_stale(bot_key, order_number?, order_type?): copies that need work (read-only).
@@ -298,6 +240,8 @@ LANGUAGE sql STABLE SET search_path = public AS $$
                      OR d.tcid IS NULL))
             OR (m.state = 'taken' AND m.taken_at < now() - interval '30 seconds'))
 $$;
+
+REVOKE ALL ON FUNCTION public.t_order_cards_stale(text, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 8. t_order_cards_take(bot_key, order_number, order_type): claim this order's stale copies for ONE refresh pass.
@@ -335,28 +279,7 @@ BEGIN
     RETURN jsonb_build_object('rows', v_rows);
 END $$;
 
--- ---------------------------------------------------------------------------------------------
--- 9. t_order_card_mark(id, outcome, card_status, close): record what happened to a claimed copy.
---    outcome: 'edited' | 'deleted' | 'gone'. 'deleted' and 'gone' always close the row. 'edited' without
---    close returns the copy to 'live' showing p_card_status. Only a 'taken' row changes (idempotent).
--- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_order_card_mark(p_id bigint, p_outcome text, p_card_status text, p_close boolean)
-RETURNS void LANGUAGE plpgsql SET search_path = public AS $$
-BEGIN
-    IF p_outcome NOT IN ('edited', 'deleted', 'gone') THEN
-        RAISE EXCEPTION 't_order_card_mark: bad outcome %', p_outcome;
-    END IF;
-    IF p_close OR p_outcome IN ('deleted', 'gone') THEN
-        UPDATE public.t_sent_messages
-           SET state = 'closed', close_reason = p_outcome, closed_at = now(), updated_at = now(),
-               taken_for = NULL, card_status = COALESCE(p_card_status, card_status)
-         WHERE id = p_id AND state = 'taken';
-    ELSE
-        UPDATE public.t_sent_messages
-           SET state = 'live', card_status = p_card_status, taken_for = NULL, taken_at = NULL, updated_at = now()
-         WHERE id = p_id AND state = 'taken';
-    END IF;
-END $$;
+REVOKE ALL ON FUNCTION public.t_order_cards_take(text, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 10. Config rows (operator-editable; blank offsets = reminders off for that scope).
@@ -466,48 +389,10 @@ BEGIN
     RETURN true;
 END $$;
 
--- ---------------------------------------------------------------------------------------------
--- 12. t_housekeeping(): daily purge (D22). Returns jsonb counts. Retention comes from ordelo_config.
--- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_housekeeping()
-RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $$
-DECLARE
-    v_inbox_days  int;
-    v_ledger_days int;
-    n_inbox int; n_ledger int; n_alerts int;
-BEGIN
-    SELECT COALESCE((SELECT config_value::int FROM public.ordelo_config
-                      WHERE config_key = 'TGRAM_INBOX_RETENTION_DAYS' AND config_value ~ '^\s*\d+\s*$'), 7)
-      INTO v_inbox_days;
-    SELECT COALESCE((SELECT config_value::int FROM public.ordelo_config
-                      WHERE config_key = 'TGRAM_LEDGER_RETENTION_DAYS' AND config_value ~ '^\s*\d+\s*$'), 30)
-      INTO v_ledger_days;
-
-    DELETE FROM public.t_inbox WHERE received_at < now() - make_interval(days => v_inbox_days);
-    GET DIAGNOSTICS n_inbox = ROW_COUNT;
-    DELETE FROM public.t_sent_messages
-     WHERE state = 'closed' AND closed_at < now() - make_interval(days => v_ledger_days);
-    GET DIAGNOSTICS n_ledger = ROW_COUNT;
-    DELETE FROM public.t_order_alerts
-     WHERE status <> 'pending' AND created_at < now() - make_interval(days => v_ledger_days);
-    GET DIAGNOSTICS n_alerts = ROW_COUNT;
-
-    RETURN jsonb_build_object('t_inbox', n_inbox, 't_sent_messages', n_ledger, 't_order_alerts', n_alerts);
-END $$;
-
--- ---------------------------------------------------------------------------------------------
--- Server-only objects: nobody but the service key may call them.
--- ---------------------------------------------------------------------------------------------
-REVOKE ALL ON FUNCTION public.t_order_card_status(text, timestamptz) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_order_card_row(text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_order_card_destinations(text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_order_card_snapshot(text, text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_order_card_sent(text, bigint, bigint, bigint, text, text, text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_order_cards_stale(text, text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_order_cards_take(text, text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_order_card_mark(bigint, text, text, boolean) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.job_t_order_alerts() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_housekeeping() FROM PUBLIC, anon, authenticated;
+
+-- pg_cron job 'job_t_order_alerts' (live schedule: 5 seconds, active). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('job_t_order_alerts', '5 seconds', $cron$SELECT public.job_t_order_alerts()$cron$);
 
 -- ---------------------------------------------------------------------------------------------
 -- OPERATOR SQL (run by hand after the code is deployed; commented out on purpose)

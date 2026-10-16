@@ -19,7 +19,6 @@ Side Effects:
 **/ -- Drop existing bulk trigger if any
 -- DROP TRIGGER IF EXISTS trigger_delivery_dispatch_whook ON public.delivery_dispatch;
  -- Trigger function to process batch inserts
-
 CREATE OR REPLACE FUNCTION public.delivery_dispatch_whook_statement() RETURNS trigger AS $$
 DECLARE
   response json;
@@ -89,44 +88,27 @@ $$ LANGUAGE plpgsql;
 
 -- drop table delivery_dispatch; -- Dont forget to recreate the trigger
 -- Table definition
-CREATE TABLE delivery_dispatch (
-    dispatch_id SERIAL PRIMARY KEY,
-    order_number VARCHAR(100) NOT NULL,
-    rider_id VARCHAR(12) NOT NULL,
-    rider_payout DOUBLE PRECISION NOT NULL,
-    vehicle_type VARCHAR(15) NOT NULL,
-    distance DOUBLE PRECISION NOT NULL,
-    status VARCHAR(50) NOT NULL CHECK (
-        status IN (
-            'unassigned',
-            'timedout',
-            'declined',
-            'accepted',
-            'missed',
-            'assigned',
-            'pickedup',
-            'completed'
-        )
-    ),
-	    status_update_dtts TIMESTAMP,
-	    reason_for_decline TEXT,
-	    dt DATE NOT NULL DEFAULT CURRENT_DATE,
-	    dtts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-
--- Statement-level trigger on batch insert
-
-CREATE TRIGGER trigger_delivery_dispatch_whook AFTER
-INSERT ON public.delivery_dispatch REFERENCING NEW TABLE AS new_rows
-FOR EACH STATEMENT EXECUTE FUNCTION public.delivery_dispatch_whook_statement();
-
 -- ---------------------------------------------------------------------------
 -- Payout tracking columns (rider dashboard)
 -- ---------------------------------------------------------------------------
-ALTER TABLE delivery_dispatch
-  ADD COLUMN IF NOT EXISTS paid_status VARCHAR(20) NOT NULL DEFAULT 'unpaid'
-    CHECK (paid_status IN ('unpaid', 'paid')),
-  ADD COLUMN IF NOT EXISTS paid_dtts  TIMESTAMP;
+CREATE TABLE IF NOT EXISTS public.delivery_dispatch (
+    dispatch_id serial NOT NULL,
+    order_number character varying(100) NOT NULL,
+    rider_id character varying(12) NOT NULL,
+    rider_payout double precision NOT NULL,
+    vehicle_type character varying(15) NOT NULL,
+    distance double precision NOT NULL,
+    status character varying(50) NOT NULL,
+    status_update_dtts timestamp without time zone,
+    reason_for_decline text,
+    dt date NOT NULL DEFAULT CURRENT_DATE,
+    dtts timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    paid_status character varying(20) NOT NULL DEFAULT 'unpaid'::character varying,
+    paid_dtts timestamp without time zone,
+    CONSTRAINT delivery_dispatch_pkey PRIMARY KEY (dispatch_id),
+    CONSTRAINT delivery_dispatch_paid_status_check CHECK (((paid_status)::text = ANY ((ARRAY['unpaid'::character varying, 'paid'::character varying])::text[]))),
+    CONSTRAINT delivery_dispatch_status_check CHECK (((status)::text = ANY ((ARRAY['unassigned'::character varying, 'timedout'::character varying, 'declined'::character varying, 'accepted'::character varying, 'missed'::character varying, 'assigned'::character varying, 'pickedup'::character varying, 'completed'::character varying])::text[])))
+);
 
 -- Enforce: paid_dtts must be set iff paid_status='paid';
 -- ALTER TABLE delivery_dispatch
@@ -137,5 +119,8 @@ ALTER TABLE delivery_dispatch
 --     );
 
 -- Partial index for fast paid/unpaid queries on the rider dashboard
-CREATE INDEX IF NOT EXISTS delivery_dispatch_paid_status_dt_idx
-  ON delivery_dispatch (paid_status, dt DESC);
+CREATE INDEX IF NOT EXISTS delivery_dispatch_paid_status_dt_idx ON public.delivery_dispatch USING btree (paid_status, dt DESC);
+
+-- Statement-level trigger on batch insert
+DROP TRIGGER IF EXISTS trigger_delivery_dispatch_whook ON public.delivery_dispatch;
+CREATE TRIGGER trigger_delivery_dispatch_whook AFTER INSERT ON delivery_dispatch REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION delivery_dispatch_whook_statement();

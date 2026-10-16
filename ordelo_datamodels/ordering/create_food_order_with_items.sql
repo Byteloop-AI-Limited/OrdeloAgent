@@ -6,7 +6,6 @@
 -- p_items: [{product_name, sku, quantity, price, modifications?}, …]
 -- Payment environment is derived from these items, never caller-selected.
 -- Any failure (including a duplicate order_id) raises and rolls back both inserts.
-
 CREATE OR REPLACE FUNCTION public.create_food_order_with_items(p_order jsonb, p_items jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql AS $$

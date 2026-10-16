@@ -73,8 +73,15 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
+-- pg_cron job 'enquire_admin_availability' (live schedule: 0 11 * * *, active). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('enquire_admin_availability', '0 11 * * *', $cron$select enquire_admin_availability(ARRAY['ELAS', 'SFCS', 'BNAT']);$cron$);
+
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
 
 -- Example usage:
 -- select enquire_admin_availability(); -- All restaurants
-select enquire_admin_availability(ARRAY['ELAS']); -- Specific restaurants
-select enquire_admin_availability(ARRAY['BNAT']); -- Specific restaurants
+-- select enquire_admin_availability(ARRAY['ELAS']); -- Specific restaurants
+
+-- select enquire_admin_availability(ARRAY['BNAT']); -- Specific restaurants

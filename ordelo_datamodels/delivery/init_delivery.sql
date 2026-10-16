@@ -27,7 +27,6 @@ Side Effects:
 
 See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/
-
 DROP FUNCTION IF EXISTS public.init_delivery(VARCHAR, VARCHAR, VARCHAR);
 
 CREATE OR REPLACE FUNCTION public.init_delivery(p_cust_id VARCHAR, p_order_number VARCHAR, p_rest_ref VARCHAR DEFAULT NULL)

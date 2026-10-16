@@ -1,16 +1,8 @@
-/*
-Live Tracking Not Enabled Job – Notifies when rider live tracking is not enabled for inflight deliveries.
-    . Reads config from ordelo_config (location_enable_time_interval, ordelo_app_url)
-    . Identifies inflight deliveries with missing or stale location data
-    . Aggregates (order_number, rider_id) as JSON array
-    . Makes HTTP POST to /location-hooks/null-or-outdated-location
-    . Returns boolean for success/failure
-Functions:
-    . job_null_or_outdated_location
-*/
-DROP FUNCTION IF EXISTS job_null_or_outdated_location();
-CREATE OR REPLACE FUNCTION job_null_or_outdated_location()
-RETURNS BOOLEAN AS $$
+-- Definition taken from the live database on 2026-10-16 (the previous repo copy in rider_location/job_null_or_outdated_location.sql differed).
+CREATE OR REPLACE FUNCTION public.job_null_or_outdated_location()
+ RETURNS boolean
+ LANGUAGE plpgsql
+AS $function$
 DECLARE
     interval_minutes INT;
     interval_expr INTERVAL;
@@ -19,17 +11,7 @@ DECLARE
     notified BOOLEAN := FALSE;
     ordelo_app_url TEXT;
     webhook_url TEXT;
-    legacy_prompts_enabled BOOLEAN := FALSE;
 BEGIN
-    SELECT COALESCE(config_value::boolean, FALSE)
-      INTO legacy_prompts_enabled
-      FROM ordelo_config
-     WHERE config_key = 'LEGACY_OWNTRACKS_PROMPTS_ENABLED';
-    IF NOT legacy_prompts_enabled THEN
-        RAISE NOTICE 'Legacy OwnTracks rider prompts are disabled.';
-        RETURN FALSE;
-    END IF;
-
     -- Get the interval in minutes from config
     SELECT config_value::int INTO interval_minutes FROM ordelo_config WHERE config_key = 'LOCATION_ENABLE_TIME_INTERVAL';
     IF interval_minutes IS NULL THEN
@@ -88,7 +70,11 @@ BEGIN
     END IF;
     RETURN notified;
 END;
-$$ LANGUAGE plpgsql;
+$function$;
+
+-- pg_cron job 'job_null_or_outdated_location' (live schedule: * * * * *, INACTIVE). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('job_null_or_outdated_location', '* * * * *', $cron$SELECT public.job_null_or_outdated_location()$cron$);
+SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'job_null_or_outdated_location';
 
 -- Usage:
 -- select job_null_or_outdated_location();

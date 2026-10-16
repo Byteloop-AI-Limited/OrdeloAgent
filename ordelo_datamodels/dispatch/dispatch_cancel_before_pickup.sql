@@ -39,7 +39,6 @@ Side Effects:
        the vehicle-type cascade from rank 1 on the next cron tick.
     5. Reopens delivery_summary and resets redispatch_dtts to NOW().
 **/
-
 DROP FUNCTION IF EXISTS dispatch_cancel_before_pickup(bigint);
 
 CREATE OR REPLACE FUNCTION dispatch_cancel_before_pickup(p_dispatch_id bigint)
@@ -98,4 +97,3 @@ BEGIN
     RETURN 'cancelled dispatch ' || p_dispatch_id || ' for order ' || v_order_number;
 END;
 $$ LANGUAGE plpgsql;
-

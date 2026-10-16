@@ -1,55 +1,78 @@
 -- See also (paths under ordelo_datamodels/): delivery_summary also carries the kitchen columns ready_at, ready_by, ready_dispatch_id, pickup_time_initial, pickup_adjusted_by, pickup_adjusted_at: added and explained in restaurant_admin/restaurant_ready_adjust_notices.sql. Accept/decline: restaurant_admin/restaurant_order_decision.sql.
 -- drop table delivery_summary;
-CREATE TABLE delivery_summary (
-    order_number     VARCHAR(100),
-    rest_id          VARCHAR(12) NOT NULL, -- restaurant id
-    rest_name        TEXT NOT NULL,
-    rest_lon         DOUBLE PRECISION NOT NULL,
-    rest_lat         DOUBLE PRECISION NOT NULL,
-    rest_address     TEXT NOT NULL,
-    town        VARCHAR(255) NOT NULL,
-    customer_id          VARCHAR(50) NOT NULL, -- customer id
-    customer_name        TEXT NOT NULL,
-    customer_lon         DOUBLE PRECISION NOT NULL,
-    customer_lat         DOUBLE PRECISION NOT NULL,
-    customer_address     TEXT NOT NULL,
+-- Add 'restaurant_pickuptime_adjusted' to restaurant_confirmation_status CHECK constraint
+CREATE TABLE IF NOT EXISTS public.delivery_summary (
+    order_number character varying(100) NOT NULL,
+    rest_id character varying(12) NOT NULL, -- restaurant id
+    rest_name text NOT NULL,
+    rest_lon double precision NOT NULL,
+    rest_lat double precision NOT NULL,
+    rest_address text NOT NULL,
+    town character varying(255) NOT NULL,
+    customer_id character varying(50) NOT NULL, -- customer id
+    customer_name text NOT NULL,
+    customer_lon double precision NOT NULL,
+    customer_lat double precision NOT NULL,
+    customer_address text NOT NULL,
     -- Restaurant confirmation status (separate from delivery lifecycle)
-    restaurant_confirmation_status VARCHAR(50) NOT NULL DEFAULT 'restaurant_unconfirmed' 
-        CHECK (restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'auto_accept','auto_decline','restaurant_pickuptime_adjusted')),
-    restaurant_update_dtts TIMESTAMP WITH TIME ZONE, -- nullable, set when restaurant_confirmation_status changes
-    restaurant_admin VARCHAR(12), -- nullable, stores the admin phone who confirmed the order
+    restaurant_confirmation_status character varying(50) NOT NULL DEFAULT 'restaurant_unconfirmed'::character varying,
+    restaurant_update_dtts timestamp with time zone, -- nullable, set when restaurant_confirmation_status changes
+    restaurant_admin character varying(12), -- nullable, stores the admin phone who confirmed the order
     -- Delivery lifecycle status
     -- 'declined' added by restaurant_admin/restaurant_order_decision.sql (R1-a): a declined delivery is never dispatchable
-    status          VARCHAR(50) NOT NULL CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed', 'declined')),
-    rest_confirmation_code INTEGER NOT NULL,
-    cust_confirmation_code INTEGER NOT NULL,
-    rest_prep_time_minutes INTEGER,
-    rest_confirmation_method VARCHAR(20)
-        CHECK (
-            rest_confirmation_method IS NULL
-            OR rest_confirmation_method IN ('manual', 'timeout', 'configured_auto')
-        ),
+    status character varying(50) NOT NULL,
+    rest_confirmation_code integer NOT NULL,
+    cust_confirmation_code integer NOT NULL,
+    rest_prep_time_minutes integer, -- added by migrations/add_restaurant_confirmation_fields.sql
+    rest_confirmation_method character varying(20), -- added by migrations/add_restaurant_confirmation_fields.sql
     -- WhatsApp message IDs for tracking communications
-    restaurant_msg_id VARCHAR(255), -- nullable, stores WA message ID for restaurant communications
-    rider_msg_id VARCHAR(255), -- nullable, stores WA message ID for rider communications
-    customer_msg_id VARCHAR(255), -- nullable, stores WA message ID for customer communications
+    restaurant_msg_id character varying(255), -- nullable, stores WA message ID for restaurant communications
+    rider_msg_id character varying(255), -- nullable, stores WA message ID for rider communications
+    customer_msg_id character varying(255), -- nullable, stores WA message ID for customer communications
     -- Scheduled pickup time selected by restaurant admins via `/PickupTime` callback.
     -- Downstream:
     -- 1) Included in webhook payload from restaurant_updates_whook()
     -- 2) Included later in rider dispatch payload/message
     -- 3) If NULL past timeout, process_restaurant_confirmation() moves flow to restaurant_timedout
-    pickup_time      TIMESTAMP WITH TIME ZONE,
-    pickup_date      DATE NOT NULL DEFAULT CURRENT_DATE,
-    rest_ref         VARCHAR(20) GENERATED ALWAYS AS (SPLIT_PART(order_number, '-', 1)) STORED, -- derived from order_number
-    dt               DATE NOT NULL DEFAULT CURRENT_DATE,
-    dtts             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    pickup_time timestamp with time zone,
+    pickup_date date NOT NULL DEFAULT CURRENT_DATE,
+    rest_ref character varying(20) GENERATED ALWAYS AS (split_part((order_number)::text, '-'::text, 1)) STORED, -- derived from order_number
+    dt date NOT NULL DEFAULT CURRENT_DATE,
+    dtts timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     -- "Current dispatch window started at" — populated only by
     -- dispatch_cancel_before_pickup on a successful pre-pickup decline.
     -- process_delivery uses COALESCE(redispatch_dtts, dtts) for the timeout
     -- base, so NULL means "no decline yet, use dtts".
-    redispatch_dtts  TIMESTAMP WITH TIME ZONE,
-    PRIMARY KEY (order_number)
+    redispatch_dtts timestamp with time zone,
+    ready_at timestamp with time zone, -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    ready_by text, -- admin phone (digits); label via restaurant_admin_label()
+        -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    ready_dispatch_id integer, -- the dispatch the Ready was for (D35)
+        -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    pickup_time_initial timestamp with time zone, -- pickup before the FIRST adjust (D32)
+        -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    pickup_adjusted_by text, -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    pickup_adjusted_at timestamp with time zone, -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    CONSTRAINT delivery_summary_pkey PRIMARY KEY (order_number),
+    CONSTRAINT delivery_summary_rest_confirmation_method_check CHECK (((rest_confirmation_method IS NULL) OR ((rest_confirmation_method)::text = ANY ((ARRAY['manual'::character varying, 'timeout'::character varying, 'configured_auto'::character varying])::text[])))),
+    CONSTRAINT delivery_summary_restaurant_confirmation_status_check CHECK (((restaurant_confirmation_status)::text = ANY ((ARRAY['restaurant_unconfirmed'::character varying, 'restaurant_accept'::character varying, 'restaurant_decline'::character varying, 'restaurant_timedout'::character varying, 'auto_accept'::character varying, 'auto_decline'::character varying, 'restaurant_pickuptime_adjusted'::character varying])::text[]))),
+    CONSTRAINT delivery_summary_status_check CHECK (((status)::text = ANY ((ARRAY['restaurant_unconfirmed'::character varying, 'unassigned'::character varying, 'timedout'::character varying, 'assigned'::character varying, 'completed'::character varying, 'declined'::character varying])::text[])))
 );
+
+-- Functional index on London-local day for date-range filtering.
+-- Supports: WHERE rest_ref = $1 AND sort_day_local BETWEEN $2 AND $3
+CREATE INDEX IF NOT EXISTS idx_delivery_summary_admin_day_local ON public.delivery_summary USING btree (rest_ref, (((COALESCE(pickup_time, dtts) AT TIME ZONE 'Europe/London'::text))::date));
+
+-- Admin dashboard indexes
+-- Apply these before admin_orders_views.sql.
+-- In production, replace CREATE INDEX with CREATE INDEX CONCURRENTLY and run
+-- each statement individually (CONCURRENTLY cannot run inside a transaction).
+
+-- Keyset pagination + tenant filter on delivery_summary.
+-- Supports: WHERE rest_ref = $1 AND (sort_time, order_number) < (...)
+-- ORDER BY sort_time DESC, order_number DESC
+CREATE INDEX IF NOT EXISTS idx_delivery_summary_admin_keyset ON public.delivery_summary USING btree (rest_ref, COALESCE(pickup_time, dtts) DESC, order_number DESC);
+
 -- drop table delivery_summary;
 
 -- Triggers on delivery_summary table
@@ -58,23 +81,14 @@ CREATE TABLE delivery_summary (
 -- delivery_summary change -> trigger_restaurant_updates -> restaurant_updates_whook()
 -- -> POST /delivery-hooks/restaurant-confirmation-request -> restaurant_confirmation_flow()
 -- -> _handle_restaurant_accept() when trigger_reason='restaurant_accept' (pickup-time options are sent)
-CREATE OR REPLACE TRIGGER trigger_restaurant_updates 
-AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON public.delivery_summary 
-FOR EACH ROW 
-WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'restaurant_pickuptime_adjusted'))
-EXECUTE FUNCTION restaurant_updates_whook();
+DROP TRIGGER IF EXISTS trigger_restaurant_updates ON public.delivery_summary;
+CREATE TRIGGER trigger_restaurant_updates AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON delivery_summary FOR EACH ROW WHEN (new.restaurant_confirmation_status::text = ANY (ARRAY['restaurant_unconfirmed'::character varying, 'restaurant_accept'::character varying, 'restaurant_decline'::character varying, 'restaurant_timedout'::character varying, 'restaurant_pickuptime_adjusted'::character varying]::text[])) EXECUTE FUNCTION restaurant_updates_whook();
 
 -- drop trigger trigger_restaurant_updates on delivery_summary;
 
 -- Trigger2: On status change to timeout
-drop trigger trigger_delivery_summary_timedout on public.delivery_summary;
-
-CREATE OR REPLACE TRIGGER trigger_delivery_summary_timedout AFTER
-UPDATE ON public.delivery_summary
-FOR EACH ROW WHEN (OLD.status <> 'timedout'
-                   AND NEW.status = 'timedout') EXECUTE FUNCTION public.delivery_summary_timedout_whook();
-
-
+DROP TRIGGER IF EXISTS trigger_delivery_summary_timedout ON public.delivery_summary;
+CREATE TRIGGER trigger_delivery_summary_timedout AFTER UPDATE ON delivery_summary FOR EACH ROW WHEN (old.status::text <> 'timedout'::text AND new.status::text = 'timedout'::text) EXECUTE FUNCTION delivery_summary_timedout_whook();
 
 -- Trigger Functions
 /** description: restaurant_updates_whook
@@ -374,12 +388,47 @@ BEGIN
 END;
 $$;
 
+-- ===========================================================================
+-- 5. RESCHEDULE -- keep the ledger honest when pickup_time moves
+--    Any change to delivery_summary.pickup_time re-times and reopens every
+--    checkpoint for that order.
+-- ===========================================================================
+-- One trigger covers all six buckets with no phase or audience logic, because
+-- they all hang off the same anchor. It catches every path that moves the time:
+-- the admin /AdminAdjustPickupTime button, the restaurant-timeout auto-set in
+-- _handle_restaurant_timedout, and manual SQL.
+--
+-- It updates by order_number, which is safe only because the FK cascades: an
+-- order cancelled pre-pickup and re-dispatched has lost its old
+-- delivery_dispatch row, and the old ledger went with it.
+--
+-- Two consequences to expect while testing:
+--   * A tiny adjustment reopens already-sent checkpoints, so the rider (and
+--     ops) may get one repeat of the most recent one. Accepted -- they were
+--     just told the time changed.
+--   * An awaiting_pickup row still 'pending' when the rider collects is
+--     reopened too, but can never fire again: the phase gate in (c) requires
+--     dd.status = 'assigned' and the dispatch is now 'pickedup'.
+CREATE OR REPLACE FUNCTION rider_pickup_alert_reschedule()
+RETURNS trigger AS $$
+BEGIN
+    UPDATE rider_pickup_alert a
+       SET due_dtts  = NEW.pickup_time + (a.offset_minutes * interval '1 minute'),
+           status    = 'pending',
+           sent_dtts = NULL
+     WHERE a.order_number = NEW.order_number;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- The first NULL -> value set fires this too, harmlessly: no rows exist yet.
+DROP TRIGGER IF EXISTS trigger_pickup_time_reschedule ON public.delivery_summary;
+CREATE TRIGGER trigger_pickup_time_reschedule AFTER UPDATE OF pickup_time ON delivery_summary FOR EACH ROW WHEN (new.pickup_time IS DISTINCT FROM old.pickup_time) EXECUTE FUNCTION rider_pickup_alert_reschedule();
+
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
 
 -- Set timeout for 30s
-ALTER DATABASE postgres SET statement_timeout = '300s';
-
--- Add 'restaurant_pickuptime_adjusted' to restaurant_confirmation_status CHECK constraint
-ALTER TABLE delivery_summary DROP CONSTRAINT IF EXISTS delivery_summary_restaurant_confirmation_status_check;
-ALTER TABLE delivery_summary
-    ADD CONSTRAINT delivery_summary_restaurant_confirmation_status_check
-    CHECK (restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'auto_accept', 'auto_decline', 'restaurant_pickuptime_adjusted'));
+-- ALTER DATABASE postgres SET statement_timeout = '300s';

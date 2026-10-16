@@ -17,7 +17,6 @@ Failure behaviour:
     - Enabled restaurants require a positive whole-minute restaurant-specific or
       global configuration; otherwise the caller's transaction fails.
 **/
-
 CREATE OR REPLACE FUNCTION public.resolve_initial_restaurant_acceptance(
     p_rest_ref VARCHAR,
     p_order_kind TEXT,

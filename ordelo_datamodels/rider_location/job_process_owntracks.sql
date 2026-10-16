@@ -1,15 +1,3 @@
-/ *
-"""
-Processes OwnTracks messages from a queue into location tables.
-  . Reads messages from pgmq queue 'owntracks'
-  . Processes location data into rider_location table
-  . Processes transition events into rider_location_event table (always inserts new records, no upsert)
-  . Archives processed messages
-  . Returns the count of processed messages
-Functions:
-  . job_process_owntracks
-"""
-*/;
 -- job_process_owntracks.sql
 -- Batch process OwnTracks messages into rider_location and rider_location_event tables
 CREATE OR REPLACE FUNCTION public.job_process_owntracks()
@@ -96,3 +84,23 @@ BEGIN
   RETURN v_processed_count;
 END;
 $$;
+
+-- pg_cron job 'job_process_owntracks' (live schedule: 30 seconds, active). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('job_process_owntracks', '30 seconds', $cron$SELECT public.job_process_owntracks()$cron$);
+
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
+
+-- / *
+-- """
+-- Processes OwnTracks messages from a queue into location tables.
+--   . Reads messages from pgmq queue 'owntracks'
+--   . Processes location data into rider_location table
+--   . Processes transition events into rider_location_event table (always inserts new records, no upsert)
+--   . Archives processed messages
+--   . Returns the count of processed messages
+-- Functions:
+--   . job_process_owntracks
+-- """
+-- */;

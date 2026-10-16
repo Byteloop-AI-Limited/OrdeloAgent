@@ -50,24 +50,23 @@
 --   * Retention: the daily t_housekeeping() job (phase 4, create_t_order_alerts.sql) deletes rows older
 --     than ordelo_config.TGRAM_INBOX_RETENTION_DAYS (default 7). Until it exists the table just grows slowly.
 -- =============================================================================================
-
+-- Telegram ids are not for the public API: RLS on, no policies -> only the service key can touch the table.
 CREATE TABLE IF NOT EXISTS public.t_inbox (
-    bot_key      text        NOT NULL,                       -- which bot received it ('rest_admin')
-    update_id    bigint      NOT NULL,                       -- Telegram's update_id (unique per bot)
-    kind         text        NOT NULL,                       -- Update.event_type: 'message' | 'callback_query' | ...
-    tuid         bigint,                                     -- sender (from_user.id); NULL when the update has no user
-    status       text        NOT NULL DEFAULT 'processing'
-                 CHECK (status IN ('processing', 'done', 'failed')),
-    error        text,                                       -- repr of the exception when status = 'failed' (max 2000 chars)
-    received_at  timestamptz NOT NULL DEFAULT now(),
-    finished_at  timestamptz,
-    PRIMARY KEY (bot_key, update_id)
+    bot_key text NOT NULL, -- which bot received it ('rest_admin')
+    update_id bigint NOT NULL, -- Telegram's update_id (unique per bot)
+    kind text NOT NULL, -- Update.event_type: 'message' | 'callback_query' | ...
+    tuid bigint, -- sender (from_user.id); NULL when the update has no user
+    status text NOT NULL DEFAULT 'processing'::text,
+    error text, -- repr of the exception when status = 'failed' (max 2000 chars)
+    received_at timestamp with time zone NOT NULL DEFAULT now(),
+    finished_at timestamp with time zone,
+    CONSTRAINT t_inbox_pkey PRIMARY KEY (bot_key, update_id),
+    CONSTRAINT t_inbox_status_check CHECK ((status = ANY (ARRAY['processing'::text, 'done'::text, 'failed'::text])))
 );
 
 -- Housekeeping scans by age.
-CREATE INDEX IF NOT EXISTS t_inbox_received_at ON public.t_inbox (received_at);
+CREATE INDEX IF NOT EXISTS t_inbox_received_at ON public.t_inbox USING btree (received_at);
 
--- Telegram ids are not for the public API: RLS on, no policies -> only the service key can touch the table.
 ALTER TABLE public.t_inbox ENABLE ROW LEVEL SECURITY;
 
 -- ---------------------------------------------------------------------------------------------
@@ -90,6 +89,9 @@ BEGIN
         'status', (SELECT i.status FROM public.t_inbox i WHERE i.bot_key = p_bot_key AND i.update_id = p_update_id));
 END $$;
 
+-- Server-only objects: nobody but the service key may call them.
+REVOKE ALL ON FUNCTION public.t_inbox_claim(text, bigint, text, bigint) FROM PUBLIC, anon, authenticated;
+
 -- ---------------------------------------------------------------------------------------------
 -- t_inbox_finish(bot_key, update_id, status, error): close a 'processing' row.
 -- Returns jsonb {result}: ok | not_processing (already finished, or never claimed).
@@ -106,6 +108,4 @@ BEGIN
     RETURN jsonb_build_object('result', CASE WHEN FOUND THEN 'ok' ELSE 'not_processing' END);
 END $$;
 
--- Server-only objects: nobody but the service key may call them.
-REVOKE ALL ON FUNCTION public.t_inbox_claim(text, bigint, text, bigint) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.t_inbox_finish(text, bigint, text, text) FROM PUBLIC, anon, authenticated;

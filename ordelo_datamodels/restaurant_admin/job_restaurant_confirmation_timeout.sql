@@ -28,9 +28,11 @@ Side Effects:
 Parameters:
     - p_rest_ref (optional): Specific restaurant reference to process. If NULL, processes all timed-out orders.
 **/
-
-CREATE OR REPLACE FUNCTION job_restaurant_confirmation_timeout(p_rest_ref VARCHAR DEFAULT NULL)
-RETURNS TABLE(action TEXT) LANGUAGE plpgsql AS $$
+-- Definition taken from the live database on 2026-10-16 (the previous repo copy in restaurant_admin/job_restaurant_confirmation_timeout.sql differed).
+CREATE OR REPLACE FUNCTION public.job_restaurant_confirmation_timeout(p_rest_ref character varying DEFAULT NULL::character varying)
+ RETURNS TABLE(action text)
+ LANGUAGE plpgsql
+AS $function$
 BEGIN
   RETURN QUERY
   WITH timeout_config AS (
@@ -57,8 +59,7 @@ BEGIN
     UPDATE delivery_summary ds
     SET 
       status = 'unassigned',
-      restaurant_confirmation_status = 'restaurant_timedout',
-      restaurant_update_dtts = NOW(),
+      rest_confirmed_at = NOW(),
       rest_prep_time_minutes = 25,  -- Default to max time
       rest_confirmation_method = 'timeout',
       pickup_time = NOW() + INTERVAL '25 minutes'
@@ -74,10 +75,14 @@ BEGIN
   )
   SELECT timed_out_orders.action FROM timed_out_orders;
 END;
-$$;
+$function$;
+
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
 
 -- Example: Process specific restaurant
-SELECT * FROM job_restaurant_confirmation_timeout('ELAS');
+-- SELECT * FROM job_restaurant_confirmation_timeout('ELAS');
 
 -- Example: Process all restaurants
 -- SELECT * FROM job_restaurant_confirmation_timeout();

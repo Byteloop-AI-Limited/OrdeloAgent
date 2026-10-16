@@ -15,9 +15,10 @@ CREATE TABLE IF NOT EXISTS public.restaurant_master (
     admins    text[] NOT NULL DEFAULT '{}'
 );
 
--- The summary tables carry the LIVE constraints as of 15 Oct 2026: delivery_summary.status does NOT yet allow
--- 'declined' (restaurant_order_decision.sql adds it); takeaway_summary already does. Only the columns the
--- migrations and tests use are listed. rest_ref is derived from order_number exactly as in the real tables.
+-- The summary tables mirror the live shape defined in ordelo_datamodels/delivery/delivery_summary.sql and
+-- takeaway/takeaway_summary.sql (live check 16 Oct 2026): status allows 'declined', and the kitchen columns used by
+-- restaurant_admin/restaurant_ready_adjust_notices.sql are present. Only the columns the feature files and tests use
+-- are listed. rest_ref is derived from order_number exactly as in the real tables.
 CREATE TABLE IF NOT EXISTS public.delivery_summary (
     order_number   varchar(100) PRIMARY KEY,
     rest_id        varchar(12)  NOT NULL DEFAULT 'R1',
@@ -30,11 +31,17 @@ CREATE TABLE IF NOT EXISTS public.delivery_summary (
     restaurant_admin varchar(12),
     status         varchar(50)  NOT NULL DEFAULT 'restaurant_unconfirmed'
         CONSTRAINT delivery_summary_status_check
-        CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed')),
+        CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed', 'declined')),
     pickup_time    timestamptz,
     pickup_date    date         NOT NULL DEFAULT CURRENT_DATE,
     rest_confirmation_code integer NOT NULL DEFAULT 42,
     customer_address text NOT NULL DEFAULT '1 High Street, Testville',
+    ready_at       timestamptz,
+    ready_by       text,
+    ready_dispatch_id integer,
+    pickup_time_initial timestamptz,
+    pickup_adjusted_by text,
+    pickup_adjusted_at timestamptz,
     rest_ref       varchar(20) GENERATED ALWAYS AS (split_part(order_number, '-', 1)) STORED,
     dtts           timestamptz  NOT NULL DEFAULT now()
 );
@@ -54,6 +61,8 @@ CREATE TABLE IF NOT EXISTS public.takeaway_summary (
     pickup_time    timestamptz,
     pickup_date    date         NOT NULL DEFAULT CURRENT_DATE,
     rest_confirmation_code integer NOT NULL DEFAULT 42,
+    ready_at       timestamptz,
+    ready_by       text,
     rest_ref       varchar(20) GENERATED ALWAYS AS (split_part(order_number, '-', 1)) STORED,
     dtts           timestamptz  NOT NULL DEFAULT now()
 );

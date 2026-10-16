@@ -30,7 +30,6 @@ Side Effects:
 
 See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/
-
 CREATE OR REPLACE FUNCTION job_create_dispatch()
 RETURNS TABLE(action TEXT)
 AS $$
@@ -107,21 +106,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-----------------------------------------
--- Get available riders for a given order number and town; 
--- Exclude riders who are already assigned to the order OR dispatched already sent
-----------------------------------------
--- DROP FUNCTION IF EXISTS get_available_riders(text, text, text);
--- Exact, order-scoped marker lookup. NULL means the order does not exist.
-CREATE OR REPLACE FUNCTION public.order_has_test_item(p_order_number text)
-RETURNS boolean LANGUAGE sql STABLE SET search_path = public AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM order_item oi
-    WHERE oi.order_id = fo.order_id AND oi.product_name = 'TEST3100'
-  )
-  FROM food_order fo WHERE fo.order_number = p_order_number;
-$$;
-
 CREATE OR REPLACE FUNCTION get_available_riders(p_order_number text, p_town text, p_vehicle_type text)
 RETURNS TABLE(rider_id VARCHAR(12), priority INT) AS $$
 BEGIN
@@ -159,3 +143,5 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- pg_cron job 'job_create_dispatch' (live schedule: 5 seconds, active). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('job_create_dispatch', '5 seconds', $cron$SELECT public.job_create_dispatch()$cron$);

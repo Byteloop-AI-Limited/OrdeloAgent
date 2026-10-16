@@ -19,7 +19,6 @@ The function returns dispatch-level JSONB. Restaurant services trust the selecte
 batch and execute termination asynchronously, so this result does not represent
 confirmed conversation closure.
 */
-
 DROP FUNCTION IF EXISTS job_terminate_stale_active_threads_new();
 
 CREATE OR REPLACE FUNCTION job_terminate_stale_active_threads_new()
@@ -246,194 +245,240 @@ BEGIN
 END;
 $$;
 
+-- Definition taken from the live database on 2026-10-16 (no repo copy existed).
+CREATE OR REPLACE FUNCTION public.job_terminate_stale_active_threads()
+ RETURNS boolean
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    response JSON;
+    notified BOOLEAN := FALSE;
+    ordelo_app_url TEXT;
+    webhook_url TEXT;
+BEGIN
+    -- Get webhook URL from config
+    SELECT config_value INTO ordelo_app_url 
+    FROM ordelo_config 
+    WHERE config_key = 'ORDELO_APP_URL';
+    
+    IF ordelo_app_url IS NULL OR ordelo_app_url = '' THEN
+      ordelo_app_url := 'https://rider-agent.ordelo.app';
+    END IF;
+    
+    webhook_url := ordelo_app_url || '/thread-hooks/terminate-stale-active-threads';
+
+    response := (
+        SELECT content
+        FROM http_post(
+             webhook_url,
+             '{}'::text,
+             'application/json'
+        )
+    );
+    RAISE NOTICE 'Response from terminate-stale-active-threads: %', response;
+    notified := TRUE;
+
+    RETURN notified;
+END;
+$function$;
+
+-- pg_cron job 'job_terminate_stale_active_threads' (live schedule: */3 * * * *, INACTIVE). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('job_terminate_stale_active_threads', '*/3 * * * *', $cron$SELECT public.job_terminate_stale_active_threads()$cron$);
+SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'job_terminate_stale_active_threads';
+
+-- pg_cron job 'jobTerminateStaleActiveThreadsNew' (live schedule: * * * * *, active). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('jobTerminateStaleActiveThreadsNew', '* * * * *', $cron$SELECT job_terminate_stale_active_threads_new();$cron$);
+
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
+
 -- The existing pg_cron registration continues to call:
-SELECT job_terminate_stale_active_threads_new();
+-- SELECT job_terminate_stale_active_threads_new();
 
 ----------------------------- DEBUG QUERY -----------------------------
 
 -- 1. Evaluate both threads exactly against the dispatcher criteria.
-WITH target_threads(thread_id) AS (
-    SELECT DISTINCT thread_id
-    FROM public.thread
-    WHERE is_active = TRUE
-),
-evaluated AS (
-    SELECT
-        target.thread_id AS requested_thread_id,
-        t.thread_id,
-        t.agent,
-        t.recipient,
-        t.is_active,
-        t.retain_thread AS legacy_thread_retain_value,
-        t.dtts,
-        t.last_access_dtts,
-        CURRENT_TIMESTAMP AS database_time,
-        CURRENT_TIMESTAMP - t.last_access_dtts AS thread_age,
-        upper(split_part(t.thread_id, '-', 1)) AS derived_rest_ref,
-        rm.rest_stale_active_threads_minutes AS stale_after_minutes,
-        t.last_access_dtts
-            + make_interval(
-                mins => rm.rest_stale_active_threads_minutes
-            ) AS became_stale_at,
-        cp.checkpoint_id AS latest_root_checkpoint_id,
-        cp.checkpoint
-            -> 'channel_values'
-            -> 'retain_thread' AS checkpoint_retain_value,
-        jsonb_typeof(
-            cp.checkpoint
-                -> 'channel_values'
-                -> 'retain_thread'
-        ) AS checkpoint_retain_type,
-        app_config.base_url
-    FROM target_threads AS target
-    LEFT JOIN public.thread AS t
-      ON t.thread_id = target.thread_id
-    LEFT JOIN public.restaurant_master AS rm
-      ON rm.rest_ref = upper(split_part(t.thread_id, '-', 1))
-    LEFT JOIN LATERAL (
-        SELECT
-            c.checkpoint_id,
-            c.checkpoint
-        FROM public.checkpoints AS c
-        WHERE c.thread_id = t.thread_id
-          AND c.checkpoint_ns = ''
-        ORDER BY c.checkpoint_id DESC
-        LIMIT 1
-    ) AS cp ON TRUE
-    LEFT JOIN LATERAL (
-        SELECT NULLIF(btrim(oc.config_value), '') AS base_url
-        FROM public.ordelo_config AS oc
-        WHERE oc.config_key =
-            upper(split_part(t.thread_id, '-', 1)) || '_APP_URL'
-        LIMIT 1
-    ) AS app_config ON TRUE
-)
-SELECT
-    *,
-    thread_id IS NOT NULL AS thread_exists,
-    (
-        is_active IS TRUE
-        AND last_access_dtts IS NOT NULL
-        AND last_access_dtts < (
-            CURRENT_TIMESTAMP
-            - make_interval(mins => stale_after_minutes)
-        )
-    ) AS is_stale,
-    latest_root_checkpoint_id IS NULL AS checkpoint_missing,
-    (
-        checkpoint_retain_value = 'true'::jsonb
-    ) IS TRUE AS is_retained,
-    (
-        latest_root_checkpoint_id IS NOT NULL
-        AND (
-            checkpoint_retain_value = 'true'::jsonb
-        ) IS NOT TRUE
-    ) AS checkpoint_eligible,
-    base_url IS NOT NULL AS has_app_url,
-    upper(agent) IS DISTINCT FROM derived_rest_ref
-        AS agent_prefix_mismatch,
-    (
-        is_active IS TRUE
-        AND last_access_dtts IS NOT NULL
-        AND last_access_dtts < (
-            CURRENT_TIMESTAMP
-            - make_interval(mins => stale_after_minutes)
-        )
-        AND latest_root_checkpoint_id IS NOT NULL
-        AND (
-            checkpoint_retain_value = 'true'::jsonb
-        ) IS NOT TRUE
-        AND base_url IS NOT NULL
-    ) AS should_be_dispatched_now,
-    CASE
-        WHEN thread_id IS NULL
-            THEN 'thread_not_found'
-        WHEN is_active IS NOT TRUE
-            THEN 'already_inactive'
-        WHEN stale_after_minutes IS NULL
-            THEN 'restaurant_or_timeout_missing'
-        WHEN last_access_dtts IS NULL
-            THEN 'last_access_missing'
-        WHEN last_access_dtts >= (
-            CURRENT_TIMESTAMP
-            - make_interval(mins => stale_after_minutes)
-        )
-            THEN 'not_stale_yet'
-        WHEN latest_root_checkpoint_id IS NULL
-            THEN 'skipped_missing_checkpoint'
-        WHEN (
-            checkpoint_retain_value = 'true'::jsonb
-        ) IS TRUE
-            THEN 'skipped_retained'
-        WHEN base_url IS NULL
-            THEN 'skipped_missing_app_url'
-        ELSE 'eligible_and_dispatchable'
-    END AS selection_result
-FROM evaluated
-ORDER BY requested_thread_id;
-
+-- WITH target_threads(thread_id) AS (
+--     SELECT DISTINCT thread_id
+--     FROM public.thread
+--     WHERE is_active = TRUE
+-- ),
+-- evaluated AS (
+--     SELECT
+--         target.thread_id AS requested_thread_id,
+--         t.thread_id,
+--         t.agent,
+--         t.recipient,
+--         t.is_active,
+--         t.retain_thread AS legacy_thread_retain_value,
+--         t.dtts,
+--         t.last_access_dtts,
+--         CURRENT_TIMESTAMP AS database_time,
+--         CURRENT_TIMESTAMP - t.last_access_dtts AS thread_age,
+--         upper(split_part(t.thread_id, '-', 1)) AS derived_rest_ref,
+--         rm.rest_stale_active_threads_minutes AS stale_after_minutes,
+--         t.last_access_dtts
+--             + make_interval(
+--                 mins => rm.rest_stale_active_threads_minutes
+--             ) AS became_stale_at,
+--         cp.checkpoint_id AS latest_root_checkpoint_id,
+--         cp.checkpoint
+--             -> 'channel_values'
+--             -> 'retain_thread' AS checkpoint_retain_value,
+--         jsonb_typeof(
+--             cp.checkpoint
+--                 -> 'channel_values'
+--                 -> 'retain_thread'
+--         ) AS checkpoint_retain_type,
+--         app_config.base_url
+--     FROM target_threads AS target
+--     LEFT JOIN public.thread AS t
+--       ON t.thread_id = target.thread_id
+--     LEFT JOIN public.restaurant_master AS rm
+--       ON rm.rest_ref = upper(split_part(t.thread_id, '-', 1))
+--     LEFT JOIN LATERAL (
+--         SELECT
+--             c.checkpoint_id,
+--             c.checkpoint
+--         FROM public.checkpoints AS c
+--         WHERE c.thread_id = t.thread_id
+--           AND c.checkpoint_ns = ''
+--         ORDER BY c.checkpoint_id DESC
+--         LIMIT 1
+--     ) AS cp ON TRUE
+--     LEFT JOIN LATERAL (
+--         SELECT NULLIF(btrim(oc.config_value), '') AS base_url
+--         FROM public.ordelo_config AS oc
+--         WHERE oc.config_key =
+--             upper(split_part(t.thread_id, '-', 1)) || '_APP_URL'
+--         LIMIT 1
+--     ) AS app_config ON TRUE
+-- )
+-- SELECT
+--     *,
+--     thread_id IS NOT NULL AS thread_exists,
+--     (
+--         is_active IS TRUE
+--         AND last_access_dtts IS NOT NULL
+--         AND last_access_dtts < (
+--             CURRENT_TIMESTAMP
+--             - make_interval(mins => stale_after_minutes)
+--         )
+--     ) AS is_stale,
+--     latest_root_checkpoint_id IS NULL AS checkpoint_missing,
+--     (
+--         checkpoint_retain_value = 'true'::jsonb
+--     ) IS TRUE AS is_retained,
+--     (
+--         latest_root_checkpoint_id IS NOT NULL
+--         AND (
+--             checkpoint_retain_value = 'true'::jsonb
+--         ) IS NOT TRUE
+--     ) AS checkpoint_eligible,
+--     base_url IS NOT NULL AS has_app_url,
+--     upper(agent) IS DISTINCT FROM derived_rest_ref
+--         AS agent_prefix_mismatch,
+--     (
+--         is_active IS TRUE
+--         AND last_access_dtts IS NOT NULL
+--         AND last_access_dtts < (
+--             CURRENT_TIMESTAMP
+--             - make_interval(mins => stale_after_minutes)
+--         )
+--         AND latest_root_checkpoint_id IS NOT NULL
+--         AND (
+--             checkpoint_retain_value = 'true'::jsonb
+--         ) IS NOT TRUE
+--         AND base_url IS NOT NULL
+--     ) AS should_be_dispatched_now,
+--     CASE
+--         WHEN thread_id IS NULL
+--             THEN 'thread_not_found'
+--         WHEN is_active IS NOT TRUE
+--             THEN 'already_inactive'
+--         WHEN stale_after_minutes IS NULL
+--             THEN 'restaurant_or_timeout_missing'
+--         WHEN last_access_dtts IS NULL
+--             THEN 'last_access_missing'
+--         WHEN last_access_dtts >= (
+--             CURRENT_TIMESTAMP
+--             - make_interval(mins => stale_after_minutes)
+--         )
+--             THEN 'not_stale_yet'
+--         WHEN latest_root_checkpoint_id IS NULL
+--             THEN 'skipped_missing_checkpoint'
+--         WHEN (
+--             checkpoint_retain_value = 'true'::jsonb
+--         ) IS TRUE
+--             THEN 'skipped_retained'
+--         WHEN base_url IS NULL
+--             THEN 'skipped_missing_app_url'
+--         ELSE 'eligible_and_dispatchable'
+--     END AS selection_result
+-- FROM evaluated
+-- ORDER BY requested_thread_id;
 
 -- 2. Check which old/new dispatcher functions are deployed.
-SELECT
-    p.oid::regprocedure::text AS function_signature,
-    pg_get_function_result(p.oid) AS return_type,
-    l.lanname AS language,
-    md5(p.prosrc) AS source_hash,
-    p.prosrc ILIKE '%rest_stale_active_threads_minutes%'
-        AS uses_restaurant_timeout,
-    p.prosrc ILIKE '%checkpoint_ns = ''''%'
-        AS reads_root_checkpoint,
-    p.prosrc ILIKE '%/terminate-stale-active-threads%'
-        AS posts_to_restaurant_endpoint,
-    p.prosrc ILIKE '%http_post%'
-        AS performs_http_post
-FROM pg_proc AS p
-JOIN pg_namespace AS n
-  ON n.oid = p.pronamespace
-JOIN pg_language AS l
-  ON l.oid = p.prolang
-WHERE n.nspname = 'public'
-  AND p.proname IN (
-      'job_terminate_stale_active_threads',
-      'job_terminate_stale_active_threads_new'
-  )
-ORDER BY p.proname;
-
+-- SELECT
+--     p.oid::regprocedure::text AS function_signature,
+--     pg_get_function_result(p.oid) AS return_type,
+--     l.lanname AS language,
+--     md5(p.prosrc) AS source_hash,
+--     p.prosrc ILIKE '%rest_stale_active_threads_minutes%'
+--         AS uses_restaurant_timeout,
+--     p.prosrc ILIKE '%checkpoint_ns = ''''%'
+--         AS reads_root_checkpoint,
+--     p.prosrc ILIKE '%/terminate-stale-active-threads%'
+--         AS posts_to_restaurant_endpoint,
+--     p.prosrc ILIKE '%http_post%'
+--         AS performs_http_post
+-- FROM pg_proc AS p
+-- JOIN pg_namespace AS n
+--   ON n.oid = p.pronamespace
+-- JOIN pg_language AS l
+--   ON l.oid = p.prolang
+-- WHERE n.nspname = 'public'
+--   AND p.proname IN (
+--       'job_terminate_stale_active_threads',
+--       'job_terminate_stale_active_threads_new'
+--   )
+-- ORDER BY p.proname;
 
 -- 3. Confirm which dispatcher function pg_cron actually calls.
-SELECT
-    jobid,
-    jobname,
-    schedule,
-    command,
-    database,
-    username,
-    active
-FROM cron.job
-WHERE command ILIKE '%terminate_stale_active_threads%'
-   OR jobname ILIKE '%terminate%stale%thread%'
-ORDER BY jobid;
-
+-- SELECT
+--     jobid,
+--     jobname,
+--     schedule,
+--     command,
+--     database,
+--     username,
+--     active
+-- FROM cron.job
+-- WHERE command ILIKE '%terminate_stale_active_threads%'
+--    OR jobname ILIKE '%terminate%stale%thread%'
+-- ORDER BY jobid;
 
 -- 4. Inspect recent executions, including the period after 17:45 UTC.
-SELECT
-    details.jobid,
-    job.jobname,
-    job.command,
-    details.runid,
-    details.status,
-    details.return_message,
-    details.start_time,
-    details.end_time,
-    details.end_time - details.start_time AS duration
-FROM cron.job_run_details AS details
-JOIN cron.job AS job
-  ON job.jobid = details.jobid
-WHERE (
-        job.command ILIKE '%terminate_stale_active_threads%'
-        OR job.jobname ILIKE '%terminate%stale%thread%'
-    )
-  AND details.start_time >= TIMESTAMPTZ '2026-07-25 17:35:00+00'
-ORDER BY details.start_time DESC
-LIMIT 50;
+-- SELECT
+--     details.jobid,
+--     job.jobname,
+--     job.command,
+--     details.runid,
+--     details.status,
+--     details.return_message,
+--     details.start_time,
+--     details.end_time,
+--     details.end_time - details.start_time AS duration
+-- FROM cron.job_run_details AS details
+-- JOIN cron.job AS job
+--   ON job.jobid = details.jobid
+-- WHERE (
+--         job.command ILIKE '%terminate_stale_active_threads%'
+--         OR job.jobname ILIKE '%terminate%stale%thread%'
+--     )
+--   AND details.start_time >= TIMESTAMPTZ '2026-07-25 17:35:00+00'
+-- ORDER BY details.start_time DESC
+-- LIMIT 50;
+
 ----------------------------- END DEBUG QUERY -----------------------------

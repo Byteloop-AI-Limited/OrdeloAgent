@@ -2,84 +2,48 @@
 -- DROP TYPE vehicle_type_enum cascade;
 
 -- 2. Driver Master Table
+-- (The statement that followed this comment is now generated from live in core/rider_master.sql.)
 
-CREATE TABLE rider_master (
-    id          SERIAL PRIMARY KEY,
-    rider_id   VARCHAR(12) ,
-    rider_name     TEXT NOT NULL,
-    vehicle_type VARCHAR(15) NOT NULL,
-    town        VARCHAR(255) NOT NULL,
-    status      VARCHAR(50) NOT NULL,
-    is_in_shift BOOLEAN NOT NULL DEFAULT TRUE,
-    priority    INT NOT NULL DEFAULT 1,
-    dtts        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-ALTER TABLE rider_master ADD COLUMN shift_response_dtts TIMESTAMP;
-
-
-CREATE TABLE restaurant_master (
-    rest_ref    VARCHAR(4) PRIMARY KEY,
-    rest_id   VARCHAR(12) UNIQUE,
-    rest_name     TEXT NOT NULL,
-    rest_email     TEXT NULL,
-    admins TEXT[] NULL,
-    house_number     TEXT NOT NULL,
-    building_name     TEXT NULL,
-    street_name     TEXT NOT NULL,
-    city     TEXT NOT NULL,
-    postcode     TEXT NOT NULL,
-    lat        FLOAT NOT NULL,
-    lon        FLOAT NOT NULL,
-    auto_accept BOOLEAN NOT NULL DEFAULT FALSE,
-    dt          DATE NOT NULL DEFAULT CURRENT_DATE,
-    dtts        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+CREATE TABLE IF NOT EXISTS public.restaurant_master (
+    rest_ref character varying(4) NOT NULL,
+    rest_id character varying(12),
+    rest_name text NOT NULL,
+    rest_email text,
+    house_number text NOT NULL,
+    building_name text,
+    street_name text NOT NULL,
+    city text NOT NULL,
+    postcode text NOT NULL,
+    lat double precision NOT NULL,
+    lon double precision NOT NULL,
+    dt date NOT NULL DEFAULT CURRENT_DATE,
+    dtts timestamp with time zone NOT NULL DEFAULT now(),
+    admins text[],
+    rest_stale_active_threads_minutes integer NOT NULL DEFAULT 10,
+    restaurant_start_time double precision NOT NULL DEFAULT 12,
+    restaurant_end_time double precision NOT NULL DEFAULT 21.30,
+    service_hours_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+    collection_commission double precision,
+    auto_accept boolean NOT NULL DEFAULT false,
+    delivery_order_cutoff_minutes integer NOT NULL DEFAULT 0, -- added by migrations/add_order_cutoff_minutes.sql
+    takeaway_order_cutoff_minutes integer NOT NULL DEFAULT 0, -- added by migrations/add_order_cutoff_minutes.sql
+    CONSTRAINT restaurant_master_pkey PRIMARY KEY (rest_ref),
+    CONSTRAINT restaurant_master_rest_id_key UNIQUE (rest_id)
 );
 
-ALTER TABLE restaurant_master
-  ADD COLUMN rest_stale_active_threads_minutes INT NOT NULL DEFAULT 10,
-  ADD COLUMN restaurant_start_time FLOAT NOT NULL DEFAULT 12,
-  ADD COLUMN restaurant_end_time FLOAT NOT NULL DEFAULT 21.30;
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
 
-ALTER TABLE restaurant_master
-  ALTER COLUMN rest_stale_active_threads_minutes
-  TYPE INT
-  USING rest_stale_active_threads_minutes::INT;
+-- LTER TABLE customer_master
+--   DROP COLUMN IF EXISTS consented_rest_refs;
 
-CREATE TABLE customer_master (
-    cust_id   VARCHAR(12) PRIMARY KEY,
-    cust_name     TEXT NULL,
-    cust_email     TEXT NULL,
-    house_number     TEXT NULL,
-    building_name     TEXT NULL,
-    street_name     TEXT NULL,
-    city     TEXT NULL,
-    postcode     TEXT NULL,
-    lat        FLOAT NULL,
-    lon        FLOAT NULL,
-    dt          DATE NOT NULL DEFAULT CURRENT_DATE,
-    dtts        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
-);
-
-LTER TABLE customer_master
-  DROP COLUMN IF EXISTS consented_rest_refs;
-
--- Customer restaurant mapping
-CREATE TABLE cust_rest_map (
-    cust_id      VARCHAR(12)              NOT NULL REFERENCES customer_master(cust_id),
-    rest_ref     VARCHAR(4)               NOT NULL REFERENCES restaurant_master(rest_ref),
-    has_consent  BOOLEAN                  NOT NULL DEFAULT FALSE,
-    consent_dtts TIMESTAMP WITH TIME ZONE NULL,
-    dtts         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    PRIMARY KEY (cust_id, rest_ref)
-);
-
-
-SELECT
-    column_name,
-    data_type,
-    is_nullable,
-    column_default
-FROM information_schema.columns
-WHERE table_schema = 'public'
-  AND table_name = 'customer_master'
-ORDER BY ordinal_position;
+-- SELECT
+--     column_name,
+--     data_type,
+--     is_nullable,
+--     column_default
+-- FROM information_schema.columns
+-- WHERE table_schema = 'public'
+--   AND table_name = 'customer_master'
+-- ORDER BY ordinal_position;
