@@ -58,67 +58,74 @@ Deployment note:
 ----------------------------------------
 -- get_rider_payout_report - completed dispatches with payee details
 ----------------------------------------
-DROP FUNCTION IF EXISTS get_rider_payout_report(DATE, DATE, TEXT[]);
+DROP FUNCTION IF EXISTS get_rider_payout_report (DATE, DATE, TEXT[]);
 
-CREATE OR REPLACE FUNCTION get_rider_payout_report(
-    p_start          DATE,
-    p_end            DATE,
-    p_exclude_riders TEXT[] DEFAULT '{}'
-)
-RETURNS TABLE (
-    dispatch_id       BIGINT,
-    order_number      TEXT,
-    rest_ref          TEXT,
-    rider_id          TEXT,
-    rider_name        TEXT,
-    town              TEXT,
-    vehicle_type      TEXT,
-    bank_account_name TEXT,
-    sort_code         TEXT,
-    bank_account      TEXT,
-    rider_payout      DOUBLE PRECISION,
-    distance          DOUBLE PRECISION,
-    dtts              TIMESTAMP,
-    paid_status       TEXT,
-    paid_dtts         TIMESTAMP
-) AS $$
+CREATE OR REPLACE FUNCTION get_rider_payout_report (p_start date, p_end date, p_exclude_riders text[] DEFAULT '{}')
+    RETURNS TABLE (
+        dispatch_id bigint,
+        order_number text,
+        rest_ref text,
+        rider_id text,
+        rider_name text,
+        town text,
+        vehicle_type text,
+        bank_account_name text,
+        sort_code text,
+        bank_account text,
+        rider_payout double precision,
+        distance double precision,
+        dtts timestamp,
+        paid_status text,
+        paid_dtts timestamp
+    )
+    AS $$
     -- One bank record per rider, digits-only phone match, newest registration wins.
     WITH rider_bank AS (
-        SELECT DISTINCT ON (regexp_replace(reg.phone, '[^0-9]', '', 'g'))
-               regexp_replace(reg.phone, '[^0-9]', '', 'g') AS norm_phone,
-               reg.bank_account_name,
-               reg.sort_code,
-               reg.bank_account
-        FROM   rider_registrations reg
-        WHERE  reg.phone IS NOT NULL
-        ORDER  BY regexp_replace(reg.phone, '[^0-9]', '', 'g'),
-                  reg.inserted_at DESC NULLS LAST
-    )
-    SELECT d.dispatch_id::BIGINT,
-           d.order_number::TEXT,
-           ds.rest_ref::TEXT,
-           d.rider_id::TEXT,
-           rm.rider_name::TEXT,
-           rm.town::TEXT,
-           d.vehicle_type::TEXT,
-           rb.bank_account_name::TEXT,
-           rb.sort_code::TEXT,
-           rb.bank_account::TEXT,
-           d.rider_payout,
-           d.distance,
-           d.dtts,
-           d.paid_status::TEXT,
-           d.paid_dtts
-    FROM   delivery_dispatch d
-    LEFT   JOIN rider_master     rm ON rm.rider_id  = d.rider_id
-    LEFT   JOIN delivery_summary ds ON ds.order_number = d.order_number
-    LEFT   JOIN rider_bank       rb ON rb.norm_phone   = d.rider_id
-    WHERE  d.status = 'completed'
-      AND  d.dtts >= p_start::TIMESTAMP
-      AND  d.dtts <  (p_end + 1)::TIMESTAMP
-      AND  NOT (d.rider_id = ANY (COALESCE(p_exclude_riders, ARRAY[]::TEXT[])))
-    ORDER  BY d.dtts DESC;
-$$ LANGUAGE sql STABLE;
+        SELECT DISTINCT ON (regexp_replace(reg.phone, '[^0-9]', '', 'g')
+)
+            regexp_replace(reg.phone, '[^0-9]', '', 'g') AS norm_phone,
+            reg.bank_account_name,
+            reg.sort_code,
+            reg.bank_account
+        FROM
+            rider_registrations reg
+        WHERE
+            reg.phone IS NOT NULL
+        ORDER BY
+            regexp_replace(reg.phone, '[^0-9]', '', 'g'),
+            reg.inserted_at DESC NULLS LAST
+)
+    SELECT
+        d.dispatch_id::bigint,
+        d.order_number::text,
+        ds.rest_ref::text,
+        d.rider_id::text,
+        rm.rider_name::text,
+        rm.town::text,
+        d.vehicle_type::text,
+        rb.bank_account_name::text,
+        rb.sort_code::text,
+        rb.bank_account::text,
+        d.rider_payout,
+        d.distance,
+        d.dtts,
+        d.paid_status::text,
+        d.paid_dtts
+    FROM
+        delivery_dispatch d
+    LEFT JOIN rider_master rm ON rm.rider_id = d.rider_id
+    LEFT JOIN delivery_summary ds ON ds.order_number = d.order_number
+    LEFT JOIN rider_bank rb ON rb.norm_phone = d.rider_id
+WHERE
+    d.status = 'completed'
+    AND d.dtts >= p_start::timestamp
+    AND d.dtts < (p_end + 1)::timestamp
+    AND NOT (d.rider_id = ANY (COALESCE(p_exclude_riders, ARRAY[]::text[])))
+ORDER BY
+    d.dtts DESC;
+$$
+LANGUAGE sql
+STABLE;
 
 ----------------------------------------
 -- Sanity checks (run manually after applying)

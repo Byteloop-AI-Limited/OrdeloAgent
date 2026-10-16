@@ -29,108 +29,81 @@ Functions:
 */
 
 -- %% Latest state for a known thread_id
-DROP FUNCTION IF EXISTS get_latest_state_by_thread(TEXT, TEXT);
+DROP FUNCTION IF EXISTS get_latest_state_by_thread (TEXT, TEXT);
 
-CREATE OR REPLACE FUNCTION get_latest_state_by_thread(
-    p_thread_id TEXT,
-    p_state_key TEXT DEFAULT NULL
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-STABLE
-AS $$
+CREATE OR REPLACE FUNCTION get_latest_state_by_thread (p_thread_id text, p_state_key text DEFAULT NULL)
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    STABLE
+    AS $$
 DECLARE
-    v_checkpoint_id TEXT;
-    v_parent_checkpoint_id TEXT;
-    v_checkpoint JSONB;
-    v_state JSONB;
-    v_blob_channels JSONB;
+    v_checkpoint_id text;
+    v_parent_checkpoint_id text;
+    v_checkpoint jsonb;
+    v_state jsonb;
+    v_blob_channels jsonb;
 BEGIN
     IF p_thread_id IS NULL OR btrim(p_thread_id) = '' THEN
         RETURN NULL;
     END IF;
-
     -- Latest root checkpoint for the thread; sub-graph namespaces are skipped
     SELECT
         c.checkpoint_id,
         c.parent_checkpoint_id,
-        c.checkpoint
-    INTO
-        v_checkpoint_id,
+        c.checkpoint INTO v_checkpoint_id,
         v_parent_checkpoint_id,
         v_checkpoint
-    FROM public.checkpoints AS c
-    WHERE c.thread_id = p_thread_id
-      AND c.checkpoint_ns = ''
-    ORDER BY c.checkpoint_id DESC
+    FROM
+        public.checkpoints AS c
+    WHERE
+        c.thread_id = p_thread_id
+        AND c.checkpoint_ns = ''
+    ORDER BY
+        c.checkpoint_id DESC
     LIMIT 1;
 
     IF v_checkpoint_id IS NULL THEN
         RETURN NULL;
     END IF;
-
     -- Inline primitives are the only SQL-readable state values
     v_state := COALESCE(v_checkpoint -> 'channel_values', '{}'::jsonb);
 
     IF p_state_key IS NOT NULL THEN
         RETURN v_state -> p_state_key;
     END IF;
-
     -- Channels held in checkpoint_blobs (msgpack) surface as metadata, not values
-    SELECT COALESCE(
-        jsonb_agg(
-            jsonb_build_object(
-                'channel', b.channel,
-                'type', b.type,
-                'size_bytes', octet_length(b.blob)
-            )
-            ORDER BY b.channel
-        ),
-        '[]'::jsonb
-    )
-    INTO v_blob_channels
-    FROM jsonb_each_text(
-        COALESCE(v_checkpoint -> 'channel_versions', '{}'::jsonb)
-    ) AS cv(channel, version)
-    JOIN public.checkpoint_blobs AS b
-      ON b.thread_id = p_thread_id
-     AND b.checkpoint_ns = ''
-     AND b.channel = cv.channel
-     AND b.version = cv.version
-    WHERE b.type <> 'empty';
+    SELECT
+        COALESCE(jsonb_agg(jsonb_build_object('channel', b.channel, 'type', b.type, 'size_bytes', octet_length(b.blob))
+            ORDER BY b.channel), '[]'::jsonb) INTO v_blob_channels
+    FROM
+        jsonb_each_text(COALESCE(v_checkpoint -> 'channel_versions', '{}'::jsonb)) AS cv (channel,
+        version)
+    JOIN public.checkpoint_blobs AS b ON b.thread_id = p_thread_id
+        AND b.checkpoint_ns = ''
+        AND b.channel = cv.channel
+        AND b.version = cv.version
+WHERE
+    b.type <> 'empty';
 
-    RETURN jsonb_build_object(
-        'thread_id', p_thread_id,
-        'checkpoint_ns', '',
-        'checkpoint_id', v_checkpoint_id,
-        'parent_checkpoint_id', v_parent_checkpoint_id,
-        'checkpoint_ts', v_checkpoint ->> 'ts',
-        'state', v_state,
-        'blob_channels', v_blob_channels
-    );
+    RETURN jsonb_build_object('thread_id', p_thread_id, 'checkpoint_ns', '', 'checkpoint_id', v_checkpoint_id, 'parent_checkpoint_id', v_parent_checkpoint_id, 'checkpoint_ts', v_checkpoint ->> 'ts', 'state', v_state, 'blob_channels', v_blob_channels);
 END;
 $$;
 
 -- %% Latest state for the active thread of a (recipient, agent) pair
-DROP FUNCTION IF EXISTS get_latest_state(VARCHAR, TEXT, TEXT);
+DROP FUNCTION IF EXISTS get_latest_state (VARCHAR, TEXT, TEXT);
 
-CREATE OR REPLACE FUNCTION get_latest_state(
-    p_recipient VARCHAR,
-    p_agent TEXT DEFAULT NULL,
-    p_state_key TEXT DEFAULT NULL
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-STABLE
-AS $$
+CREATE OR REPLACE FUNCTION get_latest_state (p_recipient varchar, p_agent text DEFAULT NULL, p_state_key text DEFAULT NULL)
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    STABLE
+    AS $$
 DECLARE
     v_thread RECORD;
-    v_result JSONB;
+    v_result jsonb;
 BEGIN
     IF p_recipient IS NULL OR btrim(p_recipient) = '' THEN
         RETURN NULL;
     END IF;
-
     -- Newest active thread for the recipient; no last_access_dtts side effect
     SELECT
         t.thread_id,
@@ -138,37 +111,31 @@ BEGIN
         t.recipient,
         t.retain_thread,
         t.dtts,
-        t.last_access_dtts
-    INTO v_thread
-    FROM public.thread AS t
-    WHERE t.recipient = p_recipient
-      AND t.is_active IS TRUE
-      AND (
-          p_agent IS NULL
-          OR t.agent IS NULL
-          OR upper(t.agent) = upper(p_agent)
-      )
-    ORDER BY t.dtts DESC, t.last_access_dtts DESC
+        t.last_access_dtts INTO v_thread
+    FROM
+        public.thread AS t
+    WHERE
+        t.recipient = p_recipient
+        AND t.is_active IS TRUE
+        AND (p_agent IS NULL
+            OR t.agent IS NULL
+            OR upper(t.agent) = upper(p_agent))
+    ORDER BY
+        t.dtts DESC,
+        t.last_access_dtts DESC
     LIMIT 1;
 
     IF v_thread.thread_id IS NULL THEN
         RETURN NULL;
     END IF;
 
-    v_result := get_latest_state_by_thread(v_thread.thread_id, p_state_key);
-
+    v_result := get_latest_state_by_thread (v_thread.thread_id, p_state_key);
     -- Single-key lookups stay bare so callers can compare directly
     IF p_state_key IS NOT NULL OR v_result IS NULL THEN
         RETURN v_result;
     END IF;
 
-    RETURN v_result || jsonb_build_object(
-        'agent', v_thread.agent,
-        'recipient', v_thread.recipient,
-        'thread_retain_thread', v_thread.retain_thread,
-        'thread_dtts', v_thread.dtts,
-        'thread_last_access_dtts', v_thread.last_access_dtts
-    );
+    RETURN v_result || jsonb_build_object('agent', v_thread.agent, 'recipient', v_thread.recipient, 'thread_retain_thread', v_thread.retain_thread, 'thread_dtts', v_thread.dtts, 'thread_last_access_dtts', v_thread.last_access_dtts);
 END;
 $$;
 

@@ -9,9 +9,10 @@ CREATE TABLE IF NOT EXISTS public.ordelo_config (
 );
 
 DROP POLICY IF EXISTS "Enable read access for all users" ON public.ordelo_config;
-CREATE POLICY "Enable read access for all users" ON public.ordelo_config
-    AS PERMISSIVE FOR SELECT TO public
-    USING (true);
+
+CREATE POLICY "Enable read access for all users" ON public.ordelo_config AS PERMISSIVE
+    FOR SELECT TO public
+        USING (TRUE);
 
 -- ===========================================================================
 -- 3. parse_alert_offsets(config_key) -> int[]
@@ -20,16 +21,19 @@ CREATE POLICY "Enable read access for all users" ON public.ordelo_config
 -- Junk entries are skipped rather than fatal: one stray character must not
 -- silence alerts for every rider. The caller tells "absent" from "present but
 -- unparseable" and RAISEs a NOTICE for the latter.
-CREATE OR REPLACE FUNCTION parse_alert_offsets(p_config_key text)
-RETURNS int[]
-LANGUAGE sql
-STABLE
-AS $$
-    SELECT array_agg(DISTINCT btrim(t.x)::int ORDER BY btrim(t.x)::int)
-      FROM ordelo_config c
-     CROSS JOIN unnest(string_to_array(c.config_value, ',')) AS t(x)
-     WHERE c.config_key = p_config_key
-       AND btrim(t.x) ~ '^-?\d+$';
+CREATE OR REPLACE FUNCTION parse_alert_offsets (p_config_key text)
+    RETURNS int[]
+    LANGUAGE sql
+    STABLE
+    AS $$
+    SELECT
+        array_agg(DISTINCT btrim(t.x)::int ORDER BY btrim(t.x)::int)
+    FROM
+        ordelo_config c
+    CROSS JOIN unnest(string_to_array(c.config_value, ',')) AS t (x)
+WHERE
+    c.config_key = p_config_key
+    AND btrim(t.x) ~ '^-?\d+$';
 $$;
 
 -- -- Optional: trigger to auto-update "updated_at" on row modification

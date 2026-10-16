@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS public."live-track" (
-    id uuid NOT NULL DEFAULT uuid_generate_v4(),
+    id uuid NOT NULL DEFAULT uuid_generate_v4 (),
     battery integer NOT NULL,
     created_at timestamp with time zone NOT NULL,
     latitude double precision NOT NULL,
@@ -22,11 +22,13 @@ CREATE INDEX IF NOT EXISTS idx_live_track_device ON public."live-track" USING bt
 CREATE INDEX IF NOT EXISTS idx_live_track_user ON public."live-track" USING btree (user_id);
 
 DROP POLICY IF EXISTS "Allow authenticated read access" ON public."live-track";
-CREATE POLICY "Allow authenticated read access" ON public."live-track"
-    AS PERMISSIVE FOR SELECT TO authenticated
-    USING (true);
+
+CREATE POLICY "Allow authenticated read access" ON public."live-track" AS PERMISSIVE
+    FOR SELECT TO authenticated
+        USING (TRUE);
 
 DROP POLICY IF EXISTS "Allow service insert" ON public."live-track";
-CREATE POLICY "Allow service insert" ON public."live-track"
-    AS PERMISSIVE FOR INSERT TO authenticated
-    WITH CHECK (true);
+
+CREATE POLICY "Allow service insert" ON public."live-track" AS PERMISSIVE
+    FOR INSERT TO authenticated
+        WITH CHECK (TRUE);

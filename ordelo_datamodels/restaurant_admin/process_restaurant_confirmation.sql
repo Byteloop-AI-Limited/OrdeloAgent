@@ -40,61 +40,83 @@ See also:
     - watomation/routers/delivery_hooks.py for the webhook handler.
     - ordelo_datamodels/delivery/delivery_summary.sql for the trigger definition.
 **/
-CREATE OR REPLACE FUNCTION process_restaurant_confirmation() 
-RETURNS TABLE(action TEXT) 
-LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION process_restaurant_confirmation ()
+    RETURNS TABLE (
+        action text)
+    LANGUAGE plpgsql
+    AS $$
 BEGIN
-  RETURN QUERY
-  WITH delivery_timedout_confirmations AS (
-    -- Update delivery orders where restaurant hasn't completed confirmation in time
-    UPDATE delivery_summary ds
-    SET 
-      restaurant_confirmation_status = 'restaurant_timedout',
-      restaurant_update_dtts = NOW()
-    WHERE ds.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept')
-      AND ds.pickup_time IS NULL
-      AND (EXTRACT(EPOCH FROM (NOW() - ds.dtts)) / 60) > COALESCE(
-          (SELECT config_value::numeric FROM ordelo_config 
-           WHERE config_key = ds.rest_ref || '_RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1),
-          (SELECT config_value::numeric FROM ordelo_config 
-           WHERE config_key = 'RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1),
-          5  -- fallback to 5 minutes if no config found
-      )
-    RETURNING
-      ds.order_number,
-      ds.rest_ref,
-      ds.restaurant_confirmation_status,
-      'Delivery order ' || ds.order_number || ' (' || ds.rest_ref || ') → restaurant_confirmation_status set to restaurant_timedout' AS action
-  ),
-  takeaway_timedout_confirmations AS (
+    RETURN QUERY WITH delivery_timedout_confirmations AS (
+        -- Update delivery orders where restaurant hasn't completed confirmation in time
+        UPDATE
+            delivery_summary ds
+        SET
+            restaurant_confirmation_status = 'restaurant_timedout',
+            restaurant_update_dtts = NOW()
+        WHERE
+            ds.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept')
+            AND ds.pickup_time IS NULL
+            AND (EXTRACT(EPOCH FROM (NOW() - ds.dtts)) / 60) > COALESCE((
+                SELECT
+                    config_value::numeric
+                FROM ordelo_config
+                WHERE
+                    config_key = ds.rest_ref || '_RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1), (
+                SELECT
+                    config_value::numeric
+                FROM ordelo_config
+                WHERE
+                    config_key = 'RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1), 5 -- fallback to 5 minutes if no config found
+)
+        RETURNING
+            ds.order_number,
+            ds.rest_ref,
+            ds.restaurant_confirmation_status,
+            'Delivery order ' || ds.order_number || ' (' || ds.rest_ref || ') → restaurant_confirmation_status set to restaurant_timedout' AS action
+),
+takeaway_timedout_confirmations AS (
     -- Update takeaway orders where restaurant hasn't completed confirmation in time
-    UPDATE takeaway_summary ts
+    UPDATE
+        takeaway_summary ts
     SET
-      restaurant_confirmation_status = 'restaurant_timedout',
-      restaurant_update_dtts = NOW()
-    WHERE ts.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept')
-      AND ts.pickup_time IS NULL
-      AND (EXTRACT(EPOCH FROM (NOW() - ts.dtts)) / 60) > COALESCE(
-          (SELECT config_value::numeric FROM ordelo_config
-           WHERE config_key = ts.rest_ref || '_RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1),
-          (SELECT config_value::numeric FROM ordelo_config
-           WHERE config_key = 'RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1),
-          5  -- fallback to 5 minutes if no config found
-      )
+        restaurant_confirmation_status = 'restaurant_timedout',
+        restaurant_update_dtts = NOW()
+    WHERE
+        ts.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept')
+        AND ts.pickup_time IS NULL
+        AND (EXTRACT(EPOCH FROM (NOW() - ts.dtts)) / 60) > COALESCE((
+            SELECT
+                config_value::numeric
+            FROM ordelo_config
+        WHERE
+            config_key = ts.rest_ref || '_RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1), (
+        SELECT
+            config_value::numeric
+        FROM ordelo_config
+    WHERE
+        config_key = 'RESTAURANT_CONFIRMATION_TIMEOUT_TIME' LIMIT 1), 5 -- fallback to 5 minutes if no config found
+)
     RETURNING
-      ts.order_number,
-      ts.rest_ref,
-      ts.restaurant_confirmation_status,
-      'Takeaway order ' || ts.order_number || ' (' || ts.rest_ref || ') → restaurant_confirmation_status set to restaurant_timedout' AS action
-  )
-  SELECT dc.action FROM delivery_timedout_confirmations dc
-  UNION ALL
-  SELECT tc.action FROM takeaway_timedout_confirmations tc;
+        ts.order_number,
+        ts.rest_ref,
+        ts.restaurant_confirmation_status,
+        'Takeaway order ' || ts.order_number || ' (' || ts.rest_ref || ') → restaurant_confirmation_status set to restaurant_timedout' AS action
+)
+SELECT
+    dc.action
+FROM
+    delivery_timedout_confirmations dc
+UNION ALL
+SELECT
+    tc.action
+FROM
+    takeaway_timedout_confirmations tc;
 END;
 $$;
 
 -- pg_cron job 'process_restaurant_confirmation' (live schedule: 10 seconds, active). cron.schedule() updates the job in place when the name already exists.
-SELECT cron.schedule('process_restaurant_confirmation', '10 seconds', $cron$SELECT public.process_restaurant_confirmation()$cron$);
+SELECT
+    cron.schedule ('process_restaurant_confirmation', '10 seconds', 'SELECT public.process_restaurant_confirmation()');
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

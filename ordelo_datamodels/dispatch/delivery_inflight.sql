@@ -30,75 +30,80 @@ Side Effects:
 
 See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/ -- Webhook function for delivery_inflight
-CREATE OR REPLACE FUNCTION public.delivery_inflight_whook() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION public.delivery_inflight_whook ()
+    RETURNS TRIGGER
+    LANGUAGE plpgsql
+    AS $$
 DECLARE
-  response json;
-  webhook_payload json;
-  notify_result BOOLEAN;
-  app_url VARCHAR;
-  hook_url VARCHAR;
+    response json;
+    webhook_payload json;
+    notify_result boolean;
+    app_url varchar;
+    hook_url varchar;
 BEGIN
-  PERFORM set_config('statement_timeout', '10000', true);
-  -- Combine the NEW record with additional data from delivery_detail, delivery_summary, and rider_master; required to invoke graph
-  SELECT json_build_object(
-    'delivery_inflight', json_build_array(row_to_json(NEW)),
-    'delivery_summary', (
-      SELECT row_to_json(summ)
-      FROM delivery_summary summ
-      WHERE summ.order_number = NEW.order_number
-      LIMIT 1
-    ),
-    'rider_master', (
-      SELECT row_to_json(rm)
-      FROM (
-        SELECT rider_name, rider_id
-        FROM rider_master
-        WHERE rider_id = NEW.rider_id
-        LIMIT 1
-      ) rm
-    )
-  ) INTO webhook_payload;
+    PERFORM
+        set_config('statement_timeout', '10000', TRUE);
+    -- Combine the NEW record with additional data from delivery_detail, delivery_summary, and rider_master; required to invoke graph
+    SELECT
+        json_build_object('delivery_inflight', json_build_array(row_to_json(NEW)), 'delivery_summary', (
+                SELECT
+                    row_to_json(summ)
+                FROM delivery_summary summ
+                WHERE
+                    summ.order_number = NEW.order_number LIMIT 1), 'rider_master', (
+                SELECT
+                    row_to_json(rm)
+                FROM (
+                    SELECT
+                        rider_name, rider_id
+                    FROM rider_master
+                WHERE
+                    rider_id = NEW.rider_id LIMIT 1) rm)) INTO webhook_payload;
+    -- Make the HTTP POST request with the combined payload
+    SELECT
+        config_value INTO app_url
+    FROM
+        ordelo_config
+    WHERE
+        config_key = 'ORDELO_APP_URL';
 
-  -- Make the HTTP POST request with the combined payload
-  SELECT config_value INTO app_url
-    FROM ordelo_config
-   WHERE config_key = 'ORDELO_APP_URL';
+    IF app_url IS NULL OR length(app_url) = 0 THEN
+        app_url := 'https://agent.ordelo.app';
+    END IF;
+    -- Ensure no trailing slash before appending path
+    IF
+    RIGHT (app_url,
+    1) = '/' THEN
+        app_url :=
+    LEFT (app_url,
+        length(app_url) - 1);
+    END IF;
+    hook_url := app_url || '/delivery-hooks/delivery-inflight-graph-init';
 
-  IF app_url IS NULL OR length(app_url) = 0 THEN
-    app_url := 'https://agent.ordelo.app';
-  END IF;
+    response := (
+        SELECT
+            content
+        FROM
+            http_post (hook_url, webhook_payload::text, 'application/json'));
+    -- Log the response
+    RAISE NOTICE 'Response from HTTP POST to delivery-inflight-graph-init: %', response;
+    -- Call notify_missed_dispatches_for_order with the order number
+    SELECT
+        notify_missed_dispatches () INTO notify_result;
+    -- Log the result of notify_missed_dispatches_for_order
+    RAISE NOTICE 'Result of notify_missed_dispatches for order %: %', NEW.order_number, notify_result;
 
-  -- Ensure no trailing slash before appending path
-  IF right(app_url, 1) = '/' THEN
-    app_url := left(app_url, length(app_url) - 1);
-  END IF;
-  hook_url := app_url || '/delivery-hooks/delivery-inflight-graph-init';
-
-  response := (
-    SELECT content
-    FROM http_post(
-      hook_url,
-      webhook_payload::text,
-      'application/json'
-    )
-  );
-
-  -- Log the response
-  RAISE NOTICE 'Response from HTTP POST to delivery-inflight-graph-init: %', response;
-
-  -- Call notify_missed_dispatches_for_order with the order number
-  SELECT  notify_missed_dispatches() INTO notify_result;
-
-  -- Log the result of notify_missed_dispatches_for_order
-  RAISE NOTICE 'Result of notify_missed_dispatches for order %: %', NEW.order_number, notify_result;
-
-  RETURN NEW;
+    RETURN NEW;
 END;
 $$;
 
 -- Trigger to call the webhook
 DROP TRIGGER IF EXISTS trigger_delivery_inflight_whook ON public.delivery_inflight;
-CREATE TRIGGER trigger_delivery_inflight_whook AFTER INSERT ON delivery_inflight FOR EACH ROW EXECUTE FUNCTION delivery_inflight_whook();
+
+CREATE TRIGGER trigger_delivery_inflight_whook
+    AFTER INSERT ON delivery_inflight
+    FOR EACH ROW
+    EXECUTE FUNCTION delivery_inflight_whook ();
 
 ----------------------------------------
 -- notify_missed_dispatches - Identifies dispatches that have timed out and notifies the system

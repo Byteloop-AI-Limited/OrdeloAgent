@@ -17,26 +17,21 @@ Failure behaviour:
     - Enabled restaurants require a positive whole-minute restaurant-specific or
       global configuration; otherwise the caller's transaction fails.
 **/
-CREATE OR REPLACE FUNCTION public.resolve_initial_restaurant_acceptance(
-    p_rest_ref VARCHAR,
-    p_order_kind TEXT,
-    p_created_at TIMESTAMP WITH TIME ZONE
-)
-RETURNS TABLE (
-    auto_accept BOOLEAN,
-    pickup_minutes INTEGER,
-    pickup_time TIMESTAMP WITH TIME ZONE
-)
-LANGUAGE plpgsql
-STABLE
-AS $$
+CREATE OR REPLACE FUNCTION public.resolve_initial_restaurant_acceptance (p_rest_ref varchar, p_order_kind text, p_created_at timestamp with time zone)
+    RETURNS TABLE (
+        auto_accept boolean,
+        pickup_minutes integer,
+        pickup_time timestamp with time zone)
+    LANGUAGE plpgsql
+    STABLE
+    AS $$
 DECLARE
-    v_auto_accept BOOLEAN;
-    v_rest_config_key TEXT;
-    v_global_config_key TEXT;
-    v_config_value TEXT;
-    v_pickup_minutes INTEGER;
-    v_created_at TIMESTAMP WITH TIME ZONE := COALESCE(p_created_at, CURRENT_TIMESTAMP);
+    v_auto_accept boolean;
+    v_rest_config_key text;
+    v_global_config_key text;
+    v_config_value text;
+    v_pickup_minutes integer;
+    v_created_at timestamp with time zone := COALESCE(p_created_at, CURRENT_TIMESTAMP);
 BEGIN
     IF p_order_kind = 'delivery' THEN
         v_rest_config_key := UPPER(p_rest_ref) || '_DEFAULT_DELIVERY_PICKUP_TIME';
@@ -48,58 +43,71 @@ BEGIN
         RAISE EXCEPTION 'Unsupported restaurant acceptance order kind: %', p_order_kind;
     END IF;
 
-    SELECT rm.auto_accept
-    INTO v_auto_accept
-    FROM restaurant_master rm
-    WHERE rm.rest_ref = p_rest_ref;
+    SELECT
+        rm.auto_accept INTO v_auto_accept
+    FROM
+        restaurant_master rm
+    WHERE
+        rm.rest_ref = p_rest_ref;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Restaurant acceptance policy not found for rest_ref: %', p_rest_ref;
     END IF;
 
     IF NOT COALESCE(v_auto_accept, FALSE) THEN
-        RETURN QUERY SELECT FALSE, NULL::INTEGER, NULL::TIMESTAMP WITH TIME ZONE;
+        RETURN QUERY
+        SELECT
+            FALSE,
+            NULL::integer,
+            NULL::timestamp WITH TIME ZONE;
         RETURN;
     END IF;
 
-    SELECT config_value
-    INTO v_config_value
-    FROM ordelo_config
-    WHERE config_key = v_rest_config_key
+    SELECT
+        config_value INTO v_config_value
+    FROM
+        ordelo_config
+    WHERE
+        config_key = v_rest_config_key
     LIMIT 1;
 
     IF BTRIM(COALESCE(v_config_value, '')) ~ '^[1-9][0-9]*$' THEN
         BEGIN
-            v_pickup_minutes := BTRIM(v_config_value)::INTEGER;
-        EXCEPTION WHEN numeric_value_out_of_range THEN
-            v_pickup_minutes := NULL;
+            v_pickup_minutes := BTRIM(v_config_value)::integer;
+        EXCEPTION
+            WHEN numeric_value_out_of_range THEN
+                v_pickup_minutes := NULL;
         END;
     END IF;
 
     IF v_pickup_minutes IS NULL THEN
-        SELECT config_value
-        INTO v_config_value
-        FROM ordelo_config
-        WHERE config_key = v_global_config_key
+        SELECT
+            config_value INTO v_config_value
+        FROM
+            ordelo_config
+        WHERE
+            config_key = v_global_config_key
         LIMIT 1;
 
         IF BTRIM(COALESCE(v_config_value, '')) ~ '^[1-9][0-9]*$' THEN
             BEGIN
-                v_pickup_minutes := BTRIM(v_config_value)::INTEGER;
-            EXCEPTION WHEN numeric_value_out_of_range THEN
-                v_pickup_minutes := NULL;
+                v_pickup_minutes := BTRIM(v_config_value)::integer;
+            EXCEPTION
+                WHEN numeric_value_out_of_range THEN
+                    v_pickup_minutes := NULL;
             END;
         END IF;
-    END IF;
+END IF;
 
-    IF v_pickup_minutes IS NULL THEN
-        RAISE EXCEPTION
-            'Auto-accept pickup configuration is missing or invalid for rest_ref %, order_kind %',
-            p_rest_ref,
-            p_order_kind;
+IF v_pickup_minutes IS NULL THEN
+    RAISE EXCEPTION 'Auto-accept pickup configuration is missing or invalid for rest_ref %, order_kind %', p_rest_ref, p_order_kind;
     END IF;
 
     RETURN QUERY
-    SELECT TRUE, v_pickup_minutes, v_created_at + make_interval(mins => v_pickup_minutes);
+    SELECT
+        TRUE,
+        v_pickup_minutes,
+        v_created_at + make_interval(mins => v_pickup_minutes);
 END;
+
 $$;

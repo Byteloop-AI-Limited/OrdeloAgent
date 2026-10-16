@@ -19,72 +19,77 @@ Side Effects:
 **/ -- Drop existing bulk trigger if any
 -- DROP TRIGGER IF EXISTS trigger_delivery_dispatch_whook ON public.delivery_dispatch;
  -- Trigger function to process batch inserts
-CREATE OR REPLACE FUNCTION public.delivery_dispatch_whook_statement() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION public.delivery_dispatch_whook_statement ()
+    RETURNS TRIGGER
+    AS $$
 DECLARE
-  response json;
-  webhook_payload json;
-  app_url varchar;
-  hook_url varchar;
+    response json;
+    webhook_payload json;
+    app_url varchar;
+    hook_url varchar;
 BEGIN
-  PERFORM set_config('statement_timeout', '10000', true);
-  -- Build payload by joining new_rows with delivery_detail in one query
-  SELECT json_build_object(
-    'bulk_dispatch', json_agg(row_to_json(t))
-  )
-  INTO webhook_payload
-  FROM (
+    PERFORM
+        set_config('statement_timeout', '10000', TRUE);
+    -- Build payload by joining new_rows with delivery_detail in one query
     SELECT
-      nr.dispatch_id,
-      nr.order_number,
-      nr.rider_id,
-      nr.rider_payout,
-      nr.vehicle_type,
-      nr.distance,
-      summ.pickup_time,
-      summ.rest_id,
-      summ.rest_name,
-      summ.rest_lon,
-      summ.rest_lat,
-      summ.rest_address,
-      summ.town,
-      summ.customer_id,
-      summ.customer_name,
-      summ.customer_lon,
-      summ.customer_lat,
-      summ.customer_address
-    FROM new_rows nr
-    JOIN delivery_detail det ON nr.order_number = det.order_number AND det.vehicle_type = nr.vehicle_type
-    JOIN delivery_summary summ ON summ.order_number = nr.order_number
-  ) t;
+        json_build_object('bulk_dispatch', json_agg(row_to_json(t))) INTO webhook_payload
+    FROM (
+        SELECT
+            nr.dispatch_id,
+            nr.order_number,
+            nr.rider_id,
+            nr.rider_payout,
+            nr.vehicle_type,
+            nr.distance,
+            summ.pickup_time,
+            summ.rest_id,
+            summ.rest_name,
+            summ.rest_lon,
+            summ.rest_lat,
+            summ.rest_address,
+            summ.town,
+            summ.customer_id,
+            summ.customer_name,
+            summ.customer_lon,
+            summ.customer_lat,
+            summ.customer_address
+        FROM
+            new_rows nr
+            JOIN delivery_detail det ON nr.order_number = det.order_number
+                AND det.vehicle_type = nr.vehicle_type
+            JOIN delivery_summary summ ON summ.order_number = nr.order_number) t;
+    -- Send single HTTP POST for all new rows
+    SELECT
+        config_value INTO app_url
+    FROM
+        ordelo_config
+    WHERE
+        config_key = 'ORDELO_APP_URL';
 
-  -- Send single HTTP POST for all new rows
-  SELECT config_value INTO app_url
-    FROM ordelo_config
-   WHERE config_key = 'ORDELO_APP_URL';
+    IF app_url IS NULL OR length(app_url) = 0 THEN
+        app_url := 'https://rider-agent.ordelo.app';
+    END IF;
+    -- Ensure no trailing slash before appending path
+    IF
+    RIGHT (app_url,
+    1) = '/' THEN
+        app_url :=
+    LEFT (app_url,
+        length(app_url) - 1);
+    END IF;
+    hook_url := app_url || '/delivery-hooks/delivery-dispatch';
 
-  IF app_url IS NULL OR length(app_url) = 0 THEN
-    app_url := 'https://rider-agent.ordelo.app';
-  END IF;
+    response := (
+        SELECT
+            content
+        FROM
+            http_post (hook_url, webhook_payload::text, 'application/json'));
+    RAISE NOTICE 'Response from HTTP POST: %', response;
 
-  -- Ensure no trailing slash before appending path
-  IF right(app_url, 1) = '/' THEN
-    app_url := left(app_url, length(app_url) - 1);
-  END IF;
-  hook_url := app_url || '/delivery-hooks/delivery-dispatch';
-
-  response := (
-    SELECT content
-    FROM http_post(
-      hook_url,
-      webhook_payload::text,
-      'application/json'
-    )
-  );
-  RAISE NOTICE 'Response from HTTP POST: %', response;
-
-  RETURN NULL;
+    RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$
+LANGUAGE plpgsql;
 
 -- drop table delivery_dispatch; -- Dont forget to recreate the trigger
 -- Table definition
@@ -103,7 +108,7 @@ CREATE TABLE IF NOT EXISTS public.delivery_dispatch (
     reason_for_decline text,
     dt date NOT NULL DEFAULT CURRENT_DATE,
     dtts timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    paid_status character varying(20) NOT NULL DEFAULT 'unpaid'::character varying,
+    paid_status character varying(20) NOT NULL DEFAULT 'unpaid' ::character varying,
     paid_dtts timestamp without time zone,
     CONSTRAINT delivery_dispatch_pkey PRIMARY KEY (dispatch_id),
     CONSTRAINT delivery_dispatch_paid_status_check CHECK (((paid_status)::text = ANY ((ARRAY['unpaid'::character varying, 'paid'::character varying])::text[]))),
@@ -123,4 +128,8 @@ CREATE INDEX IF NOT EXISTS delivery_dispatch_paid_status_dt_idx ON public.delive
 
 -- Statement-level trigger on batch insert
 DROP TRIGGER IF EXISTS trigger_delivery_dispatch_whook ON public.delivery_dispatch;
-CREATE TRIGGER trigger_delivery_dispatch_whook AFTER INSERT ON delivery_dispatch REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION delivery_dispatch_whook_statement();
+
+CREATE TRIGGER trigger_delivery_dispatch_whook
+    AFTER INSERT ON delivery_dispatch REFERENCING NEW TABLE AS new_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION delivery_dispatch_whook_statement ();

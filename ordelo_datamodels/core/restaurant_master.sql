@@ -3,7 +3,6 @@
 
 -- 2. Driver Master Table
 -- (The statement that followed this comment is now generated from live in core/rider_master.sql.)
-
 CREATE TABLE IF NOT EXISTS public.restaurant_master (
     rest_ref character varying(4) NOT NULL,
     rest_id character varying(12),
@@ -22,9 +21,9 @@ CREATE TABLE IF NOT EXISTS public.restaurant_master (
     rest_stale_active_threads_minutes integer NOT NULL DEFAULT 10,
     restaurant_start_time double precision NOT NULL DEFAULT 12,
     restaurant_end_time double precision NOT NULL DEFAULT 21.30,
-    service_hours_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+    service_hours_json jsonb NOT NULL DEFAULT '{}' ::jsonb,
     collection_commission double precision,
-    auto_accept boolean NOT NULL DEFAULT false,
+    auto_accept boolean NOT NULL DEFAULT FALSE,
     delivery_order_cutoff_minutes integer NOT NULL DEFAULT 0, -- added by migrations/add_order_cutoff_minutes.sql
     takeaway_order_cutoff_minutes integer NOT NULL DEFAULT 0, -- added by migrations/add_order_cutoff_minutes.sql
     CONSTRAINT restaurant_master_pkey PRIMARY KEY (rest_ref),

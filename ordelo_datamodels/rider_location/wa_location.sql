@@ -1,6 +1,6 @@
 -- BEGIN;
 CREATE TABLE IF NOT EXISTS public.wa_location_observation (
-    observation_id uuid NOT NULL DEFAULT gen_random_uuid(),
+    observation_id uuid NOT NULL DEFAULT gen_random_uuid (),
     order_number character varying(100) NOT NULL,
     dispatch_id integer NOT NULL,
     rider_id character varying(12) NOT NULL,
@@ -14,11 +14,12 @@ CREATE TABLE IF NOT EXISTS public.wa_location_observation (
     CONSTRAINT wa_location_observation_latitude_check CHECK (((latitude >= ('-90'::integer)::double precision) AND (latitude <= (90)::double precision))),
     CONSTRAINT wa_location_observation_longitude_check CHECK (((longitude >= ('-180'::integer)::double precision) AND (longitude <= (180)::double precision))),
     CONSTRAINT wa_location_observation_source_check CHECK (((source)::text = ANY ((ARRAY['whatsapp_current'::character varying, 'restaurant_confirmation'::character varying])::text[]))),
-    CONSTRAINT wa_location_observation_dispatch_id_fkey FOREIGN KEY (dispatch_id) REFERENCES delivery_dispatch(dispatch_id) ON DELETE CASCADE,
-    CONSTRAINT wa_location_observation_order_number_fkey FOREIGN KEY (order_number) REFERENCES delivery_summary(order_number) ON DELETE CASCADE
+    CONSTRAINT wa_location_observation_dispatch_id_fkey FOREIGN KEY (dispatch_id) REFERENCES delivery_dispatch (dispatch_id) ON DELETE CASCADE,
+    CONSTRAINT wa_location_observation_order_number_fkey FOREIGN KEY (order_number) REFERENCES delivery_summary (order_number) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS wa_location_observation_inbound_message_uidx ON public.wa_location_observation USING btree (wa_inbound_message_id) WHERE (wa_inbound_message_id IS NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS wa_location_observation_inbound_message_uidx ON public.wa_location_observation USING btree (wa_inbound_message_id)
+WHERE (wa_inbound_message_id IS NOT NULL);
 
 CREATE INDEX IF NOT EXISTS wa_location_observation_order_observed_idx ON public.wa_location_observation USING btree (order_number, observed_at DESC);
 
@@ -35,14 +36,14 @@ COMMENT ON COLUMN public.wa_location_observation.source IS 'whatsapp_current is 
 -- COMMIT;
 --
 CREATE TABLE IF NOT EXISTS public.wa_location_request (
-    request_id uuid NOT NULL DEFAULT gen_random_uuid(),
+    request_id uuid NOT NULL DEFAULT gen_random_uuid (),
     idempotency_key character varying(255),
     order_number character varying(100) NOT NULL,
     dispatch_id integer NOT NULL,
     rider_id character varying(12) NOT NULL,
     location_requested_by character varying(30) NOT NULL,
     requester_id character varying(50) NOT NULL,
-    status character varying(20) NOT NULL DEFAULT 'pending'::character varying,
+    status character varying(20) NOT NULL DEFAULT 'pending' ::character varying,
     wa_location_req_time timestamp with time zone NOT NULL DEFAULT now(),
     wa_location_prompt_time timestamp with time zone,
     wa_location_res_time timestamp with time zone,
@@ -61,22 +62,29 @@ CREATE TABLE IF NOT EXISTS public.wa_location_request (
     CONSTRAINT wa_location_request_location_requested_by_check CHECK (((location_requested_by)::text = ANY ((ARRAY['customer'::character varying, 'restaurant_admin'::character varying])::text[]))),
     CONSTRAINT wa_location_request_route_attempt_count_check CHECK ((route_attempt_count >= 0)),
     CONSTRAINT wa_location_request_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'fulfilled'::character varying, 'delivered'::character varying, 'expired'::character varying, 'failed'::character varying])::text[]))),
-    CONSTRAINT wa_location_request_dispatch_id_fkey FOREIGN KEY (dispatch_id) REFERENCES delivery_dispatch(dispatch_id) ON DELETE CASCADE,
-    CONSTRAINT wa_location_request_observation_id_fkey FOREIGN KEY (observation_id) REFERENCES wa_location_observation(observation_id) ON DELETE RESTRICT,
-    CONSTRAINT wa_location_request_order_number_fkey FOREIGN KEY (order_number) REFERENCES delivery_summary(order_number) ON DELETE CASCADE
+    CONSTRAINT wa_location_request_dispatch_id_fkey FOREIGN KEY (dispatch_id) REFERENCES delivery_dispatch (dispatch_id) ON DELETE CASCADE,
+    CONSTRAINT wa_location_request_observation_id_fkey FOREIGN KEY (observation_id) REFERENCES wa_location_observation (observation_id) ON DELETE RESTRICT,
+    CONSTRAINT wa_location_request_order_number_fkey FOREIGN KEY (order_number) REFERENCES delivery_summary (order_number) ON DELETE CASCADE
 );
 
 -- wa_location_request_callback_url_length_ck is NOT VALID on live: it checks new and updated rows only; older rows were never validated.
-ALTER TABLE public.wa_location_request DROP CONSTRAINT IF EXISTS wa_location_request_callback_url_length_ck;
-ALTER TABLE public.wa_location_request ADD CONSTRAINT wa_location_request_callback_url_length_ck CHECK (((callback_url IS NULL) OR (length(callback_url) <= 2048))) NOT VALID;
+ALTER TABLE public.wa_location_request
+    DROP CONSTRAINT IF EXISTS wa_location_request_callback_url_length_ck;
 
-CREATE UNIQUE INDEX IF NOT EXISTS wa_location_request_idempotency_uidx ON public.wa_location_request USING btree (idempotency_key) WHERE (idempotency_key IS NOT NULL);
+ALTER TABLE public.wa_location_request
+    ADD CONSTRAINT wa_location_request_callback_url_length_ck CHECK (((callback_url IS NULL) OR (length(callback_url) <= 2048))) NOT VALID;
 
-CREATE INDEX IF NOT EXISTS wa_location_request_pending_order_idx ON public.wa_location_request USING btree (order_number, rider_id, wa_location_req_time) WHERE ((status)::text = 'pending'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS wa_location_request_idempotency_uidx ON public.wa_location_request USING btree (idempotency_key)
+WHERE (idempotency_key IS NOT NULL);
 
-CREATE INDEX IF NOT EXISTS wa_location_request_recent_prompt_idx ON public.wa_location_request USING btree (order_number, rider_id, wa_location_prompt_time DESC) WHERE (((status)::text = 'pending'::text) AND (wa_location_prompt_time IS NOT NULL));
+CREATE INDEX IF NOT EXISTS wa_location_request_pending_order_idx ON public.wa_location_request USING btree (order_number, rider_id, wa_location_req_time)
+WHERE ((status)::text = 'pending'::text);
 
-CREATE INDEX IF NOT EXISTS wa_location_request_unrouted_idx ON public.wa_location_request USING btree (status, last_route_attempt_time) WHERE ((status)::text = 'fulfilled'::text);
+CREATE INDEX IF NOT EXISTS wa_location_request_recent_prompt_idx ON public.wa_location_request USING btree (order_number, rider_id, wa_location_prompt_time DESC)
+WHERE (((status)::text = 'pending'::text) AND (wa_location_prompt_time IS NOT NULL));
+
+CREATE INDEX IF NOT EXISTS wa_location_request_unrouted_idx ON public.wa_location_request USING btree (status, last_route_attempt_time)
+WHERE ((status)::text = 'fulfilled'::text);
 
 ALTER TABLE public.wa_location_request ENABLE ROW LEVEL SECURITY;
 

@@ -33,41 +33,51 @@ See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 ----------------------------------------
 -- dispatch_complete_func - Completes a dispatch
 ----------------------------------------
-DROP FUNCTION IF EXISTS dispatch_complete_func(bigint);
+DROP FUNCTION IF EXISTS dispatch_complete_func (bigint);
 
-CREATE OR REPLACE FUNCTION dispatch_complete_func(p_dispatch_id bigint)
-RETURNS TEXT AS $$
+CREATE OR REPLACE FUNCTION dispatch_complete_func (p_dispatch_id bigint)
+    RETURNS text
+    AS $$
 DECLARE
-    v_order_number TEXT;
+    v_order_number text;
 BEGIN
     -- Get the order number for this dispatch
-    SELECT DISTINCT order_number INTO v_order_number
-    FROM delivery_detail
-    WHERE dispatch_id = p_dispatch_id
+    SELECT DISTINCT
+        order_number INTO v_order_number
+    FROM
+        delivery_detail
+    WHERE
+        dispatch_id = p_dispatch_id
     LIMIT 1;
-
     -- Update delivery_dispatch status
-    UPDATE delivery_dispatch 
-    SET status = 'completed' 
-    WHERE delivery_dispatch.dispatch_id = p_dispatch_id;
-
+    UPDATE
+        delivery_dispatch
+    SET
+        status = 'completed'
+    WHERE
+        delivery_dispatch.dispatch_id = p_dispatch_id;
     -- Update delivery_detail status
-    UPDATE delivery_detail 
-    SET status = 'completed' 
-    WHERE delivery_detail.dispatch_id = p_dispatch_id;
-
+    UPDATE
+        delivery_detail
+    SET
+        status = 'completed'
+    WHERE
+        delivery_detail.dispatch_id = p_dispatch_id;
     -- Update delivery_summary status
-    UPDATE delivery_summary
-    SET status = 'completed'
-    WHERE order_number = v_order_number;
-
+    UPDATE
+        delivery_summary
+    SET
+        status = 'completed'
+    WHERE
+        order_number = v_order_number;
     -- Update delivery_inflight status
-    DELETE FROM delivery_inflight  
+    DELETE FROM delivery_inflight
     WHERE delivery_inflight.dispatch_id = p_dispatch_id;
 
     RETURN 'Order ' || v_order_number || ' complete';
 END;
-$$ LANGUAGE plpgsql;
+$$
+LANGUAGE plpgsql;
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

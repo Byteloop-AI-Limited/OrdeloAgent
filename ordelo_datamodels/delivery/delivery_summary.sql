@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.delivery_summary (
     customer_lat double precision NOT NULL,
     customer_address text NOT NULL,
     -- Restaurant confirmation status (separate from delivery lifecycle)
-    restaurant_confirmation_status character varying(50) NOT NULL DEFAULT 'restaurant_unconfirmed'::character varying,
+    restaurant_confirmation_status character varying(50) NOT NULL DEFAULT 'restaurant_unconfirmed' ::character varying,
     restaurant_update_dtts timestamp with time zone, -- nullable, set when restaurant_confirmation_status changes
     restaurant_admin character varying(12), -- nullable, stores the admin phone who confirmed the order
     -- Delivery lifecycle status
@@ -46,11 +46,11 @@ CREATE TABLE IF NOT EXISTS public.delivery_summary (
     redispatch_dtts timestamp with time zone,
     ready_at timestamp with time zone, -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
     ready_by text, -- admin phone (digits); label via restaurant_admin_label()
-        -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
     ready_dispatch_id integer, -- the dispatch the Ready was for (D35)
-        -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
     pickup_time_initial timestamp with time zone, -- pickup before the FIRST adjust (D32)
-        -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
     pickup_adjusted_by text, -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
     pickup_adjusted_at timestamp with time zone, -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
     CONSTRAINT delivery_summary_pkey PRIMARY KEY (order_number),
@@ -82,13 +82,23 @@ CREATE INDEX IF NOT EXISTS idx_delivery_summary_admin_keyset ON public.delivery_
 -- -> POST /delivery-hooks/restaurant-confirmation-request -> restaurant_confirmation_flow()
 -- -> _handle_restaurant_accept() when trigger_reason='restaurant_accept' (pickup-time options are sent)
 DROP TRIGGER IF EXISTS trigger_restaurant_updates ON public.delivery_summary;
-CREATE TRIGGER trigger_restaurant_updates AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON delivery_summary FOR EACH ROW WHEN (new.restaurant_confirmation_status::text = ANY (ARRAY['restaurant_unconfirmed'::character varying, 'restaurant_accept'::character varying, 'restaurant_decline'::character varying, 'restaurant_timedout'::character varying, 'restaurant_pickuptime_adjusted'::character varying]::text[])) EXECUTE FUNCTION restaurant_updates_whook();
+
+CREATE TRIGGER trigger_restaurant_updates
+    AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON delivery_summary
+    FOR EACH ROW
+    WHEN (new.restaurant_confirmation_status::text = ANY (ARRAY['restaurant_unconfirmed'::character varying, 'restaurant_accept'::character varying, 'restaurant_decline'::character varying, 'restaurant_timedout'::character varying, 'restaurant_pickuptime_adjusted'::character varying]::text[]))
+    EXECUTE FUNCTION restaurant_updates_whook ();
 
 -- drop trigger trigger_restaurant_updates on delivery_summary;
 
 -- Trigger2: On status change to timeout
 DROP TRIGGER IF EXISTS trigger_delivery_summary_timedout ON public.delivery_summary;
-CREATE TRIGGER trigger_delivery_summary_timedout AFTER UPDATE ON delivery_summary FOR EACH ROW WHEN (old.status::text <> 'timedout'::text AND new.status::text = 'timedout'::text) EXECUTE FUNCTION delivery_summary_timedout_whook();
+
+CREATE TRIGGER trigger_delivery_summary_timedout
+    AFTER UPDATE ON delivery_summary
+    FOR EACH ROW
+    WHEN (old.status::text <> 'timedout'::text AND new.status::text = 'timedout'::text)
+    EXECUTE FUNCTION delivery_summary_timedout_whook ();
 
 -- Trigger Functions
 /** description: restaurant_updates_whook
@@ -113,231 +123,154 @@ CREATE TRIGGER trigger_delivery_summary_timedout AFTER UPDATE ON delivery_summar
  *    - Includes trigger_reason field indicating the restaurant_confirmation_status that triggered the webhook
  *    - Constructs JSON matching RestaurantConfirmationPayload model (DeliverySummaryData + RestaurantMaster + FoodOrder + List[OrderItem])
  */
-CREATE OR REPLACE FUNCTION restaurant_updates_whook()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION restaurant_updates_whook ()
+    RETURNS TRIGGER
+    AS $$
 DECLARE
-  webhook_payload json;
-  ordelo_app_url text;
-  webhook_url text;
-  response json;
-  delivery_summary_json json;
-  restaurant_master_json json;
-  food_order_json json;
-  order_items_json json;
-  food_order_id text;
-  trigger_reason text;
-  p_log_to_table BOOLEAN := TRUE; -- Default to TRUE, can be controlled via config
+    webhook_payload json;
+    ordelo_app_url text;
+    webhook_url text;
+    response json;
+    delivery_summary_json json;
+    restaurant_master_json json;
+    food_order_json json;
+    order_items_json json;
+    food_order_id text;
+    trigger_reason text;
+    p_log_to_table boolean := TRUE;
+    -- Default to TRUE, can be controlled via config
 BEGIN
-  PERFORM set_config('statement_timeout', '10000', true);
-  -- Check if logging is enabled (can be disabled via ordelo_config table)
-  BEGIN
-    SELECT COALESCE((config_value::BOOLEAN), TRUE) INTO p_log_to_table
-    FROM ordelo_config 
-    WHERE config_key = 'ENABLE_TRIGGER_DEBUG_LOG';
-  EXCEPTION
-    WHEN OTHERS THEN
-      p_log_to_table := TRUE; -- Default to TRUE if config not found
-  END;
-
-  -- Determine trigger reason from restaurant_confirmation_status
-  trigger_reason := NEW.restaurant_confirmation_status;
-  
-  -- Log trigger fired
-  IF p_log_to_table THEN
-    INSERT INTO debug_log (trigger_name, order_number, message)
-    VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Trigger fired, trigger_reason: ' || trigger_reason || ', TG_OP: ' || TG_OP);
-  END IF;
-
-  -- Process for restaurant_unconfirmed, restaurant_accept, restaurant_decline, or restaurant_timedout
-  IF NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'restaurant_pickuptime_adjusted') THEN
-    
+    PERFORM
+        set_config('statement_timeout', '10000', TRUE);
+    -- Check if logging is enabled (can be disabled via ordelo_config table)
+    BEGIN
+        SELECT
+            COALESCE((config_value::boolean), TRUE) INTO p_log_to_table
+        FROM
+            ordelo_config
+        WHERE
+            config_key = 'ENABLE_TRIGGER_DEBUG_LOG';
+    EXCEPTION
+        WHEN OTHERS THEN
+            p_log_to_table := TRUE;
+            -- Default to TRUE if config not found
+    END;
+    -- Determine trigger reason from restaurant_confirmation_status
+    trigger_reason := NEW.restaurant_confirmation_status;
+    -- Log trigger fired
     IF p_log_to_table THEN
-      INSERT INTO debug_log (trigger_name, order_number, message)
-      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'restaurant_confirmation_status check passed - ' || NEW.restaurant_confirmation_status);
-    END IF;
-    
-    -- Build delivery_summary JSON from NEW record (includes new columns)
-    SELECT json_build_object(
-      'order_number', NEW.order_number,
-      'rest_id', NEW.rest_id,
-      'rest_name', NEW.rest_name,
-      'rest_lon', NEW.rest_lon,
-      'rest_lat', NEW.rest_lat,
-      'rest_address', NEW.rest_address,
-      'town', NEW.town,
-      'customer_id', NEW.customer_id,
-      'customer_name', NEW.customer_name,
-      'customer_lon', NEW.customer_lon,
-      'customer_lat', NEW.customer_lat,
-      'customer_address', NEW.customer_address,
-      'restaurant_confirmation_status', NEW.restaurant_confirmation_status,
-      'restaurant_update_dtts', NEW.restaurant_update_dtts,
-      'restaurant_admin', NEW.restaurant_admin,
-      'status', NEW.status,
-      'rest_confirmation_code', NEW.rest_confirmation_code,
-      'cust_confirmation_code', NEW.cust_confirmation_code,
-      'rest_prep_time_minutes', NEW.rest_prep_time_minutes,
-      'rest_confirmation_method', NEW.rest_confirmation_method,
-      'restaurant_msg_id', NEW.restaurant_msg_id,
-      'rider_msg_id', NEW.rider_msg_id,
-      'customer_msg_id', NEW.customer_msg_id,
-      'pickup_time', NEW.pickup_time,
-      'pickup_date', NEW.pickup_date,
-      'rest_ref', NEW.rest_ref,
-      'dt', NEW.dt,
-      'dtts', NEW.dtts,
-      'redispatch_dtts', NEW.redispatch_dtts
-    ) INTO delivery_summary_json;
-    
-    IF p_log_to_table THEN
-      INSERT INTO debug_log (trigger_name, order_number, message)
-      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Delivery summary JSON built');
-    END IF;
-    
-    -- Fetch restaurant_master data by rest_id and build JSON
-    SELECT json_build_object(
-      'rest_id', rm.rest_id,
-      'rest_ref', rm.rest_ref,
-      'rest_name', rm.rest_name,
-      'admins', rm.admins,
-      'lon', rm.lon,
-      'lat', rm.lat,
-      'house_number', rm.house_number,
-      'building_name', rm.building_name,
-      'street_name', rm.street_name,
-      'city', rm.city,
-      'postcode', rm.postcode
-    )
-    INTO restaurant_master_json
-    FROM restaurant_master rm
-    WHERE rm.rest_id = NEW.rest_id;
-    
-    IF p_log_to_table THEN
-      INSERT INTO debug_log (trigger_name, order_number, message)
-      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Restaurant master data fetched for rest_id: ' || NEW.rest_id);
-    END IF;
-    
-    -- Fetch food_order data by order_number and build JSON
-    SELECT 
-      json_build_object(
-        'order_id', fo.order_id,
-        'order_number', fo.order_number,
-        'seq_id', fo.seq_id,
-        'recipient', fo.recipient,
-        'thread_id', fo.thread_id,
-        'action', fo.action,
-        'total_price', fo.total_price,
-        'final_order_value', fo.final_order_value,
-        'rest_cost', fo.rest_cost,
-        'service_charge', fo.service_charge,
-        'delivery_fee', fo.delivery_fee,
-        'small_order_fee', fo.small_order_fee,
-        'commission_rate', fo.commission_rate,
-        'payment_status', fo.payment_status
-      ),
-      fo.order_id
-    INTO food_order_json, food_order_id
-    FROM food_order fo
-    WHERE fo.order_number = NEW.order_number;
-    
-    -- Check if food_order was found
-    IF food_order_json IS NULL THEN
-      IF p_log_to_table THEN
         INSERT INTO debug_log (trigger_name, order_number, message)
-        VALUES ('restaurant_confirmation_whook', NEW.order_number, 'WARNING: No food_order found for order_number');
-      END IF;
-      RAISE WARNING 'No food_order found for order_number %', NEW.order_number;
-      RETURN NEW;
-    END IF;
-    
-    IF p_log_to_table THEN
-      INSERT INTO debug_log (trigger_name, order_number, message)
-      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Food order found: ' || food_order_id);
-    END IF;
-    
-    -- Fetch order items for this order
-    SELECT json_agg(
-      json_build_object(
-        'order_id', oi.order_id,
-        'sku', oi.sku,
-        'quantity', oi.quantity,
-        'price', oi.price,
-        'product_name', oi.product_name
-      )
-    )
-    INTO order_items_json
-    FROM order_item oi
-    WHERE oi.order_id = food_order_id;
-    
-    IF p_log_to_table THEN
-      INSERT INTO debug_log (trigger_name, order_number, message)
-      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Order items fetched, count: ' || COALESCE(json_array_length(order_items_json), 0));
-    END IF;
-    
-    -- Build complete webhook payload with all components
-    SELECT json_build_object(
-      'trigger_reason', trigger_reason,
-      'delivery_summary', delivery_summary_json,
-      'restaurant_master', restaurant_master_json,
-      'food_order', food_order_json,
-      'order_items', COALESCE(order_items_json, '[]'::json)
-    ) INTO webhook_payload;
-    
-    IF p_log_to_table THEN
-      INSERT INTO debug_log (trigger_name, order_number, message, payload)
-      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Complete webhook payload built', webhook_payload::jsonb);
-    END IF;
-    
-    -- Get webhook URL from config
-    SELECT config_value INTO ordelo_app_url 
-    FROM ordelo_config 
-    WHERE config_key = 'ORDELO_APP_URL';
-    
-    IF ordelo_app_url IS NULL OR ordelo_app_url = '' THEN
-      ordelo_app_url := 'https://rider-agent.ordelo.app';
-    END IF;
-    
-    webhook_url := ordelo_app_url || '/delivery-hooks/restaurant-confirmation-request';
-    
-    IF p_log_to_table THEN
-      INSERT INTO debug_log (trigger_name, order_number, message)
-      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Webhook URL: ' || webhook_url);
-    END IF;
-    
-    -- Make HTTP POST
-    response := (
-      SELECT content
-      FROM http_post(
-        webhook_url,
-        webhook_payload::text,
-        'application/json'
-      )
-    );
-    
-    IF p_log_to_table THEN
-      INSERT INTO debug_log (trigger_name, order_number, message, payload)
-      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'HTTP response received', response::jsonb);
-    END IF;
-    
-    RAISE NOTICE 'Restaurant confirmation request sent for order %: %', NEW.order_number, response;
-  ELSE
-    IF p_log_to_table THEN
-      INSERT INTO debug_log (trigger_name, order_number, message)
-      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'restaurant_confirmation_status check failed, current: ' || NEW.restaurant_confirmation_status);
-    END IF;
-  END IF;
-  
-  RETURN NEW;
+            VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Trigger fired, trigger_reason: ' || trigger_reason || ', TG_OP: ' || TG_OP);
+        END IF;
+        -- Process for restaurant_unconfirmed, restaurant_accept, restaurant_decline, or restaurant_timedout
+        IF NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'restaurant_pickuptime_adjusted') THEN
+            IF p_log_to_table THEN
+                INSERT INTO debug_log (trigger_name, order_number, message)
+                    VALUES ('restaurant_confirmation_whook', NEW.order_number, 'restaurant_confirmation_status check passed - ' || NEW.restaurant_confirmation_status);
+                END IF;
+                -- Build delivery_summary JSON from NEW record (includes new columns)
+                SELECT
+                    json_build_object('order_number', NEW.order_number, 'rest_id', NEW.rest_id, 'rest_name', NEW.rest_name, 'rest_lon', NEW.rest_lon, 'rest_lat', NEW.rest_lat, 'rest_address', NEW.rest_address, 'town', NEW.town, 'customer_id', NEW.customer_id, 'customer_name', NEW.customer_name, 'customer_lon', NEW.customer_lon, 'customer_lat', NEW.customer_lat, 'customer_address', NEW.customer_address, 'restaurant_confirmation_status', NEW.restaurant_confirmation_status, 'restaurant_update_dtts', NEW.restaurant_update_dtts, 'restaurant_admin', NEW.restaurant_admin, 'status', NEW.status, 'rest_confirmation_code', NEW.rest_confirmation_code, 'cust_confirmation_code', NEW.cust_confirmation_code, 'rest_prep_time_minutes', NEW.rest_prep_time_minutes, 'rest_confirmation_method', NEW.rest_confirmation_method, 'restaurant_msg_id', NEW.restaurant_msg_id, 'rider_msg_id', NEW.rider_msg_id, 'customer_msg_id', NEW.customer_msg_id, 'pickup_time', NEW.pickup_time, 'pickup_date', NEW.pickup_date, 'rest_ref', NEW.rest_ref, 'dt', NEW.dt, 'dtts', NEW.dtts, 'redispatch_dtts', NEW.redispatch_dtts) INTO delivery_summary_json;
+                    IF p_log_to_table THEN
+                        INSERT INTO debug_log (trigger_name, order_number, message)
+                            VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Delivery summary JSON built');
+                        END IF;
+                        -- Fetch restaurant_master data by rest_id and build JSON
+                        SELECT
+                            json_build_object('rest_id', rm.rest_id, 'rest_ref', rm.rest_ref, 'rest_name', rm.rest_name, 'admins', rm.admins, 'lon', rm.lon, 'lat', rm.lat, 'house_number', rm.house_number, 'building_name', rm.building_name, 'street_name', rm.street_name, 'city', rm.city, 'postcode', rm.postcode) INTO restaurant_master_json
+                        FROM
+                            restaurant_master rm
+                        WHERE
+                            rm.rest_id = NEW.rest_id;
+                            IF p_log_to_table THEN
+                                INSERT INTO debug_log (trigger_name, order_number, message)
+                                    VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Restaurant master data fetched for rest_id: ' || NEW.rest_id);
+                                END IF;
+                                -- Fetch food_order data by order_number and build JSON
+                                SELECT
+                                    json_build_object('order_id', fo.order_id, 'order_number', fo.order_number, 'seq_id', fo.seq_id, 'recipient', fo.recipient, 'thread_id', fo.thread_id, 'action', fo.action, 'total_price', fo.total_price, 'final_order_value', fo.final_order_value, 'rest_cost', fo.rest_cost, 'service_charge', fo.service_charge, 'delivery_fee', fo.delivery_fee, 'small_order_fee', fo.small_order_fee, 'commission_rate', fo.commission_rate, 'payment_status', fo.payment_status),
+                                    fo.order_id INTO food_order_json,
+                                    food_order_id
+                                FROM
+                                    food_order fo
+                                WHERE
+                                    fo.order_number = NEW.order_number;
+                                    -- Check if food_order was found
+                                    IF food_order_json IS NULL THEN
+                                        IF p_log_to_table THEN
+                                            INSERT INTO debug_log (trigger_name, order_number, message)
+                                                VALUES ('restaurant_confirmation_whook', NEW.order_number, 'WARNING: No food_order found for order_number');
+                                            END IF;
+                                            RAISE WARNING 'No food_order found for order_number %', NEW.order_number;
+                                            RETURN NEW;
+                                        END IF;
+                                        IF p_log_to_table THEN
+                                            INSERT INTO debug_log (trigger_name, order_number, message)
+                                                VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Food order found: ' || food_order_id);
+                                            END IF;
+                                            -- Fetch order items for this order
+                                            SELECT
+                                                json_agg(json_build_object('order_id', oi.order_id, 'sku', oi.sku, 'quantity', oi.quantity, 'price', oi.price, 'product_name', oi.product_name)) INTO order_items_json
+                                            FROM
+                                                order_item oi
+                                            WHERE
+                                                oi.order_id = food_order_id;
+                                                IF p_log_to_table THEN
+                                                    INSERT INTO debug_log (trigger_name, order_number, message)
+                                                        VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Order items fetched, count: ' || COALESCE(json_array_length(order_items_json), 0));
+                                                    END IF;
+                                                    -- Build complete webhook payload with all components
+                                                    SELECT
+                                                        json_build_object('trigger_reason', trigger_reason, 'delivery_summary', delivery_summary_json, 'restaurant_master', restaurant_master_json, 'food_order', food_order_json, 'order_items', COALESCE(order_items_json, '[]'::json)) INTO webhook_payload;
+                                                        IF p_log_to_table THEN
+                                                            INSERT INTO debug_log (trigger_name, order_number, message, payload)
+                                                                VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Complete webhook payload built', webhook_payload::jsonb);
+                                                            END IF;
+                                                            -- Get webhook URL from config
+                                                            SELECT
+                                                                config_value INTO ordelo_app_url
+                                                            FROM
+                                                                ordelo_config
+                                                            WHERE
+                                                                config_key = 'ORDELO_APP_URL';
+                                                                IF ordelo_app_url IS NULL OR ordelo_app_url = '' THEN
+                                                                    ordelo_app_url := 'https://rider-agent.ordelo.app';
+                                                                    END IF;
+                                                                    webhook_url := ordelo_app_url || '/delivery-hooks/restaurant-confirmation-request';
+                                                                    IF p_log_to_table THEN
+                                                                        INSERT INTO debug_log (trigger_name, order_number, message)
+                                                                            VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Webhook URL: ' || webhook_url);
+                                                                        END IF;
+                                                                        -- Make HTTP POST
+                                                                        response := (
+                                                                            SELECT
+                                                                                content
+                                                                            FROM
+                                                                                http_post (webhook_url, webhook_payload::text, 'application/json'));
+                                                                        IF p_log_to_table THEN
+                                                                            INSERT INTO debug_log (trigger_name, order_number, message, payload)
+                                                                                VALUES ('restaurant_confirmation_whook', NEW.order_number, 'HTTP response received', response::jsonb);
+                                                                            END IF;
+                                                                            RAISE NOTICE 'Restaurant confirmation request sent for order %: %', NEW.order_number, response;
+                                                                        ELSE
+                                                                            IF p_log_to_table THEN
+                                                                                INSERT INTO debug_log (trigger_name, order_number, message)
+                                                                                    VALUES ('restaurant_confirmation_whook', NEW.order_number, 'restaurant_confirmation_status check failed, current: ' || NEW.restaurant_confirmation_status);
+                                                                                END IF;
+            END IF;
+            RETURN NEW;
 EXCEPTION
-  WHEN OTHERS THEN
-    IF p_log_to_table THEN
-      INSERT INTO debug_log (trigger_name, order_number, message)
-      VALUES ('restaurant_confirmation_whook', NEW.order_number, 'ERROR: ' || SQLERRM);
-    END IF;
-    RAISE WARNING 'Error in restaurant_confirmation_whook for order %: %', NEW.order_number, SQLERRM;
-    RETURN NEW;
+    WHEN OTHERS THEN
+        IF p_log_to_table THEN
+            INSERT INTO debug_log (trigger_name, order_number, message)
+                VALUES ('restaurant_confirmation_whook', NEW.order_number, 'ERROR: ' || SQLERRM);
+            END IF;
+            RAISE WARNING 'Error in restaurant_confirmation_whook for order %: %', NEW.order_number, SQLERRM;
+            RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+
+$$
+LANGUAGE plpgsql;
 
 -- Trigger 2:
 /*
@@ -351,40 +284,42 @@ Delivery Summary Timedout Webhook Trigger
 Functions:
   . delivery_summary_timedout_whook
 */
-CREATE OR REPLACE FUNCTION public.delivery_summary_timedout_whook() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION public.delivery_summary_timedout_whook ()
+    RETURNS TRIGGER
+    LANGUAGE plpgsql
+    AS $$
 DECLARE
-  response json;
-  webhook_payload json;
-  ordelo_app_url text;
-  webhook_url text;
+    response json;
+    webhook_payload json;
+    ordelo_app_url text;
+    webhook_url text;
 BEGIN
-  PERFORM set_config('statement_timeout', '10000', true);
-  -- Combine the NEW record with additional data from delivery_detail; required to invoke graph
-  SELECT json_build_object(
-    'delivery_summary', json_build_array(row_to_json(NEW))
-  ) INTO webhook_payload;
+    PERFORM
+        set_config('statement_timeout', '10000', TRUE);
+    -- Combine the NEW record with additional data from delivery_detail; required to invoke graph
+    SELECT
+        json_build_object('delivery_summary', json_build_array(row_to_json(NEW))) INTO webhook_payload;
+    -- Fetch the base app URL from config, fallback to default if not present
+    SELECT
+        config_value INTO ordelo_app_url
+    FROM
+        ordelo_config
+    WHERE
+        config_key = 'ORDELO_APP_URL';
+    IF ordelo_app_url IS NULL OR ordelo_app_url = '' THEN
+        ordelo_app_url := 'https://rider-agent.ordelo.app';
+    END IF;
+    webhook_url := ordelo_app_url || '/delivery-hooks/delivery-timedout';
+    -- Make the HTTP POST request with the combined payload
+    response := (
+        SELECT
+            content
+        FROM
+            http_post (webhook_url, webhook_payload::text, 'application/json'));
+    -- Log the response
+    RAISE NOTICE 'Response from HTTP POST to delivery-timedout: %', response;
 
-  -- Fetch the base app URL from config, fallback to default if not present
-  SELECT config_value INTO ordelo_app_url FROM ordelo_config WHERE config_key = 'ORDELO_APP_URL';
-  IF ordelo_app_url IS NULL OR ordelo_app_url = '' THEN
-    ordelo_app_url := 'https://rider-agent.ordelo.app';
-  END IF;
-  webhook_url := ordelo_app_url || '/delivery-hooks/delivery-timedout';
-
-  -- Make the HTTP POST request with the combined payload
-  response := (
-    SELECT content
-    FROM http_post(
-      webhook_url,
-      webhook_payload::text,
-      'application/json'
-    )
-  );
-
-  -- Log the response
-  RAISE NOTICE 'Response from HTTP POST to delivery-timedout: %', response;
-
-  RETURN NEW;
+    RETURN NEW;
 END;
 $$;
 
@@ -409,22 +344,32 @@ $$;
 --   * An awaiting_pickup row still 'pending' when the rider collects is
 --     reopened too, but can never fire again: the phase gate in (c) requires
 --     dd.status = 'assigned' and the dispatch is now 'pickedup'.
-CREATE OR REPLACE FUNCTION rider_pickup_alert_reschedule()
-RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION rider_pickup_alert_reschedule ()
+    RETURNS TRIGGER
+    AS $$
 BEGIN
-    UPDATE rider_pickup_alert a
-       SET due_dtts  = NEW.pickup_time + (a.offset_minutes * interval '1 minute'),
-           status    = 'pending',
-           sent_dtts = NULL
-     WHERE a.order_number = NEW.order_number;
+    UPDATE
+        rider_pickup_alert a
+    SET
+        due_dtts = NEW.pickup_time + (a.offset_minutes * interval '1 minute'),
+        status = 'pending',
+        sent_dtts = NULL
+    WHERE
+        a.order_number = NEW.order_number;
 
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$
+LANGUAGE plpgsql;
 
 -- The first NULL -> value set fires this too, harmlessly: no rows exist yet.
 DROP TRIGGER IF EXISTS trigger_pickup_time_reschedule ON public.delivery_summary;
-CREATE TRIGGER trigger_pickup_time_reschedule AFTER UPDATE OF pickup_time ON delivery_summary FOR EACH ROW WHEN (new.pickup_time IS DISTINCT FROM old.pickup_time) EXECUTE FUNCTION rider_pickup_alert_reschedule();
+
+CREATE TRIGGER trigger_pickup_time_reschedule
+    AFTER UPDATE OF pickup_time ON delivery_summary
+    FOR EACH ROW
+    WHEN (new.pickup_time IS DISTINCT FROM old.pickup_time)
+    EXECUTE FUNCTION rider_pickup_alert_reschedule ();
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

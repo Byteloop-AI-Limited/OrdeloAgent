@@ -29,51 +29,62 @@ Parameters:
     - p_rest_ref (optional): Specific restaurant reference to process. If NULL, processes all timed-out orders.
 **/
 -- Definition taken from the live database on 2026-10-16 (the previous repo copy in restaurant_admin/job_restaurant_confirmation_timeout.sql differed).
-CREATE OR REPLACE FUNCTION public.job_restaurant_confirmation_timeout(p_rest_ref character varying DEFAULT NULL::character varying)
- RETURNS TABLE(action text)
- LANGUAGE plpgsql
-AS $function$
+CREATE OR REPLACE FUNCTION public.job_restaurant_confirmation_timeout (p_rest_ref character varying DEFAULT NULL::character varying)
+    RETURNS TABLE (
+        action text)
+    LANGUAGE plpgsql
+    AS $function$
 BEGIN
-  RETURN QUERY
-  WITH timeout_config AS (
-    -- Get timeout value: restaurant-specific first, then default
-    SELECT 
-      ds.order_number,
-      ds.rest_id,
-      COALESCE(
-        (SELECT config_value::NUMERIC 
-         FROM ordelo_config 
-         WHERE config_key = SPLIT_PART(ds.order_number, '-', 1) || '_RESTAURANT_CONFIRMATION_TIMEOUT'
-         LIMIT 1),
-        (SELECT config_value::NUMERIC 
-         FROM ordelo_config 
-         WHERE config_key = 'RESTAURANT_CONFIRMATION_TIMEOUT'
-         LIMIT 1),
-        5  -- Fallback to 5 minutes if no config found
-      ) AS timeout_minutes
-    FROM delivery_summary ds
-    WHERE ds.status = 'restaurant_unconfirmed' or ds.status = 'restaurant_accept'
-      AND (p_rest_ref IS NULL OR SPLIT_PART(ds.order_number, '-', 1) = p_rest_ref)
-  ),
-  timed_out_orders AS (
-    UPDATE delivery_summary ds
-    SET 
-      status = 'unassigned',
-      rest_confirmed_at = NOW(),
-      rest_prep_time_minutes = 25,  -- Default to max time
-      rest_confirmation_method = 'timeout',
-      pickup_time = NOW() + INTERVAL '25 minutes'
-    FROM timeout_config tc
-    WHERE ds.order_number = tc.order_number
-      AND (ds.status = 'restaurant_unconfirmed' OR ds.status = 'restaurant_accept')
-      AND (EXTRACT(EPOCH FROM (NOW() - ds.dtts))/60) >= tc.timeout_minutes
-    RETURNING 
-      ds.order_number,
-      ds.rest_id,
-      tc.timeout_minutes,
-      'Order ' || ds.order_number || ' → restaurant confirmation timed out after ' || tc.timeout_minutes || ' minutes, defaulted to 25min prep time' AS action
-  )
-  SELECT timed_out_orders.action FROM timed_out_orders;
+    RETURN QUERY WITH timeout_config AS (
+        -- Get timeout value: restaurant-specific first, then default
+        SELECT
+            ds.order_number,
+            ds.rest_id,
+            COALESCE((
+                SELECT
+                    config_value::numeric
+                FROM ordelo_config
+                WHERE
+                    config_key = SPLIT_PART(ds.order_number, '-', 1) || '_RESTAURANT_CONFIRMATION_TIMEOUT' LIMIT 1), (
+                SELECT
+                    config_value::numeric
+                FROM ordelo_config
+                WHERE
+                    config_key = 'RESTAURANT_CONFIRMATION_TIMEOUT' LIMIT 1), 5 -- Fallback to 5 minutes if no config found
+) AS timeout_minutes
+        FROM
+            delivery_summary ds
+        WHERE
+            ds.status = 'restaurant_unconfirmed'
+            OR ds.status = 'restaurant_accept'
+            AND (p_rest_ref IS NULL
+                OR SPLIT_PART(ds.order_number, '-', 1) = p_rest_ref)),
+    timed_out_orders AS (
+        UPDATE
+            delivery_summary ds
+        SET
+            status = 'unassigned',
+            rest_confirmed_at = NOW(),
+            rest_prep_time_minutes = 25, -- Default to max time
+            rest_confirmation_method = 'timeout',
+            pickup_time = NOW() + INTERVAL '25 minutes'
+        FROM
+            timeout_config tc
+        WHERE
+            ds.order_number = tc.order_number
+            AND (ds.status = 'restaurant_unconfirmed'
+                OR ds.status = 'restaurant_accept')
+            AND (EXTRACT(EPOCH FROM (NOW() - ds.dtts)) / 60) >= tc.timeout_minutes
+        RETURNING
+            ds.order_number,
+            ds.rest_id,
+            tc.timeout_minutes,
+            'Order ' || ds.order_number || ' → restaurant confirmation timed out after ' || tc.timeout_minutes || ' minutes, defaulted to 25min prep time' AS action
+)
+SELECT
+    timed_out_orders.action
+FROM
+    timed_out_orders;
 END;
 $function$;
 

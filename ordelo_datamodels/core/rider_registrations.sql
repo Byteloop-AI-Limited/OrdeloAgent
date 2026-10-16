@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.rider_registrations (
     full_name text,
     email text,
     phone text,
-    phone_verified boolean NOT NULL DEFAULT false,
+    phone_verified boolean NOT NULL DEFAULT FALSE,
     area text,
     postcode text,
     address text,
@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS public.rider_registrations (
     bank_account_name text,
     bank_account text,
     sort_code text,
-    manual_onboard boolean NOT NULL DEFAULT false,
-    rider_status_active boolean NOT NULL DEFAULT false,
+    manual_onboard boolean NOT NULL DEFAULT FALSE,
+    rider_status_active boolean NOT NULL DEFAULT FALSE,
     CONSTRAINT rider_registrations_pkey PRIMARY KEY (id)
 );
 

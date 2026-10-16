@@ -91,9 +91,14 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- 9 random bytes -> 12 base64 characters; '+' and '/' are swapped for '-' and '_' so the code only
 -- contains [A-Za-z0-9_-], which is what Telegram allows in a /start payload (max 64 characters).
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_new_invite_code()
-RETURNS text LANGUAGE sql VOLATILE SET search_path = public, extensions AS $$
-  SELECT translate(rtrim(encode(gen_random_bytes(9), 'base64'), '='), '+/', '-_');
+CREATE OR REPLACE FUNCTION public.t_new_invite_code ()
+    RETURNS text
+    LANGUAGE sql
+    VOLATILE
+    SET search_path = public, extensions
+    AS $$
+    SELECT
+        translate(rtrim(encode(gen_random_bytes(9), 'base64'), '='), '+/', '-_');
 $$;
 
 -- ---------------------------------------------------------------------------------------------
@@ -135,12 +140,14 @@ CREATE TABLE IF NOT EXISTS public.t_invites (
 );
 
 -- Index 2: fast "who is this Telegram user?" lookup (t_linked_restaurants, future authorization checks).
-CREATE INDEX IF NOT EXISTS t_invites_claimed_by_user ON public.t_invites USING btree (bot_key, telegram_user_id) WHERE (status = 'claimed'::text);
+CREATE INDEX IF NOT EXISTS t_invites_claimed_by_user ON public.t_invites USING btree (bot_key, telegram_user_id)
+WHERE (status = 'claimed'::text);
 
 -- Index 1: one claimed link per person per restaurant per bot. A person may serve several restaurants
 -- (several rows), but cannot claim two invites for the same one. Also what makes t_claim_invite()
 -- answer 'already_linked' instead of creating a duplicate.
-CREATE UNIQUE INDEX IF NOT EXISTS t_invites_one_claim_per_user_rest ON public.t_invites USING btree (bot_key, rest_ref, telegram_user_id) WHERE (status = 'claimed'::text);
+CREATE UNIQUE INDEX IF NOT EXISTS t_invites_one_claim_per_user_rest ON public.t_invites USING btree (bot_key, rest_ref, telegram_user_id)
+WHERE (status = 'claimed'::text);
 
 ALTER TABLE public.t_invites ENABLE ROW LEVEL SECURITY;
 
@@ -148,11 +155,13 @@ ALTER TABLE public.t_invites ENABLE ROW LEVEL SECURITY;
 -- Trigger: store phone numbers as digits only ('+44 7700 900123' -> '447700900123') so numbers entered
 -- in different formats are comparable, and the digits-only CHECK above accepts what you type.
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_invites_normalize_phone()
-RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION public.t_invites_normalize_phone ()
+    RETURNS TRIGGER
+    LANGUAGE plpgsql
+    AS $$
 BEGIN
-  NEW.phone_number := regexp_replace(NEW.phone_number, '\D', '', 'g');
-  RETURN NEW;
+    NEW.phone_number := regexp_replace(NEW.phone_number, '\D', '', 'g');
+    RETURN NEW;
 END;
 $$;
 
@@ -161,14 +170,19 @@ $$;
 -- The bot username is read from ordelo_config (row key 'TGRAM_' || upper(bot_key) || '_BOT_USERNAME'),
 -- so switching bots needs no DDL. Set it once:
 INSERT INTO ordelo_config (config_key, config_value, description)
-  VALUES ('TGRAM_REST_ADMIN_BOT_USERNAME', 'OrdeloRestaurantBot', 'Restaurant-admin Telegram bot')
-  ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value, updated_at = now();
+    VALUES ('TGRAM_REST_ADMIN_BOT_USERNAME', 'OrdeloRestaurantBot', 'Restaurant-admin Telegram bot')
+ON CONFLICT (config_key)
+    DO UPDATE SET
+        config_value = EXCLUDED.config_value,
+        updated_at = now();
 
 -- If that row is missing, invite_link is NULL (the invite itself still works).
 -- security_invoker: the view runs with the caller's rights, so it cannot expose rows that RLS hides.
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE VIEW public.t_invites_shareable WITH (security_invoker=true) AS
- SELECT i.invite_code,
+CREATE OR REPLACE VIEW public.t_invites_shareable WITH ( security_invoker = TRUE
+) AS
+SELECT
+    i.invite_code,
     i.bot_key,
     i.rest_ref,
     i.phone_number,
@@ -181,9 +195,12 @@ CREATE OR REPLACE VIEW public.t_invites_shareable WITH (security_invoker=true) A
     i.telegram_username,
     i.telegram_first_name,
     i.phone_verified,
-    (('https://t.me/'::text || c.config_value) || '?start='::text) || i.invite_code AS invite_link
-   FROM t_invites i
-     LEFT JOIN ordelo_config c ON c.config_key::text = (('TGRAM_'::text || upper(i.bot_key)) || '_BOT_USERNAME'::text);
+    ((
+            'https://t.me/'::text || c.config_value
+) || '?start='::text) || i.invite_code AS invite_link
+FROM
+    t_invites i
+    LEFT JOIN ordelo_config c ON c.config_key::text = (('TGRAM_'::text || upper(i.bot_key)) || '_BOT_USERNAME'::text);
 
 REVOKE ALL ON TABLE public.t_invites_shareable FROM anon, authenticated;
 
@@ -199,31 +216,46 @@ REVOKE ALL ON TABLE public.t_invites_shareable FROM anon, authenticated;
 --   pending         valid and unclaimed: the bot may ask "Link this chat to <rest_name>?"
 -- Never changes data. STABLE so Postgres knows it has no side effects.
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_invite_preview(p_code text, p_bot_key text, p_user_id bigint)
-RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.t_invite_preview (p_code text, p_bot_key text, p_user_id bigint)
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    STABLE
+    SET search_path = public
+    AS $$
 DECLARE
-  r record;
-  v_result text;
+    r record;
+    v_result text;
 BEGIN
-  -- Join restaurant_master to return the restaurant's display name with the verdict.
-  SELECT i.*, rm.rest_name INTO r
-  FROM t_invites i JOIN restaurant_master rm ON rm.rest_ref = i.rest_ref
-  WHERE i.invite_code = p_code AND i.bot_key = p_bot_key;
+    -- Join restaurant_master to return the restaurant's display name with the verdict.
+    SELECT
+        i.*,
+        rm.rest_name INTO r
+    FROM
+        t_invites i
+        JOIN restaurant_master rm ON rm.rest_ref = i.rest_ref
+    WHERE
+        i.invite_code = p_code
+        AND i.bot_key = p_bot_key;
 
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('result', 'unknown');
-  END IF;
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('result', 'unknown');
+    END IF;
+    -- Order matters: a claimed invite is reported as claimed even after its expiry time has passed.
+    v_result := CASE WHEN r.status = 'revoked' THEN
+        'revoked'
+    WHEN r.status = 'claimed'
+        AND r.telegram_user_id = p_user_id THEN
+        'claimed_by_you'
+    WHEN r.status = 'claimed' THEN
+        'used'
+    WHEN r.status = 'expired'
+        OR r.expires_at <= now() THEN
+        'expired'
+    ELSE
+        'pending'
+    END;
 
-  -- Order matters: a claimed invite is reported as claimed even after its expiry time has passed.
-  v_result := CASE
-    WHEN r.status = 'revoked' THEN 'revoked'
-    WHEN r.status = 'claimed' AND r.telegram_user_id = p_user_id THEN 'claimed_by_you'
-    WHEN r.status = 'claimed' THEN 'used'
-    WHEN r.status = 'expired' OR r.expires_at <= now() THEN 'expired'
-    ELSE 'pending'
-  END;
-
-  RETURN jsonb_build_object('result', v_result, 'rest_ref', r.rest_ref, 'rest_name', r.rest_name);
+    RETURN jsonb_build_object('result', v_result, 'rest_ref', r.rest_ref, 'rest_name', r.rest_name);
 END;
 $$;
 
@@ -231,7 +263,7 @@ $$;
 -- Permissions: Supabase grants new functions and views to the public API roles by default. Remove that;
 -- only the service key (used by OrdeloAgent) may call these.
 -- ---------------------------------------------------------------------------------------------
-REVOKE ALL ON FUNCTION public.t_invite_preview(text, text, bigint) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.t_invite_preview (text, text, bigint) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- t_claim_invite(...): ATOMIC claim, called when the person taps "Yes". The first valid caller wins.
@@ -243,55 +275,88 @@ REVOKE ALL ON FUNCTION public.t_invite_preview(text, text, bigint) FROM PUBLIC, 
 -- The single conditional UPDATE below is what makes two people tapping the same link safe: only one
 -- row update can match status = 'pending'.
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_claim_invite(
-  p_code text, p_bot_key text, p_user_id bigint, p_chat_id bigint,
-  p_username text, p_first_name text
-) RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.t_claim_invite (p_code text, p_bot_key text, p_user_id bigint, p_chat_id bigint, p_username text, p_first_name text)
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path = public
+    AS $$
 DECLARE
-  v_ref  text;
-  v_name text;
+    v_ref text;
+    v_name text;
 BEGIN
-  UPDATE t_invites
-     SET status = 'claimed', claimed_at = now(),
-         telegram_user_id = p_user_id, telegram_chat_id = p_chat_id,
-         telegram_username = p_username, telegram_first_name = p_first_name
-   WHERE invite_code = p_code AND bot_key = p_bot_key
-     AND status = 'pending' AND expires_at > now()
-  RETURNING rest_ref INTO v_ref;
+    UPDATE
+        t_invites
+    SET
+        status = 'claimed',
+        claimed_at = now(),
+        telegram_user_id = p_user_id,
+        telegram_chat_id = p_chat_id,
+        telegram_username = p_username,
+        telegram_first_name = p_first_name
+    WHERE
+        invite_code = p_code
+        AND bot_key = p_bot_key
+        AND status = 'pending'
+        AND expires_at > now()
+    RETURNING
+        rest_ref INTO v_ref;
 
-  IF FOUND THEN
-    SELECT rest_name INTO v_name FROM restaurant_master WHERE rest_ref = v_ref;
-    RETURN jsonb_build_object('result', 'ok', 'rest_ref', v_ref, 'rest_name', v_name);
-  END IF;
+    IF FOUND THEN
+        SELECT
+            rest_name INTO v_name
+        FROM
+            restaurant_master
+        WHERE
+            rest_ref = v_ref;
+        RETURN jsonb_build_object('result', 'ok', 'rest_ref', v_ref, 'rest_name', v_name);
+    END IF;
+    -- Not claimable: record the expiry (the only status change made on a failed attempt), then report why.
+    UPDATE
+        t_invites
+    SET
+        status = 'expired'
+    WHERE
+        invite_code = p_code
+        AND bot_key = p_bot_key
+        AND status = 'pending'
+        AND expires_at <= now();
+    RETURN t_invite_preview (p_code, p_bot_key, p_user_id);
 
-  -- Not claimable: record the expiry (the only status change made on a failed attempt), then report why.
-  UPDATE t_invites SET status = 'expired'
-   WHERE invite_code = p_code AND bot_key = p_bot_key AND status = 'pending' AND expires_at <= now();
-  RETURN t_invite_preview(p_code, p_bot_key, p_user_id);
-
-EXCEPTION WHEN unique_violation THEN
-  -- Raised by t_invites_one_claim_per_user_rest: this person is already linked to this restaurant.
-  -- The whole block (including the UPDATE) is rolled back, so the invite stays 'pending'.
-  RETURN jsonb_build_object('result', 'already_linked');
+EXCEPTION
+    WHEN unique_violation THEN
+        -- Raised by t_invites_one_claim_per_user_rest: this person is already linked to this restaurant.
+        -- The whole block (including the UPDATE) is rolled back, so the invite stays 'pending'.
+        RETURN jsonb_build_object('result', 'already_linked');
 END;
+
 $$;
 
-REVOKE ALL ON FUNCTION public.t_claim_invite(text, text, bigint, bigint, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.t_claim_invite (text, text, bigint, bigint, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- t_linked_restaurants(bot_key, telegram_user_id): the restaurants this Telegram user is currently
 -- linked to, as jsonb [{rest_ref, rest_name}, ...] ('[]' if none). Used by /start (no code) and /whoami,
 -- and the natural lookup for authorization checks later. Revoked and expired invites do not count.
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_linked_restaurants(p_bot_key text, p_user_id bigint)
-RETURNS jsonb LANGUAGE sql STABLE SET search_path = public AS $$
-  SELECT coalesce(jsonb_agg(jsonb_build_object('rest_ref', i.rest_ref, 'rest_name', rm.rest_name)
-                            ORDER BY rm.rest_name), '[]'::jsonb)
-  FROM t_invites i JOIN restaurant_master rm ON rm.rest_ref = i.rest_ref
-  WHERE i.bot_key = p_bot_key AND i.telegram_user_id = p_user_id AND i.status = 'claimed';
+CREATE OR REPLACE FUNCTION public.t_linked_restaurants (p_bot_key text, p_user_id bigint)
+    RETURNS jsonb
+    LANGUAGE sql
+    STABLE
+    SET search_path = public
+    AS $$
+    SELECT
+        coalesce(jsonb_agg(jsonb_build_object('rest_ref', i.rest_ref, 'rest_name', rm.rest_name)
+            ORDER BY rm.rest_name), '[]'::jsonb)
+    FROM
+        t_invites i
+        JOIN restaurant_master rm ON rm.rest_ref = i.rest_ref
+    WHERE
+        i.bot_key = p_bot_key
+        AND i.telegram_user_id = p_user_id
+        AND i.status = 'claimed';
 $$;
 
-REVOKE ALL ON FUNCTION public.t_linked_restaurants(text, bigint) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.t_linked_restaurants (text, bigint) FROM PUBLIC, anon, authenticated;
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

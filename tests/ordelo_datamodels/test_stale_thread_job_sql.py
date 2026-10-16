@@ -25,21 +25,26 @@ def _new_job_definition() -> str:
     return text[start : start + 10 + nxt.start()] if nxt else text[start:]
 
 
-def test_stale_thread_job_owns_selection_and_dispatch_contract():
-    sql = _new_job_definition()
+def _squash(text: str) -> str:
+    """Layout-independent SQL text (pg_format owns the layout): lower case, no whitespace, no ``public.``."""
+    return re.sub(r"\s+", "", text.lower()).replace("public.", "")
 
-    assert "RETURNS JSONB" in sql
-    assert "upper(split_part(t.thread_id, '-', 1))" in sql
-    assert "rm.rest_stale_active_threads_minutes" in sql
-    assert "c.checkpoint_ns = ''" in sql
-    assert "ORDER BY c.checkpoint_id DESC" in sql
-    assert "w.retain_thread_value = 'true'::jsonb" in sql
-    assert "oc.config_key = s.rest_ref || '_APP_URL'" in sql
-    assert "'observed_last_access_dtts'" not in sql
-    assert "'observed_checkpoint_id'" not in sql
-    assert "|| '/thread-hooks/'" in sql
-    assert "|| '/terminate-stale-active-threads'" in sql
-    assert "ORDELO_APP_URL" not in sql
+
+def test_stale_thread_job_owns_selection_and_dispatch_contract():
+    sql = _squash(_new_job_definition())
+
+    assert _squash("RETURNS JSONB") in sql
+    assert _squash("upper(split_part(t.thread_id, '-', 1))") in sql
+    assert _squash("rm.rest_stale_active_threads_minutes") in sql
+    assert _squash("c.checkpoint_ns = ''") in sql
+    assert _squash("ORDER BY c.checkpoint_id DESC") in sql
+    assert _squash("w.retain_thread_value = 'true'::jsonb") in sql
+    assert _squash("oc.config_key = s.rest_ref || '_APP_URL'") in sql
+    assert _squash("'observed_last_access_dtts'") not in sql
+    assert _squash("'observed_checkpoint_id'") not in sql
+    assert _squash("|| '/thread-hooks/'") in sql
+    assert _squash("|| '/terminate-stale-active-threads'") in sql
+    assert _squash("ORDELO_APP_URL") not in sql
 
 
 def test_stale_thread_job_is_not_invoked_while_loading_definition():

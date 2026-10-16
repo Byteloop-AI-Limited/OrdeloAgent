@@ -30,118 +30,176 @@ Side Effects:
 
 See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/
-CREATE OR REPLACE FUNCTION job_create_dispatch()
-RETURNS TABLE(action TEXT)
-AS $$
+CREATE OR REPLACE FUNCTION job_create_dispatch ()
+    RETURNS TABLE (
+        action text
+    )
+    AS $$
 DECLARE
-  has_unassigned BOOLEAN;
+    has_unassigned boolean;
 BEGIN
-  SELECT EXISTS (SELECT 1 FROM delivery_detail WHERE status = 'unassigned' LIMIT 1) INTO has_unassigned;
-  
-  IF has_unassigned THEN
-    RETURN QUERY
-    WITH availableRiders AS (
-        SELECT 
+    SELECT
+        EXISTS (
+            SELECT
+                1
+            FROM
+                delivery_detail
+            WHERE
+                status = 'unassigned'
+            LIMIT 1) INTO has_unassigned;
+    IF has_unassigned THEN
+        RETURN QUERY WITH availableRiders AS (
+            SELECT
+                dd.order_number,
+                gar.rider_id AS rider_id_to_dispatch,
+                gar.priority,
+                dd.rider_payout,
+                dd.distance,
+                dd.vehicle_type,
+                COUNT(gar.rider_id) AS rider_count
+            FROM
+                delivery_detail dd
+            LEFT JOIN LATERAL get_available_riders (dd.order_number, LOWER(dd.town), dd.vehicle_type) gar ON TRUE
+        WHERE
+            dd.status = 'unassigned'
+        GROUP BY
             dd.order_number,
-            gar.rider_id as rider_id_to_dispatch,
-            gar.priority,
             dd.rider_payout,
             dd.distance,
             dd.vehicle_type,
-            COUNT(gar.rider_id) as rider_count
-        FROM delivery_detail dd
-        LEFT JOIN LATERAL get_available_riders(dd.order_number, LOWER(dd.town), dd.vehicle_type) gar ON true
-        WHERE dd.status = 'unassigned'
-        GROUP BY dd.order_number, 
-        dd.rider_payout, 
-        dd.distance, 
-        dd.vehicle_type, 
-        gar.rider_id,
-        gar.priority
-    ), dispatch_candidates AS (
-        SELECT ar.order_number,
-               ar.rider_id_to_dispatch,
-               ar.rider_payout,
-               ar.distance,
-               ar.vehicle_type,
-               ar.rider_count,
-               COALESCE(oc.config_value::int, 1) AS batch_size,
-               row_number() OVER (
-                PARTITION BY ar.order_number, ar.vehicle_type ORDER BY ar.priority ASC) AS rn
-        FROM availableRiders ar
-        LEFT JOIN ordelo_config oc
-          ON oc.config_key = 'DISPATCH_BATCH_SIZE_' || UPPER(ar.vehicle_type)
-    ), dispatch_insert AS (
-        INSERT INTO delivery_dispatch (order_number, rider_id, rider_payout, distance, vehicle_type, status)
-        SELECT 
-            order_number,
-            rider_id_to_dispatch,
-            rider_payout,
-            distance,
-            vehicle_type,
-            'unassigned'
-        FROM dispatch_candidates 
-        WHERE rider_count > 0
-          AND rn <= batch_size
+            gar.rider_id,
+            gar.priority
+),
+dispatch_candidates AS (
+    SELECT
+        ar.order_number,
+        ar.rider_id_to_dispatch,
+        ar.rider_payout,
+        ar.distance,
+        ar.vehicle_type,
+        ar.rider_count,
+        COALESCE(oc.config_value::int, 1) AS batch_size,
+        row_number() OVER (PARTITION BY ar.order_number,
+            ar.vehicle_type ORDER BY ar.priority ASC) AS rn
+    FROM
+        availableRiders ar
+        LEFT JOIN ordelo_config oc ON oc.config_key = 'DISPATCH_BATCH_SIZE_' || UPPER(ar.vehicle_type)
+),
+dispatch_insert AS (
+INSERT INTO delivery_dispatch (order_number, rider_id, rider_payout, distance, vehicle_type, status)
+    SELECT
+        order_number,
+        rider_id_to_dispatch,
+        rider_payout,
+        distance,
+        vehicle_type,
+        'unassigned'
+    FROM
+        dispatch_candidates
+    WHERE
+        rider_count > 0
+        AND rn <= batch_size
+    RETURNING
+        'Order ' || order_number || 'vehicle_type ' || vehicle_type || ' → dispatch created for rider ' || rider_id AS action,
+        order_number
+),
+update_detail_logs AS (
+    UPDATE
+        delivery_detail dd
+    SET
+        status = 'vehicle_type_timedout'
+    FROM
+        availableRiders ar
+    WHERE
+        dd.order_number = ar.order_number
+        AND dd.vehicle_type = ar.vehicle_type
+        AND dd.status = 'unassigned'
+        AND dd.order_number NOT IN (
+            SELECT
+                di.order_number
+            FROM
+                dispatch_insert di)
         RETURNING
-          'Order ' || order_number || 'vehicle_type ' || vehicle_type || ' → dispatch created for rider ' || rider_id AS action,
-          order_number
-    ), update_detail_logs AS (
-        UPDATE delivery_detail dd
-        SET status = 'vehicle_type_timedout'
-        FROM availableRiders ar
-        WHERE dd.order_number = ar.order_number
-          AND dd.vehicle_type = ar.vehicle_type
-          AND dd.status = 'unassigned'
-          AND dd.order_number NOT IN (SELECT di.order_number FROM dispatch_insert di)
-        RETURNING
-          'Order ' || dd.order_number || ' vehicle_type ' || dd.vehicle_type || ' → status set to vehicle_type_timedout' AS action
-    )
-    SELECT di.action FROM dispatch_insert di
-    UNION ALL
-    SELECT ul.action FROM update_detail_logs ul;
-  ELSE
-    RETURN QUERY SELECT 'No unassigned orders found.'::text AS action;
-  END IF;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION get_available_riders(p_order_number text, p_town text, p_vehicle_type text)
-RETURNS TABLE(rider_id VARCHAR(12), priority INT) AS $$
-BEGIN
+            'Order ' || dd.order_number || ' vehicle_type ' || dd.vehicle_type || ' → status set to vehicle_type_timedout' AS action
+)
+SELECT
+    di.action
+FROM
+    dispatch_insert di
+UNION ALL
+SELECT
+    ul.action
+FROM
+    update_detail_logs ul;
+ELSE
     RETURN QUERY
-    WITH ridersToExclude AS (
-        SELECT DISTINCT dDispatch.rider_id, dDispatch.vehicle_type
-        FROM delivery_dispatch dDispatch
-        WHERE dDispatch.order_number = p_order_number 
-        UNION 
-        SELECT DISTINCT inflight.rider_id, 'inflight'
-        FROM delivery_inflight inflight
+    SELECT
+        'No unassigned orders found.'::text AS action;
+END IF;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_available_riders (p_order_number text, p_town text, p_vehicle_type text)
+    RETURNS TABLE (
+        rider_id varchar(12),
+        priority int
     )
-    SELECT 
+    AS $$
+BEGIN
+    RETURN QUERY WITH ridersToExclude AS (
+        SELECT DISTINCT
+            dDispatch.rider_id,
+            dDispatch.vehicle_type
+        FROM
+            delivery_dispatch dDispatch
+        WHERE
+            dDispatch.order_number = p_order_number
+        UNION
+        SELECT DISTINCT
+            inflight.rider_id,
+            'inflight'
+        FROM
+            delivery_inflight inflight
+)
+    SELECT
         allRiders.rider_id,
         allRiders.priority
-    FROM rider_master allRiders 
-    WHERE 
-    LOWER(allRiders.town)=LOWER(p_town)
-    AND allRiders.vehicle_type = p_vehicle_type
-    AND allRiders.is_in_shift
-    -- Restrict before priority/batch ranking. Unknown orders have no candidates.
-    AND CASE public.order_has_test_item(p_order_number)
-      WHEN false THEN true
-      WHEN true THEN EXISTS (
-        SELECT 1 FROM ordelo_config oc,
-          LATERAL regexp_split_to_table(COALESCE(oc.config_value, ''), ',') AS member(number)
-        WHERE oc.config_key = 'overwatch_list'
-          AND btrim(member.number) = allRiders.rider_id
-      )
-      ELSE false
+    FROM
+        rider_master allRiders
+    WHERE
+        LOWER(allRiders.town) = LOWER(p_town)
+        AND allRiders.vehicle_type = p_vehicle_type
+        AND allRiders.is_in_shift
+        -- Restrict before priority/batch ranking. Unknown orders have no candidates.
+        AND CASE public.order_has_test_item (p_order_number)
+        WHEN FALSE THEN
+            TRUE
+        WHEN TRUE THEN
+            EXISTS (
+                SELECT
+                    1
+                FROM
+                    ordelo_config oc,
+                    LATERAL regexp_split_to_table(COALESCE(oc.config_value, ''), ',') AS member (number)
+                WHERE
+                    oc.config_key = 'overwatch_list'
+                    AND btrim(member.number) = allRiders.rider_id)
+        ELSE
+            FALSE
     END
-    AND NOT EXISTS 
-    (SELECT 1 FROM ridersToExclude WHERE ridersToExclude.rider_id = allRiders.rider_id);
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                ridersToExclude
+            WHERE
+                ridersToExclude.rider_id = allRiders.rider_id);
 
 END;
-$$ LANGUAGE plpgsql;
+$$
+LANGUAGE plpgsql;
 
 -- pg_cron job 'job_create_dispatch' (live schedule: 5 seconds, active). cron.schedule() updates the job in place when the name already exists.
-SELECT cron.schedule('job_create_dispatch', '5 seconds', $cron$SELECT public.job_create_dispatch()$cron$);
+SELECT
+    cron.schedule ('job_create_dispatch', '5 seconds', 'SELECT public.job_create_dispatch()');
