@@ -27,14 +27,15 @@ class InviteDecision(CallbackData, prefix="inv"):
 
 
 class OrderAction(CallbackData, prefix="ord"):
-    """A tap on an order card, e.g. 'ord:ELAS-CEKT-22:d:pk:15'.
+    """A tap on an order card or kitchen receipt, e.g. 'ord:ELAS-CEKT-22:d:pk:15'.
 
     o: order number; t: 'd' delivery / 't' takeaway; a: 'acc' accept, 'dec' decline, 'pk' pickup
-    time; m: minutes after the order time for 'pk' (0 otherwise). Carries no authority: the
-    database re-checks who tapped and the order's current state on every tap.
+    time (order cards); 'rdy' food ready, 'adj' move pickup later (kitchen receipts).
+    m: minutes after the order time for 'pk'; +minutes over the ORIGINAL pickup (10 or 20) for 'adj'; 0 otherwise.
+    Carries no authority: the database re-checks who tapped and the order's current state on every tap.
     """
 
     o: str
     t: Literal["d", "t"]
-    a: Literal["acc", "dec", "pk"]
+    a: Literal["acc", "dec", "pk", "rdy", "adj"]
     m: int = 0

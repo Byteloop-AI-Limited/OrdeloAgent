@@ -5,7 +5,7 @@
     . edit   -> 'edited' | 'gone' | 'retry'
     . delete -> 'deleted' | 'gone' | 'retry'
     . 'retry' means "leave the ledger row claimed": the sweep offers it again after 30 seconds
-    . Error mapping (plans/telegram-rest-admin-scaffold-plan.md): "message is not modified" = edited;
+    . Error mapping (plans/archive/telegram-rest-admin-scaffold-plan-full-2026-10-15.md): "message is not modified" = edited;
       "message to edit/delete not found", "message can't be edited/deleted", "chat not found" and
       TelegramForbiddenError = gone; TelegramRetryAfter = sleep retry_after once, then retry once;
       anything else = retry.
@@ -17,6 +17,7 @@ import asyncio
 from typing import Literal
 
 from aiogram import Bot
+from aiogram.types import ReplyParameters
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramForbiddenError, TelegramRetryAfter
 from loguru import logger
 
@@ -48,10 +49,19 @@ class TelegramIO:
             await asyncio.sleep(min(e.retry_after, MAX_RETRY_AFTER_SECS))
             return await call()
 
-    async def send(self, tcid: int, view: View) -> int | None:
+    async def send(self, tcid: int, view: View, reply_to: int | None = None) -> int | None:
+        """Send one message. `reply_to` threads it under an earlier message in the same chat; a target the admin
+        deleted by hand never fails the send (allow_sending_without_reply)."""
+        extra = (
+            {"reply_parameters": ReplyParameters(message_id=reply_to, allow_sending_without_reply=True)}
+            if reply_to is not None
+            else {}
+        )
         try:
             msg = await self._with_backoff(
-                lambda: self._bot.send_message(tcid, view.text, parse_mode="HTML", reply_markup=view.keyboard)
+                lambda: self._bot.send_message(
+                    tcid, view.text, parse_mode="HTML", reply_markup=view.keyboard, **extra
+                )
             )
             return msg.message_id
         except (TelegramAPIError, OSError) as e:

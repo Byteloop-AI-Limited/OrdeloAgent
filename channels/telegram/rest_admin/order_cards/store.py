@@ -1,6 +1,6 @@
 """CardStore: the order-card side of the database (all calls are RPCs, see create_t_order_alerts.sql).
 
-    . RPCs and tables are DEFINED in: ordelo_datamodels/migrations/create_t_order_alerts.sql
+    . RPCs and tables are DEFINED in: ordelo_datamodels/telegram/create_t_order_alerts.sql
       (keep this list and that file's header in sync whenever either changes)
     . Python method -> RPC it calls:
         snapshot          -> t_order_card_snapshot(p_bot_key, p_order_number, p_order_type)
@@ -10,7 +10,7 @@
         mark              -> t_order_card_mark(p_id, p_outcome, p_card_status, p_close)
         decide            -> t_order_decide(p_bot_key, p_tuid, p_order_number, p_order_type, p_decision)
         set_pickup        -> t_order_set_pickup(p_bot_key, p_tuid, p_order_number, p_order_type, p_minutes)
-      (the last two are defined in ordelo_datamodels/migrations/restaurant_order_decision.sql; they authorise the
+      (the last two are defined in ordelo_datamodels/restaurant_admin/restaurant_order_decision.sql; they authorise the
       Telegram USER (tuid) per D14 and then call the shared restaurant_order_decide / restaurant_order_set_pickup)
     . Uses client_ordelo_service (service-role only RPCs); Supabase REST is synchronous, so every call runs
       in asyncio.to_thread (CLAUDE.md rule)

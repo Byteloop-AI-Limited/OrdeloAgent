@@ -2,7 +2,7 @@
 Telegram order cards: the order alert an admin sees, its reminders, and keeping every copy truthful.
     . One deep module (D26). Public names: OrderCards (remind / refresh / tap) and OrderRef.
     . model.py   pure Card + events + views + toasts: ALL text and buttons are composed there
-    . store.py   CardStore: the RPCs of ordelo_datamodels/migrations/create_t_order_alerts.sql
+    . store.py   CardStore: the RPCs of ordelo_datamodels/telegram/create_t_order_alerts.sql
     . io.py      TelegramIO: send / edit / delete with Telegram error mapping
     . The database is authoritative and checked before every send (D24); the ledger (t_sent_messages) only
       remembers where copies live so they can be tidied up. Nothing is held in process (up to 3 workers).

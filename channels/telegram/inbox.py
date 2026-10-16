@@ -2,7 +2,7 @@
 Durable Telegram inbox (t_inbox): handle each Telegram update at most once.
     . Thin async wrapper over two SQL functions (RPCs). "Is this the first time?" is decided in the
       database, so any of the (up to 3) gunicorn workers gives the same answer.
-    . RPCs and table are DEFINED in: ordelo_datamodels/migrations/create_t_inbox.sql
+    . RPCs and table are DEFINED in: ordelo_datamodels/telegram/create_t_inbox.sql
       (keep this list and that file's header in sync whenever either changes)
     . Python function -> RPC it calls:
         claim   -> t_inbox_claim(p_bot_key, p_update_id, p_kind, p_tuid)      'new' | 'duplicate'
