@@ -1,5 +1,41 @@
--- job_process_owntracks.sql
--- Batch process OwnTracks messages into rider_location and rider_location_event tables
+-- =============================================================================================
+-- ordelo_datamodels/rider_location/job_process_owntracks.sql
+-- Every 30 seconds: move OwnTracks messages from the pgmq queue into rider_location and rider_location_event.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     job_process_owntracks() -> integer
+--                   Drain the 'owntracks' pgmq queue into rider_location / rider_location_event; returns how many messages it processed.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each run reads up to 1000 messages from pgmq queue 'owntracks', inserts location/event rows and archives the messages.
+-- HOW IT FITS   Continuous rider tracking (OwnTracks app on the rider's phone):
+--                 OwnTracks -> HTTP endpoint -> pgmq queue 'owntracks' (schema pgmq)
+--                 cron 'job_process_owntracks' (30 s) -> job_process_owntracks():
+--                     location messages  -> rider_location (one row per GPS fix, linked to the rider's live order if any)
+--                     transition events  -> rider_location_event (enter / leave a region)
+--                                           -> trigger -> POST /location-hooks/notify-rider-location-event (customer / restaurant updates)
+--                 The customer's live map (/location-hooks/live-location-map/{order}) reads rider_location.
+--                 job_null_or_outdated_location() (cron, INACTIVE) would alert about live jobs whose rider sent no recent fix.
+-- LIFECYCLE     none
+-- CALLED BY     job_process_owntracks:
+--                 cron      'job_process_owntracks' 30 seconds
+--                 r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/watomation/routers/rider_event_hooks.py
+-- PYTHON MODEL  none
+-- SECURITY      job_process_owntracks(): executable by PUBLIC (default); SECURITY DEFINER
+-- TESTS         none
+-- GOTCHAS       SECURITY DEFINER with default grants: any API role can run it (docs/to-do.md).
+--               Needs the pgmq extension and the 'owntracks' queue (pgmq.q_owntracks / pgmq.a_owntracks).
+-- SEE ALSO      rider_location/rider_location.sql
+--               rider_location/rider_location_event.sql
+--               docs/location_overview.md
+-- =============================================================================================
+
+-- ---------------------------------------------------------------------------------------------
+-- function job_process_owntracks() -> integer
+--   Drain the 'owntracks' pgmq queue into rider_location / rider_location_event; returns how many messages it processed.
+--   Data: reads delivery_inflight; writes rider_location, rider_location_event.
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.job_process_owntracks ()
     RETURNS int
     LANGUAGE plpgsql
@@ -118,9 +154,16 @@ FROM
 END;
 $$;
 
--- pg_cron job 'job_process_owntracks' (live schedule: 30 seconds, active). cron.schedule() updates the job in place when the name already exists.
+-- pg_cron job 'job_process_owntracks': runs every 30 seconds, active on live.
+-- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('job_process_owntracks', '30 seconds', 'SELECT public.job_process_owntracks()');
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.job_process_owntracks () IS 'Drain the ''owntracks'' pgmq queue into rider_location / rider_location_event; returns how many messages it processed.';
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

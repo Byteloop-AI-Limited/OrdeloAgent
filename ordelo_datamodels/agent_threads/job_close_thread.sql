@@ -1,4 +1,39 @@
--- Definition taken from the live database on 2026-10-16 (the previous repo copy in agent_threads/job_close_thread.sql differed).
+-- =============================================================================================
+-- ordelo_datamodels/agent_threads/job_close_thread.sql
+-- Find OrdeloAgent threads idle longer than THREAD_INACTIVE_TIME_INTERVAL and ask the app to close them.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     job_close_thread() -> boolean
+--                   POST idle active threads to /delivery-hooks/close-threads; returns whether it posted.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each call may POST to /delivery-hooks/close-threads.
+-- HOW IT FITS   Agent threads (the LangGraph conversation per WhatsApp user and agent):
+--                 thread (owned by restaurant-agents) maps (recipient, agent) to a LangGraph thread_id; the checkpoint tables are
+--                 written by LangGraph's AsyncPostgresSaver. OrdeloAgent reads the latest state for debugging and closes idle threads:
+--                   job_close_thread()                       idle OrdeloAgent threads -> POST /delivery-hooks/close-threads
+--                   job_terminate_stale_active_threads_new() idle restaurant threads  -> POST <REST>_APP_URL/thread-hooks/<rest>/terminate-stale-active-threads
+--                                                            (restaurant-agents), per restaurant, every minute
+--                   get_latest_state(_by_thread)()           read a thread's latest checkpoint as JSON (debug endpoints, rider agent)
+--                 job_close_thread(): active threads whose last_access_dtts is older than ordelo_config THREAD_INACTIVE_TIME_INTERVAL
+--                 minutes (default 5) -> POST /delivery-hooks/close-threads. Called from Python (delivery_hooks.py), not by pg_cron.
+-- LIFECYCLE     none
+-- CALLED BY     job_close_thread:
+--                 python    watomation/routers/delivery_hooks.py: close_threads()
+-- PYTHON MODEL  none
+-- SECURITY      job_close_thread(): executable by PUBLIC (default)
+-- TESTS         none
+-- GOTCHAS       The body was taken from live on 2026-10-16 (the previous agent_threads copy differed; the migrations/ordelo_agg_r3.sql copy matched).
+-- SEE ALSO      agent_threads/job_terminate_stale_active_threads.sql
+-- =============================================================================================
+
+-- ---------------------------------------------------------------------------------------------
+-- function job_close_thread() -> boolean
+--   POST idle active threads to /delivery-hooks/close-threads; returns whether it posted.
+--   Data: reads ordelo_config, thread.
+--   HTTP: POST /delivery-hooks/close-threads -> watomation/routers/delivery_hooks.py::close_threads
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.job_close_thread ()
     RETURNS boolean
     LANGUAGE plpgsql
@@ -74,6 +109,12 @@ BEGIN
     RETURN notified;
 END;
 $function$;
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.job_close_thread () IS 'POST idle active threads to /delivery-hooks/close-threads; returns whether it posted.';
 
 -- Usage:
 -- select job_close_thread();

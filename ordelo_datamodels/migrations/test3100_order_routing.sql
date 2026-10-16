@@ -1,3 +1,11 @@
+-- MIGRATION (history; do not edit the statements below)
+-- Applied to live: Applied: every object it creates exists live (checked 2026-10-16).
+-- Current definitions now live in: dispatch/job_create_dispatch.sql
+--               ordering/create_food_order_with_items.sql
+--               ordering/order_has_test_item.sql
+-- Purpose: TEST3100 order routing (order_has_test_item, dispatch restriction) and removal of an earlier version.
+-- The feature files above are the current truth; this file only records the one-off change.
+
 -- TEST3100 routing for new orders only. No historical order scan or backfill.
 -- If the earlier version was already run, only the three DROP statements below
 -- are needed to remove its extra artifacts. They do not change any order rows.

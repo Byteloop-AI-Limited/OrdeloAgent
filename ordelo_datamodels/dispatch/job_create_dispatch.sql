@@ -1,35 +1,60 @@
-/**
-Dispatch Creation and Management – Step 3 in Delivery Workflow
+-- =============================================================================================
+-- ordelo_datamodels/dispatch/job_create_dispatch.sql
+-- Every 5 seconds: offer open delivery options to available riders (insert delivery_dispatch rows), in batches.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     job_create_dispatch() -> TABLE(action text)
+--                   Create the next batch of offers for every open delivery option, or time the vehicle type out; returns what it did.
+--               fn     get_available_riders(p_order_number text, p_town text, p_vehicle_type text) -> TABLE(rider_id character varying, priority integer)
+--                   Return the riders (rider_id, priority) who may be offered this order for this town and vehicle type.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each run inserts delivery_dispatch rows (one webhook per run via the statement trigger) and may mark
+--               delivery_detail 'vehicle_type_timedout'.
+-- HOW IT FITS   Delivery order journey (statuses in delivery_summary.status unless noted):
+--                 1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:
+--                            'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.
+--                 2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked
+--                            (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /
+--                            decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.
+--                            process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then
+--                            sets a default pickup time and 'unassigned'.
+--                 3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,
+--                            and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).
+--                 4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders
+--                            (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).
+--                 5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first
+--                            acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row
+--                            (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).
+--                 6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,
+--                            dispatch_complete_func() marks everything 'completed' and removes the inflight row.
+--                 Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.
+-- LIFECYCLE     For each delivery_detail in 'unassigned' (only when no offer for that order/vehicle is still 'unassigned'):
+--                 get_available_riders() -> rank by rider_master.priority -> insert the next DISPATCH_BATCH_SIZE_<VEHICLE> offers.
+--                 When no rider is left for that vehicle type -> delivery_detail.status = 'vehicle_type_timedout'
+--                 (process_delivery() then opens the next vehicle type or times the order out).
+-- CALLED BY     job_create_dispatch:
+--                 cron      'job_create_dispatch' 5 seconds
+--               get_available_riders:
+--                 sql       job_create_dispatch() (dispatch/job_create_dispatch.sql)
+-- PYTHON MODEL  none
+-- SECURITY      job_create_dispatch(): executable by PUBLIC (default)
+--               get_available_riders(): executable by PUBLIC (default)
+-- TESTS         none
+-- GOTCHAS       TEST3100 orders (order_has_test_item) are offered only to riders listed in ordelo_config overwatch_list.
+--               A rider is never offered the same order twice, and riders on another job (delivery_inflight) are skipped.
+-- SEE ALSO      dispatch/delivery_dispatch.sql
+--               core/rider_master.sql
+--               ordering/order_has_test_item.sql
+--               docs/dispatch_flow.md
+-- =============================================================================================
 
-Where This Fits in the Journey:
-    - This function is the third step in the delivery agent workflow, as outlined in handwritten_design.md.
-    - Step 1: init_delivery – Creates delivery_summary and calls process_delivery().
-    - Step 2: process_delivery – Creates delivery_detail records and manages assignment/timeouts.
-    - Step 3: job_create_dispatch – For each unassigned order/vehicle type, finds available riders, inserts records into delivery_dispatch, and updates statuses for next batch or vehicle type.
-    - Step 4+: Downstream jobs and triggers handle dispatch assignment, inflight tracking, and notifications.
-
-Invocation:
-    - Scheduled cron job 'job_create_dispatch' (typically every 5 seconds).
-    - Operates on all unassigned delivery_detail records.
-
-Purpose:
-    - Create new dispatch entries based on available riders (via get_available_riders()).
-    - TEST3100 orders are restricted to normally eligible overwatch riders.
-    - Prioritize rider selection by priority during dispatch creation.
-    - Update delivery_detail with `vehicle_type_timedout` when no more available riders exist for dispatch.
-    - Control batch size of dispatches using config value `DISPATCH_BATCH_SIZE_` per vehicle type.
-
-Dependencies:
-    - Reads from: `delivery_detail`, `ordelo_config` (for batch size), and result of get_available_riders().
-    - Writes to: `delivery_dispatch`, `delivery_detail` (status updates).
-
-Side Effects:
-    1. Triggers webhook: /delivery-hooks/delivery-dispatch on insert into `delivery_dispatch`.
-    2. Sends WhatsApp messages to riders with delivery summaries.
-    3. Enables subsequent assignment and inflight jobs.
-
-See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
-**/
+-- ---------------------------------------------------------------------------------------------
+-- function job_create_dispatch() -> TABLE(action text)
+--   Create the next batch of offers for every open delivery option, or time the vehicle type out; returns what it did.
+--   Data: reads ordelo_config; writes delivery_detail, delivery_dispatch; calls get_available_riders().
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION job_create_dispatch ()
     RETURNS TABLE (
         action text
@@ -140,6 +165,13 @@ END;
 $$
 LANGUAGE plpgsql;
 
+-- ---------------------------------------------------------------------------------------------
+-- function get_available_riders(p_order_number text, p_town text, p_vehicle_type text) -> TABLE(rider_id character varying, priority integer)
+--   Return the riders (rider_id, priority) who may be offered this order for this town and vehicle type.
+--   Same town (case-insensitive) and vehicle, is_in_shift, not offered this order before, not on another job;
+--   TEST3100 orders only to overwatch_list riders.
+--   Data: reads delivery_dispatch, delivery_inflight, ordelo_config, rider_master; calls order_has_test_item().
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION get_available_riders (p_order_number text, p_town text, p_vehicle_type text)
     RETURNS TABLE (
         rider_id varchar(12),
@@ -200,6 +232,15 @@ END;
 $$
 LANGUAGE plpgsql;
 
--- pg_cron job 'job_create_dispatch' (live schedule: 5 seconds, active). cron.schedule() updates the job in place when the name already exists.
+-- pg_cron job 'job_create_dispatch': runs every 5 seconds, active on live.
+-- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('job_create_dispatch', '5 seconds', 'SELECT public.job_create_dispatch()');
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.job_create_dispatch () IS 'Create the next batch of offers for every open delivery option, or time the vehicle type out; returns what it did.';
+
+COMMENT ON FUNCTION public.get_available_riders (p_order_number text, p_town text, p_vehicle_type text) IS 'Return the riders (rider_id, priority) who may be offered this order for this town and vehicle type.';

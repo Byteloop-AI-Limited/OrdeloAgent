@@ -1,3 +1,60 @@
+-- =============================================================================================
+-- ordelo_datamodels/_orphans/delivery.sql
+-- Unused live functions and a backup table from the delivery area (an older delivery_detail flow).
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16). Orphan candidates: live, no caller found.
+-- OBJECTS       fn     insert_delivery_detail(p_cust_id character varying, p_order_number character varying, p_vehicle_type character varying) -> void
+--                   Insert the first delivery_detail row of an order from delivery_option (older flow; process_delivery() does this now).
+--               table  delivery_detail_bkp
+--                   Backup copy of delivery_detail from May 2025.
+--               fn     delivery_detail_update_whook() -> trigger
+--                   Trigger function that POSTs a delivery_detail row to a hard-coded live-track.byteloop.ai URL; no trigger uses it.
+--               fn     manage_delivery_detail() -> text
+--                   Earlier delivery_detail scheduler (vehicle-type timeouts and next option); not scheduled. process_delivery() does this now.
+--               fn     init_delivery_detail(p_order_number character varying, p_customer_id character varying) -> text
+--                   Older entry point that created delivery_detail rows through insert_delivery_detail().
+--               fn     restaurant_confirmation_whook() -> trigger
+--                   Earlier restaurant-confirmation trigger function keyed on status (restaurant_updates_whook() is the live one); its trigger is not live.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  none when applied. Functions that make HTTP calls or change rows only do so if someone calls them.
+-- HOW IT FITS   Orphan candidates (Gate 1 decision D1): objects that exist on live but that nothing calls. A search on 2026-10-16 found
+--                 no reference in OrdeloAgent, restaurant-frontend or restaurant-agents code, in any other live function or view, in a
+--                 trigger or in a pg_cron job. They are captured here exactly as live so the repo describes the whole database.
+--                 Nothing has been dropped: deciding keep or drop is an owner decision (docs/to-do.md). Before dropping one, re-check
+--                 for callers outside these three repos (other services, manual scripts, Supabase Studio).
+-- LIFECYCLE     none
+-- CALLED BY     insert_delivery_detail:
+--                 sql       init_delivery_detail() (_orphans/delivery.sql)
+--                 sql       manage_delivery_detail() (_orphans/delivery.sql)
+--               delivery_detail_bkp:
+--                 nothing found (no code, trigger, cron job or other SQL refers to it)
+--               delivery_detail_update_whook:
+--                 nothing found (no code, trigger, cron job or other SQL refers to it)
+--               manage_delivery_detail:
+--                 nothing found (no code, trigger, cron job or other SQL refers to it)
+--               init_delivery_detail:
+--                 nothing found (no code, trigger, cron job or other SQL refers to it)
+--               restaurant_confirmation_whook:
+--                 nothing found (no code, trigger, cron job or other SQL refers to it)
+-- PYTHON MODEL  none
+-- SECURITY      insert_delivery_detail(): executable by PUBLIC (default)
+--               delivery_detail_bkp: RLS OFF; Supabase default grants (anon and authenticated can read and write)
+--               delivery_detail_update_whook(): executable by PUBLIC (default)
+--               manage_delivery_detail(): executable by PUBLIC (default)
+--               init_delivery_detail(): executable by PUBLIC (default)
+--               restaurant_confirmation_whook(): executable by PUBLIC (default)
+-- TESTS         none
+-- GOTCHAS       init_delivery_detail's old repo copy is in _archive/init_delivery_detail_tbd.sql.
+-- SEE ALSO      docs/to-do.md (decide on orphan candidates)
+-- =============================================================================================
+
+-- ---------------------------------------------------------------------------------------------
+-- function insert_delivery_detail(p_cust_id character varying, p_order_number character varying, p_vehicle_type character varying) -> void
+--   Insert the first delivery_detail row of an order from delivery_option (older flow; process_delivery() does this now).
+--   Data: reads customer_master, delivery_option, restaurant_master; writes delivery_detail.
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION insert_delivery_detail (p_cust_id varchar, p_order_number varchar, p_vehicle_type varchar)
     RETURNS VOID
     AS $$
@@ -89,6 +146,10 @@ END;
 $$
 LANGUAGE plpgsql;
 
+-- ---------------------------------------------------------------------------------------------
+-- table delivery_detail_bkp
+--   Backup copy of delivery_detail from May 2025.
+-- ---------------------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.delivery_detail_bkp (
     order_number character varying(100) NOT NULL,
     vehicle_type character varying(15) NOT NULL DEFAULT 'car' ::character varying,
@@ -114,7 +175,11 @@ CREATE TABLE IF NOT EXISTS public.delivery_detail_bkp (
     CONSTRAINT delivery_detail_status_check CHECK (((status)::text = ANY ((ARRAY['unassigned'::character varying, 'declined'::character varying, 'timedout'::character varying, 'assigned'::character varying, 'completed'::character varying, 'vehicle_type_timedout'::character varying])::text[])))
 );
 
--- Definition taken from the live database on 2026-10-16 (no repo copy existed).
+-- ---------------------------------------------------------------------------------------------
+-- function delivery_detail_update_whook() -> trigger
+--   Trigger function that POSTs a delivery_detail row to a hard-coded live-track.byteloop.ai URL; no trigger uses it.
+--   HTTP: POST (HTTP call, URL built at runtime)
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.delivery_detail_update_whook ()
     RETURNS TRIGGER
     LANGUAGE plpgsql
@@ -138,7 +203,11 @@ BEGIN
 END;
 $function$;
 
--- Definition taken from the live database on 2026-10-16 (no repo copy existed).
+-- ---------------------------------------------------------------------------------------------
+-- function manage_delivery_detail() -> text
+--   Earlier delivery_detail scheduler (vehicle-type timeouts and next option); not scheduled. process_delivery() does this now.
+--   Data: reads delivery_option; writes delivery_detail; calls insert_delivery_detail().
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.manage_delivery_detail ()
     RETURNS text
     LANGUAGE plpgsql
@@ -249,7 +318,11 @@ FROM
 END;
 $function$;
 
--- Definition taken from the live database on 2026-10-16 (the old repo copy is kept in _archive/init_delivery_detail_tbd.sql).
+-- ---------------------------------------------------------------------------------------------
+-- function init_delivery_detail(p_order_number character varying, p_customer_id character varying) -> text
+--   Older entry point that created delivery_detail rows through insert_delivery_detail().
+--   Data: reads delivery_detail, delivery_option; calls insert_delivery_detail().
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.init_delivery_detail (p_order_number character varying, p_customer_id character varying)
     RETURNS text
     LANGUAGE plpgsql
@@ -288,7 +361,12 @@ END IF;
 END;
 $function$;
 
--- Definition taken from the live database on 2026-10-16 (no repo copy existed).
+-- ---------------------------------------------------------------------------------------------
+-- function restaurant_confirmation_whook() -> trigger
+--   Earlier restaurant-confirmation trigger function keyed on status (restaurant_updates_whook() is the live one); its trigger is not live.
+--   Data: reads food_order, ordelo_config, order_item, restaurant_master; writes debug_log.
+--   HTTP: POST /delivery-hooks/restaurant-confirmation-request -> watomation/routers/delivery_hooks.py::restaurant_confirmation_flow
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.restaurant_confirmation_whook ()
     RETURNS TRIGGER
     LANGUAGE plpgsql
@@ -435,5 +513,21 @@ EXCEPTION
 END;
 
 $function$;
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.insert_delivery_detail (p_cust_id character varying, p_order_number character varying, p_vehicle_type character varying) IS 'Insert the first delivery_detail row of an order from delivery_option (older flow; process_delivery() does this now).';
+
+COMMENT ON TABLE public.delivery_detail_bkp IS 'Backup copy of delivery_detail from May 2025.';
+
+COMMENT ON FUNCTION public.delivery_detail_update_whook () IS 'Trigger function that POSTs a delivery_detail row to a hard-coded live-track.byteloop.ai URL; no trigger uses it.';
+
+COMMENT ON FUNCTION public.manage_delivery_detail () IS 'Earlier delivery_detail scheduler (vehicle-type timeouts and next option); not scheduled. process_delivery() does this now.';
+
+COMMENT ON FUNCTION public.init_delivery_detail (p_order_number character varying, p_customer_id character varying) IS 'Older entry point that created delivery_detail rows through insert_delivery_detail().';
+
+COMMENT ON FUNCTION public.restaurant_confirmation_whook () IS 'Earlier restaurant-confirmation trigger function keyed on status (restaurant_updates_whook() is the live one); its trigger is not live.';
 
 -- drop function insert_delivery_detail(p_cust_id character varying, p_order_number character varying, p_vehicle_type vehicle_type_enum)

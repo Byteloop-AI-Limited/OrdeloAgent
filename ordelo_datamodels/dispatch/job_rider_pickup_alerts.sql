@@ -1,4 +1,42 @@
--- See also (paths under ordelo_datamodels/): the same rider/ops/restaurant alerts also reach Telegram admins through the notifier; the Telegram receipts and notices are in restaurant_admin/restaurant_ready_adjust_notices.sql.
+-- =============================================================================================
+-- ordelo_datamodels/dispatch/job_rider_pickup_alerts.sql
+-- Sweep that nudges riders around their pickup time and escalates to ops and restaurant admins (six configurable buckets).
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     job_rider_pickup_alerts() -> boolean
+--                   Seed, resolve, POST and mark rider pickup/delivery reminder checkpoints; returns true when it sent something.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Applying the file inserts the six interval config rows if missing (ON CONFLICT DO NOTHING). Each run may POST to
+--               /delivery-hooks/rider-pickup-alerts and update rider_pickup_alert.
+-- HOW IT FITS   cron 'job_rider_pickup_alert' -> job_rider_pickup_alerts():
+--                   (a) read the six interval keys (parse_alert_offsets) -> nothing configured: stop
+--                   (b) SEED     missing rider_pickup_alert rows for live dispatches
+--                   (c) RESOLVE  what is due now, one winner per (dispatch, audience): the largest due offset
+--                   (d) POST     {ORDELO_APP_URL}/delivery-hooks/rider-pickup-alerts -> rider agent, overwatch and restaurant admins
+--                                (WhatsApp, and Telegram notices through utils_common/notify)
+--                   (e) MARK     only on 2xx: winner 'sent', overtaken checkpoints 'superseded' (at-least-once; failures retry next tick)
+--                 Detailed design, buckets, worked example and runbook: the comment block above the config seeds below.
+-- LIFECYCLE     see dispatch/rider_pickup_alert.sql
+-- CALLED BY     job_rider_pickup_alerts:
+--                 cron      'job_rider_pickup_alert' */5 * * * *
+--                 python    ordelo/agents/rider_agent.py: notify_pickup_reminder()
+--                 python    utils_common/waba_utils/wa_senders.py: notify_ops_rider_alert(), notify_rest_admins_rider_alert()
+--                 python    watomation/routers/delivery_hooks.py: rider_pickup_alerts_hook()
+-- PYTHON MODEL  none
+-- SECURITY      job_rider_pickup_alerts(): executable by PUBLIC (default)
+-- TESTS         none
+-- GOTCHAS       The design notes say the sweep runs every 2 minutes and that the interval must be <= the smallest gap between two
+--                 offsets (the defaults contain 5 and 7). The live schedule is every 5 minutes (*/5), so the 5- and 7-minute checkpoints
+--                 can collapse into one alert. Tracked in docs/to-do.md.
+--               Collapse-to-max: when several checkpoints are due at once only the largest fires; the rest become 'superseded'.
+-- SEE ALSO      dispatch/rider_pickup_alert.sql
+--               core/ordelo_config.sql (parse_alert_offsets)
+--               docs/delivery_process.md
+--               CONTEXT.md
+-- =============================================================================================
+
 /**
 ================================================================================
   RIDER, OPS & RESTAURANT-ADMIN PICKUP ALERTS
@@ -99,26 +137,6 @@ file, under VERIFICATION.
 
 See also: docs/delivery_process.md, CONTEXT.md ("Pickup alert").
 **/
--- (The statement that followed this comment is now generated from live in dispatch/rider_pickup_alert.sql.)
-
--- Column notes:
---   status    pending    -> due in the future, or not yet swept
---             sent       -> the message went out
---             superseded -> came due but a later checkpoint spoke instead
---   due_dtts  pickup_time + offset_minutes. Rewritten by the trigger in §4
---             whenever pickup_time moves.
---
--- The 4-column key is what lets a rider row and an ops row share an offset.
--- phase/audience have no DEFAULT on purpose: the seeding INSERT is the only
--- writer and always names both, so a future caller that forgets one fails loudly
--- instead of landing in the wrong bucket.
---
--- Rows are never cleaned up here. ON DELETE CASCADE does it: every path that
--- removes a delivery (cleanup_delivery_order, dispatch_cancel_before_pickup, the
--- test-reset scripts) deletes delivery_dispatch first. Rows for finished
--- deliveries are kept deliberately as the audit trail.
--- (The statement that followed this comment is now generated from live in dispatch/rider_pickup_alert.sql.)
-
 -- ===========================================================================
 -- 2. CONFIG -- one interval list per bucket
 --    Edit these to change the schedule; no code change needed.
@@ -135,11 +153,12 @@ INSERT INTO ordelo_config (config_key, config_value, description)
 ON CONFLICT (config_key)
     DO NOTHING;
 
--- ===========================================================================
--- 4. job_rider_pickup_alerts() -- the sweep
---    Steps (a) read config, (b) seed, (c) resolve, (d) post, (e) mark.
---    Returns false when it did nothing useful, true otherwise.
--- ===========================================================================
+-- ---------------------------------------------------------------------------------------------
+-- function job_rider_pickup_alerts() -> boolean
+--   Seed, resolve, POST and mark rider pickup/delivery reminder checkpoints; returns true when it sent something.
+--   Data: reads delivery_dispatch, delivery_inflight, delivery_summary, ordelo_config, restaurant_master, rider_master; writes rider_pickup_alert; calls parse_alert_offsets().
+--   HTTP: POST /delivery-hooks/rider-pickup-alerts -> watomation/routers/delivery_hooks.py::rider_pickup_alerts_hook
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION job_rider_pickup_alerts ()
     RETURNS boolean
     AS $$
@@ -386,9 +405,16 @@ END;
 $$
 LANGUAGE plpgsql;
 
--- pg_cron job 'job_rider_pickup_alert' (live schedule: */5 * * * *, active). cron.schedule() updates the job in place when the name already exists.
+-- pg_cron job 'job_rider_pickup_alert': runs every */5 * * * *, active on live.
+-- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('job_rider_pickup_alert', '*/5 * * * *', 'select job_rider_pickup_alerts();');
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.job_rider_pickup_alerts () IS 'Seed, resolve, POST and mark rider pickup/delivery reminder checkpoints; returns true when it sent something.';
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

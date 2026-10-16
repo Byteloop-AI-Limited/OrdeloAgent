@@ -1,3 +1,54 @@
+-- =============================================================================================
+-- ordelo_datamodels/telegram/t_sent_messages.sql
+-- Ledger of every Telegram message copy the bots sent (order cards, kitchen receipts, notices) so they can be edited or deleted.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       table  t_sent_messages
+--                   One row per Telegram message copy: bot, chat, message id, owner, subject, kind, card status and state.
+--               fn     t_order_card_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_order_number text, p_order_type text, p_rest_ref text, p_card_status text) -> jsonb
+--                   Record a sent card copy, take OLDER copies in that chat for deletion, and re-check the order's status.
+--               fn     t_order_card_mark(p_id bigint, p_outcome text, p_card_status text, p_close boolean) -> void
+--                   Record the outcome of an edit or delete on a ledger row (generic: cards and receipts).
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  none
+-- HOW IT FITS   Cards (telegram/t_order_alerts.sql), receipts and notices (restaurant_admin/restaurant_ready_adjust_notices.sql) write one
+--                 row per sent copy: which chat (tcid), message_id, whose copy (tuid), what it shows (subject, card_status) and its state.
+--                 The ledger is not the truth (the order tables are); it only says what exists in Telegram, for cleanup and refresh.
+--                 t_order_card_mark() is generic on t_sent_messages.id, so receipts reuse it.
+--                 Column names: tuid = Telegram user id of the admin the copy belongs to (NULL = shared group chat, D27); tcid = chat id.
+--                 Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).
+-- LIFECYCLE     kind: card | receipt | notice. state: live -> taken (claimed for a refresh) -> live (edited) | closed (deleted / final);
+--               notices are closed at once (close_reason 'sent'). Closed rows are purged by t_housekeeping() after TGRAM_LEDGER_RETENTION_DAYS.
+-- CALLED BY     t_sent_messages:
+--                 sql       t_housekeeping(), t_notice_sent(), t_notice_targets(), t_order_card_mark()
+--                           t_order_card_sent(), t_order_cards_stale(), t_order_cards_take(), t_receipt_sent()
+--                           t_receipt_snapshot(), t_receipts_stale(), t_receipts_take()
+--                 python    channels/telegram/rest_admin/order_cards/__init__.py (module-level SQL)
+--               t_order_card_sent:
+--                 python    channels/telegram/rest_admin/order_cards/store.py: CardStore.card_sent()
+--               t_order_card_mark:
+--                 python    channels/telegram/rest_admin/order_cards/store.py: CardStore.mark()
+--                 python    channels/telegram/rest_admin/receipts/store.py: ReceiptStore.mark()
+-- PYTHON MODEL  none
+-- SECURITY      RLS ON with no policies; the functions are revoked from PUBLIC/anon/authenticated: only the service key can call them.
+-- TESTS         tests/sql/test_order_cards_sql.py (loads this file into a throwaway Postgres)
+--               tests/channels/telegram/test_order_card_store.py
+--               tests/sql/test_order_cards_sql.py
+--               tests/sql/test_order_test_script_sql.py
+--               tests/sql/test_restaurant_notices_script_sql.py
+--               tests/sql/test_restaurant_ready_adjust_notices_sql.py
+-- GOTCHAS       dispatch_id (receipts only: which rider's receipt this copy is) was added by restaurant_admin/restaurant_ready_adjust_notices.sql.
+-- SEE ALSO      telegram/t_order_alerts.sql
+--               restaurant_admin/restaurant_ready_adjust_notices.sql
+--               telegram/t_housekeeping.sql
+-- =============================================================================================
+
+-- ---------------------------------------------------------------------------------------------
+-- table t_sent_messages
+--   One row per Telegram message copy: bot, chat, message id, owner, subject, kind, card status and state.
+-- ---------------------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.t_sent_messages (
     id bigserial NOT NULL,
     bot_key text NOT NULL,
@@ -18,7 +69,7 @@ CREATE TABLE IF NOT EXISTS public.t_sent_messages (
     updated_at timestamp with time zone NOT NULL DEFAULT now(),
     closed_at timestamp with time zone,
     dispatch_id integer, -- receipts only: which rider's receipt this copy is
-    -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    -- used by restaurant_admin/restaurant_ready_adjust_notices.sql
     CONSTRAINT t_sent_messages_pkey PRIMARY KEY (id),
     CONSTRAINT t_sent_messages_bot_key_tcid_message_id_key UNIQUE (bot_key, tcid, message_id),
     CONSTRAINT t_sent_messages_state_check CHECK ((state = ANY (ARRAY['live'::text, 'taken'::text, 'closed'::text]))),
@@ -36,6 +87,11 @@ WHERE (state <> 'closed'::text);
 
 ALTER TABLE public.t_sent_messages ENABLE ROW LEVEL SECURITY;
 
+-- ---------------------------------------------------------------------------------------------
+-- function t_order_card_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_order_number text, p_order_type text, p_rest_ref text, p_card_status text) -> jsonb
+--   Record a sent card copy, take OLDER copies in that chat for deletion, and re-check the order's status.
+--   Data: writes t_sent_messages; calls t_order_card_row(), t_order_card_status().
+-- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 6. t_order_card_sent(...): record a copy that was just sent and take this chat's OLDER copies of the order.
 --    One transaction. Returns jsonb {previous:[{id, tcid, message_id}], order_status} where order_status is the
@@ -119,6 +175,11 @@ $$;
 REVOKE ALL ON FUNCTION public.t_order_card_sent (text, bigint, bigint, bigint, text, text, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
+-- function t_order_card_mark(p_id bigint, p_outcome text, p_card_status text, p_close boolean) -> void
+--   Record the outcome of an edit or delete on a ledger row (generic: cards and receipts).
+--   Data: writes t_sent_messages.
+-- ---------------------------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------------------------
 -- 9. t_order_card_mark(id, outcome, card_status, close): record what happened to a claimed copy.
 --    outcome: 'edited' | 'deleted' | 'gone'. 'deleted' and 'gone' always close the row. 'edited' without
 --    close returns the copy to 'live' showing p_card_status. Only a 'taken' row changes (idempotent).
@@ -162,3 +223,13 @@ END
 $$;
 
 REVOKE ALL ON FUNCTION public.t_order_card_mark (bigint, text, text, boolean) FROM PUBLIC, anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON TABLE public.t_sent_messages IS 'One row per Telegram message copy: bot, chat, message id, owner, subject, kind, card status and state.';
+
+COMMENT ON FUNCTION public.t_order_card_sent (p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_order_number text, p_order_type text, p_rest_ref text, p_card_status text) IS 'Record a sent card copy, take OLDER copies in that chat for deletion, and re-check the order''s status.';
+
+COMMENT ON FUNCTION public.t_order_card_mark (p_id bigint, p_outcome text, p_card_status text, p_close boolean) IS 'Record the outcome of an edit or delete on a ledger row (generic: cards and receipts).';

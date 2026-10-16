@@ -1,5 +1,74 @@
--- See also (paths under ordelo_datamodels/): takeaway_summary also carries ready_at and ready_by: added and explained in restaurant_admin/restaurant_ready_adjust_notices.sql. Accept/decline: restaurant_admin/restaurant_order_decision.sql.
--- Takeaway summary table and restaurant-confirmation webhook trigger.
+-- =============================================================================================
+-- ordelo_datamodels/takeaway/takeaway_summary.sql
+-- One row per takeaway (collection) order: restaurant, customer, confirmation state, pickup time and Ready state.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       table  takeaway_summary
+--                   The takeaway order as the restaurant sees it: customer, restaurant decision, pickup time and Ready state.
+--               fn     takeaway_restaurant_updates_whook() -> trigger
+--                   Trigger function: POST the order, restaurant, food_order and items to /takeaway-hooks/restaurant-confirmation-request (errors logged, never raised).
+--               trg    trigger_takeaway_restaurant_updates on takeaway_summary -> takeaway_restaurant_updates_whook()
+--                   AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout).
+--               fn     takeaway_pickup_time_whook() -> trigger
+--                   Trigger function: POST the order to /takeaway-hooks/pickup-time-updated so the customer is told when to collect.
+--               trg    trigger_takeaway_pickup_time_set on takeaway_summary -> takeaway_pickup_time_whook()
+--                   AFTER UPDATE OF pickup_time when it goes from NULL to a value.
+--               trg    trigger_takeaway_pickup_time_insert on takeaway_summary -> takeaway_pickup_time_whook()
+--                   AFTER INSERT when the row already has a pickup_time (configured auto-accept).
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Applying the file re-creates three triggers; each POSTs to OrdeloAgent when it fires.
+-- HOW IT FITS   Takeaway (collection) order journey (takeaway_summary.status):
+--                 1 create   /takeaway-hooks/init-takeaway-order -> init_takeaway(): 'restaurant_unconfirmed', or 'pickup_confirmed' with a
+--                            pickup time when the restaurant auto-accepts.
+--                 2 confirm  trigger_takeaway_restaurant_updates -> POST /takeaway-hooks/restaurant-confirmation-request -> admins asked.
+--                            restaurant_order_decide() / restaurant_order_set_pickup() record the decision and pickup time
+--                            ('pickup_confirmed'); process_restaurant_confirmation() (cron 10 s) times out unanswered orders.
+--                 3 notify   pickup_time first set (or set at insert) -> trigger_takeaway_pickup_time_set / _insert ->
+--                            POST /takeaway-hooks/pickup-time-updated -> customer told when to collect.
+--                 4 ready    restaurant_order_ready() (WhatsApp or Telegram Ready) sets ready_at / ready_by; customer told.
+-- LIFECYCLE     status: restaurant_unconfirmed -> pickup_confirmed -> completed ; restaurant_unconfirmed -> declined
+--               restaurant_confirmation_status: restaurant_unconfirmed -> restaurant_accept | restaurant_decline | restaurant_timedout | auto_accept
+-- CALLED BY     takeaway_summary:
+--                 sql       init_takeaway(), job_payment_init_reconciler(), job_t_order_alerts()
+--                           process_restaurant_confirmation(), restaurant_order_decide(), restaurant_order_ready()
+--                           restaurant_order_set_pickup(), t_order_card_row(), t_order_decide(), t_order_ready()
+--                           t_order_set_pickup(), t_receipt_snapshot(), t_receipt_status()
+--                           test_reset_takeaway_order(), v_admin_orders
+--                 python    utils_common/order_management/restaurant_actions.py (module-level SQL)
+--                 python    utils_common/order_management/restaurant_decision.py (module-level SQL)
+--                 python    utils_common/web_ordering/customer_order_view.py: get_view()
+--                 python    watomation/routers/takeaway_hooks.py: TakeawaySummaryData(), _handle_restaurant_decline(), _handle_restaurant_timedout(), _post_pickup_time_event(), pickup_time_updated_hook()
+--                 r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/order_management/takeaway_pymodels.py
+--               takeaway_restaurant_updates_whook:
+--                 trigger   trigger_takeaway_restaurant_updates on takeaway_summary
+--               takeaway_pickup_time_whook:
+--                 trigger   trigger_takeaway_pickup_time_insert on takeaway_summary
+--                 trigger   trigger_takeaway_pickup_time_set on takeaway_summary
+-- PYTHON MODEL  none
+-- SECURITY      takeaway_summary: RLS OFF; Supabase default grants (anon and authenticated can read and write)
+--               takeaway_restaurant_updates_whook(): executable by PUBLIC (default)
+--               takeaway_pickup_time_whook(): executable by PUBLIC (default)
+-- TESTS         tests/ordelo_datamodels/test_auto_accept_sql.py
+--               tests/regressions/test_p7_takeaway.py
+--               tests/sql/test_restaurant_notices_script_sql.py
+--               tests/sql/test_restaurant_ready_adjust_notices_sql.py
+--               tests/test_sql_returning_star.py
+--               tests/utils_common/web_ordering/test_web_contract.py
+--               tests/watomation/routers/test_takeaway_hooks.py
+-- GOTCHAS       Nothing sets status 'completed' for takeaway yet (restaurant_admin/restaurant_ready_adjust_notices.sql NOT YET DONE).
+--               Webhook triggers swallow errors (RAISE WARNING); check debug_log when a prompt is missing.
+-- SEE ALSO      takeaway/init_takeaway.sql
+--               restaurant_admin/restaurant_order_decision.sql
+--               docs/takeaway_flow.md
+--               docs/pickup_time_logic.md
+-- =============================================================================================
+
+-- ---------------------------------------------------------------------------------------------
+-- table takeaway_summary
+--   The takeaway order as the restaurant sees it: customer, restaurant decision, pickup time and Ready state.
+-- ---------------------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.takeaway_summary (
     order_number character varying(100) NOT NULL,
     rest_id character varying(12) NOT NULL,
@@ -22,26 +91,25 @@ CREATE TABLE IF NOT EXISTS public.takeaway_summary (
     rest_ref character varying(20) GENERATED ALWAYS AS (split_part((order_number)::text, '-'::text, 1)) STORED,
     dt date NOT NULL DEFAULT CURRENT_DATE,
     dtts timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ready_at timestamp with time zone, -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
-    ready_by text, -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    ready_at timestamp with time zone, -- used by restaurant_admin/restaurant_ready_adjust_notices.sql
+    ready_by text, -- used by restaurant_admin/restaurant_ready_adjust_notices.sql
     CONSTRAINT takeaway_summary_pkey PRIMARY KEY (order_number),
     CONSTRAINT takeaway_summary_restaurant_confirmation_status_check CHECK (((restaurant_confirmation_status)::text = ANY ((ARRAY['restaurant_unconfirmed'::character varying, 'restaurant_accept'::character varying, 'restaurant_decline'::character varying, 'restaurant_timedout'::character varying, 'auto_accept'::character varying, 'auto_decline'::character varying])::text[]))),
     CONSTRAINT takeaway_summary_status_check CHECK (((status)::text = ANY ((ARRAY['restaurant_unconfirmed'::character varying, 'pickup_confirmed'::character varying, 'declined'::character varying, 'completed'::character varying])::text[])))
 );
 
+-- Admin dashboard: London-local day filter.
 CREATE INDEX IF NOT EXISTS idx_takeaway_summary_admin_day_local ON public.takeaway_summary USING btree (rest_ref, (((COALESCE(pickup_time, dtts) AT TIME ZONE 'Europe/London'::text))::date));
 
--- Same pair for takeaway_summary.
+-- Admin dashboard (admin_dashboard/v_admin_orders.sql): keyset pagination per restaurant.
 CREATE INDEX IF NOT EXISTS idx_takeaway_summary_admin_keyset ON public.takeaway_summary USING btree (rest_ref, COALESCE(pickup_time, dtts) DESC, order_number DESC);
 
-/** description: takeaway_restaurant_updates_whook
- *  purpose: Sends a webhook request to the Ordelo app for takeaway restaurant confirmation workflow events
- *  parameters:
- *    - NEW: The new/updated takeaway_summary record
- *    - OLD: The old takeaway_summary record (for UPDATE operations)
- *  returns:
- *    - TRIGGER: The trigger object
- */
+-- ---------------------------------------------------------------------------------------------
+-- function takeaway_restaurant_updates_whook() -> trigger
+--   Trigger function: POST the order, restaurant, food_order and items to /takeaway-hooks/restaurant-confirmation-request (errors logged, never raised).
+--   Data: reads food_order, ordelo_config, order_item, restaurant_master; writes debug_log.
+--   HTTP: POST /takeaway-hooks/restaurant-confirmation-request -> watomation/routers/takeaway_hooks.py::restaurant_confirmation_flow
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION takeaway_restaurant_updates_whook ()
     RETURNS TRIGGER
     AS $$
@@ -168,6 +236,10 @@ END;
 $$
 LANGUAGE plpgsql;
 
+-- ---------------------------------------------------------------------------------------------
+-- trigger trigger_takeaway_restaurant_updates on takeaway_summary -> takeaway_restaurant_updates_whook()
+--   AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout).
+-- ---------------------------------------------------------------------------------------------
 DROP TRIGGER IF EXISTS trigger_takeaway_restaurant_updates ON public.takeaway_summary;
 
 CREATE TRIGGER trigger_takeaway_restaurant_updates
@@ -176,18 +248,12 @@ CREATE TRIGGER trigger_takeaway_restaurant_updates
     WHEN (new.restaurant_confirmation_status::text = ANY (ARRAY['restaurant_unconfirmed'::character varying, 'restaurant_accept'::character varying, 'restaurant_decline'::character varying, 'restaurant_timedout'::character varying]::text[]))
     EXECUTE FUNCTION takeaway_restaurant_updates_whook ();
 
-/** description: takeaway_pickup_time_whook
- *  purpose: Sends a webhook when pickup_time is set (NULL → non-NULL) on takeaway_summary
- *  parameters:
- *    - NEW: The updated takeaway_summary record
- *    - OLD: The previous takeaway_summary record
- *  returns:
- *    - TRIGGER: The trigger object
- *  notes:
- *    - Fires only on UPDATE when OLD.pickup_time IS NULL AND NEW.pickup_time IS NOT NULL
- *    - Builds a lightweight payload with takeaway_summary + restaurant_master
- *    - POSTs to /takeaway-hooks/pickup-time-updated
- */
+-- ---------------------------------------------------------------------------------------------
+-- function takeaway_pickup_time_whook() -> trigger
+--   Trigger function: POST the order to /takeaway-hooks/pickup-time-updated so the customer is told when to collect.
+--   Data: reads ordelo_config, restaurant_master; writes debug_log.
+--   HTTP: POST /takeaway-hooks/pickup-time-updated -> watomation/routers/takeaway_hooks.py::pickup_time_updated_hook
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION takeaway_pickup_time_whook ()
     RETURNS TRIGGER
     AS $$
@@ -276,6 +342,10 @@ END;
 $$
 LANGUAGE plpgsql;
 
+-- ---------------------------------------------------------------------------------------------
+-- trigger trigger_takeaway_pickup_time_set on takeaway_summary -> takeaway_pickup_time_whook()
+--   AFTER UPDATE OF pickup_time when it goes from NULL to a value.
+-- ---------------------------------------------------------------------------------------------
 DROP TRIGGER IF EXISTS trigger_takeaway_pickup_time_set ON public.takeaway_summary;
 
 CREATE TRIGGER trigger_takeaway_pickup_time_set
@@ -284,6 +354,10 @@ CREATE TRIGGER trigger_takeaway_pickup_time_set
     WHEN (old.pickup_time IS NULL AND new.pickup_time IS NOT NULL)
     EXECUTE FUNCTION takeaway_pickup_time_whook ();
 
+-- ---------------------------------------------------------------------------------------------
+-- trigger trigger_takeaway_pickup_time_insert on takeaway_summary -> takeaway_pickup_time_whook()
+--   AFTER INSERT when the row already has a pickup_time (configured auto-accept).
+-- ---------------------------------------------------------------------------------------------
 -- Configured auto-accept sets pickup_time during INSERT, so it needs the
 -- same pickup-finalized workflow without waiting for a follow-up UPDATE.
 DROP TRIGGER IF EXISTS trigger_takeaway_pickup_time_insert ON public.takeaway_summary;
@@ -293,3 +367,21 @@ CREATE TRIGGER trigger_takeaway_pickup_time_insert
     FOR EACH ROW
     WHEN (new.pickup_time IS NOT NULL)
     EXECUTE FUNCTION takeaway_pickup_time_whook ();
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON TABLE public.takeaway_summary IS 'The takeaway order as the restaurant sees it: customer, restaurant decision, pickup time and Ready state.';
+
+COMMENT ON FUNCTION public.takeaway_restaurant_updates_whook () IS 'Trigger function: POST the order, restaurant, food_order and items to /takeaway-hooks/restaurant-confirmation-request (errors logged, never raised).';
+
+COMMENT ON TRIGGER trigger_takeaway_restaurant_updates ON public.takeaway_summary IS 'AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout).';
+
+COMMENT ON FUNCTION public.takeaway_pickup_time_whook () IS 'Trigger function: POST the order to /takeaway-hooks/pickup-time-updated so the customer is told when to collect.';
+
+COMMENT ON TRIGGER trigger_takeaway_pickup_time_set ON public.takeaway_summary IS 'AFTER UPDATE OF pickup_time when it goes from NULL to a value.';
+
+COMMENT ON TRIGGER trigger_takeaway_pickup_time_insert ON public.takeaway_summary IS 'AFTER INSERT when the row already has a pickup_time (configured auto-accept).';
+
+COMMENT ON COLUMN public.takeaway_summary.status IS 'restaurant_unconfirmed | pickup_confirmed | declined | completed';

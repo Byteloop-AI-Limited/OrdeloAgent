@@ -1,3 +1,49 @@
+-- =============================================================================================
+-- ordelo_datamodels/agent_threads/job_terminate_stale_active_threads.sql
+-- Every minute: per restaurant, find idle agent threads and ask restaurant-agents to terminate them.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     job_terminate_stale_active_threads_new() -> jsonb
+--                   Batch idle threads per restaurant and POST them to restaurant-agents for termination; returns a jsonb report.
+--               fn     job_terminate_stale_active_threads() -> boolean
+--                   Old version (cron inactive): POST stale threads to OrdeloAgent /thread-hooks/terminate-stale-active-threads.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each run POSTs to restaurant-agents once per restaurant with stale threads.
+-- HOW IT FITS   Agent threads (the LangGraph conversation per WhatsApp user and agent):
+--                 thread (owned by restaurant-agents) maps (recipient, agent) to a LangGraph thread_id; the checkpoint tables are
+--                 written by LangGraph's AsyncPostgresSaver. OrdeloAgent reads the latest state for debugging and closes idle threads:
+--                   job_close_thread()                       idle OrdeloAgent threads -> POST /delivery-hooks/close-threads
+--                   job_terminate_stale_active_threads_new() idle restaurant threads  -> POST <REST>_APP_URL/thread-hooks/<rest>/terminate-stale-active-threads
+--                                                            (restaurant-agents), per restaurant, every minute
+--                   get_latest_state(_by_thread)()           read a thread's latest checkpoint as JSON (debug endpoints, rider agent)
+--                 job_terminate_stale_active_threads_new(): for each restaurant, active threads idle longer than
+--                 restaurant_master.rest_stale_active_threads_minutes (no retained checkpoint) are batched and POSTed to the
+--                 restaurant's <REST>_APP_URL + /thread-hooks/<rest>/terminate-stale-active-threads; returns a jsonb report
+--                 (counts, HTTP successes/failures, restaurants with no URL).
+-- LIFECYCLE     none
+-- CALLED BY     job_terminate_stale_active_threads_new:
+--                 cron      'jobTerminateStaleActiveThreadsNew' * * * * *
+--               job_terminate_stale_active_threads:
+--                 cron      'job_terminate_stale_active_threads' */3 * * * * (INACTIVE)
+-- PYTHON MODEL  none
+-- SECURITY      job_terminate_stale_active_threads_new(): executable by PUBLIC (default)
+--               job_terminate_stale_active_threads(): executable by PUBLIC (default)
+-- TESTS         tests/ordelo_datamodels/test_stale_thread_job_sql.py
+-- GOTCHAS       Two versions are live: job_terminate_stale_active_threads() (old, OrdeloAgent /thread-hooks, cron INACTIVE) and
+--                 job_terminate_stale_active_threads_new() (active). Only the new one is used.
+--               The index from migrations/add_stale_thread_dispatch_index.sql was never created (docs/to-do.md).
+-- SEE ALSO      agent_threads/job_close_thread.sql
+--               restaurant-agents thread_hooks.py
+-- =============================================================================================
+
+-- ---------------------------------------------------------------------------------------------
+-- function job_terminate_stale_active_threads_new() -> jsonb
+--   Batch idle threads per restaurant and POST them to restaurant-agents for termination; returns a jsonb report.
+--   Data: reads checkpoints, ordelo_config, restaurant_master, thread.
+--   HTTP: POST /terminate-stale-active-threads -> restaurant-agents (per-restaurant <REST>_APP_URL); POST /thread-hooks/
+-- ---------------------------------------------------------------------------------------------
 /*
 Direct stale-thread termination dispatcher.
 
@@ -183,7 +229,12 @@ END;
 
 $$;
 
--- Definition taken from the live database on 2026-10-16 (no repo copy existed).
+-- ---------------------------------------------------------------------------------------------
+-- function job_terminate_stale_active_threads() -> boolean
+--   Old version (cron inactive): POST stale threads to OrdeloAgent /thread-hooks/terminate-stale-active-threads.
+--   Data: reads ordelo_config.
+--   HTTP: POST /thread-hooks/terminate-stale-active-threads -> restaurant-agents (per-restaurant <REST>_APP_URL)
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.job_terminate_stale_active_threads ()
     RETURNS boolean
     LANGUAGE plpgsql
@@ -218,7 +269,8 @@ BEGIN
 END;
 $function$;
 
--- pg_cron job 'job_terminate_stale_active_threads' (live schedule: */3 * * * *, INACTIVE). cron.schedule() updates the job in place when the name already exists.
+-- pg_cron job 'job_terminate_stale_active_threads': runs every */3 * * * *, INACTIVE (re-disabled by the next statement) on live.
+-- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('job_terminate_stale_active_threads', '*/3 * * * *', 'SELECT public.job_terminate_stale_active_threads()');
 
@@ -229,9 +281,18 @@ FROM
 WHERE
     jobname = 'job_terminate_stale_active_threads';
 
--- pg_cron job 'jobTerminateStaleActiveThreadsNew' (live schedule: * * * * *, active). cron.schedule() updates the job in place when the name already exists.
+-- pg_cron job 'jobTerminateStaleActiveThreadsNew': runs every * * * * *, active on live.
+-- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('jobTerminateStaleActiveThreadsNew', '* * * * *', 'SELECT job_terminate_stale_active_threads_new();');
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.job_terminate_stale_active_threads_new () IS 'Batch idle threads per restaurant and POST them to restaurant-agents for termination; returns a jsonb report.';
+
+COMMENT ON FUNCTION public.job_terminate_stale_active_threads () IS 'Old version (cron inactive): POST stale threads to OrdeloAgent /thread-hooks/terminate-stale-active-threads.';
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

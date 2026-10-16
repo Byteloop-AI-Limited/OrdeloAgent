@@ -1,14 +1,41 @@
--- See also (paths under ordelo_datamodels/): keep the RETURNING list in step with the RETURNS TABLE list (never RETURNING *: see restaurant_admin/restaurant_ready_adjust_notices.sql).
-/**
-Takeaway Initiation – Entry Point in Takeaway Confirmation Workflow
+-- =============================================================================================
+-- ordelo_datamodels/takeaway/init_takeaway.sql
+-- Create the takeaway_summary row for a paid collection order.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     init_takeaway(p_cust_id character varying, p_order_number character varying, p_rest_ref character varying) -> TABLE(order_number character varying, rest_id character varying, rest_name text, rest_address text, town character varying, customer_id character varying, customer_name text, restaurant_confirmation_status character varying, restaurant_update_dtts timestamp with time zone, restaurant_admin character varying, status character varying, rest_confirmation_code integer, rest_prep_time_minutes integer, rest_confirmation_method character varying, restaurant_msg_id character varying, customer_msg_id character varying, pickup_time timestamp with time zone, pickup_date date, rest_ref character varying, dt date, dtts timestamp with time zone)
+--                   Create the takeaway_summary row for an order and return it.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each call inserts one takeaway_summary row (fires the restaurant prompt trigger, and the pickup-time trigger when auto-accepted).
+-- HOW IT FITS   Takeaway (collection) order journey (takeaway_summary.status):
+--                 1 create   /takeaway-hooks/init-takeaway-order -> init_takeaway(): 'restaurant_unconfirmed', or 'pickup_confirmed' with a
+--                            pickup time when the restaurant auto-accepts.
+--                 2 confirm  trigger_takeaway_restaurant_updates -> POST /takeaway-hooks/restaurant-confirmation-request -> admins asked.
+--                            restaurant_order_decide() / restaurant_order_set_pickup() record the decision and pickup time
+--                            ('pickup_confirmed'); process_restaurant_confirmation() (cron 10 s) times out unanswered orders.
+--                 3 notify   pickup_time first set (or set at insert) -> trigger_takeaway_pickup_time_set / _insert ->
+--                            POST /takeaway-hooks/pickup-time-updated -> customer told when to collect.
+--                 4 ready    restaurant_order_ready() (WhatsApp or Telegram Ready) sets ready_at / ready_by; customer told.
+-- LIFECYCLE     'restaurant_unconfirmed', or 'pickup_confirmed' + pickup_time + 'configured_auto' when the restaurant auto-accepts.
+-- CALLED BY     init_takeaway:
+--                 python    watomation/routers/takeaway_hooks.py: init_takeaway_summary()
+-- PYTHON MODEL  none
+-- SECURITY      init_takeaway(): executable by PUBLIC (default)
+-- TESTS         tests/test_sql_returning_star.py
+-- GOTCHAS       RETURNING lists the columns: never RETURNING * (SQLSTATE 42804 once the table gains a column).
+-- SEE ALSO      takeaway/takeaway_summary.sql
+--               restaurant_admin/resolve_initial_restaurant_acceptance.sql
+-- =============================================================================================
 
-Purpose:
-    - Initialize takeaway confirmation details by creating a record in `takeaway_summary`.
-    - Generate restaurant confirmation code.
-
-Invocation:
-    - Called from app hooks to initiate takeaway confirmation workflow.
-**/
+-- ---------------------------------------------------------------------------------------------
+-- function init_takeaway(p_cust_id character varying, p_order_number character varying, p_rest_ref character varying) -> TABLE(order_number character varying, rest_id character varying, rest_name text, rest_address text, town character varying, customer_id character varying, customer_name text, restaurant_confirmation_status character varying, restaurant_update_dtts timestamp with time zone, restaurant_admin character varying, status character varying, rest_confirmation_code integer, rest_prep_time_minutes integer, rest_confirmation_method character varying, restaurant_msg_id character varying, customer_msg_id character varying, pickup_time timestamp with time zone, pickup_date date, rest_ref character varying, dt date, dtts timestamp with time zone)
+--   Create the takeaway_summary row for an order and return it.
+--   Reads restaurant_master, customer_master and the CONFIRMATION_CODE_SALT; asks resolve_initial_restaurant_acceptance()
+--   whether to auto-accept. Called by /takeaway-hooks/init-takeaway-order (takeaway_hooks.py).
+--   Data: reads customer_master, ordelo_config, restaurant_master; writes takeaway_summary; calls resolve_initial_restaurant_acceptance().
+-- ---------------------------------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.init_takeaway;
 
 CREATE OR REPLACE FUNCTION public.init_takeaway (p_cust_id varchar, p_order_number varchar, p_rest_ref varchar DEFAULT NULL)
@@ -128,3 +155,9 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.init_takeaway (p_cust_id character varying, p_order_number character varying, p_rest_ref character varying) IS 'Create the takeaway_summary row for an order and return it.';

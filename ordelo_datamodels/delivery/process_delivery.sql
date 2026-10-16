@@ -1,35 +1,55 @@
-/**
-Delivery Detail Management – Step 2 in Delivery Workflow
-IMP - Below had to be set at db level to avoid failures
-SET http.timeout TO '15s';
-Where This Fits in the Journey:
-    - This function is the second step in the delivery agent workflow, as outlined in handwritten_design.md.
-    - Step 1: init_delivery – Creates delivery_summary and calls process_delivery().
-    - Step 2: process_delivery – Creates delivery_detail records for each vehicle type, manages assignment, timeouts, and triggers further workflow.
-    - Step 3+: Downstream jobs (e.g., job_create_dispatch) and triggers handle dispatch creation, assignment, inflight tracking, and notifications.
+-- =============================================================================================
+-- ordelo_datamodels/delivery/process_delivery.sql
+-- Every 5 seconds: add delivery_detail rows (vehicle-type options) for dispatchable orders and time out orders with no rider.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     process_delivery() -> TABLE(action text)
+--                   Advance every unassigned delivery: open the next vehicle-type option or time the order out; returns what it changed.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each run inserts delivery_detail rows and may set delivery_summary.status = 'timedout' (fires the timed-out webhook).
+-- HOW IT FITS   Delivery order journey (statuses in delivery_summary.status unless noted):
+--                 1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:
+--                            'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.
+--                 2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked
+--                            (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /
+--                            decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.
+--                            process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then
+--                            sets a default pickup time and 'unassigned'.
+--                 3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,
+--                            and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).
+--                 4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders
+--                            (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).
+--                 5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first
+--                            acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row
+--                            (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).
+--                 6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,
+--                            dispatch_complete_func() marks everything 'completed' and removes the inflight row.
+--                 Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.
+-- LIFECYCLE     For each delivery_summary in 'unassigned': if no delivery_detail is open, insert one for the next vehicle type by
+--               delivery_option.rank (starting with rank 1). When every ranked vehicle type is 'vehicle_type_timedout' and the order is
+--               older than <REST>_DELIVERY_TIMEOUT_TIME (else DELIVERY_TIMEOUT_TIME, else 10 minutes), set the summary to 'timedout'.
+-- CALLED BY     process_delivery:
+--                 cron      'process_delivery' 5 seconds
+--                 sql       handle_restaurant_confirmation() (_orphans/restaurant_admin.sql)
+-- PYTHON MODEL  none
+-- SECURITY      process_delivery(): executable by PUBLIC (default)
+-- TESTS         none
+-- GOTCHAS       The cron job is called 'process_delivery' (older docs call it 'manage_delivery_detail').
+--               Comments in older versions: 'SET http.timeout TO 15s' had to be set at database level to avoid failures.
+-- SEE ALSO      delivery/delivery_detail.sql
+--               delivery/delivery_option.sql
+--               dispatch/job_create_dispatch.sql
+--               docs/delivery_process.md
+-- =============================================================================================
 
-Invocation:
-    - Scheduled via pg_cron job manage_delivery_detail() every 5 seconds, or called eagerly by init_delivery().
-
-Purpose:
-    - Manage assignment and timeout of `delivery_detail` records per order.
-    - Prioritize vehicle types based on rank from `delivery_option`.
-    - Insert next eligible `delivery_detail` when timeouts occur.
-    - Mark orders as `timedout` in `delivery_summary` when all vehicle types have timed out and the time delta exceeds DELIVERY_TIMEOUT_TIME (from ordelo_config).
-    - DELIVERY_TIMEOUT_TIME is obtained from ordelo_config with config_key = 'delivery_timeout_TIME'.
-    - The status for this table is updated to `vehicle_type_timedout` by downstream jobs.
-
-Dependencies:
-    - Reads from: `delivery_summary`, `delivery_detail`, `delivery_option`, `ordelo_config`.
-    - Writes to: `delivery_detail`, `delivery_summary`.
-
-Side Effects:
-    1. Insert new `delivery_detail` rows.
-    2. Update `delivery_summary` statuses.
-    3. Triggers downstream workflow (e.g., dispatch creation, notifications).
-
-See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
-**/
+-- ---------------------------------------------------------------------------------------------
+-- function process_delivery() -> TABLE(action text)
+--   Advance every unassigned delivery: open the next vehicle-type option or time the order out; returns what it changed.
+--   Reads delivery_summary, delivery_detail, delivery_option and ordelo_config; writes delivery_detail and delivery_summary.
+--   Data: reads delivery_option, ordelo_config; writes delivery_detail, delivery_summary.
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION process_delivery ()
     RETURNS TABLE (
         action text)
@@ -150,9 +170,16 @@ FROM
 END;
 $$;
 
--- pg_cron job 'process_delivery' (live schedule: 5 seconds, active). cron.schedule() updates the job in place when the name already exists.
+-- pg_cron job 'process_delivery': runs every 5 seconds, active on live.
+-- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('process_delivery', '5 seconds', 'SELECT public.process_delivery()');
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.process_delivery () IS 'Advance every unassigned delivery: open the next vehicle-type option or time the order out; returns what it changed.';
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

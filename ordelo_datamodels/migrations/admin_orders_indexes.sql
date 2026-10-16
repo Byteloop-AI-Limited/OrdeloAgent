@@ -1,3 +1,12 @@
+-- MIGRATION (history; do not edit the statements below)
+-- Applied to live: Applied: every object it creates exists live (checked 2026-10-16).
+-- Current definitions now live in: delivery/delivery_summary.sql
+--               ordering/food_order_additions.sql
+--               restaurant-agents (order_item)
+--               takeaway/takeaway_summary.sql
+-- Purpose: Keyset / local-day indexes for the admin dashboard.
+-- The feature files above are the current truth; this file only records the one-off change.
+
 -- Admin dashboard indexes
 -- Apply these before admin_orders_views.sql.
 -- In production, replace CREATE INDEX with CREATE INDEX CONCURRENTLY and run
