@@ -1,6 +1,6 @@
 # Plan: organise and document `ordelo_datamodels/` SQL
 
-Status: **agreed in a grilling session on 16 Oct 2026, not started.** Execution waits for the owner's go-ahead.
+Status: **Gate 1 approved 16 Oct 2026; in progress.** Research and gate decisions: [`ordelo-database-gate1-review.md`](ordelo-database-gate1-review.md). Production findings: [`docs/to-do.md`](../docs/to-do.md).
 Repo: OrdeloAgent. Branch to create: `chore/db-organisation` (from `dev`, after committing the earlier five-file move).
 
 ## 1. Why
@@ -100,9 +100,9 @@ ordelo_datamodels/
   own file, named after the function, in the capability folder of the flow they start.
 - Every `pg_cron` job is a `job_*.sql` file, or sits in the file of the function it runs, with its
   `cron.schedule` statement and the live schedule.
-- **Live functions with no caller found** (for example `handle_restaurant_confirmation` and
-  `init_delivery_detail`, both live although their files say `_tbd`) keep their file in their capability folder
-  with `LIVE CHECK: orphan candidate (no callers found)`. Nothing is dropped.
+- **Live objects with no caller found** (for example `handle_restaurant_confirmation` and `init_delivery_detail`,
+  both live although their files say `_tbd`) are captured from live into `_orphans/<area>.sql` (Gate 1 decision D1).
+  Nothing is dropped.
 
 ## 4. Documentation standard
 
