@@ -282,6 +282,8 @@ Source references: [`fapp_ordelo_agent.py`](../watomation/fapp_ordelo_agent.py),
 
 ## Reusable order-testing skill and configuration SQL
 
+For restaurant-admin journeys (order card, kitchen receipt, Ready / +10 / +20, rider alerts, notices) use the fake-row script described in [live-order-test-harness.md](live-order-test-harness.md).
+
 Invoke `$ordelo-local-automatic-orders` for browser/Swagger order tests with
 database and Stripe test evidence. The repository source is
 [Ordelo Local Automatic Orders](../.claude/skills/ordelo-local-automatic-orders/SKILL.md).

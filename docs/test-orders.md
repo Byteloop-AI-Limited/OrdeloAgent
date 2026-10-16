@@ -1,5 +1,7 @@
 # TEST3100 test orders
 
+End-to-end walk-through with fake STRK orders on WhatsApp and Telegram: [live-order-test-harness.md](live-order-test-harness.md).
+
 Implemented in source on 9 October 2026. The owner has run the routing migration. Its revised version removes the unnecessary historical checks and global payment-mode protection artifacts. Service restart/deployment status is separate from database installation.
 
 ## Rule
