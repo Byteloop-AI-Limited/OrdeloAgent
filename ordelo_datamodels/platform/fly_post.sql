@@ -10,6 +10,7 @@
 --   SELECT extnamespace::regnamespace FROM pg_extension WHERE extname = 'http';
 -- ============================================================
 DROP FUNCTION IF EXISTS fly_post(text, text);
+
 CREATE OR REPLACE FUNCTION fly_post(
     p_app_name text,
     p_action   text
@@ -57,10 +58,13 @@ BEGIN
 END;
 $$;
 
+-- NOT APPLIED LIVE (2026-10-16): this REVOKE is the intended access rule, but the live function is still
+-- executable by PUBLIC/anon/authenticated. Tracked in docs/to-do.md. Kept commented so this file matches live.
 -- CRITICAL: a SECURITY DEFINER function in public is auto-exposed as a PostgREST RPC
 -- and EXECUTE defaults to PUBLIC (anon/authenticated). Without this, anyone with the
 -- anon key could stop prod, and the table RLS would NOT help (function reads as owner).
-REVOKE EXECUTE ON FUNCTION fly_post(text, text) FROM public, anon, authenticated;
+-- REVOKE EXECUTE ON FUNCTION fly_post(text, text) FROM public, anon, authenticated;
+
 GRANT  EXECUTE ON FUNCTION fly_post(text, text) TO service_role;
 
 -- -- Usage:

@@ -30,6 +30,7 @@ Functions:
 
 -- %% Latest state for a known thread_id
 DROP FUNCTION IF EXISTS get_latest_state_by_thread(TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION get_latest_state_by_thread(
     p_thread_id TEXT,
     p_state_key TEXT DEFAULT NULL
@@ -110,9 +111,9 @@ BEGIN
 END;
 $$;
 
-
 -- %% Latest state for the active thread of a (recipient, agent) pair
 DROP FUNCTION IF EXISTS get_latest_state(VARCHAR, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION get_latest_state(
     p_recipient VARCHAR,
     p_agent TEXT DEFAULT NULL,
@@ -171,6 +172,9 @@ BEGIN
 END;
 $$;
 
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
 
 -- Usage:
 -- Full state envelope for the rider's active thread
@@ -194,55 +198,57 @@ $$;
 ----------------------------- DEBUG QUERY -----------------------------
 
 -- 1. Every active thread with its resolvable state, to see who has no checkpoint yet.
-SELECT
-    t.thread_id,
-    t.agent,
-    t.recipient,
-    t.last_access_dtts,
-    gs.state_env IS NOT NULL AS has_root_checkpoint,
-    gs.state_env ->> 'checkpoint_id' AS checkpoint_id,
-    gs.state_env ->> 'checkpoint_ts' AS checkpoint_ts,
-    t.retain_thread AS retain_thread,  -- thread column, not an AgentState channel; see header
-    jsonb_pretty(gs.state_env -> 'state') AS inline_state,
-    gs.state_env -> 'blob_channels' AS blob_channels
-FROM public.thread AS t
-LEFT JOIN LATERAL get_latest_state_by_thread(t.thread_id) AS gs(state_env) ON TRUE
-WHERE t.is_active IS TRUE
-ORDER BY t.last_access_dtts DESC;
+-- SELECT
+--     t.thread_id,
+--     t.agent,
+--     t.recipient,
+--     t.last_access_dtts,
+--     gs.state_env IS NOT NULL AS has_root_checkpoint,
+--     gs.state_env ->> 'checkpoint_id' AS checkpoint_id,
+--     gs.state_env ->> 'checkpoint_ts' AS checkpoint_ts,
+--     t.retain_thread AS retain_thread,  -- thread column, not an AgentState channel; see header
+--     jsonb_pretty(gs.state_env -> 'state') AS inline_state,
+--     gs.state_env -> 'blob_channels' AS blob_channels
+-- FROM public.thread AS t
+-- LEFT JOIN LATERAL get_latest_state_by_thread(t.thread_id) AS gs(state_env) ON TRUE
+-- WHERE t.is_active IS TRUE
+-- ORDER BY t.last_access_dtts DESC;
 
 -- 2. Which state keys are SQL-readable (inline) vs msgpack-only, for one thread.
-WITH latest AS (
-    SELECT get_latest_state_by_thread(
-        'ELAS-6e9d53c8-d17c-4015-899e-1d446fdd05f9'  -- replace with the thread_id to inspect
-    ) AS state_env
-)
-SELECT
-    'inline' AS storage,
-    kv.key AS channel,
-    kv.value AS value
-FROM latest
-CROSS JOIN jsonb_each(latest.state_env -> 'state') AS kv
-UNION ALL
-SELECT
-    'blob' AS storage,
-    bc.value ->> 'channel' AS channel,
-    bc.value - 'channel' AS value
-FROM latest
-CROSS JOIN jsonb_array_elements(latest.state_env -> 'blob_channels') AS bc
-ORDER BY storage, channel;
+-- WITH latest AS (
+--     SELECT get_latest_state_by_thread(
+--         'ELAS-6e9d53c8-d17c-4015-899e-1d446fdd05f9'  -- replace with the thread_id to inspect
+--     ) AS state_env
+-- )
+-- SELECT
+--     'inline' AS storage,
+--     kv.key AS channel,
+--     kv.value AS value
+-- FROM latest
+-- CROSS JOIN jsonb_each(latest.state_env -> 'state') AS kv
+-- UNION ALL
+-- SELECT
+--     'blob' AS storage,
+--     bc.value ->> 'channel' AS channel,
+--     bc.value - 'channel' AS value
+-- FROM latest
+-- CROSS JOIN jsonb_array_elements(latest.state_env -> 'blob_channels') AS bc
+-- ORDER BY storage, channel;
 
 -- 3. Confirm both functions are deployed with the expected signatures.
-SELECT
-    p.oid::regprocedure::text AS function_signature,
-    pg_get_function_result(p.oid) AS return_type,
-    p.provolatile AS volatility
-FROM pg_proc AS p
-JOIN pg_namespace AS n
-  ON n.oid = p.pronamespace
-WHERE n.nspname = 'public'
-  AND p.proname IN ('get_latest_state', 'get_latest_state_by_thread')
-ORDER BY p.proname;
+-- SELECT
+--     p.oid::regprocedure::text AS function_signature,
+--     pg_get_function_result(p.oid) AS return_type,
+--     p.provolatile AS volatility
+-- FROM pg_proc AS p
+-- JOIN pg_namespace AS n
+--   ON n.oid = p.pronamespace
+-- WHERE n.nspname = 'public'
+--   AND p.proname IN ('get_latest_state', 'get_latest_state_by_thread')
+-- ORDER BY p.proname;
+
 ----------------------------- END DEBUG QUERY -----------------------------
 ----------------------------- TEST QUERY -----------------------------
-select * from get_latest_state_by_thread('ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d');
-select * from get_latest_state('447448440754', 'ORDELO');
+-- select * from get_latest_state_by_thread('ELAS-c8ce70f0-83a5-420c-ab9d-268c8060f11d');
+
+-- select * from get_latest_state('447448440754', 'ORDELO');

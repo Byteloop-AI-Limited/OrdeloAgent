@@ -58,8 +58,8 @@ Deployment note:
 ----------------------------------------
 -- get_rider_payout_report - completed dispatches with payee details
 ----------------------------------------
-
 DROP FUNCTION IF EXISTS get_rider_payout_report(DATE, DATE, TEXT[]);
+
 CREATE OR REPLACE FUNCTION get_rider_payout_report(
     p_start          DATE,
     p_end            DATE,

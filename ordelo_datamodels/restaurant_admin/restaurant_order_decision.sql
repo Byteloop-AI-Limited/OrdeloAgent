@@ -61,9 +61,7 @@
 -- 1. R1-a: delivery orders can be terminally declined. (takeaway_summary already allows 'declined'.)
 --    The constraint name was verified on the live database on 15 Oct 2026.
 -- ---------------------------------------------------------------------------------------------
-ALTER TABLE public.delivery_summary DROP CONSTRAINT IF EXISTS delivery_summary_status_check;
-ALTER TABLE public.delivery_summary ADD CONSTRAINT delivery_summary_status_check
-    CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed', 'declined'));
+-- (The statement that followed this comment is now generated from live in delivery/delivery_summary.sql.)
 
 -- ---------------------------------------------------------------------------------------------
 -- 2. restaurant_admin_label(phone): the "by X" text (D19).
@@ -82,6 +80,9 @@ RETURNS text LANGUAGE sql STABLE SET search_path = public AS $$
           LIMIT 1),
         CASE WHEN coalesce(p_phone, '') = '' THEN NULL ELSE '…' || right(p_phone, 4) END)
 $$;
+
+-- Server-only objects: nobody but the service key may call them.
+REVOKE ALL ON FUNCTION public.restaurant_admin_label(text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 3. restaurant_order_decide(order_number, order_type, decision, admin_phone, channel)
@@ -152,6 +153,8 @@ BEGIN
         'pickup_time', v_cur.pickup_time);
 END $$;
 
+REVOKE ALL ON FUNCTION public.restaurant_order_decide(text, text, text, text, text) FROM PUBLIC, anon, authenticated;
+
 -- ---------------------------------------------------------------------------------------------
 -- 4. restaurant_order_set_pickup(order_number, order_type, pickup_time, admin_phone, channel)
 --    Same conditions and writes as the WhatsApp handler used (handle_pickup_time_selection): only an
@@ -218,6 +221,8 @@ BEGIN
         'decided_by_phone', v_cur.admin);
 END $$;
 
+REVOKE ALL ON FUNCTION public.restaurant_order_set_pickup(text, text, timestamptz, text, text) FROM PUBLIC, anon, authenticated;
+
 -- ---------------------------------------------------------------------------------------------
 -- 5. Telegram authorisation (D14, D25, D27). The actor is the Telegram USER (tuid = from_user.id), never the
 --    chat: a button in a group chat is authorised exactly like one in a private chat.
@@ -239,6 +244,8 @@ RETURNS text LANGUAGE sql STABLE SET search_path = public AS $$
      ORDER BY i.claimed_at DESC NULLS LAST
      LIMIT 1
 $$;
+
+REVOKE ALL ON FUNCTION public.t_order_admin_phone(text, bigint, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 6. t_order_decide(bot_key, tuid, order_number, order_type, decision): Telegram Accept / Decline.
@@ -267,6 +274,8 @@ BEGIN
     END IF;
     RETURN public.restaurant_order_decide(p_order_number, p_order_type, p_decision, v_phone, 'telegram');
 END $$;
+
+REVOKE ALL ON FUNCTION public.t_order_decide(text, bigint, text, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 7. t_order_set_pickup(bot_key, tuid, order_number, order_type, minutes): Telegram pickup-time button.
@@ -303,10 +312,4 @@ BEGIN
         p_order_number, p_order_type, v_dtts + make_interval(mins => p_minutes), v_phone, 'telegram');
 END $$;
 
--- Server-only objects: nobody but the service key may call them.
-REVOKE ALL ON FUNCTION public.restaurant_admin_label(text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.restaurant_order_decide(text, text, text, text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.restaurant_order_set_pickup(text, text, timestamptz, text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_order_admin_phone(text, bigint, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.t_order_decide(text, bigint, text, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.t_order_set_pickup(text, bigint, text, text, int) FROM PUBLIC, anon, authenticated;

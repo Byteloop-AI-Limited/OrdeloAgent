@@ -33,8 +33,8 @@ See also: dispatch_complete_func.sql for the completion workflow.
 ----------------------------------------
 -- cleanupDeliveryOrder - Deletes all records for an order
 ----------------------------------------
-
 DROP FUNCTION IF EXISTS cleanup_delivery_order(text);
+
 CREATE OR REPLACE FUNCTION cleanup_delivery_order(p_order_number text)
 RETURNS TEXT AS $$
 DECLARE

@@ -22,6 +22,7 @@ Functions:
     . job_awsrunner_switch
 */
 DROP FUNCTION IF EXISTS job_awsrunner_switch(TEXT);
+
 CREATE OR REPLACE FUNCTION job_awsrunner_switch(action TEXT)
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -68,6 +69,14 @@ BEGIN
     RETURN success;
 END;
 $$ LANGUAGE plpgsql;
+
+-- pg_cron job 'job_aws_runner_switch_pause' (live schedule: 0 23 * * *, INACTIVE). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('job_aws_runner_switch_pause', '0 23 * * *', $cron$SELECT job_awsrunner_switch('pause');$cron$);
+SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'job_aws_runner_switch_pause';
+
+-- pg_cron job 'job_awsrunner_switch_resume' (live schedule: 0 6 * * *, INACTIVE). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('job_awsrunner_switch_resume', '0 6 * * *', $cron$SELECT job_awsrunner_switch('resume');$cron$);
+SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'job_awsrunner_switch_resume';
 
 -- Usage:
 -- SELECT job_awsrunner_switch('resume');  -- Start both App Runner services

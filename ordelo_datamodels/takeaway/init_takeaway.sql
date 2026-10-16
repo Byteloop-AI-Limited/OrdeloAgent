@@ -9,7 +9,6 @@ Purpose:
 Invocation:
     - Called from app hooks to initiate takeaway confirmation workflow.
 **/
-
 DROP FUNCTION IF EXISTS public.init_takeaway;
 
 CREATE OR REPLACE FUNCTION public.init_takeaway(p_cust_id VARCHAR, p_order_number VARCHAR, p_rest_ref VARCHAR DEFAULT NULL)

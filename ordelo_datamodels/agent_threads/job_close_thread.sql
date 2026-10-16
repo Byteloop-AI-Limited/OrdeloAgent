@@ -1,27 +1,8 @@
-/*
-Close Thread Job – Closes inactive threads that haven't been accessed recently and are not marked for retention.
-  Scheduled Execution:
-    . Runs every 5 minutes via Supabase cron job
-    . Cron expression: '*5 * * * *'
-  Configuration:
-    . THREAD_INACTIVE_TIME_INTERVAL - Minutes of inactivity before thread closure (default: 5)
-    . ORDELO_APP_URL - Base URL for webhook calls (default: https://rider-agent.ordelo.app)
-  Logic Flow:
-    . Queries thread table for inactive threads
-    . Filters: last_access_dtts older than interval AND retain_thread = false
-    . Aggregates matching records as JSON array with thread_id, recipient, last_access_dtts, is_active, minutes_since_last_access
-    . Makes HTTP POST to /delivery-hooks/close-threads webhook endpoint
-    . Returns boolean indicating if threads were found and notified
-  Webhook Integration:
-    . Endpoint: POST /delivery-hooks/close-threads
-    . Payload: JSON array of thread records
-    . Triggers thread closure and goodbye message to recipients
-Functions:
-    . job_close_thread
-*/
-DROP FUNCTION IF EXISTS job_close_thread();
-CREATE OR REPLACE FUNCTION job_close_thread()
-RETURNS BOOLEAN AS $$
+-- Definition taken from the live database on 2026-10-16 (the previous repo copy in agent_threads/job_close_thread.sql differed).
+CREATE OR REPLACE FUNCTION public.job_close_thread()
+ RETURNS boolean
+ LANGUAGE plpgsql
+AS $function$
 DECLARE
     interval_minutes INT;
     interval_expr INTERVAL;
@@ -57,6 +38,8 @@ BEGIN
           AND CURRENT_TIMESTAMP - last_access_dtts > interval_expr
           AND retain_thread = FALSE
           AND is_active = TRUE
+          AND recipient IS NOT NULL
+          AND agent IS DISTINCT FROM 'WEB'
     )
     SELECT json_agg(
         json_build_object(
@@ -88,7 +71,7 @@ BEGIN
     END IF;
     RETURN notified;
 END;
-$$ LANGUAGE plpgsql;
+$function$;
 
 -- Usage:
 -- select job_close_thread();

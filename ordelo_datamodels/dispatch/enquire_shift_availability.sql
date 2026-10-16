@@ -66,5 +66,11 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
+-- pg_cron job 'enquire_shift_availability' (live schedule: 0 11 * * *, active). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('enquire_shift_availability', '0 11 * * *', $cron$SELECT public.enquire_shift_availability()$cron$);
 
-select enquire_shift_availability();
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
+
+-- select enquire_shift_availability();

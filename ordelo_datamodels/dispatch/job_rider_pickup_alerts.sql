@@ -99,30 +99,7 @@ file, under VERIFICATION.
 
 See also: docs/delivery_process.md, CONTEXT.md ("Pickup alert").
 **/
-
-drop table rider_pickup_alert;
--- ===========================================================================
--- 1. THE LEDGER
---    One row per checkpoint. Answers "what was sent, what is still to come".
--- ===========================================================================
-CREATE TABLE IF NOT EXISTS rider_pickup_alert (
-    dispatch_id    INTEGER      NOT NULL
-                   REFERENCES delivery_dispatch(dispatch_id) ON DELETE CASCADE,
-    phase          VARCHAR(20)  NOT NULL
-                   CHECK (phase IN ('awaiting_pickup', 'picked_up')),
-    audience       VARCHAR(20)  NOT NULL
-                   CHECK (audience IN ('rider', 'ops', 'rest_admins')),
-    offset_minutes INTEGER      NOT NULL,
-    order_number   VARCHAR(100) NOT NULL,
-    rider_id       VARCHAR(12)  NOT NULL,
-    status         VARCHAR(20)  NOT NULL DEFAULT 'pending'
-                   CHECK (status IN ('pending', 'sent', 'superseded')),
-    due_dtts       TIMESTAMP WITH TIME ZONE NOT NULL,
-    sent_dtts      TIMESTAMP WITH TIME ZONE,
-    dt             DATE NOT NULL DEFAULT CURRENT_DATE,
-    dtts           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (dispatch_id, phase, audience, offset_minutes)
-);
+-- (The statement that followed this comment is now generated from live in dispatch/rider_pickup_alert.sql.)
 
 -- Column notes:
 --   status    pending    -> due in the future, or not yet swept
@@ -140,13 +117,7 @@ CREATE TABLE IF NOT EXISTS rider_pickup_alert (
 -- removes a delivery (cleanup_delivery_order, dispatch_cancel_before_pickup, the
 -- test-reset scripts) deletes delivery_dispatch first. Rows for finished
 -- deliveries are kept deliberately as the audit trail.
-
-CREATE INDEX IF NOT EXISTS rider_pickup_alert_due_idx
-    ON rider_pickup_alert (status, due_dtts);
-
-CREATE INDEX IF NOT EXISTS rider_pickup_alert_order_idx
-    ON rider_pickup_alert (order_number);
-
+-- (The statement that followed this comment is now generated from live in dispatch/rider_pickup_alert.sql.)
 
 -- ===========================================================================
 -- 2. CONFIG -- one interval list per bucket
@@ -175,27 +146,6 @@ VALUES
    '',
    'Minutes after delivery_summary.pickup_time at which to tell the restaurant''s admins a collected order is still undelivered. BLANK ON PURPOSE = inactive; set e.g. 30 to enable. Do not use a placeholder word -- an unparseable non-blank value logs a NOTICE on every sweep.')
 ON CONFLICT (config_key) DO NOTHING;
-
-
--- ===========================================================================
--- 3. parse_alert_offsets(config_key) -> int[]
---    '-15, -5, x, 5' -> {-15,-5,5}.  Absent/blank/all-junk -> NULL.
--- ===========================================================================
--- Junk entries are skipped rather than fatal: one stray character must not
--- silence alerts for every rider. The caller tells "absent" from "present but
--- unparseable" and RAISEs a NOTICE for the latter.
-CREATE OR REPLACE FUNCTION parse_alert_offsets(p_config_key text)
-RETURNS int[]
-LANGUAGE sql
-STABLE
-AS $$
-    SELECT array_agg(DISTINCT btrim(t.x)::int ORDER BY btrim(t.x)::int)
-      FROM ordelo_config c
-     CROSS JOIN unnest(string_to_array(c.config_value, ',')) AS t(x)
-     WHERE c.config_key = p_config_key
-       AND btrim(t.x) ~ '^-?\d+$';
-$$;
-
 
 -- ===========================================================================
 -- 4. job_rider_pickup_alerts() -- the sweep
@@ -470,48 +420,12 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
+-- pg_cron job 'job_rider_pickup_alert' (live schedule: */5 * * * *, active). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('job_rider_pickup_alert', '*/5 * * * *', $cron$select job_rider_pickup_alerts();$cron$);
 
--- ===========================================================================
--- 5. RESCHEDULE -- keep the ledger honest when pickup_time moves
---    Any change to delivery_summary.pickup_time re-times and reopens every
---    checkpoint for that order.
--- ===========================================================================
--- One trigger covers all six buckets with no phase or audience logic, because
--- they all hang off the same anchor. It catches every path that moves the time:
--- the admin /AdminAdjustPickupTime button, the restaurant-timeout auto-set in
--- _handle_restaurant_timedout, and manual SQL.
---
--- It updates by order_number, which is safe only because the FK cascades: an
--- order cancelled pre-pickup and re-dispatched has lost its old
--- delivery_dispatch row, and the old ledger went with it.
---
--- Two consequences to expect while testing:
---   * A tiny adjustment reopens already-sent checkpoints, so the rider (and
---     ops) may get one repeat of the most recent one. Accepted -- they were
---     just told the time changed.
---   * An awaiting_pickup row still 'pending' when the rider collects is
---     reopened too, but can never fire again: the phase gate in (c) requires
---     dd.status = 'assigned' and the dispatch is now 'pickedup'.
-CREATE OR REPLACE FUNCTION rider_pickup_alert_reschedule()
-RETURNS trigger AS $$
-BEGIN
-    UPDATE rider_pickup_alert a
-       SET due_dtts  = NEW.pickup_time + (a.offset_minutes * interval '1 minute'),
-           status    = 'pending',
-           sent_dtts = NULL
-     WHERE a.order_number = NEW.order_number;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- The first NULL -> value set fires this too, harmlessly: no rows exist yet.
-CREATE OR REPLACE TRIGGER trigger_pickup_time_reschedule
-AFTER UPDATE OF pickup_time ON public.delivery_summary
-FOR EACH ROW
-WHEN (NEW.pickup_time IS DISTINCT FROM OLD.pickup_time)
-EXECUTE FUNCTION rider_pickup_alert_reschedule();
-
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
 
 -- ===========================================================================
 -- 6. SCHEDULE -- run this once, after the VERIFICATION steps below pass
@@ -668,4 +582,4 @@ EXECUTE FUNCTION rider_pickup_alert_reschedule();
 -- UPDATE rider_pickup_alert SET status = 'pending', sent_dtts = NULL
 --  WHERE order_number = '<ORDER>';
 ----------------------------- END VERIFICATION -----------------------------
-select job_rider_pickup_alerts();
+-- select job_rider_pickup_alerts();

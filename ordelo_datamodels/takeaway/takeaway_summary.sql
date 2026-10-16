@@ -1,47 +1,38 @@
 -- See also (paths under ordelo_datamodels/): takeaway_summary also carries ready_at and ready_by: added and explained in restaurant_admin/restaurant_ready_adjust_notices.sql. Accept/decline: restaurant_admin/restaurant_order_decision.sql.
 -- Takeaway summary table and restaurant-confirmation webhook trigger.
-
-CREATE TABLE takeaway_summary (
-    order_number          VARCHAR(100) PRIMARY KEY,
-    rest_id               VARCHAR(12) NOT NULL,
-    rest_name             TEXT NOT NULL,
-    rest_address          TEXT NOT NULL,
-    town                  VARCHAR(255) NOT NULL,
-    customer_id           VARCHAR(50) NOT NULL,
-    customer_name         TEXT NOT NULL,
-    restaurant_confirmation_status VARCHAR(50) NOT NULL DEFAULT 'restaurant_unconfirmed'
-        CHECK (
-            restaurant_confirmation_status IN (
-                'restaurant_unconfirmed',
-                'restaurant_accept',
-                'restaurant_decline',
-                'restaurant_timedout',
-                'auto_accept',
-                'auto_decline'
-            )
-        ),
-    restaurant_update_dtts TIMESTAMP WITH TIME ZONE,
-    restaurant_admin       VARCHAR(12),
-    status                 VARCHAR(50) NOT NULL
-        CHECK (
-            status IN (
-                'restaurant_unconfirmed',
-                'pickup_confirmed',
-                'declined',
-                'completed'
-            )
-        ),
-    rest_confirmation_code INTEGER NOT NULL,
-    rest_prep_time_minutes INTEGER,
-    rest_confirmation_method VARCHAR(20),
-    restaurant_msg_id      VARCHAR(255),
-    customer_msg_id        VARCHAR(255),
-    pickup_time            TIMESTAMP WITH TIME ZONE,
-    pickup_date            DATE NOT NULL DEFAULT CURRENT_DATE,
-    rest_ref               VARCHAR(20) GENERATED ALWAYS AS (SPLIT_PART(order_number, '-', 1)) STORED,
-    dt                     DATE NOT NULL DEFAULT CURRENT_DATE,
-    dtts                   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS public.takeaway_summary (
+    order_number character varying(100) NOT NULL,
+    rest_id character varying(12) NOT NULL,
+    rest_name text NOT NULL,
+    rest_address text NOT NULL,
+    town character varying(255) NOT NULL,
+    customer_id character varying(50) NOT NULL,
+    customer_name text NOT NULL,
+    restaurant_confirmation_status character varying(50) NOT NULL DEFAULT 'restaurant_unconfirmed'::character varying,
+    restaurant_update_dtts timestamp with time zone,
+    restaurant_admin character varying(12),
+    status character varying(50) NOT NULL,
+    rest_confirmation_code integer NOT NULL,
+    rest_prep_time_minutes integer,
+    rest_confirmation_method character varying(20),
+    restaurant_msg_id character varying(255),
+    customer_msg_id character varying(255),
+    pickup_time timestamp with time zone,
+    pickup_date date NOT NULL DEFAULT CURRENT_DATE,
+    rest_ref character varying(20) GENERATED ALWAYS AS (split_part((order_number)::text, '-'::text, 1)) STORED,
+    dt date NOT NULL DEFAULT CURRENT_DATE,
+    dtts timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ready_at timestamp with time zone, -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    ready_by text, -- added by restaurant_admin/restaurant_ready_adjust_notices.sql
+    CONSTRAINT takeaway_summary_pkey PRIMARY KEY (order_number),
+    CONSTRAINT takeaway_summary_restaurant_confirmation_status_check CHECK (((restaurant_confirmation_status)::text = ANY ((ARRAY['restaurant_unconfirmed'::character varying, 'restaurant_accept'::character varying, 'restaurant_decline'::character varying, 'restaurant_timedout'::character varying, 'auto_accept'::character varying, 'auto_decline'::character varying])::text[]))),
+    CONSTRAINT takeaway_summary_status_check CHECK (((status)::text = ANY ((ARRAY['restaurant_unconfirmed'::character varying, 'pickup_confirmed'::character varying, 'declined'::character varying, 'completed'::character varying])::text[])))
 );
+
+CREATE INDEX IF NOT EXISTS idx_takeaway_summary_admin_day_local ON public.takeaway_summary USING btree (rest_ref, (((COALESCE(pickup_time, dtts) AT TIME ZONE 'Europe/London'::text))::date));
+
+-- Same pair for takeaway_summary.
+CREATE INDEX IF NOT EXISTS idx_takeaway_summary_admin_keyset ON public.takeaway_summary USING btree (rest_ref, COALESCE(pickup_time, dtts) DESC, order_number DESC);
 
 /** description: takeaway_restaurant_updates_whook
  *  purpose: Sends a webhook request to the Ordelo app for takeaway restaurant confirmation workflow events
@@ -260,19 +251,8 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER trigger_takeaway_restaurant_updates
-AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON public.takeaway_summary
-FOR EACH ROW
-WHEN (
-  NEW.restaurant_confirmation_status IN (
-    'restaurant_unconfirmed',
-    'restaurant_accept',
-    'restaurant_decline',
-    'restaurant_timedout'
-  )
-)
-EXECUTE FUNCTION takeaway_restaurant_updates_whook();
-
+DROP TRIGGER IF EXISTS trigger_takeaway_restaurant_updates ON public.takeaway_summary;
+CREATE TRIGGER trigger_takeaway_restaurant_updates AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON takeaway_summary FOR EACH ROW WHEN (new.restaurant_confirmation_status::text = ANY (ARRAY['restaurant_unconfirmed'::character varying, 'restaurant_accept'::character varying, 'restaurant_decline'::character varying, 'restaurant_timedout'::character varying]::text[])) EXECUTE FUNCTION takeaway_restaurant_updates_whook();
 
 /** description: takeaway_pickup_time_whook
  *  purpose: Sends a webhook when pickup_time is set (NULL → non-NULL) on takeaway_summary
@@ -426,18 +406,10 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER trigger_takeaway_pickup_time_set
-AFTER UPDATE OF pickup_time ON public.takeaway_summary
-FOR EACH ROW
-WHEN (OLD.pickup_time IS NULL AND NEW.pickup_time IS NOT NULL)
-EXECUTE FUNCTION takeaway_pickup_time_whook();
+DROP TRIGGER IF EXISTS trigger_takeaway_pickup_time_set ON public.takeaway_summary;
+CREATE TRIGGER trigger_takeaway_pickup_time_set AFTER UPDATE OF pickup_time ON takeaway_summary FOR EACH ROW WHEN (old.pickup_time IS NULL AND new.pickup_time IS NOT NULL) EXECUTE FUNCTION takeaway_pickup_time_whook();
 
 -- Configured auto-accept sets pickup_time during INSERT, so it needs the
 -- same pickup-finalized workflow without waiting for a follow-up UPDATE.
 DROP TRIGGER IF EXISTS trigger_takeaway_pickup_time_insert ON public.takeaway_summary;
-
-CREATE TRIGGER trigger_takeaway_pickup_time_insert
-AFTER INSERT ON public.takeaway_summary
-FOR EACH ROW
-WHEN (NEW.pickup_time IS NOT NULL)
-EXECUTE FUNCTION takeaway_pickup_time_whook();
+CREATE TRIGGER trigger_takeaway_pickup_time_insert AFTER INSERT ON takeaway_summary FOR EACH ROW WHEN (new.pickup_time IS NOT NULL) EXECUTE FUNCTION takeaway_pickup_time_whook();

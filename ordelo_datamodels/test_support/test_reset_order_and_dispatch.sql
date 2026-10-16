@@ -1,4 +1,5 @@
 DROP FUNCTION IF EXISTS test_reset_order_and_dispatch(text);
+
 CREATE OR REPLACE FUNCTION test_reset_order_and_dispatch(p_order_number text)
 RETURNS TEXT AS $$
 DECLARE
@@ -49,11 +50,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-select test_reset_order_and_dispatch('ELAS-ZVEO-29');
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
+
+-- select test_reset_order_and_dispatch('ELAS-ZVEO-29');
+
 ----------------------------------------
 -- TimeoutUnassignedDispatch
 ----------------------------------------
-UPDATE delivery_dispatch 
-SET status = 'timedout' 
-WHERE status = 'unassigned'
-AND (current_timestamp - dtts) > interval '30 seconds';
+-- UPDATE delivery_dispatch 
+-- SET status = 'timedout' 
+-- WHERE status = 'unassigned'
+-- AND (current_timestamp - dtts) > interval '30 seconds';

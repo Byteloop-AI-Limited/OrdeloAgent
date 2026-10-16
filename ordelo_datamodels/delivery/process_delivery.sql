@@ -138,5 +138,12 @@ BEGIN
 END;
 $$;
 
+-- pg_cron job 'process_delivery' (live schedule: 5 seconds, active). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('process_delivery', '5 seconds', $cron$SELECT public.process_delivery()$cron$);
+
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
+
 -- delivery_summary_timedout_whook function
-select * from process_delivery();
+-- select * from process_delivery();

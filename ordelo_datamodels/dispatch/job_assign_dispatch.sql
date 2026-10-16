@@ -29,7 +29,6 @@ Side Effects:
 
 See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/
-
 CREATE OR REPLACE FUNCTION job_assign_dispatch()
 RETURNS TABLE(action TEXT) AS $$
 BEGIN
@@ -53,6 +52,7 @@ $$ LANGUAGE plpgsql;
 -- Delivery dispatch status is updated to accepted in the initial handle of rider response thats run by on_callback `dispatch_response`
 ----------------------------------------
 DROP FUNCTION IF EXISTS assign_accepted_dispatch(VARCHAR(100));
+
 CREATE OR REPLACE FUNCTION assign_accepted_dispatch(p_order_number VARCHAR(100))
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -114,3 +114,6 @@ BEGIN
     RETURN updated;
 END;
 $$ LANGUAGE plpgsql;
+
+-- pg_cron job 'job_assign_dispatch' (live schedule: 5 seconds, active). cron.schedule() updates the job in place when the name already exists.
+SELECT cron.schedule('job_assign_dispatch', '5 seconds', $cron$SELECT public.job_assign_dispatch()$cron$);

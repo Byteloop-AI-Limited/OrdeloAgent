@@ -33,8 +33,8 @@ See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 ----------------------------------------
 -- dispatch_complete_func - Completes a dispatch
 ----------------------------------------
-
 DROP FUNCTION IF EXISTS dispatch_complete_func(bigint);
+
 CREATE OR REPLACE FUNCTION dispatch_complete_func(p_dispatch_id bigint)
 RETURNS TEXT AS $$
 DECLARE
@@ -69,14 +69,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- =============================================================================================
+-- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
+-- =============================================================================================
 
 ----------------------------------------
 -- TimeoutUnassignedDispatch
 ----------------------------------------
-UPDATE delivery_dispatch 
-SET status = 'timedout' 
-WHERE status = 'unassigned'
-AND (current_timestamp - dtts) > interval '30 seconds';
+-- UPDATE delivery_dispatch 
+-- SET status = 'timedout' 
+-- WHERE status = 'unassigned'
+-- AND (current_timestamp - dtts) > interval '30 seconds';
 
-
-dispatch_complete_func
+-- dispatch_complete_func

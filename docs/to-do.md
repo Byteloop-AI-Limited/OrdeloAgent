@@ -21,6 +21,10 @@ record these as follow-ups; the organisation work documents them but does not ch
   either scheduled or moved to `_orphans/` and the docs say which job handles timeouts.
 - [ ] **Apply or drop the unapplied indexes.** `idx_thread_active_rest_ref_last_access`
   (`migrations/add_stale_thread_dispatch_index.sql`) and the two `rider_location` indexes were never created live.
+- [ ] **Lock down `fly_post()`.** It is `SECURITY DEFINER`, reads the Fly API token from `fly_config`, and is still
+  executable by PUBLIC/anon/authenticated on live: the `REVOKE` in `platform/fly_post.sql` was never applied (it is
+  kept commented there so the file matches live). `job_process_owntracks()` is also `SECURITY DEFINER` with default
+  grants. Done when both are revoked from PUBLIC/anon/authenticated live and the files carry the active `REVOKE`.
 - [ ] **Security review of row-level security.** RLS is off on most tables (`rider_master`, `restaurant_master`,
   `customer_master`, `delivery_*`, `takeaway_summary` …) while restaurant-frontend reads several of them with the
   publishable (anon) key. Only `t_*`, `web_*`, `wa_location_*` and `order_access_grant` have RLS.
