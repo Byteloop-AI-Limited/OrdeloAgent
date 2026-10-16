@@ -206,7 +206,7 @@ dispatch = DeliveryDispatch.from_dispatch_id(432)
 ## Telegram Invites (`t_invites`)
 
 Day-to-day SOP for onboarding restaurant admins onto the Telegram restaurant-admin bot. Prerequisite: the
-migration `ordelo_datamodels/migrations/create_t_invites.sql` has been run and
+migration `ordelo_datamodels/telegram/create_t_invites.sql` has been run and
 `ordelo_config.TGRAM_REST_ADMIN_BOT_USERNAME` is set (otherwise `invite_link` comes back NULL). The migration
 file's header explains how the table, view and functions fit together.
 

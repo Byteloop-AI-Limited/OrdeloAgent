@@ -114,10 +114,10 @@ Full details in `docs/delivery_process.md`.
 
 ### Database-backed logic: RPC pattern and cross-references (good practice)
 
-When a feature needs rules or multi-step changes in the database, put that logic in a **Postgres function (RPC)** and keep the Python thin. Reference example: `channels/telegram/invites.py` wraps `t_invite_preview`, `t_claim_invite` and `t_linked_restaurants`, all defined in `ordelo_datamodels/migrations/create_t_invites.sql` (see [`docs/telegram-layer.md`](docs/telegram-layer.md)).
+When a feature needs rules or multi-step changes in the database, put that logic in a **Postgres function (RPC)** and keep the Python thin. Reference example: `channels/telegram/invites.py` wraps `t_invite_preview`, `t_claim_invite` and `t_linked_restaurants`, all defined in `ordelo_datamodels/telegram/create_t_invites.sql` (see [`docs/telegram-layer.md`](docs/telegram-layer.md)).
 
 1. **RPC owns the logic.** Atomic, race-safe rules (claims, status changes, uniqueness) are one SQL function returning `jsonb` with a `result` string, not a read-modify-write sequence in Python.
-2. **Define RPCs where the tables are defined.** The table(s), view(s), RPCs, grants and operator SQL live in the same migration file in `ordelo_datamodels/migrations/`. Give the file a header: what it adds, how the pieces fit with other tables and services, lifecycle, security model, not-yet-done. Keep it idempotent.
+2. **Define RPCs where the tables are defined.** The table(s), view(s), RPCs, grants and operator SQL live in the same SQL file, and that file lives in a **feature folder** of `ordelo_datamodels/` (`telegram/` for the `t_` layer, `restaurant_admin/` for the restaurant kitchen actions; add a folder for a new feature). It is the authoritative description of how the feature works in the database, so it is never filed under `migrations/`, which is only for one-off schema changes. Give the file a header: what it adds, how the pieces fit with other tables and services, lifecycle, security model, not-yet-done. Keep it idempotent.
 3. **One Python wrapper module per domain.** A typed `async def` per RPC, `asyncio.to_thread` around the Supabase call, a small outcome dataclass. Handlers call the wrapper; they never query the table or repeat the rule.
 4. **Cross-reference both ways, in the same change.**
    - The wrapper's **module docstring** names the SQL file that defines the RPCs and maps each Python function to the RPC it calls.
