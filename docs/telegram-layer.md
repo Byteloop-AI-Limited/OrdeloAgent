@@ -51,6 +51,7 @@ The webhook route does not contain business logic. Per-bot objects are created i
 | Inbox | `channels/telegram/inbox.py` | `claim`, `finish` (thin wrappers over `t_inbox_claim` / `t_inbox_finish`) and `InboxMiddleware(bot_key)`, registered once per bot in `bots.py`: at-most-once handling per `(bot_key, update_id)` |
 | Order cards | `channels/telegram/rest_admin/order_cards/` | `OrderCards(bot, bot_key)` with `remind(order, n, of)`, `refresh(order)` and `tap(query, action)`; public names `OrderCards`, `OrderRef`. `model.py` is pure (immutable `Card` changed by events, every text, button and toast), `store.py` (`CardStore`: the RPCs), `io.py` (`TelegramIO`: send / edit / delete and Telegram error mapping) |
 | Order buttons | `channels/telegram/rest_admin/orders.py` | `build_orders_router()`: ONE handler, `OrderAction.filter()` → `order_cards.tap(query, callback_data)`; included by `router.build_router()`; `order_cards` is injected from `dp["order_cards"]` |
+| Scratchpad | `channels/telegram/rest_admin/scratchpad.py` | Removable `/scratchpad` menu with 27 private-chat examples, including a Salisbury Mini App launcher, structured receipts, coloured/disabled actions, expandable progress and embedded pickup controls. Mounted before the main router in `bots.py`; no business RPCs. |
 | Kitchen receipts | `channels/telegram/rest_admin/receipts/` | `Receipts(bot, bot_key)` with `send(order, dispatch_id)`, `refresh(order)` and `tap(query, action)` (Ready / +10 / +20). `model.py` is pure (`Receipt`, `view(viewer)`, toasts, status keys), `store.py` (`ReceiptStore`: the RPCs); sending and editing reuse `order_cards/io.TelegramIO` |
 | Plain notices | `channels/telegram/rest_admin/notices.py` | `Notices.send(rest_ref, text_html, notice=, order=, reply_to=)`: auto-accepted, rider alert, delivered, feedback. Destinations and reply target from `t_notice_targets`, audit row from `t_notice_sent`; never raises, each chat isolated |
 | Notifier (both channels) | `utils_common/notify/restaurant_notifier.py` | `notify(notice)` sends a restaurant-facing notice to WhatsApp (the unchanged `wa_senders` call) and Telegram at once; `KitchenReceipt`, `TakeawayReceipt`, `AutoAccepted`, `RiderAlert`, `DeliveryCompleted`, `Feedback`; never raises; test seam `use_adapters` |
@@ -189,6 +190,54 @@ Setup for a new bot or environment: add the AWS keys, set the `ordelo_config` us
 
 ## 8. Testing
 
+### Interactive scratchpad
+
+Send `/scratchpad` to the main restaurant-admin bot to open its demo menu. Try formatted text,
+reply/edit/delete, streamed drafts, a button-driven delivery tracker and restaurant order card,
+inline keyboards, **buttons inside the text**, location/contact request keyboards, maps, venues,
+demo contacts, dice, CSV files, message effects, simulated errors and bot info. Each progress tap
+edits its own demo message. All order/contact/address data is fictional; the router does not call
+business RPCs or perform real order/payment transitions. The ordinary inbox middleware still
+records Telegram updates. Contact/location replies are acknowledged only while a scratchpad
+request is pending; `/scratchpad` clears that state and removes the reply keyboard.
+
+The entire feature lives in `channels/telegram/rest_admin/scratchpad.py`. To unmount it, remove
+`dp.include_router(build_scratchpad_router())` and its import from `channels/telegram/bots.py`,
+then restart the app. It is a sibling **before** the main restaurant router: the latter's text
+fallback would otherwise swallow `/scratchpad`. No separate bot token, polling process or
+webhook change is needed. The command can be typed directly; it does not change the published
+`/start`, `/help`, `/whoami` command list. After loading the code, use the existing webhook;
+this change does not deploy or restart a remote service.
+
+Offline coverage: `tests/channels/telegram/test_scratchpad.py` exercises the real dispatcher,
+the menu, all 27 demo entries, in-place edits, callback answers, private-chat/actor checks,
+scoped contact/location input, unsupported-feature errors and removal of the router.
+These checks do not establish live Telegram rendering or callback delivery.
+
+Choose **Salisbury Mini App** → **Open Salisbury** to launch
+`https://restaurant.ordelo.app/town/salisbury` inside Telegram via an inline button's
+`web_app=WebAppInfo(...)`. This opens the real storefront, not dummy menu data. The launcher
+uses the same private-chat restriction as the other examples; no BotFather menu or webhook
+registration is changed. Offline checks verify the Web App button and exact URL, not a live launch.
+
+Six choices demonstrate newer rich-message features supported by aiogram 3.31.0:
+
+- **Expandable receipt:** a heading, total, native collapsed details sections, an item table and kitchen/handover notes. Opening the details uses Telegram's native disclosure control.
+- **Coloured actions:** green Accept, red Decline and blue Reset. A decision disables both decision actions using `DisabledButton()` with no callback data.
+- **Show progress:** an embedded rich button expands/collapses four stages. Initially Order Accepted and Rider Assigned are green and disabled, Food pickup is next, and Delivery complete is disabled. Simulating pickup unlocks delivery; old callbacks cannot roll the demo back or skip pickup. Telegram supports `success` (green), `danger` (red), `primary` (blue) and `link`, **not an orange background**. The next step uses a 🟠 marker with the supported blue style. Disabled appearance is rendered by the Telegram client.
+- **Pickup: prep presets:** embedded 10/20/30 minute choices with a selected indicator and an absolute pickup time; Confirm freezes the choices, Edit time reopens them.
+- **Pickup: adjust time:** the sentence contains the pickup time and −5/+5/+10 minute controls, followed by Confirm/Edit. The timestamp stays fixed across redraws and is formatted for the reader by `RichTextDateTime`.
+- **Pickup: ready / hold:** an embedded kitchen-status button, Mark food ready, and +10/+20 minute holds. Marking ready turns the status green and disables the completed action and hold controls; Restart resets the demo.
+
+These six examples store temporary state per demo message in the existing dispatcher's
+memory-backed FSM storage. A new `/scratchpad`, clearing scratchpad input state, or a restart
+expires those instances; tap a menu choice to open a fresh one. No state is persisted to order
+tables. This temporary state is an interaction demo, not a replacement for production order RPCs.
+API references: [rich buttons](https://docs.aiogram.dev/en/v3.31.0/api/types/rich_message_button.html),
+[details](https://docs.aiogram.dev/en/v3.31.0/api/types/input_rich_block_details.html),
+[disabled buttons](https://docs.aiogram.dev/en/v3.31.0/api/types/disabled_button.html).
+
+
 - `tests/conftest.py` stubs the AWS secret (including the `tgram_rest_admin_*` keys), so `import config` works in tests.
 - Handlers are tested through a real aiogram `Dispatcher` with a `RecordingSession` (no network); the database is replaced by `FakeInviteDb`, which mimics the three RPCs' return shapes. If an RPC's contract changes, change the fake in the same commit.
 - The webhook tests cover 404 (unknown bot), 403 (bad or missing secret), invalid updates, handler failure still returning 200, and a retried update being handled once (the `t_inbox` outcome is asserted, not just the 200).
@@ -208,6 +257,10 @@ Setup for a new bot or environment: add the AWS keys, set the `ordelo_config` us
 
 Add one line per change, newest first: date, what changed, files.
 
+- 2026-10-16: Added Salisbury Mini App to `/scratchpad`: private-chat `WebAppInfo` button opens the real `https://restaurant.ordelo.app/town/salisbury` storefront inside Telegram. Router, dispatcher test and both guides updated; no webhook/menu registration changed.
+- 2026-10-16: Six restaurant-focused rich-message scratchpad examples: native receipt details/table, coloured decisions, expandable Show progress with genuinely disabled completed/future steps, and embedded prep-preset, pickup-time and ready/hold controls. Temporary per-message demo state guards completed actions and preserves selected timestamps; dispatcher tests cover the payloads and transitions. `scratchpad.py`, `test_scratchpad.py`, recording-session support in `conftest.py`, and both guides updated. Orange represented by 🟠 because the Bot API has no orange button style.
+- 2026-10-16: Main-bot `/scratchpad` playground in `rest_admin/scratchpad.py`, mounted before the main router in `bots.py`; 20 private-chat demos, working rich-text button callbacks and demo order/tracker controls, scoped reply-keyboard input and offline dispatcher tests. Notebook cell 7a reuses the renderer; separate-token/polling cells removed. Unmount with one router include; existing webhook and business actions retained.
+- 2026-10-16: `notebooks/telegram/tgram_scratchpad.py` cells 7a–7b demonstrate `RichTextButton` inside a rich-message paragraph, callback acknowledgement and in-place status/button edits with aiogram 3.31.0; optional polling uses a separate demo bot and refuses an existing webhook. Verified offline; no live send or webhook change.
 - 2026-10-16: Files renamed to `telegram/t_inbox.sql`, `t_invites.sql`, `t_order_alerts.sql`; `t_sent_messages` (+ its RPCs) and `t_housekeeping()` split into `telegram/t_sent_messages.sql` and `telegram/t_housekeeping.sql`; every file reconciled with live and documented to the standard in `ordelo_datamodels/README.md` (plan: `plans/ordelo-database-organisation-plan.md`).
 - 2026-10-16: SQL moved out of `migrations/` into feature folders: `ordelo_datamodels/telegram/` (`create_t_inbox.sql`, `create_t_invites.sql`, `create_t_order_alerts.sql`) and `ordelo_datamodels/restaurant_admin/` (`restaurant_order_decision.sql`, `restaurant_ready_adjust_notices.sql`); `init_delivery` / `init_takeaway` no longer `RETURNING *`.
 - 2026-10-15: Phase 8a, plain restaurant notices on both channels: `restaurant_notifier` gains `AutoAccepted`, `RiderAlert`, `DeliveryCompleted`, `Feedback`; new `rest_admin/notices.py`; call sites in `delivery_hooks` (auto-accept notice now sent AFTER the update, for both channels), `takeaway_hooks`, `rider_agent` and `customer_hooks` switched to `restaurant_notifier.notify`; `wa_senders` gains `admin_auto_accept_notice`, `admin_delivery_completed`, `rider_alert_text` and loses the dead `admin_delivery_driver_nearby` / `admin_delivery_complete_notification` and `REST_MASTER`; tests now default the Telegram side to a no-op (`quiet_telegram_notices`).

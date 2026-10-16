@@ -1,4 +1,4 @@
-select * from thread order by dtts desc;
+select * from thread where recipient != '447448440754' order by dtts desc;
 select * from restaurant_master where rest_ref='STRK';
 -- commit;
 select * from takeaway_summary order by dtts desc;
