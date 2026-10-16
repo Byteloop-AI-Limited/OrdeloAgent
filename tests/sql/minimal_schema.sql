@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS public.delivery_summary (
         CONSTRAINT delivery_summary_status_check
         CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed')),
     pickup_time    timestamptz,
+    pickup_date    date         NOT NULL DEFAULT CURRENT_DATE,
+    rest_confirmation_code integer NOT NULL DEFAULT 42,
+    customer_address text NOT NULL DEFAULT '1 High Street, Testville',
     rest_ref       varchar(20) GENERATED ALWAYS AS (split_part(order_number, '-', 1)) STORED,
     dtts           timestamptz  NOT NULL DEFAULT now()
 );
@@ -49,6 +52,8 @@ CREATE TABLE IF NOT EXISTS public.takeaway_summary (
     status         varchar(50)  NOT NULL DEFAULT 'restaurant_unconfirmed'
         CHECK (status IN ('restaurant_unconfirmed', 'pickup_confirmed', 'declined', 'completed')),
     pickup_time    timestamptz,
+    pickup_date    date         NOT NULL DEFAULT CURRENT_DATE,
+    rest_confirmation_code integer NOT NULL DEFAULT 42,
     rest_ref       varchar(20) GENERATED ALWAYS AS (split_part(order_number, '-', 1)) STORED,
     dtts           timestamptz  NOT NULL DEFAULT now()
 );
@@ -75,13 +80,38 @@ INSERT INTO public.restaurant_master (rest_ref, rest_name) VALUES ('ELAS', 'Elas
 CREATE TABLE IF NOT EXISTS public.food_order (
     order_id    text PRIMARY KEY,
     order_number text UNIQUE,
-    total_price numeric
+    total_price numeric,
+    notes       text,
+    small_order_fee float,
+    payment_status text NOT NULL DEFAULT 'paid',
+    recipient   text NOT NULL DEFAULT '447700900001'
 );
 CREATE TABLE IF NOT EXISTS public.order_item (
     id           serial PRIMARY KEY,
     order_id     text,
     product_name text,
-    quantity     int
+    quantity     int,
+    price        float NOT NULL DEFAULT 0,
+    modifications text[]
+);
+
+-- ---- restaurant_ready_adjust_notices.sql needs the dispatch tables and riders (columns used only) ----------------------
+CREATE TABLE IF NOT EXISTS public.rider_master (
+    id         serial PRIMARY KEY,
+    rider_id   varchar(12),
+    rider_name text NOT NULL
+);
+CREATE TABLE IF NOT EXISTS public.delivery_dispatch (
+    dispatch_id serial PRIMARY KEY,
+    order_number varchar(100) NOT NULL,
+    rider_id    varchar(12) NOT NULL,
+    status      varchar(50) NOT NULL CHECK (status IN ('unassigned', 'timedout', 'declined', 'accepted', 'missed', 'assigned', 'pickedup', 'completed')),
+    status_update_dtts timestamp
+);
+CREATE TABLE IF NOT EXISTS public.delivery_inflight (
+    dispatch_id  integer PRIMARY KEY,
+    order_number varchar(100) NOT NULL,
+    rider_id     varchar(12) NOT NULL
 );
 
 -- Stand-in for the pgsql-http extension: http_post() records the call and answers with http_stub_status.

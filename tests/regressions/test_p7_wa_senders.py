@@ -45,15 +45,40 @@ async def test_enquire_shift_availability_non_template(patch_async_wa_client: Fa
     assert s.kwargs["header"] == "🌟 Shift Availability 🌟"
 
 
-async def test_admin_delivery_driver_nearby(patch_async_wa_client: FakeAsyncWhatsApp, monkeypatch):
-    monkeypatch.setattr(wa_senders, "REST_MASTER", type("R", (), {"get_admins": lambda self: ["A1"]})())
-    await wa_senders.admin_delivery_driver_nearby("ELAS-ABCD-1", "11")
-    s = patch_async_wa_client.sent[-1]
-    assert "Delivery driver is nearby" in s.kwargs["text"]
+async def test_admin_auto_accept_notice_sends_the_unchanged_text_to_each_admin(patch_async_wa_client: FakeAsyncWhatsApp):
+    await wa_senders.admin_auto_accept_notice(["A1", "A2"], "ELAS-ABCD-1", "11:30 AM", 30)
+    assert [(s.kwargs["to"], s.kwargs["text"]) for s in patch_async_wa_client.sent] == [
+        ("A1", "Order ELAS-ABCD-1 auto-accepted due to confirmation timeout. Pickup time set to 11:30 AM (30 mins from order time)."),
+        ("A2", "Order ELAS-ABCD-1 auto-accepted due to confirmation timeout. Pickup time set to 11:30 AM (30 mins from order time)."),
+    ]
 
 
-async def test_admin_delivery_complete_notification(patch_async_wa_client: FakeAsyncWhatsApp, monkeypatch):
-    monkeypatch.setattr(wa_senders, "REST_MASTER", type("R", (), {"get_admins": lambda self: ["A1"]})())
-    await wa_senders.admin_delivery_complete_notification("ELAS-ABCD-1")
-    s = patch_async_wa_client.sent[-1]
-    assert "Delivery completed" in s.kwargs["text"]
+async def test_admin_auto_accept_notice_one_bad_contact_does_not_cost_the_others(patch_async_wa_client: FakeAsyncWhatsApp, monkeypatch):
+    sent = []
+
+    async def send(**kw):
+        if kw["to"] == "BAD":
+            raise RuntimeError("no such number")
+        sent.append(kw["to"])
+
+    monkeypatch.setattr(patch_async_wa_client, "send_message", send)
+    await wa_senders.admin_auto_accept_notice(["BAD", "A2"], "ELAS-ABCD-1", "11:30 AM", 30)
+    assert sent == ["A2"]
+
+
+async def test_admin_delivery_completed_messages_the_restaurants_admins(patch_async_wa_client: FakeAsyncWhatsApp, monkeypatch):
+    monkeypatch.setattr(wa_senders.RestaurantMaster, "get_admins_for", classmethod(lambda cls, rest_ref: ["A1", "A2"] if rest_ref == "ELAS" else []))
+    await wa_senders.admin_delivery_completed("ELAS-ABCD-1", "ELAS")
+    assert [(s.kwargs["to"], s.kwargs["text"]) for s in patch_async_wa_client.sent] == [
+        ("A1", "✅ Delivery completed for ELAS-ABCD-1."),
+        ("A2", "✅ Delivery completed for ELAS-ABCD-1."),
+    ]
+
+
+def test_rider_alert_text_wording_for_each_case():
+    assert wa_senders.rider_alert_text("awaiting_pickup", "ELAS-1", 7, "1:00 PM", "Ada") == (
+        "⏰ Order *ELAS-1*: rider Ada has not yet collected — 7 min past the 1:00 PM pickup time.")
+    assert wa_senders.rider_alert_text("awaiting_pickup", "ELAS-1", -10, "1:00 PM", "Ada") == (
+        "🛵 Order *ELAS-1*: rider Ada is due to collect at 1:00 PM (in ~10 min). Please have it ready.")
+    assert wa_senders.rider_alert_text("picked_up", "ELAS-1", 30, "1:00 PM", "Ada") == (
+        "🛵 Order *ELAS-1*: rider Ada collected but has not delivered — 30 min past the 1:00 PM pickup time.")

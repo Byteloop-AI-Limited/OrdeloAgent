@@ -27,6 +27,14 @@ class SpyCards:
         self.calls.append(("refresh", order))
 
 
+class SpyReceipts:
+    def __init__(self):
+        self.calls = []
+
+    async def refresh(self, order):
+        self.calls.append(("receipts.refresh", order))
+
+
 @pytest.fixture
 def env():
     bot = Bot(token="123456:TEST-token", session=RecordingSession())
@@ -38,6 +46,7 @@ def env():
     app.state.telegram_bots = build_registry([(settings, bot)])
     spy = SpyCards()
     object.__setattr__(app.state.telegram_bots["rest_admin"], "cards", spy)
+    object.__setattr__(app.state.telegram_bots["rest_admin"], "receipts", SpyReceipts())
     return app, spy
 
 
@@ -65,7 +74,7 @@ def test_503_when_registry_missing():
 def test_accepts_and_runs_remind_and_refresh(env):
     app, spy = env
     r = TestClient(app).post(URL, json=BODY)
-    assert r.status_code == 200 and r.json() == {"status": "accepted", "reminders": 1, "refreshes": 1}
+    assert r.status_code == 200 and r.json() == {"status": "accepted", "reminders": 1, "refreshes": 1, "receipts": 0}
     assert spy.calls == [
         ("remind", OrderRef("ELAS-CEKT-22", "delivery"), 2, 4),
         ("refresh", OrderRef("ELAS-TK-1", "takeaway")),
@@ -91,3 +100,23 @@ def test_invalid_payload_is_422_and_nothing_runs(env, bad):
     app, spy = env
     assert TestClient(app).post(URL, json=bad).status_code == 422
     assert spy.calls == []
+
+
+def test_receipts_payload_runs_receipt_refresh_and_not_card_work(env):
+    app, spy = env
+    body = {"event_type": "t_receipt_refresh", "receipts": [
+        {"order_number": "ELAS-CEKT-22", "order_type": "delivery"}, {"order_number": "ELAS-TK-1", "order_type": "takeaway"}]}
+    r = TestClient(app).post(URL, json=body)
+    receipts = app.state.telegram_bots["rest_admin"].receipts
+    assert r.status_code == 200 and r.json()["receipts"] == 2
+    assert receipts.calls == [
+        ("receipts.refresh", OrderRef("ELAS-CEKT-22", "delivery")),
+        ("receipts.refresh", OrderRef("ELAS-TK-1", "takeaway")),
+    ]
+    assert spy.calls == []
+
+
+def test_old_payload_without_receipts_is_still_accepted(env):
+    app, spy = env
+    assert TestClient(app).post(URL, json=BODY).status_code == 200
+    assert app.state.telegram_bots["rest_admin"].receipts.calls == []

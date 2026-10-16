@@ -61,6 +61,9 @@ import httpx
 import pytest
 import respx
 
+from ordelo_datamodels.delivery_pymodels import DeliverySummary
+from utils_common.notify import restaurant_notifier
+from utils_common.notify.restaurant_notifier import AutoAccepted, KitchenReceipt, RiderAlert
 from watomation.routers import delivery_hooks
 from ordelo.delivery_progress import DeliveryProgress
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
@@ -259,11 +262,20 @@ async def test_delivery_inflight_graph_init_hook_schedules_core_background_tasks
     assert [task["func"] for task in bg.tasks] == [
         delivery_hooks.capture_delivery_payment,
         delivery_hooks.post_rider_event_inflight,
-        delivery_hooks.admin_order_reciept,
+        restaurant_notifier.notify,
         delivery_hooks.init_ordelo_graph,
         delivery_hooks.notify_overwatch,
     ]
     assert bg.tasks[3]["kwargs"]["rider_id"] == "RIDER01"
+    # Step 3 hands the notifier exactly what admin_order_reciept used to get (WhatsApp parity), plus the dispatch id for Telegram.
+    assert bg.tasks[2]["args"] == (
+        KitchenReceipt(
+            delivery_summary=DeliverySummary(**_summary_row()),
+            rider_master={"rider_id": "RIDER01", "rider_name": "Bas"},
+            dispatch_id=10,
+        ),
+    )
+    assert bg.tasks[2]["kwargs"] == {}
 
 
 async def test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_messages(monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp) -> None:
@@ -569,6 +581,52 @@ async def test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_con
     update_call = next(c for c in patch_supabase_client.calls if c.table == "delivery_summary")
     assert update_call.payload["pickup_time"] == "2026-05-09T11:45:00+01:00"
     assert "45 mins" in patch_async_wa_client.sent[-1].kwargs["text"]
+    assert patch_async_wa_client.sent[-1].kwargs["to"] == "ADMIN01"
+
+
+async def test_handle_restaurant_timedout_notifies_after_the_update_with_an_exact_notice(
+    monkeypatch, patch_supabase_client
+) -> None:
+    """The auto-accept notice goes out AFTER the UPDATE, so a failed send can never stop the auto-accept."""
+    monkeypatch.setattr(delivery_hooks, "client_ordelo", patch_supabase_client)
+    patch_supabase_client.register(table="delivery_summary", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
+    seen = []
+
+    async def fake_notify(notice):
+        seen.append((notice, [c.table for c in patch_supabase_client.calls if c.verb == "update"]))
+
+    monkeypatch.setattr(restaurant_notifier, "notify", fake_notify)
+    from watomation.routers.delivery_hooks import DeliverySummaryData
+    summary = DeliverySummaryData(**{**_summary_row(), "pickup_time": None, "pickup_date": "2026-05-09", "dt": "2026-05-09", "dtts": "2026-05-09T10:00:00+00:00"})
+
+    await delivery_hooks._handle_restaurant_timedout(summary, ["ADMIN01", "ADMIN02"])
+
+    assert seen == [
+        (AutoAccepted("ELAS-ABCD-1", "delivery", ["ADMIN01", "ADMIN02"], "11:30 AM", 30, "ELAS"), ["delivery_summary"])
+    ]
+
+
+async def test_handle_restaurant_timedout_still_updates_when_the_notice_cannot_be_sent(
+    monkeypatch, patch_supabase_client, patch_async_wa_client
+) -> None:
+    monkeypatch.setattr(delivery_hooks, "client_ordelo", patch_supabase_client)
+    patch_supabase_client.register(table="delivery_summary", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
+
+    attempts = []
+
+    async def boom(**kwargs):
+        attempts.append(kwargs["to"])
+        raise RuntimeError("whatsapp down")
+
+    monkeypatch.setattr(patch_async_wa_client, "send_message", boom)
+    from watomation.routers.delivery_hooks import DeliverySummaryData
+    summary = DeliverySummaryData(**{**_summary_row(), "pickup_time": None, "pickup_date": "2026-05-09", "dt": "2026-05-09", "dtts": "2026-05-09T10:00:00+00:00"})
+
+    result = await delivery_hooks._handle_restaurant_timedout(summary, ["ADMIN01"])
+
+    assert attempts == ["ADMIN01"]  # the send was tried and failed
+    assert result["status"] == "success"
+    assert any(c.table == "delivery_summary" and c.verb == "update" for c in patch_supabase_client.calls)
 
 
 async def test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config(
@@ -849,13 +907,13 @@ def _capture_escalations(monkeypatch) -> list:
 
 
 def _capture_rest_admin_alerts(monkeypatch) -> list:
+    """The RiderAlert notices handed to restaurant_notifier.notify (the WhatsApp text itself is tested in test_restaurant_notifier)."""
     calls = []
 
-    async def _fake_notify(**kwargs):
-        calls.append(kwargs)
-        return {"admins_notified": 1, "admins_failed": 0}
+    async def _fake_notify(notice):
+        calls.append(notice)
 
-    monkeypatch.setattr(delivery_hooks, "notify_rest_admins_rider_alert", _fake_notify)
+    monkeypatch.setattr(restaurant_notifier, "notify", _fake_notify)
     return calls
 
 
@@ -968,10 +1026,11 @@ async def test_process_rider_pickup_alerts_rest_admins_audience_messages_admins_
     assert escalations == []
     assert agent_calls == []
     assert len(rest_admin_alerts) == 1
-    assert rest_admin_alerts[0]["order_number"] == "ELAS-ABCD-1"
-    assert rest_admin_alerts[0]["rest_admins"] == ["ADMIN01"]
+    assert isinstance(rest_admin_alerts[0], RiderAlert)
+    assert rest_admin_alerts[0].order_number == "ELAS-ABCD-1"
+    assert rest_admin_alerts[0].rest_admins == ["ADMIN01"]
     # Live inflight row, not the payload's stale rider -- same guarantee as #4.
-    assert rest_admin_alerts[0]["rider_id"] == "RIDER_NEW"
+    assert rest_admin_alerts[0].rider_id == "RIDER_NEW"
 
 
 async def test_process_rider_pickup_alerts_rest_admins_audience_skipped_on_phase_mismatch(

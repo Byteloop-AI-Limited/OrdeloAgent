@@ -61,6 +61,7 @@ async def test_legacy_notification_contract(
     patch_supabase_client,
     delivery_summary,
     feature_flags,
+    actions_db,
 ):
     PHONE = "W7K2M9QX4TPA" if origin == "web" else "447400000000"
     async def webhook(rest_ref, event):
@@ -190,7 +191,10 @@ async def test_legacy_notification_contract(
             def now(tz):
                 return datetime(2026, 10, 2, 12, tzinfo=timezone.utc)
 
-        monkeypatch.setattr(on_callback_wa_handler, "datetime", Clock)
+        from utils_common.order_management import restaurant_actions
+
+        monkeypatch.setattr(restaurant_actions, "datetime", Clock)   # the event time is now stamped by restaurant_actions
+        actions_db.add(ORDER, "takeaway", rider=None, recipient=PHONE)   # Ready is decided in SQL (restaurant_actions)
         cb = SimpleNamespace(sender="admin-1", reply=AsyncMock())
         data = SimpleNamespace(order_number=ORDER, recipient=PHONE, rest_ref="ELAS")
         cb.data = json.dumps(vars(data) | {"action": "/AdminTakeawayReady"})

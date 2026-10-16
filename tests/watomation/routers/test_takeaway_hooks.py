@@ -34,6 +34,8 @@ import respx
 
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
 from tests.fixtures.fake_wa import FakeAsyncWhatsApp
+from utils_common.notify import restaurant_notifier
+from utils_common.notify.restaurant_notifier import TakeawayReceipt
 from watomation.routers import takeaway_hooks
 
 
@@ -150,9 +152,21 @@ async def test_pickup_time_updated_hook_schedules_background_processing() -> Non
     assert [task["func"] for task in bg.tasks] == [
         takeaway_hooks.capture_takeaway_payment,
         takeaway_hooks._post_pickup_time_event,
-        takeaway_hooks.takeaway_admin_order_receipt,
+        restaurant_notifier.notify,
         takeaway_hooks.notify_overwatch,
     ]
+    # Step 3 hands the notifier exactly what takeaway_admin_order_receipt used to get (WhatsApp parity).
+    assert bg.tasks[2]["args"] == (
+        TakeawayReceipt(
+            order_number="ELAS-ABCD-1",
+            pickup_time="2026-05-09T12:30:00+00:00",
+            rest_name="Elai",
+            admins=["ADMIN01"],
+            restaurant_msg_id=None,
+            rest_ref="ELAS",
+        ),
+    )
+    assert bg.tasks[2]["kwargs"] == {}
 
 
 async def test_pickup_time_updated_hook_returns_error_for_invalid_payload() -> None:
@@ -294,9 +308,21 @@ async def test_pickup_time_updated_hook_schedules_admin_receipt_for_configured_a
     assert [task["func"] for task in bg.tasks] == [
         takeaway_hooks.capture_takeaway_payment,
         takeaway_hooks._post_pickup_time_event,
-        takeaway_hooks.takeaway_admin_order_receipt,
+        restaurant_notifier.notify,
         takeaway_hooks.notify_overwatch,
     ]
+    # Step 3 hands the notifier exactly what takeaway_admin_order_receipt used to get (WhatsApp parity).
+    assert bg.tasks[2]["args"] == (
+        TakeawayReceipt(
+            order_number="ELAS-ABCD-1",
+            pickup_time="2026-05-09T12:30:00+00:00",
+            rest_name="Elai",
+            admins=["ADMIN01"],
+            restaurant_msg_id=None,
+            rest_ref="ELAS",
+        ),
+    )
+    assert bg.tasks[2]["kwargs"] == {}
 
 
 async def test_handle_restaurant_timedout_uses_rest_specific_pickup_config(
@@ -362,3 +388,22 @@ async def test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes(
 
     update_call = next(c for c in patch_supabase_client.calls if c.table == "takeaway_summary")
     assert update_call.payload["pickup_time"] == "2026-05-09T11:30:00+01:00"
+
+
+async def test_handle_restaurant_timedout_hands_an_exact_auto_accepted_notice_to_the_notifier(monkeypatch, patch_supabase_client) -> None:
+    monkeypatch.setattr(takeaway_hooks, "client_ordelo", patch_supabase_client)
+    patch_supabase_client.register(table="takeaway_summary", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
+    seen = []
+
+    async def fake_notify(notice):
+        seen.append(notice)
+
+    monkeypatch.setattr(restaurant_notifier, "notify", fake_notify)
+    summary = takeaway_hooks.TakeawaySummaryData(**_takeaway_summary_row())
+
+    await takeaway_hooks._handle_restaurant_timedout(summary, ["ADMIN01", "ADMIN02"])
+
+    assert len(seen) == 1
+    n = seen[0]
+    assert (n.order_number, n.order_type, n.admins, n.rest_ref) == ("ELAS-ABCD-1", "takeaway", ["ADMIN01", "ADMIN02"], "ELAS")
+    assert n.pickup_minutes > 0 and n.pickup_display
