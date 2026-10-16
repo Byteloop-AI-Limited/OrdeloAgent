@@ -1,6 +1,6 @@
 """In-memory fake of the kitchen-action RPCs (Ready and adjust pickup).
 
-Mimics the contract of ordelo_datamodels/migrations/restaurant_ready_adjust_notices.sql: same result vocabulary,
+Mimics the contract of ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql: same result vocabulary,
 same rules (first Ready per dispatch wins; a repeat adjust to the same time is 'unchanged'). The SQL itself is
 verified in tests/sql/test_restaurant_ready_adjust_notices_sql.py; change this fake in the same commit whenever the
 RPC contract changes.

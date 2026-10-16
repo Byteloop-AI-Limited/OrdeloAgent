@@ -1,6 +1,6 @@
 """In-memory fake of the restaurant decision RPCs (restaurant_order_decide / restaurant_order_set_pickup).
 
-Mimics the contract of ordelo_datamodels/migrations/restaurant_order_decision.sql: same result vocabulary,
+Mimics the contract of ordelo_datamodels/restaurant_admin/restaurant_order_decision.sql: same result vocabulary,
 same first-decision-wins rule. The SQL itself is verified in tests/sql/test_restaurant_decision_sql.py;
 change this fake in the same commit whenever the RPC contract changes.
 

@@ -1,4 +1,4 @@
-"""Isolated-database tests for ordelo_datamodels/migrations/create_t_inbox.sql (skipped without ORDELO_TEST_DB_URI)."""
+"""Isolated-database tests for ordelo_datamodels/telegram/create_t_inbox.sql (skipped without ORDELO_TEST_DB_URI)."""
 
 from __future__ import annotations
 
@@ -112,8 +112,8 @@ def test_rls_enabled_on_table(db):
 
 
 def test_migration_is_repeatable(db):
-    from .conftest import MIGRATIONS
+    from .conftest import sql_path
 
     claim(db, 1)
-    db.execute((MIGRATIONS / "create_t_inbox.sql").read_text())
+    db.execute(sql_path("create_t_inbox.sql").read_text())
     assert fetch_one(db, "SELECT count(*) FROM public.t_inbox") == 1

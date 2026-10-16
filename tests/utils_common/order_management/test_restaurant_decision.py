@@ -1,7 +1,7 @@
 """Tests for utils_common.order_management.restaurant_decision (the shared accept/decline/pickup rule).
 
 The database is replaced by FakeDecisionDb, which mimics the RPC contract of
-ordelo_datamodels/migrations/restaurant_order_decision.sql (same result vocabulary, same first-wins rule).
+ordelo_datamodels/restaurant_admin/restaurant_order_decision.sql (same result vocabulary, same first-wins rule).
 The SQL itself is verified in tests/sql/test_restaurant_decision_sql.py.
 
 Key Functions:
