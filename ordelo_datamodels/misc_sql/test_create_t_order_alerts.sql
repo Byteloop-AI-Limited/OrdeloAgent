@@ -34,6 +34,7 @@
 INSERT INTO public.t_invites (rest_ref, phone_number, status, claimed_at, telegram_user_id, telegram_chat_id, telegram_first_name)
 SELECT 'STRK', '447448440754', 'claimed', now(), telegram_user_id, telegram_chat_id, telegram_first_name
   FROM public.t_invites WHERE status = 'claimed' AND telegram_user_id IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM public.t_invites WHERE rest_ref = 'STRK' AND status = 'claimed')   -- once only: never add a second claim
  ORDER BY claimed_at DESC LIMIT 1;
 
 
