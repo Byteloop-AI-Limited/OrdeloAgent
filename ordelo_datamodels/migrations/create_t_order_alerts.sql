@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS public.t_sent_messages (
     subject_type  text        NOT NULL,                      -- 'order' (other bots may add others)
     subject_ref   text        NOT NULL,                      -- order_number
     order_type    text,                                      -- 'delivery' | 'takeaway' when subject_type = 'order'
-    kind          text        NOT NULL,                      -- 'order_card'
+    kind          text        NOT NULL,                      -- 'order_card' | 'receipt' | 'notice' (the last two: restaurant_ready_adjust_notices.sql)
     rest_ref      text,
     card_status   text,                                      -- status key the copy currently shows
     state         text        NOT NULL DEFAULT 'live' CHECK (state IN ('live', 'taken', 'closed')),
