@@ -1,3 +1,11 @@
+"""delivery pymodels.
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . delivery_detail (table, ordelo_datamodels/delivery/delivery_detail.sql): reads, named in code (passed to a query helper)
+  . delivery_dispatch (table, ordelo_datamodels/dispatch/delivery_dispatch.sql): reads, named in code (passed to a query helper)
+  . delivery_summary (table, ordelo_datamodels/delivery/delivery_summary.sql): reads, named in code (passed to a query helper)
+(end of database objects)
+"""
 # %%
 
 from typing import Optional

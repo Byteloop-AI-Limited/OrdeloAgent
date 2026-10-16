@@ -3,6 +3,16 @@
 This module owns the delivery-authority checks, request/observation persistence,
 prompt coalescing, correlation, and response routing.  HTTP and PyWa adapters
 remain deliberately thin and must not duplicate these decisions.
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . delivery_detail (table, ordelo_datamodels/delivery/delivery_detail.sql): reads (SQL)
+  . delivery_dispatch (table, ordelo_datamodels/dispatch/delivery_dispatch.sql): reads (SQL)
+  . delivery_inflight (table, ordelo_datamodels/dispatch/delivery_inflight.sql): reads (SQL)
+  . delivery_summary (table, ordelo_datamodels/delivery/delivery_summary.sql): reads (SQL)
+  . restaurant_master (table, ordelo_datamodels/core/restaurant_master.sql): reads (SQL)
+  . wa_location_observation (table, ordelo_datamodels/rider_location/wa_location.sql): reads (SQL), writes (SQL)
+  . wa_location_request (table, ordelo_datamodels/rider_location/wa_location.sql): reads (SQL), writes (SQL)
+(end of database objects)
 """
 
 from __future__ import annotations

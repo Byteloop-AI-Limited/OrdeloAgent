@@ -31,6 +31,10 @@ WhatsApp Business API onboarding utility functions for the embedded-signup webho
       and stale keys from a previous run persist until overwritten
     . The completion log line emits the raw `code` and `business_token` at INFO level;
       scrub logs before sharing them outside the team
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . waba_es (table, ordelo_datamodels/core/waba_es.sql): inserts, named in code (passed to a query helper)
+(end of database objects)
 """
 
 # %%

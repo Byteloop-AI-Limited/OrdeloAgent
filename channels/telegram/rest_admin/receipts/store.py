@@ -8,13 +8,20 @@
                                             p_rest_ref, p_dispatch_id, p_status)
         take_for_refresh  -> t_receipts_take(p_bot_key, p_order_number, p_order_type)
         mark              -> t_order_card_mark(p_id, p_outcome, p_card_status, p_close)
-                             (create_t_order_alerts.sql; generic on t_sent_messages.id, so receipts reuse it)
+                             (ordelo_datamodels/telegram/t_sent_messages.sql; generic on t_sent_messages.id, so receipts reuse it)
     . Uses client_ordelo_service (service-role only RPCs); Supabase REST is synchronous, so every call runs
       in asyncio.to_thread (CLAUDE.md rule)
     . Holds no state: any of the gunicorn workers gives the same answers
   Classes/Functions:
     . ReceiptCopy, ReceiptSent
     . ReceiptStore
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . t_order_card_mark (function, ordelo_datamodels/telegram/t_sent_messages.sql): calls (name passed to a helper)
+  . t_receipt_sent (function, ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql): calls (name passed to a helper)
+  . t_receipt_snapshot (function, ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql): calls (name passed to a helper)
+  . t_receipts_take (function, ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql): calls (name passed to a helper)
+(end of database objects)
 """
 
 import asyncio

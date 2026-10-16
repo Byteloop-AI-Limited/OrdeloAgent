@@ -10,6 +10,10 @@ Functions/Classes:
       . from_cust_id_and_rest_ref
       . upsert
       . ask_for_marketing_consent
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . cust_rest_map (table, ordelo_datamodels/core/cust_rest_map.sql): reads, named in code (passed to a query helper), upserts
+(end of database objects)
 """
 
 # %%

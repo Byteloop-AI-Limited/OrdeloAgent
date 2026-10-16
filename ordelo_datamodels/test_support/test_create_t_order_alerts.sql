@@ -24,7 +24,7 @@
 --   There is no delivery_detail row either, so the order can never be dispatched to riders.
 --
 -- PREREQUISITES
---   * create_t_inbox.sql, restaurant_order_decision.sql and create_t_order_alerts.sql applied, job_t_order_alerts() scheduled.
+--   * telegram/t_inbox.sql, restaurant_admin/restaurant_order_decision.sql, telegram/t_sent_messages.sql and telegram/t_order_alerts.sql applied, job_t_order_alerts() scheduled.
 --   * A CLAIMED t_invites row for rest_ref 'STRK' whose phone is 447448440754 (it is in restaurant_master.admins for STRK).
 --     The last query of this file shows whether one exists (destinations > 0). If not, create and claim one first (see the
 --     Telegram Invites section of the database-operations skill).

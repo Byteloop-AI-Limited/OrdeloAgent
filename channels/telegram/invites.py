@@ -20,6 +20,12 @@ Telegram invite storage access (t_invites) for every Ordelo bot.
     . preview_invite
     . claim_invite
     . linked_restaurants
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . t_claim_invite (function, ordelo_datamodels/telegram/t_invites.sql): calls (name passed to a helper)
+  . t_invite_preview (function, ordelo_datamodels/telegram/t_invites.sql): calls (name passed to a helper)
+  . t_linked_restaurants (function, ordelo_datamodels/telegram/t_invites.sql): calls (name passed to a helper)
+(end of database objects)
 """
 
 import asyncio

@@ -28,6 +28,15 @@ Agent app handlers for Ordelo delivery agent workflows and WhatsApp integration.
     . debug_state - Debug utility for inspecting agent state
     . debug_state_by_thread - Debug utility for thread-specific state inspection
     . Routes customer notifications through the R1b notifier (always on since R3.1)
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . delivery_detail (table, ordelo_datamodels/delivery/delivery_detail.sql): reads (SQL)
+  . delivery_dispatch (table, ordelo_datamodels/dispatch/delivery_dispatch.sql): reads, named in code (passed to a query helper), updates, writes (SQL)
+  . delivery_inflight (table, ordelo_datamodels/dispatch/delivery_inflight.sql): reads (SQL)
+  . delivery_summary (table, ordelo_datamodels/delivery/delivery_summary.sql): reads, named in code (passed to a query helper)
+  . dispatch_accept_func (function, ordelo_datamodels/_orphans/dispatch.sql): calls (SQL), calls (name passed to a helper)
+  . rider_location (table, ordelo_datamodels/rider_location/rider_location.sql): reads, reads (SQL), named in code (passed to a query helper)
+(end of database objects)
 """
 
 from utils_common.notify import customer_notifier

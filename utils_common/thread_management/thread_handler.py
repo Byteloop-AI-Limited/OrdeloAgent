@@ -11,6 +11,15 @@ Key Methods:
   . get_stale_active_threads - Lists stale active threads eligible for inactivation
   . get_or_create_thread - Gets existing or creates new thread atomically
   . retain_thread - Sets retain_thread flag to true for active thread
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . create_thread (function, restaurant-agents): calls (SQL)
+  . get_active_thread (function, restaurant-agents): calls (SQL)
+  . get_or_create_thread (function, restaurant-agents): calls (SQL)
+  . get_stale_active_threads (function, restaurant-agents): calls (SQL)
+  . make_threads_inactive (function, restaurant-agents): calls (SQL)
+  . retain_thread (function, restaurant-agents): calls (SQL)
+(end of database objects)
 """
 
 # %%

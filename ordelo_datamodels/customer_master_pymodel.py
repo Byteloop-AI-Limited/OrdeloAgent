@@ -10,6 +10,10 @@ Functions/Classes:
       . from_customer_id
       . upsert
   . RestaurantFeedbackRequest
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . customer_master (table, ordelo_datamodels/core/customer_master.sql): reads, named in code (passed to a query helper), upserts
+(end of database objects)
 """
 
 # %%

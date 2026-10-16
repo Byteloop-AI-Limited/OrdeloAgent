@@ -7,6 +7,10 @@ Supabase helper class for persisting and querying live location data.
         - `insert_location` maps payload dict to table schema and inserts row
         - `get_latest_location` fetches most recent record for a user/device
         - `get_user_locations` returns history with optional filters
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . live-track (table, ordelo_datamodels/rider_location/live_track.sql): named in code (passed to a query helper)
+(end of database objects)
 """
 
 # NOTE: legacy summary moved to module docstring above

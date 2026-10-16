@@ -20,6 +20,12 @@ Functions/Classes:
     . generate_product_order_summary
     . payment_uri (property)
     . gen_payment_intent_payload
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . customer_master (table, ordelo_datamodels/core/customer_master.sql): reads, named in code (passed to a query helper)
+  . food_order (table, restaurant-agents): reads, named in code (passed to a query helper), updates
+  . order_item (table, restaurant-agents): reads, named in code (passed to a query helper)
+(end of database objects)
 """
 
 # %%

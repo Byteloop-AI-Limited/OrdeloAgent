@@ -15,6 +15,12 @@ Functions/Classes:
   . create_order_with_items - Creates order and order items in one transaction (RPC)
   . capture_payment_for_order - Captures payment for order with restaurant confirmation
     . Routes customer notifications through the R1b notifier
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . create_food_order_with_items (function, ordelo_datamodels/ordering/create_food_order_with_items.sql): calls, calls (name passed to a helper)
+  . get_next_daily_seq (function, restaurant-agents): calls, calls (name passed to a helper)
+  . restaurant_master (table, ordelo_datamodels/core/restaurant_master.sql): reads, named in code (passed to a query helper)
+(end of database objects)
 """
 
 # %%

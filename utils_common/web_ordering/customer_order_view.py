@@ -2,6 +2,19 @@
 
 Never infer capture/release from food_order.requires_capture, which remains
 unchanged after existing payment-service operations. Redact before returning.
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . delivery_dispatch (table, ordelo_datamodels/dispatch/delivery_dispatch.sql): reads (SQL)
+  . delivery_summary (table, ordelo_datamodels/delivery/delivery_summary.sql): named in code (passed to a query helper)
+  . food_order (table, restaurant-agents): reads (SQL)
+  . order_customer_event (table, ordelo_datamodels/notifications/order_customer_event.sql): reads (SQL)
+  . order_item (table, restaurant-agents): reads (SQL)
+  . restaurant_master (table, ordelo_datamodels/core/restaurant_master.sql): reads (SQL)
+  . rider_master (table, ordelo_datamodels/core/rider_master.sql): reads (SQL)
+  . takeaway_summary (table, ordelo_datamodels/takeaway/takeaway_summary.sql): named in code (passed to a query helper)
+  . web_order_request (table, ordelo_datamodels/ordering/web_order_request.sql): reads (SQL)
+  . web_payment_release (table, ordelo_datamodels/ordering/web_payment_release.sql): reads (SQL)
+(end of database objects)
 """
 
 from urllib.parse import quote

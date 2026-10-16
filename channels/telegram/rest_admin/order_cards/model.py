@@ -4,7 +4,7 @@ Pure (no I/O, no aiogram calls): `Card.view(viewer)` is the ONLY place an admin-
 text, button or toast is built. See plans/archive/telegram-rest-admin-scaffold-plan-full-2026-10-15.md "The order card"
 (D26) and docs/telegram-layer.md.
 
-`Status` keys are the SQL `t_order_card_status()` keys (create_t_order_alerts.sql). Change both
+`Status` keys are the SQL `t_order_card_status()` keys (ordelo_datamodels/telegram/t_order_alerts.sql). Change both
 together.
 """
 
@@ -152,7 +152,7 @@ class Destination:
 
 
 # restaurant_confirmation_status -> card status key, for the "already decided" answers of the decision RPCs.
-# Mirrors t_order_card_status() in create_t_order_alerts.sql (only the states a lost race can report).
+# Mirrors t_order_card_status() in ordelo_datamodels/telegram/t_order_alerts.sql (only the states a lost race can report).
 _STATE_TO_STATUS = {
     "restaurant_accept": "accepted",
     "restaurant_pickuptime_adjusted": "pickup_set",
