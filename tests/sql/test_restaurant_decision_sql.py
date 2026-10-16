@@ -1,4 +1,4 @@
-"""Isolated-database tests for ordelo_datamodels/migrations/restaurant_order_decision.sql.
+"""Isolated-database tests for ordelo_datamodels/restaurant_admin/restaurant_order_decision.sql.
 
 Covers the decide / set_pickup contract, R1-a (a declined delivery is never dispatchable), the "by X" label,
 the first-decision-wins race, grants, and that the shared functions still fire the restaurant-update trigger.
@@ -12,7 +12,7 @@ import threading
 import psycopg
 import pytest
 
-from .conftest import MIGRATIONS, _connect, fetch_one, migration_sql
+from .conftest import _connect, sql_path, fetch_one, migration_sql
 
 pytestmark = pytest.mark.usefixtures("sql_env")
 
@@ -248,4 +248,4 @@ def test_migration_is_repeatable(db):
     decide(db, "accept")
     db.execute(migration_sql("restaurant_order_decision.sql"))
     assert row(db)[0] == "restaurant_accept"
-    assert (MIGRATIONS / "restaurant_order_decision.sql").exists()
+    assert sql_path("restaurant_order_decision.sql").exists()

@@ -1,4 +1,4 @@
-"""Isolated-database fixtures for the SQL tests (migrations in ordelo_datamodels/migrations).
+"""Isolated-database fixtures for the SQL tests (the SQL files under ordelo_datamodels/: telegram/, restaurant_admin/, migrations/).
 
 These tests run the real migration files against a THROWAWAY Postgres and are skipped unless
 ORDELO_TEST_DB_URI is set. They reset the `public` schema, so they refuse to run against anything that
@@ -18,7 +18,16 @@ import pytest
 
 URI = os.environ.get("ORDELO_TEST_DB_URI")
 ROOT = Path(__file__).resolve().parents[2]
-MIGRATIONS = ROOT / "ordelo_datamodels" / "migrations"
+DATAMODELS = ROOT / "ordelo_datamodels"
+MIGRATIONS = DATAMODELS / "migrations"
+
+
+def sql_path(name: str) -> Path:
+    """The one file called `name` anywhere under ordelo_datamodels/ (feature folders: telegram/, restaurant_admin/, migrations/)."""
+    found = [p for p in DATAMODELS.rglob(name) if "archive" not in p.parts]
+    if len(found) != 1:
+        raise FileNotFoundError(f"{name}: expected exactly one file under ordelo_datamodels/, found {found}")
+    return found[0]
 HERE = Path(__file__).parent
 
 pytestmark = pytest.mark.skipif(not URI, reason="ORDELO_TEST_DB_URI not set (isolated Postgres required)")
@@ -68,7 +77,7 @@ $$;
 
 
 def migration_sql(name: str) -> str:
-    text = (MIGRATIONS / name).read_text()
+    text = sql_path(name).read_text()
     if _PGCRYPTO_STATEMENT in text:
         text = text.replace(_PGCRYPTO_STATEMENT, "")
     return text

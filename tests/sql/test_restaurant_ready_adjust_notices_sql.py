@@ -1,4 +1,4 @@
-"""Isolated-database tests for ordelo_datamodels/migrations/restaurant_ready_adjust_notices.sql.
+"""Isolated-database tests for ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql.
 
 Covers Ready (shared, first tap per dispatch wins), adjust pickup (relative, 'unchanged' writes nothing), the Telegram
 wrappers (D14), the receipt status keys, snapshot, send/take/stale functions, the refresh job, plain notices and grants.

@@ -1,7 +1,7 @@
 """Tests for utils_common.order_management.restaurant_actions (Ready and adjust pickup, both channels).
 
 The database is replaced by FakeActionsDb (tests/fixtures/fake_restaurant_actions.py), which mimics the RPC contract of
-ordelo_datamodels/migrations/restaurant_ready_adjust_notices.sql. The SQL itself is verified in
+ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql. The SQL itself is verified in
 tests/sql/test_restaurant_ready_adjust_notices_sql.py.
 
 Key Functions:

@@ -1,4 +1,4 @@
-"""Isolated-database tests for ordelo_datamodels/migrations/create_t_order_alerts.sql.
+"""Isolated-database tests for ordelo_datamodels/telegram/create_t_order_alerts.sql.
 
 Covers the status mapping, destinations (D14), the snapshot, the ledger functions (send / take / mark, races),
 the sweep (seed, cancel, collapse, POST, mark only on 2xx, stale refreshes), housekeeping, and grants.
