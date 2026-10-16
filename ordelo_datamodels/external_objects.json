@@ -1,0 +1,142 @@
+{
+  "_about": "Live public-schema objects that ordelo_datamodels/ does NOT define, and the parts of them it does define. Read by scripts/datamodels/drift_check.py and build_guide.py. When restaurant-agents or a library adds an object to the shared database, list it here.",
+  "external": {
+    "food_order": {
+      "kind": "table",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/order_management/food_order.sql"
+    },
+    "order_item": {
+      "kind": "table",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/order_management/food_order.sql"
+    },
+    "daily_seq_last_value": {
+      "kind": "table",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/order_management/food_order.sql"
+    },
+    "get_next_daily_seq": {
+      "kind": "function",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/order_management/food_order.sql"
+    },
+    "thread": {
+      "kind": "table",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/thread_management/thread_mgmnt_ddl.sql"
+    },
+    "create_thread": {
+      "kind": "function",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/thread_management/thread_mgmnt_ddl.sql"
+    },
+    "get_active_thread": {
+      "kind": "function",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/thread_management/thread_mgmnt_ddl.sql"
+    },
+    "get_or_create_thread": {
+      "kind": "function",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/thread_management/thread_mgmnt_ddl.sql"
+    },
+    "get_stale_active_threads": {
+      "kind": "function",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/thread_management/thread_mgmnt_ddl.sql"
+    },
+    "make_threads_inactive": {
+      "kind": "function",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/thread_management/thread_mgmnt_ddl.sql"
+    },
+    "retain_thread": {
+      "kind": "function",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/thread_management/thread_mgmnt_ddl.sql"
+    },
+    "reservation": {
+      "kind": "table",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/reservation_management/reservation_ddl.sql"
+    },
+    "foodorder": {
+      "kind": "table",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/ordelo_service/datamodels/food_order.sql",
+      "note": "legacy table, never written"
+    },
+    "orderitem": {
+      "kind": "table",
+      "owner": "restaurant-agents",
+      "file": "packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/ordelo_service/datamodels/food_order.sql",
+      "note": "legacy table, never written"
+    }
+  },
+  "library": {
+    "checkpoints": {
+      "kind": "table",
+      "owner": "LangGraph AsyncPostgresSaver"
+    },
+    "checkpoint_blobs": {
+      "kind": "table",
+      "owner": "LangGraph AsyncPostgresSaver"
+    },
+    "checkpoint_writes": {
+      "kind": "table",
+      "owner": "LangGraph AsyncPostgresSaver"
+    },
+    "checkpoint_migrations": {
+      "kind": "table",
+      "owner": "LangGraph AsyncPostgresSaver"
+    },
+    "langchain_pg_collection": {
+      "kind": "table",
+      "owner": "langchain PGVector"
+    },
+    "langchain_pg_embedding": {
+      "kind": "table",
+      "owner": "langchain PGVector"
+    },
+    "spatial_ref_sys": {
+      "kind": "?",
+      "owner": "PostGIS"
+    },
+    "geometry_columns": {
+      "kind": "?",
+      "owner": "PostGIS"
+    },
+    "geography_columns": {
+      "kind": "?",
+      "owner": "PostGIS"
+    }
+  },
+  "additions": {
+    "food_order": {
+      "file": "ordering/food_order_additions.sql",
+      "columns": [
+        "origin_channel",
+        "storefront",
+        "idempotency_key",
+        "payment_mode"
+      ],
+      "constraints": [
+        "food_order_origin_channel_chk",
+        "food_order_storefront_chk",
+        "food_order_payment_mode_chk"
+      ],
+      "indexes": [
+        "food_order_idempotency_key_uq"
+      ]
+    },
+    "order_item": {
+      "file": "ordering/food_order_additions.sql",
+      "columns": [],
+      "constraints": [],
+      "indexes": [
+        "idx_order_item_order_id"
+      ]
+    }
+  }
+}

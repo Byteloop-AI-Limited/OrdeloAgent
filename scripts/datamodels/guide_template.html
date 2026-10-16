@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ordelo · Database guide</title>
+<style>
+:root{--bg:#f4f6fa;--panel:#fff;--ink:#172331;--muted:#536477;--line:#d9e2ec;--accent:#0b685c;--soft:#e9f6f0;--code:#eaf0f5;--shadow:0 14px 50px #11273b0b;
+--cmt:#0d5c2e;--kw:#7a2ea8;--str:#a3430b;--num:#0b5aa6;--fn:#0b4f8a;--warn:#9a5b00;--warnbg:#fff4de}
+body.dark{--bg:#101b25;--panel:#172733;--ink:#eaf3f9;--muted:#a7bacb;--line:#344956;--accent:#70dcc0;--soft:#203b38;--code:#1d3040;--shadow:none;
+--cmt:#8fe3a8;--kw:#d6a8ff;--str:#ffb57d;--num:#8cc8ff;--fn:#9bd0ff;--warn:#ffcf7a;--warnbg:#3a3120}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+a{color:var(--accent);text-underline-offset:3px}button,select,input{font:inherit}
+button{cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:var(--panel);border-radius:9px;padding:8px 14px;font-weight:650}
+button.secondary{background:var(--panel);color:var(--ink);border-color:var(--line)}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid #e3a53b;outline-offset:2px}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:26px max(24px,calc((100vw - 1500px)/2))}
+header .top{display:flex;justify-content:space-between;gap:20px;align-items:center}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.7px;color:var(--accent)}
+h1{font-size:clamp(24px,3vw,38px);line-height:1.15;margin:6px 0 8px;letter-spacing:-.8px}
+h2{font-size:24px;line-height:1.3;margin:4px 0 14px}h3{font-size:18px;margin:26px 0 10px}h4{margin:0 0 8px}
+p{margin:10px 0}header p{max-width:900px;color:var(--muted);margin:0}
+.layout{display:grid;grid-template-columns:210px minmax(0,1fr);gap:24px;max-width:1500px;margin:24px auto;padding:0 24px}
+aside{align-self:start;position:sticky;top:16px}
+nav{display:grid;gap:6px}
+nav button{text-align:left;background:transparent;color:var(--muted);border:1px solid transparent;font-size:14px;padding:10px 13px}
+nav button[aria-selected=true]{background:var(--soft);color:var(--accent);border-color:var(--accent)}
+.side-note{border-top:1px solid var(--line);margin-top:20px;padding-top:14px;color:var(--muted);font-size:13px}
+.panel{padding:26px 30px;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);min-width:0}
+.panel[hidden]{display:none}
+code,.mono{font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+code{background:var(--code);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.small{font-size:12.5px;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin:16px 0}
+.card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--bg);text-align:left;color:var(--ink);font-weight:400;display:block;width:100%}
+.card:hover{border-color:var(--accent)}
+.card b{display:block;font-size:15px}.card .n{color:var(--accent);font-weight:700;font-size:12px}
+.card span.s{display:block;color:var(--muted);font-size:13px;margin-top:4px}
+.stats{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}.stat{border:1px solid var(--line);border-radius:10px;padding:8px 14px;background:var(--bg)}
+.stat b{font-size:20px;display:block;line-height:1.2}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;margin:14px 0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;border-bottom:1px solid var(--line);padding:9px 12px;vertical-align:top}
+th{font-size:12px;color:var(--muted);background:var(--bg);font-weight:750;position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+.chip{display:inline-block;margin:2px 3px 2px 0;padding:2px 9px;font:12.5px ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--ink);cursor:pointer}
+.chip:hover{border-color:var(--accent);color:var(--accent)}.chip.ext{opacity:.7;cursor:default}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-right:4px}
+.tag.function{color:#0b5aa6;border-color:#0b5aa6}.tag.table{color:var(--accent);border-color:var(--accent)}.tag.trigger{color:#9a5b00;border-color:#9a5b00}.tag.view{color:#7a2ea8;border-color:#7a2ea8}
+body.dark .tag.function{color:#8cc8ff;border-color:#8cc8ff}body.dark .tag.trigger{color:#ffcf7a;border-color:#ffcf7a}body.dark .tag.view{color:#d6a8ff;border-color:#d6a8ff}
+.tag.off{color:var(--warn);border-color:var(--warn);background:var(--warnbg)}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:8px 0 14px}
+.filters label{font-size:12px;color:var(--muted)}
+.filters input,.filters select{display:block;margin-top:4px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.filters input{min-width:260px}
+.split{display:grid;grid-template-columns:minmax(300px,1fr) minmax(320px,1.1fr);gap:20px}
+.list{max-height:70vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.list button{display:block;width:100%;text-align:left;background:transparent;color:var(--ink);border:0;border-bottom:1px solid var(--line);border-radius:0;padding:8px 12px;font-weight:400}
+.list button[aria-current=true]{background:var(--soft)}.list button .d{display:block;color:var(--muted);font-size:12.5px}
+.detail{border:1px solid var(--line);border-radius:10px;padding:16px 18px;max-height:70vh;overflow:auto;background:var(--bg)}
+.detail dt{font-size:11px;font-weight:800;letter-spacing:1.2px;color:var(--accent);margin-top:12px}.detail dd{margin:2px 0 0;white-space:pre-wrap;font-size:14px;overflow-wrap:anywhere}
+.flow{border:1px solid var(--line);border-radius:12px;margin:14px 0;padding:6px 16px;background:var(--bg)}
+.flow summary{cursor:pointer;font-weight:700;padding:10px 0}.step{border-top:1px solid var(--line);padding:10px 0}.step b{display:block}
+/* viewer */
+.viewer{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px}
+.tree{max-height:78vh;overflow:auto;border:1px solid var(--line);border-radius:10px;font-size:13.5px}
+.tree summary{cursor:pointer;padding:6px 10px;font-weight:700;background:var(--bg);border-bottom:1px solid var(--line)}
+.tree button{display:block;width:100%;text-align:left;background:transparent;color:var(--ink);border:0;border-radius:0;padding:5px 10px 5px 22px;font-weight:400;font-size:13px;overflow-wrap:anywhere}
+.tree button[aria-current=true]{background:var(--soft);color:var(--accent);font-weight:700}
+.vmain{min-width:0;max-height:78vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.vhead{padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
+.vhead b{font:600 14px ui-monospace,Consolas,monospace}
+.hdr{width:100%;font-size:13.5px}.hdr td{padding:6px 14px}.hdr td:first-child{width:130px;font-weight:800;font-size:11px;letter-spacing:1px;color:var(--accent)}
+.hdr td:last-child{white-space:pre-wrap;overflow-wrap:anywhere;font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
+.row{display:grid;grid-template-columns:minmax(220px,36%) minmax(0,1fr);border-top:1px solid var(--line)}
+.row.solo{grid-template-columns:minmax(0,1fr)}
+.doc{padding:12px 16px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.55;background:var(--soft);color:var(--ink)}
+.row .code{margin:0;padding:12px 14px;overflow:auto;background:var(--code);font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre;position:relative}
+.row .code .ln{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+.row.hit{outline:3px solid #e3a53b;outline-offset:-3px}
+.hljs-comment{color:var(--cmt);font-style:normal;font-weight:600}
+.hljs-keyword,.hljs-built_in{color:var(--kw)}.hljs-string{color:var(--str)}.hljs-number,.hljs-literal{color:var(--num)}.hljs-type{color:var(--fn)}
+.hljs-meta,.hljs-title{color:var(--fn)}
+.note{border-left:3px solid var(--warn);background:var(--warnbg);padding:8px 14px;border-radius:0 8px 8px 0;font-size:14px}
+@media(max-width:1000px){.layout{grid-template-columns:1fr}aside{position:static}nav{display:flex;overflow:auto}nav button{white-space:nowrap}.side-note{display:none}.split,.viewer{grid-template-columns:1fr}.row{grid-template-columns:1fr}.panel{padding:18px}}
+@media print{header button,aside{display:none}.layout{display:block}.panel[hidden]{display:block}.panel{break-before:page;border:0}.list,.detail,.vmain,.tree{max-height:none}}
+</style></head><body>
+<header><div class="top"><div><span class="eyebrow">ORDELO / DATABASE</span><h1>Database guide</h1>
+<p>The SQL files under <code>ordelo_datamodels/</code>, organised by capability: what each object does, how to run it, what it touches, who calls it &mdash; and the SQL itself with its comments.</p></div>
+<button id="theme" class="secondary" aria-pressed="false">Dark theme</button></div>
+<span class="small" id="stamp"></span></header>
+<div class="layout"><aside><nav role="tablist" aria-label="Guide sections" id="nav"></nav>
+<div class="side-note"><strong>Generated.</strong><p>Built from the SQL headers by <code>scripts/datamodels/build_guide.py</code>. Do not edit by hand. Markdown twin: <code>ordelo-database-guide.md</code>.</p></div></aside>
+<main id="main"></main></div>
+<script id="data" type="application/json">__DATA__</script>
+<script id="sqlsrc" type="application/json">__SQL__</script>
+<script>__HLJS__</script>
+<script>__HLJS_PGSQL__</script>
+<script>
+(function(){
+"use strict";
+var D=JSON.parse(document.getElementById('data').textContent);
+var SQL=JSON.parse(document.getElementById('sqlsrc').textContent);
+var FILES={};D.files.forEach(function(f){FILES[f.path]=f;});
+var TABS=[["map","Capability map"],["flows","Flows"],["objects","Object index"],["cron","Cron jobs"],["drift","Orphans and external"],["viewer","SQL viewer"]];
+function el(t,a,k){var e=document.createElement(t);if(a)for(var x in a){if(x==='text')e.textContent=a[x];else if(x==='class')e.className=a[x];else e.setAttribute(x,a[x]);}
+ (k||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==='string'?document.createTextNode(c):c);});return e;}
+document.getElementById('stamp').textContent=D.stamp;
+/* theme */
+var body=document.body,tb=document.getElementById('theme');
+function setTheme(d){body.classList.toggle('dark',d);tb.textContent=d?'Light theme':'Dark theme';tb.setAttribute('aria-pressed',d);try{localStorage.setItem('ordelo-guide-theme',d?'dark':'light');}catch(e){}}
+var pref=null;try{pref=localStorage.getItem('ordelo-guide-theme');}catch(e){}
+setTheme(pref?pref==='dark':(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches));
+tb.onclick=function(){setTheme(!body.classList.contains('dark'));};
+/* tabs */
+var nav=document.getElementById('nav'),main=document.getElementById('main'),panels={};
+TABS.forEach(function(t,i){
+ var b=el('button',{role:'tab',id:'tab-'+t[0],'aria-controls':'p-'+t[0],'aria-selected':i===0,tabindex:i===0?0:-1,text:t[1]});
+ b.onclick=function(){show(t[0]);};nav.appendChild(b);
+ var p=el('section',{class:'panel',role:'tabpanel',id:'p-'+t[0],'aria-labelledby':'tab-'+t[0]});if(i)p.hidden=true;main.appendChild(p);panels[t[0]]=p;});
+nav.addEventListener('keydown',function(e){var k=e.key;if(k!=='ArrowDown'&&k!=='ArrowUp'&&k!=='ArrowRight'&&k!=='ArrowLeft')return;
+ var ids=TABS.map(function(t){return t[0];}),cur=ids.indexOf(document.activeElement.id.replace('tab-',''));if(cur<0)return;
+ var n=(cur+(k==='ArrowDown'||k==='ArrowRight'?1:ids.length-1))%ids.length;show(ids[n]);document.getElementById('tab-'+ids[n]).focus();e.preventDefault();});
+function show(id){TABS.forEach(function(t){var on=t[0]===id;var b=document.getElementById('tab-'+t[0]);b.setAttribute('aria-selected',on);b.tabIndex=on?0:-1;panels[t[0]].hidden=!on;});
+ try{history.replaceState(null,'','#'+id);}catch(e){}}
+function chip(name){var o=D.objects[name];if(!o)return el('span',{class:'chip ext',text:name,title:'Defined outside ordelo_datamodels/ (restaurant-agents or a library)'});
+ var c=el('button',{class:'chip',text:name,type:'button'});c.style.cssText='font-weight:400;padding:2px 9px;color:inherit';c.onclick=function(){openObject(name);};return c;}
+function tag(kind){return el('span',{class:'tag '+kind,text:kind});}
+function openObject(name){show('objects');selectObject(name,true);}
+function openFile(path,line){show('viewer');selectFile(path,line);}
+/* map */
+(function(){var p=panels.map;p.appendChild(el('h2',{text:'Capability map'}));
+ var tot={};Object.keys(D.objects).forEach(function(n){var k=D.objects[n].kind;tot[k]=(tot[k]||0)+1;});
+ var st=el('div',{class:'stats'});[['SQL files',D.files.length],['Objects',Object.keys(D.objects).length],['Tables',tot.table||0],['Functions',tot.function||0],['Triggers',tot.trigger||0],['Views',tot.view||0],['Cron jobs',D.cron.length]].forEach(function(s){st.appendChild(el('div',{class:'stat'},[el('b',{text:String(s[1])}),s[0]]));});p.appendChild(st);
+ p.appendChild(el('p',{text:'Each folder is one business capability. A table file holds its DDL, indexes, triggers and trigger functions. A workflow RPC or cron job has its own file. Pick a card to see its files.'}));
+ var cards=el('div',{class:'cards'});
+ D.capabilities.forEach(function(c){var fs=D.files.filter(function(f){return f.folder===c.folder;});var n=fs.reduce(function(a,f){return a+f.objects.length;},0);
+  var b=el('button',{class:'card',type:'button'},[el('span',{class:'n',text:c.folder+'/  ·  '+fs.length+' files  ·  '+n+' objects'}),el('b',{text:c.title}),el('span',{class:'s',text:c.summary})]);
+  b.onclick=function(){show('viewer');selectFile(fs[0].path);};cards.appendChild(b);});
+ p.appendChild(cards);
+ p.appendChild(el('h3',{text:'Layout rules'}));
+ var ul=el('ul');['One folder per capability. One file per primary table (DDL, indexes, triggers, trigger functions) and one per workflow RPC or cron job.',
+  'The file holds the live definition. If the database changes, the file changes in the same commit.',
+  'migrations/ is frozen history; _archive/ is superseded SQL; _orphans/ holds live objects nothing calls.',
+  'Objects owned by restaurant-agents (food_order, thread, ...) are referenced, never copied.'].forEach(function(t){ul.appendChild(el('li',{text:t}));});p.appendChild(ul);})();
+/* flows */
+(function(){var p=panels.flows;p.appendChild(el('h2',{text:'Flows'}));
+ p.appendChild(el('p',{text:'How the objects work together, step by step. Object names open their detail in the object index; greyed names live in restaurant-agents.'}));
+ D.flows.forEach(function(f,i){var d=el('details',{class:'flow'});if(i===0)d.open=true;d.appendChild(el('summary',{text:f.title}));d.appendChild(el('p',{class:'small',text:f.summary}));
+  f.steps.forEach(function(s){var st=el('div',{class:'step'},[el('b',{text:s.title}),el('div',{text:s.text})]);var cs=el('div');s.objects.forEach(function(o){cs.appendChild(chip(o));});st.appendChild(cs);d.appendChild(st);});p.appendChild(d);});})();
+/* objects */
+var selObj=null,listBox,detail,qIn,kSel,fSel;
+function renderList(){var q=qIn.value.toLowerCase().trim(),k=kSel.value,f=fSel.value;listBox.innerHTML='';var n=0;
+ Object.keys(D.objects).forEach(function(name){var o=D.objects[name];if(k&&o.kind!==k)return;if(f&&o.folder!==f)return;
+  if(q&&(name+' '+o.description+' '+o.file).toLowerCase().indexOf(q)<0)return;n++;
+  var b=el('button',{type:'button','data-name':name,'aria-current':name===selObj},[tag(o.kind),el('code',{text:name}),el('span',{class:'d',text:o.file+'  ·  '+o.description.slice(0,110)})]);
+  b.onclick=function(){selectObject(name,false);};listBox.appendChild(b);});
+ document.getElementById('ocount').textContent=n+' shown';}
+function dl(dt,dd){if(!dd)return null;var w=document.createDocumentFragment();w.appendChild(el('dt',{text:dt}));w.appendChild(el('dd',{text:dd}));return w;}
+function selectObject(name,scroll){selObj=name;var o=D.objects[name];if(!o)return;
+ if(qIn.value||kSel.value||fSel.value){var q=(name+' '+o.description+' '+o.file).toLowerCase();if((kSel.value&&o.kind!==kSel.value)||(fSel.value&&o.folder!==fSel.value)||(qIn.value&&q.indexOf(qIn.value.toLowerCase())<0)){qIn.value='';kSel.value='';fSel.value='';}}
+ renderList();var cur=listBox.querySelector('[aria-current=true]');if(cur&&scroll)cur.scrollIntoView({block:'center'});
+ var f=FILES[o.file],s=f.sections||{};detail.innerHTML='';
+ detail.appendChild(el('h3',{text:name,style:'margin-top:0'}));detail.appendChild(el('div',null,[tag(o.kind),o.role==='orphan'?el('span',{class:'tag off',text:'orphan candidate'}):null]));
+ var g=el('dl');g.style.margin='0';
+ [dl('SIGNATURE',o.signature),dl('WHAT IT DOES',o.description),dl('LIVE CHECK',s['LIVE CHECK'])].forEach(function(x){if(x)g.appendChild(x);});
+ var fl=el('dd');fl.appendChild(el('button',{class:'secondary',type:'button',text:'Open '+o.file+' in the viewer'}));fl.firstChild.onclick=function(){openFile(o.file,o.line);};g.appendChild(el('dt',{text:'FILE'}));g.appendChild(fl);
+ if(o.called_by.length){g.appendChild(el('dt',{text:'CALLED BY'}));var cb=el('dd');o.called_by.forEach(function(c){cb.appendChild(el('div',null,[el('span',{class:'tag',text:c.via}),c.text]));});g.appendChild(cb);}
+ ['REQUIRES','HOW TO RUN','SIDE EFFECTS','LIFECYCLE','PYTHON MODEL','SECURITY','TESTS','GOTCHAS','SEE ALSO','HOW IT FITS'].forEach(function(k){var v=s[k];if(v&&v.trim()&&v.trim()!=='none'){g.appendChild(dl(k,v));}});
+ detail.appendChild(g);if(location.hash!=='#objects')try{history.replaceState(null,'','#objects');}catch(e){}}
+(function(){var p=panels.objects;p.appendChild(el('h2',{text:'Object index'}));
+ qIn=el('input',{type:'search',id:'oq',placeholder:'Search name, description, file...'});kSel=el('select',{id:'ok'},[el('option',{value:'',text:'All kinds'})].concat(['table','function','trigger','view'].map(function(k){return el('option',{value:k,text:k});})));
+ fSel=el('select',{id:'of'},[el('option',{value:'',text:'All folders'})].concat(D.capabilities.filter(function(c){return D.files.some(function(f){return f.folder===c.folder&&f.objects.length;});}).map(function(c){return el('option',{value:c.folder,text:c.folder});})));
+ p.appendChild(el('div',{class:'filters'},[el('label',{for:'oq'},['Search',qIn]),el('label',{for:'ok'},['Kind',kSel]),el('label',{for:'of'},['Folder',fSel]),el('span',{class:'small',id:'ocount',role:'status'})]));
+ listBox=el('div',{class:'list'});detail=el('div',{class:'detail'},[el('p',{class:'small',text:'Pick an object to see its file, run information, side effects, callers and tests.'})]);
+ p.appendChild(el('div',{class:'split'},[listBox,detail]));[qIn,kSel,fSel].forEach(function(x){x.oninput=renderList;x.onchange=renderList;});renderList();})();
+/* cron */
+(function(){var p=panels.cron;p.appendChild(el('h2',{text:'Cron jobs'}));
+ p.appendChild(el('p',{text:'pg_cron jobs as defined by the runnable cron.schedule() statements in the SQL files. "Inactive" means the file re-disables the job. Live matches this table (checked by scripts/datamodels/drift_check.py).'}));
+ var tb=el('tbody');D.cron.forEach(function(j){var tr=el('tr');tr.appendChild(el('td',null,[el('code',{text:j.job})]));tr.appendChild(el('td',{text:j.schedule}));
+  tr.appendChild(el('td',null,[j.active?'active':el('span',{class:'tag off',text:'inactive'})]));
+  var fn=el('td');if(j['function']){fn.appendChild(chip(j['function']));}else fn.appendChild(el('code',{text:j.command}));tr.appendChild(fn);
+  var f=el('td');var b=el('button',{class:'secondary',type:'button',text:j.file});b.style.cssText='padding:2px 8px;font-weight:400';b.onclick=function(){openFile(j.file,j.line);};f.appendChild(b);tr.appendChild(f);tb.appendChild(tr);});
+ var t=el('table',null,[el('thead',null,[el('tr',null,['Job','Schedule','State','Runs','File'].map(function(h){return el('th',{text:h});}))]),tb]);p.appendChild(el('div',{class:'table-wrap'},[t]));
+ if(D.cron_notes.length){var u=el('ul');D.cron_notes.forEach(function(n){u.appendChild(el('li',{text:n}));});p.appendChild(el('h3',{text:'Known gaps'}));p.appendChild(u);}})();
+/* drift */
+(function(){var p=panels.drift;p.appendChild(el('h2',{text:'Orphans and external objects'}));
+ p.appendChild(el('div',{class:'note',text:'Orphan candidates are live objects that nothing in OrdeloAgent, restaurant-frontend or restaurant-agents calls. Nothing has been dropped: keep or drop is an owner decision (docs/to-do.md).'}));
+ function tbl(head,rows){var tb=el('tbody');rows.forEach(function(r){tb.appendChild(el('tr',null,r.map(function(c){return el('td',null,[c]);})));});return el('div',{class:'table-wrap'},[el('table',null,[el('thead',null,[el('tr',null,head.map(function(h){return el('th',{text:h});}))]),tb])]);}
+ p.appendChild(el('h3',{text:'Orphan candidates'}));
+ p.appendChild(tbl(['Object','Kind','Why it is here','File'],Object.keys(D.objects).filter(function(n){return D.objects[n].role==='orphan';}).map(function(n){var o=D.objects[n];return [chip(n),tag(o.kind),o.description,o.file];})));
+ p.appendChild(el('h3',{text:'Owned by restaurant-agents (referenced, never copied)'}));
+ p.appendChild(tbl(['Object','Kind','Defined in'],Object.keys(D.external.external).map(function(n){var e=D.external.external[n];return [el('code',{text:n}),e.kind,e.file+(e.note?'  ('+e.note+')':'')];})));
+ p.appendChild(el('h3',{text:'Added to those objects by OrdeloAgent'}));
+ p.appendChild(tbl(['Table','Columns','Constraints and indexes','File'],Object.keys(D.external.additions).map(function(n){var a=D.external.additions[n];return [el('code',{text:n}),a.columns.join(', ')||'-',a.constraints.concat(a.indexes).join(', ')||'-',a.file];})));
+ p.appendChild(el('h3',{text:'Library objects'}));
+ p.appendChild(tbl(['Object','Owner'],Object.keys(D.external.library).map(function(n){return [el('code',{text:n}),D.external.library[n].owner];})));
+ p.appendChild(el('h3',{text:'Migrations (history)'}));
+ p.appendChild(tbl(['File','Applied to live','Current definitions'],D.files.filter(function(f){return f.role==='migration';}).map(function(f){var b=el('button',{class:'secondary',type:'button',text:f.path});b.style.cssText='padding:2px 8px;font-weight:400';b.onclick=function(){openFile(f.path);};return [b,f.migration.applied,f.migration.current.join(', ')];})));
+ p.appendChild(el('h3',{text:'Keeping this honest'}));
+ p.appendChild(el('p',null,['Run ',el('code',{text:'python scripts/datamodels/drift_check.py'}),' after any change to the live database. It reads the live catalogue (read-only) and reports objects whose definition differs from these files.']));})();
+/* viewer */
+var treeBox,vmain,curFile=null;
+function segments(lines,start){var segs=[],cur=null,inDollar=null,i,ln;
+ for(i=start;i<lines.length;i++){ln=lines[i];var t=ln.trim();
+  var isC=!inDollar&&t.indexOf('--')===0;
+  if(!inDollar){}
+  var kind=isC?'c':(t===''&&cur&&cur.k==='c'?'c0':'k');
+  if(kind==='c0'){segs.push(cur);cur=null;continue;}
+  if(!cur||cur.k!==(isC?'c':'k')){if(cur)segs.push(cur);cur={k:isC?'c':'k',s:i+1,l:[]};}
+  cur.l.push(ln);
+  var m=ln.match(/\$[A-Za-z_0-9]*\$/g);if(m){m.forEach(function(d){if(inDollar===d)inDollar=null;else if(!inDollar)inDollar=d;});}
+ }
+ if(cur)segs.push(cur);
+ /* a pure-blank code segment is dropped, code trimmed of leading/trailing blank lines */
+ return segs.map(function(s){if(s.k==='k'){while(s.l.length&&!s.l[0].trim()){s.l.shift();s.s++;}while(s.l.length&&!s.l[s.l.length-1].trim())s.l.pop();}s.e=s.s+s.l.length-1;return s;}).filter(function(s){return s.l.length;});}
+function docText(l){return l.map(function(x){return x.replace(/^\s*--\s?/,'');}).filter(function(x){return !/^[-=\s]{8,}$/.test(x);}).join('\n').replace(/^\n+|\n+$/g,'');}
+function renderFile(path,line){var f=FILES[path],text=SQL[path];curFile=path;vmain.innerHTML='';
+ vmain.appendChild(el('div',{class:'vhead'},[el('b',{text:path}),el('div',{class:'small',text:(f.title||'')+'  ·  '+f.lines+' lines  ·  '+f.role})]));
+ var lines=text.split('\n'),start=0;
+ if(f.sections){start=f.header_lines;var tb=el('tbody');f.section_order.forEach(function(k){tb.appendChild(el('tr',null,[el('td',{text:k}),el('td',{text:f.sections[k]})]));});
+  vmain.appendChild(el('table',{class:'hdr'},[tb]));}
+ var segs=segments(lines,start),rows=[],i=0;
+ while(i<segs.length){var s=segs[i];
+  if(s.k==='c'){var n=segs[i+1];if(n&&n.k==='k'&&n.s===s.e+1){rows.push({doc:docText(s.l),code:n,s:s.s,e:n.e});i+=2;}else{rows.push({doc:docText(s.l),code:null,s:s.s,e:s.e});i++;}}
+  else{rows.push({doc:null,code:s,s:s.s,e:s.e});i++;}}
+ rows.forEach(function(r){var d=el('div',{class:'row'+(r.doc!==null&&!r.code?' solo':'')+(r.doc===null&&r.code?' solo':''),'data-s':r.s,'data-e':r.e});
+  if(r.doc!==null&&r.doc.trim()){d.appendChild(el('div',{class:'doc',text:r.doc}));}else if(r.doc!==null&&!r.code)return;
+  if(r.code){var pre=el('pre',{class:'code'});pre.appendChild(el('span',{class:'ln',text:'line '+r.code.s+(r.code.e>r.code.s?' - '+r.code.e:'')}));
+   var c=el('code',{class:'language-pgsql'});c.textContent=r.code.l.join('\n');c.style.background='none';c.style.padding='0';pre.appendChild(c);
+   try{hljs.highlightElement(c);}catch(e){}d.appendChild(pre);if(!(r.doc!==null&&r.doc.trim()))d.classList.add('solo');}
+  vmain.appendChild(d);});
+ vmain.scrollTop=0;
+ if(line){var hit=null;[].forEach.call(vmain.querySelectorAll('.row'),function(r){if(!hit&&+r.getAttribute('data-s')<=line&&line<=+r.getAttribute('data-e'))hit=r;});
+  if(!hit)[].forEach.call(vmain.querySelectorAll('.row'),function(r){if(!hit&&+r.getAttribute('data-e')>=line)hit=r;});
+  if(hit){hit.classList.add('hit');hit.scrollIntoView({block:'start'});}}}
+function selectFile(path,line){if(!FILES[path])return;[].forEach.call(treeBox.querySelectorAll('button'),function(b){b.setAttribute('aria-current',b.getAttribute('data-path')===path);});
+ var cur=treeBox.querySelector('[aria-current=true]');if(cur){var d=cur.closest('details');if(d)d.open=true;}renderFile(path,line);}
+(function(){var p=panels.viewer;p.appendChild(el('h2',{text:'SQL viewer'}));
+ p.appendChild(el('p',{class:'small',text:'The real files, embedded. For each object the comment is shown as prose on the left and the formatted SQL on the right. Comments inside code are highlighted at full contrast.'}));
+ treeBox=el('div',{class:'tree'});vmain=el('div',{class:'vmain'},[el('p',{class:'small',text:'Pick a file.',style:'padding:14px'})]);
+ var order=D.capabilities.map(function(c){return c.folder;});
+ order.forEach(function(fo){var fs=D.files.filter(function(f){return f.folder===fo;});if(!fs.length)return;var d=el('details');d.appendChild(el('summary',{text:fo+'/  ('+fs.length+')'}));
+  fs.forEach(function(f){var b=el('button',{type:'button','data-path':f.path,title:f.title||'',text:f.path.split('/').pop()});b.onclick=function(){selectFile(f.path);};d.appendChild(b);});treeBox.appendChild(d);});
+ p.appendChild(el('div',{class:'viewer'},[treeBox,vmain]));})();
+var h=(location.hash||'').slice(1);if(h&&panels[h])show(h);
+})();
+</script></body></html>
