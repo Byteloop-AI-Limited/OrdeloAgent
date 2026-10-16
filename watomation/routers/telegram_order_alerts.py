@@ -1,8 +1,11 @@
 """
 Telegram order-alert ingress for OrdeloAgent (thin route; logic lives in channels/telegram/rest_admin/order_cards).
     . POST /telegram/rest-admin/order-alerts, called every ~5 s (only when there is work) by the PostgreSQL function
-      job_t_order_alerts() (ordelo_datamodels/migrations/create_t_order_alerts.sql) through http_post
-    . Body: {"event_type", "timestamp", "reminders": [{order_number, order_type, n, of}], "refreshes": [{order_number, order_type}]}
+      job_t_order_alerts() (ordelo_datamodels/telegram/create_t_order_alerts.sql) through http_post
+    . Body: {"event_type", "timestamp", "reminders": [{order_number, order_type, n, of}], "refreshes": [{order_number, order_type}],
+      "receipts": [{order_number, order_type}]}
+      (receipts come from job_t_receipt_refresh() in ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql and
+      go to Receipts.refresh: the kitchen receipts whose status changed, e.g. after a WhatsApp Ready tap)
     . 503 when the rest-admin bot is not configured: non-2xx keeps the checkpoints pending, so nothing is lost
     . Answers 200 at once and does the Telegram work in background tasks (the SQL job is never held open on Telegram)
     . The database is re-checked before every send (OrderCards), so a replayed or forged call can not send a card for
@@ -36,6 +39,7 @@ class OrderAlertsPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
     reminders: list[Reminder] = []
     refreshes: list[_Order] = []
+    receipts: list[_Order] = []
 
 
 @router.post("/telegram/rest-admin/order-alerts", include_in_schema=False)
@@ -47,4 +51,12 @@ async def order_alerts(payload: OrderAlertsPayload, request: Request, background
         background_tasks.add_task(tg.cards.remind, OrderRef(r.order_number, r.order_type), r.n, r.of)
     for r in payload.refreshes:
         background_tasks.add_task(tg.cards.refresh, OrderRef(r.order_number, r.order_type))
-    return {"status": "accepted", "reminders": len(payload.reminders), "refreshes": len(payload.refreshes)}
+    if tg.receipts is not None:
+        for r in payload.receipts:
+            background_tasks.add_task(tg.receipts.refresh, OrderRef(r.order_number, r.order_type))
+    return {
+        "status": "accepted",
+        "reminders": len(payload.reminders),
+        "refreshes": len(payload.refreshes),
+        "receipts": len(payload.receipts) if tg.receipts is not None else 0,
+    }

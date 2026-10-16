@@ -58,13 +58,14 @@ Delivery webhook handlers for Ordelo delivery system
 """
 
 from utils_common.order_management.customer_keys import is_web_customer_key
-from utils_common.notify import customer_notifier
+from utils_common.notify import customer_notifier, restaurant_notifier
+from utils_common.notify.restaurant_notifier import AutoAccepted, KitchenReceipt, RiderAlert
 from utils_common.notify.customer_notifier import CustomerOrderEvent
 
 # %%
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import List, Optional
 from utils_common.tz_utils import UK_TZ, fmt_uk_time, parse_db_iso, to_uk_epoch
 import httpx
@@ -103,9 +104,7 @@ from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.waba_utils.wa_senders import (
     send_restaurant_order_confirmation,
     send_restaurant_pickup_time,
-    admin_order_reciept,
     notify_ops_rider_alert,
-    notify_rest_admins_rider_alert,
 )
 
 
@@ -577,9 +576,8 @@ async def delivery_inflight_graph_init_hook(
     # 3. Admin notification
     logger.info("step3: admin notification")
     background_tasks.add_task(
-        admin_order_reciept,
-        delivery_summary=delivery_summary,
-        rider_master=rider_master,
+        restaurant_notifier.notify,
+        KitchenReceipt(delivery_summary=delivery_summary, rider_master=rider_master, dispatch_id=dispatch_id),
     )
 
     # 4. Initialize ordelo graph as background task
@@ -1196,14 +1194,16 @@ async def _process_rider_pickup_alerts(alerts: list):
                 # time), not RestaurantMaster.get_admins_for(): that accessor is
                 # sync/cached and would need asyncio.to_thread, and the payload
                 # is already the fresher read of the same column.
-                await notify_rest_admins_rider_alert(
-                    phase=str(required),
-                    order_number=order_number,
-                    pickup_time=alert.get("pickup_time"),
-                    rider_id=rider_id,
-                    rider_name=alert.get("rider_name"),
-                    rest_ref=alert.get("rest_ref"),
-                    rest_admins=alert.get("rest_admins"),
+                await restaurant_notifier.notify(
+                    RiderAlert(
+                        phase=str(required),
+                        order_number=order_number,
+                        pickup_time=alert.get("pickup_time"),
+                        rider_id=rider_id,
+                        rider_name=alert.get("rider_name"),
+                        rest_ref=alert.get("rest_ref"),
+                        rest_admins=alert.get("rest_admins"),
+                    )
                 )
             elif audience == "rider":
                 # order_number and pickup_time come from the payload, not from
@@ -1358,7 +1358,7 @@ async def _handle_restaurant_decline(
     Handle restaurant_decline trigger (R1-a): the order is terminal, the payment is cancelled, the customer is told.
 
     Mirrors takeaway_hooks._handle_restaurant_decline. The decision function
-    (restaurant_order_decide, migrations/restaurant_order_decision.sql) already set
+    (restaurant_order_decide, restaurant_admin/restaurant_order_decision.sql) already set
     delivery_summary.status = 'declined' atomically with the decision, so the order was never dispatchable.
     The guarded update below only covers a decline written by hand (manual SQL) that left the order
     'restaurant_unconfirmed'; it never touches an order that has moved on.
@@ -1470,13 +1470,6 @@ async def _handle_restaurant_timedout(
 
     order_number = delivery_summary.order_number
 
-    # Send auto-accept notification to all admins
-    for admin_phone in restaurant_admins:
-        await _async_wa_client.send_message(
-            to=admin_phone,
-            text=f"Order {order_number} auto-accepted due to confirmation timeout. Pickup time set to {pickup_display} ({pickup_minutes} mins from order time).",
-        )
-
     # pylint: disable=unused-variable
     result = await asyncio.to_thread(
         lambda: (
@@ -1485,6 +1478,11 @@ async def _handle_restaurant_timedout(
             .eq("order_number", order_number)
             .execute()
         )
+    )
+
+    # Tell the admins (WhatsApp and Telegram) AFTER the update: a failed send can no longer stop the auto-accept.
+    await restaurant_notifier.notify(
+        AutoAccepted(order_number, "delivery", restaurant_admins, pickup_display, pickup_minutes, rest_ref)
     )
 
     return {

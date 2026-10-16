@@ -21,13 +21,10 @@ Functions/Classes:
 from utils_common.notify import customer_notifier
 
 # %%
-import asyncio
 import datetime
 import uuid
-from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
-from pydantic import BaseModel
 
 from config import client_ordelo
 from config.params import _resolve_rest_ref
@@ -41,7 +38,8 @@ from ordelo_datamodels.customer_master_pymodel import (
 from ordelo_datamodels.cust_rest_map_pymodel import CustRestMap
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from loguru import logger
-from utils_common.waba_utils.wa_senders import send_restaurant_feedback_notification
+from utils_common.notify import restaurant_notifier
+from utils_common.notify.restaurant_notifier import Feedback
 
 # %%
 router = APIRouter(tags=["customer-hooks"])
@@ -161,29 +159,19 @@ async def _notify_feedback_admins(
     request: RestaurantFeedbackRequest,
     received_at: datetime.datetime,
 ) -> None:
-    results = await asyncio.gather(
-        *(
-            send_restaurant_feedback_notification(
-                admin=admin,
-                feedback_id=feedback_id,
-                restaurant_name=restaurant.rest_name,
-                cust_id=request.cust_id,
-                cust_name=request.cust_name,
-                order_reference=request.order_reference,
-                description=request.description,
-                received_at=received_at,
-            )
-            for admin in admins
-        ),
-        return_exceptions=True,
+    await restaurant_notifier.notify(
+        Feedback(
+            admins=admins,
+            feedback_id=feedback_id,
+            restaurant_name=restaurant.rest_name,
+            rest_ref=restaurant.rest_ref,
+            cust_id=request.cust_id,
+            cust_name=request.cust_name,
+            order_reference=request.order_reference,
+            description=request.description,
+            received_at=received_at,
+        )
     )
-    for admin, result in zip(admins, results, strict=True):
-        if isinstance(result, Exception):
-            logger.warning(
-                "Feedback notification failed for feedback_id={} admin={}",
-                feedback_id,
-                admin,
-            )
 
 
 @router.post(

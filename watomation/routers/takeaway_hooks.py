@@ -47,10 +47,11 @@ from config import (
 )
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
+from utils_common.notify import restaurant_notifier
+from utils_common.notify.restaurant_notifier import AutoAccepted, TakeawayReceipt
 from utils_common.waba_utils.wa_senders import (
     send_restaurant_order_confirmation,
     send_restaurant_pickup_time,
-    takeaway_admin_order_receipt,
 )
 from watomation.routers.delivery_hooks import cancel_payment, notify_overwatch
 from utils_common.payment_ms.payment import (
@@ -316,14 +317,9 @@ async def _handle_restaurant_timedout(
             "order_number": takeaway_summary.order_number,
         }
 
-    for admin_phone in restaurant_admins:
-        await _async_wa_client.send_message(
-            to=admin_phone,
-            text=(
-                f"Order {takeaway_summary.order_number} auto-accepted due to confirmation timeout. "
-                f"Pickup time set to {pickup_display} ({pickup_minutes} mins from order time)."
-            ),
-        )
+    await restaurant_notifier.notify(
+        AutoAccepted(takeaway_summary.order_number, "takeaway", restaurant_admins, pickup_display, pickup_minutes, rest_ref)
+    )
 
     return {
         "status": "success",
@@ -587,13 +583,15 @@ async def pickup_time_updated_hook(
     # including configured auto-accept orders.
     logger.info("step3: send admin order receipt")
     background_tasks.add_task(
-        takeaway_admin_order_receipt,
-        order_number=takeaway_summary.order_number,
-        pickup_time=takeaway_summary.pickup_time,
-        rest_name=takeaway_summary.rest_name or restaurant_master.rest_name,
-        admins=restaurant_master.admins,
-        restaurant_msg_id=takeaway_summary.restaurant_msg_id,
-        rest_ref=takeaway_summary.rest_ref or restaurant_master.rest_ref,
+        restaurant_notifier.notify,
+        TakeawayReceipt(
+            order_number=takeaway_summary.order_number,
+            pickup_time=takeaway_summary.pickup_time,
+            rest_name=takeaway_summary.rest_name or restaurant_master.rest_name,
+            admins=restaurant_master.admins,
+            restaurant_msg_id=takeaway_summary.restaurant_msg_id,
+            rest_ref=takeaway_summary.rest_ref or restaurant_master.rest_ref,
+        ),
     )
 
     # 4. Notify overwatch
