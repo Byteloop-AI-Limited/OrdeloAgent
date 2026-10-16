@@ -1,7 +1,7 @@
 """The order card: one immutable value, changed only by events, composed in one place.
 
 Pure (no I/O, no aiogram calls): `Card.view(viewer)` is the ONLY place an admin-facing order
-text, button or toast is built. See plans/telegram-rest-admin-scaffold-plan.md "The order card"
+text, button or toast is built. See plans/archive/telegram-rest-admin-scaffold-plan-full-2026-10-15.md "The order card"
 (D26) and docs/telegram-layer.md.
 
 `Status` keys are the SQL `t_order_card_status()` keys (create_t_order_alerts.sql). Change both
