@@ -1,34 +1,56 @@
-/**
-Dispatch Assignment – Step 4 in Delivery Workflow
+-- =============================================================================================
+-- ordelo_datamodels/dispatch/job_assign_dispatch.sql
+-- Every 5 seconds: give each order to the first rider who accepted it.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     job_assign_dispatch() -> TABLE(action text)
+--                   For every open order with an accepted dispatch, call assign_accepted_dispatch(); returns the orders it assigned.
+--               fn     assign_accepted_dispatch(p_order_number character varying) -> boolean
+--                   Assign the order to its first accepted dispatch and create the delivery_inflight row; returns whether anything changed.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each run updates dispatch/detail/summary to 'assigned' and inserts delivery_inflight rows (fires the inflight webhook).
+-- HOW IT FITS   Delivery order journey (statuses in delivery_summary.status unless noted):
+--                 1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:
+--                            'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.
+--                 2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked
+--                            (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /
+--                            decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.
+--                            process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then
+--                            sets a default pickup time and 'unassigned'.
+--                 3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,
+--                            and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).
+--                 4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders
+--                            (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).
+--                 5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first
+--                            acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row
+--                            (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).
+--                 6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,
+--                            dispatch_complete_func() marks everything 'completed' and removes the inflight row.
+--                 Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.
+-- LIFECYCLE     first 'accepted' dispatch per order (lowest dispatch_id) -> dispatch 'assigned', delivery_detail 'assigned' (rider_id,
+--               dispatch_id), delivery_summary 'assigned', new delivery_inflight row.
+-- CALLED BY     job_assign_dispatch:
+--                 cron      'job_assign_dispatch' 5 seconds
+--               assign_accepted_dispatch:
+--                 sql       job_assign_delivery() (_orphans/dispatch.sql)
+--                 sql       job_assign_dispatch() (dispatch/job_assign_dispatch.sql)
+-- PYTHON MODEL  none
+-- SECURITY      job_assign_dispatch(): executable by PUBLIC (default)
+--               assign_accepted_dispatch(): executable by PUBLIC (default)
+-- TESTS         none
+-- GOTCHAS       Riders' Accept taps only set delivery_dispatch.status = 'accepted' (watomation/on_callback_wa_handler.py); this job decides the winner.
+-- SEE ALSO      dispatch/delivery_inflight.sql
+--               dispatch/notify_missed_dispatches.sql
+--               docs/dispatch_flow.md
+-- =============================================================================================
 
-Where This Fits in the Journey:
-    - This function is the fourth step in the delivery agent workflow, as outlined in handwritten_design.md.
-    - Step 1: init_delivery – Creates delivery_summary and calls process_delivery().
-    - Step 2: process_delivery – Creates delivery_detail records and manages assignment/timeouts.
-    - Step 3: job_create_dispatch – Creates dispatches for available riders, updates statuses.
-    - Step 4: job_assign_dispatch – Assigns dispatches to riders who have accepted, updates statuses, and inserts into delivery_inflight to kick off rider graph and notifications.
-    - Step 5+: Downstream jobs and triggers handle inflight tracking and notifications.
-
-Invocation:
-    - Scheduled cron job 'job_assign_dispatch' (typically every 5–10 seconds).
-    - Operates on all unassigned or vehicle_type_timedout delivery_detail records.
-
-Purpose:
-    - Look for accepted dispatches and assign based on the first accepted dispatch per order.
-    - Update the statuses of dispatch, detail, and summary tables accordingly.
-    - Insert into delivery_inflight, which kicks off the rider graph and notification of missed dispatches.
-
-Dependencies:
-    - Reads from: `delivery_detail`, `delivery_dispatch` (for status and acceptance), and uses assign_accepted_dispatch().
-    - Writes to: `delivery_dispatch`, `delivery_detail`, `delivery_summary`, `delivery_inflight`.
-
-Side Effects:
-    1. Inserts into delivery_inflight, kicking off rider graph and notification of missed dispatches.
-    2. Sends WhatsApp messages to riders with delivery summaries.
-    3. Enables downstream inflight and notification jobs.
-
-See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
-**/
+-- ---------------------------------------------------------------------------------------------
+-- function job_assign_dispatch() -> TABLE(action text)
+--   For every open order with an accepted dispatch, call assign_accepted_dispatch(); returns the orders it assigned.
+--   Data: reads delivery_detail; calls assign_accepted_dispatch().
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION job_assign_dispatch ()
     RETURNS TABLE (
         action text
@@ -65,12 +87,11 @@ END;
 $$
 LANGUAGE plpgsql;
 
--- To call this function from pgcorn:
--- SELECT job_assign_dispatch();
-----------------------------------------
--- assign_accepted_dispatch - Assigns the first accepted dispatch for an order
--- Delivery dispatch status is updated to accepted in the initial handle of rider response thats run by on_callback `dispatch_response`
-----------------------------------------
+-- ---------------------------------------------------------------------------------------------
+-- function assign_accepted_dispatch(p_order_number character varying) -> boolean
+--   Assign the order to its first accepted dispatch and create the delivery_inflight row; returns whether anything changed.
+--   Data: writes delivery_detail, delivery_dispatch, delivery_inflight, delivery_summary.
+-- ---------------------------------------------------------------------------------------------
 DROP FUNCTION IF EXISTS assign_accepted_dispatch (VARCHAR(100));
 
 CREATE OR REPLACE FUNCTION assign_accepted_dispatch (p_order_number varchar(100))
@@ -173,6 +194,15 @@ END;
 $$
 LANGUAGE plpgsql;
 
--- pg_cron job 'job_assign_dispatch' (live schedule: 5 seconds, active). cron.schedule() updates the job in place when the name already exists.
+-- pg_cron job 'job_assign_dispatch': runs every 5 seconds, active on live.
+-- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('job_assign_dispatch', '5 seconds', 'SELECT public.job_assign_dispatch()');
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.job_assign_dispatch () IS 'For every open order with an accepted dispatch, call assign_accepted_dispatch(); returns the orders it assigned.';
+
+COMMENT ON FUNCTION public.assign_accepted_dispatch (p_order_number character varying) IS 'Assign the order to its first accepted dispatch and create the delivery_inflight row; returns whether anything changed.';

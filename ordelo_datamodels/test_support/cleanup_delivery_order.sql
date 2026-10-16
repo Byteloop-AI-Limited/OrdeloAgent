@@ -1,38 +1,32 @@
-/**
-Cleanup Delivery Order – Testing and Maintenance Utility
+-- =============================================================================================
+-- ordelo_datamodels/test_support/cleanup_delivery_order.sql
+-- Test helper: delete a delivery order's dispatch, detail, inflight and summary rows.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     cleanup_delivery_order(p_order_number text) -> text
+--                   Remove every delivery-workflow row of an order; returns a message with the counts.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each call DELETEs the order's rows from delivery_inflight, delivery_dispatch, delivery_detail and delivery_summary.
+-- HOW IT FITS   Developer and operator helpers for live testing. They change real rows, so they are run by hand (or by the WhatsApp
+--                 /reset and /test utility commands in watomation/on_message_wa_handler.py), never by the application flow.
+--                 See docs/live-order-test-harness.md and test_support/test_restaurant_notices.sql.
+-- LIFECYCLE     none
+-- CALLED BY     cleanup_delivery_order:
+--                 python    watomation/on_message_wa_handler.py: test_delivery()
+-- PYTHON MODEL  none
+-- SECURITY      cleanup_delivery_order(): executable by PUBLIC (default)
+-- TESTS         tests/watomation/test_on_message_wa_handler.py
+-- GOTCHAS       none
+-- SEE ALSO      test_support/test_reset_order_and_dispatch.sql
+-- =============================================================================================
 
-Purpose:
-    - Deletes all records associated with a specific order number from the delivery workflow tables.
-    - Used for testing, cleanup, and maintenance purposes.
-    - WARNING: This is a destructive operation and should be used with caution.
-
-Invocation:
-    - Called manually for testing purposes to clean up test orders.
-    - Called by maintenance scripts to remove old/invalid orders.
-    - Should NOT be used in production workflows without proper authorization.
-
-Dependencies:
-    - Reads from: `delivery_detail` (to verify order exists).
-    - Writes to: `delivery_summary`, `delivery_detail`, `delivery_dispatch`, `delivery_inflight` (delete).
-
-Side Effects:
-    1. Permanently removes all records for the specified order from all delivery tables.
-    2. Cascades deletion across dispatch, detail, and summary tables.
-    3. Removes any inflight records associated with the order.
-
-Parameters:
-    - p_order_number: The order number to clean up (e.g., 'ORD-123456').
-
-Returns:
-    - Success message with order number and count of deleted records.
-    - Error message if order not found.
-
-See also: dispatch_complete_func.sql for the completion workflow.
-**/
-
-----------------------------------------
--- cleanupDeliveryOrder - Deletes all records for an order
-----------------------------------------
+-- ---------------------------------------------------------------------------------------------
+-- function cleanup_delivery_order(p_order_number text) -> text
+--   Remove every delivery-workflow row of an order; returns a message with the counts.
+--   Data: writes delivery_detail, delivery_dispatch, delivery_inflight, delivery_summary.
+-- ---------------------------------------------------------------------------------------------
 DROP FUNCTION IF EXISTS cleanup_delivery_order (text);
 
 CREATE OR REPLACE FUNCTION cleanup_delivery_order (p_order_number text)
@@ -87,3 +81,9 @@ END IF;
 END;
 $$
 LANGUAGE plpgsql;
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.cleanup_delivery_order (p_order_number text) IS 'Remove every delivery-workflow row of an order; returns a message with the counts.';

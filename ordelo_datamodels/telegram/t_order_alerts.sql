@@ -1,79 +1,107 @@
 -- =============================================================================================
--- Feature SQL: Telegram order cards - schedule (t_order_alerts), ledger (t_sent_messages), sweep, housekeeping
+-- ordelo_datamodels/telegram/t_order_alerts.sql
+-- Telegram order cards: the reminder schedule (t_order_alerts), the card functions and the 5-second sweep.
 -- =============================================================================================
--- See also (paths under ordelo_datamodels/): sibling files: restaurant_admin/restaurant_order_decision.sql (accept / decline) and restaurant_admin/restaurant_ready_adjust_notices.sql (Ready / adjust, receipts and notices, which reuse t_sent_messages).
--- Run once in the Supabase SQL editor (operator step; the implementing agent never runs it).
--- Repeatable: every statement is CREATE OR REPLACE / IF NOT EXISTS / ON CONFLICT DO NOTHING.
--- Run it AFTER create_t_inbox.sql, create_t_invites.sql and restaurant_order_decision.sql (it reads
--- t_invites, t_inbox and restaurant_admin_label()) and AFTER dispatch/job_rider_pickup_alerts.sql
--- (it reuses parse_alert_offsets() and the http extension). Run it BEFORE deploying the code that calls it
--- (channels/telegram/rest_admin/order_cards/store.py, watomation/routers/telegram_order_alerts.py).
--- Nothing is sent until the operator schedules the sweep (last section of this file).
---
--- WHAT THIS ADDS
---   Tables     t_order_alerts     the schedule: one row per order x reminder offset (0/15/30/45 s by default)
---              t_sent_messages    the ledger: where each Telegram copy of an order card lives (cleanup only)
---   Functions  t_order_card_status()        order state -> card status key (IMMUTABLE)
---              t_order_card_row()           the order's current state, delivery or takeaway
---              t_order_card_destinations()  WHERE cards go (the one place that says so)
---              t_order_card_snapshot()      everything needed to draw the card, one DB read
---              t_order_card_sent()          record a sent copy, take older copies, re-check the order
---              t_order_cards_stale()        copies that no longer show the truth (read-only)
---              t_order_cards_take()         claim those copies for one refresh pass
---              t_order_card_mark()          record the outcome of an edit / delete
---              job_t_order_alerts()         the 5-second sweep: seed, cancel, find due reminders and stale cards, POST
---              t_housekeeping()             daily purge of old t_inbox / t_sent_messages / t_order_alerts rows
---   Config     TGRAM_ORDER_ALERT_OFFSETS_SECS ('0,15,30,45'), TGRAM_INBOX_RETENTION_DAYS ('7'),
---              TGRAM_LEDGER_RETENTION_DAYS ('30'); a per-restaurant <REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS wins.
---
--- WHY (plans/telegram-rest-admin-scaffold-plan.md, decisions D12, D14, D22, D24, D26)
---   Linked restaurant admins get the order card in Telegram at the configured offsets after the order arrives;
---   each new copy replaces the previous one in that chat (so the phone notifies again); every copy follows
---   the order until it is final (accepted on WhatsApp, timed out, declined, manual SQL). The database is
---   authoritative and is checked before every send; the ledger only remembers what to tidy up.
---
--- HOW THE PIECES FIT TOGETHER
---   pg_cron every 5 s -> job_t_order_alerts()
---        SEED     delivery_summary + takeaway_summary rows still 'restaurant_unconfirmed' (< 15 min old) with at least
---                 one destination -> one t_order_alerts checkpoint per offset
---        CANCEL   pending checkpoints of orders that are no longer unconfirmed
---        DUE      pending checkpoints with due_at <= now(); one winner per order (the largest offset)
---        STALE    up to 50 orders with copies that show an old status or a revoked viewer
---        POST     ORDELO_APP_URL/telegram/rest-admin/order-alerts {reminders:[...], refreshes:[...]}
---        MARK     only on a 2xx answer: superseded first, then winners 'sent'
---   -> watomation/routers/telegram_order_alerts.py (background tasks)
---        OrderCards.remind(order, n, of)  -> snapshot -> send per destination -> t_order_card_sent -> delete old copies
---        OrderCards.refresh(order)        -> snapshot -> t_order_cards_take -> edit/delete -> t_order_card_mark
---
---   Python callers (keep in sync with the module docstring of channels/telegram/rest_admin/order_cards/store.py):
---       CardStore.snapshot()          -> t_order_card_snapshot()   (destinations come from t_order_card_destinations())
---       CardStore.card_sent()         -> t_order_card_sent()
---       CardStore.take_for_refresh()  -> t_order_cards_take()
---       CardStore.mark()              -> t_order_card_mark()
---       (job_t_order_alerts, t_housekeeping, t_order_cards_stale and t_order_card_status are called only by
---        pg_cron and by the other functions here)
---       phase 5 appends t_order_decide() / t_order_set_pickup() to restaurant_order_decision.sql.
---   Card status keys MUST match channels/telegram/rest_admin/order_cards/model.py (Status):
---       awaiting | accepted | pickup_set | declined | auto_accepted | gone
---
--- COLUMN NAMES  tuid = Telegram user id of the admin the copy belongs to (NULL = shared group chat, D27);
---               tcid = Telegram chat id holding the message (send / edit / delete target).
---
--- CONCURRENCY   Up to 3 gunicorn workers may run remind / refresh for the same order at once. Nothing is kept
---               in process: copies are claimed in SQL (state 'taken', FOR UPDATE SKIP LOCKED); a claim not
---               finished within 30 seconds is offered again by the sweep. A newer copy only deletes OLDER ones
---               (id <), so two reminders in flight can never delete each other.
---
--- SECURITY MODEL  RLS ON with no policies; all functions revoked from PUBLIC/anon/authenticated: only the
---               service key (client_ordelo_service) can call them.
---
--- NOT YET DONE
---   * The card destination is looked up by the SUMMARY's rest_ref (the order-number prefix). A restaurant whose
---     orders use an alias prefix (config/params.py _REST_REF_ALIAS_MAP) has no restaurant_master row of that name
---     and gets no cards until the alias is resolved here.
---   * Group chats (D27) are added by extending t_order_card_destinations() with a UNION ALL branch.
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       table  t_order_alerts
+--                   Reminder schedule: one row per order and offset (seconds after the order) with due time and status.
+--               fn     t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text
+--                   Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).
+--               fn     t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)
+--                   Return the order's current state from delivery_summary or takeaway_summary as one row.
+--               fn     t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)
+--                   Return where cards for a restaurant go: the linked admins' chats (the one place that says so).
+--               fn     t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb
+--                   Return everything needed to draw the card (order, items, status, destinations) in one read.
+--               fn     t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)
+--                   List orders whose sent copies show an old status or a revoked viewer (read-only).
+--               fn     t_order_cards_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb
+--                   Claim one order's stale copies for one refresh pass (state 'taken', SKIP LOCKED).
+--               fn     job_t_order_alerts() -> boolean
+--                   Every 5 seconds: seed, cancel, find due reminders and stale cards, POST them, and mark them on success.
+-- REQUIRES      delivery/delivery_summary.sql
+--               takeaway/takeaway_summary.sql
+--               core/restaurant_master.sql
+--               telegram/t_invites.sql
+--               telegram/t_sent_messages.sql
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Applying the file inserts TGRAM_ORDER_ALERT_OFFSETS_SECS if missing. The cron job POSTs every 5 s when something is due.
+-- HOW IT FITS   Telegram order cards (D12, D14, D22, D24, D26): linked admins get the order card at configured offsets after the order
+--                 arrives; each new copy replaces the previous one in that chat; every copy follows the order until it is final.
+--                 The database is authoritative and is checked before every send; the ledger (t_sent_messages) only remembers what to tidy.
+--                   pg_cron every 5 s -> job_t_order_alerts()
+--                      SEED    delivery_summary + takeaway_summary rows still 'restaurant_unconfirmed' (< 15 min old) with at least one
+--                              destination -> one t_order_alerts checkpoint per offset (TGRAM_ORDER_ALERT_OFFSETS_SECS, '0,15,30,45')
+--                      CANCEL  pending checkpoints of orders no longer unconfirmed
+--                      DUE     pending checkpoints with due_at <= now(); one winner per order (the largest offset)
+--                      STALE   up to 50 orders with copies that show an old status or a revoked viewer
+--                      POST    ORDELO_APP_URL/telegram/rest-admin/order-alerts {reminders, refreshes}
+--                      MARK    only on a 2xx answer: superseded first, then winners 'sent'
+--                   -> watomation/routers/telegram_order_alerts.py (background tasks)
+--                      OrderCards.remind() -> snapshot -> send per destination -> t_order_card_sent -> delete old copies
+--                      OrderCards.refresh() -> snapshot -> t_order_cards_take -> edit/delete -> t_order_card_mark
+--                 Python: channels/telegram/rest_admin/order_cards/store.py CardStore.snapshot() / card_sent() / take_for_refresh() / mark().
+--                 Card status keys MUST match channels/telegram/rest_admin/order_cards/model.py (Status):
+--                   awaiting | accepted | pickup_set | declined | auto_accepted | gone
+--                 Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).
+-- LIFECYCLE     t_order_alerts.status: pending -> sent | superseded | cancelled (order decided before the reminder was due).
+-- CALLED BY     t_order_alerts:
+--                 sql       job_t_order_alerts(), t_housekeeping()
+--                 python    channels/telegram/rest_admin/order_cards/__init__.py (module-level SQL)
+--                 python    watomation/routers/telegram_order_alerts.py (module-level SQL)
+--               t_order_card_status:
+--                 sql       t_order_card_sent() (telegram/t_sent_messages.sql)
+--                 sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)
+--                 sql       t_order_cards_stale() (telegram/t_order_alerts.sql)
+--               t_order_card_row:
+--                 sql       job_t_order_alerts() (telegram/t_order_alerts.sql)
+--                 sql       t_order_card_sent() (telegram/t_sent_messages.sql)
+--                 sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)
+--                 sql       t_order_cards_stale() (telegram/t_order_alerts.sql)
+--               t_order_card_destinations:
+--                 sql       job_t_order_alerts() (telegram/t_order_alerts.sql)
+--                 sql       t_notice_targets() (restaurant_admin/restaurant_ready_adjust_notices.sql)
+--                 sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)
+--                 sql       t_order_cards_stale() (telegram/t_order_alerts.sql)
+--                 sql       t_receipt_snapshot() (restaurant_admin/restaurant_ready_adjust_notices.sql)
+--                 sql       t_receipts_stale() (restaurant_admin/restaurant_ready_adjust_notices.sql)
+--               t_order_card_snapshot:
+--                 python    channels/telegram/rest_admin/order_cards/store.py: CardStore.snapshot()
+--               t_order_cards_stale:
+--                 sql       job_t_order_alerts() (telegram/t_order_alerts.sql)
+--                 sql       t_order_cards_take() (telegram/t_order_alerts.sql)
+--               t_order_cards_take:
+--                 python    channels/telegram/rest_admin/order_cards/store.py: CardStore.take_for_refresh()
+--               job_t_order_alerts:
+--                 cron      'job_t_order_alerts' 5 seconds
+--                 python    watomation/routers/telegram_order_alerts.py (module-level SQL)
+-- PYTHON MODEL  none
+-- SECURITY      RLS ON with no policies; every function is revoked from PUBLIC/anon/authenticated: only the service key can call them.
+--               Concurrency: up to 3 gunicorn workers may remind / refresh the same order; copies are claimed in SQL (state 'taken',
+--                 FOR UPDATE SKIP LOCKED), a claim not finished in 30 s is offered again, and a newer copy only deletes OLDER ones (id <).
+-- TESTS         tests/sql/test_order_cards_sql.py (loads this file into a throwaway Postgres)
+--               tests/channels/telegram/test_order_card_store.py
+--               tests/sql/test_order_cards_sql.py
+--               tests/sql/test_order_test_script_sql.py
+--               tests/sql/test_restaurant_notices_script_sql.py
+--               tests/sql/test_restaurant_ready_adjust_notices_sql.py
+--               tests/watomation/routers/test_telegram_order_alerts.py
+-- GOTCHAS       Destinations are looked up by the summary's rest_ref (the order-number prefix): a restaurant whose orders use an alias
+--                 prefix (config/params.py _REST_REF_ALIAS_MAP) gets no cards until the alias is resolved here.
+--               Group chats (D27) would be a UNION ALL branch in t_order_card_destinations().
+--               A per-restaurant <REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS wins over the global offsets.
+-- SEE ALSO      telegram/t_sent_messages.sql
+--               telegram/t_housekeeping.sql
+--               restaurant_admin/restaurant_order_decision.sql
+--               restaurant_admin/restaurant_ready_adjust_notices.sql
+--               docs/telegram-layer.md
 -- =============================================================================================
 
+-- ---------------------------------------------------------------------------------------------
+-- table t_order_alerts
+--   Reminder schedule: one row per order and offset (seconds after the order) with due time and status.
+-- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 1. Tables
 -- ---------------------------------------------------------------------------------------------
@@ -101,6 +129,10 @@ WHERE (status = 'pending'::text);
 
 ALTER TABLE public.t_order_alerts ENABLE ROW LEVEL SECURITY;
 
+-- ---------------------------------------------------------------------------------------------
+-- function t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text
+--   Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).
+-- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 2. t_order_card_status(restaurant_confirmation_status, pickup_time): the card status key.
 --    NULL in -> NULL out (no such order). 'restaurant_timedout' without a pickup is still 'awaiting': the
@@ -140,6 +172,11 @@ $$;
 -- ---------------------------------------------------------------------------------------------
 REVOKE ALL ON FUNCTION public.t_order_card_status (text, timestamptz) FROM PUBLIC, anon, authenticated;
 
+-- ---------------------------------------------------------------------------------------------
+-- function t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)
+--   Return the order's current state from delivery_summary or takeaway_summary as one row.
+--   Data: reads delivery_summary, takeaway_summary.
+-- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 3. t_order_card_row(order_number, order_type): the order's current state (0 or 1 row).
 -- ---------------------------------------------------------------------------------------------
@@ -191,6 +228,11 @@ $$;
 REVOKE ALL ON FUNCTION public.t_order_card_row (text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
+-- function t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)
+--   Return where cards for a restaurant go: the linked admins' chats (the one place that says so).
+--   Data: reads restaurant_master, t_invites.
+-- ---------------------------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------------------------
 -- 4. t_order_card_destinations(bot_key, rest_ref): WHERE cards for this restaurant go. The ONE place that says so.
 --    Today: one private chat per admin who (D14) has a claimed invite for the restaurant AND whose invite phone
 --    is in restaurant_master.admins (digits compared). DISTINCT ON the chat so a person holding two invites
@@ -231,6 +273,11 @@ $$;
 
 REVOKE ALL ON FUNCTION public.t_order_card_destinations (text, text) FROM PUBLIC, anon, authenticated;
 
+-- ---------------------------------------------------------------------------------------------
+-- function t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb
+--   Return everything needed to draw the card (order, items, status, destinations) in one read.
+--   Data: reads food_order, order_item; calls restaurant_admin_label(), t_order_card_destinations(), t_order_card_row(), t_order_card_status().
+-- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 5. t_order_card_snapshot(bot_key, order_number, order_type): everything needed to draw the card.
 --    NULL when the order does not exist. Returns jsonb
@@ -291,6 +338,11 @@ $$;
 REVOKE ALL ON FUNCTION public.t_order_card_snapshot (text, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
+-- function t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)
+--   List orders whose sent copies show an old status or a revoked viewer (read-only).
+--   Data: reads t_sent_messages; calls t_order_card_destinations(), t_order_card_row(), t_order_card_status().
+-- ---------------------------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------------------------
 -- 7. t_order_cards_stale(bot_key, order_number?, order_type?): copies that need work (read-only).
 --    A 'live' copy needs work when it shows a status other than the order's current one (or the order is gone)
 --    or its chat is no longer a destination for the restaurant (invite revoked, admin removed, group unlinked).
@@ -344,6 +396,11 @@ $$;
 
 REVOKE ALL ON FUNCTION public.t_order_cards_stale (text, text, text) FROM PUBLIC, anon, authenticated;
 
+-- ---------------------------------------------------------------------------------------------
+-- function t_order_cards_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb
+--   Claim one order's stale copies for one refresh pass (state 'taken', SKIP LOCKED).
+--   Data: writes t_sent_messages; calls t_order_cards_stale().
+-- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 8. t_order_cards_take(bot_key, order_number, order_type): claim this order's stale copies for ONE refresh pass.
 --    Returns jsonb {rows:[{id, tcid, message_id, tuid, viewer_phone, authorised, taken_for}]}.
@@ -426,6 +483,12 @@ INSERT INTO public.ordelo_config (config_key, config_value, description)
 ON CONFLICT (config_key)
     DO NOTHING;
 
+-- ---------------------------------------------------------------------------------------------
+-- function job_t_order_alerts() -> boolean
+--   Every 5 seconds: seed, cancel, find due reminders and stale cards, POST them, and mark them on success.
+--   Data: reads delivery_summary, ordelo_config, takeaway_summary; writes t_order_alerts; calls parse_alert_offsets(), t_order_card_destinations(), t_order_card_row(), t_order_cards_stale().
+--   HTTP: POST /telegram/rest-admin/order-alerts -> watomation/routers/telegram_order_alerts.py::order_alerts
+-- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 11. job_t_order_alerts(): the sweep. Structure follows dispatch/job_rider_pickup_alerts.sql.
 --     Returns false when the POST failed (checkpoints stay pending), true otherwise.
@@ -606,9 +669,30 @@ $$;
 
 REVOKE ALL ON FUNCTION public.job_t_order_alerts () FROM PUBLIC, anon, authenticated;
 
--- pg_cron job 'job_t_order_alerts' (live schedule: 5 seconds, active). cron.schedule() updates the job in place when the name already exists.
+-- pg_cron job 'job_t_order_alerts': runs every 5 seconds, active on live.
+-- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('job_t_order_alerts', '5 seconds', 'SELECT public.job_t_order_alerts()');
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON TABLE public.t_order_alerts IS 'Reminder schedule: one row per order and offset (seconds after the order) with due time and status.';
+
+COMMENT ON FUNCTION public.t_order_card_status (p_rcs text, p_pickup timestamp with time zone) IS 'Map an order''s state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).';
+
+COMMENT ON FUNCTION public.t_order_card_row (p_order_number text, p_order_type text) IS 'Return the order''s current state from delivery_summary or takeaway_summary as one row.';
+
+COMMENT ON FUNCTION public.t_order_card_destinations (p_bot_key text, p_rest_ref text) IS 'Return where cards for a restaurant go: the linked admins'' chats (the one place that says so).';
+
+COMMENT ON FUNCTION public.t_order_card_snapshot (p_bot_key text, p_order_number text, p_order_type text) IS 'Return everything needed to draw the card (order, items, status, destinations) in one read.';
+
+COMMENT ON FUNCTION public.t_order_cards_stale (p_bot_key text, p_order_number text, p_order_type text) IS 'List orders whose sent copies show an old status or a revoked viewer (read-only).';
+
+COMMENT ON FUNCTION public.t_order_cards_take (p_bot_key text, p_order_number text, p_order_type text) IS 'Claim one order''s stale copies for one refresh pass (state ''taken'', SKIP LOCKED).';
+
+COMMENT ON FUNCTION public.job_t_order_alerts () IS 'Every 5 seconds: seed, cancel, find due reminders and stale cards, POST them, and mark them on success.';
 
 -- ---------------------------------------------------------------------------------------------
 -- OPERATOR SQL (run by hand after the code is deployed; commented out on purpose)

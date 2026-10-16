@@ -1,3 +1,9 @@
+-- MIGRATION (history; do not edit the statements below)
+-- Applied to live: Tables applied; the trigger expire_wa_location_requests_on_inflight_delete and its function are not live.
+-- Current definitions now live in: rider_location/wa_location.sql
+-- Purpose: On-demand WhatsApp rider-location tables.
+-- The feature files above are the current truth; this file only records the one-off change.
+
 -- Durable, on-demand WhatsApp rider-location requests.
 -- This migration is intentionally not executed by application startup.
 

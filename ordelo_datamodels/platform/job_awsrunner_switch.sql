@@ -1,26 +1,33 @@
-/*
-AWS App Runner Switch Job – Controls AWS App Runner services by resuming or pausing them via Supabase Edge Function.
-  Scheduled Execution:
-    . Can be called manually or via Supabase cron job
-    . Accepts 'resume' or 'pause' as action parameter
-  Configuration:
-    . Base URL: https://pqsvhidiwiydgshynfib.supabase.co/functions/v1/app-runner-manager
-    . Services: elaib, ordelo
-  Logic Flow:
-    . Validates action parameter (must be 'resume' or 'pause')
-    . Constructs URLs for both elaib and ordelo services
-    . Makes GET requests to both endpoints sequentially
-    . Logs responses from each service
-    . Returns boolean indicating if both requests were successful
-  Endpoints:
-    . Resume: GET /app-runner-manager/{service}/resume
-    . Pause: GET /app-runner-manager/{service}/pause
-  Usage Examples:
-    . SELECT job_awsrunner_switch('resume');  -- Start both services
-    . SELECT job_awsrunner_switch('pause');   -- Stop both services
-Functions:
-    . job_awsrunner_switch
-*/
+-- =============================================================================================
+-- ordelo_datamodels/platform/job_awsrunner_switch.sql
+-- Pause or resume the AWS App Runner services (elaib, ordelo) through a Supabase Edge Function (cron jobs INACTIVE).
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     job_awsrunner_switch(action text) -> boolean
+--                   Pause or resume both App Runner services; returns true when both calls succeeded.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each call makes two HTTP GETs to the edge function.
+-- HOW IT FITS   job_awsrunner_switch('pause' | 'resume') calls the Supabase Edge Function app-runner-manager for each service
+--                 (GET /functions/v1/app-runner-manager/{service}/{action}). Two cron jobs (pause 23:00, resume 06:00 UTC) exist but are
+--                 inactive on live.
+-- LIFECYCLE     none
+-- CALLED BY     job_awsrunner_switch:
+--                 cron      'job_aws_runner_switch_pause' 0 23 * * * (INACTIVE)
+--                 cron      'job_awsrunner_switch_resume' 0 6 * * * (INACTIVE)
+-- PYTHON MODEL  none
+-- SECURITY      job_awsrunner_switch(): executable by PUBLIC (default)
+-- TESTS         none
+-- GOTCHAS       The edge-function base URL is hard-coded in the function body.
+-- SEE ALSO      docs/fly.io-deploy-guide.md (current hosting)
+-- =============================================================================================
+
+-- ---------------------------------------------------------------------------------------------
+-- function job_awsrunner_switch(action text) -> boolean
+--   Pause or resume both App Runner services; returns true when both calls succeeded.
+--   HTTP: POST /elaib/; POST /ordelo/
+-- ---------------------------------------------------------------------------------------------
 DROP FUNCTION IF EXISTS job_awsrunner_switch (TEXT);
 
 CREATE OR REPLACE FUNCTION job_awsrunner_switch (action text)
@@ -74,7 +81,8 @@ END;
 $$
 LANGUAGE plpgsql;
 
--- pg_cron job 'job_aws_runner_switch_pause' (live schedule: 0 23 * * *, INACTIVE). cron.schedule() updates the job in place when the name already exists.
+-- pg_cron job 'job_aws_runner_switch_pause': runs every 0 23 * * *, INACTIVE (re-disabled by the next statement) on live.
+-- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('job_aws_runner_switch_pause', '0 23 * * *', 'SELECT job_awsrunner_switch(''pause'');');
 
@@ -85,7 +93,8 @@ FROM
 WHERE
     jobname = 'job_aws_runner_switch_pause';
 
--- pg_cron job 'job_awsrunner_switch_resume' (live schedule: 0 6 * * *, INACTIVE). cron.schedule() updates the job in place when the name already exists.
+-- pg_cron job 'job_awsrunner_switch_resume': runs every 0 6 * * *, INACTIVE (re-disabled by the next statement) on live.
+-- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('job_awsrunner_switch_resume', '0 6 * * *', 'SELECT job_awsrunner_switch(''resume'');');
 
@@ -95,6 +104,12 @@ FROM
     cron.job
 WHERE
     jobname = 'job_awsrunner_switch_resume';
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.job_awsrunner_switch (action text) IS 'Pause or resume both App Runner services; returns true when both calls succeeded.';
 
 -- Usage:
 -- SELECT job_awsrunner_switch('resume');  -- Start both App Runner services

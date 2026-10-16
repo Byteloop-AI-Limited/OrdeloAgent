@@ -1,3 +1,37 @@
+-- =============================================================================================
+-- ordelo_datamodels/admin_dashboard/get_rider_payout_report.sql
+-- Rider payout report: one row per completed dispatch in a date window, with rider identity and bank details.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     get_rider_payout_report(p_start date, p_end date, p_exclude_riders text[]) -> TABLE(dispatch_id bigint, order_number text, rest_ref text, rider_id text, rider_name text, town text, vehicle_type text, bank_account_name text, sort_code text, bank_account text, rider_payout double precision, distance double precision, dtts timestamp without time zone, paid_status text, paid_dtts timestamp without time zone)
+--                   Return one payable row per completed dispatch between p_start and p_end, excluding the given rider ids.
+-- REQUIRES      dispatch/delivery_dispatch.sql
+--               delivery/delivery_summary.sql
+--               core/rider_master.sql
+--               core/rider_registrations.sql
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  none (read-only).
+-- HOW IT FITS   Backs GET /sys-admin/rider-payout (watomation/routers/sys_admin_auth_session.py get_rider_payout), used by the
+--                 sys-admin "Rider Payouts" page in restaurant-frontend, which then calls POST /sys-admin/update-paid per dispatch
+--                 (delivery_dispatch.paid_status / paid_dtts). Reads delivery_dispatch, delivery_summary, rider_master and
+--                 rider_registrations (bank details). The detailed reasoning (why it replaced a Python-side join) is in the comment below.
+-- LIFECYCLE     none
+-- CALLED BY     get_rider_payout_report:
+--                 python    watomation/routers/sys_admin_auth_session.py: get_rider_payout()
+-- PYTHON MODEL  none
+-- SECURITY      get_rider_payout_report(): executable by PUBLIC (default)
+-- TESTS         none
+-- GOTCHAS       none
+-- SEE ALSO      dispatch/delivery_dispatch.sql (paid_status)
+--               core/rider_registrations.sql
+-- =============================================================================================
+
+-- ---------------------------------------------------------------------------------------------
+-- function get_rider_payout_report(p_start date, p_end date, p_exclude_riders text[]) -> TABLE(dispatch_id bigint, order_number text, rest_ref text, rider_id text, rider_name text, town text, vehicle_type text, bank_account_name text, sort_code text, bank_account text, rider_payout double precision, distance double precision, dtts timestamp without time zone, paid_status text, paid_dtts timestamp without time zone)
+--   Return one payable row per completed dispatch between p_start and p_end, excluding the given rider ids.
+--   Data: reads delivery_dispatch, delivery_summary, rider_master, rider_registrations.
+-- ---------------------------------------------------------------------------------------------
 /**
 Rider Payout Report – sys-admin weekly payout sourcing
 
@@ -54,7 +88,6 @@ Deployment note:
     After applying this file, reload the PostgREST schema cache so the RPC is exposed:
         NOTIFY pgrst, 'reload schema';
 **/
-
 ----------------------------------------
 -- get_rider_payout_report - completed dispatches with payee details
 ----------------------------------------
@@ -126,6 +159,12 @@ ORDER BY
 $$
 LANGUAGE sql
 STABLE;
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.get_rider_payout_report (p_start date, p_end date, p_exclude_riders text[]) IS 'Return one payable row per completed dispatch between p_start and p_end, excluding the given rider ids.';
 
 ----------------------------------------
 -- Sanity checks (run manually after applying)

@@ -1,91 +1,89 @@
 -- =============================================================================================
--- Feature SQL: Telegram invites (restaurant-admin bot now; the rider bot can reuse the same table)
+-- ordelo_datamodels/telegram/t_invites.sql
+-- Telegram invite links that link a person's Telegram account to a restaurant (restaurant-admin bot; reusable for riders).
 -- =============================================================================================
--- See also (paths under ordelo_datamodels/): how the linked admins are used to send order cards and kitchen receipts: telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql.
--- Run once in the Supabase SQL editor. Repeatable: every statement is CREATE OR REPLACE /
--- IF NOT EXISTS / DROP IF EXISTS, so running it again changes nothing.
---
--- WHAT THIS ADDS
---   Tables     t_invites                the one new table: one row per invite link
---   Views      t_invites_shareable      t_invites + the ready-to-send t.me link
---   Functions  t_new_invite_code()      generates the random code (column default)
---              t_invites_normalize_phone()  trigger: keeps phone_number digits-only
---              t_invite_preview()       read-only "what would happen if this person used this code?"
---              t_claim_invite()         atomic claim (first valid caller wins)
---              t_linked_restaurants()   "which restaurants is this Telegram user linked to?"
---
--- HOW THE PIECES FIT TOGETHER (all inside this database)
---
---   restaurant_master (existing)              ordelo_config (existing)
---     rest_ref  PK  <------------------+        config_key = 'TGRAM_<BOT_KEY>_BOT_USERNAME'
---     rest_name                        |        config_value = bot username (no @)
---                                      |                |
---   t_invites (NEW)                    |                | joined by the view only
---     rest_ref  FK ---------------------+                v
---     invite_code PK  <---------- t_invites_shareable (view) = t_invites + invite_link
---     status, expires_at, claimed_at
---     telegram_user_id / telegram_chat_id / username / first name   (filled at claim time)
---
---   * t_invites -> restaurant_master: foreign key on rest_ref, so an invite can only name a
---     real restaurant. The functions join restaurant_master to return rest_name, so the bot can
---     say which restaurant a person is joining without a second query.
---   * t_invites_shareable -> ordelo_config: looks up the bot username so the t.me link can be
---     built without hard-coding the bot into the table. Changing bots = updating one config row.
---   * The three RPC functions are the ONLY way the application touches t_invites. They never
---     modify restaurant_master or ordelo_config.
---   * Nothing here reads or writes restaurant_master.admins (the list of admin phone numbers used
---     by the WhatsApp flows). The invite's phone_number is informational: it records who the
---     operator intended the link for. See "NOT YET DONE" below.
---
--- HOW THE REST OF THE SERVICES USE IT
---
---   You (operator, SQL editor)  --INSERT--> t_invites          creates the invite (code is generated)
---                               --SELECT--> t_invites_shareable  copy the invite_link, send it privately
---                               --UPDATE--> status = 'revoked'      cuts someone off
---
---   Telegram user taps the link  -->  OrdeloAgent FastAPI, POST /telegram/rest-admin/webhook
---     (watomation/routers/telegram_webhook.py -> channels/telegram/rest_admin/router.py)
---     which calls these functions through the Supabase REST client (service key; RLS is bypassed):
---     (Python callers: keep this list in sync with the module docstring of channels/telegram/invites.py.
---      Overview of the whole Telegram layer: docs/telegram-layer.md)
---       /start <code>            -> channels/telegram/invites.py preview_invite()  -> t_invite_preview()
---       taps "Yes"               -> channels/telegram/invites.py claim_invite()    -> t_claim_invite()
---       /start (no code), /whoami-> channels/telegram/invites.py linked_restaurants() -> t_linked_restaurants()
---
---   Customer WhatsApp/web ordering, rider_master, delivery_* tables and the LangGraph rider agent do
---   not read or write any of these objects.
---
--- INVITE LIFECYCLE (t_invites.status)
---
---   pending --(person confirms in the bot, before expires_at)--> claimed
---   pending --(expires_at passes; recorded on the next claim attempt)--> expired
---   pending --(operator sets it)--> revoked
---   claimed --(operator sets it)--> revoked      (the person loses access on their next action)
---   There is no path back to pending: issue a new invite instead. 'expired' is also computed on the
---   fly (expires_at <= now()), so an unclaimed old invite is treated as expired even if its status
---   still says 'pending'.
---
--- SECURITY MODEL
---   * t_invites holds invite secrets and Telegram ids, so row-level security is ON with no
---     policies, and the view and functions are revoked from anon/authenticated. Only the service key
---     used by OrdeloAgent (which bypasses RLS) can read or call them.
---   * A claim proves the person held the link and tapped Yes; it does not prove their phone number.
---     Links are sent privately by the operator, and the operator can see who claimed each one
---     (telegram_username / telegram_first_name) and revoke it.
---   * Claiming is race-safe: one conditional UPDATE decides the winner; a unique index stops the same
---     person holding two claimed invites for the same restaurant and bot.
---
--- NOT YET DONE (so you do not assume it)
---   * phone_verified is never set by any code. It is reserved for a later contact-share flow.
---   * No order action checks t_invites yet. When restaurant actions (accept, pickup time, ready)
---     are added they must re-check that the person's invite is still 'claimed' for that rest_ref,
---     and (decision pending) whether the phone must also be in restaurant_master.admins.
---   * There is no cleanup job; old rows are small and keep the audit trail.
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     t_new_invite_code() -> text
+--                   Generate a random URL-safe invite code (column default for t_invites.invite_code).
+--               table  t_invites
+--                   One row per invite link: restaurant, intended phone, status, expiry and, once claimed, the Telegram ids.
+--               fn     t_invites_normalize_phone() -> trigger
+--                   Trigger function (trigger not live): keep t_invites.phone_number digits-only.
+--               view   t_invites_shareable
+--                   t_invites plus the ready-to-send t.me invite_link (NULL when the bot username config row is missing).
+--               fn     t_invite_preview(p_code text, p_bot_key text, p_user_id bigint) -> jsonb
+--                   Read-only: what would happen if this Telegram user used this code (valid, expired, revoked, already yours ...).
+--               fn     t_claim_invite(p_code text, p_bot_key text, p_user_id bigint, p_chat_id bigint, p_username text, p_first_name text) -> jsonb
+--                   Claim an invite atomically for a Telegram user; the first valid caller wins.
+--               fn     t_linked_restaurants(p_bot_key text, p_user_id bigint) -> jsonb
+--                   List the restaurants a Telegram user is linked to through claimed invites.
+-- REQUIRES      core/restaurant_master.sql
+--               core/ordelo_config.sql
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Applying the file creates pgcrypto if missing and inserts the TGRAM_REST_ADMIN_BOT_USERNAME config row if missing.
+-- HOW IT FITS   restaurant_master.rest_ref <- FK -- t_invites -- view --> t_invites_shareable (+ invite_link from ordelo_config
+--                 TGRAM_<BOT_KEY>_BOT_USERNAME, so changing bots is one config row).
+--                 Operator (SQL editor): INSERT an invite (code and 48 h expiry generated) -> copy invite_link from t_invites_shareable ->
+--                 send privately -> revoke with UPDATE ... SET status = 'revoked'.
+--                 Telegram user taps the link -> POST /telegram/rest-admin/webhook (channels/telegram/rest_admin/router.py) ->
+--                   /start <code>             channels/telegram/invites.py preview_invite()     -> t_invite_preview()
+--                   taps "Yes"                channels/telegram/invites.py claim_invite()       -> t_claim_invite()
+--                   /start (no code), /whoami channels/telegram/invites.py linked_restaurants() -> t_linked_restaurants()
+--                 The RPCs are the only way the application touches t_invites. Order actions authorise against it through
+--                 t_order_admin_phone() (restaurant_admin/restaurant_order_decision.sql): claimed invite AND phone in restaurant_master.admins.
+--                 Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).
+-- LIFECYCLE     pending --(person confirms before expires_at)--> claimed ; pending --(expires_at passes)--> expired (recorded on the next
+--               claim attempt; also computed on the fly) ; pending | claimed --(operator)--> revoked. No path back to pending.
+-- CALLED BY     t_new_invite_code:
+--                 nothing found (no code, trigger, cron job or other SQL refers to it)
+--               t_invites:
+--                 sql       restaurant_admin_label(), t_claim_invite(), t_invite_preview(), t_invites_shareable
+--                           t_linked_restaurants(), t_order_admin_phone(), t_order_card_destinations()
+--                 python    utils_common/order_management/restaurant_decision.py (module-level SQL)
+--               t_invites_normalize_phone:
+--                 nothing found (no code, trigger, cron job or other SQL refers to it)
+--               t_invites_shareable:
+--                 nothing found (no code, trigger, cron job or other SQL refers to it)
+--               t_invite_preview:
+--                 sql       t_claim_invite() (telegram/t_invites.sql)
+--                 python    channels/telegram/invites.py: preview_invite()
+--               t_claim_invite:
+--                 python    channels/telegram/invites.py: claim_invite()
+--               t_linked_restaurants:
+--                 python    channels/telegram/invites.py: linked_restaurants()
+-- PYTHON MODEL  none
+-- SECURITY      RLS ON with no policies; the view and functions are revoked from anon/authenticated: only the service key can use them.
+--               A claim proves the person held the link and tapped Yes, not their phone number: links are sent privately and claims are
+--                 visible (telegram_username / first name) and revocable.
+--               Claiming is race-safe: one conditional UPDATE decides the winner; a unique index stops one person holding two claimed
+--                 invites for the same restaurant and bot.
+-- TESTS         tests/sql (applied by conftest.py for every SQL test) (loads this file into a throwaway Postgres)
+--               tests/channels/telegram/conftest.py
+--               tests/sql/test_order_cards_sql.py
+--               tests/sql/test_order_taps_sql.py
+--               tests/sql/test_order_test_script_sql.py
+--               tests/sql/test_restaurant_decision_sql.py
+--               tests/sql/test_restaurant_notices_script_sql.py
+--               tests/sql/test_restaurant_ready_adjust_notices_sql.py
+-- GOTCHAS       The trigger t_invites_normalize_phone is NOT live (the function is). The CHECK t_invites_phone_digits still requires
+--                 6-15 digits, so an insert written as '+44 7...' is rejected instead of normalised. The trigger statements are kept
+--                 commented in the examples below so this file matches live (docs/to-do.md).
+--               phone_verified is never set by any code (reserved for a later contact-share flow).
+--               No cleanup job: old rows are small and keep the audit trail.
+-- SEE ALSO      restaurant_admin/restaurant_order_decision.sql (t_order_admin_phone)
+--               telegram/t_order_alerts.sql
+--               docs/telegram-layer.md
+--               .claude/skills/database-operations (create / list / revoke invites)
 -- =============================================================================================
 
 -- Provides gen_random_bytes() for invite codes. Normally already enabled on Supabase (schema: extensions); harmless if so.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- ---------------------------------------------------------------------------------------------
+-- function t_new_invite_code() -> text
+--   Generate a random URL-safe invite code (column default for t_invites.invite_code).
+-- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- t_new_invite_code(): the random invite code, used as the column default below.
 -- 9 random bytes -> 12 base64 characters; '+' and '/' are swapped for '-' and '_' so the code only
@@ -101,6 +99,10 @@ CREATE OR REPLACE FUNCTION public.t_new_invite_code ()
         translate(rtrim(encode(gen_random_bytes(9), 'base64'), '='), '+/', '-_');
 $$;
 
+-- ---------------------------------------------------------------------------------------------
+-- table t_invites
+--   One row per invite link: restaurant, intended phone, status, expiry and, once claimed, the Telegram ids.
+-- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- TABLE t_invites: one row per invite link. The operator inserts a row (rest_ref + phone_number);
 -- everything else is generated or filled in by the bot when the invite is claimed. The same row is
@@ -152,6 +154,10 @@ WHERE (status = 'claimed'::text);
 ALTER TABLE public.t_invites ENABLE ROW LEVEL SECURITY;
 
 -- ---------------------------------------------------------------------------------------------
+-- function t_invites_normalize_phone() -> trigger
+--   Trigger function (trigger not live): keep t_invites.phone_number digits-only.
+-- ---------------------------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------------------------
 -- Trigger: store phone numbers as digits only ('+44 7700 900123' -> '447700900123') so numbers entered
 -- in different formats are comparable, and the digits-only CHECK above accepts what you type.
 -- ---------------------------------------------------------------------------------------------
@@ -176,6 +182,10 @@ ON CONFLICT (config_key)
         config_value = EXCLUDED.config_value,
         updated_at = now();
 
+-- ---------------------------------------------------------------------------------------------
+-- view t_invites_shareable
+--   t_invites plus the ready-to-send t.me invite_link (NULL when the bot username config row is missing).
+-- ---------------------------------------------------------------------------------------------
 -- If that row is missing, invite_link is NULL (the invite itself still works).
 -- security_invoker: the view runs with the caller's rights, so it cannot expose rows that RLS hides.
 -- ---------------------------------------------------------------------------------------------
@@ -204,6 +214,11 @@ FROM
 
 REVOKE ALL ON TABLE public.t_invites_shareable FROM anon, authenticated;
 
+-- ---------------------------------------------------------------------------------------------
+-- function t_invite_preview(p_code text, p_bot_key text, p_user_id bigint) -> jsonb
+--   Read-only: what would happen if this Telegram user used this code (valid, expired, revoked, already yours ...).
+--   Data: reads restaurant_master, t_invites.
+-- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- t_invite_preview(code, bot_key, telegram_user_id): READ-ONLY classification of an invite for one
 -- Telegram user. Called when the person opens the link (/start <code>), before they confirm.
@@ -265,6 +280,11 @@ $$;
 -- ---------------------------------------------------------------------------------------------
 REVOKE ALL ON FUNCTION public.t_invite_preview (text, text, bigint) FROM PUBLIC, anon, authenticated;
 
+-- ---------------------------------------------------------------------------------------------
+-- function t_claim_invite(p_code text, p_bot_key text, p_user_id bigint, p_chat_id bigint, p_username text, p_first_name text) -> jsonb
+--   Claim an invite atomically for a Telegram user; the first valid caller wins.
+--   Data: reads restaurant_master; writes t_invites; calls t_invite_preview().
+-- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- t_claim_invite(...): ATOMIC claim, called when the person taps "Yes". The first valid caller wins.
 -- Returns the same jsonb shape as the preview, with two extra outcomes:
@@ -334,6 +354,11 @@ $$;
 REVOKE ALL ON FUNCTION public.t_claim_invite (text, text, bigint, bigint, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
+-- function t_linked_restaurants(p_bot_key text, p_user_id bigint) -> jsonb
+--   List the restaurants a Telegram user is linked to through claimed invites.
+--   Data: reads restaurant_master, t_invites.
+-- ---------------------------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------------------------
 -- t_linked_restaurants(bot_key, telegram_user_id): the restaurants this Telegram user is currently
 -- linked to, as jsonb [{rest_ref, rest_name}, ...] ('[]' if none). Used by /start (no code) and /whoami,
 -- and the natural lookup for authorization checks later. Revoked and expired invites do not count.
@@ -358,6 +383,24 @@ $$;
 
 REVOKE ALL ON FUNCTION public.t_linked_restaurants (text, bigint) FROM PUBLIC, anon, authenticated;
 
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.t_new_invite_code () IS 'Generate a random URL-safe invite code (column default for t_invites.invite_code).';
+
+COMMENT ON TABLE public.t_invites IS 'One row per invite link: restaurant, intended phone, status, expiry and, once claimed, the Telegram ids.';
+
+COMMENT ON FUNCTION public.t_invites_normalize_phone () IS 'Trigger function (trigger not live): keep t_invites.phone_number digits-only.';
+
+COMMENT ON VIEW public.t_invites_shareable IS 't_invites plus the ready-to-send t.me invite_link (NULL when the bot username config row is missing).';
+
+COMMENT ON FUNCTION public.t_invite_preview (p_code text, p_bot_key text, p_user_id bigint) IS 'Read-only: what would happen if this Telegram user used this code (valid, expired, revoked, already yours ...).';
+
+COMMENT ON FUNCTION public.t_claim_invite (p_code text, p_bot_key text, p_user_id bigint, p_chat_id bigint, p_username text, p_first_name text) IS 'Claim an invite atomically for a Telegram user; the first valid caller wins.';
+
+COMMENT ON FUNCTION public.t_linked_restaurants (p_bot_key text, p_user_id bigint) IS 'List the restaurants a Telegram user is linked to through claimed invites.';
+
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)
 -- =============================================================================================
@@ -372,17 +415,17 @@ REVOKE ALL ON FUNCTION public.t_linked_restaurants (text, bigint) FROM PUBLIC, a
 -- Day-to-day use (copy into the SQL editor)
 -- ---------------------------------------------------------------------------------------------
 -- Create an invite (code and 48h expiry are generated):
-  
+
 -- INSERT INTO t_invites (rest_ref, phone_number) VALUES ('ELAS', '447448440754')
 --   RETURNING invite_code;
 
 -- Get the link to send privately:
-  
+
 -- SELECT invite_code, rest_ref, phone_number, status, invite_link FROM t_invites_shareable
 --   WHERE status = 'pending' ORDER BY created_at DESC;
 
 -- See who claimed what (check the Telegram name is the person you expected):
-  
+
 -- SELECT rest_ref, phone_number, telegram_username, telegram_first_name, telegram_user_id, claimed_at, *
 --   FROM t_invites WHERE status = 'claimed';
 

@@ -1,34 +1,43 @@
-/*
-Latest LangGraph state readers - expose the most recent persisted graph state as JSONB.
-  Storage facts (langgraph-checkpoint-postgres 3.0.5, verified against the live DB):
-    . public.checkpoints holds one row per superstep; the root graph uses checkpoint_ns = ''
-      (sub-graph namespaces also exist and are deliberately ignored here)
-    . primitive channel values (text / number / boolean / null) are INLINED at
-      checkpoint -> 'channel_values' - this covers rider_agent AgentState fields such as
-      dispatch_id, order_number, pickup_time, wa_location_request_id
-      (retain_thread is NOT an AgentState field -- it's a public.thread column, exposed
-      separately in the envelope as 'thread_retain_thread'; see Behaviour below)
-    . non-primitive channels (messages, customer_address, dicts, models) are serialised into
-      public.checkpoint_blobs as msgpack BYTEA, which SQL cannot decode; they are therefore
-      reported as metadata only (channel / type / size_bytes) under 'blob_channels'
-    . the latest checkpoint is the highest checkpoint_id (time-ordered UUID), matching both
-      AsyncPostgresSaver.aget_tuple and job_terminate_stale_active_threads
-  Behaviour:
-    . p_state_key IS NULL  -> envelope {thread_id, checkpoint_id, checkpoint_ts, state, blob_channels}
-    . p_state_key provided -> the bare JSONB value of that channel
-      (NULL when the key is absent or is blob-backed, e.g. 'messages')
-    . returns NULL when no active thread or no root checkpoint exists
-    . read-only by design: unlike get_active_thread(), thread.last_access_dtts is NOT bumped,
-      so reading state can never keep a stale thread alive or skew the stale-thread job
-  Thread resolution (mirrors utils_common/thread_management/thread_mgmnt.sql):
-    . active thread only (is_active IS TRUE), newest first (dtts DESC), one row
-    . agent match is case-insensitive; p_agent NULL means "any agent"
-Functions:
-    . get_latest_state_by_thread - latest persisted state for a known thread_id
-    . get_latest_state - resolves the latest active thread for (recipient, agent), then delegates
-*/
+-- =============================================================================================
+-- ordelo_datamodels/agent_threads/get_latest_state.sql
+-- Read the latest LangGraph checkpoint of a thread (or of a recipient's active thread) as JSON.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     get_latest_state_by_thread(p_thread_id text, p_state_key text) -> jsonb
+--                   Return the latest root checkpoint of a thread as jsonb (checkpoint ids, channel values), or one state key.
+--               fn     get_latest_state(p_recipient character varying, p_agent text, p_state_key text) -> jsonb
+--                   Return the latest state of the active thread for (recipient, agent), plus thread metadata; NULL when none.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  none (read-only functions)
+-- HOW IT FITS   Agent threads (the LangGraph conversation per WhatsApp user and agent):
+--                 thread (owned by restaurant-agents) maps (recipient, agent) to a LangGraph thread_id; the checkpoint tables are
+--                 written by LangGraph's AsyncPostgresSaver. OrdeloAgent reads the latest state for debugging and closes idle threads:
+--                   job_close_thread()                       idle OrdeloAgent threads -> POST /delivery-hooks/close-threads
+--                   job_terminate_stale_active_threads_new() idle restaurant threads  -> POST <REST>_APP_URL/thread-hooks/<rest>/terminate-stale-active-threads
+--                                                            (restaurant-agents), per restaurant, every minute
+--                   get_latest_state(_by_thread)()           read a thread's latest checkpoint as JSON (debug endpoints, rider agent)
+-- LIFECYCLE     none
+-- CALLED BY     get_latest_state_by_thread:
+--                 sql       get_latest_state() (agent_threads/get_latest_state.sql)
+--               get_latest_state:
+--                 python    ordelo/agents/agent_runner.py: is_food_already_picked_up()
+-- PYTHON MODEL  none
+-- SECURITY      get_latest_state_by_thread(): executable by PUBLIC (default)
+--               get_latest_state(): executable by PUBLIC (default)
+-- TESTS         tests/ordelo/agents/test_agent_runner.py
+-- GOTCHAS       none
+-- SEE ALSO      docs/get_latest_state_guide.md
+--               agent_threads/job_close_thread.sql
+-- =============================================================================================
 
--- %% Latest state for a known thread_id
+-- ---------------------------------------------------------------------------------------------
+-- function get_latest_state_by_thread(p_thread_id text, p_state_key text) -> jsonb
+--   Return the latest root checkpoint of a thread as jsonb (checkpoint ids, channel values), or one state key.
+--   Reads checkpoints / checkpoint_blobs written by LangGraph; NULL when the thread has no checkpoint.
+--   Data: reads checkpoint_blobs, checkpoints.
+-- ---------------------------------------------------------------------------------------------
 DROP FUNCTION IF EXISTS get_latest_state_by_thread (TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION get_latest_state_by_thread (p_thread_id text, p_state_key text DEFAULT NULL)
@@ -89,7 +98,11 @@ WHERE
 END;
 $$;
 
--- %% Latest state for the active thread of a (recipient, agent) pair
+-- ---------------------------------------------------------------------------------------------
+-- function get_latest_state(p_recipient character varying, p_agent text, p_state_key text) -> jsonb
+--   Return the latest state of the active thread for (recipient, agent), plus thread metadata; NULL when none.
+--   Data: reads thread; calls get_latest_state_by_thread().
+-- ---------------------------------------------------------------------------------------------
 DROP FUNCTION IF EXISTS get_latest_state (VARCHAR, TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION get_latest_state (p_recipient varchar, p_agent text DEFAULT NULL, p_state_key text DEFAULT NULL)
@@ -138,6 +151,14 @@ BEGIN
     RETURN v_result || jsonb_build_object('agent', v_thread.agent, 'recipient', v_thread.recipient, 'thread_retain_thread', v_thread.retain_thread, 'thread_dtts', v_thread.dtts, 'thread_last_access_dtts', v_thread.last_access_dtts);
 END;
 $$;
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.get_latest_state_by_thread (p_thread_id text, p_state_key text) IS 'Return the latest root checkpoint of a thread as jsonb (checkpoint ids, channel values), or one state key.';
+
+COMMENT ON FUNCTION public.get_latest_state (p_recipient character varying, p_agent text, p_state_key text) IS 'Return the latest state of the active thread for (recipient, agent), plus thread metadata; NULL when none.';
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

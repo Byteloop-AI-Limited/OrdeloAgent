@@ -1,6 +1,41 @@
--- Function to enquire admin availability by getting restaurant admins and making HTTP POST request
--- Constructs JSON payload from restaurant admin data and sends to delivery-hooks endpoint
--- Takes optional p_rest_ref_list parameter to filter specific restaurants
+-- =============================================================================================
+-- ordelo_datamodels/restaurant_admin/enquire_admin_availability.sql
+-- Daily: ask each restaurant's admins whether they are open for orders today.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     enquire_admin_availability(p_rest_ref_list character varying[]) -> boolean
+--                   POST the admins of the given restaurants (all when NULL) to the admin-availability webhook; returns true on success.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each run POSTs the restaurants' admin phones to /delivery-hooks/admin-availability-enquiry (WhatsApp question to admins).
+-- HOW IT FITS   Restaurant confirmation, delivery and takeaway alike:
+--                 new order -> init_delivery() / init_takeaway() -> resolve_initial_restaurant_acceptance():
+--                     auto_accept restaurants: order starts accepted with a default pickup time (no prompt)
+--                     otherwise: 'restaurant_unconfirmed' -> trigger -> admins prompted (WhatsApp buttons; Telegram order cards)
+--                 admin taps Accept / Decline -> restaurant_order_decide(); picks a pickup time -> restaurant_order_set_pickup()
+--                     (Telegram taps go through t_order_decide() / t_order_set_pickup(), which authorise the person first)
+--                 no answer -> process_restaurant_confirmation() (cron 10 s) -> 'restaurant_timedout' -> trigger -> Python sets a default
+--                     pickup time and makes the order dispatchable (delivery_hooks._handle_restaurant_timedout)
+--                 morning check -> enquire_admin_availability() (cron 11:00 UTC) asks admins whether the restaurant is open today.
+--                 cron 'enquire_admin_availability' runs it for ARRAY['ELAS','SFCS','BNAT'] (hard-coded in the cron command).
+-- LIFECYCLE     none
+-- CALLED BY     enquire_admin_availability:
+--                 cron      'enquire_admin_availability' 0 11 * * *
+--                 python    utils_common/waba_utils/wa_senders.py (module-level SQL)
+-- PYTHON MODEL  none
+-- SECURITY      enquire_admin_availability(): executable by PUBLIC (default)
+-- TESTS         none
+-- GOTCHAS       New restaurants are not asked until the cron command's restaurant list is edited.
+-- SEE ALSO      core/restaurant_master.sql (admins)
+-- =============================================================================================
+
+-- ---------------------------------------------------------------------------------------------
+-- function enquire_admin_availability(p_rest_ref_list character varying[]) -> boolean
+--   POST the admins of the given restaurants (all when NULL) to the admin-availability webhook; returns true on success.
+--   Data: reads ordelo_config, restaurant_master.
+--   HTTP: POST /delivery-hooks/admin-availability-enquiry -> watomation/routers/delivery_hooks.py::admin_availability_enquiry_hook
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION enquire_admin_availability (p_rest_ref_list varchar[] DEFAULT NULL)
     RETURNS boolean
     AS $$
@@ -81,9 +116,16 @@ END;
 $$
 LANGUAGE plpgsql;
 
--- pg_cron job 'enquire_admin_availability' (live schedule: 0 11 * * *, active). cron.schedule() updates the job in place when the name already exists.
+-- pg_cron job 'enquire_admin_availability': runs every 0 11 * * *, active on live.
+-- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('enquire_admin_availability', '0 11 * * *', 'select enquire_admin_availability(ARRAY[''ELAS'', ''SFCS'', ''BNAT'']);');
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.enquire_admin_availability (p_rest_ref_list character varying[]) IS 'POST the admins of the given restaurants (all when NULL) to the admin-availability webhook; returns true on success.';
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

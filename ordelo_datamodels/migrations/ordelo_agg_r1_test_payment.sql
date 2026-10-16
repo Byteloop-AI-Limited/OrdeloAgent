@@ -1,3 +1,11 @@
+-- MIGRATION (history; do not edit the statements below)
+-- Applied to live: Applied: every object it creates exists live (checked 2026-10-16).
+-- Current definitions now live in: ordering/create_food_order_with_items.sql
+--               ordering/food_order_additions.sql
+--               restaurant-agents (food_order)
+-- Purpose: food_order.payment_mode and TEST3100 payment-environment routing.
+-- The feature files above are the current truth; this file only records the one-off change.
+
 -- ===========================================================================
 -- ordelo-agg R1a addendum: fixed payment environments
 -- ===========================================================================

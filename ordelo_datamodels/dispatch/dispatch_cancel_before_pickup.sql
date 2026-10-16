@@ -1,44 +1,53 @@
--- See also (paths under ordelo_datamodels/): rider cancel before pickup makes a Telegram kitchen receipt stale: how that is detected and the replacement receipt handled is in restaurant_admin/restaurant_ready_adjust_notices.sql (t_receipt_status, D35).
-/**
-Dispatch Cancel Before Pickup – Resume Dispatch Workflow
+-- =============================================================================================
+-- ordelo_datamodels/dispatch/dispatch_cancel_before_pickup.sql
+-- Rider cancels an assigned job before pickup: free the rider and restart dispatch for the order from scratch.
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     dispatch_cancel_before_pickup(p_dispatch_id bigint) -> text
+--                   Roll back an assigned, not-yet-collected dispatch and reopen the order for a fresh dispatch round; returns a message.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each call: the cancelled dispatch becomes 'declined' (kept, so that rider is never re-offered the order); every other
+--               dispatch row and every delivery_detail row of the order is deleted; the inflight row is deleted; delivery_summary goes
+--               back to 'unassigned' with redispatch_dtts = now() (fresh timeout window, process_delivery restarts at rank 1).
+-- HOW IT FITS   Delivery order journey (statuses in delivery_summary.status unless noted):
+--                 1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:
+--                            'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.
+--                 2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked
+--                            (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /
+--                            decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.
+--                            process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then
+--                            sets a default pickup time and 'unassigned'.
+--                 3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,
+--                            and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).
+--                 4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders
+--                            (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).
+--                 5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first
+--                            acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row
+--                            (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).
+--                 6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,
+--                            dispatch_complete_func() marks everything 'completed' and removes the inflight row.
+--                 Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.
+--                 Called by the rider agent tool cancel_delivery_before_pickup (ordelo/agents/rider_agent.py) after the rider gives a reason.
+-- LIFECYCLE     only allowed while the dispatch is 'assigned' (returns 'cannot cancel; dispatch status is ...' otherwise).
+-- CALLED BY     dispatch_cancel_before_pickup:
+--                 python    ordelo/agents/rider_agent.py: cancel_delivery_before_pickup()
+-- PYTHON MODEL  none
+-- SECURITY      dispatch_cancel_before_pickup(): executable by PUBLIC (default)
+-- TESTS         tests/ordelo/agents/test_rider_agent.py
+--               tests/regressions/test_p5_regressions.py
+-- GOTCHAS       Deleting the other dispatches also deletes their rider_pickup_alert ledgers (ON DELETE CASCADE).
+--               A Telegram kitchen receipt becomes stale ('rider_cancelled'); job_t_receipt_refresh replaces it.
+-- SEE ALSO      dispatch/job_create_dispatch.sql
+--               restaurant_admin/restaurant_ready_adjust_notices.sql (t_receipt_status)
+-- =============================================================================================
 
-Where This Fits in the Journey:
-    - Used when an assigned rider declines/cancels a job *before* pickup is confirmed.
-    - Pickup confirmation is tracked via delivery_dispatch.status = 'pickedup'.
-    - If cancelled while status='assigned', the order is fully reopened for dispatch.
-
-Invocation:
-    - Called by rider agent/tool via Supabase RPC: dispatch_cancel_before_pickup(p_dispatch_id).
-
-Purpose:
-    - Safely roll back an assigned (but not picked up) dispatch.
-    - Restart the dispatch flow from scratch so the full rider pool is available again.
-    - Reset the delivery-timeout clock by stamping delivery_summary.redispatch_dtts =
-      NOW(); process_delivery uses COALESCE(redispatch_dtts, dtts) as the timeout base,
-      giving the re-dispatch a full timeout window.
-
-Rider exclusion:
-    - The declining rider's delivery_dispatch row is kept (status='declined').
-    - All other delivery_dispatch rows for the order are deleted so riders who
-      were previously notified (missed/unassigned dispatches) can receive
-      new notifications in the fresh dispatch round.
-    - get_available_riders excludes any rider in delivery_dispatch for the
-      order_number, so only the declined rider is permanently excluded.
-
-Dependencies:
-    - Reads from: delivery_dispatch, delivery_detail, delivery_summary, delivery_inflight.
-    - Writes to: delivery_dispatch (delete + update), delivery_detail (delete),
-                 delivery_summary (update), delivery_inflight (delete).
-
-Side Effects:
-    1. Marks the cancelled dispatch as 'declined'.
-    2. Deletes the inflight record so rider is freed for new jobs.
-    3. Deletes all other delivery_dispatch rows for the order (prior notifications
-       cleared so those riders become eligible again).
-    4. Deletes all delivery_detail rows for the order so process_delivery rebuilds
-       the vehicle-type cascade from rank 1 on the next cron tick.
-    5. Reopens delivery_summary and resets redispatch_dtts to NOW().
-**/
+-- ---------------------------------------------------------------------------------------------
+-- function dispatch_cancel_before_pickup(p_dispatch_id bigint) -> text
+--   Roll back an assigned, not-yet-collected dispatch and reopen the order for a fresh dispatch round; returns a message.
+--   Data: writes delivery_detail, delivery_dispatch, delivery_inflight, delivery_summary.
+-- ---------------------------------------------------------------------------------------------
 DROP FUNCTION IF EXISTS dispatch_cancel_before_pickup (bigint);
 
 CREATE OR REPLACE FUNCTION dispatch_cancel_before_pickup (p_dispatch_id bigint)
@@ -101,3 +110,9 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.dispatch_cancel_before_pickup (p_dispatch_id bigint) IS 'Roll back an assigned, not-yet-collected dispatch and reopen the order for a fresh dispatch round; returns a message.';

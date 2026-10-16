@@ -1,45 +1,45 @@
--- See also (paths under ordelo_datamodels/): the accept / decline / pickup-time rule shared by WhatsApp and Telegram is in restaurant_admin/restaurant_order_decision.sql; Telegram order cards are in telegram/t_order_alerts.sql.
-/**
-Restaurant Confirmation Timeout Management
+-- =============================================================================================
+-- ordelo_datamodels/restaurant_admin/process_restaurant_confirmation.sql
+-- Every 10 seconds: time out restaurant confirmations nobody answered (delivery and takeaway).
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     process_restaurant_confirmation() -> TABLE(action text)
+--                   Mark overdue unanswered restaurant confirmations 'restaurant_timedout' for delivery and takeaway; returns the orders it changed.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each run sets restaurant_confirmation_status = 'restaurant_timedout' on overdue orders, which fires the restaurant
+--               trigger (POST .../restaurant-confirmation-request, trigger_reason 'restaurant_timedout').
+-- HOW IT FITS   Restaurant confirmation, delivery and takeaway alike:
+--                 new order -> init_delivery() / init_takeaway() -> resolve_initial_restaurant_acceptance():
+--                     auto_accept restaurants: order starts accepted with a default pickup time (no prompt)
+--                     otherwise: 'restaurant_unconfirmed' -> trigger -> admins prompted (WhatsApp buttons; Telegram order cards)
+--                 admin taps Accept / Decline -> restaurant_order_decide(); picks a pickup time -> restaurant_order_set_pickup()
+--                     (Telegram taps go through t_order_decide() / t_order_set_pickup(), which authorise the person first)
+--                 no answer -> process_restaurant_confirmation() (cron 10 s) -> 'restaurant_timedout' -> trigger -> Python sets a default
+--                     pickup time and makes the order dispatchable (delivery_hooks._handle_restaurant_timedout)
+--                 morning check -> enquire_admin_availability() (cron 11:00 UTC) asks admins whether the restaurant is open today.
+-- LIFECYCLE     An order times out when restaurant_confirmation_status is 'restaurant_unconfirmed' or 'restaurant_accept', pickup_time
+--               is still NULL, and it is older than <REST>_RESTAURANT_CONFIRMATION_TIMEOUT_TIME (else RESTAURANT_CONFIRMATION_TIMEOUT_TIME,
+--               else 5) minutes. Python then sets the default pickup time (+30 min) and moves the order on.
+-- CALLED BY     process_restaurant_confirmation:
+--                 cron      'process_restaurant_confirmation' 10 seconds
+-- PYTHON MODEL  none
+-- SECURITY      process_restaurant_confirmation(): executable by PUBLIC (default)
+-- TESTS         none
+-- GOTCHAS       Older notes say every 5 seconds; the live schedule is every 10 seconds.
+--               A decision tap and this timeout can race: restaurant_order_decide() only changes an undecided row, so whichever
+--                 UPDATE commits first wins and the other changes nothing.
+-- SEE ALSO      restaurant_admin/restaurant_order_decision.sql
+--               delivery/delivery_summary.sql (trigger_restaurant_updates)
+--               docs/pickup_time_logic.md
+-- =============================================================================================
 
-Purpose:
-    - Automatically timeout restaurant confirmations that have not received a pickup_time selection.
-    - Orders where restaurant_confirmation_status is 'restaurant_accept' but pickup_time is still NULL
-      after the configured timeout interval are transitioned to 'restaurant_timedout'.
-    - This triggers the webhook `_handle_restaurant_timedout` in delivery_hooks.py via the
-      `trigger_restaurant_updates` trigger on restaurant_confirmation_status changes.
-
-Invocation:
-    - Scheduled via pg_cron job every 5 seconds.
-    - Example:SELECT * FROM process_restaurant_confirmation();
-
-Configuration:
-    - Restaurant-specific timeout: ordelo_config.{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME
-    - Default timeout: ordelo_config.RESTAURANT_CONFIRMATION_TIMEOUT_TIME
-    - Fallback: 5 minutes if no config found
-    - Example config key: 'ELAS_RESTAURANT_CONFIRMATION_TIMEOUT_TIME' for ELAS restaurant
-
-Dependencies:
-    - Reads from: delivery_summary, ordelo_config
-    - Writes to: delivery_summary (restaurant_confirmation_status, restaurant_update_dtts)
-
-Side Effects:
-    1. Updates restaurant_confirmation_status to 'restaurant_timedout' for timed-out orders.
-    2. Sets restaurant_update_dtts to current timestamp.
-    3. Triggers `trigger_restaurant_updates` which calls `/delivery-hooks/restaurant-confirmation-request`
-       with trigger_reason='restaurant_timedout'.
-    4. The webhook handler `_handle_restaurant_timedout` in delivery_hooks.py processes the timeout.
-
-Timeout Conditions:
-    - restaurant_confirmation_status = 'restaurant_unconfirmed' OR 'restaurant_accept'
-    - pickup_time IS NULL (restaurant hasn't selected a prep time yet)
-    - Time since dtts exceeds configured timeout interval
-
-See also:
-    - docs/restaurant_confirmation_flow.md for the full restaurant confirmation journey.
-    - watomation/routers/delivery_hooks.py for the webhook handler.
-    - ordelo_datamodels/delivery/delivery_summary.sql for the trigger definition.
-**/
+-- ---------------------------------------------------------------------------------------------
+-- function process_restaurant_confirmation() -> TABLE(action text)
+--   Mark overdue unanswered restaurant confirmations 'restaurant_timedout' for delivery and takeaway; returns the orders it changed.
+--   Data: reads ordelo_config; writes delivery_summary, takeaway_summary.
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION process_restaurant_confirmation ()
     RETURNS TABLE (
         action text)
@@ -114,9 +114,16 @@ FROM
 END;
 $$;
 
--- pg_cron job 'process_restaurant_confirmation' (live schedule: 10 seconds, active). cron.schedule() updates the job in place when the name already exists.
+-- pg_cron job 'process_restaurant_confirmation': runs every 10 seconds, active on live.
+-- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('process_restaurant_confirmation', '10 seconds', 'SELECT public.process_restaurant_confirmation()');
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.process_restaurant_confirmation () IS 'Mark overdue unanswered restaurant confirmations ''restaurant_timedout'' for delivery and takeaway; returns the orders it changed.';
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

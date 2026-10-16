@@ -1,7 +1,32 @@
--- ===========================================================================
--- 1. THE LEDGER
---    One row per checkpoint. Answers "what was sent, what is still to come".
--- ===========================================================================
+-- =============================================================================================
+-- ordelo_datamodels/dispatch/rider_pickup_alert.sql
+-- Ledger of pickup / delivery reminder checkpoints per dispatch and audience (rider, ops, restaurant admins).
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       table  rider_pickup_alert
+--                   One checkpoint: (dispatch, phase awaiting_pickup|picked_up, audience rider|ops|rest_admins, offset minutes) with due and sent times.
+-- REQUIRES      dispatch/delivery_dispatch.sql
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  none
+-- HOW IT FITS   job_rider_pickup_alerts() seeds one row per checkpoint and marks it 'sent' / 'superseded'; the delivery_summary
+--                 trigger rider_pickup_alert_reschedule() re-times rows when the pickup time moves. Full explanation, worked example
+--                 and runbook: dispatch/job_rider_pickup_alerts.sql.
+-- LIFECYCLE     status: pending -> sent | superseded (an older checkpoint overtaken by a later one); reopened to pending on reschedule.
+-- CALLED BY     rider_pickup_alert:
+--                 sql       job_rider_pickup_alerts(), rider_pickup_alert_reschedule()
+-- PYTHON MODEL  none
+-- SECURITY      rider_pickup_alert: RLS OFF; Supabase default grants (anon and authenticated can read and write)
+-- TESTS         tests/sql/test_restaurant_notices_script_sql.py
+-- GOTCHAS       ON DELETE CASCADE from delivery_dispatch: a deleted dispatch takes its checkpoints with it.
+-- SEE ALSO      dispatch/job_rider_pickup_alerts.sql
+--               delivery/delivery_summary.sql (rider_pickup_alert_reschedule)
+-- =============================================================================================
+
+-- ---------------------------------------------------------------------------------------------
+-- table rider_pickup_alert
+--   One checkpoint: (dispatch, phase awaiting_pickup|picked_up, audience rider|ops|rest_admins, offset minutes) with due and sent times.
+-- ---------------------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.rider_pickup_alert (
     dispatch_id integer NOT NULL,
     phase character varying(20) NOT NULL,
@@ -24,3 +49,11 @@ CREATE TABLE IF NOT EXISTS public.rider_pickup_alert (
 CREATE INDEX IF NOT EXISTS rider_pickup_alert_due_idx ON public.rider_pickup_alert USING btree (status, due_dtts);
 
 CREATE INDEX IF NOT EXISTS rider_pickup_alert_order_idx ON public.rider_pickup_alert USING btree (order_number);
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON TABLE public.rider_pickup_alert IS 'One checkpoint: (dispatch, phase awaiting_pickup|picked_up, audience rider|ops|rest_admins, offset minutes) with due and sent times.';
+
+COMMENT ON COLUMN public.rider_pickup_alert.status IS 'pending | sent | superseded';

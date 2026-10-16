@@ -1,3 +1,11 @@
+-- MIGRATION (history; do not edit the statements below)
+-- Applied to live: Columns and constraint applied; its trigger trigger_restaurant_confirmation_request and function
+--               restaurant_confirmation_whook() were later replaced (trigger_restaurant_updates / restaurant_updates_whook()).
+-- Current definitions now live in: _orphans/delivery.sql
+--               delivery/delivery_summary.sql
+-- Purpose: Restaurant confirmation columns, status 'restaurant_unconfirmed' and the first confirmation trigger (Nov 2025).
+-- The feature files above are the current truth; this file only records the one-off change.
+
 /**
 Migration: Add Restaurant Confirmation Fields to delivery_summary
 Date: 2025-11-18

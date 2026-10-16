@@ -1,34 +1,41 @@
--- See also (paths under ordelo_datamodels/): the accept / decline rule that wins races against this timeout is in restaurant_admin/restaurant_order_decision.sql; Telegram order cards are in telegram/t_order_alerts.sql.
-/**
-Restaurant Confirmation Timeout Job
+-- =============================================================================================
+-- ordelo_datamodels/restaurant_admin/job_restaurant_confirmation_timeout.sql
+-- Older timeout job: default the prep time to 25 minutes and make unconfirmed orders dispatchable (NOT scheduled).
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16). Not scheduled and no callers found: see GOTCHAS.
+-- OBJECTS       fn     job_restaurant_confirmation_timeout(p_rest_ref character varying) -> TABLE(action text)
+--                   Time out unconfirmed delivery orders (optionally one restaurant) with a 25-minute default prep time; returns what changed.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  If called: sets status 'unassigned', pickup_time now() + 25 min and the timeout fields on overdue delivery orders.
+-- HOW IT FITS   Restaurant confirmation, delivery and takeaway alike:
+--                 new order -> init_delivery() / init_takeaway() -> resolve_initial_restaurant_acceptance():
+--                     auto_accept restaurants: order starts accepted with a default pickup time (no prompt)
+--                     otherwise: 'restaurant_unconfirmed' -> trigger -> admins prompted (WhatsApp buttons; Telegram order cards)
+--                 admin taps Accept / Decline -> restaurant_order_decide(); picks a pickup time -> restaurant_order_set_pickup()
+--                     (Telegram taps go through t_order_decide() / t_order_set_pickup(), which authorise the person first)
+--                 no answer -> process_restaurant_confirmation() (cron 10 s) -> 'restaurant_timedout' -> trigger -> Python sets a default
+--                     pickup time and makes the order dispatchable (delivery_hooks._handle_restaurant_timedout)
+--                 morning check -> enquire_admin_availability() (cron 11:00 UTC) asks admins whether the restaurant is open today.
+--                 This function predates process_restaurant_confirmation() and is not scheduled on live; nothing calls it.
+-- LIFECYCLE     none
+-- CALLED BY     job_restaurant_confirmation_timeout:
+--                 nothing found (no code, trigger, cron job or other SQL refers to it)
+-- PYTHON MODEL  none
+-- SECURITY      job_restaurant_confirmation_timeout(): executable by PUBLIC (default)
+-- TESTS         none
+-- GOTCHAS       Not in cron.job; process_restaurant_confirmation() is the timeout that runs. Decide whether to drop it (docs/to-do.md).
+--               Uses different config keys (<REST>_RESTAURANT_CONFIRMATION_TIMEOUT, no _TIME suffix).
+--               The body was taken from live on 2026-10-16: the previous repo copy differed.
+-- SEE ALSO      restaurant_admin/process_restaurant_confirmation.sql
+-- =============================================================================================
 
-Purpose:
-    - Automatically timeout restaurant_unconfirmed orders after configured duration
-    - Support restaurant-specific timeout values via rest_ref parameter
-    - Default prep time to 25 minutes on timeout
-    - Transition order to 'unassigned' status to continue normal dispatch flow
-
-Invocation:
-    - Scheduled via pg_cron job (typically every minute)
-    - Can be called with optional rest_ref parameter for restaurant-specific processing
-
-Configuration:
-    - Default timeout: ordelo_config.RESTAURANT_CONFIRMATION_TIMEOUT (default: 5 minutes)
-    - Restaurant-specific: ordelo_config.{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT
-    - Example: 'WREN_RESTAURANT_CONFIRMATION_TIMEOUT' for WREN restaurant
-
-Dependencies:
-    - Reads from: delivery_summary, ordelo_config
-    - Writes to: delivery_summary (status, restaurant_confirmation_status, restaurant_update_dtts, rest_prep_time_minutes, rest_confirmation_method, pickup_time)
-
-Side Effects:
-    - Updates delivery_summary status to 'unassigned'
-    - Triggers downstream workflow (process_delivery will pick up these orders)
-
-Parameters:
-    - p_rest_ref (optional): Specific restaurant reference to process. If NULL, processes all timed-out orders.
-**/
--- Definition taken from the live database on 2026-10-16 (the previous repo copy in restaurant_admin/job_restaurant_confirmation_timeout.sql differed).
+-- ---------------------------------------------------------------------------------------------
+-- function job_restaurant_confirmation_timeout(p_rest_ref character varying) -> TABLE(action text)
+--   Time out unconfirmed delivery orders (optionally one restaurant) with a 25-minute default prep time; returns what changed.
+--   Data: reads ordelo_config; writes delivery_summary.
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.job_restaurant_confirmation_timeout (p_rest_ref character varying DEFAULT NULL::character varying)
     RETURNS TABLE (
         action text)
@@ -87,6 +94,12 @@ FROM
     timed_out_orders;
 END;
 $function$;
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.job_restaurant_confirmation_timeout (p_rest_ref character varying) IS 'Time out unconfirmed delivery orders (optionally one restaurant) with a 25-minute default prep time; returns what changed.';
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

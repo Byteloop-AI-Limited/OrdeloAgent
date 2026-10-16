@@ -1,32 +1,59 @@
--- See also (paths under ordelo_datamodels/): keep the RETURNING list in step with the RETURNS TABLE list (never RETURNING *: the kitchen columns in restaurant_admin/restaurant_ready_adjust_notices.sql were added to delivery_summary and broke it once).
-/**
-Delivery Initiation – Entry Point in Delivery Workflow
+-- =============================================================================================
+-- ordelo_datamodels/delivery/init_delivery.sql
+-- Create the delivery_summary row for a paid delivery order (step 1 of the delivery journey).
+-- =============================================================================================
+-- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- OBJECTS       fn     init_delivery(p_cust_id character varying, p_order_number character varying, p_rest_ref character varying) -> TABLE(order_number character varying, rest_id character varying, rest_name text, rest_lon double precision, rest_lat double precision, rest_address text, town character varying, customer_id character varying, customer_name text, customer_lon double precision, customer_lat double precision, customer_address text, restaurant_confirmation_status character varying, restaurant_update_dtts timestamp with time zone, restaurant_admin character varying, status character varying, rest_confirmation_code integer, cust_confirmation_code integer, rest_prep_time_minutes integer, rest_confirmation_method character varying, restaurant_msg_id character varying, rider_msg_id character varying, customer_msg_id character varying, pickup_time timestamp with time zone, pickup_date date, rest_ref character varying, dt date, dtts timestamp with time zone, redispatch_dtts timestamp with time zone)
+--                   Create the delivery_summary row for an order and return it.
+-- REQUIRES      none
+-- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
+--               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
+-- SIDE EFFECTS  Each call inserts one delivery_summary row, which fires trigger_restaurant_updates (restaurant prompt webhook).
+-- HOW IT FITS   Delivery order journey (statuses in delivery_summary.status unless noted):
+--                 1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:
+--                            'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.
+--                 2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked
+--                            (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /
+--                            decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.
+--                            process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then
+--                            sets a default pickup time and 'unassigned'.
+--                 3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,
+--                            and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).
+--                 4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders
+--                            (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).
+--                 5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first
+--                            acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row
+--                            (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).
+--                 6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,
+--                            dispatch_complete_func() marks everything 'completed' and removes the inflight row.
+--                 Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.
+-- LIFECYCLE     Creates the order in 'restaurant_unconfirmed', or in 'unassigned' with pickup_time and rest_confirmation_method
+--               'configured_auto' when resolve_initial_restaurant_acceptance() says the restaurant auto-accepts.
+-- CALLED BY     init_delivery:
+--                 python    watomation/on_message_wa_handler.py: init_delivery_summary(), test_delivery()
+--                 python    watomation/routers/payment_hooks.py: init_delivery_summary()
+-- PYTHON MODEL  none
+-- SECURITY      init_delivery(): executable by PUBLIC (default)
+-- TESTS         tests/regressions/test_p7_msg_handler.py
+--               tests/test_sql_returning_star.py
+--               tests/utils_common/web_ordering/test_web_contract.py
+-- GOTCHAS       Older notes said init_delivery 'eagerly calls process_delivery()'. It does not: the 5-second process_delivery cron job
+--                 picks the order up.
+--               RETURNING lists the columns: a RETURNING * breaks with SQLSTATE 42804 as soon as the table gains a column.
+-- SEE ALSO      delivery/delivery_summary.sql
+--               restaurant_admin/resolve_initial_restaurant_acceptance.sql
+--               docs/delivery_process.md
+-- =============================================================================================
 
-Where This Fits in the Journey:
-    - This function is the first step in the delivery agent workflow. It is invoked by an external service when a new delivery order is created.
-    - As per the journey outlined in handwritten_design.md:
-        • Step 1: init_delivery – Creates the delivery_summary and eagerly calls process_delivery().
-        • Step 2: process_delivery – Handles creation of delivery_detail records and manages dispatch logic.
-        • Step 3+: Downstream jobs and triggers handle dispatch creation, assignment, inflight tracking, and notifications.
-
-Invocation:
-    - Called by an external service (payment_hooks-> handle_payment_complete) to initiate the delivery process.
-
-Purpose:
-    - Initialize delivery details by creating a record in `delivery_summary`.
-    - Generate confirmation codes for both the restaurant and the customer.
-    - Eagerly execute process_delivery to ensure dispatch creation is immediate, not delayed by scheduled jobs.
-
-Dependencies:
-    - Reads from: `customer_master`, `restaurant_master`, `ordelo_config`.
-    - Writes to: `delivery_summary`.
-    - Calls: `process_delivery()`.
-
-Side Effects:
-    - None directly, but triggers downstream workflow via process_delivery().
-
-See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
-**/
+-- ---------------------------------------------------------------------------------------------
+-- function init_delivery(p_cust_id character varying, p_order_number character varying, p_rest_ref character varying) -> TABLE(order_number character varying, rest_id character varying, rest_name text, rest_lon double precision, rest_lat double precision, rest_address text, town character varying, customer_id character varying, customer_name text, customer_lon double precision, customer_lat double precision, customer_address text, restaurant_confirmation_status character varying, restaurant_update_dtts timestamp with time zone, restaurant_admin character varying, status character varying, rest_confirmation_code integer, cust_confirmation_code integer, rest_prep_time_minutes integer, rest_confirmation_method character varying, restaurant_msg_id character varying, rider_msg_id character varying, customer_msg_id character varying, pickup_time timestamp with time zone, pickup_date date, rest_ref character varying, dt date, dtts timestamp with time zone, redispatch_dtts timestamp with time zone)
+--   Create the delivery_summary row for an order and return it.
+--   Reads the restaurant (restaurant_master; p_rest_ref, else the order-number prefix) and the customer (customer_master),
+--   generates the restaurant/customer confirmation codes from ordelo_config CONFIRMATION_CODE_SALT (they add up to it),
+--   and asks resolve_initial_restaurant_acceptance() whether to auto-accept. RAISEs if the restaurant, customer or salt is missing.
+--   Called by /payment-hooks/payment-complete (payment_hooks.py) and the WhatsApp /test utility.
+--   Data: reads customer_master, ordelo_config, restaurant_master; writes delivery_summary; calls resolve_initial_restaurant_acceptance().
+-- ---------------------------------------------------------------------------------------------
 DROP FUNCTION IF EXISTS public.init_delivery (VARCHAR, VARCHAR, VARCHAR);
 
 CREATE OR REPLACE FUNCTION public.init_delivery (p_cust_id varchar, p_order_number varchar, p_rest_ref varchar DEFAULT NULL)
@@ -176,3 +203,9 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+-- ---------------------------------------------------------------------------------------------
+-- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
+-- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
+-- ---------------------------------------------------------------------------------------------
+COMMENT ON FUNCTION public.init_delivery (p_cust_id character varying, p_order_number character varying, p_rest_ref character varying) IS 'Create the delivery_summary row for an order and return it.';
