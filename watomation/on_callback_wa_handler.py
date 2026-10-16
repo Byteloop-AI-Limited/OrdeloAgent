@@ -13,7 +13,8 @@ WhatsApp callback button handler for delivery dispatch responses
     . Uses asyncio.create_task for long-running RPC calls to avoid timeouts
     . Guards pickup-time updates so stale or repeated button taps cannot overwrite existing pickup times
     . Supports admin pickup-time adjustment after pickup_time is set, flagging restaurant_pickuptime_adjusted to notify the inflight rider
-    . Gates admin_collection_ready and admin_adjust_pickup_time on ordelo.delivery_progress.check_delivery_progress, so a stale WhatsApp button (order no longer inflight, or food already picked up) never runs the agent or writes to delivery_summary
+    . Ready (delivery and takeaway) and +10/+20 taps go through utils_common.order_management.restaurant_actions (shared with Telegram): the gate (rider on the job, food not collected) and the first-tap-wins rule live in SQL, so a stale button never runs the agent or writes to delivery_summary, and a second Ready tap is told who already pressed it instead of nudging the rider again
+    . Ready buttons sent before order_number existed (no order_number in the callback) keep the old gate path (_legacy_collection_ready)
   Functions/Classes:
     . dispatch_response - Processes rider responses to delivery dispatch assignments
     . rider_request_location - Handles rider requests for location information
@@ -23,13 +24,13 @@ WhatsApp callback button handler for delivery dispatch responses
     . restaurant_order_accept_decline_handler - Handles restaurant accept/decline responses
     . _update_restaurant_order_status - Background task for updating restaurant order status
     . handle_pickup_time_selection - Handles restaurant pickup-time selection callbacks
-    . admin_collection_ready - Nudges the rider agent that food is ready (skipped after pickup)
+    . admin_collection_ready - Marks the food ready and nudges the rider agent once per dispatch (skipped after pickup)
+    . _legacy_collection_ready - The pre-order_number path for old Ready buttons
+    . admin_takeaway_ready - Marks a takeaway ready once and notifies the customer
     . admin_adjust_pickup_time - Handles admin pickup-time adjustment callbacks (sets restaurant_pickuptime_adjusted)
-    . Routes customer notifications through the R1b notifier (always on since R3.1)
+    . Ready and +10/+20 rules, and the rider / customer follow-ups, live in utils_common/order_management/restaurant_actions.py
+      (shared with the Telegram taps); this file keeps only the WhatsApp parsing and replies
 """
-
-from utils_common.notify import customer_notifier
-from utils_common.notify.customer_notifier import CustomerOrderEvent
 
 # %%
 import asyncio
@@ -48,9 +49,9 @@ from ordelo.delivery_progress import (
     check_delivery_progress,
 )
 from ordelo_datamodels.delivery_pymodels import DeliveryDispatch
-from utils_common.order_management import restaurant_decision
+from utils_common.order_management import restaurant_actions, restaurant_decision
+from utils_common.order_management.restaurant_actions import WhatsAppActor
 from utils_common.waba_utils.wa_senders import CallbackButtonData
-from datetime import datetime, timezone
 from utils_common.tz_utils import fmt_uk_time
 
 # from utils_common.waba_utils.wa_senders import send_restaurant_pickup_time
@@ -375,19 +376,41 @@ async def admin_collection_ready(
     msg: WhatsApp, callback: CallbackButton[CallbackButtonData]
 ):
     """
-    Handles the admin "Ready - Notify Rider" tap by nudging the rider agent.
+    Handles the admin "Ready - Notify Rider" tap.
 
     The receipt message keeps its buttons forever, so an admin can tap this long
-    after the delivery has finished. Checks check_delivery_progress() first: if
-    the rider's order is no longer inflight, or the food is already picked up,
-    the agent is not run at all. Buttons sent before order_number was added to
-    this callback fall back to matching on rider_id alone.
+    after the delivery has finished. restaurant_actions.ready() decides in SQL:
+    the rider must still be on the job and the food not collected, and only the
+    FIRST tap per dispatch nudges the rider (a second tap is told who pressed it).
+    Buttons sent before order_number was added to this callback fall back to the
+    old rider_id gate (_legacy_collection_ready).
     """
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
 
+    order_number = getattr(callback_data, "order_number", None)
+    if order_number is None:
+        return await _legacy_collection_ready(callback_data, callback)
+
+    try:
+        out = await restaurant_actions.ready(order_number, "delivery", WhatsAppActor(callback.sender))
+    except Exception as e:
+        logger.error(f"Ready tap failed for order {order_number}: {e}")
+        await callback.reply(text=GATE_REPLIES[DeliveryProgress.UNKNOWN])
+        return
+    reply = restaurant_actions.ready_reply_text(out)
+    if reply:
+        logger.info(f"Admin {callback.sender} Ready tap for {order_number}: {out.result}; replied {reply!r}")
+        await callback.reply(text=reply)
+    return
+
+
+async def _legacy_collection_ready(
+    callback_data: CallbackButtonData, callback: CallbackButton[CallbackButtonData]
+):
+    """Ready buttons created before order_number was in the callback: gate on the rider's inflight row, as before."""
     progress, _row = await check_delivery_progress(
         rider_id=callback_data.rider_id,
-        order_number=getattr(callback_data, "order_number", None),
+        order_number=None,
     )
     if progress is not DeliveryProgress.AWAITING_PICKUP:
         logger.info(
@@ -418,15 +441,16 @@ async def admin_adjust_pickup_time(
 
     The button callback (created in admin_order_reciept) carries a precomputed
     new pickup_time (+10/+20 mins) and the order_number. The buttons never
-    expire, so this first checks check_delivery_progress(): if the order is no
-    longer inflight, or the food has already been picked up, no write happens
-    at all -- no delivery_summary update, no trigger_restaurant_updates fire,
-    no rider notification, no success acknowledgement. Only when the delivery
-    is still awaiting pickup does this update delivery_summary.pickup_time and
-    set restaurant_confirmation_status to 'restaurant_pickuptime_adjusted',
-    which fires trigger_restaurant_updates -> /delivery-hooks/restaurant-confirmation-request
-    -> _handle_restaurant_pickuptime_adjusted so the inflight rider is notified.
-    Lifecycle 'status' is left unchanged.
+    expire, so restaurant_actions.adjust_pickup() decides in SQL: if the order
+    is no longer inflight, or the food has already been picked up, no write
+    happens at all -- no delivery_summary update, no trigger_restaurant_updates
+    fire, no rider notification. A tap that would not change the pickup time
+    ('unchanged') also writes nothing and tells the rider nothing. Otherwise SQL
+    updates delivery_summary.pickup_time and sets restaurant_confirmation_status
+    to 'restaurant_pickuptime_adjusted', which fires trigger_restaurant_updates ->
+    /delivery-hooks/restaurant-confirmation-request ->
+    _handle_restaurant_pickuptime_adjusted so the inflight rider is notified.
+    Lifecycle 'status' and restaurant_admin (who accepted) are left unchanged.
     """
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
 
@@ -442,41 +466,29 @@ async def admin_adjust_pickup_time(
         )
         return
 
-    progress, _row = await check_delivery_progress(order_number=order_number)
-    if progress is not DeliveryProgress.AWAITING_PICKUP:
-        logger.info(
-            f"Admin {recipient} tapped adjust pickup time for {order_number} "
-            f"while {progress}; no update applied"
-        )
-        await callback.reply(text=GATE_REPLIES[progress])
-        return
-
     try:
-        await asyncio.to_thread(
-            lambda: (
-                client_ordelo.table("delivery_summary")
-                .update(
-                    {
-                        "pickup_time": pickup_time,
-                        "restaurant_confirmation_status": "restaurant_pickuptime_adjusted",
-                        "restaurant_admin": recipient,
-                        "restaurant_update_dtts": datetime.now(timezone.utc).isoformat(),
-                    }
-                )
-                .eq("order_number", order_number)
-                .execute()
-            )
-        )
-        await callback.reply(text=f"Pickup time updated to {fmt_uk_time(pickup_time)}")
-        logger.info(
-            "Admin %s adjusted pickup time for %s to %s",
-            recipient,
-            order_number,
-            pickup_time,
-        )
+        out = await restaurant_actions.adjust_pickup(order_number, WhatsAppActor(recipient), target=pickup_time)
     except Exception as e:
         logger.error(f"Failed to adjust pickup time for order {order_number}: {e}")
         await callback.reply("Failed to update pickup time. Please retry.")
+        return
+
+    if out.result in ("ok", "unchanged"):
+        await callback.reply(text=f"Pickup time updated to {fmt_uk_time(out.pickup_time or pickup_time)}")
+        logger.info(
+            "Admin %s adjusted pickup time for %s to %s (%s)",
+            recipient,
+            order_number,
+            pickup_time,
+            out.result,
+        )
+        return
+
+    logger.info(
+        f"Admin {recipient} tapped adjust pickup time for {order_number} "
+        f"while {out.result}/{out.progress}; no update applied"
+    )
+    await callback.reply(text=restaurant_actions.not_done_reply_text(out))
     return
 
 
@@ -488,7 +500,6 @@ async def admin_takeaway_ready(
 ):
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(callback.data))
     order_number = getattr(callback_data, "order_number", None)
-    recipient = getattr(callback_data, "recipient", None)
     order_id = None
     if order_number and "-" in order_number:
         order_id = "-".join(order_number.split("-")[1:])
@@ -513,21 +524,18 @@ async def admin_takeaway_ready(
         )
         return
 
-    payload = {
-        "order_id": order_id,
-        "order_number": order_number,
-        "recipient": recipient,
-        "admin_id": callback.sender,
-        "event": "admin_takeaway_ready",
-        "event_dtts": datetime.now(timezone.utc).isoformat(),
-    }
-
     try:
-        await customer_notifier.publish(order_number, CustomerOrderEvent(
-            "ready_for_collection", "ready_for_collection", "order-takeaway-ready", payload, f"/{order_id}"))
-        await callback.reply("Customer notification request sent.")
+        out = await restaurant_actions.ready(order_number, "takeaway", WhatsAppActor(callback.sender))
     except Exception as e:
         logger.error(
             f"Failed to notify takeaway ready for order_id={order_id}, order_number={order_number}: {e}"
         )
         await callback.reply("Failed to notify customer. Please retry.")
+        return
+    if out.result == "ok":
+        if out.follow_up_failed:  # Ready is recorded (a retry would only say "already ready"), so say what to do instead
+            await callback.reply("Marked ready, but the customer notification failed. Please contact the customer.")
+        else:
+            await callback.reply("Customer notification request sent.")
+        return
+    await callback.reply(text=restaurant_actions.ready_reply_text(out))
