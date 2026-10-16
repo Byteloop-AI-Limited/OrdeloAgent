@@ -1,0 +1,12 @@
+# sqlfluff settings for ordelo_datamodels/. Layout is owned by pgFormatter (.pg_format.conf), so the layout rules
+# are off. sqlfluff is the parse check plus upper-case keywords (CP01), which agrees with pgFormatter. Style rules
+# this code base does not follow (implicit aliases, SELECT *, qualified references ...) are excluded on purpose.
+[sqlfluff]
+dialect = postgres
+max_line_length = 0
+large_file_skip_byte_limit = 0
+exclude_rules = layout, CP02, CP03, CP04, CP05, RF02, RF03, RF04, RF05, AL01, AL03, AL04, AM04, AM05, ST06, ST07, ST09, CV11
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = upper
+

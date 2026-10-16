@@ -1,0 +1,7 @@
+# History and ad-hoc scripts are not formatted or linted: only the authoritative feature files are.
+_archive/
+migrations/
+test_support/test_restaurant_notices.sql
+test_support/test_create_t_order_alerts.sql
+test_support/test_magic_link.sql
+test_support/get_ddl_for_table.sql

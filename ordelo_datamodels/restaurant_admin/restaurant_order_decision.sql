@@ -68,21 +68,30 @@
 --    The Telegram first name of that phone's most recent claimed invite, else '...' + last 4 digits.
 --    NULL for an empty phone. Reads t_invites (create_t_invites.sql).
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.restaurant_admin_label(p_phone text)
-RETURNS text LANGUAGE sql STABLE SET search_path = public AS $$
-    SELECT COALESCE(
-        (SELECT i.telegram_first_name
-           FROM public.t_invites i
-          WHERE i.phone_number = p_phone
-            AND i.status = 'claimed'
-            AND i.telegram_first_name IS NOT NULL
-          ORDER BY i.claimed_at DESC
-          LIMIT 1),
-        CASE WHEN coalesce(p_phone, '') = '' THEN NULL ELSE '…' || right(p_phone, 4) END)
+CREATE OR REPLACE FUNCTION public.restaurant_admin_label (p_phone text)
+    RETURNS text
+    LANGUAGE sql
+    STABLE
+    SET search_path = public
+    AS $$
+    SELECT
+        COALESCE((
+            SELECT
+                i.telegram_first_name
+            FROM public.t_invites i
+            WHERE
+                i.phone_number = p_phone
+                AND i.status = 'claimed'
+                AND i.telegram_first_name IS NOT NULL ORDER BY i.claimed_at DESC LIMIT 1), CASE WHEN coalesce(p_phone, '') = '' THEN
+        NULL
+    ELSE
+        '…' ||
+    RIGHT (p_phone, 4)
+    END)
 $$;
 
 -- Server-only objects: nobody but the service key may call them.
-REVOKE ALL ON FUNCTION public.restaurant_admin_label(text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.restaurant_admin_label (text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 3. restaurant_order_decide(order_number, order_type, decision, admin_phone, channel)
@@ -96,11 +105,18 @@ REVOKE ALL ON FUNCTION public.restaurant_admin_label(text) FROM PUBLIC, anon, au
 --      {result:'already_decided', state, decided_by, decided_by_phone, decided_at, pickup_time}  (lost the race)
 --      {result:'not_found'}
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.restaurant_order_decide(
-    p_order_number text, p_order_type text, p_decision text, p_admin_phone text, p_channel text)
-RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.restaurant_order_decide (p_order_number text, p_order_type text, p_decision text, p_admin_phone text, p_channel text)
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path = public
+    AS $$
 DECLARE
-    v_rcs text := CASE p_decision WHEN 'accept' THEN 'restaurant_accept' WHEN 'decline' THEN 'restaurant_decline' END;
+    v_rcs text := CASE p_decision
+    WHEN 'accept' THEN
+        'restaurant_accept'
+    WHEN 'decline' THEN
+        'restaurant_decline'
+    END;
     v_cur record;
 BEGIN
     IF v_rcs IS NULL OR p_order_type IS NULL OR p_order_type NOT IN ('delivery', 'takeaway') THEN
@@ -108,52 +124,70 @@ BEGIN
     END IF;
 
     IF p_order_type = 'delivery' THEN
-        UPDATE public.delivery_summary
-           SET restaurant_confirmation_status = v_rcs,
-               status = CASE WHEN p_decision = 'decline' THEN 'declined' ELSE status END,
-               restaurant_admin = p_admin_phone,
-               restaurant_update_dtts = now()
-         WHERE order_number = p_order_number
-           AND restaurant_confirmation_status = 'restaurant_unconfirmed';
+        UPDATE
+            public.delivery_summary
+        SET
+            restaurant_confirmation_status = v_rcs,
+            status = CASE WHEN p_decision = 'decline' THEN
+                'declined'
+            ELSE
+                status
+            END,
+            restaurant_admin = p_admin_phone,
+            restaurant_update_dtts = now()
+        WHERE
+            order_number = p_order_number
+            AND restaurant_confirmation_status = 'restaurant_unconfirmed';
     ELSE
-        UPDATE public.takeaway_summary
-           SET restaurant_confirmation_status = v_rcs,
-               status = CASE WHEN p_decision = 'decline' THEN 'declined' ELSE status END,
-               restaurant_admin = p_admin_phone,
-               restaurant_update_dtts = now()
-         WHERE order_number = p_order_number
-           AND restaurant_confirmation_status = 'restaurant_unconfirmed';
+        UPDATE
+            public.takeaway_summary
+        SET
+            restaurant_confirmation_status = v_rcs,
+            status = CASE WHEN p_decision = 'decline' THEN
+                'declined'
+            ELSE
+                status
+            END,
+            restaurant_admin = p_admin_phone,
+            restaurant_update_dtts = now()
+        WHERE
+            order_number = p_order_number
+            AND restaurant_confirmation_status = 'restaurant_unconfirmed';
     END IF;
 
     IF FOUND THEN
-        RETURN jsonb_build_object(
-            'result', 'ok', 'decision', p_decision, 'channel', p_channel,
-            'decided_by', public.restaurant_admin_label(p_admin_phone),
-            'decided_by_phone', p_admin_phone);
+        RETURN jsonb_build_object('result', 'ok', 'decision', p_decision, 'channel', p_channel, 'decided_by', public.restaurant_admin_label (p_admin_phone), 'decided_by_phone', p_admin_phone);
     END IF;
-
     -- Lost the race or already decided: report the authoritative state.
     IF p_order_type = 'delivery' THEN
-        SELECT restaurant_confirmation_status AS rcs, restaurant_admin AS admin,
-               restaurant_update_dtts AS decided_at, pickup_time
-          INTO v_cur FROM public.delivery_summary WHERE order_number = p_order_number;
+        SELECT
+            restaurant_confirmation_status AS rcs,
+            restaurant_admin AS admin,
+            restaurant_update_dtts AS decided_at,
+            pickup_time INTO v_cur
+        FROM
+            public.delivery_summary
+        WHERE
+            order_number = p_order_number;
     ELSE
-        SELECT restaurant_confirmation_status AS rcs, restaurant_admin AS admin,
-               restaurant_update_dtts AS decided_at, pickup_time
-          INTO v_cur FROM public.takeaway_summary WHERE order_number = p_order_number;
+        SELECT
+            restaurant_confirmation_status AS rcs,
+            restaurant_admin AS admin,
+            restaurant_update_dtts AS decided_at,
+            pickup_time INTO v_cur
+        FROM
+            public.takeaway_summary
+        WHERE
+            order_number = p_order_number;
     END IF;
     IF NOT FOUND THEN
         RETURN jsonb_build_object('result', 'not_found');
     END IF;
-    RETURN jsonb_build_object(
-        'result', 'already_decided', 'state', v_cur.rcs,
-        'decided_by', public.restaurant_admin_label(v_cur.admin),
-        'decided_by_phone', v_cur.admin,
-        'decided_at', v_cur.decided_at,
-        'pickup_time', v_cur.pickup_time);
-END $$;
+    RETURN jsonb_build_object('result', 'already_decided', 'state', v_cur.rcs, 'decided_by', public.restaurant_admin_label (v_cur.admin), 'decided_by_phone', v_cur.admin, 'decided_at', v_cur.decided_at, 'pickup_time', v_cur.pickup_time);
+END
+$$;
 
-REVOKE ALL ON FUNCTION public.restaurant_order_decide(text, text, text, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.restaurant_order_decide (text, text, text, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 4. restaurant_order_set_pickup(order_number, order_type, pickup_time, admin_phone, channel)
@@ -166,9 +200,11 @@ REVOKE ALL ON FUNCTION public.restaurant_order_decide(text, text, text, text, te
 --      {result:'not_accepted', state, decided_by, decided_by_phone}               declined, timed out, auto-accepted, or still unconfirmed
 --      {result:'not_found'}
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.restaurant_order_set_pickup(
-    p_order_number text, p_order_type text, p_pickup_time timestamptz, p_admin_phone text, p_channel text)
-RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.restaurant_order_set_pickup (p_order_number text, p_order_type text, p_pickup_time timestamptz, p_admin_phone text, p_channel text)
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path = public
+    AS $$
 DECLARE
     v_cur record;
 BEGIN
@@ -177,51 +213,66 @@ BEGIN
     END IF;
 
     IF p_order_type = 'delivery' THEN
-        UPDATE public.delivery_summary
-           SET pickup_time = p_pickup_time,
-               status = 'unassigned',
-               restaurant_admin = p_admin_phone,
-               restaurant_update_dtts = now()
-         WHERE order_number = p_order_number
-           AND restaurant_confirmation_status = 'restaurant_accept'
-           AND pickup_time IS NULL;
+        UPDATE
+            public.delivery_summary
+        SET
+            pickup_time = p_pickup_time,
+            status = 'unassigned',
+            restaurant_admin = p_admin_phone,
+            restaurant_update_dtts = now()
+        WHERE
+            order_number = p_order_number
+            AND restaurant_confirmation_status = 'restaurant_accept'
+            AND pickup_time IS NULL;
     ELSE
-        UPDATE public.takeaway_summary
-           SET pickup_time = p_pickup_time,
-               status = 'pickup_confirmed',
-               restaurant_admin = p_admin_phone,
-               restaurant_update_dtts = now()
-         WHERE order_number = p_order_number
-           AND restaurant_confirmation_status = 'restaurant_accept'
-           AND pickup_time IS NULL;
+        UPDATE
+            public.takeaway_summary
+        SET
+            pickup_time = p_pickup_time,
+            status = 'pickup_confirmed',
+            restaurant_admin = p_admin_phone,
+            restaurant_update_dtts = now()
+        WHERE
+            order_number = p_order_number
+            AND restaurant_confirmation_status = 'restaurant_accept'
+            AND pickup_time IS NULL;
     END IF;
 
     IF FOUND THEN
-        RETURN jsonb_build_object(
-            'result', 'ok', 'pickup_time', p_pickup_time,
-            'decided_by', public.restaurant_admin_label(p_admin_phone),
-            'decided_by_phone', p_admin_phone);
+        RETURN jsonb_build_object('result', 'ok', 'pickup_time', p_pickup_time, 'decided_by', public.restaurant_admin_label (p_admin_phone), 'decided_by_phone', p_admin_phone);
     END IF;
 
     IF p_order_type = 'delivery' THEN
-        SELECT restaurant_confirmation_status AS rcs, restaurant_admin AS admin, pickup_time
-          INTO v_cur FROM public.delivery_summary WHERE order_number = p_order_number;
+        SELECT
+            restaurant_confirmation_status AS rcs,
+            restaurant_admin AS admin,
+            pickup_time INTO v_cur
+        FROM
+            public.delivery_summary
+        WHERE
+            order_number = p_order_number;
     ELSE
-        SELECT restaurant_confirmation_status AS rcs, restaurant_admin AS admin, pickup_time
-          INTO v_cur FROM public.takeaway_summary WHERE order_number = p_order_number;
+        SELECT
+            restaurant_confirmation_status AS rcs,
+            restaurant_admin AS admin,
+            pickup_time INTO v_cur
+        FROM
+            public.takeaway_summary
+        WHERE
+            order_number = p_order_number;
     END IF;
     IF NOT FOUND THEN
         RETURN jsonb_build_object('result', 'not_found');
     END IF;
-    RETURN jsonb_build_object(
-        'result', CASE WHEN v_cur.pickup_time IS NOT NULL THEN 'already_set' ELSE 'not_accepted' END,
-        'state', v_cur.rcs,
-        'pickup_time', v_cur.pickup_time,
-        'decided_by', public.restaurant_admin_label(v_cur.admin),
-        'decided_by_phone', v_cur.admin);
-END $$;
+    RETURN jsonb_build_object('result', CASE WHEN v_cur.pickup_time IS NOT NULL THEN
+            'already_set'
+        ELSE
+            'not_accepted'
+        END, 'state', v_cur.rcs, 'pickup_time', v_cur.pickup_time, 'decided_by', public.restaurant_admin_label (v_cur.admin), 'decided_by_phone', v_cur.admin);
+END
+$$;
 
-REVOKE ALL ON FUNCTION public.restaurant_order_set_pickup(text, text, timestamptz, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.restaurant_order_set_pickup (text, text, timestamptz, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 5. Telegram authorisation (D14, D25, D27). The actor is the Telegram USER (tuid = from_user.id), never the
@@ -231,51 +282,76 @@ REVOKE ALL ON FUNCTION public.restaurant_order_set_pickup(text, text, timestampt
 --    phone is (digits compared) in restaurant_master.admins. Revoking the invite or removing the phone from
 --    admins stops taps and alerts at once. Same rule as t_order_card_destinations() (create_t_order_alerts.sql).
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_order_admin_phone(p_bot_key text, p_tuid bigint, p_rest_ref text)
-RETURNS text LANGUAGE sql STABLE SET search_path = public AS $$
-    SELECT i.phone_number
-      FROM public.t_invites i
-      JOIN public.restaurant_master rm ON rm.rest_ref = i.rest_ref
-     WHERE i.bot_key = p_bot_key
-       AND i.telegram_user_id = p_tuid
-       AND i.rest_ref = p_rest_ref
-       AND i.status = 'claimed'
-       AND i.phone_number IN (SELECT regexp_replace(a, '\D', '', 'g') FROM unnest(rm.admins) AS a)
-     ORDER BY i.claimed_at DESC NULLS LAST
-     LIMIT 1
+CREATE OR REPLACE FUNCTION public.t_order_admin_phone (p_bot_key text, p_tuid bigint, p_rest_ref text)
+    RETURNS text
+    LANGUAGE sql
+    STABLE
+    SET search_path = public
+    AS $$
+    SELECT
+        i.phone_number
+    FROM
+        public.t_invites i
+        JOIN public.restaurant_master rm ON rm.rest_ref = i.rest_ref
+    WHERE
+        i.bot_key = p_bot_key
+        AND i.telegram_user_id = p_tuid
+        AND i.rest_ref = p_rest_ref
+        AND i.status = 'claimed'
+        AND i.phone_number IN (
+            SELECT
+                regexp_replace(a, '\D', '', 'g')
+            FROM
+                unnest(rm.admins) AS a)
+    ORDER BY
+        i.claimed_at DESC NULLS LAST
+    LIMIT 1
 $$;
 
-REVOKE ALL ON FUNCTION public.t_order_admin_phone(text, bigint, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.t_order_admin_phone (text, bigint, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 6. t_order_decide(bot_key, tuid, order_number, order_type, decision): Telegram Accept / Decline.
 --    Returns the restaurant_order_decide() jsonb, or {result:'not_found'} / {result:'not_authorised'}.
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_order_decide(
-    p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text, p_decision text)
-RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.t_order_decide (p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text, p_decision text)
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path = public
+    AS $$
 DECLARE
     v_rest_ref text;
     v_phone text;
 BEGIN
     IF p_order_type = 'delivery' THEN
-        SELECT rest_ref INTO v_rest_ref FROM public.delivery_summary WHERE order_number = p_order_number;
+        SELECT
+            rest_ref INTO v_rest_ref
+        FROM
+            public.delivery_summary
+        WHERE
+            order_number = p_order_number;
     ELSIF p_order_type = 'takeaway' THEN
-        SELECT rest_ref INTO v_rest_ref FROM public.takeaway_summary WHERE order_number = p_order_number;
+        SELECT
+            rest_ref INTO v_rest_ref
+        FROM
+            public.takeaway_summary
+        WHERE
+            order_number = p_order_number;
     ELSE
         RAISE EXCEPTION 't_order_decide: bad order type %', p_order_type;
     END IF;
     IF v_rest_ref IS NULL THEN
         RETURN jsonb_build_object('result', 'not_found');
     END IF;
-    v_phone := public.t_order_admin_phone(p_bot_key, p_tuid, v_rest_ref);
+    v_phone := public.t_order_admin_phone (p_bot_key, p_tuid, v_rest_ref);
     IF v_phone IS NULL THEN
         RETURN jsonb_build_object('result', 'not_authorised');
     END IF;
-    RETURN public.restaurant_order_decide(p_order_number, p_order_type, p_decision, v_phone, 'telegram');
-END $$;
+    RETURN public.restaurant_order_decide (p_order_number, p_order_type, p_decision, v_phone, 'telegram');
+END
+$$;
 
-REVOKE ALL ON FUNCTION public.t_order_decide(text, bigint, text, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.t_order_decide (text, bigint, text, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- 7. t_order_set_pickup(bot_key, tuid, order_number, order_type, minutes): Telegram pickup-time button.
@@ -283,9 +359,11 @@ REVOKE ALL ON FUNCTION public.t_order_decide(text, bigint, text, text, text) FRO
 --    the order time + 5 / 15 / 25 minutes), so the button carries minutes, not a timestamp. minutes must be
 --    1..120 (anything else is a programming error and RAISES).
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_order_set_pickup(
-    p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text, p_minutes int)
-RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.t_order_set_pickup (p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text, p_minutes int)
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path = public
+    AS $$
 DECLARE
     v_rest_ref text;
     v_dtts timestamptz;
@@ -295,21 +373,35 @@ BEGIN
         RAISE EXCEPTION 't_order_set_pickup: bad minutes %', p_minutes;
     END IF;
     IF p_order_type = 'delivery' THEN
-        SELECT rest_ref, dtts INTO v_rest_ref, v_dtts FROM public.delivery_summary WHERE order_number = p_order_number;
+        SELECT
+            rest_ref,
+            dtts INTO v_rest_ref,
+            v_dtts
+        FROM
+            public.delivery_summary
+        WHERE
+            order_number = p_order_number;
     ELSIF p_order_type = 'takeaway' THEN
-        SELECT rest_ref, dtts INTO v_rest_ref, v_dtts FROM public.takeaway_summary WHERE order_number = p_order_number;
+        SELECT
+            rest_ref,
+            dtts INTO v_rest_ref,
+            v_dtts
+        FROM
+            public.takeaway_summary
+        WHERE
+            order_number = p_order_number;
     ELSE
         RAISE EXCEPTION 't_order_set_pickup: bad order type %', p_order_type;
     END IF;
     IF v_rest_ref IS NULL THEN
         RETURN jsonb_build_object('result', 'not_found');
     END IF;
-    v_phone := public.t_order_admin_phone(p_bot_key, p_tuid, v_rest_ref);
+    v_phone := public.t_order_admin_phone (p_bot_key, p_tuid, v_rest_ref);
     IF v_phone IS NULL THEN
         RETURN jsonb_build_object('result', 'not_authorised');
     END IF;
-    RETURN public.restaurant_order_set_pickup(
-        p_order_number, p_order_type, v_dtts + make_interval(mins => p_minutes), v_phone, 'telegram');
-END $$;
+    RETURN public.restaurant_order_set_pickup (p_order_number, p_order_type, v_dtts + make_interval(mins => p_minutes), v_phone, 'telegram');
+END
+$$;
 
-REVOKE ALL ON FUNCTION public.t_order_set_pickup(text, bigint, text, text, int) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.t_order_set_pickup (text, bigint, text, text, int) FROM PUBLIC, anon, authenticated;

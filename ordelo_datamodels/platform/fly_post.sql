@@ -9,52 +9,55 @@
 -- below. Verify with:
 --   SELECT extnamespace::regnamespace FROM pg_extension WHERE extname = 'http';
 -- ============================================================
-DROP FUNCTION IF EXISTS fly_post(text, text);
+DROP FUNCTION IF EXISTS fly_post (text, text);
 
-CREATE OR REPLACE FUNCTION fly_post(
-    p_app_name text,
-    p_action   text
-)
-RETURNS TABLE (status integer, content text)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, extensions
-AS $$
+CREATE OR REPLACE FUNCTION fly_post (p_app_name text, p_action text)
+    RETURNS TABLE (
+        status integer,
+        content text)
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = public,
+    extensions
+    AS $$
 DECLARE
-    v_token      text;
+    v_token text;
     v_machine_id text;
-    v_url        text;
-    resp         http_response;
+    v_url text;
+    resp http_response;
 BEGIN
     IF p_action NOT IN ('start', 'stop', 'suspend') THEN
         RAISE EXCEPTION 'Invalid action "%". Must be start | stop | suspend', p_action;
     END IF;
 
-    SELECT api_token, machine_id
-      INTO v_token, v_machine_id
-      FROM fly_config
-     WHERE app_name = p_app_name;
+    SELECT
+        api_token,
+        machine_id INTO v_token,
+        v_machine_id
+    FROM
+        fly_config
+    WHERE
+        app_name = p_app_name;
 
     IF v_token IS NULL OR v_machine_id IS NULL THEN
         RAISE EXCEPTION 'fly_config has no usable row for app "%"', p_app_name;
     END IF;
 
-    v_url := 'https://api.machines.dev/v1/apps/' || p_app_name
-             || '/machines/' || v_machine_id || '/' || p_action;
-
+    v_url := 'https://api.machines.dev/v1/apps/' || p_app_name || '/machines/' || v_machine_id || '/' || p_action;
     -- Empty body, but pgsql-http requires a non-NULL `content` for POST, so pass ''
     -- (mirrors this repo's ordelo_post: http_post(url, '', 'application/json')).
     -- If Fly ever 400s on the empty JSON body, switch content from '' to '{}'.
-    SELECT * INTO resp
-      FROM http((
-        'POST',
-        v_url,
-        ARRAY[http_header('Authorization', 'Bearer ' || v_token)],
-        'application/json',   -- content_type
-        ''                    -- content: empty body (must be non-NULL for POST)
-      )::http_request);
+    SELECT
+        * INTO resp
+    FROM
+        http (('POST', v_url, ARRAY[http_header ('Authorization', 'Bearer ' || v_token)], 'application/json', -- content_type
+    '' -- content: empty body (must be non-NULL for POST)
+)::http_request);
 
-    RETURN QUERY SELECT resp.status, resp.content::text;
+    RETURN QUERY
+    SELECT
+        resp.status,
+        resp.content::text;
 END;
 $$;
 
@@ -64,8 +67,7 @@ $$;
 -- and EXECUTE defaults to PUBLIC (anon/authenticated). Without this, anyone with the
 -- anon key could stop prod, and the table RLS would NOT help (function reads as owner).
 -- REVOKE EXECUTE ON FUNCTION fly_post(text, text) FROM public, anon, authenticated;
-
-GRANT  EXECUTE ON FUNCTION fly_post(text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION fly_post (text, text) TO service_role;
 
 -- -- Usage:
 -- -- SELECT * FROM fly_post('sfcs-agent', 'stop');    -- nightly shutdown

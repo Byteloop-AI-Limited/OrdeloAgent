@@ -39,61 +39,65 @@ Side Effects:
        the vehicle-type cascade from rank 1 on the next cron tick.
     5. Reopens delivery_summary and resets redispatch_dtts to NOW().
 **/
-DROP FUNCTION IF EXISTS dispatch_cancel_before_pickup(bigint);
+DROP FUNCTION IF EXISTS dispatch_cancel_before_pickup (bigint);
 
-CREATE OR REPLACE FUNCTION dispatch_cancel_before_pickup(p_dispatch_id bigint)
-RETURNS TEXT AS $$
+CREATE OR REPLACE FUNCTION dispatch_cancel_before_pickup (p_dispatch_id bigint)
+    RETURNS text
+    AS $$
 DECLARE
-    v_order_number TEXT;
-    v_dispatch_status TEXT;
+    v_order_number text;
+    v_dispatch_status text;
 BEGIN
-    SELECT order_number, status
-      INTO v_order_number, v_dispatch_status
-      FROM delivery_dispatch
-     WHERE dispatch_id = p_dispatch_id
-     LIMIT 1;
+    SELECT
+        order_number,
+        status INTO v_order_number,
+        v_dispatch_status
+    FROM
+        delivery_dispatch
+    WHERE
+        dispatch_id = p_dispatch_id
+    LIMIT 1;
 
     IF v_order_number IS NULL THEN
         RETURN 'dispatch not found';
     END IF;
-
     -- Only allow cancel before pickup (dispatch must still be assigned)
     IF v_dispatch_status <> 'assigned' THEN
         RETURN 'cannot cancel; dispatch status is ' || v_dispatch_status;
     END IF;
-    
-
     -- Mark dispatch as declined (cancelled before pickup)
-    UPDATE delivery_dispatch
-       SET status = 'declined',
-           status_update_dtts = CURRENT_TIMESTAMP
-     WHERE dispatch_id = p_dispatch_id;
-
+    UPDATE
+        delivery_dispatch
+    SET
+        status = 'declined',
+        status_update_dtts = CURRENT_TIMESTAMP
+    WHERE
+        dispatch_id = p_dispatch_id;
     -- Remove inflight record so rider is freed for new jobs
     DELETE FROM delivery_inflight
-     WHERE dispatch_id = p_dispatch_id;
-
-    
-    -- delete all entries from delivery_dispatch for the order, except dispatch_id = p_dispatch_id; 
+    WHERE dispatch_id = p_dispatch_id;
+    -- delete all entries from delivery_dispatch for the order, except dispatch_id = p_dispatch_id;
     -- Otherwise, get_available_riders will return the earlier dispatches as riders to exclude, hence repeated notifications will not be sent.
     DELETE FROM delivery_dispatch
-     WHERE order_number = v_order_number
-       AND dispatch_id <> p_dispatch_id;
-    
+    WHERE order_number = v_order_number
+        AND dispatch_id <> p_dispatch_id;
     -- Reopen ALL detail rows for the order — both the just-cancelled 'assigned'
     -- row and any vehicle_types that had previously timed out. job_create_dispatch
     -- will then go through the dispatch flow from the start. get_available_riders will handle the logic of not sending the same notification to the  rider who declined.
     DELETE FROM delivery_detail
-     WHERE order_number = v_order_number;
-
+    WHERE order_number = v_order_number;
     -- Reopen summary so downstream jobs pick it up again, and reset the
     -- delivery-timeout clock so the re-dispatch gets a full timeout window.
-    UPDATE delivery_summary
-       SET status = 'unassigned',
-           redispatch_dtts = NOW()
-     WHERE order_number = v_order_number
-       AND status = 'assigned';
+    UPDATE
+        delivery_summary
+    SET
+        status = 'unassigned',
+        redispatch_dtts = NOW()
+    WHERE
+        order_number = v_order_number
+        AND status = 'assigned';
 
     RETURN 'cancelled dispatch ' || p_dispatch_id || ' for order ' || v_order_number;
 END;
-$$ LANGUAGE plpgsql;
+$$
+LANGUAGE plpgsql;

@@ -126,85 +126,66 @@ See also: docs/delivery_process.md, CONTEXT.md ("Pickup alert").
 -- The ops and rest_admins keys are lowercase to match the `overwatch_list` key
 -- they sit beside. Deliberately inconsistent with the uppercase rider keys.
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES
-  ('ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS',
-   '-15,-5,2,5,7',
-   'Signed minutes around delivery_summary.pickup_time at which to alert a rider who has not yet collected; negative = before pickup, positive = after. Blank disables awaiting-pickup rider alerts.'),
-  ('ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS',
-   '30,45',
-   'Minutes after delivery_summary.pickup_time at which to chase a rider who has collected but not delivered. Blank disables in-transit rider alerts.'),
-  ('rider_alert_to_overwatch_pickup_intervals',
-   '10',
-   'Minutes past delivery_summary.pickup_time at which to alert overwatch that a rider has still not collected. Blank disables.'),
-  ('rider_alert_to_overwatch_delivery_intervals',
-   '30',
-   'Minutes past delivery_summary.pickup_time at which to alert overwatch that a collected order is still undelivered. Blank disables.'),
-  ('rider_alert_to_rest_admins_pickup_intervals',
-   '-10,2,7',
-   'Signed minutes around delivery_summary.pickup_time at which to message the restaurant''s admins about the rider; negative = heads-up before pickup, positive = chase after. Blank disables.'),
-  ('rider_alert_to_rest_admins_delivery_intervals',
-   '',
-   'Minutes after delivery_summary.pickup_time at which to tell the restaurant''s admins a collected order is still undelivered. BLANK ON PURPOSE = inactive; set e.g. 30 to enable. Do not use a placeholder word -- an unparseable non-blank value logs a NOTICE on every sweep.')
-ON CONFLICT (config_key) DO NOTHING;
+    VALUES ('ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS', '-15,-5,2,5,7', 'Signed minutes around delivery_summary.pickup_time at which to alert a rider who has not yet collected; negative = before pickup, positive = after. Blank disables awaiting-pickup rider alerts.'),
+    ('ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS', '30,45', 'Minutes after delivery_summary.pickup_time at which to chase a rider who has collected but not delivered. Blank disables in-transit rider alerts.'),
+    ('rider_alert_to_overwatch_pickup_intervals', '10', 'Minutes past delivery_summary.pickup_time at which to alert overwatch that a rider has still not collected. Blank disables.'),
+    ('rider_alert_to_overwatch_delivery_intervals', '30', 'Minutes past delivery_summary.pickup_time at which to alert overwatch that a collected order is still undelivered. Blank disables.'),
+    ('rider_alert_to_rest_admins_pickup_intervals', '-10,2,7', 'Signed minutes around delivery_summary.pickup_time at which to message the restaurant''s admins about the rider; negative = heads-up before pickup, positive = chase after. Blank disables.'),
+    ('rider_alert_to_rest_admins_delivery_intervals', '', 'Minutes after delivery_summary.pickup_time at which to tell the restaurant''s admins a collected order is still undelivered. BLANK ON PURPOSE = inactive; set e.g. 30 to enable. Do not use a placeholder word -- an unparseable non-blank value logs a NOTICE on every sweep.')
+ON CONFLICT (config_key)
+    DO NOTHING;
 
 -- ===========================================================================
 -- 4. job_rider_pickup_alerts() -- the sweep
 --    Steps (a) read config, (b) seed, (c) resolve, (d) post, (e) mark.
 --    Returns false when it did nothing useful, true otherwise.
 -- ===========================================================================
-CREATE OR REPLACE FUNCTION job_rider_pickup_alerts()
-RETURNS boolean AS $$
+CREATE OR REPLACE FUNCTION job_rider_pickup_alerts ()
+    RETURNS boolean
+    AS $$
 DECLARE
-    v_rider_pickup         int[];
-    v_rider_delivery       int[];
-    v_ops_pickup           int[];
-    v_ops_delivery         int[];
-    v_rest_admins_pickup   int[];
+    v_rider_pickup int[];
+    v_rider_delivery int[];
+    v_ops_pickup int[];
+    v_ops_delivery int[];
+    v_rest_admins_pickup int[];
     v_rest_admins_delivery int[];
-    v_alerts               jsonb;
-    v_payload              jsonb;
-    v_app_url              text;
-    v_hook_url             text;
-    v_resp                 http_response;
-    v_cfg                  record;
+    v_alerts jsonb;
+    v_payload jsonb;
+    v_app_url text;
+    v_hook_url text;
+    v_resp http_response;
+    v_cfg record;
 BEGIN
-    PERFORM set_config('statement_timeout', '10000', true);
-
+    PERFORM
+        set_config('statement_timeout', '10000', TRUE);
     -- ---- (a) READ CONFIG -------------------------------------------------
     -- A blank or absent key disables that bucket.
-    v_rider_pickup         := parse_alert_offsets('ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS');
-    v_rider_delivery       := parse_alert_offsets('ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS');
-    v_ops_pickup           := parse_alert_offsets('rider_alert_to_overwatch_pickup_intervals');
-    v_ops_delivery         := parse_alert_offsets('rider_alert_to_overwatch_delivery_intervals');
-    v_rest_admins_pickup   := parse_alert_offsets('rider_alert_to_rest_admins_pickup_intervals');
-    v_rest_admins_delivery := parse_alert_offsets('rider_alert_to_rest_admins_delivery_intervals');
-
+    v_rider_pickup := parse_alert_offsets ('ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS');
+    v_rider_delivery := parse_alert_offsets ('ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS');
+    v_ops_pickup := parse_alert_offsets ('rider_alert_to_overwatch_pickup_intervals');
+    v_ops_delivery := parse_alert_offsets ('rider_alert_to_overwatch_delivery_intervals');
+    v_rest_admins_pickup := parse_alert_offsets ('rider_alert_to_rest_admins_pickup_intervals');
+    v_rest_admins_delivery := parse_alert_offsets ('rider_alert_to_rest_admins_delivery_intervals');
     -- Set but unparseable is an operator mistake, not a kill switch -- say so
     -- loudly. This is the NOTICE you want the first time an alert goes missing.
     FOR v_cfg IN
-        SELECT c.config_key, c.config_value
-          FROM ordelo_config c
-         WHERE c.config_key IN (
-                   'ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS',
-                   'ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS',
-                   'rider_alert_to_overwatch_pickup_intervals',
-                   'rider_alert_to_overwatch_delivery_intervals',
-                   'rider_alert_to_rest_admins_pickup_intervals',
-                   'rider_alert_to_rest_admins_delivery_intervals')
-           AND btrim(c.config_value) <> ''
-           AND parse_alert_offsets(c.config_key) IS NULL
-    LOOP
-        RAISE NOTICE 'job_rider_pickup_alerts: config "%" = "%" contains no valid integers',
-                     v_cfg.config_key, v_cfg.config_value;
-    END LOOP;
+    SELECT
+        c.config_key,
+        c.config_value
+    FROM
+        ordelo_config c
+    WHERE
+        c.config_key IN ('ORDELO_APP_RIDER_PICKUP_ALERT_INTERVALS', 'ORDELO_APP_RIDER_DELIVERY_ALERT_INTERVALS', 'rider_alert_to_overwatch_pickup_intervals', 'rider_alert_to_overwatch_delivery_intervals', 'rider_alert_to_rest_admins_pickup_intervals', 'rider_alert_to_rest_admins_delivery_intervals')
+        AND btrim(c.config_value) <> ''
+        AND parse_alert_offsets (c.config_key) IS NULL LOOP
+            RAISE NOTICE 'job_rider_pickup_alerts: config "%" = "%" contains no valid integers', v_cfg.config_key, v_cfg.config_value;
+        END LOOP;
 
-    IF v_rider_pickup IS NULL AND v_rider_delivery IS NULL
-       AND v_ops_pickup IS NULL AND v_ops_delivery IS NULL
-       AND v_rest_admins_pickup IS NULL AND v_rest_admins_delivery IS NULL THEN
+    IF v_rider_pickup IS NULL AND v_rider_delivery IS NULL AND v_ops_pickup IS NULL AND v_ops_delivery IS NULL AND v_rest_admins_pickup IS NULL AND v_rest_admins_delivery IS NULL THEN
         RAISE NOTICE 'job_rider_pickup_alerts: no intervals configured in any bucket, skipping';
-        RETURN false;
+        RETURN FALSE;
     END IF;
-
     -- ---- (b) SEED --------------------------------------------------------
     -- Create the missing checkpoint rows for every live dispatch. The VALUES
     -- list below IS the six-bucket table from the header, in code.
@@ -218,40 +199,41 @@ BEGIN
     --     under way. A delivery keeps the schedule it started with.
     --   * A NULL offsets array unnests to zero rows, so a disabled bucket
     --     seeds nothing.
-    INSERT INTO rider_pickup_alert (
-        dispatch_id, phase, audience, order_number, rider_id, offset_minutes, due_dtts
-    )
-    SELECT di.dispatch_id,
-           ph.phase,
-           ph.audience,
-           di.order_number,
-           di.rider_id,
-           k.offset_minutes,
-           ds.pickup_time + (k.offset_minutes * interval '1 minute')
-      FROM delivery_inflight di
-      JOIN delivery_dispatch dd ON dd.dispatch_id  = di.dispatch_id
-      JOIN delivery_summary  ds ON ds.order_number = di.order_number
-     -- Plain CROSS JOIN, not LATERAL: the VALUES list depends on plpgsql
-     -- variables, not on the row to its left. Casts keep gate_status varchar.
-     CROSS JOIN (VALUES
-         ('rider'::varchar,       'awaiting_pickup'::varchar, 'assigned'::varchar, v_rider_pickup),
-         ('rider'::varchar,       'picked_up'::varchar,       'pickedup'::varchar, v_rider_delivery),
-         ('ops'::varchar,         'awaiting_pickup'::varchar, 'assigned'::varchar, v_ops_pickup),
-         ('ops'::varchar,         'picked_up'::varchar,       'pickedup'::varchar, v_ops_delivery),
-         ('rest_admins'::varchar, 'awaiting_pickup'::varchar, 'assigned'::varchar, v_rest_admins_pickup),
-         ('rest_admins'::varchar, 'picked_up'::varchar,       'pickedup'::varchar, v_rest_admins_delivery)
-     ) AS ph(audience, phase, gate_status, offsets)
-     CROSS JOIN unnest(ph.offsets) AS k(offset_minutes)
-     WHERE dd.status = ph.gate_status
-       AND ds.pickup_time IS NOT NULL
-       AND NOT EXISTS (
-               SELECT 1
-                 FROM rider_pickup_alert a
-                WHERE a.dispatch_id = di.dispatch_id
-                  AND a.phase       = ph.phase
-                  AND a.audience    = ph.audience
-           );
-
+    INSERT INTO rider_pickup_alert (dispatch_id, phase, audience, order_number, rider_id, offset_minutes, due_dtts)
+    SELECT
+        di.dispatch_id,
+        ph.phase,
+        ph.audience,
+        di.order_number,
+        di.rider_id,
+        k.offset_minutes,
+        ds.pickup_time + (k.offset_minutes * interval '1 minute')
+    FROM
+        delivery_inflight di
+        JOIN delivery_dispatch dd ON dd.dispatch_id = di.dispatch_id
+        JOIN delivery_summary ds ON ds.order_number = di.order_number
+        -- Plain CROSS JOIN, not LATERAL: the VALUES list depends on plpgsql
+        -- variables, not on the row to its left. Casts keep gate_status varchar.
+        CROSS JOIN (
+            VALUES ('rider'::varchar, 'awaiting_pickup'::varchar, 'assigned'::varchar, v_rider_pickup),
+                ('rider'::varchar, 'picked_up'::varchar, 'pickedup'::varchar, v_rider_delivery),
+                ('ops'::varchar, 'awaiting_pickup'::varchar, 'assigned'::varchar, v_ops_pickup),
+                ('ops'::varchar, 'picked_up'::varchar, 'pickedup'::varchar, v_ops_delivery),
+                ('rest_admins'::varchar, 'awaiting_pickup'::varchar, 'assigned'::varchar, v_rest_admins_pickup),
+                ('rest_admins'::varchar, 'picked_up'::varchar, 'pickedup'::varchar, v_rest_admins_delivery)) AS ph (audience, phase, gate_status, offsets)
+        CROSS JOIN unnest(ph.offsets) AS k (offset_minutes)
+    WHERE
+        dd.status = ph.gate_status
+        AND ds.pickup_time IS NOT NULL
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                rider_pickup_alert a
+            WHERE
+                a.dispatch_id = di.dispatch_id
+                AND a.phase = ph.phase
+                AND a.audience = ph.audience);
     -- ---- (c) RESOLVE -----------------------------------------------------
     -- Rank the due checkpoints; rn = 1 is the winner, rn > 1 got overtaken.
     -- Partitioning by audience as well as dispatch is what lets a rider alert
@@ -265,92 +247,69 @@ BEGIN
     -- degrades the ops/rest_admins message rather than dropping the alert.
     -- Rider rows ignore those columns.
     WITH phases AS (
-        SELECT * FROM (VALUES
-            ('awaiting_pickup'::varchar, 'assigned'::varchar),
-            ('picked_up'::varchar,       'pickedup'::varchar)
-        ) AS p(phase, gate_status)
-    ),
-    ranked AS (
-        SELECT a.dispatch_id,
-               a.phase,
-               a.audience,
-               a.offset_minutes,
-               a.order_number,
-               a.rider_id,
-               ds.pickup_time,
-               ds.rest_name,
-               ds.rest_ref,
-               rm.admins      AS rest_admins,
-               rdr.rider_name,
-               row_number() OVER (PARTITION BY a.dispatch_id, a.audience
-                                  ORDER BY a.offset_minutes DESC) AS rn
-          FROM rider_pickup_alert a
-          JOIN phases            p  ON p.phase         = a.phase
-          JOIN delivery_inflight di ON di.dispatch_id  = a.dispatch_id
-          JOIN delivery_dispatch dd ON dd.dispatch_id  = a.dispatch_id
-                                   AND dd.status       = p.gate_status
-          JOIN delivery_summary  ds ON ds.order_number = a.order_number
-          LEFT JOIN restaurant_master rm  ON rm.rest_id   = ds.rest_id
-          LEFT JOIN rider_master      rdr ON rdr.rider_id = a.rider_id
-         WHERE a.status   = 'pending'
-           AND a.due_dtts <= now()
-    )
-    SELECT jsonb_agg(
-               jsonb_build_object(
-                   'order_number',         r.order_number,
-                   'rider_id',             r.rider_id,
-                   'rider_name',           r.rider_name,
-                   'dispatch_id',          r.dispatch_id,
-                   'phase',                r.phase,
-                   'audience',             r.audience,
-                   'offset_minutes',       r.offset_minutes,
-                   'pickup_time',          r.pickup_time,
-                   'rest_name',            r.rest_name,
-                   'rest_ref',             r.rest_ref,
-                   'rest_admins',          r.rest_admins,
-                   'minutes_since_pickup',
-                       round((EXTRACT(EPOCH FROM (now() - r.pickup_time)) / 60.0)::numeric, 1)
-               )
-           )
-      INTO v_alerts
-      FROM ranked r
-     WHERE r.rn = 1;
-
+        SELECT
+            *
+        FROM (
+            VALUES ('awaiting_pickup'::varchar, 'assigned'::varchar),
+                ('picked_up'::varchar, 'pickedup'::varchar)) AS p (phase, gate_status)
+),
+ranked AS (
+    SELECT
+        a.dispatch_id, a.phase, a.audience, a.offset_minutes, a.order_number, a.rider_id, ds.pickup_time, ds.rest_name, ds.rest_ref, rm.admins AS rest_admins, rdr.rider_name, row_number() OVER (PARTITION BY a.dispatch_id, a.audience ORDER BY a.offset_minutes DESC) AS rn
+    FROM
+        rider_pickup_alert a
+        JOIN phases p ON p.phase = a.phase
+        JOIN delivery_inflight di ON di.dispatch_id = a.dispatch_id
+        JOIN delivery_dispatch dd ON dd.dispatch_id = a.dispatch_id
+            AND dd.status = p.gate_status
+        JOIN delivery_summary ds ON ds.order_number = a.order_number
+        LEFT JOIN restaurant_master rm ON rm.rest_id = ds.rest_id
+        LEFT JOIN rider_master rdr ON rdr.rider_id = a.rider_id
+    WHERE
+        a.status = 'pending'
+        AND a.due_dtts <= now())
+SELECT
+    jsonb_agg(jsonb_build_object('order_number', r.order_number, 'rider_id', r.rider_id, 'rider_name', r.rider_name, 'dispatch_id', r.dispatch_id, 'phase', r.phase, 'audience', r.audience, 'offset_minutes', r.offset_minutes, 'pickup_time', r.pickup_time, 'rest_name', r.rest_name, 'rest_ref', r.rest_ref, 'rest_admins', r.rest_admins, 'minutes_since_pickup', round((EXTRACT(EPOCH FROM (now() - r.pickup_time)) / 60.0)::numeric, 1))) INTO v_alerts
+FROM
+    ranked r
+WHERE
+    r.rn = 1;
     -- Nothing due anywhere: the endpoint is not called at all.
     IF v_alerts IS NULL THEN
-        RETURN true;
+        RETURN TRUE;
     END IF;
-
     -- ---- (d) POST --------------------------------------------------------
-    v_payload := jsonb_build_object(
-        'event_type', 'rider_pickup_alerts',
-        'timestamp',  extract(epoch from now()),
-        'alerts',     v_alerts
-    );
+    v_payload := jsonb_build_object('event_type', 'rider_pickup_alerts', 'timestamp', extract(epoch FROM now()), 'alerts', v_alerts);
 
-    SELECT config_value INTO v_app_url
-      FROM ordelo_config
-     WHERE config_key = 'ORDELO_APP_URL';
+    SELECT
+        config_value INTO v_app_url
+    FROM
+        ordelo_config
+    WHERE
+        config_key = 'ORDELO_APP_URL';
 
     IF v_app_url IS NULL OR length(v_app_url) = 0 THEN
         v_app_url := 'https://agent.ordelo.app';
     END IF;
-
     -- Ensure no trailing slash before appending path
-    IF right(v_app_url, 1) = '/' THEN
-        v_app_url := left(v_app_url, length(v_app_url) - 1);
+    IF
+    RIGHT (v_app_url,
+    1) = '/' THEN
+        v_app_url :=
+    LEFT (v_app_url,
+        length(v_app_url) - 1);
     END IF;
     v_hook_url := v_app_url || '/delivery-hooks/rider-pickup-alerts';
 
-    SELECT * INTO v_resp
-      FROM http_post(v_hook_url, v_payload::text, 'application/json');
+    SELECT
+        * INTO v_resp
+    FROM
+        http_post (v_hook_url, v_payload::text, 'application/json');
 
     IF v_resp.status IS NULL OR v_resp.status < 200 OR v_resp.status > 299 THEN
-        RAISE NOTICE 'job_rider_pickup_alerts: POST to % returned %, leaving checkpoints pending',
-                     v_hook_url, v_resp.status;
-        RETURN false;
+        RAISE NOTICE 'job_rider_pickup_alerts: POST to % returned %, leaving checkpoints pending', v_hook_url, v_resp.status;
+        RETURN FALSE;
     END IF;
-
     -- ---- (e) MARK, only on 2xx -------------------------------------------
     -- now() is fixed for the transaction, so re-running `ranked` here sees
     -- exactly the rows step (c) saw.
@@ -364,49 +323,54 @@ BEGIN
     -- nothing from delivery_summary / restaurant_master / rider_master, and
     -- dropping them cannot change the row set. Do not "sync" the two.
     WITH phases AS (
-        SELECT * FROM (VALUES
-            ('awaiting_pickup'::varchar, 'assigned'::varchar),
-            ('picked_up'::varchar,       'pickedup'::varchar)
-        ) AS p(phase, gate_status)
-    ),
-    ranked AS (
-        SELECT a.dispatch_id,
-               a.phase,
-               a.audience,
-               a.offset_minutes,
-               row_number() OVER (PARTITION BY a.dispatch_id, a.audience
-                                  ORDER BY a.offset_minutes DESC) AS rn
-          FROM rider_pickup_alert a
-          JOIN phases            p  ON p.phase        = a.phase
-          JOIN delivery_inflight di ON di.dispatch_id = a.dispatch_id
-          JOIN delivery_dispatch dd ON dd.dispatch_id = a.dispatch_id
-                                   AND dd.status      = p.gate_status
-         WHERE a.status   = 'pending'
-           AND a.due_dtts <= now()
-    )
-    UPDATE rider_pickup_alert a
-       SET status = 'superseded'
-      FROM ranked r
-     WHERE a.dispatch_id    = r.dispatch_id
-       AND a.phase          = r.phase
-       AND a.audience       = r.audience
-       AND a.offset_minutes = r.offset_minutes
-       AND r.rn > 1
-       AND a.status = 'pending';
-
+        SELECT
+            *
+        FROM (
+            VALUES ('awaiting_pickup'::varchar, 'assigned'::varchar),
+                ('picked_up'::varchar, 'pickedup'::varchar)) AS p (phase, gate_status)
+),
+ranked AS (
+    SELECT
+        a.dispatch_id, a.phase, a.audience, a.offset_minutes, row_number() OVER (PARTITION BY a.dispatch_id, a.audience ORDER BY a.offset_minutes DESC) AS rn
+    FROM
+        rider_pickup_alert a
+        JOIN phases p ON p.phase = a.phase
+        JOIN delivery_inflight di ON di.dispatch_id = a.dispatch_id
+        JOIN delivery_dispatch dd ON dd.dispatch_id = a.dispatch_id
+            AND dd.status = p.gate_status
+    WHERE
+        a.status = 'pending'
+        AND a.due_dtts <= now())
+UPDATE
+    rider_pickup_alert a
+SET
+    status = 'superseded'
+FROM
+    ranked r
+WHERE
+    a.dispatch_id = r.dispatch_id
+    AND a.phase = r.phase
+    AND a.audience = r.audience
+    AND a.offset_minutes = r.offset_minutes
+    AND r.rn > 1
+    AND a.status = 'pending';
     -- Winners are driven off the payload itself, so the marked set can never
     -- drift from the set actually sent.
-    UPDATE rider_pickup_alert a
-       SET status    = 'sent',
-           sent_dtts = now()
-      FROM jsonb_array_elements(v_alerts) AS j(alert)
-     WHERE a.dispatch_id    = (j.alert ->> 'dispatch_id')::int
-       AND a.phase          = (j.alert ->> 'phase')
-       AND a.audience       = (j.alert ->> 'audience')
-       AND a.offset_minutes = (j.alert ->> 'offset_minutes')::int
-       AND a.status         = 'pending';
+    UPDATE
+        rider_pickup_alert a
+    SET
+        status = 'sent',
+        sent_dtts = now()
+    FROM
+        jsonb_array_elements(v_alerts) AS j (alert)
+WHERE
+    a.dispatch_id = (j.alert ->> 'dispatch_id')::int
+    AND a.phase = (j.alert ->> 'phase')
+    AND a.audience = (j.alert ->> 'audience')
+    AND a.offset_minutes = (j.alert ->> 'offset_minutes')::int
+    AND a.status = 'pending';
 
-    RETURN true;
+    RETURN TRUE;
 
 EXCEPTION
     WHEN OTHERS THEN
@@ -416,12 +380,15 @@ EXCEPTION
         -- a dead ORDELO_APP_URL leaves the ledger EMPTY rather than
         -- seeded-but-unsent. VERIFICATION step 10 checks this.
         RAISE NOTICE 'Error in job_rider_pickup_alerts: %', SQLERRM;
-        RETURN false;
+        RETURN FALSE;
 END;
-$$ LANGUAGE plpgsql;
+
+$$
+LANGUAGE plpgsql;
 
 -- pg_cron job 'job_rider_pickup_alert' (live schedule: */5 * * * *, active). cron.schedule() updates the job in place when the name already exists.
-SELECT cron.schedule('job_rider_pickup_alert', '*/5 * * * *', $cron$select job_rider_pickup_alerts();$cron$);
+SELECT
+    cron.schedule ('job_rider_pickup_alert', '*/5 * * * *', 'select job_rider_pickup_alerts();');
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

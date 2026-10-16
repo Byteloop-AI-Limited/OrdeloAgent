@@ -33,56 +33,57 @@ See also: dispatch_complete_func.sql for the completion workflow.
 ----------------------------------------
 -- cleanupDeliveryOrder - Deletes all records for an order
 ----------------------------------------
-DROP FUNCTION IF EXISTS cleanup_delivery_order(text);
+DROP FUNCTION IF EXISTS cleanup_delivery_order (text);
 
-CREATE OR REPLACE FUNCTION cleanup_delivery_order(p_order_number text)
-RETURNS TEXT AS $$
+CREATE OR REPLACE FUNCTION cleanup_delivery_order (p_order_number text)
+    RETURNS text
+    AS $$
 DECLARE
-    v_dispatch_count INTEGER;
-    v_detail_count INTEGER;
-    v_summary_count INTEGER;
-    v_inflight_count INTEGER;
-    v_total_count INTEGER;
+    v_dispatch_count integer;
+    v_detail_count integer;
+    v_summary_count integer;
+    v_inflight_count integer;
+    v_total_count integer;
 BEGIN
     -- Check if order exists
-    IF NOT EXISTS (SELECT 1 FROM delivery_summary WHERE order_number = p_order_number) THEN
-        RETURN 'Order ' || p_order_number || ' not found';
-    END IF;
-
+    IF NOT EXISTS (
+        SELECT
+            1
+        FROM
+            delivery_summary
+        WHERE
+            order_number = p_order_number) THEN
+    RETURN 'Order ' || p_order_number || ' not found';
+END IF;
     -- Delete from delivery_inflight (must be first due to foreign key constraints)
     DELETE FROM delivery_inflight
     WHERE dispatch_id IN (
-        SELECT dispatch_id 
-        FROM delivery_detail 
-        WHERE order_number = p_order_number
-    );
+            SELECT
+                dispatch_id
+            FROM
+                delivery_detail
+            WHERE
+                order_number = p_order_number);
     GET DIAGNOSTICS v_inflight_count = ROW_COUNT;
-
     -- Delete from delivery_dispatch
-    DELETE FROM delivery_dispatch where order_number = p_order_number;
-    
+    DELETE FROM delivery_dispatch
+    WHERE order_number = p_order_number;
     -- Delete from delivery_detail
     DELETE FROM delivery_detail
     WHERE order_number = p_order_number;
     GET DIAGNOSTICS v_dispatch_count = ROW_COUNT;
-
     -- Delete from delivery_detail
     DELETE FROM delivery_detail
     WHERE order_number = p_order_number;
     GET DIAGNOSTICS v_detail_count = ROW_COUNT;
-
     -- Delete from delivery_summary
     DELETE FROM delivery_summary
     WHERE order_number = p_order_number;
     GET DIAGNOSTICS v_summary_count = ROW_COUNT;
-
     -- Calculate total deletions
     v_total_count := v_inflight_count + v_dispatch_count + v_detail_count + v_summary_count;
 
-    RETURN 'Order ' || p_order_number || ' cleaned up. Deleted: ' || 
-           v_summary_count || ' summary, ' || 
-           v_detail_count || ' detail, ' || 
-           v_dispatch_count || ' dispatch, ' || 
-           v_inflight_count || ' inflight records. Total: ' || v_total_count;
+    RETURN 'Order ' || p_order_number || ' cleaned up. Deleted: ' || v_summary_count || ' summary, ' || v_detail_count || ' detail, ' || v_dispatch_count || ' dispatch, ' || v_inflight_count || ' inflight records. Total: ' || v_total_count;
 END;
-$$ LANGUAGE plpgsql;
+$$
+LANGUAGE plpgsql;

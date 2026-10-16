@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.delivery_option (
     message text,
     minimum_order_value double precision NOT NULL DEFAULT 0.0,
     CONSTRAINT delivery_option_pkey PRIMARY KEY (id),
-    CONSTRAINT delivery_option_order_number_fkey FOREIGN KEY (order_number) REFERENCES delivery_pricing_detail(order_number)
+    CONSTRAINT delivery_option_order_number_fkey FOREIGN KEY (order_number) REFERENCES delivery_pricing_detail (order_number)
 );
 
 -- change driver_payout to rider_payout

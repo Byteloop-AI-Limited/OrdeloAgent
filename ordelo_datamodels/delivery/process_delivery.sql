@@ -30,116 +30,129 @@ Side Effects:
 
 See also: jobs_n_functions/handwritten_design.md for the full delivery journey.
 **/
-CREATE OR REPLACE FUNCTION process_delivery() RETURNS TABLE(action TEXT) LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION process_delivery ()
+    RETURNS TABLE (
+        action text)
+    LANGUAGE plpgsql
+    AS $$
 BEGIN
-  RETURN QUERY
-  WITH deliverySnapShot AS (
-    SELECT
-      summ.order_number,
-      summ.customer_id,
-      det.vehicle_type   AS detail_vehicle_type,
-      det.status         AS detail_vehicle_status,
-      dopt.rank          AS available_vehicle_rank,
-      dopt.vehicle_type  AS available_vehicle_type,
-      summ.town,
-      dopt.driver_payout as rider_payout,
-      (dopt.breakdown::JSON ->> 'distance_miles')::DOUBLE precision as distance,
-      rank() OVER (
-        PARTITION BY summ.order_number
-        ORDER BY det.status   ASC NULLS FIRST,
-                 dopt.rank     ASC
-      )                    AS next_vehicle_rank
-    FROM delivery_summary summ
-    JOIN delivery_option  dopt
-      ON dopt.order_number = summ.order_number
-    LEFT JOIN delivery_detail det
-      ON det.order_number   = summ.order_number
-     AND det.vehicle_type   = dopt.vehicle_type
-    WHERE summ.status = 'unassigned'
-  )
-  , timedout_orders AS (
+    RETURN QUERY WITH deliverySnapShot AS (
+        SELECT
+            summ.order_number,
+            summ.customer_id,
+            det.vehicle_type AS detail_vehicle_type,
+            det.status AS detail_vehicle_status,
+            dopt.rank AS available_vehicle_rank,
+            dopt.vehicle_type AS available_vehicle_type,
+            summ.town,
+            dopt.driver_payout AS rider_payout,
+            (dopt.breakdown::json ->> 'distance_miles')::double precision AS distance,
+            rank() OVER (PARTITION BY summ.order_number ORDER BY det.status ASC NULLS FIRST,
+                dopt.rank ASC) AS next_vehicle_rank
+        FROM
+            delivery_summary summ
+            JOIN delivery_option dopt ON dopt.order_number = summ.order_number
+            LEFT JOIN delivery_detail det ON det.order_number = summ.order_number
+                AND det.vehicle_type = dopt.vehicle_type
+        WHERE
+            summ.status = 'unassigned'
+),
+timedout_orders AS (
     -- which orders have *all* vehicles timed-out?
-    SELECT order_number
-      FROM deliverySnapShot
-     GROUP BY order_number
-    HAVING MAX(available_vehicle_rank)
-         = SUM( (detail_vehicle_status = 'vehicle_type_timedout')::int )
-  )
-  , update_summary AS (
+    SELECT
+        order_number
+    FROM
+        deliverySnapShot
+    GROUP BY
+        order_number
+    HAVING
+        MAX(available_vehicle_rank) = SUM((detail_vehicle_status = 'vehicle_type_timedout')::int)
+),
+update_summary AS (
     -- mark those orders as timed-out using restaurant-specific or default timeout
-    UPDATE delivery_summary ds
-       SET status = 'timedout'
-      FROM timedout_orders t
-     WHERE ds.order_number = t.order_number
-       AND ds.status       = 'unassigned'
-       -- Timeout is measured from redispatch_dtts when present (set by
-       -- dispatch_cancel_before_pickup on a pre-pickup decline), otherwise
-       -- from dtts (order creation). NULL redispatch_dtts preserves the
-       -- original behavior for orders that have never been re-dispatched.
-       AND (EXTRACT(EPOCH FROM (NOW() - COALESCE(ds.redispatch_dtts, ds.dtts)))/60) > COALESCE(
-           (SELECT config_value::int FROM ordelo_config WHERE config_key = ds.rest_ref || '_DELIVERY_TIMEOUT_TIME' LIMIT 1),
-           (SELECT config_value::int FROM ordelo_config WHERE config_key = 'DELIVERY_TIMEOUT_TIME' LIMIT 1),
-           10  -- fallback to 10 minutes if no config found
-       )
+    UPDATE
+        delivery_summary ds
+    SET
+        status = 'timedout'
+    FROM
+        timedout_orders t
+    WHERE
+        ds.order_number = t.order_number
+        AND ds.status = 'unassigned'
+        -- Timeout is measured from redispatch_dtts when present (set by
+        -- dispatch_cancel_before_pickup on a pre-pickup decline), otherwise
+        -- from dtts (order creation). NULL redispatch_dtts preserves the
+        -- original behavior for orders that have never been re-dispatched.
+        AND (EXTRACT(EPOCH FROM (NOW() - COALESCE(ds.redispatch_dtts, ds.dtts))) / 60) > COALESCE((
+            SELECT
+                config_value::int
+            FROM ordelo_config
+            WHERE
+                config_key = ds.rest_ref || '_DELIVERY_TIMEOUT_TIME' LIMIT 1), (
+            SELECT
+                config_value::int
+            FROM ordelo_config
+            WHERE
+                config_key = 'DELIVERY_TIMEOUT_TIME' LIMIT 1), 10 -- fallback to 10 minutes if no config found
+)
     RETURNING
-      'Order ' || ds.order_number || ' → status set to timeout'
-        AS action
-  )
-  , to_insert AS (
+        'Order ' || ds.order_number || ' → status set to timeout' AS action
+),
+to_insert AS (
     -- which un‐assigned orders where all existing details are timed-out
     SELECT
-      order_number,
-      customer_id,
-      available_vehicle_type,
-      town,
-      rider_payout,
-      distance
-      FROM deliverySnapShot ds_outer
-     WHERE ds_outer.next_vehicle_rank = 1
-       AND ds_outer.detail_vehicle_status IS NULL
-       AND NOT EXISTS (
-         SELECT 1
-           FROM deliverySnapShot ds2
-          WHERE ds2.order_number = ds_outer.order_number
-            AND ds2.detail_vehicle_status IS NOT NULL
-            AND ds2.detail_vehicle_status <> 'vehicle_type_timedout'
-       )
-  )
-  , insert_details AS (
-    -- insert exactly that “next” vehicle as a new detail row
-    INSERT INTO delivery_detail(
         order_number,
         customer_id,
-        vehicle_type,
+        available_vehicle_type,
+        town,
+        rider_payout,
+        distance
+    FROM
+        deliverySnapShot ds_outer
+    WHERE
+        ds_outer.next_vehicle_rank = 1
+        AND ds_outer.detail_vehicle_status IS NULL
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                deliverySnapShot ds2
+            WHERE
+                ds2.order_number = ds_outer.order_number
+                AND ds2.detail_vehicle_status IS NOT NULL
+                AND ds2.detail_vehicle_status <> 'vehicle_type_timedout')
+),
+insert_details AS (
+    -- insert exactly that “next” vehicle as a new detail row
+    INSERT INTO delivery_detail (order_number, customer_id, vehicle_type, town, rider_payout, distance, status)
+    SELECT
+        order_number,
+        customer_id,
+        available_vehicle_type,
         town,
         rider_payout,
         distance,
-        status
-    )
-    SELECT order_number,
-           customer_id,
-           available_vehicle_type,
-           town,
-           rider_payout,
-           distance,
-           'unassigned'
-      FROM to_insert
+        'unassigned'
+    FROM
+        to_insert
     RETURNING
-      'Order ' || order_number
-        || ' → inserted detail for vehicle_type '
-        || vehicle_type
-        AS action
-  )
-  -- finally stitch the two logs together
-  SELECT us.action FROM update_summary us
-  UNION ALL
-  SELECT id.action FROM insert_details id
-  ;
+        'Order ' || order_number || ' → inserted detail for vehicle_type ' || vehicle_type AS action)
+-- finally stitch the two logs together
+SELECT
+    us.action
+FROM
+    update_summary us
+UNION ALL
+SELECT
+    id.action
+FROM
+    insert_details id;
 END;
 $$;
 
 -- pg_cron job 'process_delivery' (live schedule: 5 seconds, active). cron.schedule() updates the job in place when the name already exists.
-SELECT cron.schedule('process_delivery', '5 seconds', $cron$SELECT public.process_delivery()$cron$);
+SELECT
+    cron.schedule ('process_delivery', '5 seconds', 'SELECT public.process_delivery()');
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

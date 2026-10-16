@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS public.t_inbox (
     update_id bigint NOT NULL, -- Telegram's update_id (unique per bot)
     kind text NOT NULL, -- Update.event_type: 'message' | 'callback_query' | ...
     tuid bigint, -- sender (from_user.id); NULL when the update has no user
-    status text NOT NULL DEFAULT 'processing'::text,
+    status text NOT NULL DEFAULT 'processing' ::text,
     error text, -- repr of the exception when status = 'failed' (max 2000 chars)
     received_at timestamp with time zone NOT NULL DEFAULT now(),
     finished_at timestamp with time zone,
@@ -75,37 +75,63 @@ ALTER TABLE public.t_inbox ENABLE ROW LEVEL SECURITY;
 --   new        this call inserted the row; the caller must handle the update
 --   duplicate  the row already existed (+ status = its current status); the caller must skip the update
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_inbox_claim(p_bot_key text, p_update_id bigint, p_kind text, p_tuid bigint)
-RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.t_inbox_claim (p_bot_key text, p_update_id bigint, p_kind text, p_tuid bigint)
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path = public
+    AS $$
 BEGIN
     INSERT INTO public.t_inbox (bot_key, update_id, kind, tuid)
-    VALUES (p_bot_key, p_update_id, p_kind, p_tuid)
-    ON CONFLICT (bot_key, update_id) DO NOTHING;
+        VALUES (p_bot_key, p_update_id, p_kind, p_tuid)
+    ON CONFLICT (bot_key, update_id)
+        DO NOTHING;
     IF FOUND THEN
         RETURN jsonb_build_object('result', 'new');
     END IF;
-    RETURN jsonb_build_object(
-        'result', 'duplicate',
-        'status', (SELECT i.status FROM public.t_inbox i WHERE i.bot_key = p_bot_key AND i.update_id = p_update_id));
-END $$;
+    RETURN jsonb_build_object('result', 'duplicate', 'status', (
+            SELECT
+                i.status
+            FROM public.t_inbox i
+            WHERE
+                i.bot_key = p_bot_key
+                AND i.update_id = p_update_id));
+END
+$$;
 
 -- Server-only objects: nobody but the service key may call them.
-REVOKE ALL ON FUNCTION public.t_inbox_claim(text, bigint, text, bigint) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.t_inbox_claim (text, bigint, text, bigint) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- t_inbox_finish(bot_key, update_id, status, error): close a 'processing' row.
 -- Returns jsonb {result}: ok | not_processing (already finished, or never claimed).
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_inbox_finish(p_bot_key text, p_update_id bigint, p_status text, p_error text DEFAULT NULL)
-RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.t_inbox_finish (p_bot_key text, p_update_id bigint, p_status text, p_error text DEFAULT NULL)
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path = public
+    AS $$
 BEGIN
     IF p_status NOT IN ('done', 'failed') THEN
         RAISE EXCEPTION 't_inbox_finish: bad status %', p_status;
     END IF;
-    UPDATE public.t_inbox
-       SET status = p_status, error = left(p_error, 2000), finished_at = now()
-     WHERE bot_key = p_bot_key AND update_id = p_update_id AND status = 'processing';
-    RETURN jsonb_build_object('result', CASE WHEN FOUND THEN 'ok' ELSE 'not_processing' END);
-END $$;
+    UPDATE
+        public.t_inbox
+    SET
+        status = p_status,
+        error =
+    LEFT (p_error,
+        2000),
+    finished_at = now()
+WHERE
+    bot_key = p_bot_key
+        AND update_id = p_update_id
+        AND status = 'processing';
+    RETURN jsonb_build_object('result', CASE WHEN FOUND THEN
+            'ok'
+        ELSE
+            'not_processing'
+        END);
+END
+$$;
 
-REVOKE ALL ON FUNCTION public.t_inbox_finish(text, bigint, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.t_inbox_finish (text, bigint, text, text) FROM PUBLIC, anon, authenticated;
