@@ -135,3 +135,25 @@ async def test_submit_restaurant_feedback_schedules_admin_notification(monkeypat
     assert scheduled_func is customer_hooks._notify_feedback_admins
     assert scheduled_kwargs["feedback_id"] == result["feedback_id"]
     assert scheduled_kwargs["admins"] == ["447111111111"]
+
+
+async def test_notify_feedback_admins_hands_one_feedback_notice_to_the_notifier(monkeypatch) -> None:
+    from datetime import datetime, timezone
+    from utils_common.notify import restaurant_notifier
+    from utils_common.notify.restaurant_notifier import Feedback
+
+    seen = []
+
+    async def fake_notify(notice):
+        seen.append(notice)
+
+    monkeypatch.setattr(restaurant_notifier, "notify", fake_notify)
+    restaurant = SimpleNamespace(rest_ref="ELAS", rest_name="Eastern Lounge")
+    request = customer_hooks.RestaurantFeedbackRequest(
+        rest_ref="ELAS", cust_id="447400000000", cust_name="Bas", order_reference="ORD-1", description="Great service")
+    at = datetime(2026, 5, 9, 12, 0, tzinfo=timezone.utc)
+
+    await customer_hooks._notify_feedback_admins(
+        admins=["447111111111"], feedback_id="FDB-1", restaurant=restaurant, request=request, received_at=at)
+
+    assert seen == [Feedback(["447111111111"], "FDB-1", "Eastern Lounge", "ELAS", "447400000000", "Bas", "ORD-1", "Great service", at)]

@@ -582,3 +582,35 @@ async def test_respond_node_sends_last_ai_message(patch_supabase_client, fake_as
 
     assert result.goto == END
     assert fake_async_wa.sent[-1].kwargs == {"to": "RIDER01", "text": "Hello rider", "reply_to_message_id": "msg-1"}
+
+
+async def test_verify_customer_confirmation_code_right_code_tells_the_restaurant_delivery_completed(
+    monkeypatch, patch_pg_pool, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp
+) -> None:
+    from utils_common.notify import restaurant_notifier
+    from utils_common.notify.restaurant_notifier import DeliveryCompleted
+
+    patch_pg_pool.register_sql("make_threads_inactive", [(1,)])
+    patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[_summary_row()]))
+    patch_supabase_client.register_rpc("dispatch_complete_func", FakeSupabaseResponse(data=[{"ok": True}]))
+    monkeypatch.setattr(rider_agent, "client_ordelo", patch_supabase_client)
+    seen = []
+
+    async def fake_notify(notice):
+        seen.append(notice)
+
+    async def no_customer_event(*a, **kw):
+        return None
+
+    monkeypatch.setattr(restaurant_notifier, "notify", fake_notify)
+    monkeypatch.setattr(rider_agent, "post_rider_event_customer_cc", no_customer_event)
+
+    result = await rider_agent.verify_customer_confirmation_code(
+        22,
+        {"dispatch_id": 10, "order_number": "ELAS-ABCD-1", "latest_wa_msg_id": "wa-msg"},
+        "tool-1",
+        _runtime(client=patch_supabase_client, wa=fake_async_wa),
+    )
+
+    assert result.update["is_customer_confirmation_code_verified"] is True
+    assert seen == [DeliveryCompleted("ELAS-ABCD-1", "ELAS")]

@@ -18,3 +18,4 @@ from tests.fixtures.fake_wa import *  # noqa: F401,F403
 from tests.fixtures.fake_llm import *  # noqa: F401,F403
 from tests.fixtures.builders import *  # noqa: F401,F403
 from tests.fixtures.fake_restaurant_decision import *  # noqa: F401,F403
+from tests.fixtures.fake_restaurant_actions import *  # noqa: F401,F403

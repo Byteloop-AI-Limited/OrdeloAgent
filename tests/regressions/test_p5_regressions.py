@@ -157,8 +157,9 @@ async def test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic(
 
 
 @respx.mock
-async def test_admin_takeaway_ready_records_failed_restaurant_notice(monkeypatch, inline_notifier) -> None:
+async def test_admin_takeaway_ready_records_failed_restaurant_notice(monkeypatch, inline_notifier, actions_db) -> None:
     """Since R3.1 the notifier records a failed restaurant-app notice (no retry); the admin's tap is acknowledged."""
+    actions_db.add("ELAS-ABCD-1", "takeaway", rider=None, recipient="4474")   # Ready is now decided in SQL (restaurant_actions)
     async def _webhook(rest_ref, webhook_type):
         return "https://rest.example.com/takeaway-ready"
 

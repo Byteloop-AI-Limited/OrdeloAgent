@@ -41,7 +41,9 @@ def pytest_collection_modifyitems(config, items):
 def _connect(autocommit: bool = True):
     import psycopg
 
-    return psycopg.connect(URI, autocommit=autocommit)
+    conn = psycopg.connect(URI, autocommit=autocommit)
+    conn.execute("SET TIME ZONE 'UTC'")  # tests compare ISO strings; do not depend on the server or PGTZ
+    return conn
 
 
 # Migrations are applied in this order (each file is idempotent). Extended as phases are added.
@@ -50,6 +52,7 @@ MIGRATION_FILES = [
     "create_t_invites.sql",
     "restaurant_order_decision.sql",
     "create_t_order_alerts.sql",
+    "restaurant_ready_adjust_notices.sql",
 ]
 
 # The embedded test server has no pgcrypto. create_t_invites.sql needs gen_random_bytes() (invite codes) only,

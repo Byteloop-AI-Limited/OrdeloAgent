@@ -193,6 +193,20 @@ def feature_flags(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def quiet_telegram_notices(monkeypatch):
+    """The Telegram side of restaurant_notifier does nothing in tests (it would reach the bot and the database).
+
+    A test that wants to see Telegram notices uses ``restaurant_notifier.use_adapters(telegram=...)``."""
+    from utils_common.notify import restaurant_notifier
+
+    class _Nothing:
+        async def send(self, notice):
+            return None
+
+    monkeypatch.setattr(restaurant_notifier, "_telegram", _Nothing())
+
+
+@pytest.fixture(autouse=True)
 def config_values(monkeypatch):
     """ordelo_config string values; empty (all unset) by default.
 
