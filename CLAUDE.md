@@ -149,3 +149,4 @@ Runtime configuration stored in `ordelo_config` DB table, keyed by restaurant (e
 - **Async-first**: handlers use `async/await` throughout
 - **Linting**: Ruff with `F` rules only (`F704` ignored)
 - **Testing**: pytest + pytest-asyncio, tests in `tests/`, mocks for external deps (psycopg, langgraph, pywa, config)
+- **Live testing**: `ordelo_datamodels/misc_sql/test_restaurant_notices.sql` (fake `STRK-TEST-*` orders, stages 0-10) is the reusable harness for restaurant-admin flows on WhatsApp and Telegram; read `docs/live-order-test-harness.md` first and change the script and `tests/sql/test_restaurant_notices_script_sql.py` together
