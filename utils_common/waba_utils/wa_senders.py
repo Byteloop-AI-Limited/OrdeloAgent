@@ -11,8 +11,9 @@ WhatsApp messaging utilities for order management and address confirmation flows
     . Sends payment and reservation links using template params and URL buttons
   Functions/Classes:
     . CallbackButtonData - Pydantic model for WhatsApp button callback data
-    . admin_delivery_driver_nearby - Notifies admin driver is nearby
-    . admin_delivery_complete_notification - Notifies admins about completed deliveries
+    . admin_auto_accept_notice - Tells admins an order was auto-accepted after the confirmation timeout
+    . admin_delivery_completed - Tells a restaurant's admins a delivery is completed
+    . send_restaurant_feedback_notification - One customer-feedback message to one admin
     . admin_order_reciept - Sends order receipts to admins with delivery details, plus pickup-time adjust buttons (+10/+20 mins)
     . confirm_delivery_address_wa - Sends address confirmation requests to customers
     . send_postcode_search_flow - Initiates postcode search flow via WhatsApp
@@ -25,6 +26,7 @@ WhatsApp messaging utilities for order management and address confirmation flows
     . enquire_admin_availability - Sends admin availability template with callback
     . notify_ops_rider_alert - Escalates a late pickup / slow delivery to overwatch
     . notify_rest_admins_rider_alert - Tells the restaurant's admins about a late pickup / slow delivery
+    . rider_alert_text - The wording of that alert (pure; the Telegram notice reuses it)
 """
 
 # %%
@@ -60,9 +62,6 @@ from utils_common.order_management.food_order_reciept import (
     build_wa_order_reciept_for_rest,
 )
 
-
-# from config.params import REST_MASTER
-REST_MASTER = "dummy"
 
 
 
@@ -149,37 +148,35 @@ async def send_restaurant_pickup_time(
 # )
 
 
-# %% Admin Delivery complete notification
-async def admin_delivery_driver_nearby(
+# %% Restaurant-admin notices (sent through utils_common/notify/restaurant_notifier.py, WhatsApp side)
+async def admin_auto_accept_notice(
+    admins: List[str],
     order_number: str,
-    rest_confirmation_code: str,
-):
-    # Todo: include the rider name in the notification
-    # Send notifications to restaurant and customer; ToDo - need to add callback to notifications.
-    for admin in REST_MASTER.get_admins():
-        await _async_wa_client.send_message(
-            to=admin,
-            # header=rest_header,
-            text=f"Delivery driver is nearby for order number: {order_number} - Confirmation Code: {rest_confirmation_code}",
-            reply_to_message_id=None,
-        )
-    return
+    pickup_display: str,
+    pickup_minutes: int,
+) -> None:
+    """Tell each admin an order was auto-accepted after the confirmation timeout (delivery and takeaway).
+
+    One admin at a time: a bad contact is logged and never costs the others their message."""
+    text = (
+        f"Order {order_number} auto-accepted due to confirmation timeout. "
+        f"Pickup time set to {pickup_display} ({pickup_minutes} mins from order time)."
+    )
+    for admin in admins:
+        try:
+            await _async_wa_client.send_message(to=admin, text=text)
+        except Exception as e:
+            logger.error(f"Auto-accept notice for {order_number} failed for admin {admin}: {e}")
 
 
-# %% Admin Delivery complete notification
-async def admin_delivery_complete_notification(
-    order_number: str,
-):
-    # ToDo: should this be order_id ?
-    # Send notifications to restaurant and customer; ToDo - need to add callback to notifications.
-    for admin in REST_MASTER.get_admins():
-        await _async_wa_client.send_message(
-            to=admin,
-            # header=rest_header,
-            text=f"✅ Delivery completed for order number: {order_number}",
-            reply_to_message_id=None,
-        )
-    return
+async def admin_delivery_completed(order_number: str, rest_ref: str) -> None:
+    """Tell the restaurant's admins a delivery is completed (rider entered the right customer code)."""
+    admins = await asyncio.to_thread(RestaurantMaster.get_admins_for, rest_ref)
+    for admin in admins:
+        try:
+            await _async_wa_client.send_message(to=admin, text=f"✅ Delivery completed for {order_number}.")
+        except Exception as e:
+            logger.error(f"Delivery-completed notice for {order_number} failed for admin {admin}: {e}")
 
 
 async def send_restaurant_feedback_notification(
@@ -764,6 +761,26 @@ async def notify_ops_rider_alert(
     return result
 
 
+def rider_alert_text(phase: str, order_number: str, minutes_past: int, pickup_display: str, rider_label: str) -> str:
+    """The restaurant-admin wording for a rider pickup alert (WhatsApp markup: *bold*).
+
+    minutes_past < 0 means the pickup is still ahead (a heads-up). The Telegram notice builds on the same text."""
+    if phase == "picked_up":
+        return (
+            f"🛵 Order *{order_number}*: rider {rider_label} collected but has not "
+            f"delivered — {minutes_past} min past the {pickup_display} pickup time."
+        )
+    if minutes_past < 0:
+        return (
+            f"🛵 Order *{order_number}*: rider {rider_label} is due to collect at "
+            f"{pickup_display} (in ~{abs(minutes_past)} min). Please have it ready."
+        )
+    return (
+        f"⏰ Order *{order_number}*: rider {rider_label} has not yet collected — "
+        f"{minutes_past} min past the {pickup_display} pickup time."
+    )
+
+
 async def notify_rest_admins_rider_alert(
     *,
     phase: str,
@@ -813,21 +830,7 @@ async def notify_rest_admins_rider_alert(
     pickup_time_display = fmt_uk_time(pickup_time)
     rider_label = rider_name or rider_id
 
-    if phase == "picked_up":
-        text = (
-            f"🛵 Order *{order_number}*: rider {rider_label} collected but has not "
-            f"delivered — {minutes_past} min past the {pickup_time_display} pickup time."
-        )
-    elif minutes_past < 0:
-        text = (
-            f"🛵 Order *{order_number}*: rider {rider_label} is due to collect at "
-            f"{pickup_time_display} (in ~{abs(minutes_past)} min). Please have it ready."
-        )
-    else:
-        text = (
-            f"⏰ Order *{order_number}*: rider {rider_label} has not yet collected — "
-            f"{minutes_past} min past the {pickup_time_display} pickup time."
-        )
+    text = rider_alert_text(phase, order_number, minutes_past, pickup_time_display, rider_label)
 
     result = {"admins_notified": 0, "admins_failed": 0}
 

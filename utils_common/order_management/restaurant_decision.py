@@ -2,7 +2,7 @@
 Restaurant decision on an order: accept, decline, choose the pickup time (shared by every channel).
     . Thin async wrapper over the database functions (RPCs). The rule lives in SQL so that the first
       decision wins atomically, whichever channel (WhatsApp, Telegram, manual SQL) it comes from.
-    . RPCs are DEFINED in: ordelo_datamodels/migrations/restaurant_order_decision.sql
+    . RPCs are DEFINED in: ordelo_datamodels/restaurant_admin/restaurant_order_decision.sql
       (keep this list and that file's header in sync whenever either changes)
     . Python function -> RPC it calls:
         decide      -> restaurant_order_decide(p_order_number, p_order_type, p_decision, p_admin_phone, p_channel)
