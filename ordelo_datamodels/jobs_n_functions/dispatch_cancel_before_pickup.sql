@@ -1,3 +1,4 @@
+-- See also (paths under ordelo_datamodels/): rider cancel before pickup makes a Telegram kitchen receipt stale: how that is detected and the replacement receipt handled is in restaurant_admin/restaurant_ready_adjust_notices.sql (t_receipt_status, D35).
 /**
 Dispatch Cancel Before Pickup – Resume Dispatch Workflow
 

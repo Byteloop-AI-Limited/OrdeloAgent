@@ -1,3 +1,4 @@
+-- See also (paths under ordelo_datamodels/): keep the RETURNING list in step with the RETURNS TABLE list (never RETURNING *: the kitchen columns in restaurant_admin/restaurant_ready_adjust_notices.sql were added to delivery_summary and broke it once).
 /**
 Delivery Initiation – Entry Point in Delivery Workflow
 
@@ -202,7 +203,38 @@ BEGIN
         v_pickup_time,
         v_created_at
     )
-    RETURNING *;
+    -- Explicit list, qualified by table: RETURNING * breaks ("structure of query does not match function result type")
+    -- the moment a column is added to delivery_summary, and bare names clash with the RETURNS TABLE output variables.
+    RETURNING
+        delivery_summary.order_number,
+        delivery_summary.rest_id,
+        delivery_summary.rest_name,
+        delivery_summary.rest_lon,
+        delivery_summary.rest_lat,
+        delivery_summary.rest_address,
+        delivery_summary.town,
+        delivery_summary.customer_id,
+        delivery_summary.customer_name,
+        delivery_summary.customer_lon,
+        delivery_summary.customer_lat,
+        delivery_summary.customer_address,
+        delivery_summary.restaurant_confirmation_status,
+        delivery_summary.restaurant_update_dtts,
+        delivery_summary.restaurant_admin,
+        delivery_summary.status,
+        delivery_summary.rest_confirmation_code,
+        delivery_summary.cust_confirmation_code,
+        delivery_summary.rest_prep_time_minutes,
+        delivery_summary.rest_confirmation_method,
+        delivery_summary.restaurant_msg_id,
+        delivery_summary.rider_msg_id,
+        delivery_summary.customer_msg_id,
+        delivery_summary.pickup_time,
+        delivery_summary.pickup_date,
+        delivery_summary.rest_ref,
+        delivery_summary.dt,
+        delivery_summary.dtts,
+        delivery_summary.redispatch_dtts;
     
     -- kick off process_delivery; May be add condition on pickup_time
     -- PERFORM process_delivery();

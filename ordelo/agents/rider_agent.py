@@ -63,7 +63,6 @@ from typing_extensions import TypedDict, Literal
 from supabase import Client
 
 from config import (
-    _async_wa_client,
     client_ordelo,
     llm_settings,
     logger,
@@ -71,8 +70,9 @@ from config import (
     project_settings,
 )
 from config.params import get_wa_logger
+from utils_common.notify import restaurant_notifier
+from utils_common.notify.restaurant_notifier import DeliveryCompleted
 from utils_common.tz_utils import fmt_uk_time, to_utc_aware
-from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
 from ordelo.agent_app_handlers import (
     _send_delivery_instructions,
     create_stop_job_config,
@@ -1151,12 +1151,7 @@ async def verify_customer_confirmation_code(
 
     # Notify the restaurant admin
     rest_ref = order_number.split("-")[0]
-    rest_admins = RestaurantMaster.get_admins_for(rest_ref)
-    for admin in rest_admins:
-        await _async_wa_client.send_message(
-            to=admin,
-            text=f"✅ Delivery completed for {order_number}.",
-        )
+    await restaurant_notifier.notify(DeliveryCompleted(order_number, rest_ref))
 
     # Reset the thread, update db status, toDo - Should this go in the close thread function?
     try:

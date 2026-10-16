@@ -1,3 +1,4 @@
+-- See also (paths under ordelo_datamodels/): delivery_summary also carries the kitchen columns ready_at, ready_by, ready_dispatch_id, pickup_time_initial, pickup_adjusted_by, pickup_adjusted_at: added and explained in restaurant_admin/restaurant_ready_adjust_notices.sql. Accept/decline: restaurant_admin/restaurant_order_decision.sql.
 -- drop table delivery_summary;
 CREATE TABLE delivery_summary (
     order_number     VARCHAR(100),
@@ -18,7 +19,7 @@ CREATE TABLE delivery_summary (
     restaurant_update_dtts TIMESTAMP WITH TIME ZONE, -- nullable, set when restaurant_confirmation_status changes
     restaurant_admin VARCHAR(12), -- nullable, stores the admin phone who confirmed the order
     -- Delivery lifecycle status
-    -- 'declined' added by migrations/restaurant_order_decision.sql (R1-a): a declined delivery is never dispatchable
+    -- 'declined' added by restaurant_admin/restaurant_order_decision.sql (R1-a): a declined delivery is never dispatchable
     status          VARCHAR(50) NOT NULL CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed', 'declined')),
     rest_confirmation_code INTEGER NOT NULL,
     cust_confirmation_code INTEGER NOT NULL,

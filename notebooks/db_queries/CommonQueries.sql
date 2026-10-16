@@ -1,5 +1,5 @@
 select * from thread order by dtts desc;
-select * from restaurant_master;
+select * from restaurant_master where rest_ref='STRK';
 -- commit;
 select * from takeaway_summary order by dtts desc;
 lkj;
@@ -19,7 +19,7 @@ exclude_list = ['447919202938', '447448440754', '447446933210'];
 
 select * from delivery_option where order_number like 'ELAS-DDJV-22%' order by id desc;
 select * from delivery_dispatch where order_number like 'ELAS-XBKV-20%' ;
-select * from delivery_summary where order_number like 'ELAS-%' order by dtts desc;
+select * from delivery_summary where order_number like 'ELAS-%' order by dtts desc limit 1;
 select * from customer_master;
 select rest_ref, count(*) from cust_rest_map where has_consent group by rest_ref;
 -- Check and close thread
@@ -486,24 +486,28 @@ R2, in plain terms: this is a test run, not code. On BNAT in Stripe test mode, y
 Do it after R1b, so the test order never reaches a restaurant app. The plan has the exact calls.;
 
 
-SELECT config_key, config_value, updated_at
-FROM public.ordelo_config
-WHERE config_key IN ('TEST_PAYMENT_REST_REFS', 'ORDELO_APP_URL', 'RESTAURANT_MENU_APP_URL')
-   OR config_key LIKE '%\_WEB\_ORDERING\_PAUSED' ESCAPE '\'
-   OR config_key LIKE '%\_WEB\_MAX\_DISCOUNT\_PERCENT' ESCAPE '\'
-ORDER BY config_key;
-select * from payment_event order by id desc limit 10;
+-- SELECT config_key, config_value, updated_at
+-- FROM public.ordelo_config
+-- WHERE config_key IN ('TEST_PAYMENT_REST_REFS', 'ORDELO_APP_URL', 'RESTAURANT_MENU_APP_URL')
+--    OR config_key LIKE '%\_WEB\_ORDERING\_PAUSED' ESCAPE '\'
+--    OR config_key LIKE '%\_WEB\_MAX\_DISCOUNT\_PERCENT' ESCAPE '\'
+-- ORDER BY config_key;
+-- select * from payment_event order by id desc limit 10;
 
 
-INSERT INTO public.ordelo_config (config_key, config_value, description)
-VALUES ('TEST_PAYMENT_REST_REFS', 'BNAT,ELAS', 'Restaurants whose orders always use Stripe test (R3.1)')
-ON CONFLICT (config_key) DO UPDATE
-SET config_value = EXCLUDED.config_value, description = EXCLUDED.description,
-    updated_at = CURRENT_TIMESTAMP;
+-- INSERT INTO public.ordelo_config (config_key, config_value, description)
+-- VALUES ('TEST_PAYMENT_REST_REFS', 'BNAT,ELAS', 'Restaurants whose orders always use Stripe test (R3.1)')
+-- ON CONFLICT (config_key) DO UPDATE
+-- SET config_value = EXCLUDED.config_value, description = EXCLUDED.description,
+--     updated_at = CURRENT_TIMESTAMP;
     
+select * from delivery_summary where order_number='WREN%%';
+select * from delivery_inflight;
 
 select * from invite_code where rest_ref='BNAT' order by dtts desc;
 select * from t_invites limit 10;
 
+update delivery_summary set status='restaurant_unconfirmed' where order_number='ELAS-NVKO-21';
+select * from public.job_t_order_alerts;
 
-select * from ordelo_config where config_key like '%TGRAM%';
+select * from restaurant_master where rest_ref='STRK';

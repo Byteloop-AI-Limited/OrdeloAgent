@@ -9,6 +9,16 @@ This file holds ONLY phases 7 and 8. When they are done, fold a short summary ba
 
 ## As built (differences from the text below; the text below is the original plan)
 
+- **SQL files moved out of `migrations/`** (they are the authoritative description of how the feature works, not one-off schema changes):
+  `ordelo_datamodels/telegram/` ← `create_t_inbox.sql`, `create_t_invites.sql`, `create_t_order_alerts.sql`;
+  `ordelo_datamodels/restaurant_admin/` ← `restaurant_order_decision.sql`, `restaurant_ready_adjust_notices.sql`. File names are unchanged.
+  Paths updated in code docstrings, docs, tests (`tests/sql/conftest.py` now finds a file by name with `sql_path()`), CLAUDE.md / agents.md / the
+  database-operations skill; "See also" headers added to the related SQL files. Older text below still says `migrations/`.
+- **DDL fallout (found live):** the migration adds 6 columns to `delivery_summary` and 2 to `takeaway_summary`; `init_delivery()` /
+  `init_takeaway()` (`RETURNS TABLE` + `RETURNING *`) then failed with 42804 (35 returned vs 29 expected) and no order could be created.
+  Fixed by listing the columns (table-qualified) in both files; `tests/test_sql_returning_star.py` guards against `RETURNING *` in
+  any `RETURNS TABLE` function. **Re-run `init_delivery.sql` and `init_takeaway.sql` after the migration.** My earlier "Nothing is dropped or
+  rewritten / safe to apply alone" claim was wrong for these two functions; the isolated-database tests never created an order through them.
 - **Review fixes (after the first code review):**
   - *Receipt wording:* the status line says `✅ Marked ready by …`; the tapper's toast says `Marked ready — rider/customer told`
     (or the could-not-be-messaged alert). Receipts never claim a notification succeeded: the database records readiness, not delivery of the nudge.
@@ -225,7 +235,7 @@ handler already sends after its guarded update, so it does not change. **Owner t
 
 ---
 
-## 4. The migration: `ordelo_datamodels/migrations/restaurant_ready_adjust_notices.sql`
+## 4. The migration: `ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql`
 
 Run order: after `restaurant_order_decision.sql` and `create_t_order_alerts.sql` (it reads `restaurant_admin_label()`,
 `t_order_admin_phone()`, `t_order_card_destinations()`, `t_sent_messages`, `parse_alert_offsets()`). Run it **before** PR 1 deploys.
@@ -489,7 +499,7 @@ the other migration files.
 ```python
 """
 Kitchen actions after an order is accepted: Ready and adjust pickup (shared by WhatsApp and Telegram).
-    . RPCs are DEFINED in: ordelo_datamodels/migrations/restaurant_ready_adjust_notices.sql (keep both in sync)
+    . RPCs are DEFINED in: ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql (keep both in sync)
     . Python function -> RPC:
         ready(ref, WhatsAppActor)          -> restaurant_order_ready(p_order_number, p_order_type, p_admin_phone, p_channel)
         ready(ref, TelegramActor)          -> t_order_ready(p_bot_key, p_tuid, p_order_number, p_order_type)

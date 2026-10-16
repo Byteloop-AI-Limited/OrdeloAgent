@@ -1,3 +1,4 @@
+-- See also (paths under ordelo_datamodels/): keep the RETURNING list in step with the RETURNS TABLE list (never RETURNING *: see restaurant_admin/restaurant_ready_adjust_notices.sql).
 /**
 Takeaway Initiation – Entry Point in Takeaway Confirmation Workflow
 
@@ -141,6 +142,29 @@ BEGIN
         v_pickup_time,
         v_created_at
     )
-    RETURNING *;
+    -- Explicit list, qualified by table: RETURNING * breaks ("structure of query does not match function result type")
+    -- the moment a column is added to takeaway_summary, and bare names clash with the RETURNS TABLE output variables.
+    RETURNING
+        takeaway_summary.order_number,
+        takeaway_summary.rest_id,
+        takeaway_summary.rest_name,
+        takeaway_summary.rest_address,
+        takeaway_summary.town,
+        takeaway_summary.customer_id,
+        takeaway_summary.customer_name,
+        takeaway_summary.restaurant_confirmation_status,
+        takeaway_summary.restaurant_update_dtts,
+        takeaway_summary.restaurant_admin,
+        takeaway_summary.status,
+        takeaway_summary.rest_confirmation_code,
+        takeaway_summary.rest_prep_time_minutes,
+        takeaway_summary.rest_confirmation_method,
+        takeaway_summary.restaurant_msg_id,
+        takeaway_summary.customer_msg_id,
+        takeaway_summary.pickup_time,
+        takeaway_summary.pickup_date,
+        takeaway_summary.rest_ref,
+        takeaway_summary.dt,
+        takeaway_summary.dtts;
 END;
 $$ LANGUAGE plpgsql;
