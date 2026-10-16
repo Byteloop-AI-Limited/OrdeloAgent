@@ -1,7 +1,7 @@
 -- =============================================================================================
 -- Feature SQL: Telegram invites (restaurant-admin bot now; the rider bot can reuse the same table)
 -- =============================================================================================
--- See also (paths under ordelo_datamodels/): how the linked admins are used to send order cards and kitchen receipts: telegram/create_t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql.
+-- See also (paths under ordelo_datamodels/): how the linked admins are used to send order cards and kitchen receipts: telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql.
 -- Run once in the Supabase SQL editor. Repeatable: every statement is CREATE OR REPLACE /
 -- IF NOT EXISTS / DROP IF EXISTS, so running it again changes nothing.
 --

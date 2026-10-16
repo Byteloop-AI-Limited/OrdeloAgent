@@ -543,7 +543,7 @@ async def pickup_time_updated_hook(
     """Webhook triggered when takeaway_summary.pickup_time is set (NULL → non-NULL).
 
     Triggered by: trigger_takeaway_pickup_time_set on takeaway_summary
-    Source Function: takeaway_pickup_time_whook() in ordelo_datamodels/takeaway_summary.sql
+    Source Function: takeaway_pickup_time_whook() in ordelo_datamodels/takeaway/takeaway_summary.sql
     """
     if "takeaway_summary" not in payload or payload["takeaway_summary"] is None:
         logger.error("No takeaway_summary found: from pickup_time_updated_hook")

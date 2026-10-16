@@ -23,10 +23,10 @@ For the full end‑to‑end delivery journey, see `docs/delivery_process.md` (Ph
 
 Key source files:
 
-- `ordelo_datamodels/dispatch.sql`
+- `ordelo_datamodels/dispatch/delivery_dispatch.sql`
 - `watomation/routers/delivery_hooks.py`
 - `watomation/on_callback_wa_handler.py`
-- `ordelo_datamodels/inflight.sql`
+- `ordelo_datamodels/dispatch/delivery_inflight.sql`
 
 ---
 
@@ -48,14 +48,14 @@ Key source files:
 
 Dispatch offers are inserted into `delivery_dispatch`. Each row represents one rider being offered the job.
 
-Table definition and status enum live in `ordelo_datamodels/dispatch.sql`:
+Table definition and status enum live in `ordelo_datamodels/dispatch/delivery_dispatch.sql`:
 
 - Key fields: `dispatch_id`, `order_number`, `rider_id`, `rider_payout`, `vehicle_type`, `distance`, `status`.
 - Initial status for new rows is typically `unassigned`.
 
 ### 2. Dispatch Webhook Trigger (DB → API)
 
-`ordelo_datamodels/dispatch.sql` defines a **statement‑level AFTER INSERT trigger**:
+`ordelo_datamodels/dispatch/delivery_dispatch.sql` defines a **statement‑level AFTER INSERT trigger**:
 
 - Trigger: `trigger_delivery_dispatch_whook`
 - Function: `delivery_dispatch_whook_statement()`
@@ -142,7 +142,7 @@ A scheduled assignment job (see `docs/delivery_process.md` Phase 4 for full SQL)
 
 ### 7. Inflight Trigger + Graph Init (DB → API)
 
-`ordelo_datamodels/inflight.sql` defines a **row‑level AFTER INSERT trigger**:
+`ordelo_datamodels/dispatch/delivery_inflight.sql` defines a **row‑level AFTER INSERT trigger**:
 
 - Trigger: `trigger_delivery_inflight_whook`
 - Function: `delivery_inflight_whook()`
@@ -168,7 +168,7 @@ The receiving handler is `delivery_inflight_graph_init_hook()` in `watomation/ro
 
 ### 8. Missed Dispatch Notifications (DB → API → WhatsApp)
 
-Still inside `delivery_inflight_whook()` (`ordelo_datamodels/inflight.sql`):
+Still inside `delivery_inflight_whook()` (`ordelo_datamodels/dispatch/delivery_inflight.sql`):
 
 1. Calls `notify_missed_dispatches()`, which finds **other accepted dispatches** for the now‑assigned order.
 2. POSTs:
@@ -212,7 +212,7 @@ The rider tells the agent they cannot pick up. The agent calls the `cancel_deliv
 
 1. **Rider tool invocation** — `cancel_delivery_before_pickup` reads `dispatch_id` from agent state and calls Supabase RPC `dispatch_cancel_before_pickup(p_dispatch_id)`.
 
-2. **RPC execution** (`ordelo_datamodels/jobs_n_functions/dispatch_cancel_before_pickup.sql`):
+2. **RPC execution** (`ordelo_datamodels/dispatch/dispatch_cancel_before_pickup.sql`):
    - Guards: dispatch must exist and `delivery_dispatch.status` must be `'assigned'` (if already `'pickedup'`, cancellation is rejected).
    - Sets `delivery_dispatch.status = 'declined'` and `status_update_dtts = CURRENT_TIMESTAMP`.
    - Deletes the `delivery_inflight` row for this dispatch (frees the rider).

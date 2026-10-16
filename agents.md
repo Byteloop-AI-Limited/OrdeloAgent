@@ -170,12 +170,12 @@ Trace cross-project issues through these folders as needed, reading each project
 6) Scheduled Availability Enquiries (DB → API → WhatsApp)
 - Two non-critical “availability enquiry” flows are run via scheduled Postgres functions (typically via pg_cron) that call FastAPI endpoints.
 - Shift enquiry (riders):
-  - SQL function: `ordelo_datamodels/jobs_n_functions/enquire_shift_availability.sql` (`enquire_shift_availability()`)
+  - SQL function: `ordelo_datamodels/dispatch/enquire_shift_availability.sql` (`enquire_shift_availability()`)
   - Webhook endpoint: `POST /delivery-hooks/shift-availability-enquiry`
   - Handler: `watomation/routers/delivery_hooks.shift_availability_enquiry_hook`
   - Action: sends the `shift_availability` template with Yes/No quick replies.
 - Admin enquiry (restaurant admins):
-  - SQL function: `ordelo_datamodels/jobs_n_functions/enquire_admin_availability.sql` (`enquire_admin_availability(p_rest_ref_list VARCHAR[] DEFAULT NULL)`)
+  - SQL function: `ordelo_datamodels/restaurant_admin/enquire_admin_availability.sql` (`enquire_admin_availability(p_rest_ref_list VARCHAR[] DEFAULT NULL)`)
   - Webhook endpoint: `POST /delivery-hooks/admin-availability-enquiry`
   - Handler: `watomation/routers/delivery_hooks.admin_availability_enquiry_hook`
   - Action: sends the `alert_order_notification_resolve` template with a single quick reply.
@@ -291,7 +291,7 @@ INSTALL_DEV=1 source run_setup.sh
 
 ## Extending the System
 
-- Add database-backed logic (RPC pattern; reference: `channels/telegram/invites.py` + `ordelo_datamodels/telegram/create_t_invites.sql`):
+- Add database-backed logic (RPC pattern; reference: `channels/telegram/invites.py` + `ordelo_datamodels/telegram/t_invites.sql`):
   1. Put the rule in a Postgres function that returns `jsonb` with a `result` string (atomic, race-safe). Define it **in the same migration file as the table(s) it works on**, with the grants (`REVOKE ... FROM PUBLIC, anon, authenticated`, RLS on) and a header explaining what the file adds, how it interacts with other tables and services, its lifecycle and security model.
   2. Add one thin typed `async def` per RPC in a single Python module for that domain (`asyncio.to_thread`, `client_ordelo_service` for service-only objects, a small outcome dataclass). Handlers call the wrapper, never the table.
   3. **Cross-reference both ways in the same change:** the Python module docstring names the SQL file and maps each function to its RPC; the SQL header names the Python callers; the feature doc has a database-object ↔ code ↔ tests row.

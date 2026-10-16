@@ -5,7 +5,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 JOB_SQL_PATH = (
     REPOSITORY_ROOT
     / "ordelo_datamodels"
-    / "jobs_n_functions"
+    / "agent_threads"
     / "job_terminate_stale_active_threads.sql"
 )
 INDEX_SQL_PATH = (

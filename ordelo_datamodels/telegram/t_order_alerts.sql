@@ -5,7 +5,7 @@
 -- Run once in the Supabase SQL editor (operator step; the implementing agent never runs it).
 -- Repeatable: every statement is CREATE OR REPLACE / IF NOT EXISTS / ON CONFLICT DO NOTHING.
 -- Run it AFTER create_t_inbox.sql, create_t_invites.sql and restaurant_order_decision.sql (it reads
--- t_invites, t_inbox and restaurant_admin_label()) and AFTER jobs_n_functions/job_rider_pickup_alerts.sql
+-- t_invites, t_inbox and restaurant_admin_label()) and AFTER dispatch/job_rider_pickup_alerts.sql
 -- (it reuses parse_alert_offsets() and the http extension). Run it BEFORE deploying the code that calls it
 -- (channels/telegram/rest_admin/order_cards/store.py, watomation/routers/telegram_order_alerts.py).
 -- Nothing is sent until the operator schedules the sweep (last section of this file).
@@ -369,7 +369,7 @@ INSERT INTO public.ordelo_config (config_key, config_value, description) VALUES
 ON CONFLICT (config_key) DO NOTHING;
 
 -- ---------------------------------------------------------------------------------------------
--- 11. job_t_order_alerts(): the sweep. Structure follows jobs_n_functions/job_rider_pickup_alerts.sql.
+-- 11. job_t_order_alerts(): the sweep. Structure follows dispatch/job_rider_pickup_alerts.sql.
 --     Returns false when the POST failed (checkpoints stay pending), true otherwise.
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.job_t_order_alerts()

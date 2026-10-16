@@ -852,7 +852,7 @@ async def check_rider_allocation_status(
     Processes thread closure requests from the scheduled job_close_thread() function.
     
     Triggered by: Supabase cron job running every 5 minutes
-    Source Function: job_close_thread() in ordelo_datamodels/jobs_n_functions/job_close_thread.sql
+    Source Function: job_close_thread() in ordelo_datamodels/agent_threads/job_close_thread.sql
     
     Workflow:
     1. Receives JSON array of thread records to close

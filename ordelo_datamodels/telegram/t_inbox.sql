@@ -1,7 +1,7 @@
 -- =============================================================================================
 -- Feature SQL: Telegram durable inbox (t_inbox) - at-most-once handling of Telegram updates
 -- =============================================================================================
--- See also (paths under ordelo_datamodels/): the other Telegram SQL files: telegram/create_t_invites.sql, telegram/create_t_order_alerts.sql; kitchen actions: restaurant_admin/restaurant_ready_adjust_notices.sql.
+-- See also (paths under ordelo_datamodels/): the other Telegram SQL files: telegram/t_invites.sql, telegram/t_order_alerts.sql; kitchen actions: restaurant_admin/restaurant_ready_adjust_notices.sql.
 -- Run once in the Supabase SQL editor (operator step; the implementing agent never runs it).
 -- Repeatable: every statement is CREATE OR REPLACE / IF NOT EXISTS, so running it again changes nothing.
 -- Run it BEFORE deploying the code that calls it (channels/telegram/inbox.py). If the code is deployed

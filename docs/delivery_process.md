@@ -115,7 +115,7 @@ remain enabled.
 
 ### Phase 1: Order Creation (`init_delivery`)
 
-**File:** `ordelo_datamodels/jobs_n_functions/init_delivery.sql`
+**File:** `ordelo_datamodels/delivery/init_delivery.sql`
 
 **Invocation:** Called by external payment service after successful payment
 
@@ -141,7 +141,7 @@ This phase ensures restaurants confirm orders and provide estimated prep time be
 
 #### 2a. Confirmation Request Trigger
 
-**File:** `ordelo_datamodels/summary.sql`
+**File:** `ordelo_datamodels/delivery/delivery_summary.sql`
 
 **Trigger:** `trigger_restaurant_updates`
 ```sql
@@ -195,7 +195,7 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 
 #### 2d. Confirmation Timeout Job
 
-**File:** `ordelo_datamodels/jobs_n_functions/process_restaurant_confirmation.sql`
+**File:** `ordelo_datamodels/restaurant_admin/process_restaurant_confirmation.sql`
 
 **Function:** `process_restaurant_confirmation()`
 
@@ -219,7 +219,7 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 
 #### 3a. Delivery Detail Management
 
-**File:** `ordelo_datamodels/jobs_n_functions/process_delivery.sql`
+**File:** `ordelo_datamodels/delivery/process_delivery.sql`
 
 **Function:** `process_delivery()`
 
@@ -243,7 +243,7 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 
 #### 3b. Dispatch Creation
 
-**File:** `ordelo_datamodels/jobs_n_functions/job_create_dispatch.sql`
+**File:** `ordelo_datamodels/dispatch/job_create_dispatch.sql`
 
 **Function:** `job_create_dispatch()`
 
@@ -271,7 +271,7 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 
 #### 3c. Dispatch Webhook Trigger
 
-**File:** `ordelo_datamodels/dispatch.sql`
+**File:** `ordelo_datamodels/dispatch/delivery_dispatch.sql`
 
 **Trigger:** `trigger_delivery_dispatch_whook`
 ```sql
@@ -328,7 +328,7 @@ FOR EACH STATEMENT
 
 #### 4b. Dispatch Assignment Job
 
-**File:** `ordelo_datamodels/jobs_n_functions/job_assign_dispatch.sql`
+**File:** `ordelo_datamodels/dispatch/job_assign_dispatch.sql`
 
 **Function:** `job_assign_dispatch()`
 
@@ -356,7 +356,7 @@ FOR EACH STATEMENT
 
 #### 5a. Inflight Trigger
 
-**File:** `ordelo_datamodels/inflight.sql`
+**File:** `ordelo_datamodels/dispatch/delivery_inflight.sql`
 
 **Trigger:** `trigger_delivery_inflight_whook`
 ```sql
@@ -397,7 +397,7 @@ FOR EACH ROW
 
 #### 5c. Missed Dispatches Notification
 
-**File:** `ordelo_datamodels/inflight.sql`
+**File:** `ordelo_datamodels/dispatch/delivery_inflight.sql`
 
 **Function:** `notify_missed_dispatches()`
 
@@ -503,7 +503,7 @@ Called as a background task from `delivery_inflight_graph_init_hook()`:
 
 #### 5e. Live Location Tracking
 
-**File:** `ordelo_datamodels/jobs_n_functions/job_null_or_outdated_location.sql`
+**File:** `ordelo_datamodels/rider_location/job_null_or_outdated_location.sql`
 
 **Function:** `job_null_or_outdated_location()`
 
@@ -521,7 +521,7 @@ any prompt unless `LEGACY_OWNTRACKS_PROMPTS_ENABLED` is explicitly true.
 
 ### Phase 6: Completion (`dispatch_complete_func`)
 
-**File:** `ordelo_datamodels/jobs_n_functions/dispatch_complete_func.sql`
+**File:** `ordelo_datamodels/dispatch/dispatch_complete_func.sql`
 
 **Function:** `dispatch_complete_func(p_dispatch_id BIGINT)`
 
@@ -596,7 +596,7 @@ any prompt unless `LEGACY_OWNTRACKS_PROMPTS_ENABLED` is explicitly true.
      ```
  
  - **Rider, ops & restaurant-admin alerts**
-   - Function: `job_rider_pickup_alerts()` (`ordelo_datamodels/jobs_n_functions/job_rider_pickup_alerts.sql`)
+   - Function: `job_rider_pickup_alerts()` (`ordelo_datamodels/dispatch/job_rider_pickup_alerts.sql`)
    - Schedule: Every 2 minutes via pg_cron. The cadence must be **≤ the smallest
      gap between consecutive configured offsets, in any phase**, or two
      adjacent checkpoints collapse into one alert.
@@ -802,10 +802,10 @@ flowchart TD
 ### Core Tables
 | File | Description |
 |------|-------------|
-| `summary.sql` | `delivery_summary` table, `restaurant_updates_whook()`, `delivery_summary_timedout_whook()` triggers |
-| `detail.sql` | `delivery_detail` table definition |
-| `dispatch.sql` | `delivery_dispatch` table, `delivery_dispatch_whook_statement()` trigger |
-| `inflight.sql` | `delivery_inflight` table, `delivery_inflight_whook()` trigger, `notify_missed_dispatches()` |
+| `delivery/delivery_summary.sql` | `delivery_summary` table, `restaurant_updates_whook()`, `delivery_summary_timedout_whook()` triggers |
+| `delivery/delivery_detail.sql` | `delivery_detail` table definition |
+| `dispatch/delivery_dispatch.sql` | `delivery_dispatch` table, `delivery_dispatch_whook_statement()` trigger |
+| `dispatch/delivery_inflight.sql` | `delivery_inflight` table, `delivery_inflight_whook()` trigger, `notify_missed_dispatches()` |
 
 ### Jobs and Functions
 | File | Description |
@@ -828,10 +828,10 @@ flowchart TD
 ### Supporting Files
 | File | Description |
 |------|-------------|
-| `ordelo_config.sql` | Configuration key-value store |
-| `masterdata.sql` | `restaurant_master`, `customer_master`, `rider_master` tables |
-| `location.sql` | `rider_location`, `rider_location_event` tables |
-| `delivery_option.sql` | Vehicle type options per order |
+| `core/ordelo_config.sql` | Configuration key-value store |
+| `core/restaurant_master.sql` | `restaurant_master`, `customer_master`, `rider_master` tables |
+| `rider_location/rider_location.sql` | `rider_location`, `rider_location_event` tables |
+| `delivery/delivery_option.sql` | Vehicle type options per order |
 
 ---
 

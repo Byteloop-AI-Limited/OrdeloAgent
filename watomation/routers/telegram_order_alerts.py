@@ -1,7 +1,7 @@
 """
 Telegram order-alert ingress for OrdeloAgent (thin route; logic lives in channels/telegram/rest_admin/order_cards).
     . POST /telegram/rest-admin/order-alerts, called every ~5 s (only when there is work) by the PostgreSQL function
-      job_t_order_alerts() (ordelo_datamodels/telegram/create_t_order_alerts.sql) through http_post
+      job_t_order_alerts() (ordelo_datamodels/telegram/t_order_alerts.sql) through http_post
     . Body: {"event_type", "timestamp", "reminders": [{order_number, order_type, n, of}], "refreshes": [{order_number, order_type}],
       "receipts": [{order_number, order_type}]}
       (receipts come from job_t_receipt_refresh() in ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql and

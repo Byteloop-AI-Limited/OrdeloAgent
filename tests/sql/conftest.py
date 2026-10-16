@@ -24,7 +24,7 @@ MIGRATIONS = DATAMODELS / "migrations"
 
 def sql_path(name: str) -> Path:
     """The one file called `name` anywhere under ordelo_datamodels/ (feature folders: telegram/, restaurant_admin/, migrations/)."""
-    found = [p for p in DATAMODELS.rglob(name) if "archive" not in p.parts]
+    found = [p for p in DATAMODELS.rglob(name) if not {"archive", "_archive", "migrations"} & set(p.parts)]
     if len(found) != 1:
         raise FileNotFoundError(f"{name}: expected exactly one file under ordelo_datamodels/, found {found}")
     return found[0]
@@ -57,14 +57,14 @@ def _connect(autocommit: bool = True):
 
 # Migrations are applied in this order (each file is idempotent). Extended as phases are added.
 MIGRATION_FILES = [
-    "create_t_inbox.sql",
-    "create_t_invites.sql",
+    "t_inbox.sql",
+    "t_invites.sql",
     "restaurant_order_decision.sql",
-    "create_t_order_alerts.sql",
+    "t_order_alerts.sql",
     "restaurant_ready_adjust_notices.sql",
 ]
 
-# The embedded test server has no pgcrypto. create_t_invites.sql needs gen_random_bytes() (invite codes) only,
+# The embedded test server has no pgcrypto. t_invites.sql needs gen_random_bytes() (invite codes) only,
 # so that one statement is removed and a stand-in function is created in the `extensions` schema. Nothing else
 # in any migration is altered before it runs.
 _PGCRYPTO_STATEMENT = "CREATE EXTENSION IF NOT EXISTS pgcrypto;"

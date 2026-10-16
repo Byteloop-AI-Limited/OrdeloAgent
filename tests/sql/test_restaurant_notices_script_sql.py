@@ -1,4 +1,4 @@
-"""The fake-row harness ordelo_datamodels/misc_sql/test_restaurant_notices.sql on the isolated DB.
+"""The fake-row harness ordelo_datamodels/test_support/test_restaurant_notices.sql on the isolated DB.
 
 Runs each stage the way the owner will (one block at a time) and proves: it leaves the rows it promises, a re-run is clean,
 it touches ONLY STRK-TEST-% rows and dummy-town data, every fake order carries the TEST3100 item (so payment_mode = 'test'),
@@ -17,13 +17,13 @@ from .conftest import ROOT, fetch_one
 
 pytestmark = pytest.mark.usefixtures("sql_env")
 
-SCRIPT = (ROOT / "ordelo_datamodels" / "misc_sql" / "test_restaurant_notices.sql").read_text()
+SCRIPT = (ROOT / "ordelo_datamodels" / "test_support" / "test_restaurant_notices.sql").read_text()
 ADMIN = "447448440754"
 BOT = "rest_admin"
-REAL_FUNCTION = (ROOT / "ordelo_datamodels" / "jobs_n_functions" / "create_food_order_with_items.sql").read_text()
+REAL_FUNCTION = (ROOT / "ordelo_datamodels" / "ordering" / "create_food_order_with_items.sql").read_text()
 
 # Columns / tables the minimal test schema leaves out but the harness (and the real tables) have. Shapes copied from
-# ordelo_datamodels/summary.sql, takeaway_summary.sql, detail.sql, masterdata.sql, food_order.sql.
+# ordelo_datamodels/delivery/delivery_summary.sql, takeaway/takeaway_summary.sql, delivery/delivery_detail.sql, core/restaurant_master.sql, food_order.sql.
 SCHEMA = """
 ALTER TABLE public.restaurant_master ADD COLUMN IF NOT EXISTS rest_id varchar(12) UNIQUE;
 ALTER TABLE public.delivery_summary

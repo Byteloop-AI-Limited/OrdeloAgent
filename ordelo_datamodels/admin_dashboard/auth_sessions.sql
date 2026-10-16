@@ -1,6 +1,6 @@
 -- Canonical schema: auth_sessions
 -- Generalized session table for all dashboard roles (rest_admin, rider, sys_admin, ...).
--- Replaces dashboard_sessions.sql.
+-- Replaces _archive/dashboard_sessions.sql.
 -- Run once on a fresh Supabase instance.
 -- For existing instances with dashboard_sessions, run auth_sessions_migration.sql instead.
 DROP TABLE IF EXISTS auth_sessions;

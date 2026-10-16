@@ -1,4 +1,4 @@
-"""The re-runnable STRK test-order script (ordelo_datamodels/misc_sql/test_create_t_order_alerts.sql) on the isolated DB."""
+"""The re-runnable STRK test-order script (ordelo_datamodels/test_support/test_create_t_order_alerts.sql) on the isolated DB."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from .conftest import ROOT, fetch_one
 
 pytestmark = pytest.mark.usefixtures("sql_env")
 
-SCRIPT = (ROOT / "ordelo_datamodels" / "misc_sql" / "test_create_t_order_alerts.sql").read_text()
+SCRIPT = (ROOT / "ordelo_datamodels" / "test_support" / "test_create_t_order_alerts.sql").read_text()
 ADMIN = "447448440754"
 
 # The minimal test schema keeps only the summary columns the migrations use; add the NOT-NULL-in-production ones.

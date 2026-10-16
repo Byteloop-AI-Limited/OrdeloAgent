@@ -2,7 +2,7 @@
     . Mints sys_admin dashboard magic-link sessions into `auth_sessions`
     . Gates sys_admin access via `config.params.get_overwatch_list()` allowlist
     . Returns the rider payout report by delegating the join to the `get_rider_payout_report`
-      Postgres function (see ordelo_datamodels/jobs_n_functions/get_rider_payout_report.sql),
+      Postgres function (see ordelo_datamodels/admin_dashboard/get_rider_payout_report.sql),
       then aggregating per payee in Python
     . Report is location-agnostic: every town / rest_ref with completed dispatches appears,
       and each row carries `town` + `rest_ref` so payouts can be attributed per location

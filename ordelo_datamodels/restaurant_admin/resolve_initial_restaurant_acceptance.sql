@@ -1,4 +1,4 @@
--- See also (paths under ordelo_datamodels/): auto-accepted orders reach Telegram admins as a notice (see restaurant_admin/restaurant_ready_adjust_notices.sql) and as order cards (telegram/create_t_order_alerts.sql).
+-- See also (paths under ordelo_datamodels/): auto-accepted orders reach Telegram admins as a notice (see restaurant_admin/restaurant_ready_adjust_notices.sql) and as order cards (telegram/t_order_alerts.sql).
 /**
 Restaurant Acceptance Policy – Initial Summary State
 
