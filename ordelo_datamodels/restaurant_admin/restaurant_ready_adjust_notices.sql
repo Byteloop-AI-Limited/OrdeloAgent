@@ -1,12 +1,16 @@
 -- =============================================================================================
--- Migration: kitchen actions (Ready, adjust pickup) shared by WhatsApp and Telegram + Telegram kitchen receipts and notices
+-- Feature SQL: kitchen actions (Ready, adjust pickup) shared by WhatsApp and Telegram + Telegram kitchen receipts and notices
 -- =============================================================================================
+-- See also (paths under ordelo_datamodels/): sibling files: restaurant_admin/restaurant_order_decision.sql (accept / decline, run before this one), telegram/create_t_order_alerts.sql (order cards and the t_sent_messages ledger this file reuses), telegram/create_t_invites.sql (who is an admin).
 -- Run once in the Supabase SQL editor (operator step; the implementing agent never runs it).
 -- Repeatable: ADD COLUMN IF NOT EXISTS / CREATE INDEX IF NOT EXISTS / CREATE OR REPLACE. Nothing is dropped or rewritten.
 -- Run it AFTER restaurant_order_decision.sql and create_t_order_alerts.sql (it reads restaurant_admin_label(),
 -- t_order_admin_phone(), t_order_card_destinations(), t_order_card_mark(), t_sent_messages and the http extension).
 -- Run it BEFORE deploying the code that calls it (utils_common/order_management/restaurant_actions.py,
 -- channels/telegram/rest_admin/receipts/store.py, channels/telegram/rest_admin/notices.py).
+-- !! This file ADDS COLUMNS to delivery_summary and takeaway_summary, so RE-RUN init_delivery.sql and init_takeaway.sql
+--    straight after it (they now list their RETURNING columns; the old `RETURNING *` fails with SQLSTATE 42804
+--    "structure of query does not match function result type" once the tables gain columns).
 -- It never redefines a function owned by another file. Nothing is sent until the operator schedules
 -- job_t_receipt_refresh (last section of this file).
 --

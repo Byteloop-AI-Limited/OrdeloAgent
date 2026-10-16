@@ -1,3 +1,4 @@
+-- See also (paths under ordelo_datamodels/): the same rider/ops/restaurant alerts also reach Telegram admins through the notifier; the Telegram receipts and notices are in restaurant_admin/restaurant_ready_adjust_notices.sql.
 /**
 ================================================================================
   RIDER, OPS & RESTAURANT-ADMIN PICKUP ALERTS

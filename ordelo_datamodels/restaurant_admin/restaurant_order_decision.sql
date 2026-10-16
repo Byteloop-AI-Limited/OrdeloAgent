@@ -1,6 +1,7 @@
 -- =============================================================================================
--- Migration: shared restaurant decision functions (accept / decline / pickup time) + R1-a
+-- Feature SQL: shared restaurant decision functions (accept / decline / pickup time) + R1-a
 -- =============================================================================================
+-- See also (paths under ordelo_datamodels/): sibling files: restaurant_admin/restaurant_ready_adjust_notices.sql (Ready / adjust / receipts / notices, run after this one), telegram/create_t_order_alerts.sql (Telegram order cards).
 -- Run in the Supabase SQL editor (operator step; the implementing agent never runs it).
 -- Repeatable: the constraint change is DROP IF EXISTS + ADD, every function is CREATE OR REPLACE.
 -- Run it BEFORE deploying the code that calls it (utils_common/order_management/restaurant_decision.py).

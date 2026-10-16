@@ -190,7 +190,7 @@ the webhook itself.
 - Check state any time with cell 3 (`pending_update_count`, `last_error_message`).
 - After adding handlers that use new update types (the invite buttons use `callback_query`), **re-run cell 4**
   so Telegram's `allowed_updates` includes them.
-- Invites: run `ordelo_datamodels/migrations/create_t_invites.sql` once, set
+- Invites: run `ordelo_datamodels/telegram/create_t_invites.sql` once, set
   `ordelo_config.TGRAM_REST_ADMIN_BOT_USERNAME`, then insert into `t_invites` and read the link from
   `t_invites_shareable` (queries at the bottom of the SQL file).
 

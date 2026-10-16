@@ -49,8 +49,12 @@ print(info.model_dump_json(indent=2, exclude_none=True))
 # allowed_updates below is computed from the handlers, and Telegram only sends what is listed.
 assert settings.webhook_url.startswith("https://"), "set tgram_rest_admin_webhook_base_url to a public https:// URL"
 dp = build_rest_admin_dispatcher(settings)
+
+# callback_url = "https://rider-agent-test.ordelo.app/telegram/rest-admin/webhook"
+callback_url = "https://rider-agent.ordelo.app/telegram/rest-admin/webhook"
+
 await bot.set_webhook(
-    url=settings.webhook_url,
+    url=callback_url,  # settings.webhook_url,
     secret_token=settings.webhook_secret.get_secret_value(),  # echoed back in X-Telegram-Bot-Api-Secret-Token
     allowed_updates=dp.resolve_used_update_types(),           # only the update types our handlers use
     drop_pending_updates=False,                               # keep anything queued while the webhook was down

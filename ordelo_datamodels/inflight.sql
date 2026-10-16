@@ -1,3 +1,4 @@
+-- See also (paths under ordelo_datamodels/): the Ready / +10 / +20 rule that gates on this table's pickup and cancellation state, with its row locks, is in restaurant_admin/restaurant_ready_adjust_notices.sql.
 /**
 Delivery Inflight Trigger – Step 5 in Delivery Workflow
 

@@ -1,3 +1,4 @@
+-- See also (paths under ordelo_datamodels/): the accept / decline / pickup-time rule shared by WhatsApp and Telegram is in restaurant_admin/restaurant_order_decision.sql; Telegram order cards are in telegram/create_t_order_alerts.sql.
 /**
 Restaurant Confirmation Timeout Management
 

@@ -1,3 +1,4 @@
+-- See also (paths under ordelo_datamodels/): takeaway_summary also carries ready_at and ready_by: added and explained in restaurant_admin/restaurant_ready_adjust_notices.sql. Accept/decline: restaurant_admin/restaurant_order_decision.sql.
 -- Takeaway summary table and restaurant-confirmation webhook trigger.
 
 CREATE TABLE takeaway_summary (

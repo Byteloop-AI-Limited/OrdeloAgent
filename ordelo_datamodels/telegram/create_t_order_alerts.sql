@@ -1,6 +1,7 @@
 -- =============================================================================================
--- Migration: Telegram order cards - schedule (t_order_alerts), ledger (t_sent_messages), sweep, housekeeping
+-- Feature SQL: Telegram order cards - schedule (t_order_alerts), ledger (t_sent_messages), sweep, housekeeping
 -- =============================================================================================
+-- See also (paths under ordelo_datamodels/): sibling files: restaurant_admin/restaurant_order_decision.sql (accept / decline) and restaurant_admin/restaurant_ready_adjust_notices.sql (Ready / adjust, receipts and notices, which reuse t_sent_messages).
 -- Run once in the Supabase SQL editor (operator step; the implementing agent never runs it).
 -- Repeatable: every statement is CREATE OR REPLACE / IF NOT EXISTS / ON CONFLICT DO NOTHING.
 -- Run it AFTER create_t_inbox.sql, create_t_invites.sql and restaurant_order_decision.sql (it reads

@@ -1,3 +1,4 @@
+-- See also (paths under ordelo_datamodels/): the Ready / +10 / +20 rule that reads dispatch status, with its row locks, is in restaurant_admin/restaurant_ready_adjust_notices.sql.
 /**
 Batch Dispatch Webhook Trigger
 
