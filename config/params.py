@@ -14,6 +14,10 @@ Functions/Classes
   . is_onboarded_rest_ref - Checks whether a rest_ref is onboarded via canonical resolution
   . get_restaurant_base_url_async - Async DB lookup for restaurant base URL (cached, alias-aware)
   . get_restaurant_webhook_url_async - Constructs full webhook URL dynamically, substituting rest_ref
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . ordelo_config (table, ordelo_datamodels/core/ordelo_config.sql): reads, named in code (passed to a query helper)
+(end of database objects)
 """
 
 import asyncio

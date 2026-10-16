@@ -1,11 +1,11 @@
 # Live order test harness (STRK fake orders)
 
-`ordelo_datamodels/misc_sql/test_restaurant_notices.sql` creates fake **STRK-TEST-*** orders so you can walk the whole
+`ordelo_datamodels/test_support/test_restaurant_notices.sql` creates fake **STRK-TEST-*** orders so you can walk the whole
 restaurant-admin journey on WhatsApp **and** Telegram with your own phone, without a real customer, restaurant or rider.
 Use it for any change that touches the order card, the kitchen receipt, Ready / +10 / +20, rider pickup alerts, the
 restaurant notices (auto-accept, delivered, feedback), dispatch or the restaurant webhooks. Written for Phases 7-8 of the
 Telegram bot ([plan](../plans/telegram-phase-7-8-kitchen-actions-and-notices.md)); older, smaller sibling:
-`misc_sql/test_create_t_order_alerts.sql` (order card only).
+`test_support/test_create_t_order_alerts.sql` (order card only).
 
 Run it **one stage at a time** in the Supabase SQL editor. Every stage can be repeated; STAGE 0 wipes earlier STRK test
 orders. Offline tests that keep the script honest: `tests/sql/test_restaurant_notices_script_sql.py` (real tables and

@@ -3,6 +3,16 @@
 The late-authorisation decision and release intent commit before replying to
 Stripe; the sweep recovers crashes. This never initializes a rejected order.
 Retries here apply to payment cancellation, not restaurant-app notifications.
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . food_order (table, restaurant-agents): reads (SQL)
+  . order_customer_event (table, ordelo_datamodels/notifications/order_customer_event.sql): reads (SQL)
+  . payment_event (table, ordelo_datamodels/payment/payment_event.sql): writes (SQL)
+  . thread (table, restaurant-agents): writes (SQL)
+  . web_payment_release (table, ordelo_datamodels/ordering/web_payment_release.sql): reads (SQL), writes (SQL)
+  . web_rate_limit (table, ordelo_datamodels/ordering/web_rate_limit.sql): reads (SQL)
+  . web_session_meta (table, ordelo_datamodels/ordering/web_session_meta.sql): reads (SQL)
+(end of database objects)
 """
 
 import asyncio

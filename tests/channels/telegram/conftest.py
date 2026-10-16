@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from aiogram import Bot
 from aiogram.client.session.base import BaseSession
-from aiogram.methods import AnswerCallbackQuery, DeleteMessage, EditMessageText, SendMessage
+from aiogram.methods import AnswerCallbackQuery, DeleteMessage, EditMessageText, SendMessage, SendRichMessage
 from aiogram.types import Message
 
 
@@ -26,14 +26,14 @@ class RecordingSession(BaseSession):
             err = self.fail(method)
             if err is not None:
                 raise err
-        if isinstance(method, SendMessage):
+        if isinstance(method, (SendMessage, SendRichMessage)):
             self.next_message_id += 1
             return Message.model_validate(
                 {
                     "message_id": self.next_message_id,
                     "date": 0,
                     "chat": {"id": method.chat_id, "type": "private"},
-                    "text": method.text,
+                    "text": getattr(method, "text", None),
                 },
                 context={"bot": bot},
             )
@@ -227,7 +227,7 @@ def inbox_db(monkeypatch):
 
 
 class FakeCardStore:
-    """In-memory mimic of create_t_order_alerts.sql as seen through CardStore (same rules and vocabulary).
+    """In-memory mimic of telegram/t_order_alerts.sql as seen through CardStore (same rules and vocabulary).
 
     orders:  order_number -> Snapshot-shaped dict (status, facts, decided_by, pickup_at, rest_ref, destinations)
     ledger:  list of dict rows like t_sent_messages (id, tcid, message_id, tuid, order_number, card_status, state, taken_for, ...)

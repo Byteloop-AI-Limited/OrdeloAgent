@@ -17,6 +17,14 @@ Payment webhook handler module for Elai Agent
     . init_reconciler_path - Alert-only target of job_payment_init_reconciler()
     . pay_at_restaurant - Logs pay-at-restaurant order data
     . Routes customer notifications through the R1b notifier (always on since R3.1)
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . food_order (table, restaurant-agents): named in code (passed to a query helper), updates
+  . init_delivery (function, ordelo_datamodels/delivery/init_delivery.sql): calls, calls (name passed to a helper)
+  . thread (table, restaurant-agents): writes (SQL)
+Called by database (SQL triggers / pg_cron jobs POST to these routes):
+  . init_reconciler_path(): job_payment_init_reconciler() in ordelo_datamodels/payment/job_payment_init_reconciler.sql via direct calls (Python or by hand)
+(end of database objects)
 """
 
 from utils_common.notify import customer_notifier
@@ -193,7 +201,11 @@ async def _alert_init_missing(orders: List[InitReconcilerOrder]) -> None:
 async def init_reconciler_path(
     request: InitReconcilerRequest, background_tasks: BackgroundTasks
 ):
-    """Called by job_payment_init_reconciler(); alerts overwatch (alert-only mode)."""
+    """Called by job_payment_init_reconciler(); alerts overwatch (alert-only mode).
+
+    Called by database:
+      . job_payment_init_reconciler() in ordelo_datamodels/payment/job_payment_init_reconciler.sql via direct calls (Python or by hand)
+    """
     if request.orders:
         background_tasks.add_task(_alert_init_missing, request.orders)
     return {"alerted": len(request.orders)}

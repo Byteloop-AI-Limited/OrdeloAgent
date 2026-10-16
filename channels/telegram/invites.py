@@ -1,7 +1,7 @@
 """
 Telegram invite storage access (t_invites) for every Ordelo bot.
     . Thin async wrapper over the SQL functions (RPCs). The logic lives in the database, not here.
-    . RPCs and tables are DEFINED in: ordelo_datamodels/telegram/create_t_invites.sql
+    . RPCs and tables are DEFINED in: ordelo_datamodels/telegram/t_invites.sql
       (keep this list and that file's header in sync whenever either changes)
     . Python function -> RPC it calls:
         preview_invite    -> t_invite_preview(p_code, p_bot_key, p_user_id)    read-only classification
@@ -20,6 +20,12 @@ Telegram invite storage access (t_invites) for every Ordelo bot.
     . preview_invite
     . claim_invite
     . linked_restaurants
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . t_claim_invite (function, ordelo_datamodels/telegram/t_invites.sql): calls (name passed to a helper)
+  . t_invite_preview (function, ordelo_datamodels/telegram/t_invites.sql): calls (name passed to a helper)
+  . t_linked_restaurants (function, ordelo_datamodels/telegram/t_invites.sql): calls (name passed to a helper)
+(end of database objects)
 """
 
 import asyncio

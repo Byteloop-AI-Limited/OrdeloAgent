@@ -55,6 +55,28 @@ Delivery webhook handlers for Ordelo delivery system
     . _handle_restaurant_pickuptime_adjusted - Notifies the inflight rider when an admin adjusts the pickup time (skipped after pickup)
     . close_threads - Closes inactive threads and sends goodbye messages
     . Routes customer notifications through the R1b notifier (always on since R3.1)
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . delivery_detail (table, ordelo_datamodels/delivery/delivery_detail.sql): named in code (passed to a query helper)
+  . delivery_dispatch (table, ordelo_datamodels/dispatch/delivery_dispatch.sql): named in code (passed to a query helper), updates, writes (SQL)
+  . delivery_inflight (table, ordelo_datamodels/dispatch/delivery_inflight.sql): named in code (passed to a query helper), writes (SQL)
+  . delivery_summary (table, ordelo_datamodels/delivery/delivery_summary.sql): reads, named in code (passed to a query helper), updates
+  . food_order (table, restaurant-agents): named in code (passed to a query helper)
+  . job_close_thread (function, ordelo_datamodels/agent_threads/job_close_thread.sql): calls (SQL)
+  . make_threads_inactive (function, restaurant-agents): calls (SQL)
+  . ordelo_config (table, ordelo_datamodels/core/ordelo_config.sql): reads, named in code (passed to a query helper)
+  . rider_master (table, ordelo_datamodels/core/rider_master.sql): named in code (passed to a query helper), updates
+Called by database (SQL triggers / pg_cron jobs POST to these routes):
+  . admin_availability_enquiry_hook(): enquire_admin_availability() in ordelo_datamodels/restaurant_admin/enquire_admin_availability.sql via pg_cron 'enquire_admin_availability' (0 11 * * *)
+  . close_threads(): job_close_thread() in ordelo_datamodels/agent_threads/job_close_thread.sql via direct calls (Python or by hand)
+  . delivery_dispatch_hook(): delivery_dispatch_whook_statement() in ordelo_datamodels/dispatch/delivery_dispatch.sql via trigger trigger_delivery_dispatch_whook on delivery_dispatch; fake_delivery_dispatch_whook() in ordelo_datamodels/_orphans/dispatch.sql via nothing (orphan candidate, unused)
+  . delivery_inflight_graph_init_hook(): delivery_inflight_whook() in ordelo_datamodels/dispatch/delivery_inflight.sql via trigger trigger_delivery_inflight_whook on delivery_inflight
+  . delivery_timedout(): delivery_summary_timedout_whook() in ordelo_datamodels/delivery/delivery_summary.sql via trigger trigger_delivery_summary_timedout on delivery_summary
+  . notify_missed_dispatches_hook(): notify_missed_dispatches() in ordelo_datamodels/dispatch/notify_missed_dispatches.sql via called by delivery_inflight_whook()
+  . restaurant_confirmation_flow(): restaurant_confirmation_whook() in ordelo_datamodels/_orphans/delivery.sql via nothing (orphan candidate, unused); restaurant_updates_whook() in ordelo_datamodels/delivery/delivery_summary.sql via trigger trigger_restaurant_updates on delivery_summary
+  . rider_pickup_alerts_hook(): job_rider_pickup_alerts() in ordelo_datamodels/dispatch/job_rider_pickup_alerts.sql via pg_cron 'job_rider_pickup_alert' (*/5 * * * *)
+  . shift_availability_enquiry_hook(): enquire_shift_availability() in ordelo_datamodels/dispatch/enquire_shift_availability.sql via pg_cron 'enquire_shift_availability' (0 11 * * *)
+(end of database objects)
 """
 
 from utils_common.order_management.customer_keys import is_web_customer_key
@@ -448,6 +470,10 @@ async def delivery_dispatch_hook(
         . wa_send_delivery_dispatch_request_to_rider
     Key Functions:
         . delivery_dispatch_hook - schedules dispatch sends in background
+
+    Called by database:
+      . delivery_dispatch_whook_statement() in ordelo_datamodels/dispatch/delivery_dispatch.sql via trigger trigger_delivery_dispatch_whook on delivery_dispatch
+      . fake_delivery_dispatch_whook() in ordelo_datamodels/_orphans/dispatch.sql via nothing (orphan candidate, unused)
     """
     dispatches = payload.get("bulk_dispatch") or []
     if not dispatches:
@@ -547,6 +573,9 @@ async def delivery_inflight_graph_init_hook(
 
     Returns:
         dict: A dictionary with the status of the operation and the original payload data.
+
+    Called by database:
+      . delivery_inflight_whook() in ordelo_datamodels/dispatch/delivery_inflight.sql via trigger trigger_delivery_inflight_whook on delivery_inflight
     """
     # Validate payload and extract payload
     if "delivery_summary" not in payload or payload["delivery_summary"] is None:
@@ -651,6 +680,9 @@ async def notify_missed_dispatches_hook(
 
     Returns:
         dict: A dictionary with the status of the operation and summary data.
+
+    Called by database:
+      . notify_missed_dispatches() in ordelo_datamodels/dispatch/notify_missed_dispatches.sql via called by delivery_inflight_whook()
     """
     # Handle empty or missing missed_dispatches
     if "missed_dispatches" not in payload or not payload["missed_dispatches"]:
@@ -776,6 +808,9 @@ async def delivery_timedout(
 
     Returns:
         dict: Status of the delivery timedout operation.
+
+    Called by database:
+      . delivery_summary_timedout_whook() in ordelo_datamodels/delivery/delivery_summary.sql via trigger trigger_delivery_summary_timedout on delivery_summary
     """
     logger.info("delivery_timedout received")
     delivery_summary_lst = payload.get("delivery_summary", None)
@@ -852,7 +887,7 @@ async def check_rider_allocation_status(
     Processes thread closure requests from the scheduled job_close_thread() function.
     
     Triggered by: Supabase cron job running every 5 minutes
-    Source Function: job_close_thread() in ordelo_datamodels/jobs_n_functions/job_close_thread.sql
+    Source Function: job_close_thread() in ordelo_datamodels/agent_threads/job_close_thread.sql
     
     Workflow:
     1. Receives JSON array of thread records to close
@@ -874,6 +909,10 @@ async def check_rider_allocation_status(
     """,
 )
 async def close_threads(request: Request):
+    """
+    Called by database:
+      . job_close_thread() in ordelo_datamodels/agent_threads/job_close_thread.sql via direct calls (Python or by hand)
+    """
     pool = await pg_settings.get_pool()
     from utils_common.thread_management import ThreadHandler
 
@@ -952,6 +991,9 @@ async def shift_availability_enquiry_hook(
 
     Returns:
         dict: Status of the operation and count of riders to be processed
+
+    Called by database:
+      . enquire_shift_availability() in ordelo_datamodels/dispatch/enquire_shift_availability.sql via pg_cron 'enquire_shift_availability' (0 11 * * *)
     """
     logger.info(f"shift_availability_enquiry_hook received: {payload}")
 
@@ -1042,6 +1084,9 @@ async def admin_availability_enquiry_hook(
 
     Returns:
         dict: Status of the operation and count of unique admins to be processed
+
+    Called by database:
+      . enquire_admin_availability() in ordelo_datamodels/restaurant_admin/enquire_admin_availability.sql via pg_cron 'enquire_admin_availability' (0 11 * * *)
     """
     logger.info(f"admin_availability_enquiry_hook received: {payload}")
 
@@ -1111,6 +1156,9 @@ async def rider_pickup_alerts_hook(
 
     Returns:
         dict: Status of the operation and count of alerts scheduled
+
+    Called by database:
+      . job_rider_pickup_alerts() in ordelo_datamodels/dispatch/job_rider_pickup_alerts.sql via pg_cron 'job_rider_pickup_alert' (*/5 * * * *)
     """
     logger.info(f"rider_pickup_alerts_hook received: {payload}")
 
@@ -1580,6 +1628,10 @@ async def restaurant_confirmation_flow(
 
     Returns:
         dict: Status of the operation and order_number (handlers run in background)
+
+    Called by database:
+      . restaurant_confirmation_whook() in ordelo_datamodels/_orphans/delivery.sql via nothing (orphan candidate, unused)
+      . restaurant_updates_whook() in ordelo_datamodels/delivery/delivery_summary.sql via trigger trigger_restaurant_updates on delivery_summary
     """
     try:
         # Parse payload into Pydantic models

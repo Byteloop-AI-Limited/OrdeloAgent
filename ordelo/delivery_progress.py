@@ -15,6 +15,11 @@ Delivery-progress gate for admin-triggered rider actions
     . DeliveryProgress - The four possible answers; only AWAITING_PICKUP proceeds
     . GATE_REPLIES - Shared admin-facing reply text per DeliveryProgress value
     . check_delivery_progress - Resolves DeliveryProgress (+ the inflight row) for an order/rider
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . delivery_dispatch (table, ordelo_datamodels/dispatch/delivery_dispatch.sql): reads, named in code (passed to a query helper)
+  . delivery_inflight (table, ordelo_datamodels/dispatch/delivery_inflight.sql): reads, named in code (passed to a query helper)
+(end of database objects)
 """
 
 # %%

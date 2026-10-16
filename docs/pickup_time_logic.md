@@ -33,7 +33,7 @@ receipt.
 
 ### Trigger chain (DB → API handler)
 
-- Source trigger is in `ordelo_datamodels/summary.sql`:
+- Source trigger is in `ordelo_datamodels/delivery/delivery_summary.sql`:
   - `trigger_restaurant_updates` on `delivery_summary` (`AFTER INSERT OR UPDATE OF restaurant_confirmation_status`)
   - trigger function `restaurant_updates_whook()` posts to `/delivery-hooks/restaurant-confirmation-request`
 - In `watomation/routers/delivery_hooks.py`, `restaurant_confirmation_flow()` routes by `trigger_reason`.
@@ -57,7 +57,7 @@ receipt.
 
 ### 3) Timeout path if no pickup time selected
 
-- `ordelo_datamodels/jobs_n_functions/process_restaurant_confirmation.sql` runs every 5s.
+- `ordelo_datamodels/restaurant_admin/process_restaurant_confirmation.sql` runs every 5s.
 - If `restaurant_confirmation_status` is `restaurant_unconfirmed` or `restaurant_accept` and `pickup_time IS NULL` past timeout, it sets `restaurant_confirmation_status` to `restaurant_timedout`.
 - Timeout uses config:
   - `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME`
@@ -107,7 +107,7 @@ This replaces an earlier guard, `is_food_already_picked_up()` (`ordelo/agents/ag
 ### 6) Downstream use
 
 - `pickup_time` is included in rider dispatch payload/message flow (see `docs/dispatch_flow.md`).
-- SQL payload wiring for restaurant webhook includes `pickup_time` in `ordelo_datamodels/summary.sql` (`restaurant_updates_whook()` JSON build).
+- SQL payload wiring for restaurant webhook includes `pickup_time` in `ordelo_datamodels/delivery/delivery_summary.sql` (`restaurant_updates_whook()` JSON build).
 - Once inflight, the admin receives an order receipt (`admin_order_reciept()` in `wa_senders.py`) with a "Ready - Notify Rider" button (`/AdminCollectionReady`). Tapping it invokes `admin_collection_ready()` in `on_callback_wa_handler.py`, which calls `run_rider_agent_w_custom_msg()` to trigger `notify_food_ready_for_pickup` on the rider agent — unless the delivery-progress gate above reports the order is no longer inflight or the food is already collected. The same gate protects the `/delivery-hooks/notify-food-ready-for-pickup/{recipient}` webhook, called from the sibling `restaurant-agents` repo's `admin_collection_ready`; that caller fires a bare `httpx` POST and never inspects the response, so an unresolvable gate read also returns a "skipped" `200` there (`action: "unknown"`) rather than a 5xx nobody would act on. See `docs/callback_handlers.md` for details.
 
 ---
@@ -123,7 +123,7 @@ A `takeaway_summary` row is created by `init_takeaway_summary()`, which is calle
 
 ### Trigger chain (DB → API handler)
 
-Three triggers exist on `takeaway_summary` in `ordelo_datamodels/takeaway_summary.sql`:
+Three triggers exist on `takeaway_summary` in `ordelo_datamodels/takeaway/takeaway_summary.sql`:
 
 1. **`trigger_takeaway_restaurant_updates`** — fires on `INSERT OR UPDATE OF restaurant_confirmation_status`
    - trigger function `takeaway_restaurant_updates_whook()` posts to `/takeaway-hooks/restaurant-confirmation-request`

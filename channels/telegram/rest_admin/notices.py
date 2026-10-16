@@ -15,6 +15,11 @@ Plain restaurant notices on Telegram (auto-accepted, rider pickup alert, deliver
   Classes/Functions:
     . Notices
     . NoticeStore
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . t_notice_sent (function, ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql): calls (name passed to a helper)
+  . t_notice_targets (function, ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql): calls (name passed to a helper)
+(end of database objects)
 """
 
 import asyncio

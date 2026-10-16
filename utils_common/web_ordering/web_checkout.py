@@ -3,6 +3,16 @@
 Order + request + address snapshot commit atomically before external payment I/O.
 A transaction advisory lock serializes payment-URL retries across processes.
 Client unit prices/discounts remain the explicitly accepted D8 risk.
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . create_food_order_with_items (function, ordelo_datamodels/ordering/create_food_order_with_items.sql): calls (SQL)
+  . create_thread (function, restaurant-agents): calls (SQL)
+  . customer_master (table, ordelo_datamodels/core/customer_master.sql): writes (SQL)
+  . food_order (table, restaurant-agents): reads (SQL)
+  . get_next_daily_seq (function, restaurant-agents): calls (SQL)
+  . web_order_request (table, ordelo_datamodels/ordering/web_order_request.sql): reads (SQL), writes (SQL)
+  . web_session_meta (table, ordelo_datamodels/ordering/web_session_meta.sql): reads (SQL), writes (SQL)
+(end of database objects)
 """
 
 import asyncio

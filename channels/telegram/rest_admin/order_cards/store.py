@@ -1,6 +1,7 @@
-"""CardStore: the order-card side of the database (all calls are RPCs, see create_t_order_alerts.sql).
+"""CardStore: the order-card side of the database (all calls are RPCs, see ordelo_datamodels/telegram/t_order_alerts.sql
+and telegram/t_sent_messages.sql).
 
-    . RPCs and tables are DEFINED in: ordelo_datamodels/telegram/create_t_order_alerts.sql
+    . RPCs and tables are DEFINED in: ordelo_datamodels/telegram/t_order_alerts.sql
       (keep this list and that file's header in sync whenever either changes)
     . Python method -> RPC it calls:
         snapshot          -> t_order_card_snapshot(p_bot_key, p_order_number, p_order_type)
@@ -18,6 +19,15 @@
   Classes/Functions:
     . CardCopy, SentRecord
     . CardStore
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . t_order_card_mark (function, ordelo_datamodels/telegram/t_sent_messages.sql): calls (name passed to a helper)
+  . t_order_card_sent (function, ordelo_datamodels/telegram/t_sent_messages.sql): calls (name passed to a helper)
+  . t_order_card_snapshot (function, ordelo_datamodels/telegram/t_order_alerts.sql): calls (name passed to a helper)
+  . t_order_cards_take (function, ordelo_datamodels/telegram/t_order_alerts.sql): calls (name passed to a helper)
+  . t_order_decide (function, ordelo_datamodels/restaurant_admin/restaurant_order_decision.sql): calls (name passed to a helper)
+  . t_order_set_pickup (function, ordelo_datamodels/restaurant_admin/restaurant_order_decision.sql): calls (name passed to a helper)
+(end of database objects)
 """
 
 import asyncio

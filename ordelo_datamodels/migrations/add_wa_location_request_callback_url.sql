@@ -1,3 +1,9 @@
+-- MIGRATION (history; do not edit the statements below)
+-- Applied to live: Applied: every object it creates exists live (checked 2026-10-16).
+-- Current definitions now live in: rider_location/wa_location.sql
+-- Purpose: callback_url on wa_location_request (caller-supplied routing).
+-- The feature files above are the current truth; this file only records the one-off change.
+
 -- Forward-compatible schema update for databases where the initial WaLocation
 -- migration was already applied before caller-supplied callbacks were added.
 -- New requests require callback_url in application code; historical rows stay

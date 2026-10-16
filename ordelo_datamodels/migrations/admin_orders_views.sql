@@ -1,3 +1,9 @@
+-- MIGRATION (history; do not edit the statements below)
+-- Applied to live: Applied: every object it creates exists live (checked 2026-10-16).
+-- Current definitions now live in: admin_dashboard/v_admin_orders.sql
+-- Purpose: First version of the admin dashboard views.
+-- The feature files above are the current truth; this file only records the one-off change.
+
 -- Admin dashboard views
 -- Run admin_orders_indexes.sql first.
 -- All statements use CREATE OR REPLACE VIEW so this script is idempotent.

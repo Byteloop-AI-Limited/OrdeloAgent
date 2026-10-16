@@ -89,7 +89,7 @@ Background tasks publish `payment_authorised`, deactivate the WEB thread and cal
 
 Ingress remains unsigned by accepted D23. Inbox deduplication protects replays, not authenticity. The wider signed-ingress/provider-verification recommendation in the separate proposal is not implemented by this path.
 
-Sources: [payment_hooks.py](../watomation/routers/payment_hooks.py), [record_payment_authorised.sql](../ordelo_datamodels/jobs_n_functions/record_payment_authorised.sql), [job_payment_init_reconciler.sql](../ordelo_datamodels/jobs_n_functions/job_payment_init_reconciler.sql).
+Sources: [payment_hooks.py](../watomation/routers/payment_hooks.py), [record_payment_authorised.sql](../ordelo_datamodels/payment/record_payment_authorised.sql), [job_payment_init_reconciler.sql](../ordelo_datamodels/payment/job_payment_init_reconciler.sql).
 
 ### 7A. Delivery: restaurant, rider, capture, completion
 
@@ -101,7 +101,7 @@ No rider found triggers cancellation handling; failed web cancellation queues `w
 
 Restaurant decline and timeout are mode-specific shared handlers. Do not infer that every delivery decline uses collection's cancellation path. Existing restaurant timeout behavior can auto-accept; the proposal's default cancel/release-on-timeout policy was not adopted wholesale.
 
-Sources: [delivery_hooks.py](../watomation/routers/delivery_hooks.py), [init_delivery.sql](../ordelo_datamodels/jobs_n_functions/init_delivery.sql), [delivery process](delivery_process.md), [rider_agent.py](../ordelo/agents/rider_agent.py).
+Sources: [delivery_hooks.py](../watomation/routers/delivery_hooks.py), [init_delivery.sql](../ordelo_datamodels/delivery/init_delivery.sql), [delivery process](delivery_process.md), [rider_agent.py](../ordelo/agents/rider_agent.py).
 
 ### 7B. Collection: pickup time, capture, ready, collected
 
@@ -109,7 +109,7 @@ Sources: [delivery_hooks.py](../watomation/routers/delivery_hooks.py), [init_del
 
 A collection decline records the cancellation result. A failed provider call queues recovery instead of asserting that payment was released. Confirmed capture publishes `payment_captured`. The accepted plan's 6 October handover still reports a payment-service deployment/storage problem for manual collection capture; this review does not verify that it has since been resolved.
 
-Sources: [takeaway_hooks.py](../watomation/routers/takeaway_hooks.py), [takeaway_summary.sql](../ordelo_datamodels/takeaway_summary.sql), [init_takeaway.sql](../ordelo_datamodels/jobs_n_functions/init_takeaway.sql), [takeaway flow](takeaway_flow.md).
+Sources: [takeaway_hooks.py](../watomation/routers/takeaway_hooks.py), [takeaway/takeaway_summary.sql](../ordelo_datamodels/takeaway/takeaway_summary.sql), [init_takeaway.sql](../ordelo_datamodels/takeaway/init_takeaway.sql), [takeaway flow](takeaway_flow.md).
 
 ### 8. Track through a private customer projection
 
@@ -158,7 +158,7 @@ R3 enables RLS and revokes anon/authenticated access to these six tables. Server
 | `order_customer_event` | PK `id`; UNIQUE `(order_number,event_key)` | Durable semantic progress/timeline, safe payload envelope, timestamps; notifier writes, customer view reads |
 | `notification_outbox` | PK `id`; FKs event/subscription; UNIQUE `(event_id,subscription_id)` | Per-subscription dispatch bookkeeping; claim before I/O. Restaurant-app delivery is attempted once; web-page delivery is a no-op |
 
-Sources: [FoodOrder SQL](../utils_common/order_management/food_order.sql), [R1 migration](../ordelo_datamodels/migrations/ordelo_agg_r1.sql), [payment_event.sql](../ordelo_datamodels/payment_event.sql), [notification DDL](../ordelo_datamodels/order_notification_customer_event_outbox.sql), [thread DDL](../utils_common/thread_management/thread_mgmnt_ddl.sql), [master data](../ordelo_datamodels/masterdata.sql).
+Sources: [FoodOrder SQL](../utils_common/order_management/food_order.sql), [R1 migration](../ordelo_datamodels/migrations/ordelo_agg_r1.sql), [payment/payment_event.sql](../ordelo_datamodels/payment/payment_event.sql), [notification DDL](../ordelo_datamodels/notifications/notification_outbox.sql), [thread DDL](../utils_common/thread_management/thread_mgmnt_ddl.sql), [master data](../ordelo_datamodels/core/restaurant_master.sql).
 
 ### Fulfilment and supporting records
 
@@ -178,7 +178,7 @@ Sources: [FoodOrder SQL](../utils_common/order_management/food_order.sql), [R1 m
 | `v_admin_orders` | View joining order information | Admin visibility; R3 appends origin_channel. Separate admin auth/session tables are not guest access grants |
 | `cust_rest_map` | Customer/restaurant relationship | Existing WhatsApp marketing/profile association; this web checkout path does not populate it or grant marketing consent |
 
-Sources: [detail](../ordelo_datamodels/detail.sql), [summary](../ordelo_datamodels/summary.sql), [dispatch](../ordelo_datamodels/dispatch.sql), [inflight](../ordelo_datamodels/inflight.sql), [takeaway](../ordelo_datamodels/takeaway_summary.sql), [location](../ordelo_datamodels/location.sql), [WA location](../ordelo_datamodels/wa_location.sql), [admin view](../ordelo_datamodels/migrations/admin_orders_views.sql).
+Sources: [detail](../ordelo_datamodels/delivery/delivery_detail.sql), [summary](../ordelo_datamodels/delivery/delivery_summary.sql), [dispatch](../ordelo_datamodels/dispatch/delivery_dispatch.sql), [inflight](../ordelo_datamodels/dispatch/delivery_inflight.sql), [takeaway](../ordelo_datamodels/takeaway/takeaway_summary.sql), [location](../ordelo_datamodels/rider_location/rider_location.sql), [WA location](../ordelo_datamodels/rider_location/wa_location.sql), [admin view](../ordelo_datamodels/migrations/admin_orders_views.sql).
 
 `payment_details` is reported in the accepted plan as **payment-service storage**, not a new table owned by this web package. Likewise LangGraph checkpoints belong to conversation/rider infrastructure, not browser checkout state. No new browser checkout calls create a customer agent checkpoint.
 

@@ -16,6 +16,10 @@ Functions/Classes:
   . update_cust_rest_map - POST /update-cust-rest-map
   . submit_restaurant_feedback - POST /restaurant-feedback
     . Routes customer notifications through the R1b notifier (always on since R3.1)
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . customer_master (table, ordelo_datamodels/core/customer_master.sql): named in code (passed to a query helper), updates
+(end of database objects)
 """
 
 from utils_common.notify import customer_notifier

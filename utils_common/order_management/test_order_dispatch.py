@@ -3,6 +3,11 @@
 Order markers are looked up by order number. Overwatch is an operational rider
 audience, never a condition on the ordering customer. Reads fail closed and
 membership is refreshed for each send rather than using the alerts cache.
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . ordelo_config (table, ordelo_datamodels/core/ordelo_config.sql): reads, named in code (passed to a query helper)
+  . order_has_test_item (function, ordelo_datamodels/ordering/order_has_test_item.sql): calls, calls (name passed to a helper)
+(end of database objects)
 """
 
 import asyncio

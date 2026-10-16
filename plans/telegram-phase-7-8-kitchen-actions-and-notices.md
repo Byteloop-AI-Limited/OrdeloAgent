@@ -65,12 +65,12 @@ below, no new ones, and every new test passing.
 | Isolated database | `PGTZ=UTC ORDELO_TEST_DB_URI=postgresql://postgres@localhost:5433/postgres pytest -q tests/sql` | **133 passed, 7 failed** | all 7 in `tests/sql/test_order_test_script_sql.py`, see step 0 |
 
 Why the 7 fail today (committed in `e1d55c6`, not caused by this work):
-1. `ordelo_datamodels/misc_sql/test_create_t_order_alerts.sql` now starts with an **unconditional**
+1. `ordelo_datamodels/test_support/test_create_t_order_alerts.sql` now starts with an **unconditional**
    `INSERT INTO public.t_invites ... status 'claimed'` (the old "Fix B" shortcut). The test fixture already has a claimed STRK
    invite for tuid 111, so it violates `t_invites_one_claim_per_user_rest`. On the shared database it adds a new claimed
    STRK invite row on every run.
 2. Its final `SELECT` reads `s.pickup_date`, which `tests/sql/minimal_schema.sql` does not have (the live table does:
-   `ordelo_datamodels/summary.sql`, `pickup_date DATE NOT NULL DEFAULT CURRENT_DATE`).
+   `ordelo_datamodels/delivery/delivery_summary.sql`, `pickup_date DATE NOT NULL DEFAULT CURRENT_DATE`).
 
 Also found: two SQL tests (`test_order_taps_sql.py::test_pickup_states`,
 `test_restaurant_decision_sql.py::test_pickup_twice_is_already_set_and_keeps_first_time`) fail when the Postgres session time
@@ -271,8 +271,8 @@ It never redefines a function owned by another file.
 -- WHY (plans/telegram-phase-7-8-kitchen-actions-and-notices.md, D28–D38)
 --   ...
 -- HOW THE PIECES FIT TOGETHER
---   Tables used (defined elsewhere): delivery_summary (summary.sql), takeaway_summary (takeaway_summary.sql),
---     delivery_inflight (inflight.sql), delivery_dispatch (dispatch.sql), rider_master (masterdata.sql), food_order /
+--   Tables used (defined elsewhere): delivery_summary (delivery/delivery_summary.sql), takeaway_summary (takeaway/takeaway_summary.sql),
+--     delivery_inflight (dispatch/delivery_inflight.sql), delivery_dispatch (dispatch/delivery_dispatch.sql), rider_master (core/restaurant_master.sql), food_order /
 --     order_item (live tables), t_invites (create_t_invites.sql), t_sent_messages (create_t_order_alerts.sql).
 --   Triggers (unchanged): trigger_restaurant_updates is AFTER UPDATE OF restaurant_confirmation_status, so the adjust
 --     UPDATE (which sets it to 'restaurant_pickuptime_adjusted') still POSTs /delivery-hooks/restaurant-confirmation-request
@@ -791,7 +791,7 @@ Uses the existing `tests/sql/conftest.py`. Add `"restaurant_ready_adjust_notices
 - the real columns `food_order.notes / small_order_fee / payment_status`, `order_item.price / modifications`, and
   `delivery_summary.pickup_date / customer_address / rest_confirmation_code`.
 
-Copy the column types from the live DDL with `ordelo_datamodels/misc_sql/get_ddl_for_table.sql`. That query is read-only; the
+Copy the column types from the live DDL with `ordelo_datamodels/test_support/get_ddl_for_table.sql`. That query is read-only; the
 owner runs it.
 
 | Test | Proves |
@@ -845,7 +845,7 @@ Runs every stage of the §7 script on the isolated database. It checks:
 
 ---
 
-## 7. Fake-row script: `ordelo_datamodels/misc_sql/test_restaurant_notices.sql`
+## 7. Fake-row script: `ordelo_datamodels/test_support/test_restaurant_notices.sql`
 
 Re-runnable against the shared database. You run it one block at a time in the Supabase SQL editor; each block is marked
 `-- ===== STAGE n =====`. It follows the house style of `test_create_t_order_alerts.sql`: header, WHAT IT TOUCHES, PREREQUISITES,

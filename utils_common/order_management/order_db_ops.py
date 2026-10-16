@@ -12,6 +12,12 @@ Order database operations and models (legacy version)
     . insert_order
     . insert_order_items
     . create_payment_link
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . foodorder (table, restaurant-agents): reads (SQL), writes (SQL)
+  . get_next_daily_seq (function, restaurant-agents): calls (SQL), calls (name passed to a helper)
+  . orderitem (table, restaurant-agents): reads (SQL), writes (SQL)
+(end of database objects)
 """
 
 # %%

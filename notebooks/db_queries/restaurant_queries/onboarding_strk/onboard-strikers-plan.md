@@ -38,8 +38,8 @@ descriptions, printed V/VE markers, and explicit option text. The section counts
 are Warm Up 6; Kick Off 13; Main Event 8; Star Burgers 3; On The Green 4;
 Pass The Pizza 5; Off Side 4; Sweet Victory 6.
 
-`menu.sql` creates `public.strk_menu` with the shared schema from
-`ordelo_datamodels/menu.sql`. Numeric IDs are proposed local identifiers.
+`core/menus.sql` creates `public.strk_menu` with the shared schema from
+`ordelo_datamodels/core/menus.sql`. Numeric IDs are proposed local identifiers.
 SKUs follow the user's item-name convention: trim and lowercase the name,
 replace runs of spaces/special characters with one underscore, and remove edge
 underscores. Examples: `Fish & Chips` → `fish_chips`; `Half-Time Skinny Fries` →
@@ -108,7 +108,7 @@ Bundle: `notebooks/db_queries/restaurant_queries/onboarding_strk/`.
 3. Apply the reviewed pause in `02_ordelo_config_strk_keys.sql` before registering
    a public backend/frontend route. Other timing/discount values remain proposals
    requiring decisions, not implicit inherited CRMS settings.
-4. Create menu table via `menu.sql`, then run reviewed `menu_seed.sql` only for a
+4. Create menu table via `core/menus.sql`, then run reviewed `menu_seed.sql` only for a
    fresh empty table. The seed refuses a nonempty table and does not overwrite it.
    Use `menu_verify.sql` to check counts, prices, duplicates and option structure.
 5. Update backend/frontend registration after channel/identity confirmation;

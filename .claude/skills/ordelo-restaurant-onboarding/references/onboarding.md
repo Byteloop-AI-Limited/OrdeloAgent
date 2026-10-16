@@ -12,7 +12,7 @@ Read the relevant files before preparing a new restaurant:
 | `docs/onboarding-web-only-restaurant.md` | Existing reusable runbook; contains obsolete gates described below. |
 | `notebooks/db_queries/restaurant_queries/onboarding_crms/` | Worked SQL examples: `00_preflight_readonly`, `01_restaurant_master`, `02_ordelo_config_crms_keys`, `03_prod_test_enable`, `04_go_live`, `99_rollback`. |
 | `onboarding_crms/result_export.json` in that folder | Historical query output, not current database state or an instruction to restore those keys. |
-| `ordelo_datamodels/menu.sql` | CRMS menu schema to adapt into the new restaurant's `menu.sql`. |
+| `ordelo_datamodels/core/menus.sql` | CRMS menu schema to adapt into the new restaurant's `core/menus.sql`. |
 | `utils_common/web_ordering/{common,availability,monitoring}.py`, `config/feature_flags.py` | Current registry, availability, pause and price-audit contracts. |
 | `docs/test-orders.md` and `utils_common/order_management/test_order_dispatch.py` | Current per-order payment selection and test rider eligibility. |
 | `ordelo_datamodels/restaurant_master_pymodel.py`, `watomation/fapp_ordelo_agent.py` | Restaurant cache and `/internal/cache/reset` contract. |
@@ -67,7 +67,7 @@ forming a SQL table name. Do not blindly replace strings in historical SQL.
 | `00_preflight_readonly.sql` | Check `rest_ref`/`rest_id` collisions, actual schema/constraints, existing restaurant keys, menu-table existence, and order/dependency history if resuming onboarding. Use `to_regclass`/catalog checks before issuing queries against a missing menu table. |
 | `01_restaurant_master.sql` | Insert the agreed row with columns below, `RETURNING` and a verification query. If a row already exists, compare values and update only the agreed onboarding fields; a blind upsert can overwrite operational settings. |
 | `02_ordelo_config_{slug}_keys.sql` | Insert supported per-restaurant keys, initially paused, with scoped conflict handling and verification. |
-| `menu.sql` | Create `public.{slug}_menu` from the current shared schema, adapting restaurant-specific defaults; add menu verification queries. |
+| `core/menus.sql` | Create `public.{slug}_menu` from the current shared schema, adapting restaurant-specific defaults; add menu verification queries. |
 | `menu_seed.sql` (when data is supplied) | Populate/import confirmed menu items using actual identifiers and consumer-compatible JSON. Establish the repeat-run strategy from real constraints; the reference schema has no primary/unique key. |
 | `03_prod_test_enable.sql` | Unpause only for an authorized test window, verify the pause state and inspect recent orders/items/payment mode. Include a separate re-pause statement. This file does not make normal baskets test orders. |
 | `04_go_live.sql` | Set confirmed operational admins and timeout, verify prerequisites, then unpause as a separate final statement. Omit executable writes for any unresolved value. |
@@ -112,9 +112,9 @@ Use `(config_key, config_value, description)` and update `updated_at` when chang
 existing keys. Confirm required keys for the requested modes. Keep discounts aligned
 with frontend offers. Do not add `{REF}_APP_URL` for web-only onboarding.
 
-### Creating menu.sql and menu data
+### Creating core/menus.sql and menu data
 
-The shared `ordelo_datamodels/menu.sql` currently defines:
+The shared `ordelo_datamodels/core/menus.sql` currently defines:
 
 ```sql
 CREATE TABLE public.crms_menu (

@@ -8,7 +8,7 @@ The job selects stale active restaurant threads, reads retention from the latest
 
 ## Scheduled database job
 
-**Location:** `OrdeloAgent/ordelo_datamodels/jobs_n_functions/job_terminate_stale_active_threads.sql`
+**Location:** `OrdeloAgent/ordelo_datamodels/agent_threads/job_terminate_stale_active_threads.sql`
 
 For each active thread with a non-null `last_access_dtts`:
 

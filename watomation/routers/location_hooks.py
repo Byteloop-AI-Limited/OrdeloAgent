@@ -16,6 +16,14 @@ Location hooks router for OrdeloAgent FastAPI service.
     . notify_rider_location_event - Handles rider location events
     . notify_rider_null_or_outdated_location - Notifies riders about tracking issues
     . Routes customer notifications through the R1b notifier (always on since R3.1)
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . delivery_summary (table, ordelo_datamodels/delivery/delivery_summary.sql): reads, named in code (passed to a query helper)
+  . rider_location_event (table, ordelo_datamodels/rider_location/rider_location_event.sql): writes (SQL)
+Called by database (SQL triggers / pg_cron jobs POST to these routes):
+  . notify_rider_location_event(): rider_location_event_update() in ordelo_datamodels/rider_location/rider_location_event.sql via trigger trigger_rider_location_event_update on rider_location_event
+  . notify_rider_null_or_outdated_location(): job_null_or_outdated_location() in ordelo_datamodels/rider_location/job_null_or_outdated_location.sql via pg_cron 'job_null_or_outdated_location' (* * * * *, inactive)
+(end of database objects)
 """
 
 from utils_common.notify import customer_notifier
@@ -257,6 +265,9 @@ async def notify_rider_location_event(
 ):
     """
     Post requests are made via db webhooks based on the updates made in `process_location_transition`
+
+    Called by database:
+      . rider_location_event_update() in ordelo_datamodels/rider_location/rider_location_event.sql via trigger trigger_rider_location_event_update on rider_location_event
     """
     payload = await request.json()
     # Extract the payload
@@ -368,6 +379,9 @@ async def notify_rider_location_event(
 async def notify_rider_null_or_outdated_location(request: Request):
     """
     Post requests are made via db webhooks based on the updates made in `process_location_transition`
+
+    Called by database:
+      . job_null_or_outdated_location() in ordelo_datamodels/rider_location/job_null_or_outdated_location.sql via pg_cron 'job_null_or_outdated_location' (* * * * *, inactive)
     """
     if not wa_location_settings.legacy_owntracks_prompts_enabled:
         logger.info("Ignoring legacy OwnTracks rider-prompt job; feature flag is disabled")

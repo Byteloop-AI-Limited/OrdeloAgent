@@ -2,6 +2,10 @@
 
 Existing WhatsApp minimum-spend and opening-hour paths are unchanged. Web uses
 fresh restaurant/config reads so a pause takes effect without a deployment.
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . restaurant_master (table, ordelo_datamodels/core/restaurant_master.sql): reads (SQL)
+(end of database objects)
 """
 
 import asyncio

@@ -10,6 +10,10 @@ Functions:
   . flag_enabled - async check of one flag (Supabase call runs in a thread)
   . config_str - async read of a single ordelo_config string value (None when unset)
   . reset_feature_flag_cache - clear the cache (tests, ops)
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . ordelo_config (table, ordelo_datamodels/core/ordelo_config.sql): reads, named in code (passed to a query helper)
+(end of database objects)
 """
 
 import asyncio

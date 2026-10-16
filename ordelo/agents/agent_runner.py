@@ -25,6 +25,11 @@ Core agent runner for Ordelo's delivery workflow system
     . debug_state_values - Returns state values for debugging
     . job_end_stale_conversations - Closes stale active threads
     . run_rider_agent_repl - Async console REPL for local testing
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . get_latest_state (function, ordelo_datamodels/agent_threads/get_latest_state.sql): calls, calls (name passed to a helper)
+  . thread (table, restaurant-agents): reads, named in code (passed to a query helper)
+(end of database objects)
 """
 
 # %%

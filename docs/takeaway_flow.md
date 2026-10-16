@@ -228,7 +228,7 @@ When an admin selects a pickup time:
 
 **Triggers:** `trigger_takeaway_pickup_time_set` on NULL-to-non-NULL UPDATE and `trigger_takeaway_pickup_time_insert` on configured-auto non-null INSERT.
 
-**Source Function:** `takeaway_pickup_time_whook()` in `ordelo_datamodels/takeaway_summary.sql`
+**Source Function:** `takeaway_pickup_time_whook()` in `ordelo_datamodels/takeaway/takeaway_summary.sql`
 
 **Webhook:** `POST /takeaway-hooks/pickup-time-updated`
 
