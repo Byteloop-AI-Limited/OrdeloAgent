@@ -9,6 +9,8 @@
 # - Webhook registration lives in tgram_setup_bot.py. This notebook only sends and inspects.
 # - This talks to the REAL Bot API. Anything you send is really sent.
 # - The dev bot is shared with tgram_starter; see tgram_setup_bot.py before changing its webhook.
+# - Interactive versions of these demos: send /scratchpad to the main restaurant-admin bot.
+#   Router: channels/telegram/rest_admin/scratchpad.py (mounted in channels/telegram/bots.py).
 
 # %% 1. Setup: imports, settings, bot
 import sys
@@ -214,6 +216,16 @@ kb = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="Ping", callback_data="demo:menu")],
 ])
 await bot.send_message(CHAT_ID, "Custom keyboard", reply_markup=kb)
+
+# %% 7a. Buttons INSIDE the text (Telegram 13 / aiogram 3.31.0)
+# Unlike cell 7's keyboard below the message, RichTextButton sits between words.
+# https://docs.aiogram.dev/en/v3.31.0/api/types/rich_text_button.html
+# https://docs.aiogram.dev/en/v3.31.0/api/methods/edit_message_text.html
+# The main bot's scratchpad router handles the taps through its existing webhook.
+# Run the app with the new router mounted, then send /scratchpad → Buttons inside text.
+from channels.telegram.rest_admin.scratchpad import rich_button_message  # noqa: E402
+
+await bot.send_rich_message(chat_id=CHAT_ID, rich_message=rich_button_message())
 
 # %% 8. Reply keyboard (location/contact request) and removing it
 rk = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="📍 Share location", request_location=True)]],

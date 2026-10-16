@@ -97,6 +97,14 @@ BEGIN
     END LOOP;
 END $$;
 
+update rider_master
+set is_in_shift = true,
+    town = 'dummy',
+    vehicle_type = 'bicycle'
+where rider_name = 'Lohith';
+
+
+
 INSERT INTO public.t_invites (rest_ref, phone_number, status, claimed_at, telegram_user_id, telegram_chat_id, telegram_first_name)
 SELECT 'STRK', '447448440754', 'claimed', now(), telegram_user_id, telegram_chat_id, telegram_first_name
   FROM public.t_invites WHERE status = 'claimed' AND telegram_user_id IS NOT NULL
