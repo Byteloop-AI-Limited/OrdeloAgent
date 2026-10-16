@@ -2,6 +2,13 @@
 
 This alerts on client-computed prices; it does not alter the accepted D8 pricing
 contract. Missing menu matches are reported as unverifiable, never as valid.
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . food_order (table, restaurant-agents): reads (SQL)
+  . ordelo_config (table, ordelo_datamodels/core/ordelo_config.sql): reads (SQL)
+  . order_item (table, restaurant-agents): reads (SQL)
+  . web_monitor_run (table, ordelo_datamodels/ordering/web_monitor_run.sql): reads (SQL), writes (SQL)
+(end of database objects)
 """
 
 from decimal import Decimal

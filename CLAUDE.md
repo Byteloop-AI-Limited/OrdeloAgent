@@ -114,10 +114,10 @@ Full details in `docs/delivery_process.md`.
 
 ### Database-backed logic: RPC pattern and cross-references (good practice)
 
-When a feature needs rules or multi-step changes in the database, put that logic in a **Postgres function (RPC)** and keep the Python thin. Reference example: `channels/telegram/invites.py` wraps `t_invite_preview`, `t_claim_invite` and `t_linked_restaurants`, all defined in `ordelo_datamodels/telegram/create_t_invites.sql` (see [`docs/telegram-layer.md`](docs/telegram-layer.md)).
+When a feature needs rules or multi-step changes in the database, put that logic in a **Postgres function (RPC)** and keep the Python thin. Reference example: `channels/telegram/invites.py` wraps `t_invite_preview`, `t_claim_invite` and `t_linked_restaurants`, all defined in `ordelo_datamodels/telegram/t_invites.sql` (see [`docs/telegram-layer.md`](docs/telegram-layer.md)).
 
 1. **RPC owns the logic.** Atomic, race-safe rules (claims, status changes, uniqueness) are one SQL function returning `jsonb` with a `result` string, not a read-modify-write sequence in Python.
-2. **Define RPCs where the tables are defined.** The table(s), view(s), RPCs, grants and operator SQL live in the same SQL file, and that file lives in a **feature folder** of `ordelo_datamodels/` (`telegram/` for the `t_` layer, `restaurant_admin/` for the restaurant kitchen actions; add a folder for a new feature). It is the authoritative description of how the feature works in the database, so it is never filed under `migrations/`, which is only for one-off schema changes. Give the file a header: what it adds, how the pieces fit with other tables and services, lifecycle, security model, not-yet-done. Keep it idempotent.
+2. **Define RPCs where the tables are defined.** The table(s), view(s), RPCs, grants and operator SQL live in the same capability folder of `ordelo_datamodels/` (a workflow RPC gets its own file; `telegram/` for the `t_` layer, `restaurant_admin/` for the kitchen actions; add a folder for a new feature). That file is the authoritative description of how the feature works in the database and always shows the current live shape; `migrations/` is only history for one-off schema changes. It carries the standard 13-section header and stays idempotent. The full rules are the "ordelo_datamodels SQL standard" in `agents.md`.
 3. **One Python wrapper module per domain.** A typed `async def` per RPC, `asyncio.to_thread` around the Supabase call, a small outcome dataclass. Handlers call the wrapper; they never query the table or repeat the rule.
 4. **Cross-reference both ways, in the same change.**
    - The wrapper's **module docstring** names the SQL file that defines the RPCs and maps each Python function to the RPC it calls.
@@ -126,7 +126,9 @@ When a feature needs rules or multi-step changes in the database, put that logic
    - When you add, rename or change an RPC or table, update all of these together. Never leave a docstring pointing at an old name.
 5. **Lock server-only objects.** Enable RLS on the table, `REVOKE ALL ... FROM PUBLIC, anon, authenticated` on its functions and views, and call them with `client_ordelo_service`. The anon `client_ordelo` is denied by design.
 6. **Tests fake the RPC contract.** Mimic the RPC's return shapes in a fake (see `FakeInviteDb`), cover every `result` value, and change the fake whenever the RPC changes.
-7. **Apply the migration before deploying** the code that calls it, and provide a drop/cleanup script when you rename database objects.
+7. **Apply the SQL before deploying** the code that calls it, run `python scripts/datamodels/drift_check.py` afterwards, and provide a drop/cleanup script when you rename database objects. After changing any SQL header run `python scripts/datamodels/build_guide.py` (never hand-edit the generated guide and `catalog.json`).
+
+**Database to-dos.** Known production findings and owner decisions about the database (security, unscheduled jobs, orphan objects) are listed in `docs/to-do.md`; read it before changing the objects concerned and add to it rather than fixing live silently.
 
 ### Configuration
 
@@ -149,4 +151,4 @@ Runtime configuration stored in `ordelo_config` DB table, keyed by restaurant (e
 - **Async-first**: handlers use `async/await` throughout
 - **Linting**: Ruff with `F` rules only (`F704` ignored)
 - **Testing**: pytest + pytest-asyncio, tests in `tests/`, mocks for external deps (psycopg, langgraph, pywa, config)
-- **Live testing**: `ordelo_datamodels/misc_sql/test_restaurant_notices.sql` (fake `STRK-TEST-*` orders, stages 0-10) is the reusable harness for restaurant-admin flows on WhatsApp and Telegram; read `docs/live-order-test-harness.md` first and change the script and `tests/sql/test_restaurant_notices_script_sql.py` together
+- **Live testing**: `ordelo_datamodels/test_support/test_restaurant_notices.sql` (fake `STRK-TEST-*` orders, stages 0-10) is the reusable harness for restaurant-admin flows on WhatsApp and Telegram; read `docs/live-order-test-harness.md` first and change the script and `tests/sql/test_restaurant_notices_script_sql.py` together

@@ -24,6 +24,17 @@ Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . pickup_time_updated_hook - Webhook endpoint for pickup_time set events
     . init_takeaway_order - Direct entrypoint for pay-at-restaurant takeaway orders
     . Routes customer notifications through the R1b notifier (always on since R3.1)
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . food_order (table, restaurant-agents): named in code (passed to a query helper)
+  . init_takeaway (function, ordelo_datamodels/takeaway/init_takeaway.sql): calls, calls (name passed to a helper)
+  . ordelo_config (table, ordelo_datamodels/core/ordelo_config.sql): reads, named in code (passed to a query helper)
+  . restaurant_master (table, ordelo_datamodels/core/restaurant_master.sql): named in code (passed to a query helper)
+  . takeaway_summary (table, ordelo_datamodels/takeaway/takeaway_summary.sql): named in code (passed to a query helper), updates
+Called by database (SQL triggers / pg_cron jobs POST to these routes):
+  . pickup_time_updated_hook(): takeaway_pickup_time_whook() in ordelo_datamodels/takeaway/takeaway_summary.sql via trigger trigger_takeaway_pickup_time_insert on takeaway_summary; trigger trigger_takeaway_pickup_time_set on takeaway_summary
+  . restaurant_confirmation_flow(): takeaway_restaurant_updates_whook() in ordelo_datamodels/takeaway/takeaway_summary.sql via trigger trigger_takeaway_restaurant_updates on takeaway_summary
+(end of database objects)
 """
 
 from utils_common.order_management.customer_keys import is_web_customer_key
@@ -333,7 +344,11 @@ async def restaurant_confirmation_flow(
     background_tasks: BackgroundTasks,
     payload: dict = Depends(get_payload),
 ):
-    """Webhook triggered for takeaway restaurant confirmation workflow events."""
+    """Webhook triggered for takeaway restaurant confirmation workflow events.
+
+    Called by database:
+      . takeaway_restaurant_updates_whook() in ordelo_datamodels/takeaway/takeaway_summary.sql via trigger trigger_takeaway_restaurant_updates on takeaway_summary
+    """
     try:
         confirmation_payload = TakeawayConfirmationPayload(**payload)
         trigger_reason = confirmation_payload.trigger_reason
@@ -543,7 +558,10 @@ async def pickup_time_updated_hook(
     """Webhook triggered when takeaway_summary.pickup_time is set (NULL → non-NULL).
 
     Triggered by: trigger_takeaway_pickup_time_set on takeaway_summary
-    Source Function: takeaway_pickup_time_whook() in ordelo_datamodels/takeaway_summary.sql
+    Source Function: takeaway_pickup_time_whook() in ordelo_datamodels/takeaway/takeaway_summary.sql
+
+    Called by database:
+      . takeaway_pickup_time_whook() in ordelo_datamodels/takeaway/takeaway_summary.sql via trigger trigger_takeaway_pickup_time_insert on takeaway_summary; trigger trigger_takeaway_pickup_time_set on takeaway_summary
     """
     if "takeaway_summary" not in payload or payload["takeaway_summary"] is None:
         logger.error("No takeaway_summary found: from pickup_time_updated_hook")

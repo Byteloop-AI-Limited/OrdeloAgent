@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1] / "ordelo_datamodels"
 def test_no_returns_table_function_returns_star():
     bad = []
     for path in ROOT.rglob("*.sql"):
-        if "archive" in path.name or "misc_sql" in path.parts:
+        if "_archive" in path.parts or "test_support" in path.parts:
             continue
         text = path.read_text()
         if "RETURNS TABLE" in text and re.search(r"^\s*RETURNING\s+\*\s*;", text, re.M):

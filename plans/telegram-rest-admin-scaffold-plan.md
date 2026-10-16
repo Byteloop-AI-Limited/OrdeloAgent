@@ -47,7 +47,7 @@ Known failing test, not ours: `tests/ordelo_datamodels/test_master_pymodels.py::
    Never test SQL against the shared database.
 8. **Real-endpoint tests with fake database rows (owner rule, 15 Oct).** Wherever possible, a phase's plan includes a re-runnable
    SQL script that inserts fake rows and drives the real endpoint and real code path against a real Telegram chat, with a
-   reset-by-status step. Reference: `ordelo_datamodels/misc_sql/test_create_t_order_alerts.sql` (fake `STRK-TEST-*` delivery
+   reset-by-status step. Reference: `ordelo_datamodels/test_support/test_create_t_order_alerts.sql` (fake `STRK-TEST-*` delivery
    order in `restaurant_unconfirmed`; re-running wipes the earlier test orders and their `t_order_alerts` / `t_sent_messages` /
    `debug_log` rows; deliberately has no `food_order`, so the existing webhook does not trigger payment or customer messages).
    Pair it with an isolated-database test of the script itself (`tests/sql/test_order_test_script_sql.py`). Prerequisite for
@@ -175,7 +175,7 @@ database-operations skill tables reference for new tables.
 ## Operator steps (owner; the implementing agent must not do these)
 
 Phases 2–5 done. For each new migration: run it in Supabase, deploy, then smoke test. Test loop: run
-`ordelo_datamodels/misc_sql/test_create_t_order_alerts.sql` for a fresh STRK order (needs a claimed STRK invite for 447448440754).
+`ordelo_datamodels/test_support/test_create_t_order_alerts.sql` for a fresh STRK order (needs a claimed STRK invite for 447448440754).
 
 ## Appendix — Phase 1 scaffold (✅ done, commit `8d26ed3`)
 

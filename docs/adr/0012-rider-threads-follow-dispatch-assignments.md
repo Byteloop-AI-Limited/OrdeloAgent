@@ -109,8 +109,8 @@ The repository review identified these later implementation points:
 | `watomation/routers/thread_hooks.py` | `/run-system-message` must use and validate its explicit thread instead of reducing it to a recipient |
 | `watomation/routers/delivery_hooks.py`, `ordelo/wa_location.py` | Carry known dispatch context through food-ready, adjusted pickup, alert and location events |
 | `ordelo/agents/rider_agent.py` and close-thread routes/jobs | Close only the intended conversation, including cancellation aftercare |
-| `scripts/debug_thread_messages.py`, `ordelo_datamodels/get_latest_state.sql` | Retain exact-ID inspection; expose dispatch lookup without implicitly selecting the latest recipient thread |
-| `ordelo_datamodels/dispatch.sql` and dispatch cleanup functions | Enforce immutable assignment identity and retain conversation audit metadata across offer deletion |
+| `scripts/debug_thread_messages.py`, `ordelo_datamodels/agent_threads/get_latest_state.sql` | Retain exact-ID inspection; expose dispatch lookup without implicitly selecting the latest recipient thread |
+| `ordelo_datamodels/dispatch/delivery_dispatch.sql` and dispatch cleanup functions | Enforce immutable assignment identity and retain conversation audit metadata across offer deletion |
 
 These are checked-in source findings, not a claim about deployed schema or
 completed changes. Verify duplicate thread SQL definitions and active cleanup

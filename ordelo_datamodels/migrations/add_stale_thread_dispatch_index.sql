@@ -1,3 +1,9 @@
+-- MIGRATION (history; do not edit the statements below)
+-- Applied to live: NOT applied: idx_thread_active_rest_ref_last_access does not exist live (docs/to-do.md).
+-- Current definitions now live in: restaurant-agents (thread)
+-- Purpose: Index for the per-restaurant stale-thread job on public.thread.
+-- The feature files above are the current truth; this file only records the one-off change.
+
 /*
 Run this migration outside an explicit transaction before enabling the direct
 stale-thread dispatcher. CONCURRENTLY avoids blocking thread writes while the

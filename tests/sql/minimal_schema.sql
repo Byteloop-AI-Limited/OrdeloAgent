@@ -15,9 +15,10 @@ CREATE TABLE IF NOT EXISTS public.restaurant_master (
     admins    text[] NOT NULL DEFAULT '{}'
 );
 
--- The summary tables carry the LIVE constraints as of 15 Oct 2026: delivery_summary.status does NOT yet allow
--- 'declined' (restaurant_order_decision.sql adds it); takeaway_summary already does. Only the columns the
--- migrations and tests use are listed. rest_ref is derived from order_number exactly as in the real tables.
+-- The summary tables mirror the live shape defined in ordelo_datamodels/delivery/delivery_summary.sql and
+-- takeaway/takeaway_summary.sql (live check 16 Oct 2026): status allows 'declined', and the kitchen columns used by
+-- restaurant_admin/restaurant_ready_adjust_notices.sql are present. Only the columns the feature files and tests use
+-- are listed. rest_ref is derived from order_number exactly as in the real tables.
 CREATE TABLE IF NOT EXISTS public.delivery_summary (
     order_number   varchar(100) PRIMARY KEY,
     rest_id        varchar(12)  NOT NULL DEFAULT 'R1',
@@ -30,11 +31,17 @@ CREATE TABLE IF NOT EXISTS public.delivery_summary (
     restaurant_admin varchar(12),
     status         varchar(50)  NOT NULL DEFAULT 'restaurant_unconfirmed'
         CONSTRAINT delivery_summary_status_check
-        CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed')),
+        CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed', 'declined')),
     pickup_time    timestamptz,
     pickup_date    date         NOT NULL DEFAULT CURRENT_DATE,
     rest_confirmation_code integer NOT NULL DEFAULT 42,
     customer_address text NOT NULL DEFAULT '1 High Street, Testville',
+    ready_at       timestamptz,
+    ready_by       text,
+    ready_dispatch_id integer,
+    pickup_time_initial timestamptz,
+    pickup_adjusted_by text,
+    pickup_adjusted_at timestamptz,
     rest_ref       varchar(20) GENERATED ALWAYS AS (split_part(order_number, '-', 1)) STORED,
     dtts           timestamptz  NOT NULL DEFAULT now()
 );
@@ -54,6 +61,8 @@ CREATE TABLE IF NOT EXISTS public.takeaway_summary (
     pickup_time    timestamptz,
     pickup_date    date         NOT NULL DEFAULT CURRENT_DATE,
     rest_confirmation_code integer NOT NULL DEFAULT 42,
+    ready_at       timestamptz,
+    ready_by       text,
     rest_ref       varchar(20) GENERATED ALWAYS AS (split_part(order_number, '-', 1)) STORED,
     dtts           timestamptz  NOT NULL DEFAULT now()
 );
@@ -73,10 +82,10 @@ DROP TRIGGER IF EXISTS test_restaurant_updates ON public.takeaway_summary;
 CREATE TRIGGER test_restaurant_updates AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON public.takeaway_summary
     FOR EACH ROW EXECUTE FUNCTION public.test_log_restaurant_update();
 
--- create_t_invites.sql ends with operator SQL that inserts an invite for ELAS, so the restaurant must exist.
+-- t_invites.sql ends with operator SQL that inserts an invite for ELAS, so the restaurant must exist.
 INSERT INTO public.restaurant_master (rest_ref, rest_name) VALUES ('ELAS', 'Elas Kitchen') ON CONFLICT DO NOTHING;
 
--- ---- create_t_order_alerts.sql needs the order lines, the http extension and parse_alert_offsets -------------------
+-- ---- t_order_alerts.sql needs the order lines, the http extension and parse_alert_offsets -------------------
 CREATE TABLE IF NOT EXISTS public.food_order (
     order_id    text PRIMARY KEY,
     order_number text UNIQUE,
@@ -128,7 +137,7 @@ BEGIN
     RETURN ROW(s, 'application/json', NULL, '{}')::public.http_response;
 END $$;
 
--- Verbatim from ordelo_datamodels/jobs_n_functions/job_rider_pickup_alerts.sql (section 3).
+-- Verbatim from ordelo_datamodels/dispatch/job_rider_pickup_alerts.sql (section 3).
 CREATE OR REPLACE FUNCTION parse_alert_offsets(p_config_key text)
 RETURNS int[] LANGUAGE sql STABLE AS $$
     SELECT array_agg(DISTINCT btrim(t.x)::int ORDER BY btrim(t.x)::int)

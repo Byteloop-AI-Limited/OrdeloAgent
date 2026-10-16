@@ -18,6 +18,10 @@ Functions/Classes:
   . PaymentOutcome - result of applying one
   . parse_payment_complete - body -> event (None when the type is ignored)
   . record_payment_authorised - apply an event via the SQL function
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . record_payment_authorised (function, ordelo_datamodels/payment/record_payment_authorised.sql): calls, calls (name passed to a helper)
+(end of database objects)
 """
 
 import asyncio

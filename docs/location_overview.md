@@ -1,6 +1,6 @@
 # Location Event Processing
 
-This guide explains how OwnTracks location events travel from the queue into database tables and out to webhooks. It ties together `ordelo_datamodels/location.sql`, `ordelo_datamodels/jobs_n_functions/job_process_owntracks.sql`, and `watomation/routers/location_hooks.py`.
+This guide explains how OwnTracks location events travel from the queue into database tables and out to webhooks. It ties together `ordelo_datamodels/rider_location/rider_location.sql`, `ordelo_datamodels/rider_location/job_process_owntracks.sql`, and `watomation/routers/location_hooks.py`.
 
 ## On-demand WhatsApp location
 
@@ -62,13 +62,13 @@ flowchart TD
 
 Rendered SVG (offline-friendly): ![Location flow](location_overview_flow.svg)
 
-## Key Tables (`ordelo_datamodels/location.sql`)
+## Key Tables (`ordelo_datamodels/rider_location/rider_location.sql`)
 
 - `rider_location`: Raw OwnTracks location points. Stores lat/lon, accuracy, battery, timestamps (`tst` epoch and `tst_dtts`), identifiers (`topic`, `rider_id`, `tid`), and region arrays (`inregions`, `inrids`). Indexed on `tst` and `dtts` desc for recent lookups.
 - `rider_location_event`: One row per transition event. Columns: `topic`, `rider_id`, optional `customer_id`, `order_number`, `rid` (zone id such as `rest` or `cust`), `event` (`enter` / `leave`), plus audit timestamps.
 - Trigger `trigger_rider_location_event_update` → function `rider_location_event_update()` builds `row_to_json(NEW)`, derives `app_url` from `ordelo_config` (`ORDELO_APP_URL`, default `https://rider-agent.ordelo.app`), normalizes trailing slash, and `http_post`s to `/location-hooks/notify-rider-location-event`. Response is ignored; inserts always succeed regardless of webhook status.
 
-## Queue Processing Job (`ordelo_datamodels/jobs_n_functions/job_process_owntracks.sql`)
+## Queue Processing Job (`ordelo_datamodels/rider_location/job_process_owntracks.sql`)
 
 - Function: `job_process_owntracks()` (SECURITY DEFINER PL/pgSQL) returns processed count.
 - Reads up to 1000 messages from `pgmq.read('owntracks', 0, 1000)`, parsing JSON payloads.

@@ -1,3 +1,17 @@
+-- MIGRATION (history; do not edit the statements below)
+-- Applied to live: Applied: every object it creates exists live (checked 2026-10-16).
+-- Current definitions now live in: agent_threads/job_close_thread.sql
+--               core/restaurant_master.sql
+--               ordering/create_food_order_with_items.sql
+--               ordering/order_access_grant.sql
+--               ordering/web_monitor_run.sql
+--               ordering/web_order_request.sql
+--               ordering/web_payment_release.sql
+--               ordering/web_rate_limit.sql
+--               ordering/web_session_meta.sql
+-- Purpose: Web ordering R3: web checkout/access tables, cut-off columns, thread close changes.
+-- The feature files above are the current truth; this file only records the one-off change.
+
 -- R3 additive web checkout/access storage. Does not enable any restaurant.
 -- Existing WhatsApp order creation retains the same parameters/defaults.
 BEGIN;

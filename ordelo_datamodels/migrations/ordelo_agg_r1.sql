@@ -1,3 +1,17 @@
+-- MIGRATION (history; do not edit the statements below)
+-- Applied to live: Applied, except the pg_cron schedule for job_payment_init_reconciler (not in cron.job; docs/to-do.md).
+-- Current definitions now live in: notifications/notification_outbox.sql
+--               notifications/order_customer_event.sql
+--               notifications/order_notification_subscription.sql
+--               ordering/create_food_order_with_items.sql
+--               ordering/food_order_additions.sql
+--               payment/job_payment_init_reconciler.sql
+--               payment/payment_event.sql
+--               payment/record_payment_authorised.sql
+--               restaurant-agents (food_order)
+-- Purpose: Web ordering R1: food_order columns, payment inbox, order-creation RPC, reconciler, notification tables.
+-- The feature files above are the current truth; this file only records the one-off change.
+
 -- ===========================================================================
 -- ordelo-agg R1 migrations (R1a + R1b)            plans/ordelo-agg-plan-cc.md
 -- ===========================================================================

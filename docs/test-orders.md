@@ -56,7 +56,7 @@ All these requests use the same selected `/payment-url` endpoint. A test checkou
 
 Stripe authorisation webhooks are a separate configured route. They do not obtain their destination from `FoodOrder.payment_uri`. Each selected environment needs a compatible webhook handler and the matching Stripe account so the PaymentIntent mapping used for capture is saved. This documentation review rechecked Ordelo's base settings and source paths; it did not reverify webhook destinations, deployed binary parity or successful provider capture. The [9 October investigation](payment-service-investigation-2026-10-09.md) and [Wren comparison](wren-payment-service-parity-review-2026-10-09.md) record the earlier deployment mismatch as dated evidence.
 
-Source: [FoodOrder routing](../utils_common/order_management/food_order_pymodel.py), [atomic creation RPC](../ordelo_datamodels/jobs_n_functions/create_food_order_with_items.sql), [checkout helpers](../utils_common/payment_ms/payment.py), [delivery operations](../watomation/routers/delivery_hooks.py), and [collection capture](../watomation/routers/takeaway_hooks.py).
+Source: [FoodOrder routing](../utils_common/order_management/food_order_pymodel.py), [atomic creation RPC](../ordelo_datamodels/ordering/create_food_order_with_items.sql), [checkout helpers](../utils_common/payment_ms/payment.py), [delivery operations](../watomation/routers/delivery_hooks.py), and [collection capture](../watomation/routers/takeaway_hooks.py).
 
 ## Payment lifetime and dispatch audience
 

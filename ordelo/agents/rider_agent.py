@@ -30,6 +30,14 @@ LangGraph agent implementation for rider delivery workflow
     . agent_node - Main agent processing node
     . respond_node - Handles responses to user
     . ContextSchemaData - Dataclass mirror for runtime context
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . delivery_dispatch (table, ordelo_datamodels/dispatch/delivery_dispatch.sql): named in code (passed to a query helper), updates
+  . delivery_summary (table, ordelo_datamodels/delivery/delivery_summary.sql): reads, named in code (passed to a query helper)
+  . dispatch_cancel_before_pickup (function, ordelo_datamodels/dispatch/dispatch_cancel_before_pickup.sql): calls, calls (name passed to a helper)
+  . dispatch_complete_func (function, ordelo_datamodels/dispatch/dispatch_complete_func.sql): calls, calls (name passed to a helper)
+  . web_order_request (table, ordelo_datamodels/ordering/web_order_request.sql): reads, named in code (passed to a query helper)
+(end of database objects)
 """
 
 # %%

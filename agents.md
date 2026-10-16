@@ -104,7 +104,7 @@ Trace cross-project issues through these folders as needed, reading each project
 - Data models (Pydantic): `ordelo_datamodels`
   - Delivery and dispatch models: `delivery_pymodels.py`
   - Location model for OwnTracks payloads: `location_pymodels.py`
-  - SQL: schema, functions, jobs in `ordelo_datamodels/*.sql`
+  - SQL: schema, functions, jobs in capability folders under `ordelo_datamodels/` (see `ordelo_datamodels/README.md` and the SQL standard below)
 
 6) Configuration and Settings
 - Central import hub: `config/__init__.py`
@@ -170,12 +170,12 @@ Trace cross-project issues through these folders as needed, reading each project
 6) Scheduled Availability Enquiries (DB → API → WhatsApp)
 - Two non-critical “availability enquiry” flows are run via scheduled Postgres functions (typically via pg_cron) that call FastAPI endpoints.
 - Shift enquiry (riders):
-  - SQL function: `ordelo_datamodels/jobs_n_functions/enquire_shift_availability.sql` (`enquire_shift_availability()`)
+  - SQL function: `ordelo_datamodels/dispatch/enquire_shift_availability.sql` (`enquire_shift_availability()`)
   - Webhook endpoint: `POST /delivery-hooks/shift-availability-enquiry`
   - Handler: `watomation/routers/delivery_hooks.shift_availability_enquiry_hook`
   - Action: sends the `shift_availability` template with Yes/No quick replies.
 - Admin enquiry (restaurant admins):
-  - SQL function: `ordelo_datamodels/jobs_n_functions/enquire_admin_availability.sql` (`enquire_admin_availability(p_rest_ref_list VARCHAR[] DEFAULT NULL)`)
+  - SQL function: `ordelo_datamodels/restaurant_admin/enquire_admin_availability.sql` (`enquire_admin_availability(p_rest_ref_list VARCHAR[] DEFAULT NULL)`)
   - Webhook endpoint: `POST /delivery-hooks/admin-availability-enquiry`
   - Handler: `watomation/routers/delivery_hooks.admin_availability_enquiry_hook`
   - Action: sends the `alert_order_notification_resolve` template with a single quick reply.
@@ -196,7 +196,7 @@ Trace cross-project issues through these folders as needed, reading each project
 
 - Postgres/Supabase tables (most used):
   - `delivery_detail` (per‑order detail), `delivery_summary` (joined status view), `delivery_dispatch` (rider offers), `delivery_inflight` (active jobs), `rider_location`, `rider_location_event`, `thread` (agent chat context).
-- Supabase RPC/functions follow one pattern: the logic lives in the database function, defined next to its table in a feature folder of `ordelo_datamodels/` (`telegram/`, `restaurant_admin/`; not `migrations/`), wrapped by one Python module, and both sides name each other (see "Add database-backed logic" under Extending the System). Telegram example: `t_invites` and `t_claim_invite` in `create_t_invites.sql`, called from `channels/telegram/invites.py`.
+- Supabase RPC/functions follow one pattern: the logic lives in the database function, defined next to its table in a capability folder of `ordelo_datamodels/` (`telegram/`, `restaurant_admin/`, ...; not `migrations/`), wrapped by one Python module, and both sides name each other (see "Add database-backed logic" under Extending the System). Telegram example: `t_invites` and `t_claim_invite` in `telegram/t_invites.sql`, called from `channels/telegram/invites.py`.
 - Supabase RPC/functions (key ones referenced):
   - `dispatch_accept_func`, `dispatch_complete_func`, `dispatch_cancel_before_pickup` (pre‑pickup rollback), `process_delivery` (scheduled), `clear_dispatch` (testing), `init_delivery` (testing).
 - Dispatch lifecycle data is stored per rider offer in `delivery_dispatch`:
@@ -291,11 +291,11 @@ INSTALL_DEV=1 source run_setup.sh
 
 ## Extending the System
 
-- Add database-backed logic (RPC pattern; reference: `channels/telegram/invites.py` + `ordelo_datamodels/telegram/create_t_invites.sql`):
-  1. Put the rule in a Postgres function that returns `jsonb` with a `result` string (atomic, race-safe). Define it **in the same migration file as the table(s) it works on**, with the grants (`REVOKE ... FROM PUBLIC, anon, authenticated`, RLS on) and a header explaining what the file adds, how it interacts with other tables and services, its lifecycle and security model.
+- Add database-backed logic (RPC pattern; reference: `channels/telegram/invites.py` + `ordelo_datamodels/telegram/t_invites.sql`):
+  1. Put the rule in a Postgres function that returns `jsonb` with a `result` string (atomic, race-safe). Define it **in the same SQL file as the table(s) it works on** (a workflow RPC gets its own file in the capability folder), with the grants (`REVOKE ... FROM PUBLIC, anon, authenticated`, RLS on) and the standard 13-section header (see "ordelo_datamodels SQL standard" below).
   2. Add one thin typed `async def` per RPC in a single Python module for that domain (`asyncio.to_thread`, `client_ordelo_service` for service-only objects, a small outcome dataclass). Handlers call the wrapper, never the table.
   3. **Cross-reference both ways in the same change:** the Python module docstring names the SQL file and maps each function to its RPC; the SQL header names the Python callers; the feature doc has a database-object ↔ code ↔ tests row.
-  4. Mimic the RPC contract in the test fake and cover every `result` value. Apply the migration before deploying the code that calls it.
+  4. Mimic the RPC contract in the test fake and cover every `result` value. Apply the SQL before deploying the code that calls it, then run `scripts/datamodels/drift_check.py`.
 
 - Add a new tool for the Rider Agent:
   1. Implement async function in `ordelo/agents/rider_agent.py` (use `RunnableConfig`, `InjectedState`, and return a `Command` with updates).
@@ -401,6 +401,21 @@ Note: Ensure AWS secrets are loaded so `ordelo_agent_env` can populate settings.
   - `utils_common/db_utils/edge_app_runner_manager.ts` — AWS App Runner control
   - `utils_common/db_utils/edge_owntracks-webhook.ts` — OwnTracks → pgmq queue
 
+
+## ordelo_datamodels SQL standard
+
+Everything under `ordelo_datamodels/` follows this standard. Overview and how to find things: `ordelo_datamodels/README.md` and the generated guide `ordelo_datamodels/ordelo-database-guide.html` (Markdown twin: `.md`). `tests/test_datamodels_standard.py` enforces most of it.
+
+1. **Layout.** One capability folder per business area (`core`, `ordering`, `payment`, `notifications`, `delivery`, `dispatch`, `takeaway`, `restaurant_admin`, `telegram`, `rider_location`, `agent_threads`, `admin_dashboard`, `platform`, `byteloop_agent`, `test_support`). One file per primary table (its DDL, indexes, triggers, trigger functions, table-only rules, workflow columns). One file per workflow RPC. One `job_*.sql` per cron job, holding its runnable `cron.schedule(...)` and an annotation saying whether the job is active on live. Files are named after the owner object, with no `create_` prefix. A new feature adds a folder (and an entry in `ordelo_datamodels/guide_content.json`). `_orphans/` holds live objects nothing calls, `_archive/` superseded SQL (never run it), `migrations/` frozen history.
+2. **Live is the truth, and the DDL must match it.** A change that alters the database also changes the owner file's DDL or function body in the same commit: the table file shows the current shape. A migration file may still be added for the one-off steps (ALTER, backfill, CONCURRENTLY) and then stays as history with the header `-- MIGRATION (history; do not edit the statements below)`, `Applied to live`, `Current definitions now live in`, `Purpose`. Before freezing or editing, read the live definition (read-only) and make the file match it; where file and live disagree, live wins unless the owner decides otherwise.
+3. **Header.** Every file outside `_archive/` and `migrations/` starts with the same block: rule line, `ordelo_datamodels/<folder>/<file>.sql`, one-line title, rule line, then these 13 sections in this order, value starting at column 17: `LIVE CHECK`, `OBJECTS` (`fn` / `table` / `trg` / `view` / `alter`, each with a one-line description), `REQUIRES`, `HOW TO RUN`, `SIDE EFFECTS`, `HOW IT FITS`, `LIFECYCLE`, `CALLED BY`, `PYTHON MODEL`, `SECURITY`, `TESTS`, `GOTCHAS`, `SEE ALSO`. Write `none` rather than dropping a section. A file with no objects must at least schedule a cron job.
+4. **Inside the file.** A `--` block above every object (what it does, arguments, return shape and `result` values, what it reads and writes, why it exists), a trailing comment on non-obvious columns, and `COMMENT ON` one-liners matching it. Statements are idempotent and have no `BEGIN` / `COMMIT` (see the SQL execution preference above).
+5. **Cross-reference both ways, in the same change.** The SQL `CALLED BY` and `PYTHON MODEL` sections name the Python callers; the Python module docstring has a `Database objects (...)` ... `(end of database objects)` section, and a FastAPI route that a trigger or job calls has a `Called by database:` line. Renaming or changing an object updates all three plus the guide.
+6. **Formatting.** pgFormatter 5.6 with `ordelo_datamodels/.pg_format.conf`, run only through `python scripts/datamodels/format_sql.py` (per statement, string literals byte-identical, `--check` for CI), and `sqlfluff lint` with `ordelo_datamodels/.sqlfluff`. Never run `pg_format` over a whole file directly.
+7. **Generated files.** `ordelo_datamodels/catalog.json`, `ordelo-database-guide.md` and `.html` are produced by `python scripts/datamodels/build_guide.py`. Never edit them by hand; rebuild after any SQL header change (the test fails on a stale guide). Hand-written parts live in `ordelo_datamodels/guide_content.json` (capabilities and flows) and `ordelo_datamodels/external_objects.json` (objects owned by restaurant-agents or libraries).
+8. **Objects owned by other repos** (`food_order`, `order_item`, `thread`, LangGraph checkpoints, ...) are referenced, never copied. What OrdeloAgent adds to them goes in `ordering/food_order_additions.sql`.
+9. **Drift.** After any change to the live database run `python scripts/datamodels/drift_check.py` (needs `ORDELO_LIVE_DB_URI`, used read-only, and `ORDELO_TEST_DB_URI`, a LOCAL scratch Postgres that is reset). Exit 0 means the files match live.
+10. **Safety.** Live access for documentation work is read-only. Writing to live (including `COMMENT ON`) needs the owner's approval. Never run a DELETE without explicit approval. Documentation work never drops an object; orphan candidates and production findings go to `docs/to-do.md` for the owner to decide.
 
 ---
 If you want, I can add sequence diagrams (Mermaid) or short runnable examples per endpoint/tool to further accelerate onboarding.

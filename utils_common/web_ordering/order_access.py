@@ -1,4 +1,10 @@
-"""Hash-only, expiring guest order grants. An order number grants no access."""
+"""Hash-only, expiring guest order grants. An order number grants no access.
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . food_order (table, restaurant-agents): reads (SQL)
+  . order_access_grant (table, ordelo_datamodels/ordering/order_access_grant.sql): reads (SQL), writes (SQL)
+(end of database objects)
+"""
 
 import hashlib
 import re

@@ -48,7 +48,7 @@ This matches the capture URL in the shared chat's logs. The short `order_id` is 
 - `utils_common/order_management/food_order_pymodel.py:209`: `payment_uri` appends the same thread/order/payment-url path to the selected base.
 - `utils_common/payment_ms/payment.py`: checkout creation uses `food_order.payment_uri` for both delivery and collection helpers.
 - `watomation/routers/takeaway_hooks.py:430`: capture reloads the persisted order and uses that same property. Its payload sets `payment_mode='capture'` to dispatch the operation inside payment-service.
-- `utils_common/web_ordering/web_checkout.py:401` and `ordelo_datamodels/jobs_n_functions/create_food_order_with_items.sql:35`: web order creation persists the test/live mode.
+- `utils_common/web_ordering/web_checkout.py:401` and `ordelo_datamodels/ordering/create_food_order_with_items.sql:35`: web order creation persists the test/live mode.
 - `FoodOrder.from_order_number` selects all stored columns and constructs `FoodOrder` directly. `exclude=True` on `payment_mode` affects serialization, not reading the stored field.
 - Payment-service's `Handler.Generic` handles capture and cancel on the existing `/payment-url` route. A dedicated `/capture` endpoint is not required by this contract.
 

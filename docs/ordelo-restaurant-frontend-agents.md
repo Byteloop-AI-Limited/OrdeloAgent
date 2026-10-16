@@ -518,7 +518,7 @@ All take payload: dict = Depends(get_payload) — literally await request.json()
 - Response: `Acknowledgement; shape depends on the trigger`
 - State and side effects: Coordinates restaurant/admin messaging and delivery readiness.
 - Notes: This is a database → Ordelo interaction, not a frontend checkout request. Dispatch depends on subsequent database state transitions.
-- Sources: Ordelo:watomation/routers/delivery_hooks.py:1499 (restaurant_confirmation_flow); Ordelo:ordelo_datamodels/summary.sql:56 (trigger_restaurant_updates); Ordelo:ordelo_datamodels/summary.sql:284 (Caller); Ordelo:watomation/routers/delivery_hooks.py:1498 (Implementation)
+- Sources: Ordelo:watomation/routers/delivery_hooks.py:1499 (restaurant_confirmation_flow); Ordelo:ordelo_datamodels/delivery/delivery_summary.sql:56 (trigger_restaurant_updates); Ordelo:ordelo_datamodels/delivery/delivery_summary.sql:284 (Caller); Ordelo:watomation/routers/delivery_hooks.py:1498 (Implementation)
 
 #### dispatch
 
@@ -530,7 +530,7 @@ All take payload: dict = Depends(get_payload) — literally await request.json()
 - Response: `{"status": "success"}`
 - State and side effects: Fan-out uses BackgroundTasks. Rider callback handling subsequently changes dispatch state.
 - Notes: The offer is not assignment. Customer frontend pages do not choose the rider.
-- Sources: Ordelo:watomation/routers/delivery_hooks.py:434 (delivery_dispatch_hook; wa_send_delivery_dispatch_request_to_rider); Ordelo:ordelo_datamodels/dispatch.sql:1 (dispatch trigger webhook); Ordelo:ordelo_datamodels/dispatch.sql:73 (Caller); Ordelo:watomation/routers/delivery_hooks.py:409 (Implementation)
+- Sources: Ordelo:watomation/routers/delivery_hooks.py:434 (delivery_dispatch_hook; wa_send_delivery_dispatch_request_to_rider); Ordelo:ordelo_datamodels/dispatch/delivery_dispatch.sql:1 (dispatch trigger webhook); Ordelo:ordelo_datamodels/dispatch/delivery_dispatch.sql:73 (Caller); Ordelo:watomation/routers/delivery_hooks.py:409 (Implementation)
 
 #### inflight
 
@@ -544,7 +544,7 @@ All take payload: dict = Depends(get_payload) — literally await request.json()
 - Response: `Acknowledgement of scheduled work`
 - State and side effects: Schedules capture_delivery_payment, post_rider_event_inflight, admin_order_reciept and init_ordelo_graph.
 - Notes: An HTTP acknowledgement is not proof that every background operation succeeded.
-- Sources: Ordelo:watomation/routers/delivery_hooks.py:522 (delivery_inflight_graph_init_hook); Ordelo:ordelo_datamodels/inflight.sql:1 (inflight webhook); Ordelo:ordelo_datamodels/inflight.sql:75 (Caller); Ordelo:watomation/routers/delivery_hooks.py:485 (Implementation)
+- Sources: Ordelo:watomation/routers/delivery_hooks.py:522 (delivery_inflight_graph_init_hook); Ordelo:ordelo_datamodels/dispatch/delivery_inflight.sql:1 (inflight webhook); Ordelo:ordelo_datamodels/dispatch/delivery_inflight.sql:75 (Caller); Ordelo:watomation/routers/delivery_hooks.py:485 (Implementation)
 
 #### takeaway-confirm
 
@@ -556,7 +556,7 @@ All take payload: dict = Depends(get_payload) — literally await request.json()
 - Response: `Flow response; dependent on current state`
 - State and side effects: Restaurant/admin messaging or configured acceptance determines pickup_time.
 - Notes: This path replaces rider dispatch for collection orders.
-- Sources: Ordelo:watomation/routers/takeaway_hooks.py:324 (restaurant_confirmation_flow); Ordelo:ordelo_datamodels/takeaway_summary.sql:1 (restaurant confirmation webhook); Ordelo:ordelo_datamodels/takeaway_summary.sql:214 (Caller); Ordelo:watomation/routers/takeaway_hooks.py:323 (Implementation)
+- Sources: Ordelo:watomation/routers/takeaway_hooks.py:324 (restaurant_confirmation_flow); Ordelo:ordelo_datamodels/takeaway/takeaway_summary.sql:1 (restaurant confirmation webhook); Ordelo:ordelo_datamodels/takeaway/takeaway_summary.sql:214 (Caller); Ordelo:watomation/routers/takeaway_hooks.py:323 (Implementation)
 
 #### takeaway-time
 
@@ -568,7 +568,7 @@ All take payload: dict = Depends(get_payload) — literally await request.json()
 - Response: `Acknowledgement of scheduled work`
 - State and side effects: Schedules capture_takeaway_payment and the pickup-time event for the restaurant agent.
 - Notes: Online payment is captured here. Pay-at-restaurant requests a print-only job. The restaurant agent receives /order-event-hooks/{rest_ref}/takeaway-pickup-time-updated.
-- Sources: Ordelo:watomation/routers/takeaway_hooks.py:534 (pickup_time_updated_hook; _post_pickup_time_event); Ordelo:ordelo_datamodels/takeaway_summary.sql:381 (Caller); Ordelo:watomation/routers/takeaway_hooks.py:533 (Implementation)
+- Sources: Ordelo:watomation/routers/takeaway_hooks.py:534 (pickup_time_updated_hook; _post_pickup_time_event); Ordelo:ordelo_datamodels/takeaway/takeaway_summary.sql:381 (Caller); Ordelo:watomation/routers/takeaway_hooks.py:533 (Implementation)
 
 #### cc23
 
@@ -577,7 +577,7 @@ All take payload: dict = Depends(get_payload) — literally await request.json()
 - Does: No rider found. Cancels the payment, WhatsApps every restaurant admin (unless configured_auto), and posts to the restaurant webhook.
 - Request: `{ delivery_summary: […] }`
 - Response: `{ status:"success" }`
-- Sources: Ordelo:ordelo_datamodels/summary.sql:356 (Caller); Ordelo:watomation/routers/delivery_hooks.py:750 (Implementation)
+- Sources: Ordelo:ordelo_datamodels/delivery/delivery_summary.sql:356 (Caller); Ordelo:watomation/routers/delivery_hooks.py:750 (Implementation)
 
 #### cc24
 
@@ -586,7 +586,7 @@ All take payload: dict = Depends(get_payload) — literally await request.json()
 - Does: Tells losing riders the job was picked up by someone else, then bulk-marks those dispatches missed so the job will not re-emit them.
 - Request: `{ missed_dispatches: [{ order_number, dispatches[] }] }`
 - Response: `{ status:"success" }`
-- Sources: Ordelo:ordelo_datamodels/inflight.sql:158 (Caller); Ordelo:watomation/routers/delivery_hooks.py:597 (Implementation)
+- Sources: Ordelo:ordelo_datamodels/dispatch/delivery_inflight.sql:158 (Caller); Ordelo:watomation/routers/delivery_hooks.py:597 (Implementation)
 
 #### cc25
 
@@ -598,7 +598,7 @@ All take payload: dict = Depends(get_payload) — literally await request.json()
 ```
 - Response: `{ status, alerts_scheduled }`
 - Gotcha: The SQL marks checkpoints "sent" on the 2xx, not on actual delivery.
-- Sources: Ordelo:ordelo_datamodels/jobs_n_functions/job_rider_pickup_alerts.sql:392 (Caller); Ordelo:watomation/routers/delivery_hooks.py:1065 (Implementation)
+- Sources: Ordelo:ordelo_datamodels/dispatch/job_rider_pickup_alerts.sql:392 (Caller); Ordelo:watomation/routers/delivery_hooks.py:1065 (Implementation)
 
 #### cc26
 
@@ -607,7 +607,7 @@ All take payload: dict = Depends(get_payload) — literally await request.json()
 - Does: ~5-minute cron. Marks threads inactive and sends a goodbye WhatsApp.
 - Request: `[{ thread_id, recipient, last_access_dtts, is_active, minutes_since_last_access }]`
 - Response: `{ status, processed_count }`
-- Sources: Ordelo:ordelo_datamodels/jobs_n_functions/job_close_thread.sql:46 (Caller); Ordelo:watomation/routers/delivery_hooks.py:833 (Implementation)
+- Sources: Ordelo:ordelo_datamodels/agent_threads/job_close_thread.sql:46 (Caller); Ordelo:watomation/routers/delivery_hooks.py:833 (Implementation)
 
 #### cc27
 
@@ -616,7 +616,7 @@ All take payload: dict = Depends(get_payload) — literally await request.json()
 - Does: Immediately sets is_in_shift=false for every listed rider, then asks each one over WhatsApp.
 - Request: `{ event_type, timestamp, riders[] }`
 - Response: `{ status, riders_scheduled }`
-- Sources: Ordelo:ordelo_datamodels/jobs_n_functions/enquire_shift_availability.sql:46 (Caller); Ordelo:watomation/routers/delivery_hooks.py:888 (Implementation)
+- Sources: Ordelo:ordelo_datamodels/dispatch/enquire_shift_availability.sql:46 (Caller); Ordelo:watomation/routers/delivery_hooks.py:888 (Implementation)
 
 #### cc28
 
@@ -625,7 +625,7 @@ All take payload: dict = Depends(get_payload) — literally await request.json()
 - Does: Inverts the map to admin→rest_refs so a number administering several restaurants is messaged once.
 - Request: `{ event_type, timestamp, restaurant_admins: { REST_REF: [phone] } }`
 - Response: `{ status, admins_scheduled }`
-- Sources: Ordelo:ordelo_datamodels/jobs_n_functions/enquire_admin_availability.sql:53 (Caller); Ordelo:watomation/routers/delivery_hooks.py:975 (Implementation)
+- Sources: Ordelo:ordelo_datamodels/restaurant_admin/enquire_admin_availability.sql:53 (Caller); Ordelo:watomation/routers/delivery_hooks.py:975 (Implementation)
 
 #### cc29
 
@@ -634,7 +634,7 @@ All take payload: dict = Depends(get_payload) — literally await request.json()
 - Does: Geofence enter/exit from process_location_transition.
 - Request: `{ event, rid, customer_id, order_number }`
 - Response: `{ "event": "success" }`
-- Sources: Ordelo:ordelo_datamodels/location.sql:77 (Caller); Ordelo:watomation/routers/location_hooks.py:243 (Implementation)
+- Sources: Ordelo:ordelo_datamodels/rider_location/rider_location.sql:77 (Caller); Ordelo:watomation/routers/location_hooks.py:243 (Implementation)
 
 ### Direction `ordelo-ext` — ORDELO → microservices (4)
 
@@ -958,7 +958,7 @@ Follow an existing customer session from menu to rider completion.
    - init_delivery_summary calls init_delivery. The delivery summary and subsequent SQL state transitions drive restaurant confirmation and dispatch. The exact production cron/trigger configuration is not verified.
    - State: Delivery summary exists; restaurant/pickup state drives progress.
    - Endpoint: `confirm`
-   - Sources: Ordelo:watomation/routers/payment_hooks.py:80 (init_delivery_summary); Ordelo:ordelo_datamodels/summary.sql:1 (restaurant confirmation webhook)
+   - Sources: Ordelo:watomation/routers/payment_hooks.py:80 (init_delivery_summary); Ordelo:ordelo_datamodels/delivery/delivery_summary.sql:1 (restaurant confirmation webhook)
 12. **Send rider offers** (`dispatch`; Supabase / Postgres → Ordelo; kind: DB webhook → WhatsApp)
    - A dispatch trigger calls /delivery-hooks/delivery-dispatch. Ordelo sends Accept/Decline buttons to eligible riders. Callback handling updates delivery_dispatch; database transitions determine assignment.
    - State: Offered → accepted/assigned through callback and DB processing.
@@ -1038,7 +1038,7 @@ Requires takeawayPayment enabled; Ordelo order_type is takeaway.
    - init_takeaway creates the collection summary. Restaurant confirmation or configured auto-accept establishes pickup_time; no rider dispatch is needed for this branch.
    - State: Takeaway summary awaiting or receiving pickup_time.
    - Endpoint: `takeaway-confirm`
-   - Sources: Ordelo:watomation/routers/takeaway_hooks.py:122 (init_takeaway_summary); Ordelo:ordelo_datamodels/takeaway_summary.sql:1 (confirmation webhook)
+   - Sources: Ordelo:watomation/routers/takeaway_hooks.py:122 (init_takeaway_summary); Ordelo:ordelo_datamodels/takeaway/takeaway_summary.sql:1 (confirmation webhook)
 12. **Finalize pickup time and payment** (`takeaway-time`; Supabase / Postgres → Ordelo; kind: DB webhook → payment service)
    - The first pickup_time triggers /takeaway-hooks/pickup-time-updated. Online takeaway captures the authorized payment; pay_at_rest generates a print-only job. Ordelo sends the pickup-time event to the restaurant agent.
    - State: Collection time available; capture or print requested.
@@ -1098,7 +1098,7 @@ An order and payment URL are created before the customer chooses payment on coll
    - init_takeaway creates the collection summary. Restaurant confirmation or configured auto-accept establishes pickup_time; no rider dispatch is needed for this branch.
    - State: Takeaway summary awaiting or receiving pickup_time.
    - Endpoint: `takeaway-confirm`
-   - Sources: Ordelo:watomation/routers/takeaway_hooks.py:122 (init_takeaway_summary); Ordelo:ordelo_datamodels/takeaway_summary.sql:1 (confirmation webhook)
+   - Sources: Ordelo:watomation/routers/takeaway_hooks.py:122 (init_takeaway_summary); Ordelo:ordelo_datamodels/takeaway/takeaway_summary.sql:1 (confirmation webhook)
 11. **Finalize pickup time and payment** (`takeaway-time`; Supabase / Postgres → Ordelo; kind: DB webhook → payment service)
    - The first pickup_time triggers /takeaway-hooks/pickup-time-updated. Online takeaway captures the authorized payment; pay_at_rest generates a print-only job. Ordelo sends the pickup-time event to the restaurant agent.
    - State: Collection time available; capture or print requested.

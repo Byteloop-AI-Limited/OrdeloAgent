@@ -8,6 +8,7 @@ Telegram bot registry for OrdeloAgent.
       (kitchen receipts; channels/telegram/rest_admin/receipts), exposed as TelegramBot.receipts and injected as `receipts`
     . Each Dispatcher gets the InboxMiddleware (durable at-most-once handling, channels/telegram/inbox.py)
     . Never sets or deletes a webhook (webhook registration is an explicit operator step)
+    . Removable scratchpad router is mounted before the restaurant router's text fallback
   Classes/Functions:
     . TelegramBot
     . build_rest_admin_dispatcher
@@ -30,6 +31,7 @@ from .inbox import InboxMiddleware
 from .rest_admin.order_cards import OrderCards
 from .rest_admin.receipts import Receipts
 from .rest_admin.router import build_router as build_rest_admin_router
+from .rest_admin.scratchpad import build_scratchpad_router
 
 
 @dataclass(frozen=True)
@@ -50,6 +52,7 @@ def build_rest_admin_dispatcher(
 ) -> Dispatcher:
     dp = Dispatcher()
     dp.update.outer_middleware(InboxMiddleware(settings.bot_key))  # at-most-once per update_id (D21)
+    dp.include_router(build_scratchpad_router())  # unmount /scratchpad: remove this line (and its import)
     dp.include_router(build_rest_admin_router())
     register_error_handlers(dp)
     dp["tgram_settings"] = settings  # injected into handlers that declare `tgram_settings`

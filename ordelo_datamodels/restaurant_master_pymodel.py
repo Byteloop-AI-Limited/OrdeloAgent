@@ -12,6 +12,10 @@ Pydantic model for restaurant_master table
         . from_rest_ref
         . get_admins
     . reset_restaurant_master_cache
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . restaurant_master (table, ordelo_datamodels/core/restaurant_master.sql): reads, named in code (passed to a query helper)
+(end of database objects)
 """
 
 # %%

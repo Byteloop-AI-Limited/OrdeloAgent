@@ -1,4 +1,4 @@
-"""Isolated-database tests for ordelo_datamodels/telegram/create_t_order_alerts.sql.
+"""Isolated-database tests for ordelo_datamodels/telegram/t_order_alerts.sql.
 
 Covers the status mapping, destinations (D14), the snapshot, the ledger functions (send / take / mark, races),
 the sweep (seed, cancel, collapse, POST, mark only on 2xx, stale refreshes), housekeeping, and grants.
@@ -493,6 +493,6 @@ def test_rls_enabled(db, table):
 def test_migration_is_repeatable(db):
     from .conftest import migration_sql
 
-    db.execute(migration_sql("create_t_order_alerts.sql"))
-    db.execute(migration_sql("create_t_order_alerts.sql"))
+    db.execute(migration_sql("t_order_alerts.sql"))
+    db.execute(migration_sql("t_order_alerts.sql"))
     assert fetch_one(db, "SELECT count(*) FROM public.ordelo_config WHERE config_key = 'TGRAM_ORDER_ALERT_OFFSETS_SECS'") == 1
