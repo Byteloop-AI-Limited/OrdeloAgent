@@ -11,6 +11,10 @@ Order receipt generation and formatting utilities
     . _format_order_item_lines
     . build_wa_order_reciept_for_cust
     . build_wa_order_reciept_for_rest
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . order_item (table, restaurant-agents): reads, named in code (passed to a query helper)
+(end of database objects)
 """
 
 # %%

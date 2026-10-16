@@ -93,7 +93,7 @@
 -- ---------------------------------------------------------------------------------------------
 -- 2. restaurant_admin_label(phone): the "by X" text (D19).
 --    The Telegram first name of that phone's most recent claimed invite, else '...' + last 4 digits.
---    NULL for an empty phone. Reads t_invites (create_t_invites.sql).
+--    NULL for an empty phone. Reads t_invites (telegram/t_invites.sql).
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.restaurant_admin_label (p_phone text)
     RETURNS text
@@ -322,7 +322,7 @@ REVOKE ALL ON FUNCTION public.restaurant_order_set_pickup (text, text, timestamp
 --    t_order_admin_phone(bot_key, tuid, rest_ref): the admin phone this person is linked with for that
 --    restaurant, or NULL. Allowed only when the person has a CLAIMED invite for the restaurant AND the invite's
 --    phone is (digits compared) in restaurant_master.admins. Revoking the invite or removing the phone from
---    admins stops taps and alerts at once. Same rule as t_order_card_destinations() (create_t_order_alerts.sql).
+--    admins stops taps and alerts at once. Same rule as t_order_card_destinations() (telegram/t_order_alerts.sql).
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_order_admin_phone (p_bot_key text, p_tuid bigint, p_rest_ref text)
     RETURNS text

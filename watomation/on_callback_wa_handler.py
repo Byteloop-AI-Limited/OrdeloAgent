@@ -30,6 +30,12 @@ WhatsApp callback button handler for delivery dispatch responses
     . admin_adjust_pickup_time - Handles admin pickup-time adjustment callbacks (sets restaurant_pickuptime_adjusted)
     . Ready and +10/+20 rules, and the rider / customer follow-ups, live in utils_common/order_management/restaurant_actions.py
       (shared with the Telegram taps); this file keeps only the WhatsApp parsing and replies
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . delivery_inflight (table, ordelo_datamodels/dispatch/delivery_inflight.sql): reads, named in code (passed to a query helper)
+  . delivery_summary (table, ordelo_datamodels/delivery/delivery_summary.sql): reads, named in code (passed to a query helper)
+  . rider_master (table, ordelo_datamodels/core/rider_master.sql): named in code (passed to a query helper), updates
+(end of database objects)
 """
 
 # %%

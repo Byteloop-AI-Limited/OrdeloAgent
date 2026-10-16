@@ -12,6 +12,10 @@ Thread webhook handler module for the Ordelo rider agent.
     . debug_state_path - Debug endpoint to view complete conversation state
     . debug_admin_state_path - Debug endpoint to view admin conversation state
     . debug_state_by_thread_path - Debug endpoint to view state by thread_id
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . thread (table, restaurant-agents): reads, named in code (passed to a query helper)
+(end of database objects)
 """
 
 # %%

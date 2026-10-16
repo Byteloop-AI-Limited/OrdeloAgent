@@ -34,6 +34,13 @@ Kitchen actions after an order is accepted: Ready and adjust pickup (shared by W
     . adjust_pickup
     . not_done_reply_text
     . ready_reply_text
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . restaurant_order_adjust_pickup (function, ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql): calls (name passed to a helper)
+  . restaurant_order_ready (function, ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql): calls (name passed to a helper)
+  . t_order_adjust_pickup (function, ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql): calls (name passed to a helper)
+  . t_order_ready (function, ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql): calls (name passed to a helper)
+(end of database objects)
 """
 
 from __future__ import annotations

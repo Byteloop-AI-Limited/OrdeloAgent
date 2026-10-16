@@ -10,6 +10,13 @@ notify_address handles the two pre-order address hooks, which cannot reference
 food_order yet. sweep_pending recovers unattempted rows, not failed deliveries.
 Since R3.1 (D35) the notifier is always on for every restaurant; there is no
 rollout flag or pilot list and no legacy direct restaurant-app call.
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . food_order (table, restaurant-agents): reads (SQL)
+  . notification_outbox (table, ordelo_datamodels/notifications/notification_outbox.sql): reads (SQL), writes (SQL)
+  . order_customer_event (table, ordelo_datamodels/notifications/order_customer_event.sql): reads (SQL), named in code (passed to a query helper), upserts, writes (SQL)
+  . order_notification_subscription (table, ordelo_datamodels/notifications/order_notification_subscription.sql): reads (SQL), writes (SQL)
+(end of database objects)
 """
 
 import asyncio

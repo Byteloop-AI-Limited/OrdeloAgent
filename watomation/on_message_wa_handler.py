@@ -20,6 +20,18 @@ WhatsApp message handler for Ordelo delivery system
     . handle_callback_button - Handles rider responses to dispatches
     . handle_login_wa_msg - Mints rest_admin dashboard magic link on `/login`
     . handle_sysadmin_wa_msg - Mints sys_admin dashboard magic link on `/sysadmin`
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . cleanup_delivery_order (function, ordelo_datamodels/test_support/cleanup_delivery_order.sql): calls, calls (name passed to a helper)
+  . clear_dispatch (function, ordelo_datamodels/test_support/clear_dispatch.sql): calls, calls (name passed to a helper)
+  . delivery_inflight (table, ordelo_datamodels/dispatch/delivery_inflight.sql): reads, reads (SQL), named in code (passed to a query helper)
+  . delivery_summary (table, ordelo_datamodels/delivery/delivery_summary.sql): named in code (passed to a query helper), updates
+  . dispatch_complete_func (function, ordelo_datamodels/dispatch/dispatch_complete_func.sql): calls, calls (name passed to a helper)
+  . init_delivery (function, ordelo_datamodels/delivery/init_delivery.sql): calls, calls (name passed to a helper)
+  . rider_location (table, ordelo_datamodels/rider_location/rider_location.sql): reads (SQL)
+  . rider_location_event (table, ordelo_datamodels/rider_location/rider_location_event.sql): reads (SQL)
+  . rider_master (table, ordelo_datamodels/core/rider_master.sql): reads, named in code (passed to a query helper)
+(end of database objects)
 """
 
 # %%

@@ -2,6 +2,10 @@
 
 Browser requests arrive through Next.js. Secrets and customer IDs never enter
 browser bodies. Each order status/token operation checks its grant separately.
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . web_rate_limit (table, ordelo_datamodels/ordering/web_rate_limit.sql): writes (SQL)
+(end of database objects)
 """
 
 import hashlib

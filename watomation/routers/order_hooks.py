@@ -18,6 +18,10 @@ Functions/Classes:
   . capture_address - Captures customer address and upserts into customer_master and cust_rest_map
   . get_active_thread - Proxies active thread retrieval request to restaurant system
     . Routes customer notifications through the R1b notifier (always on since R3.1)
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . customer_master (table, ordelo_datamodels/core/customer_master.sql): named in code (passed to a query helper), upserts
+(end of database objects)
 """
 
 from utils_common.notify import customer_notifier

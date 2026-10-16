@@ -16,6 +16,12 @@ FastAPI application for Ordelo WhatsApp automation service.
     . debug_state_path - Gets LangGraph debug stack for a recipient
     . debug_state_by_thread_path - Gets debug stack for a specific thread
     . wa - WhatsApp client configured with message, callback, and flow handlers
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . app_url (table, ordelo_datamodels/platform/app_url.sql): named in code (passed to a query helper)
+  . restaurant_master (table, ordelo_datamodels/core/restaurant_master.sql): named in code (passed to a query helper)
+  . thread (table, restaurant-agents): reads, named in code (passed to a query helper)
+(end of database objects)
 """
 
 import logging

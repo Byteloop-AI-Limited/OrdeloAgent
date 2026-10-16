@@ -1,3 +1,9 @@
+"""sbase realtime ref.
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . delivery_detail (table, ordelo_datamodels/delivery/delivery_detail.sql): named in code (passed to a query helper)
+(end of database objects)
+"""
 # %% Imports
 import json
 from contextlib import asynccontextmanager

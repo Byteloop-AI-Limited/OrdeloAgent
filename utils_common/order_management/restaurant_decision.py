@@ -12,7 +12,7 @@ Restaurant decision on an order: accept, decline, choose the pickup time (shared
                        ok | already_set | not_accepted | not_found
       describe() is pure text for the "already decided" reply and calls nothing.
     . Tables behind them: delivery_summary (ordelo_datamodels/delivery/delivery_summary.sql), takeaway_summary
-      (ordelo_datamodels/takeaway/takeaway_summary.sql); the "by X" label comes from t_invites (create_t_invites.sql)
+      (ordelo_datamodels/takeaway/takeaway_summary.sql); the "by X" label comes from t_invites (ordelo_datamodels/telegram/t_invites.sql)
     . Called by: watomation/on_callback_wa_handler.py (_update_restaurant_order_status, handle_pickup_time_selection).
       From phase 5 the Telegram buttons reach the same SQL functions through t_order_decide / t_order_set_pickup
       (channels/telegram/rest_admin/order_cards/store.py); 'not_authorised' is only returned there.
@@ -28,6 +28,11 @@ Restaurant decision on an order: accept, decline, choose the pickup time (shared
     . decide
     . set_pickup
     . describe
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . restaurant_order_decide (function, ordelo_datamodels/restaurant_admin/restaurant_order_decision.sql): calls (name passed to a helper)
+  . restaurant_order_set_pickup (function, ordelo_datamodels/restaurant_admin/restaurant_order_decision.sql): calls (name passed to a helper)
+(end of database objects)
 """
 
 import asyncio

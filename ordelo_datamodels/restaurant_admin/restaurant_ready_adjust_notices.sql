@@ -652,7 +652,7 @@ REVOKE ALL ON FUNCTION public.t_receipt_snapshot (text, text, text, integer) FRO
 --    order for deletion (D35: a new rider's receipt replaces the previous rider's). One transaction. Idempotent on
 --    (bot_key, tcid, message_id). Returns jsonb {previous:[{id, tcid, message_id}], status} where status is the
 --    receipt status RIGHT NOW for this dispatch ('gone' if the order vanished): the "DB check after sending".
---    Mirrors t_order_card_sent (create_t_order_alerts.sql section 6).
+--    Mirrors t_order_card_sent() (telegram/t_sent_messages.sql).
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_receipt_sent (p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_order_number text, p_order_type text, p_rest_ref text, p_dispatch_id integer, p_status text)
     RETURNS jsonb
@@ -801,7 +801,7 @@ REVOKE ALL ON FUNCTION public.t_receipts_stale (text, text, text) FROM PUBLIC, a
 -- 9. t_receipts_take(bot_key, order_number, order_type): claim this order's stale receipt copies for ONE refresh pass.
 --    Returns jsonb {rows:[{id, tcid, message_id, tuid, dispatch_id, viewer_phone, authorised, taken_for}]}.
 --    Fresh claims are taken_for 'edit'; a re-offered claim keeps its taken_for. FOR UPDATE SKIP LOCKED.
---    The outcome is recorded with t_order_card_mark() (create_t_order_alerts.sql section 9).
+--    The outcome is recorded with t_order_card_mark() (telegram/t_sent_messages.sql).
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_receipts_take (p_bot_key text, p_order_number text, p_order_type text)
     RETURNS jsonb
@@ -957,7 +957,7 @@ REVOKE ALL ON FUNCTION public.t_notice_sent (text, bigint, bigint, bigint, text,
 -- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 11. job_t_receipt_refresh(): the receipt sweep, every 5 seconds. Structure follows job_t_order_alerts()
---     (create_t_order_alerts.sql section 11) but has no schedule table: staleness is the whole signal.
+--     (telegram/t_order_alerts.sql) but has no schedule table: staleness is the whole signal.
 --     Up to 50 orders with stale receipt copies are POSTed; the app edits the copies (silently) and marks them.
 --     Nothing stale -> the endpoint is not called. Returns false when the POST failed; the next tick finds the same
 --     copies stale again, so nothing needs marking here.

@@ -22,6 +22,12 @@
     . POST /sys-admin/dashboard-session - mint sys_admin session
     . GET  /sys-admin/rider-payout      - payout report for a date range
     . POST /sys-admin/update-paid       - mark dispatch_ids as paid
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . auth_sessions (table, ordelo_datamodels/admin_dashboard/auth_sessions.sql): inserts, named in code (passed to a query helper)
+  . delivery_dispatch (table, ordelo_datamodels/dispatch/delivery_dispatch.sql): named in code (passed to a query helper), updates
+  . get_rider_payout_report (function, ordelo_datamodels/admin_dashboard/get_rider_payout_report.sql): calls (name passed to a helper)
+(end of database objects)
 """
 
 import asyncio

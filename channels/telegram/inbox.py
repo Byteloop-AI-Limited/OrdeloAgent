@@ -20,6 +20,11 @@ Durable Telegram inbox (t_inbox): handle each Telegram update at most once.
     . claim
     . finish
     . InboxMiddleware
+
+Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . t_inbox_claim (function, ordelo_datamodels/telegram/t_inbox.sql): calls (name passed to a helper)
+  . t_inbox_finish (function, ordelo_datamodels/telegram/t_inbox.sql): calls (name passed to a helper)
+(end of database objects)
 """
 
 import asyncio
