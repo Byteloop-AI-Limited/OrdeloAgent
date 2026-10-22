@@ -345,7 +345,10 @@ async def test_delivery_inflight_graph_init_hook_schedules_core_background_tasks
     result = await delivery_hooks.delivery_inflight_graph_init_hook(bg, payload=payload)
 
     assert result == {"status": "success"}
+    from channels.telegram.rider.commands import sync_rider_menu
+
     assert [task["func"] for task in bg.tasks] == [
+        sync_rider_menu,
         delivery_hooks.capture_delivery_payment,
         delivery_hooks.post_rider_event_inflight,
         restaurant_notifier.notify,
@@ -353,19 +356,20 @@ async def test_delivery_inflight_graph_init_hook_schedules_core_background_tasks
         delivery_hooks.dispatch_actions.close_open_offers,
         delivery_hooks.notify_overwatch,
     ]
-    assert bg.tasks[3]["kwargs"]["rider_id"] == "RIDER01"
+    assert bg.tasks[0]["args"] == ("RIDER01",)
+    assert bg.tasks[4]["kwargs"]["rider_id"] == "RIDER01"
     # D49: unanswered Telegram offers of this order become "Taken by another rider"; the winner's "The job is yours".
-    assert bg.tasks[4]["args"] == ("ELAS-ABCD-1", "taken")
-    assert bg.tasks[4]["kwargs"] == {"statuses": ("unassigned",), "winner_dispatch_id": 10}
+    assert bg.tasks[5]["args"] == ("ELAS-ABCD-1", "taken")
+    assert bg.tasks[5]["kwargs"] == {"statuses": ("unassigned",), "winner_dispatch_id": 10}
     # Step 3 hands the notifier exactly what admin_order_reciept used to get (WhatsApp parity), plus the dispatch id for Telegram.
-    assert bg.tasks[2]["args"] == (
+    assert bg.tasks[3]["args"] == (
         KitchenReceipt(
             delivery_summary=DeliverySummary(**_summary_row()),
             rider_master={"rider_id": "RIDER01", "rider_name": "Bas"},
             dispatch_id=10,
         ),
     )
-    assert bg.tasks[2]["kwargs"] == {}
+    assert bg.tasks[3]["kwargs"] == {}
 
 
 async def test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_messages(monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp) -> None:

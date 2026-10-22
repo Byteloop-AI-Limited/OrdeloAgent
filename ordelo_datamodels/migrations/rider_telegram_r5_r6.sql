@@ -1,7 +1,7 @@
 -- MIGRATION (history; do not edit the statements below)
 -- Applied to live: Steps 1-3 verified on 2026-10-22 (VERIFY true / 7 / true / true / 4 / 0 after the owner applied
---   restaurant_ready_adjust_notices.sql). Code and both command menus deployed per owner. Step 6 remains: the active
---   job_pause_sweep job runs every five minutes on live; availability/job_pause_sweep.sql targets every minute.
+--   restaurant_ready_adjust_notices.sql). Code and both command menus deployed per owner. Step 6 done: job_pause_sweep
+--   is scheduled (owner, 2026-10-23); live tests and drift_check passed.
 -- Current definitions now live in: rider_location/wa_location.sql, availability/pauses.sql, availability/rider_shift.sql,
 --   dispatch/enquire_shift_availability.sql, telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql,
 --   telegram/t_admin_pauses.sql, availability/job_pause_sweep.sql

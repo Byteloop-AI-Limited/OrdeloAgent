@@ -8,8 +8,9 @@ away for a fixed time and come back early if they want:
                        -> the question is edited to "⏸ On a break until <time>" (and "your current job carries on")
     /on             -> ordelo.pauses.resume() + ordelo.rider_shift.set_shift(rider_id, True) (the status gate, D41)
     /shift          -> status: account not active yet | on a break until <time> | on | off shift; the current job, if any
-The pause ends by itself at its end time (is_paused() reads the clock); job_pause_sweep() only sends "ends soon" and
-"back on" (watomation/routers/pause_hooks.py).
+An inflight row blocks /off, /on and old pause buttons. Telegram's private-chat menu also hides /off and /on during
+the job; /shift reconciles that menu. The pause ends by itself at its end time (is_paused() reads the clock);
+job_pause_sweep() only sends "ends soon" and "back on" (watomation/routers/pause_hooks.py).
 Authorisation: the tapping person's from_user.id -> rider_master.tuid -> rider_id (rider_links.profile); callback data carries
 only the duration key. A rider who is not active cannot take a break (there is nothing to step away from).
 """
@@ -34,6 +35,7 @@ from ..callbacks import RiderPause
 from ..inbox import process_once
 from ..keyboards import pause_duration_kb
 from ..replies import answer_quietly
+from .commands import set_inflight_menu
 
 NOT_LINKED = "Please send /start first to link your rider account."
 TROUBLE = "Sorry, something went wrong on our side. Please try again in a minute."
@@ -44,6 +46,7 @@ OPTION_GONE = "That option isn't available any more. Send /off to pick again."
 BACK_ON = "✅ Break over: you're back on. New job offers will arrive here."
 ALREADY_ON = "✅ You're on. New job offers arrive here. Send /off to take a break."
 OTHER_CHANNEL = "Your job offers currently go to WhatsApp. Please contact Ordelo to move them here."
+ON_JOB = "Please complete the current order before using /off or /on."
 
 
 def escape(text) -> str:
@@ -80,6 +83,13 @@ async def cmd_off(message: Message, tgram_settings: TgramBotSettings):
         if prof.status != "active":
             await message.answer(NOT_ACTIVE)
             return
+        if await rider_shift.inflight_order(prof.rider_id) is not None:
+            if message.chat.type == "private":
+                await set_inflight_menu(message.bot, message.chat.id, True)
+            await message.answer(ON_JOB)
+            return
+        if message.chat.type == "private":
+            await set_inflight_menu(message.bot, message.chat.id, False)
         keys, current = await asyncio.gather(pauses.options(pauses.RIDER), pauses.current(pauses.RIDER, prof.rider_id))
     except Exception:
         logger.exception(f"telegram[{tgram_settings.bot_key}]: /off failed for user {message.from_user.id}")
@@ -127,10 +137,14 @@ async def _handle_pause_tap(query: CallbackQuery, callback_data: RiderPause, tgr
         if prof.status != "active":
             await _edit(query, NOT_ACTIVE)
             return
+        if await rider_shift.inflight_order(prof.rider_id) is not None:
+            await set_inflight_menu(query.bot, query.from_user.id, True)
+            await _edit(query, ON_JOB)
+            return
         out = await pauses.pause(pauses.RIDER, prof.rider_id, callback_data.k, via="telegram", by=str(query.from_user.id))
         logger.info(f"telegram[rider]: /off {callback_data.k} by rider {prof.rider_id}: {out.result}")
         if not out.is_paused or out.pause is None:
-            await _edit(query, OPTION_GONE)
+            await _edit(query, ON_JOB if out.result == "on_job" else OPTION_GONE)
             return
         await _edit(query, paused_text(out.pause.ends_at, await _job_line(prof.rider_id)))
     except Exception:
@@ -145,7 +159,17 @@ async def cmd_on(message: Message, tgram_settings: TgramBotSettings):
         if prof is None:
             await message.answer(NOT_LINKED)
             return
+        if await rider_shift.inflight_order(prof.rider_id) is not None:
+            if message.chat.type == "private":
+                await set_inflight_menu(message.bot, message.chat.id, True)
+            await message.answer(ON_JOB)
+            return
+        if message.chat.type == "private":
+            await set_inflight_menu(message.bot, message.chat.id, False)
         resumed = await pauses.resume(pauses.RIDER, prof.rider_id)
+        if resumed.result == "on_job":
+            await message.answer(ON_JOB)
+            return
         shift = await rider_shift.set_shift(prof.rider_id, True)
     except Exception:
         logger.exception(f"telegram[{tgram_settings.bot_key}]: /on failed for user {message.from_user.id}")
@@ -168,23 +192,32 @@ async def cmd_shift(message: Message, tgram_settings: TgramBotSettings):
         if prof is None:
             await message.answer(NOT_LINKED)
             return
-        current, job_line = await asyncio.gather(pauses.current(pauses.RIDER, prof.rider_id), _job_line(prof.rider_id))
+        current, job_line, inflight_order = await asyncio.gather(
+            pauses.current(pauses.RIDER, prof.rider_id), _job_line(prof.rider_id),
+            rider_shift.inflight_order(prof.rider_id),
+        )
+        if message.chat.type == "private":
+            await set_inflight_menu(message.bot, message.chat.id, inflight_order is not None)
     except Exception:
         logger.exception(f"telegram[{tgram_settings.bot_key}]: /shift failed for user {message.from_user.id}")
         await message.answer(TROUBLE)
         return
-    lines = [shift_status_text(prof, current)]
+    lines = [shift_status_text(prof, current, inflight_order is not None)]
     if job_line:
         lines.append(job_line)
+    elif inflight_order:
+        lines.append(f"Current job: <b>{escape(inflight_order)}</b> (/job)")
     if prof.channel != "telegram":
         lines.append(OTHER_CHANNEL)
     await message.answer("\n".join(lines))
 
 
-def shift_status_text(prof: rider_links.RiderProfile, current: pauses.Pause | None) -> str:
+def shift_status_text(prof: rider_links.RiderProfile, current: pauses.Pause | None, inflight: bool = False) -> str:
     """One line: why this rider does or does not get job offers right now (the same gates as get_available_riders())."""
     if prof.status != "active":
         return "⚪ " + NOT_ACTIVE
+    if inflight:
+        return "🛵 On a delivery. Please complete the current order before changing availability."
     if current is not None:
         return (f"⏸ On a break until <b>{escape(pauses.ends_text(current.ends_at))}</b>. "
                 "Send /on to come back early.")

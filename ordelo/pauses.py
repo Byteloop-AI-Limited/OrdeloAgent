@@ -45,7 +45,8 @@ RIDER = "rider"
 REST_ADMIN = "rest_admin"
 Audience = Literal["rider", "rest_admin"]
 
-# pause_start: paused | extended | bad_duration | bad_audience | not_admin | not_allowed ; pause_end: resumed | not_paused
+# pause_start: paused | extended | on_job | bad_duration | bad_audience | not_admin | not_allowed
+# pause_end: resumed | not_paused | on_job
 STARTED = frozenset({"paused", "extended"})
 
 
@@ -92,7 +93,7 @@ async def pause(audience: Audience, principal: str, duration: str, *, scope: str
 
 
 async def resume(audience: Audience, principal: str, *, scope: str | None = None, operator: bool = False) -> PauseOutcome:
-    """End the current pause now. 'resumed', or 'not_paused' if there was none (or it had already ended)."""
+    """End the current pause now. 'on_job' refuses a rider's own /on during delivery."""
     return _outcome(await _rpc("pause_end", {"p_audience": audience, "p_principal": principal, "p_scope": scope,
                                              "p_reason": "operator" if operator else "resumed"}))
 

@@ -964,6 +964,10 @@ async def cancel_delivery_before_pickup(
             "dispatch_cancel_before_pickup", {"p_dispatch_id": dispatch_id}
         ).execute()
 
+        from channels.telegram.rider.commands import sync_rider_menu
+
+        await sync_rider_menu(runtime.context.recipient)
+
         return Command(
             update={
                 "awaiting_cancel_reason": True,
@@ -1148,6 +1152,10 @@ async def verify_customer_confirmation_code(
         client_ordelo.rpc(
             "dispatch_complete_func", {"p_dispatch_id": dispatch_id}
         ).execute()
+
+        from channels.telegram.rider.commands import sync_rider_menu
+
+        await sync_rider_menu(ctx.recipient)
 
         # End exactly this run's thread (R2); a thread opened before R2 also has an exact id
         await _close_own_thread(ctx)
