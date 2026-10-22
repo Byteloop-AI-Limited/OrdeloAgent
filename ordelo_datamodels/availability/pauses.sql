@@ -3,7 +3,7 @@
 -- Pauses: a person steps away from jobs or alerts until a mandatory end time; "paused" is computed from the clock.
 -- =============================================================================================
 -- LIVE CHECK    Live catalog checked 2026-10-22 after the owner re-applied this file: pause_start() and pause_end() both
---                 read delivery_inflight and return on_job; pause_end() retains the operator exception. App deployment pending.
+--                 read delivery_inflight and return on_job; pause_end() retains the operator exception. App deployed and checked live 2026-10-23.
 -- OBJECTS       table  pauses
 --                   One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended.
 --               fn     pause_duration(p_audience text, p_duration text) -> interval
