@@ -152,3 +152,5 @@ def optional_bot(bot_key: str, env: Mapping[str, Any]) -> tuple[TgramBotSettings
 tgram_rest_admin_settings = TgramBotSettings.for_bot(REST_ADMIN_BOT_KEY, agent_env)
 rest_admin_bot: Bot = build_bot(tgram_rest_admin_settings)
 tgram_rider_settings, rider_bot = optional_bot(RIDER_BOT_KEY, agent_env)
+
+
