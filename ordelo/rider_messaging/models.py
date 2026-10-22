@@ -15,7 +15,26 @@ from typing import Literal, NewType
 MsgRef = NewType("MsgRef", str)
 
 Channel = Literal["whatsapp", "telegram"]
-OfferClosedReason = Literal["taken", "expired", "cancelled"]
+# Why an offer stops being open for this rider. WhatsApp sends text only for 'taken' (today's missed-offer message);
+# Telegram edits the offer in place for every reason and removes its buttons (D49).
+OfferClosedReason = Literal["taken", "expired", "cancelled", "assigned", "accepted", "declined", "gone"]
+
+# The three buttons under the delivery instructions (job card): pickup pin, drop-off pin, customer contact.
+JOB_CARD_ACTIONS: dict[str, tuple[str, str]] = {
+    # code: (button title, what the rider "says" to the agent when tapping it; identical on both channels)
+    "pk": ("Pickup Location", "Send me the pickup location"),
+    "dr": ("Dropoff Location", "Send me the dropoff location"),
+    "cc": ("Contact Customer", "I cannot reach customer, please send me customer contact."),
+}
+
+CHANNEL_NAMES = {"whatsapp": "WhatsApp", "telegram": "Telegram"}
+
+
+def wrong_channel_text(order_number: str | None, job_channel: str) -> str:
+    """D44: a rider wrote on the other app during a job. The message is not passed to the agent; this is the reply."""
+    job = f"*{order_number}*" if order_number else "job"
+    return f"Your current job {job} is on {CHANNEL_NAMES.get(job_channel, job_channel)}. Please reply there."
+
 
 _TG_PREFIX = "tg:"
 

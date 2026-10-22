@@ -2,10 +2,9 @@
 -- ordelo_datamodels/core/rider_master.sql
 -- One row per rider: phone (rider_id), vehicle, town, status, shift flag, channel and Telegram link.
 -- =============================================================================================
--- LIVE CHECK    TARGET SHAPE (phase R1 of plans/telegram-rider-bot-plan.md). The base table matched live on 2026-10-16. NOT yet
---                 live: rider_id NOT NULL + UNIQUE, the columns channel, tuid, tcid, t_username, t_first_name, t_linked_at,
---                 phone_verified, and the index rider_master_tuid_uidx. The owner applies migrations/rider_telegram_r1.sql
---                 (pre-checks first), then re-runs this file; after that this file matches live again.
+-- LIVE CHECK    Matches live: migrations/rider_telegram_r1.sql applied by the owner on 2026-10-22 (rider_id NOT NULL + UNIQUE,
+--                 channel, tuid, tcid, t_username, t_first_name, t_linked_at, phone_verified, rider_master_tuid_uidx), and the
+--                 Telegram onboarding was tested live the same day (existing and new riders).
 -- OBJECTS       table  rider_master
 --                   Riders that can be offered delivery jobs, keyed by rider_id (their phone number, digits only).
 -- REQUIRES      none
@@ -58,8 +57,8 @@
 --               tests/utils_common/test_restaurant_notifier.py
 --               tests/watomation/routers/test_delivery_hooks.py
 --               tests/watomation/test_on_message_wa_handler.py
--- GOTCHAS       Until migrations/rider_telegram_r1.sql runs, rider_id is nullable and not unique on live although the code treats
---                 it as the rider's key; the migration's pre-check lists duplicates and NULLs, which the owner fixes first.
+-- GOTCHAS       rider_id is NOT NULL and UNIQUE only since migrations/rider_telegram_r1.sql (2026-10-22); older copies of this table
+--                 (other environments) may still have duplicates or NULLs: run that migration's pre-checks there first.
 --               Read with the anon key by restaurant-frontend and RLS is off, so tuid/tcid are readable by anon too: see
 --                 docs/to-do.md (security review). The Telegram columns are written only through the service-role t_rider_*
 --                 functions, but nothing stops a direct anon write while RLS is off.
@@ -123,3 +122,9 @@ COMMENT ON COLUMN public.rider_master.tuid IS 'Telegram user id (from_user.id); 
 COMMENT ON COLUMN public.rider_master.tcid IS 'Telegram chat id the rider bot sends to; NULL = not linked';
 
 COMMENT ON COLUMN public.rider_master.phone_verified IS 'true once a Telegram contact share proved this phone belongs to tuid';
+
+
+-- ------------------------
+select * from public.rider_master where rider_id = '447448440754';
+delete from public.rider_master where rider_id = '447448440754';
+

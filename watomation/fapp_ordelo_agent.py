@@ -392,8 +392,8 @@ async def reset_restaurant_base_url_cache_endpoint(
 async def get_threads(recipient: Optional[str] = "447448440754"):
     threads = (
         client_ordelo.table("thread")
-        .select("thread_id, dtts")
-        .eq("from_number", recipient)
+        .select("thread_id, dtts, is_active")
+        .eq("recipient", recipient)
         .order("dtts", desc=True)
         .execute()
     )
@@ -435,13 +435,13 @@ async def debug_state_by_thread_path(thread_id: str):
     # Get thread using thread_id
     thread = (
         client_ordelo.table("thread")
-        .select("thread_id, from_number")
+        .select("thread_id, recipient")
         .eq("thread_id", thread_id)
         .execute()
         .data[0]
     )
     debug_stack = await debug_state_by_thread(
-        thread["from_number"], thread_id, graph, pool
+        thread["recipient"], thread_id, graph, pool
     )
     return debug_stack
 

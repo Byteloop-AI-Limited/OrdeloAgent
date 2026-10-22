@@ -2,7 +2,7 @@
 -- ordelo_datamodels/telegram/t_rider_onboarding.sql
 -- Rider bot onboarding: link a Telegram account to rider_master by a shared, verified phone number, or register a new rider.
 -- =============================================================================================
--- LIVE CHECK    NOT yet live (phase R1 of plans/telegram-rider-bot-plan.md). Needs migrations/rider_telegram_r1.sql first.
+-- LIVE CHECK    Live since 2026-10-22 (migrations/rider_telegram_r1.sql step 4); onboarding tested live the same day.
 -- OBJECTS       fn     t_rider_phone_digits(p_phone text) -> text
 --                   Normalise a phone number to digits only (Telegram sends '+44...' or '44...'); NULL when it cannot be a rider_id.
 --               fn     t_rider_link(p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text) -> jsonb

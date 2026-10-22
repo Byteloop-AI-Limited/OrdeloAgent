@@ -35,7 +35,7 @@ def nudges(monkeypatch):
     """Rider nudges and customer events recorded instead of run (their wording is proven in test_restaurant_actions.py)."""
     sent = []
 
-    async def rider(rider_id, rest_name):
+    async def rider(rider_id, rest_name, dispatch_id=None):  # dispatch_id: that job's thread (R2)
         sent.append(("rider", rider_id, rest_name))
 
     async def customer(order_number, data, phone):

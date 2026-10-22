@@ -69,7 +69,21 @@ MIGRATION_FILES = [
     "pauses.sql",
     "t_rider_onboarding.sql",
     "job_pause_sweep.sql",
+    # Rider bot phases R2-R4: thread per dispatch (the thread table itself comes from minimal_schema.sql).
+    "rider_threads.sql",
 ]
+
+
+def dispatch_channel_trigger_sql() -> str:
+    """Only the channel-stamping row trigger from dispatch/delivery_dispatch.sql (R2-R4).
+
+    The rest of that file (the statement trigger that POSTs every offer) is left out on purpose: other SQL tests insert
+    delivery_dispatch rows and must not see extra http_calls.
+    """
+    text = sql_path("delivery_dispatch.sql").read_text()
+    start = text.index("CREATE OR REPLACE FUNCTION public.delivery_dispatch_stamp_channel")
+    end = text.index("EXECUTE FUNCTION delivery_dispatch_stamp_channel ();") + len("EXECUTE FUNCTION delivery_dispatch_stamp_channel ();")
+    return text[start:end]
 
 # The embedded test server has no pgcrypto. t_invites.sql needs gen_random_bytes() (invite codes) only,
 # so that one statement is removed and a stand-in function is created in the `extensions` schema. Nothing else
@@ -124,6 +138,7 @@ def sql_env():
         conn.execute((HERE / "minimal_schema.sql").read_text())
         for name in MIGRATION_FILES:
             conn.execute(migration_sql(name))
+        conn.execute(dispatch_channel_trigger_sql())
     return URI
 
 

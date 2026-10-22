@@ -37,7 +37,6 @@ from ordelo_datamodels.wa_location_pymodels import (
     WaLocationRequestOutcome,
     WhatsAppLocationReceipt,
 )
-from utils_common.thread_management import ThreadHandler
 
 FRESHNESS = timedelta(minutes=5)
 PROMPT_COOLDOWN = timedelta(minutes=5)
@@ -90,7 +89,9 @@ def utcnow() -> datetime:
 class WaLocation:
     """Ordelo-owned durable implementation of the WaLocation public interface."""
 
-    def __init__(self, *, wa_client: Any) -> None:
+    def __init__(self, *, wa_client: Any = None) -> None:
+        # Optional since R3: prompts go through the dispatch's RiderMessenger; a client given here is used on the
+        # WhatsApp side (callers and tests that hold their own pywa client).
         self._wa_client = wa_client
 
     async def request(
@@ -255,23 +256,24 @@ class WaLocation:
         """
         agent_invoked = False
         try:
-            if not await ThreadHandler(await pg_settings.get_pool()).get_active_thread(
-                context.rider_id
-            ):
-                sent = await self._wa_client.request_location(
-                    to=context.rider_id,
-                    text=(
-                        "Please share your current location so we can update the "
-                        "person waiting for your delivery."
-                    ),
-                )
-                await self.record_prompt_sent(request_id, sent.id)
-                return
-
             from ordelo.agents.agent_runner import (
                 clear_wa_location_request,
+                resolve_rider_thread,
                 run_rider_agent_w_custom_msg,
             )
+
+            if not await resolve_rider_thread(context.rider_id, dispatch_id=context.dispatch_id, touch=False):
+                from ordelo.rider_messaging import for_dispatch
+
+                messenger = await for_dispatch(
+                    context.dispatch_id, rider_id=context.rider_id, wa_client=self._wa_client
+                )
+                prompt_ref = await messenger.request_location(
+                    "Please share your current location so we can update the "
+                    "person waiting for your delivery."
+                )
+                await self.record_prompt_sent(request_id, prompt_ref)
+                return
 
             agent_invoked = True
 
@@ -282,6 +284,7 @@ class WaLocation:
             )
             await run_rider_agent_w_custom_msg(
                 recipient=context.rider_id,
+                dispatch_id=context.dispatch_id,
                 system_msg=(
                     f"Rider's location requested by the {requester}. "
                     "Call `request_rider_current_location`."
@@ -301,6 +304,7 @@ class WaLocation:
             ):
                 await run_rider_agent_w_custom_msg(
                     recipient=context.rider_id,
+                    dispatch_id=context.dispatch_id,
                     system_msg="Location prompt was not sent; send it now.",
                     state_update_dict={"force_wa_location_prompt": True},
                 )
@@ -314,7 +318,7 @@ class WaLocation:
                     request_id,
                 )
                 await self.mark_prompt_failed(request_id, "prompt_not_sent")
-                await clear_wa_location_request(context.rider_id)
+                await clear_wa_location_request(context.rider_id, dispatch_id=context.dispatch_id)
         except Exception as exc:
             logger.exception(
                 "Failed to prompt rider via agent for request_id={} error={}",
@@ -330,7 +334,7 @@ class WaLocation:
                 try:
                     from ordelo.agents.agent_runner import clear_wa_location_request
 
-                    await clear_wa_location_request(context.rider_id)
+                    await clear_wa_location_request(context.rider_id, dispatch_id=context.dispatch_id)
                 except Exception:
                     logger.exception(
                         "Failed to clear wa_location_request state for rider={}",

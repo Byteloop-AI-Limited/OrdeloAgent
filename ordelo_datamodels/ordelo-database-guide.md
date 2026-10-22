@@ -5,7 +5,7 @@
 
 The SQL under `ordelo_datamodels/` is organised by capability. Each file starts with a fixed header (live check, objects, how to run, side effects, how it fits, lifecycle, callers, Python model, security, tests, gotchas, see also). The file is the authority; this guide only indexes it.
 
-**108 SQL files · 181 objects** 109 functions · 56 tables · 11 triggers · 5 views · 17 cron jobs
+**111 SQL files · 189 objects** 116 functions · 56 tables · 12 triggers · 5 views · 17 cron jobs
 
 ## Capability map
 
@@ -16,19 +16,19 @@ The SQL under `ordelo_datamodels/` is organised by capability. Each file starts 
 | [`payment/`](payment/) | Payment | 3 | 3 | The payment inbox (payment_event), the at-most-once authorisation step and the alert-only reconciler for paid orders that never started fulfilment. |
 | [`notifications/`](notifications/) | Customer notifications | 3 | 3 | Who hears about an order (subscriptions), what happened (customer events) and one delivery record per event and subscription (outbox). |
 | [`delivery/`](delivery/) | Delivery orders | 6 | 12 | The delivery order as fulfilment sees it (delivery_summary), its priced vehicle options and the 5-second job that opens the next option or times the order out. |
-| [`dispatch/`](dispatch/) | Rider dispatch | 10 | 16 | Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep. |
+| [`dispatch/`](dispatch/) | Rider dispatch | 10 | 18 | Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep. |
 | [`takeaway/`](takeaway/) | Takeaway (collection) | 2 | 7 | The collection order (takeaway_summary), its creation and the triggers that tell admins and customers about it. |
 | [`restaurant_admin/`](restaurant_admin/) | Restaurant admin actions | 6 | 22 | Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout and the daily availability question. |
 | [`telegram/`](telegram/) | Telegram layer | 6 | 27 | Invite links, the at-most-once update inbox, order cards with reminders, the ledger of sent messages and the daily purge. |
 | [`rider_location/`](rider_location/) | Rider location | 6 | 9 | OwnTracks GPS fixes and region events from a pgmq queue, and on-demand WhatsApp location requests. |
 | [`availability/`](availability/) | Availability pauses | 2 | 7 | Pauses with a mandatory end time for riders (later restaurant admins): is_paused() computes availability from the clock; job_pause_sweep() only sends the ends-soon and back-on messages (ADR 0013). |
-| [`agent_threads/`](agent_threads/) | Agent threads | 3 | 5 | Reading LangGraph checkpoints and closing idle conversation threads (OrdeloAgent and restaurant-agents). |
+| [`agent_threads/`](agent_threads/) | Agent threads | 4 | 11 | Reading LangGraph checkpoints and closing idle conversation threads (OrdeloAgent and restaurant-agents). |
 | [`admin_dashboard/`](admin_dashboard/) | Admin dashboard | 3 | 6 | Magic-link sessions, the order views behind the restaurant dashboard and the rider payout report. |
 | [`platform/`](platform/) | Platform and operations | 6 | 5 | HTTP helpers, cron housekeeping and the Fly.io / AWS App Runner switches. |
 | [`byteloop_agent/`](byteloop_agent/) | Byteloop agent | 2 | 4 | Tables and vector search used by the separate Byteloop agent. |
-| [`test_support/`](test_support/) | Test support | 9 | 4 | Helpers and harness scripts for resetting and replaying orders. Not part of production flows. |
+| [`test_support/`](test_support/) | Test support | 10 | 4 | Helpers and harness scripts for resetting and replaying orders. Not part of production flows. |
 | [`_orphans/`](_orphans/) | Orphan candidates | 10 | 25 | Live objects with no caller found in OrdeloAgent, restaurant-frontend or restaurant-agents. Captured exactly as live; keep or drop is an owner decision (docs/to-do.md). |
-| [`migrations/`](migrations/) | Migrations (history) | 13 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
+| [`migrations/`](migrations/) | Migrations (history) | 14 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
 
 ## Flows
 
@@ -194,7 +194,9 @@ Admin dashboard reads and platform helpers.
 | File | Object | Kind | What it does |
 |---|---|---|---|
 | [`delivery_dispatch.sql`](dispatch/delivery_dispatch.sql) | `delivery_dispatch_whook_statement` | function | Statement trigger function: POST every offer inserted by one statement to /delivery-hooks/delivery-dispatch. |
+| [`delivery_dispatch.sql`](dispatch/delivery_dispatch.sql) | `delivery_dispatch_stamp_channel` | function | Row trigger function: copy the rider's channel (rider_master.channel) onto each new offer (D44). |
 | [`delivery_dispatch.sql`](dispatch/delivery_dispatch.sql) | `delivery_dispatch` | table | Offer of one delivery order to one rider (dispatch_id), with payout, distance, status and payout-paid state. |
+| [`delivery_dispatch.sql`](dispatch/delivery_dispatch.sql) | `trigger_delivery_dispatch_stamp_channel` | trigger | BEFORE INSERT FOR EACH ROW: the offer keeps the channel it was made on until the job ends. |
 | [`delivery_dispatch.sql`](dispatch/delivery_dispatch.sql) | `trigger_delivery_dispatch_whook` | trigger | AFTER INSERT ... FOR EACH STATEMENT with REFERENCING NEW TABLE new_rows: one webhook per batch of offers. |
 | [`delivery_inflight.sql`](dispatch/delivery_inflight.sql) | `delivery_inflight_whook` | function | Row trigger function: start the rider agent for a newly assigned job and tell the riders who missed it. |
 | [`delivery_inflight.sql`](dispatch/delivery_inflight.sql) | `trigger_delivery_inflight_whook` | trigger | AFTER INSERT ON delivery_inflight FOR EACH ROW. |
@@ -316,6 +318,12 @@ Admin dashboard reads and platform helpers.
 | [`job_close_thread.sql`](agent_threads/job_close_thread.sql) | `job_close_thread` | function | POST idle active threads to /delivery-hooks/close-threads; returns whether it posted. |
 | [`job_terminate_stale_active_threads.sql`](agent_threads/job_terminate_stale_active_threads.sql) | `job_terminate_stale_active_threads_new` | function | Batch idle threads per restaurant and POST them to restaurant-agents for termination; returns a jsonb report. |
 | [`job_terminate_stale_active_threads.sql`](agent_threads/job_terminate_stale_active_threads.sql) | `job_terminate_stale_active_threads` | function | Old version (cron inactive): POST stale threads to OrdeloAgent /thread-hooks/terminate-stale-active-threads. |
+| [`rider_threads.sql`](agent_threads/rider_threads.sql) | `rider_thread_id` | function | The thread id of a dispatch: '<agent>-dispatch-<dispatch_id>' (e.g. ORDELO-dispatch-84217). |
+| [`rider_threads.sql`](agent_threads/rider_threads.sql) | `rider_thread_open` | function | Open the thread of an assigned dispatch (idempotent) and close the rider's other rider threads (D47). |
+| [`rider_threads.sql`](agent_threads/rider_threads.sql) | `rider_thread_touch` | function | Mark an open thread as just used (last_access_dtts) and return its snapshot; refuses closed threads. |
+| [`rider_threads.sql`](agent_threads/rider_threads.sql) | `rider_thread_active` | function | The rider's open rider thread (newest), with its dispatch and channel; optionally touches it. |
+| [`rider_threads.sql`](agent_threads/rider_threads.sql) | `rider_thread_describe` | function | Read-only snapshot of one thread, found by thread id or by dispatch id (debug, close-threads, hooks). |
+| [`rider_threads.sql`](agent_threads/rider_threads.sql) | `rider_thread_close` | function | Close exactly this thread (never every thread of the phone). |
 
 ### Admin dashboard (`admin_dashboard/`)
 
@@ -361,6 +369,7 @@ Admin dashboard reads and platform helpers.
 | [`test_reset_takeaway_order.sql`](test_support/test_reset_takeaway_order.sql) | `test_reset_takeaway_order` | function | Reset one takeaway order to 'restaurant_unconfirmed' with no pickup time; returns a message. |
 | [`test_restaurant_notices.sql`](test_support/test_restaurant_notices.sql) | | script | TEST HARNESS (not a migration): fake STRK orders to try the kitchen receipt, Ready / +10 / +20 and the restaurant |
 | [`test_rider_onboarding.sql`](test_support/test_rider_onboarding.sql) | | script | TEST HARNESS (not a migration): exercise the rider bot onboarding functions, the pauses and the R1 dispatch gate on the |
+| [`test_rider_telegram_jobs.sql`](test_support/test_rider_telegram_jobs.sql) | | script | TEST HARNESS (not a migration): a rider job on TELEGRAM end to end (phases R2-R4 of plans/telegram-rider-bot-plan.md): |
 
 ### Orphan candidates (`_orphans/`)
 
@@ -407,7 +416,8 @@ Admin dashboard reads and platform helpers.
 | [`migrations/ordelo_agg_r1.sql`](migrations/ordelo_agg_r1.sql) | Applied, except the pg_cron schedule for job_payment_init_reconciler (not in cron.job; docs/to-do.md). | notifications/notification_outbox.sql, notifications/order_customer_event.sql, notifications/order_notification_subscription.sql, ordering/create_food_order_with_items.sql, ordering/food_order_additions.sql, payment/job_payment_init_reconciler.sql, payment/payment_event.sql, payment/record_payment_authorised.sql, restaurant-agents (food_order) |
 | [`migrations/ordelo_agg_r1_test_payment.sql`](migrations/ordelo_agg_r1_test_payment.sql) | Applied: every object it creates exists live (checked 2026-10-16). | ordering/create_food_order_with_items.sql, ordering/food_order_additions.sql, restaurant-agents (food_order) |
 | [`migrations/ordelo_agg_r3.sql`](migrations/ordelo_agg_r3.sql) | Applied: every object it creates exists live (checked 2026-10-16). | agent_threads/job_close_thread.sql, core/restaurant_master.sql, ordering/create_food_order_with_items.sql, ordering/order_access_grant.sql, ordering/web_monitor_run.sql, ordering/web_order_request.sql, ordering/web_payment_release.sql, ordering/web_rate_limit.sql, ordering/web_session_meta.sql |
-| [`migrations/rider_telegram_r1.sql`](migrations/rider_telegram_r1.sql) | NOT applied yet (phase R1 of plans/telegram-rider-bot-plan.md; the owner runs it). | core/rider_master.sql, telegram/t_rider_onboarding.sql, availability/pauses.sql, dispatch/job_create_dispatch.sql |
+| [`migrations/rider_telegram_r1.sql`](migrations/rider_telegram_r1.sql) | Applied by the owner on 2026-10-22 (steps 0-6); onboarding tested live the same day. Next: rider_telegram_r2_r4.sql. | core/rider_master.sql, telegram/t_rider_onboarding.sql, availability/pauses.sql, dispatch/job_create_dispatch.sql |
+| [`migrations/rider_telegram_r2_r4.sql`](migrations/rider_telegram_r2_r4.sql) | Applied by the owner on 2026-10-22 (steps 0-4, VERIFY 3/1/6/0); code deployed and a rider job tested live on Telegram and WhatsApp. | dispatch/delivery_dispatch.sql, agent_threads/rider_threads.sql |
 | [`migrations/test3100_order_routing.sql`](migrations/test3100_order_routing.sql) | Applied: every object it creates exists live (checked 2026-10-16). | dispatch/job_create_dispatch.sql, ordering/create_food_order_with_items.sql, ordering/order_has_test_item.sql |
 
 ## Cron jobs

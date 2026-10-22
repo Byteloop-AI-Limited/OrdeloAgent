@@ -170,3 +170,12 @@ Decided with the owner in the rider grilling session
   inbound text goes actor → rider → the single active thread. The scheduled stale
   close also closes a rider thread whose cancel reason is still missing;
   `retain_thread` stays `false` on rider threads.
+- **As built (R2, 22 October 2026).** The dispatch → thread link is stored, not derived:
+  `rider_thread_open` writes the id to `delivery_dispatch.thread_id`, and every lookup
+  (`rider_thread_touch`, `rider_thread_active`, `rider_thread_describe`) joins
+  `thread.thread_id = delivery_dispatch.thread_id` to return the dispatch, order, the
+  dispatch's channel and the rider's Telegram chat in one call. `rider_thread_open` takes a
+  per-rider advisory lock, is the only creator of rider threads (the runner never calls
+  `get_or_create_thread` for riders, so a late hook can no longer create a thread), and
+  never reopens a closed one. Threads opened before R2 (`ORDELO-<uuid>`) are still found by
+  `rider_thread_active` and are closed when the rider's next dispatch thread opens.

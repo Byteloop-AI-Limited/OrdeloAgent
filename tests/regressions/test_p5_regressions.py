@@ -139,12 +139,15 @@ async def test_cancel_delivery_before_pickup_reads_rider_name_from_state_not_con
 async def test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic(monkeypatch, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
     patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[{"status": "inflight"}]))
     patch_supabase_client.register(table="delivery_inflight", verb="select", response=FakeSupabaseResponse(data=[{"rider_id": "RIDER01", "dispatch_id": 10, "order_number": "ELAS-ABCD-1"}]))
+    # The assigned dispatch is found (the decline is for the rider's own live job) -> the cancel-before-pickup flow.
+    patch_supabase_client.register(table="delivery_dispatch", verb="update", response=FakeSupabaseResponse(data=[{"dispatch_id": 10, "status": "assigned"}]))
     calls = []
 
-    async def _fake_initial(order_status, callback_data):
-        calls.append((order_status, callback_data))
+    async def _fake_run(**kwargs):
+        calls.append(kwargs)
 
-    monkeypatch.setattr(on_callback_wa_handler, "initial_handle_of_rider_response", _fake_initial)
+    # Since R4 the offer rules live in ordelo.dispatch_actions.respond_to_offer (shared with Telegram, D48).
+    monkeypatch.setattr("ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run)
     msg = FakeMessage(
         sender="RIDER01",
         data=json.dumps({"command": "/dispatchResponse", "order_number": "ELAS-ABCD-1", "dispatch_id": 10, "status": "declined"}),
@@ -152,8 +155,13 @@ async def test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic(
 
     await on_callback_wa_handler.dispatch_response(fake_async_wa, msg)
 
-    assert fake_async_wa.sent == []
-    assert calls == [({"status": "inflight"}, {"order_number": "ELAS-ABCD-1", "dispatch_id": 10, "status": "declined", "rider_id": "RIDER01"})]
+    assert fake_async_wa.sent == []  # no "already on a job" text for a decline of the same dispatch
+    assert calls == [{
+        "recipient": "RIDER01",
+        "dispatch_id": 10,
+        "system_msg": "call `tool cancel_delivery_before_pickup`",
+        "human_msg": "I need to cancel order ELAS-ABCD-1 before pickup.",
+    }]
 
 
 @respx.mock

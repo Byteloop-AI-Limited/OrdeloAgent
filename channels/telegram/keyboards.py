@@ -7,7 +7,7 @@ queries, and work in private chats only.
 from aiogram.types import InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from .callbacks import InviteDecision, RiderOffer, RiderSignup
+from .callbacks import InviteDecision, RiderJobAction, RiderOffer, RiderSignup
 
 
 def contact_request_kb() -> ReplyKeyboardMarkup:
@@ -58,4 +58,15 @@ def rider_offer_kb(dispatch_id: int) -> InlineKeyboardMarkup:
     b.button(text="✅ Accept", callback_data=RiderOffer(d=dispatch_id, a="a").pack())
     b.button(text="❌ Decline", callback_data=RiderOffer(d=dispatch_id, a="d").pack())
     b.adjust(2)
+    return b.as_markup()
+
+
+def rider_job_card_kb(dispatch_id: int) -> InlineKeyboardMarkup:
+    """Pickup Location / Dropoff Location / Contact Customer under the delivery instructions (R3)."""
+    from ordelo.rider_messaging.models import JOB_CARD_ACTIONS  # values only; no import cycle at module load
+
+    b = InlineKeyboardBuilder()
+    for code in ("pk", "dr", "cc"):
+        b.button(text=JOB_CARD_ACTIONS[code][0], callback_data=RiderJobAction(d=dispatch_id, a=code).pack())
+    b.adjust(2, 1)
     return b.as_markup()

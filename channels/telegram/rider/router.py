@@ -1,4 +1,5 @@
-"""Rider bot router factory (@ByteloopRidersBot, bot_key 'rider'). Phase R1: onboarding, /help, /whoami.
+"""Rider bot router factory (@ByteloopRidersBot, bot_key 'rider'). R1: onboarding, /help, /whoami. R4: jobs (jobs.py:
+offers, job-card buttons, /job, text to the rider agent).
 
 Onboarding (plans/telegram-rider-bot-plan.md, D39-D42), one generic link for everybody, no per-phone invites:
 
@@ -14,8 +15,8 @@ Onboarding (plans/telegram-rider-bot-plan.md, D39-D42), one generic link for eve
 
 No state is kept in the process (gunicorn workers, concurrent updates: telegram_webhook.py): after the contact step
 every call is keyed by the tapping person's from_user.id, and the database decides. The phone never travels in
-callback data. Plain text is NOT passed to the rider agent in R1; from phase R4 the router sends a rider's text to
-their single active dispatch thread (D46, D47).
+callback data. From R4 a rider's text goes to their single open dispatch thread when that job lives on Telegram (jobs.py,
+D44, D46, D47); this router keeps only the final fallback for unknown commands.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from ..callbacks import RiderSignup
 from ..keyboards import contact_request_kb, rider_choice_kb
 from ..replies import answer_quietly
 from .commands import HELP_TEXT
+from .jobs import build_jobs_router
 
 
 def escape(text: str | None) -> str:
@@ -256,7 +258,7 @@ async def fallback(message: Message):
     except Exception:
         prof = None
     if prof is not None and prof.is_linked:
-        await message.answer("Nothing to do here yet. Your rider messages will arrive in this chat. Try /help.")
+        await message.answer("I don't know that command. Try /help.")
     else:
         await message.answer(NOT_LINKED)
 
@@ -269,5 +271,9 @@ def build_router() -> Router:
     router.message.register(cmd_whoami, Command("whoami"))
     router.message.register(on_contact, F.contact)
     router.callback_query.register(on_signup_choice, RiderSignup.filter())
-    router.message.register(fallback, F.text)  # last: swallows any other text (R4 routes linked riders' text to the agent)
+    router.include_router(build_jobs_router())  # R4: offers, job-card buttons, /job, plain text -> the rider agent
+    # Last: unknown commands. A sub-router, because aiogram tries a router's own handlers BEFORE its included routers.
+    last = Router(name="rider_fallback")
+    last.message.register(fallback, F.text)
+    router.include_router(last)
     return router

@@ -1,5 +1,5 @@
 -- MIGRATION (history; do not edit the statements below)
--- Applied to live: NOT applied yet (phase R1 of plans/telegram-rider-bot-plan.md; the owner runs it).
+-- Applied to live: Applied by the owner on 2026-10-22 (steps 0-6); onboarding tested live the same day. Next: rider_telegram_r2_r4.sql.
 -- Current definitions now live in: core/rider_master.sql, telegram/t_rider_onboarding.sql, availability/pauses.sql, dispatch/job_create_dispatch.sql
 -- Purpose: Rider Telegram onboarding (R1): rider_master gets a unique rider_id, channel and the Telegram link columns.
 -- The feature files above are the current truth; this file only records the one-off change.

@@ -6,7 +6,8 @@ confirmation, pickup-time updates, and ready notifications.
 
 Key Functions:
   - test_dispatch_response_handles_missing_and_inflight_orders
-  - test_dispatch_response_falls_through_to_initial_handler
+  - test_dispatch_response_accept_marks_the_offer_accepted_without_a_message
+  - test_dispatch_response_sends_the_unchanged_whatsapp_texts
   - test_rider_request_location_handles_completed_missing_and_active_dispatch
   - test_handle_shift_availability_yes_no_and_on_job_paths
   - test_handle_admin_availability_replies
@@ -89,19 +90,32 @@ async def test_dispatch_response_handles_missing_and_inflight_orders(patch_supab
     assert fake_async_wa.sent[-1].kwargs["text"] == "Sorry, this job was picked up by another rider."
 
 
-async def test_dispatch_response_falls_through_to_initial_handler(monkeypatch, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+async def test_dispatch_response_accept_marks_the_offer_accepted_without_a_message(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    """Since R4 the rules run in ordelo.dispatch_actions.respond_to_offer (shared with Telegram, D48)."""
     patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[{"status": "unassigned"}]))
     patch_supabase_client.register(table="delivery_inflight", verb="select", response=FakeSupabaseResponse(data=[]))
-    calls = []
-
-    async def _fake_initial(order_status, callback_data):
-        calls.append((order_status, callback_data))
-
-    monkeypatch.setattr(handler, "initial_handle_of_rider_response", _fake_initial)
 
     await handler.dispatch_response(fake_async_wa, FakeMessage(sender="RIDER01", data=_dispatch_payload()))
 
-    assert calls == [({"status": "unassigned"}, {"order_number": "ELAS-ABCD-1", "dispatch_id": 10, "status": "accepted", "rider_id": "RIDER01"})]
+    assert fake_async_wa.sent == []
+    assert patch_supabase_client.calls[-1].payload == {"status": "accepted"}
+
+
+async def test_dispatch_response_sends_the_unchanged_whatsapp_texts(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[]))
+    await handler.dispatch_response(fake_async_wa, FakeMessage(sender="RIDER01", data=_dispatch_payload()))
+    assert fake_async_wa.sent[-1].kwargs == {"to": "RIDER01", "text": "Sorry, This job is no longer available"}
+
+    patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[{"status": "inflight"}]))
+    patch_supabase_client.register(table="delivery_inflight", verb="select",
+                                   response=FakeSupabaseResponse(data=[{"rider_id": "OTHER", "dispatch_id": 11, "order_number": "ELAS-ABCD-1"}]))
+    await handler.dispatch_response(fake_async_wa, FakeMessage(sender="RIDER01", data=_dispatch_payload()))
+    assert fake_async_wa.sent[-1].kwargs == {"to": "RIDER01", "text": "Sorry, this job was picked up by another rider."}
+
+    patch_supabase_client.register(table="delivery_inflight", verb="select",
+                                   response=FakeSupabaseResponse(data=[{"rider_id": "RIDER01", "dispatch_id": 9, "order_number": "ELAS-ABCD-1"}]))
+    await handler.dispatch_response(fake_async_wa, FakeMessage(sender="RIDER01", data=_dispatch_payload()))
+    assert fake_async_wa.sent[-1].kwargs == {"to": "RIDER01", "text": "Sorry, You are already on a job ELAS-ABCD-1"}
 
 
 async def test_rider_request_location_handles_completed_missing_and_active_dispatch(monkeypatch, fake_async_wa: FakeAsyncWhatsApp) -> None:
@@ -121,7 +135,7 @@ async def test_rider_request_location_handles_completed_missing_and_active_dispa
     monkeypatch.setattr(handler.DeliveryDispatch, "from_dispatch_id", classmethod(lambda cls, dispatch_id: SimpleNamespace(status="assigned")))
     monkeypatch.setattr(handler, "run_rider_agent_w_custom_msg", _fake_run)
     await handler.rider_request_location(fake_async_wa, FakeMessage(data=json.dumps({"dispatch_id": 1, "recipient": "RIDER01", "human_msg": "pickup"})))
-    assert calls == [{"recipient": "RIDER01", "human_msg": "pickup"}]
+    assert calls == [{"recipient": "RIDER01", "human_msg": "pickup", "dispatch_id": 1}]  # that dispatch's thread (R2)
 
 
 async def test_handle_shift_availability_yes_no_and_on_job_paths(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:

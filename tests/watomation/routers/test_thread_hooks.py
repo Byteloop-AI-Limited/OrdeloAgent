@@ -46,6 +46,7 @@ async def test_run_system_message_uses_recipient_or_fetches_active_thread(
         "recipient": "RIDER01",
         "system_msg": "wake",
         "state_update_dict": {"x": 1},
+        "thread_id": "thread-1",  # R2: exactly the named thread, not "the rider's thread"
     }
 
     patch_supabase_client.register(
@@ -60,6 +61,17 @@ async def test_run_system_message_uses_recipient_or_fetches_active_thread(
     )
     result = await thread_hooks.run_system_message(request)
     assert result["recipient"] == "RIDER02"
+
+
+async def test_run_system_message_404_when_the_named_thread_is_closed(monkeypatch) -> None:
+    async def _closed(**kwargs):
+        return None  # run_rider_agent_w_custom_msg never creates a thread; a closed one gives None
+
+    monkeypatch.setattr(thread_hooks, "run_rider_agent_w_custom_msg", _closed)
+    request = thread_hooks.RunSystemMessageRequest(thread_id="ORDELO-dispatch-9", recipient="RIDER01", update_message="wake")
+    with pytest.raises(thread_hooks.HTTPException) as exc:
+        await thread_hooks.run_system_message(request)
+    assert exc.value.status_code == 404
 
 
 async def test_run_system_message_raises_when_thread_missing(

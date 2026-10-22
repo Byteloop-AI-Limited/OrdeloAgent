@@ -53,11 +53,17 @@ class RiderMessenger(Protocol):
         """React to one of the rider's messages: accepted (ok) or rejected (e.g. a confirmation code)."""
         ...
 
+    async def job_card(self, header: str, text: str, dispatch_id: int) -> MsgRef:
+        """The delivery instructions with the three job buttons (Pickup Location, Dropoff Location, Contact Customer).
+        A tap reaches the rider agent as the rider's own words (models.JOB_CARD_ACTIONS)."""
+        ...
+
     async def offer_job(self, offer: JobOffer) -> MsgRef:
         """A job offer with Accept / Decline. Store the returned ref (delivery_dispatch.channel_msg_ref, R4)."""
         ...
 
     async def offer_closed(self, ref: MsgRef | None, order_number: str, reason: OfferClosedReason) -> None:
-        """The offer is no longer open for this rider. WhatsApp: today's text. Telegram: edit the offer in place and remove
-        its buttons, sending nothing new (D49)."""
+        """The offer is no longer open for this rider (reason: taken, expired, cancelled, assigned, accepted, declined, gone).
+        WhatsApp: today's text for 'taken' only, nothing otherwise. Telegram: edit the offer in place and remove its
+        buttons, sending nothing new (D49)."""
         ...

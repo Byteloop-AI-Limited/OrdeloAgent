@@ -134,8 +134,11 @@ async def test_notify_rider_location_event_customer_enter_posts_webhook(monkeypa
 
 
 async def test_notify_rider_null_or_outdated_location_sends_reason_messages(
-    monkeypatch, patch_async_wa_client: FakeAsyncWhatsApp
+    monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
 ) -> None:
+    # The rider's channel (rider_master, R3): WhatsApp riders get exactly the old texts.
+    patch_supabase_client.register(table="rider_master", verb="select",
+                                   response=FakeSupabaseResponse(data=[{"channel": "whatsapp", "tcid": None}]))
     monkeypatch.setattr(
         location_hooks.wa_location_settings,
         "legacy_owntracks_prompts_enabled",

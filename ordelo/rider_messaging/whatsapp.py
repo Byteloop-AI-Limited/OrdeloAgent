@@ -13,7 +13,7 @@ from typing import Any
 
 from pywa.types import Button, ButtonUrl, Contact
 
-from .models import ContactCard, JobOffer, LinkButton, MsgRef, OfferClosedReason, Place
+from .models import JOB_CARD_ACTIONS, ContactCard, JobOffer, LinkButton, MsgRef, OfferClosedReason, Place
 
 REACTION_OK = "✅"
 REACTION_FAIL = "❌"
@@ -83,6 +83,30 @@ class WhatsAppRiderMessenger:
         if wa_id is None:
             return
         await self.wa.send_reaction(to=self.phone, emoji=REACTION_OK if ok else REACTION_FAIL, message_id=wa_id)
+
+    async def job_card(self, header: str, text: str, dispatch_id: int) -> MsgRef:
+        """Verbatim from agent_app_handlers._send_delivery_instructions (the '/riderLocationRequest' buttons)."""
+        from utils_common.waba_utils.wa_senders import CallbackButtonData
+
+        def data(code: str) -> str:
+            return CallbackButtonData(
+                action="/riderLocationRequest",
+                recipient=self.phone,
+                dispatch_id=dispatch_id,
+                ai_msg="",
+                human_msg=JOB_CARD_ACTIONS[code][1],
+                response="",
+            ).model_dump_json()
+
+        return _ref(
+            await self.wa.send_message(
+                to=self.phone,
+                header=header,
+                text=text,
+                reply_to_message_id=None,
+                buttons=[Button(title=JOB_CARD_ACTIONS[c][0], callback_data=data(c)) for c in ("pk", "dr", "cc")],
+            )
+        )
 
     async def offer_job(self, offer: JobOffer) -> MsgRef:
         def payload(status: str) -> str:

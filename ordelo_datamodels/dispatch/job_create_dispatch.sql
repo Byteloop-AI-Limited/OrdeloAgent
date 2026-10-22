@@ -2,9 +2,8 @@
 -- ordelo_datamodels/dispatch/job_create_dispatch.sql
 -- Every 5 seconds: offer open delivery options to available riders (insert delivery_dispatch rows), in batches.
 -- =============================================================================================
--- LIVE CHECK    TARGET SHAPE (phase R1 of plans/telegram-rider-bot-plan.md): job_create_dispatch() matches live (2026-10-16);
---                 get_available_riders() here adds status = 'active' and NOT is_paused(...), which are NOT yet live. The owner
---                 applies availability/pauses.sql, then this file (see migrations/rider_telegram_r1.sql for the order).
+-- LIVE CHECK    Matches live: job_create_dispatch() (2026-10-16) and get_available_riders() with status = 'active' and
+--                 NOT is_paused(...) (migrations/rider_telegram_r1.sql step 5, applied by the owner on 2026-10-22).
 -- OBJECTS       fn     job_create_dispatch() -> TABLE(action text)
 --                   Create the next batch of offers for every open delivery option, or time the vehicle type out; returns what it did.
 --               fn     get_available_riders(p_order_number text, p_town text, p_vehicle_type text) -> TABLE(rider_id character varying, priority integer)

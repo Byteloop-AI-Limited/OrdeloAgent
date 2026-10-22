@@ -1,4 +1,8 @@
-"""Priority PyWa handler for native WhatsApp current-location responses."""
+"""Priority PyWa handler for native WhatsApp current-location responses.
+
+Since R2 the follow-up acknowledgement runs on the rider's single open dispatch thread (ordelo.agents.rider_threads),
+and only when that job lives on WhatsApp (D44).
+"""
 
 from __future__ import annotations
 
@@ -7,10 +11,10 @@ from datetime import datetime, timezone
 from pywa.types import Message
 from pywa_async import WhatsApp
 
-from config import logger, pg_settings
+from config import logger
+from ordelo.agents.rider_threads import active_for_rider as active_rider_thread
 from ordelo.wa_location import WaLocation
 from ordelo_datamodels.wa_location_pymodels import WhatsAppLocationReceipt
-from utils_common.thread_management import ThreadHandler
 
 
 def _observed_at(value: object) -> datetime:
@@ -50,12 +54,13 @@ async def handle_wa_location_message(wa: WhatsApp, msg: Message) -> None:
             )
         )
         if correlated:
-            pool = await pg_settings.get_pool()
-            if await ThreadHandler(pool).get_active_thread(recipient):
+            thread = await active_rider_thread(recipient)
+            if thread is not None and thread.channel == "whatsapp":
                 from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 
                 await run_rider_agent_w_custom_msg(
                     recipient=recipient,
+                    thread_id=thread.thread_id,
                     system_msg=(
                         "Rider shared their current location and it has been "
                         "sent to the requester. Acknowledge briefly in one line."

@@ -1,3 +1,4 @@
+select * from thread where recipient = '447448440754' order by dtts desc;
 select * from thread where recipient != '447448440754' order by dtts desc;
 select * from restaurant_master where rest_ref='STRK';
 -- commit;
@@ -511,3 +512,6 @@ update delivery_summary set status='restaurant_unconfirmed' where order_number='
 select * from public.job_t_order_alerts;
 
 select * from restaurant_master where rest_ref='STRK';
+select count(*) from t_inbox limit 10;
+select * from t_inbox order by received_at desc limit 10;
+select * from t_inbox_claim;
