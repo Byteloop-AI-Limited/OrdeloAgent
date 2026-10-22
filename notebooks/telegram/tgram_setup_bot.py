@@ -1,37 +1,48 @@
-# %% [markdown]
-# # Restaurant-admin bot setup: register the webhook (run once per environment / URL change)
+# %% 1. Setup: select the bot, then load its settings and client
+
+# # Telegram bot setup: register the selected bot's webhook (run once per environment / URL change)
 # Run cell by cell (VS Code "Run Cell", Jupyter, or `ipython`). Cells use top-level `await`.
 # Run from the repo root with the main project .venv, PYTHONPATH="$PWD" and AWS_SETTINGS_* set
 # (see docs/local-testing-runbook.md section 1): importing `config` loads every OrdeloAgent setting.
 #
-# What this does: tells Telegram *where to POST updates* (OrdeloAgent's /telegram/rest-admin/webhook)
+# What this does: tells Telegram *where to POST updates* (OrdeloAgent's selected bot route)
 # and which secret header to send. Telegram only calls public HTTPS URLs (ports 443, 80, 88, 8443),
-# so tgram_rest_admin_webhook_base_url must be your public (tunnel or deployed) base URL.
+# so the selected bot's webhook_base_url must be your public (tunnel or deployed) base URL.
 # These calls hit the REAL Bot API. Setting/deleting the webhook changes live behaviour for this bot.
 #
-# !! The dev bot is SHARED with tgram_starter (decision D8). A bot has exactly ONE webhook:
-#    whichever URL was set last receives every update. Cell 8 hands the bot back to the starter.
+# !! If this bot is shared with tgram_starter (decision D8), it has exactly ONE webhook:
+#    whichever URL was set last receives every update. Cell 8 can hand it back to the starter.
 # NEVER set the webhook from app startup; it is always an explicit step here.
 #
 # Order of play (first time):  1-2 token check -> 3 current webhook -> 4 set -> 5 verify -> 6 commands -> 7 smoke test
 
-# %% 1. Setup: settings and bot (from config, built from the AWS secret / TGRAM_REST_ADMIN_* env vars)
+# Settings come from config, built from the AWS secret / TGRAM_<BOT_KEY>_* env vars.
 import sys
 from pathlib import Path
 
 ROOT = next(p for p in [Path.cwd(), *Path.cwd().parents] if (p / "channels" / "telegram").is_dir())
 
+BOT_KEY = "rest_admin"  # Change to "rider" to operate the rider bot.
+BOT_KEY = "rider"  # Change to "rider" to operate the rider bot.
+
 sys.path.insert(0, str(ROOT))
 
-from channels.telegram.bots import build_rest_admin_dispatcher  # noqa: E402
+from channels.telegram.bots import DISPATCHER_FACTORIES  # noqa: E402
 from channels.telegram.rest_admin.commands import REST_ADMIN_COMMANDS  # noqa: E402
-from config import rest_admin_bot as bot, tgram_rest_admin_settings as settings  # noqa: E402
-# %%
-BOT_KEY = settings.bot_key  # "rest_admin"
+from channels.telegram.rider.commands import RIDER_COMMANDS  # noqa: E402
+from config import rest_admin_bot, rider_bot, tgram_rest_admin_settings, tgram_rider_settings  # noqa: E402
+from config.tgram_setting import REST_ADMIN_BOT_KEY, RIDER_BOT_KEY  # noqa: E402
+
+assert BOT_KEY in (REST_ADMIN_BOT_KEY, RIDER_BOT_KEY), f"unsupported BOT_KEY: {BOT_KEY!r}"
+settings, bot, commands = {
+    REST_ADMIN_BOT_KEY: (tgram_rest_admin_settings, rest_admin_bot, REST_ADMIN_COMMANDS),
+    RIDER_BOT_KEY: (tgram_rider_settings, rider_bot, RIDER_COMMANDS),
+}[BOT_KEY]
+assert settings is not None and bot is not None, f"{BOT_KEY} bot is not configured"
 print("bot_key:      ", BOT_KEY)
 print("token set:    ", bool(settings.bot_token))
 print("secret set:   ", bool(settings.webhook_secret))
-print("webhook URL:  ", settings.webhook_url or "(tgram_rest_admin_webhook_base_url not set)")
+print("webhook URL:  ", settings.webhook_url or f"(tgram_{BOT_KEY}_webhook_base_url not set)")
 
 # %% 2. Validate the token
 me = await bot.get_me()
@@ -47,14 +58,13 @@ print(info.model_dump_json(indent=2, exclude_none=True))
 # %% 4. SET the webhook to OrdeloAgent  (the step you came here for)
 # Re-run this cell after adding handlers for new update types (e.g. callback_query for the invite buttons):
 # allowed_updates below is computed from the handlers, and Telegram only sends what is listed.
-assert settings.webhook_url.startswith("https://"), "set tgram_rest_admin_webhook_base_url to a public https:// URL"
-dp = build_rest_admin_dispatcher(settings)
+assert settings.webhook_url.startswith("https://"), f"set tgram_{BOT_KEY}_webhook_base_url to a public https:// URL"
+dp = DISPATCHER_FACTORIES[BOT_KEY](settings)
 
-# callback_url = "https://rider-agent-test.ordelo.app/telegram/rest-admin/webhook"
-callback_url = "https://rider-agent.ordelo.app/telegram/rest-admin/webhook"
+callback_url = 'https://rider-agent-test.ordelo.app'  # Replace with your actual callback URL
 
 await bot.set_webhook(
-    url=callback_url,  # settings.webhook_url,
+    url=settings.webhook_url,
     secret_token=settings.webhook_secret.get_secret_value(),  # echoed back in X-Telegram-Bot-Api-Secret-Token
     allowed_updates=dp.resolve_used_update_types(),           # only the update types our handlers use
     drop_pending_updates=False,                               # keep anything queued while the webhook was down
@@ -70,7 +80,7 @@ print("allowed_updates:    ", info.allowed_updates)
 assert info.url == settings.webhook_url, "Telegram has a different URL than the one set in step 4"
 
 # %% 6. Bot commands shown in the Telegram "/" menu (same as BotFather /setcommands)
-await bot.set_my_commands(REST_ADMIN_COMMANDS)
+await bot.set_my_commands(commands)
 print(await bot.get_my_commands())
 
 # %% 7. Smoke-test the live endpoint over HTTP (the app must be running and reachable)
