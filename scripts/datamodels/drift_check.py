@@ -9,7 +9,7 @@ columns and every SQL file (not _archive/, migrations/ or the test scripts) -> c
 Compared for every object ordelo_datamodels/ owns: functions (normalised body, signature, result, language, volatility, security
 definer, grants), tables (columns, constraints, indexes, RLS, policies, grants), views, triggers and pg_cron jobs. Also lists live
 objects that no file owns. Formatting and comments never show as drift. Exit code 0 only when there is no difference.
-Needs: psycopg, and pgcrypto, uuid-ossp, pgvector, postgis and pg_cron on the scratch server (stubs stand in for pg_net, http, pgmq).
+Needs: psycopg, and pgcrypto, uuid-ossp, pgvector and postgis on the scratch server (stubs stand in for pg_cron, pg_net, http, pgmq).
 """
 from __future__ import annotations
 
@@ -122,10 +122,8 @@ def files():
 
 
 def reset(conn):
-    conn.execute("DROP SCHEMA IF EXISTS public, extensions, net, pgmq CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;")
+    conn.execute("DROP SCHEMA IF EXISTS public, extensions, net, pgmq, cron CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;")
     conn.execute(open(os.path.join(os.path.dirname(__file__), "drift_stubs.sql")).read())
-    conn.execute("DELETE FROM cron.job")
-    conn.execute("ALTER DATABASE postgres SET search_path TO \"$user\", public, extensions")
     conn.execute("SET search_path TO \"$user\", public, extensions")
 
 

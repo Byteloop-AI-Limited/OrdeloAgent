@@ -20,7 +20,8 @@ Phases R0-R4 are live. The owner asked for **R5 and R6**, built as one feature, 
 ## Local review on the owner's machine (22 Oct 2026)
 
 - The offline suite on this machine: 1560 passed, 1 skipped, 1 existing `RestaurantMaster.get_admins` failure. The affected Telegram, WhatsApp and Ordelo suites after the callback fix: 1057 passed, 1 skipped.
-- SQL suite: 358 skipped because `ORDELO_TEST_DB_URI` is unset and this machine has no running Docker daemon. The cloud copy's 358 isolated-Postgres passes remain the only SQL execution evidence.
+- SQL suite: 358 passed against the dedicated local Postgres 17 database `ordelo_r5r6_drift_scratch` after the owner started PostgreSQL. The cloud copy also reported 358 passes against Postgres 16.
+- `drift_check.py`: read-only live snapshot succeeded; the scratch setup stopped at `extension "vector" is not available` before comparing definitions. PostGIS is also absent locally. The seven R5-R6 functions, sweep job, location constraint, and WhatsApp-only shift filter are present in the live catalog; this is not a full drift result.
 - Ruff found 7 F401/F841 warnings in changed Python files; each also exists in `HEAD` (no new lint findings). `pg_format` is unavailable here, so `format_sql.py --check` could not run.
 - Both `rp1:` and `ap1:` duplicate taps now get a callback answer even when the inbox skips the repeated update. Dispatcher tests replay the tap after `/on` and prove it cannot restart the pause.
 - The generated guide/catalog was rebuilt; its four new files and seven changed entries are R5-R6 SQL or the removal of a scratch `DELETE` from `core/rider_master.sql`. The three named `build/` scratch files were removed.
@@ -28,7 +29,7 @@ Phases R0-R4 are live. The owner asked for **R5 and R6**, built as one feature, 
 
 ## What remains
 
-1. Run the SQL suite against an isolated local Postgres when one is available, and run `format_sql.py --check` when pgFormatter is installed.
+1. Run the full drift comparison after pgvector and PostGIS are installed for the local Postgres 17 server. Run `format_sql.py --check` when pgFormatter is installed.
 2. **Owner steps (agents never apply SQL):** plan steps 9-16 / the `HOW TO APPLY` block in the migration file. Apply steps 1-3 BEFORE deploying; apply `job_pause_sweep.sql` AFTER the deploy; re-publish BOTH command menus; then the live harness.
 
 ## Steps in plain words (the ones that may be unclear)
