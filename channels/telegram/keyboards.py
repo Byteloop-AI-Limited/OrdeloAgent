@@ -7,7 +7,7 @@ queries, and work in private chats only.
 from aiogram.types import InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from .callbacks import InviteDecision, RiderJobAction, RiderOffer, RiderSignup
+from .callbacks import AdminPause, InviteDecision, RiderJobAction, RiderOffer, RiderPause, RiderSignup
 
 
 def contact_request_kb() -> ReplyKeyboardMarkup:
@@ -69,4 +69,21 @@ def rider_job_card_kb(dispatch_id: int) -> InlineKeyboardMarkup:
     for code in ("pk", "dr", "cc"):
         b.button(text=JOB_CARD_ACTIONS[code][0], callback_data=RiderJobAction(d=dispatch_id, a=code).pack())
     b.adjust(2, 1)
+    return b.as_markup()
+
+
+def pause_duration_kb(keys: list[str], *, admin: bool = False) -> InlineKeyboardMarkup:
+    """One button per allowed break length (pause_options()), e.g. [6 hours] [1 day] [3 days]: RiderPause 'rp1:<key>'
+    on the rider bot (R5), AdminPause 'ap1:<key>' on the restaurant bot (R6). A key that cannot be packed is left out."""
+    from ordelo.pauses import duration_label
+
+    b = InlineKeyboardBuilder()
+    for key in keys:
+        try:
+            packed = (AdminPause(k=key) if admin else RiderPause(k=key)).pack()
+            label = duration_label(key)
+        except ValueError:
+            continue
+        b.button(text=label, callback_data=packed)
+    b.adjust(3)
     return b.as_markup()

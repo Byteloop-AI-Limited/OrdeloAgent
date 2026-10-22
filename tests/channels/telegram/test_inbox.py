@@ -32,7 +32,7 @@ def event(update_id: int) -> Update:
 
 def test_callback_families_have_an_explicit_inbox_policy():
     """A new callback family needs a conscious protected/unprotected decision."""
-    protected = {"OrderAction", "RiderSignup", "RiderOffer", "RiderJobAction"}
+    protected = {"OrderAction", "RiderSignup", "RiderOffer", "RiderJobAction", "RiderPause", "AdminPause"}
     conditional = {"InviteDecision": {"y": True, "n": False}}
     actual = {
         name for name, value in vars(callbacks).items()

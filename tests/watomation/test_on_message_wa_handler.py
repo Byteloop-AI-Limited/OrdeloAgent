@@ -9,6 +9,7 @@ Key Functions:
   - test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery
   - test_process_wa_msg_with_active_thread_runs_rider_graph
   - test_process_wa_msg_for_a_telegram_job_points_the_rider_there
+  - test_process_wa_msg_from_a_telegram_rider_without_a_job_points_to_the_bot
   - test_send_live_map_location_handles_no_inflight_missing_and_success
   - test_reset_thread_closes_dispatch_and_thread
   - test_test_delivery_schedules_init_and_updates_summary
@@ -102,6 +103,27 @@ async def test_process_wa_msg_for_a_telegram_job_points_the_rider_there(monkeypa
     monkeypatch.setattr(handler, "run_rider_agent_w_custom_msg", _never)
     await handler.process_wa_msg(fake_async_wa, FakeMessage(sender="RIDER01", text="hi"))
     assert fake_async_wa.sent[-1].kwargs == {"to": "RIDER01", "text": "Your current job *ELAS-ABCD-1* is on Telegram. Please reply there."}
+
+
+async def test_process_wa_msg_from_a_telegram_rider_without_a_job_points_to_the_bot(monkeypatch, patch_pg_pool, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    """R5, D53: a Telegram rider gets no shift question and no intent guess on WhatsApp, only a pointer to the rider bot."""
+    patch_supabase_client.register(table="rider_master", verb="select",
+                                   response=FakeSupabaseResponse(data=[{"is_in_shift": False, "channel": "telegram"}]))
+    _patch_active_thread(monkeypatch, None)
+
+    async def _never(*args, **kwargs):
+        raise AssertionError("no shift question for a Telegram rider")
+
+    monkeypatch.setattr(handler, "enquire_shift_availability_non_template", _never)
+    monkeypatch.setattr(handler, "get_rider_intent", _never)
+    monkeypatch.setattr("config.tgram_setting.tgram_rider_settings", SimpleNamespace(bot_username="ByteloopRidersBot"))
+    await handler.process_wa_msg(fake_async_wa, FakeMessage(sender="RIDER01", text="end my shift"))
+    assert fake_async_wa.sent[-1].kwargs == {
+        "to": "RIDER01",
+        "text": "Your rider messages are on Telegram now: t.me/ByteloopRidersBot. Send /shift there to see your status, "
+                "or /off to take a break.",
+    }
+    assert patch_supabase_client.calls[-1].payload == "is_in_shift, channel"
 
 
 async def test_send_live_map_location_handles_no_inflight_missing_and_success(monkeypatch, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:

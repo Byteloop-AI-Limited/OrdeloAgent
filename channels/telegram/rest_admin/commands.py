@@ -4,6 +4,8 @@ from aiogram.types import BotCommand
 
 REST_ADMIN_COMMANDS: list[BotCommand] = [
     BotCommand(command="start", description="Start / link this chat to your restaurant"),
+    BotCommand(command="off", description="Pause new order alerts here for a while"),
+    BotCommand(command="on", description="Turn order alerts back on"),
     BotCommand(command="help", description="What this bot can do"),
     BotCommand(command="whoami", description="Show your Telegram ids and link status"),
 ]

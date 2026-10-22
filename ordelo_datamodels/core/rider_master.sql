@@ -122,9 +122,3 @@ COMMENT ON COLUMN public.rider_master.tuid IS 'Telegram user id (from_user.id); 
 COMMENT ON COLUMN public.rider_master.tcid IS 'Telegram chat id the rider bot sends to; NULL = not linked';
 
 COMMENT ON COLUMN public.rider_master.phone_verified IS 'true once a Telegram contact share proved this phone belongs to tuid';
-
-
--- ------------------------
-select * from public.rider_master where rider_id = '447448440754';
-delete from public.rider_master where rider_id = '447448440754';
-

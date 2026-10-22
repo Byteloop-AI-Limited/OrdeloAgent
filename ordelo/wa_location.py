@@ -1,4 +1,8 @@
-"""Durable on-demand WhatsApp location orchestration.
+"""Durable on-demand rider location orchestration (WhatsApp; Telegram from phase R5, D50).
+
+The rider answers on the channel of their job: WhatsApp's "Share current location" (watomation/on_wa_location_handler.py)
+or the rider bot's button (channels/telegram/rider/location.py). Both arrive here as a receipt with its source
+('whatsapp_current' | 'telegram_current'); requesters always see the two-value wire vocabulary (wire_source).
 
 This module owns the delivery-authority checks, request/observation persistence,
 prompt coalescing, correlation, and response routing.  HTTP and PyWa adapters
@@ -36,6 +40,7 @@ from ordelo_datamodels.wa_location_pymodels import (
     WaLocationDemand,
     WaLocationRequestOutcome,
     WhatsAppLocationReceipt,
+    wire_source,
 )
 
 FRESHNESS = timedelta(minutes=5)
@@ -227,7 +232,7 @@ class WaLocation:
             if route_status != "delivered":
                 raise WaLocationCallbackDeliveryFailed()
             return WaLocationRequestOutcome(
-                request_id=request_id, status="location_available", source=source
+                request_id=request_id, status="location_available", source=wire_source(source)
             )
         if action == "wait":
             return WaLocationRequestOutcome(
@@ -342,7 +347,16 @@ class WaLocation:
                     )
 
     async def receive_whatsapp_location(self, receipt: WhatsAppLocationReceipt) -> int:
-        """Persist one correlated current location and route all pending demands."""
+        """The WhatsApp entry point (kept name); same as receive_current_location."""
+        return await self.receive_current_location(receipt)
+
+    async def receive_current_location(self, receipt: WhatsAppLocationReceipt) -> int:
+        """Persist one correlated current location (WhatsApp or Telegram, receipt.source) and route all pending demands.
+
+        Correlation: the reply-to id must be the prompt this rider was sent (wa_request_message_id holds the prompt's MsgRef
+        on both channels); without one (a Telegram button share is never a reply), exactly one pending request whose job is
+        still the rider's inflight job is accepted, otherwise the share is ignored (returns 0).
+        """
 
         pool = await pg_settings.get_pool()
         request_ids: list[UUID] = []
@@ -411,7 +425,7 @@ class WaLocation:
                         INSERT INTO wa_location_observation (
                             order_number, dispatch_id, rider_id, latitude, longitude,
                             source, observed_at, wa_inbound_message_id
-                        ) VALUES (%s, %s, %s, %s, %s, 'whatsapp_current', %s, %s)
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (wa_inbound_message_id) WHERE wa_inbound_message_id IS NOT NULL
                         DO NOTHING
                         RETURNING observation_id
@@ -422,6 +436,7 @@ class WaLocation:
                             context.rider_id,
                             receipt.latitude,
                             receipt.longitude,
+                            receipt.source,
                             receipt.observed_at,
                             receipt.inbound_message_id,
                         ),
@@ -563,7 +578,7 @@ class WaLocation:
                 location={
                     "latitude": row["latitude"],
                     "longitude": row["longitude"],
-                    "source": row["source"],
+                    "source": wire_source(row["source"]),
                     "observed_at": row["observed_at"].isoformat(),
                 },
             ).model_dump(mode="json")

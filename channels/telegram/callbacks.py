@@ -73,3 +73,23 @@ class RiderJobAction(CallbackData, prefix="rj1"):
 
     d: int
     a: Literal["pk", "dr", "cc"]
+
+
+class RiderPause(CallbackData, prefix="rp1"):
+    """A break length picked under /off on the rider bot, e.g. 'rp1:6h' (phase R5, ADR 0013).
+
+    k is a duration key as pause_options('rider') listed it. Carries no authority: the handler finds the rider by the
+    tapping person's from_user.id, and pause_start() accepts only keys still listed in ordelo_config.
+    """
+
+    k: str
+
+
+class AdminPause(CallbackData, prefix="ap1"):
+    """An alert-pause length picked under /off on the restaurant bot, e.g. 'ap1:1d' (phase R6, D52).
+
+    k is a duration key as pause_options('rest_admin') listed it. Carries no authority: t_admin_pause() finds the
+    restaurants and the admin phone by the tapping person's from_user.id and applies the last-admin guard.
+    """
+
+    k: str

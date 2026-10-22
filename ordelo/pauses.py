@@ -1,5 +1,5 @@
 """
-Pauses: a rider (and, from phase R6, a restaurant admin) steps away until a MANDATORY end time (ADR 0013, D51).
+Pauses: a rider or a restaurant admin steps away until a MANDATORY end time (ADR 0013, D51).
     . Deep module: three calls hide the durations policy, the one-open-pause rule, extend-not-stack, expiry handling and
       the race between two /off taps. The rules are SQL functions; this is the typed wrapper (CLAUDE.md, RPC pattern).
     . Availability is computed, never flipped back: is_paused() in SQL is true only while now() < ends_at, and dispatch
@@ -11,20 +11,24 @@ Pauses: a rider (and, from phase R6, a restaurant admin) steps away until a MAND
         pause   -> pause_start(p_audience, p_principal, p_scope, p_duration, p_via, p_by)
         resume  -> pause_end(p_audience, p_principal, p_scope, p_reason)
         current -> pause_current(p_audience, p_principal, p_scope)
+        options -> pause_options(p_audience)
     . principal is the phone (digits only): rider_master.rider_id for riders, a restaurant_master.admins entry for admins;
       scope is None for riders, the rest_ref for an admin
-    . Callers: the rider bot's /off, /on, /shift (phase R5); the restaurant bot (phase R6); /pause-hooks/sweep (R5) reads
-      nothing from here (the sweep payload carries what it needs)
+    . Callers: the rider bot's /off, /on, /shift (channels/telegram/rider/availability.py, R5). Restaurant admins pause
+      through t_admin_pause() (channels/telegram/admin_pauses.py, R6), which calls the same pause_start() in SQL with the
+      last-admin guard. /pause-hooks/sweep reads nothing from here (the sweep payload carries what it needs)
     . Uses client_ordelo_service (service-role only RPCs) inside asyncio.to_thread
   Classes/Functions:
     . Pause, PauseOutcome
-    . pause, resume, current
+    . pause, resume, current, options
+    . duration_label ('6h' -> '6 hours'), ends_text (a UK-time end for messages)
     . RIDER, REST_ADMIN (audiences)
 
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
   . pause_start (function, ordelo_datamodels/availability/pauses.sql): calls (name passed to a helper)
   . pause_end (function, ordelo_datamodels/availability/pauses.sql): calls (name passed to a helper)
   . pause_current (function, ordelo_datamodels/availability/pauses.sql): calls (name passed to a helper)
+  . pause_options (function, ordelo_datamodels/availability/pauses.sql): calls (name passed to a helper)
 (end of database objects)
 """
 
@@ -41,7 +45,7 @@ RIDER = "rider"
 REST_ADMIN = "rest_admin"
 Audience = Literal["rider", "rest_admin"]
 
-# pause_start: paused | extended | bad_duration | bad_audience | not_supported ; pause_end: resumed | not_paused
+# pause_start: paused | extended | bad_duration | bad_audience | not_admin | not_allowed ; pause_end: resumed | not_paused
 STARTED = frozenset({"paused", "extended"})
 
 
@@ -97,3 +101,32 @@ async def current(audience: Audience, principal: str, *, scope: str | None = Non
     """The pause covering now(), or None."""
     out = _outcome(await _rpc("pause_current", {"p_audience": audience, "p_principal": principal, "p_scope": scope}))
     return out.pause if out.result == "paused" else None
+
+
+async def options(audience: Audience) -> list[str]:
+    """The duration keys this audience may pick, in ordelo_config order (the /off buttons); [] when /off is switched off."""
+    data = await _rpc("pause_options", {"p_audience": audience})
+    if not isinstance(data, list):
+        raise RuntimeError(f"unexpected pause_options response: {data!r}")
+    return [str(k) for k in data]
+
+
+def duration_label(key: str) -> str:
+    """'6h' -> '6 hours', '1d' -> '1 day', '3d' -> '3 days' (button text)."""
+    n, unit = int(key[:-1]), key[-1].lower()
+    word = "hour" if unit == "h" else "day"
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
+def ends_text(ends_at: datetime, now: datetime | None = None) -> str:
+    """The end time as a person reads it, in UK time: '6:30 PM' today, 'tomorrow 6:30 PM', or 'Sat 24 Oct, 6:30 PM'."""
+    from utils_common.tz_utils import UK_TZ
+
+    end = ends_at.astimezone(UK_TZ)
+    today = (now or datetime.now(UK_TZ)).astimezone(UK_TZ).date()
+    clock = end.strftime("%I:%M %p").lstrip("0")
+    if end.date() == today:
+        return clock
+    if (end.date() - today).days == 1:
+        return f"tomorrow {clock}"
+    return f"{end.strftime('%a')} {end.day} {end.strftime('%b')}, {clock}"

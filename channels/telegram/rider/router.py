@@ -1,5 +1,6 @@
 """Rider bot router factory (@ByteloopRidersBot, bot_key 'rider'). R1: onboarding, /help, /whoami. R4: jobs (jobs.py:
-offers, job-card buttons, /job, text to the rider agent).
+offers, job-card buttons, /job, text to the rider agent). R5: availability.py (/shift, /off, /on) and location.py (a shared
+location answering a location request).
 
 Onboarding (plans/telegram-rider-bot-plan.md, D39-D42), one generic link for everybody, no per-phone invites:
 
@@ -37,8 +38,10 @@ from ..callbacks import RiderSignup
 from ..inbox import process_once
 from ..keyboards import contact_request_kb, rider_choice_kb
 from ..replies import answer_quietly
+from .availability import build_availability_router
 from .commands import HELP_TEXT
 from .jobs import build_jobs_router
+from .location import build_location_router
 
 
 def escape(text: str | None) -> str:
@@ -289,6 +292,8 @@ def build_router() -> Router:
     router.message.register(on_contact, F.contact)
     router.callback_query.register(on_signup_choice, RiderSignup.filter())
     router.include_router(build_jobs_router())  # R4: offers, job-card buttons, /job, plain text -> the rider agent
+    router.include_router(build_availability_router())  # R5: /shift, /off (+ break-length taps), /on
+    router.include_router(build_location_router())  # R5: a shared location -> WaLocation
     # Last: unknown commands. A sub-router, because aiogram tries a router's own handlers BEFORE its included routers.
     last = Router(name="rider_fallback")
     last.message.register(fallback, F.text)

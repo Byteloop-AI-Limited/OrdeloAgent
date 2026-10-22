@@ -55,7 +55,6 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime, timezone
-from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -511,14 +510,20 @@ async def test_check_rider_allocation_status_returns_summary_status(monkeypatch,
 
 
 async def test_shift_and_admin_availability_hooks_schedule_background_processing(patch_supabase_client) -> None:
+    # The UPDATE is filtered to WhatsApp riders (R5); only the rows it switched off are asked.
+    patch_supabase_client.register(table="rider_master", verb="update",
+                                   response=FakeSupabaseResponse(data=[{"rider_id": "RIDER01"}]))
     bg = _FakeBackgroundTasks()
     result = await delivery_hooks.shift_availability_enquiry_hook(
-        payload={"event_type": "shift", "riders": [{"rider_id": "RIDER01", "rider_name": "Bas"}]},
+        payload={"event_type": "shift", "riders": [{"rider_id": "RIDER01", "rider_name": "Bas"},
+                                                   {"rider_id": "TGRIDER", "rider_name": "Tom"}]},
         background_tasks=bg,
     )
     assert result == {"status": "success", "riders_scheduled": 1}
-    assert patch_supabase_client.calls[-1].payload["is_in_shift"] is False
+    update = patch_supabase_client.calls[-1]
+    assert update.payload["is_in_shift"] is False and update.filters["eq:channel"] == "whatsapp"
     assert bg.tasks[-1]["func"] == delivery_hooks._process_shift_availability
+    assert bg.tasks[-1]["args"][0] == [{"rider_id": "RIDER01", "rider_name": "Bas"}]
 
     bg2 = _FakeBackgroundTasks()
     result = await delivery_hooks.admin_availability_enquiry_hook(

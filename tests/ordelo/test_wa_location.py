@@ -139,8 +139,17 @@ async def test_exact_inflight_query_never_uses_rider_id_alone() -> None:
     assert executed[0][1] == ("SFCS-123", 17, "447700900111")
 
 
+@pytest.mark.parametrize(
+    "stored, wire",
+    [
+        ("whatsapp_current", "whatsapp_current"),
+        # R5 (D50): a Telegram share is the rider's current GPS; requesters keep the two-value vocabulary.
+        ("telegram_current", "whatsapp_current"),
+        ("restaurant_confirmation", "restaurant_confirmation"),
+    ],
+)
 async def test_fulfilled_request_posts_open_callback_before_marking_delivered(
-    monkeypatch,
+    monkeypatch, stored, wire
 ) -> None:
     request_id = uuid4()
     row = {
@@ -154,7 +163,7 @@ async def test_fulfilled_request_posts_open_callback_before_marking_delivered(
         "customer_id": "447700900000",
         "latitude": 51.5,
         "longitude": -0.12,
-        "source": "whatsapp_current",
+        "source": stored,
         "observed_at": datetime.now(timezone.utc),
     }
 
@@ -233,6 +242,7 @@ async def test_fulfilled_request_posts_open_callback_before_marking_delivered(
     assert callback["url"] == "https://service.example.com/wa-location"
     assert callback["payload"]["requester_id"] == "447700900000"
     assert callback["payload"]["location"]["latitude"] == 51.5
+    assert callback["payload"]["location"]["source"] == wire
     assert callback["client_kwargs"]["follow_redirects"] is False
     assert delivered == [request_id]
 
@@ -655,3 +665,86 @@ async def test_prompt_rider_via_agent_contains_graph_failures(monkeypatch) -> No
 
     assert failed == [(request_id, "RuntimeError")]
     assert cleared == [context.rider_id]
+
+
+@pytest.mark.parametrize("source", ["whatsapp_current", "telegram_current"])
+async def test_receive_current_location_stores_the_receipts_source(monkeypatch, source) -> None:
+    """R5 (D50): one code path for both apps; the observation row carries where the share came from."""
+    from ordelo_datamodels.wa_location_pymodels import WhatsAppLocationReceipt
+
+    request_id, observation_id = uuid4(), uuid4()
+    executed: list[tuple[str, tuple]] = []
+    answers = iter([
+        {"request_id": request_id, "order_number": "SFCS-123", "dispatch_id": 17, "rider_id": "447700900111"},  # correlated
+        {"observation_id": observation_id},  # INSERT ... RETURNING
+    ])
+
+    class _Cursor:
+        async def execute(self, sql, params=()):
+            executed.append((" ".join(sql.split()), params))
+
+        async def fetchone(self):
+            return next(answers)
+
+        async def fetchall(self):
+            return [{"request_id": request_id}]
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+    class _Tx:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+    class _Connection:
+        def cursor(self, *_args, **_kwargs):
+            return _Cursor()
+
+        def transaction(self):
+            return _Tx()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+    class _Pool:
+        def connection(self):
+            return _Connection()
+
+    async def _pool(_self):
+        return _Pool()
+
+    service = WaLocation()
+    routed = []
+
+    async def _inflight(_cur, _context):
+        return True
+
+    async def _route(rid):
+        routed.append(rid)
+        return "delivered"
+
+    monkeypatch.setattr(PgSetting, "get_pool", _pool)
+    monkeypatch.setattr(service, "_exact_inflight_assignment_exists_in_cursor", _inflight)
+    monkeypatch.setattr(service, "route_fulfilled_request", _route)
+    receipt = WhatsAppLocationReceipt(
+        rider_id="447700900111", latitude=51.07, longitude=-1.79, observed_at=datetime.now(timezone.utc),
+        inbound_message_id="tg:111:42" if source == "telegram_current" else "wamid.X",
+        reply_to_message_id="tg:111:40" if source == "telegram_current" else "wamid.P", source=source,
+    )
+    assert await service.receive_current_location(receipt) == 1
+    insert_sql, insert_params = next(e for e in executed if e[0].startswith("INSERT INTO wa_location_observation"))
+    assert insert_params[5] == source and insert_params[7] == receipt.inbound_message_id
+    assert executed[0][1] == (receipt.reply_to_message_id, "447700900111")  # correlation by the prompt's MsgRef first
+    assert routed == [request_id]
+    # The WhatsApp entry point keeps its name and defaults to whatsapp_current.
+    assert WhatsAppLocationReceipt(rider_id="1", latitude=0, longitude=0, observed_at=datetime.now(timezone.utc),
+                                   inbound_message_id="w").source == "whatsapp_current"
