@@ -253,6 +253,48 @@ async def test_text_on_a_telegram_job_runs_the_agent_in_the_background(recording
     assert [type(c) for c in session.calls] == [SendChatAction]  # the reply comes from the agent, not the handler
 
 
+async def test_offer_redelivery_runs_business_action_once(recording_bot, linked, offers, inbox_db):
+    bot, _ = recording_bot
+    payload = callback_update(RiderOffer(d=7, a="d").pack(), update_id=301)
+    await feed(bot, payload)
+    await feed(bot, payload)
+    assert offers.calls == [(PHONE, 7, ORDER, False)]
+    assert inbox_db.rpc_names == ["t_inbox_claim", "t_inbox_finish", "t_inbox_claim"]
+    assert inbox_db.status_of(301, "rider") == "done"
+
+
+async def test_job_card_redelivery_queues_one_agent_turn(recording_bot, linked, threads, spawned, inbox_db):
+    bot, _ = recording_bot
+    payload = callback_update(RiderJobAction(d=7, a="pk").pack(), update_id=302)
+    await feed(bot, payload)
+    await feed(bot, payload)
+    assert len(await spawned()) == 1
+    assert inbox_db.rpc_names == ["t_inbox_claim", "t_inbox_finish", "t_inbox_claim"]
+    assert inbox_db.status_of(302, "rider") == "done"
+
+
+async def test_agent_text_redelivery_queues_one_turn_after_thread_lookup(recording_bot, linked, threads, spawned, inbox_db):
+    bot, _ = recording_bot
+    payload = message_update("At pickup", update_id=303)
+    await feed(bot, payload)
+    await feed(bot, payload)
+    assert len(await spawned()) == 1
+    assert threads.touched == [True, True]
+    assert inbox_db.rpc_names == ["t_inbox_claim", "t_inbox_finish", "t_inbox_claim"]
+    assert inbox_db.status_of(303, "rider") == "done"
+
+
+async def test_text_without_telegram_thread_and_read_only_job_skip_inbox(recording_bot, linked, threads, spawned, inbox_db):
+    bot, _ = recording_bot
+    threads.active = None
+    await feed(bot, message_update("hello", update_id=304))
+    await feed(bot, message_update("/job", update_id=305))
+    threads.active = RiderThread("ORDELO-dispatch-7", PHONE, dispatch_id=7, order_number=ORDER, channel="whatsapp")
+    await feed(bot, message_update("hello", update_id=306))
+    assert await spawned() == []
+    assert inbox_db.rpc_names == []
+
+
 async def test_text_on_a_whatsapp_job_points_there(recording_bot, linked, threads, spawned):
     bot, session = recording_bot
     threads.active = RiderThread("ORDELO-dispatch-7", PHONE, dispatch_id=7, order_number=ORDER, channel="whatsapp")
@@ -261,11 +303,12 @@ async def test_text_on_a_whatsapp_job_points_there(recording_bot, linked, thread
     assert session.sent_texts == ["Your current job <b>ELAS-ABCD-1</b> is on WhatsApp. Please reply there."]
 
 
-async def test_text_from_someone_not_linked_asks_for_start(recording_bot, rider_db, threads, spawned):
+async def test_text_from_someone_not_linked_asks_for_start(recording_bot, rider_db, threads, spawned, inbox_db):
     bot, session = recording_bot
     await feed(bot, message_update("hello"))
     assert await spawned() == []
     assert len(session.sent_texts) == 1 and all(isinstance(c, SendMessage) for c in session.calls)
+    assert inbox_db.rpc_names == []
 
 
 async def test_unknown_command_from_a_linked_rider(recording_bot, linked, threads, spawned):

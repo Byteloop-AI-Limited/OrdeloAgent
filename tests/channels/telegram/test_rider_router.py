@@ -87,6 +87,28 @@ async def test_forwarded_contact_is_refused_and_nothing_is_linked(recording_bot,
     assert rider_db.riders[PHONE]["tuid"] is None and "t_rider_link" not in rider_db.rpc_names
 
 
+async def test_invalid_contact_skips_inbox(recording_bot, rider_db, inbox_db):
+    bot, _ = recording_bot
+    await feed(bot, contact_update(PHONE, contact_user_id=222, update_id=311))
+    assert inbox_db.rpc_names == []
+
+
+async def test_verified_contact_and_signup_choice_are_protected(recording_bot, rider_db, ops_alerts, inbox_db):
+    bot, _ = recording_bot
+    rider_db.add(PHONE, town="TBD", vehicle="TBD")
+    contact = contact_update(PHONE, update_id=312)
+    await feed(bot, contact)
+    await feed(bot, contact)
+    choice = callback_update(RiderSignup(s="t", v="Andover").pack(), update_id=313)
+    await feed(bot, choice)
+    await feed(bot, choice)
+    assert rider_db.rpc_names.count("t_rider_link") == 1
+    assert rider_db.rpc_names.count("t_rider_set_profile") == 1
+    assert inbox_db.rpc_names == ["t_inbox_claim", "t_inbox_finish", "t_inbox_claim"] * 2
+    assert inbox_db.status_of(312, "rider") == "done"
+    assert inbox_db.status_of(313, "rider") == "done"
+
+
 async def test_contact_without_user_id_is_refused(recording_bot, rider_db):
     bot, session = recording_bot
     await feed(bot, contact_update(PHONE, contact_user_id=None))

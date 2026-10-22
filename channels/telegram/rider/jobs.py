@@ -20,7 +20,7 @@ from html import escape as _html_escape
 from aiogram import F, Router
 from aiogram.enums import ChatAction
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, Update
 from loguru import logger
 
 from config.tgram_setting import TgramBotSettings
@@ -33,6 +33,7 @@ from ordelo.rider_messaging.telegram import TelegramRiderMessenger
 
 from .. import rider_links
 from ..callbacks import RiderJobAction, RiderOffer
+from ..inbox import process_once
 from ..replies import answer_quietly
 
 NOT_LINKED = "Please send /start first to link your rider account."
@@ -78,7 +79,16 @@ async def _rider_id(tuid: int) -> str | None:
 
 
 # ---- offer Accept / Decline ----------------------------------------------------------------------------------------
-async def on_offer_tap(query: CallbackQuery, callback_data: RiderOffer, tgram_settings: TgramBotSettings):
+async def on_offer_tap(
+    query: CallbackQuery, callback_data: RiderOffer, tgram_settings: TgramBotSettings, event_update: Update
+):
+    await process_once(
+        tgram_settings.bot_key, event_update, query.from_user.id,
+        lambda: _handle_offer_tap(query, callback_data, tgram_settings),
+    )
+
+
+async def _handle_offer_tap(query: CallbackQuery, callback_data: RiderOffer, tgram_settings: TgramBotSettings):
     try:
         rider_id = await _rider_id(query.from_user.id)
         dc = await dispatch_channel(callback_data.d)
@@ -113,7 +123,16 @@ async def on_offer_tap(query: CallbackQuery, callback_data: RiderOffer, tgram_se
 
 
 # ---- job-card buttons ----------------------------------------------------------------------------------------------
-async def on_job_action(query: CallbackQuery, callback_data: RiderJobAction, tgram_settings: TgramBotSettings):
+async def on_job_action(
+    query: CallbackQuery, callback_data: RiderJobAction, tgram_settings: TgramBotSettings, event_update: Update
+):
+    await process_once(
+        tgram_settings.bot_key, event_update, query.from_user.id,
+        lambda: _handle_job_action(query, callback_data, tgram_settings),
+    )
+
+
+async def _handle_job_action(query: CallbackQuery, callback_data: RiderJobAction, tgram_settings: TgramBotSettings):
     try:
         rider_id = await _rider_id(query.from_user.id)
         thread = await rider_threads.for_dispatch(callback_data.d)
@@ -183,7 +202,7 @@ async def _order_summary(order_number: str) -> dict | None:
 
 
 # ---- text -> the rider agent ---------------------------------------------------------------------------------------
-async def on_text(message: Message, tgram_settings: TgramBotSettings):
+async def on_text(message: Message, tgram_settings: TgramBotSettings, event_update: Update):
     if message.chat.type != "private":
         return
     try:
@@ -202,6 +221,13 @@ async def on_text(message: Message, tgram_settings: TgramBotSettings):
     if thread.channel != "telegram":
         await message.answer(wa_to_html(wrong_channel_text(thread.order_number, thread.channel)))
         return
+    await process_once(
+        tgram_settings.bot_key, event_update, message.from_user.id,
+        lambda: _queue_agent_text(message, thread),
+    )
+
+
+async def _queue_agent_text(message: Message, thread):
     try:
         await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
     except Exception:
