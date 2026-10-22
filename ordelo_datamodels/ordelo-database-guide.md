@@ -5,7 +5,7 @@
 
 The SQL under `ordelo_datamodels/` is organised by capability. Each file starts with a fixed header (live check, objects, how to run, side effects, how it fits, lifecycle, callers, Python model, security, tests, gotchas, see also). The file is the authority; this guide only indexes it.
 
-**103 SQL files · 169 objects** 98 functions · 55 tables · 11 triggers · 5 views · 16 cron jobs
+**108 SQL files · 181 objects** 109 functions · 56 tables · 11 triggers · 5 views · 17 cron jobs
 
 ## Capability map
 
@@ -19,15 +19,16 @@ The SQL under `ordelo_datamodels/` is organised by capability. Each file starts 
 | [`dispatch/`](dispatch/) | Rider dispatch | 10 | 16 | Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep. |
 | [`takeaway/`](takeaway/) | Takeaway (collection) | 2 | 7 | The collection order (takeaway_summary), its creation and the triggers that tell admins and customers about it. |
 | [`restaurant_admin/`](restaurant_admin/) | Restaurant admin actions | 6 | 22 | Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout and the daily availability question. |
-| [`telegram/`](telegram/) | Telegram layer | 5 | 22 | Invite links, the at-most-once update inbox, order cards with reminders, the ledger of sent messages and the daily purge. |
+| [`telegram/`](telegram/) | Telegram layer | 6 | 27 | Invite links, the at-most-once update inbox, order cards with reminders, the ledger of sent messages and the daily purge. |
 | [`rider_location/`](rider_location/) | Rider location | 6 | 9 | OwnTracks GPS fixes and region events from a pgmq queue, and on-demand WhatsApp location requests. |
+| [`availability/`](availability/) | Availability pauses | 2 | 7 | Pauses with a mandatory end time for riders (later restaurant admins): is_paused() computes availability from the clock; job_pause_sweep() only sends the ends-soon and back-on messages (ADR 0013). |
 | [`agent_threads/`](agent_threads/) | Agent threads | 3 | 5 | Reading LangGraph checkpoints and closing idle conversation threads (OrdeloAgent and restaurant-agents). |
 | [`admin_dashboard/`](admin_dashboard/) | Admin dashboard | 3 | 6 | Magic-link sessions, the order views behind the restaurant dashboard and the rider payout report. |
 | [`platform/`](platform/) | Platform and operations | 6 | 5 | HTTP helpers, cron housekeeping and the Fly.io / AWS App Runner switches. |
 | [`byteloop_agent/`](byteloop_agent/) | Byteloop agent | 2 | 4 | Tables and vector search used by the separate Byteloop agent. |
-| [`test_support/`](test_support/) | Test support | 8 | 4 | Helpers and harness scripts for resetting and replaying orders. Not part of production flows. |
+| [`test_support/`](test_support/) | Test support | 9 | 4 | Helpers and harness scripts for resetting and replaying orders. Not part of production flows. |
 | [`_orphans/`](_orphans/) | Orphan candidates | 10 | 25 | Live objects with no caller found in OrdeloAgent, restaurant-frontend or restaurant-agents. Captured exactly as live; keep or drop is an owner decision (docs/to-do.md). |
-| [`migrations/`](migrations/) | Migrations (history) | 12 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
+| [`migrations/`](migrations/) | Migrations (history) | 13 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
 
 ## Flows
 
@@ -134,7 +135,7 @@ Admin dashboard reads and platform helpers.
 | [`ordelo_config.sql`](core/ordelo_config.sql) | `ordelo_config` | table | Key/value runtime configuration. config_key is the primary key; per-restaurant keys are prefixed with the rest_ref. |
 | [`ordelo_config.sql`](core/ordelo_config.sql) | `parse_alert_offsets` | function | Parse a config value like '-15, -5, x, 5' into a sorted distinct int[] ({-15,-5,5}). |
 | [`restaurant_master.sql`](core/restaurant_master.sql) | `restaurant_master` | table | Master record per restaurant; rest_ref (e.g. ELAS) is the key and the prefix of every order number. |
-| [`rider_master.sql`](core/rider_master.sql) | `rider_master` | table | Riders that can be offered delivery jobs, keyed in practice by rider_id (their WhatsApp number). |
+| [`rider_master.sql`](core/rider_master.sql) | `rider_master` | table | Riders that can be offered delivery jobs, keyed by rider_id (their phone number, digits only). |
 | [`rider_registrations.sql`](core/rider_registrations.sql) | `rider_registrations` | table | Rider applications: identity, vehicle, documents, bank details and review flags. |
 | [`waba_es.sql`](core/waba_es.sql) | `waba_es` | table | One row per WhatsApp embedded-signup event (ids, auth code, business token). |
 
@@ -271,6 +272,11 @@ Admin dashboard reads and platform helpers.
 | [`t_order_alerts.sql`](telegram/t_order_alerts.sql) | `t_order_cards_stale` | function | List orders whose sent copies show an old status or a revoked viewer (read-only). |
 | [`t_order_alerts.sql`](telegram/t_order_alerts.sql) | `t_order_cards_take` | function | Claim one order's stale copies for one refresh pass (state 'taken', SKIP LOCKED). |
 | [`t_order_alerts.sql`](telegram/t_order_alerts.sql) | `job_t_order_alerts` | function | Every 5 seconds: seed, cancel, find due reminders and stale cards, POST them, and mark them on success. |
+| [`t_rider_onboarding.sql`](telegram/t_rider_onboarding.sql) | `t_rider_phone_digits` | function | Normalise a phone number to digits only (Telegram sends '+44...' or '44...'); NULL when it cannot be a rider_id. |
+| [`t_rider_onboarding.sql`](telegram/t_rider_onboarding.sql) | `t_rider_link` | function | Link this Telegram account to the rider with this (verified) phone, move an older link, or register a new rider. |
+| [`t_rider_onboarding.sql`](telegram/t_rider_onboarding.sql) | `t_rider_set_profile` | function | Store the town and/or vehicle a new rider picked; only fills values that are still 'TBD'. |
+| [`t_rider_onboarding.sql`](telegram/t_rider_onboarding.sql) | `t_rider_choices` | function | The towns and vehicle types a sign-up can pick: distinct values already in rider_master (never 'TBD'). |
+| [`t_rider_onboarding.sql`](telegram/t_rider_onboarding.sql) | `t_rider_profile` | function | Who this Telegram account is as a rider (rider_id, name, status, town, vehicle, channel, shift); read-only. |
 | [`t_sent_messages.sql`](telegram/t_sent_messages.sql) | `t_sent_messages` | table | One row per Telegram message copy: bot, chat, message id, owner, subject, kind, card status and state. |
 | [`t_sent_messages.sql`](telegram/t_sent_messages.sql) | `t_order_card_sent` | function | Record a sent card copy, take OLDER copies in that chat for deletion, and re-check the order's status. |
 | [`t_sent_messages.sql`](telegram/t_sent_messages.sql) | `t_order_card_mark` | function | Record the outcome of an edit or delete on a ledger row (generic: cards and receipts). |
@@ -288,6 +294,18 @@ Admin dashboard reads and platform helpers.
 | [`rider_location_event.sql`](rider_location/rider_location_event.sql) | `trigger_rider_location_event_update` | trigger | AFTER INSERT ON rider_location_event FOR EACH ROW. |
 | [`wa_location.sql`](rider_location/wa_location.sql) | `wa_location_observation` | table | One rider location received on demand (rider GPS share, or the restaurant location inferred at confirmation). |
 | [`wa_location.sql`](rider_location/wa_location.sql) | `wa_location_request` | table | One requester waiting for (or already sent) the rider's location for an order. |
+
+### Availability pauses (`availability/`)
+
+| File | Object | Kind | What it does |
+|---|---|---|---|
+| [`job_pause_sweep.sql`](availability/job_pause_sweep.sql) | `job_pause_sweep` | function | Close expired pauses, then POST the due "ends soon" and "back on" messages; mark them only on a 2xx reply. |
+| [`pauses.sql`](availability/pauses.sql) | `pauses` | table | One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended. |
+| [`pauses.sql`](availability/pauses.sql) | `pause_duration` | function | The interval for a duration key such as '6h' or '1d' if ordelo_config allows it for this audience, else NULL. |
+| [`pauses.sql`](availability/pauses.sql) | `is_paused` | function | true while an open pause covers now(); the ONE place that answers "is this person paused?". |
+| [`pauses.sql`](availability/pauses.sql) | `pause_current` | function | The pause covering now(), or {result: 'not_paused'}; read-only. |
+| [`pauses.sql`](availability/pauses.sql) | `pause_start` | function | Start a pause, or move the end time of the current one (never stacks); the end time is mandatory. |
+| [`pauses.sql`](availability/pauses.sql) | `pause_end` | function | End the current pause early ('resumed' by the person, 'operator' by Ordelo). |
 
 ### Agent threads (`agent_threads/`)
 
@@ -342,6 +360,7 @@ Admin dashboard reads and platform helpers.
 | [`test_reset_order_and_dispatch.sql`](test_support/test_reset_order_and_dispatch.sql) | `test_reset_order_and_dispatch` | function | Delete the order's dispatch-side rows and put the summary back to 'restaurant_unconfirmed'; returns the counts. |
 | [`test_reset_takeaway_order.sql`](test_support/test_reset_takeaway_order.sql) | `test_reset_takeaway_order` | function | Reset one takeaway order to 'restaurant_unconfirmed' with no pickup time; returns a message. |
 | [`test_restaurant_notices.sql`](test_support/test_restaurant_notices.sql) | | script | TEST HARNESS (not a migration): fake STRK orders to try the kitchen receipt, Ready / +10 / +20 and the restaurant |
+| [`test_rider_onboarding.sql`](test_support/test_rider_onboarding.sql) | | script | TEST HARNESS (not a migration): exercise the rider bot onboarding functions, the pauses and the R1 dispatch gate on the |
 
 ### Orphan candidates (`_orphans/`)
 
@@ -388,6 +407,7 @@ Admin dashboard reads and platform helpers.
 | [`migrations/ordelo_agg_r1.sql`](migrations/ordelo_agg_r1.sql) | Applied, except the pg_cron schedule for job_payment_init_reconciler (not in cron.job; docs/to-do.md). | notifications/notification_outbox.sql, notifications/order_customer_event.sql, notifications/order_notification_subscription.sql, ordering/create_food_order_with_items.sql, ordering/food_order_additions.sql, payment/job_payment_init_reconciler.sql, payment/payment_event.sql, payment/record_payment_authorised.sql, restaurant-agents (food_order) |
 | [`migrations/ordelo_agg_r1_test_payment.sql`](migrations/ordelo_agg_r1_test_payment.sql) | Applied: every object it creates exists live (checked 2026-10-16). | ordering/create_food_order_with_items.sql, ordering/food_order_additions.sql, restaurant-agents (food_order) |
 | [`migrations/ordelo_agg_r3.sql`](migrations/ordelo_agg_r3.sql) | Applied: every object it creates exists live (checked 2026-10-16). | agent_threads/job_close_thread.sql, core/restaurant_master.sql, ordering/create_food_order_with_items.sql, ordering/order_access_grant.sql, ordering/web_monitor_run.sql, ordering/web_order_request.sql, ordering/web_payment_release.sql, ordering/web_rate_limit.sql, ordering/web_session_meta.sql |
+| [`migrations/rider_telegram_r1.sql`](migrations/rider_telegram_r1.sql) | NOT applied yet (phase R1 of plans/telegram-rider-bot-plan.md; the owner runs it). | core/rider_master.sql, telegram/t_rider_onboarding.sql, availability/pauses.sql, dispatch/job_create_dispatch.sql |
 | [`migrations/test3100_order_routing.sql`](migrations/test3100_order_routing.sql) | Applied: every object it creates exists live (checked 2026-10-16). | dispatch/job_create_dispatch.sql, ordering/create_food_order_with_items.sql, ordering/order_has_test_item.sql |
 
 ## Cron jobs
@@ -403,6 +423,7 @@ Admin dashboard reads and platform helpers.
 | `job_awsrunner_switch_resume` | 0 6 * * * | inactive | `job_awsrunner_switch` | [`platform/job_awsrunner_switch.sql`](platform/job_awsrunner_switch.sql) |
 | `job_create_dispatch` | 5 seconds | active | `job_create_dispatch` | [`dispatch/job_create_dispatch.sql`](dispatch/job_create_dispatch.sql) |
 | `job_null_or_outdated_location` | * * * * * | inactive | `job_null_or_outdated_location` | [`rider_location/job_null_or_outdated_location.sql`](rider_location/job_null_or_outdated_location.sql) |
+| `job_pause_sweep` | * * * * * | inactive | `job_pause_sweep` | [`availability/job_pause_sweep.sql`](availability/job_pause_sweep.sql) |
 | `job_process_owntracks` | 30 seconds | active | `job_process_owntracks` | [`rider_location/job_process_owntracks.sql`](rider_location/job_process_owntracks.sql) |
 | `job_rider_pickup_alert` | */5 * * * * | active | `job_rider_pickup_alerts` | [`dispatch/job_rider_pickup_alerts.sql`](dispatch/job_rider_pickup_alerts.sql) |
 | `job_t_order_alerts` | 5 seconds | active | `job_t_order_alerts` | [`telegram/t_order_alerts.sql`](telegram/t_order_alerts.sql) |

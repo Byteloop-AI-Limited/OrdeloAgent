@@ -58,10 +58,17 @@ def _connect(autocommit: bool = True):
 # Migrations are applied in this order (each file is idempotent). Extended as phases are added.
 MIGRATION_FILES = [
     "t_inbox.sql",
+    "t_sent_messages.sql",
     "t_invites.sql",
     "restaurant_order_decision.sql",
     "t_order_alerts.sql",
     "restaurant_ready_adjust_notices.sql",
+    "t_housekeeping.sql",
+    # Rider bot phase R1 (plans/telegram-rider-bot-plan.md): rider_master is created in its target shape by minimal_schema.sql.
+    "rider_master.sql",
+    "pauses.sql",
+    "t_rider_onboarding.sql",
+    "job_pause_sweep.sql",
 ]
 
 # The embedded test server has no pgcrypto. t_invites.sql needs gen_random_bytes() (invite codes) only,
@@ -72,6 +79,21 @@ _GEN_RANDOM_BYTES_STUB = """
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE OR REPLACE FUNCTION extensions.gen_random_bytes(n int) RETURNS bytea LANGUAGE sql VOLATILE AS $$
     SELECT decode(substr(md5(random()::text || clock_timestamp()::text), 1, n * 2), 'hex')
+$$;
+"""
+
+# The files under ordelo_datamodels/ schedule their own pg_cron jobs (SQL standard rule 1). The test server has no
+# pg_cron, so a stand-in cron.schedule()/cron.unschedule() records the calls in cron.job and does nothing else.
+_PG_CRON_STUB = """
+CREATE SCHEMA IF NOT EXISTS cron;
+CREATE TABLE IF NOT EXISTS cron.job (jobname text PRIMARY KEY, schedule text NOT NULL, command text NOT NULL);
+CREATE OR REPLACE FUNCTION cron.schedule(p_jobname text, p_schedule text, p_command text) RETURNS bigint LANGUAGE sql AS $$
+    INSERT INTO cron.job VALUES (p_jobname, p_schedule, p_command)
+    ON CONFLICT (jobname) DO UPDATE SET schedule = EXCLUDED.schedule, command = EXCLUDED.command
+    RETURNING 1::bigint
+$$;
+CREATE OR REPLACE FUNCTION cron.unschedule(p_jobname text) RETURNS boolean LANGUAGE sql AS $$
+    WITH d AS (DELETE FROM cron.job WHERE jobname = p_jobname RETURNING 1) SELECT EXISTS (SELECT 1 FROM d)
 $$;
 """
 
@@ -97,6 +119,8 @@ def sql_env():
             )
             conn.execute(f"GRANT USAGE ON SCHEMA public TO {role}")
         conn.execute(_GEN_RANDOM_BYTES_STUB)
+        conn.execute("DROP SCHEMA IF EXISTS cron CASCADE")
+        conn.execute(_PG_CRON_STUB)
         conn.execute((HERE / "minimal_schema.sql").read_text())
         for name in MIGRATION_FILES:
             conn.execute(migration_sql(name))

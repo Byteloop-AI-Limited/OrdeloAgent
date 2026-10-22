@@ -296,3 +296,36 @@ when an invite is claimed. It only authenticates: it can be revoked at any time
 by setting the invite's status, and a chat id or button payload alone
 authorizes nothing.
 _Avoid_: Telegram login, Telegram user
+
+## Riders on Telegram
+
+### Rider link
+
+The binding of one Telegram account to one rider, stored on the rider row (Telegram user id authorises, chat id
+addresses). It is created only by the rider sharing their own phone number through the bot, never from typed text, and
+moves to a new account when that account proves the same number.
+_Avoid_: rider invite, rider login
+
+### Rider channel
+
+Where the messages Ordelo starts reach a rider: WhatsApp or Telegram, one at a time. A dispatch keeps the channel it
+was offered on until the job ends, so a job conversation never moves between apps.
+_Avoid_: preferred channel, both channels (that is the restaurant rule)
+
+### Rider thread
+
+The agent conversation for one assigned dispatch, from acceptance to completion or cancellation. A rider has at most
+one open rider thread; an open rider thread means a delivery that is not finished.
+_Avoid_: rider session, conversation per rider
+
+### Offer
+
+One delivery job proposed to one rider (one dispatch row) with Accept and Decline. When the job goes to someone else,
+expires or is cancelled, the offer is closed: on Telegram it is edited in place and loses its buttons.
+_Avoid_: dispatch request, job notification
+
+### Pause
+
+A period, with a mandatory end time, during which a person receives no jobs (rider) or no alerts (restaurant admin).
+Whether someone is paused is worked out from the clock, so a pause ends by itself at its end time.
+_Avoid_: off shift, holiday, mute

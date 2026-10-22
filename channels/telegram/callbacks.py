@@ -39,3 +39,28 @@ class OrderAction(CallbackData, prefix="ord"):
     t: Literal["d", "t"]
     a: Literal["acc", "dec", "pk", "rdy", "adj"]
     m: int = 0
+
+
+# ---- rider bot (bot_key 'rider'; plans/telegram-rider-bot-plan.md) ------------------------------------------------------
+
+
+class RiderSignup(CallbackData, prefix="rsu"):
+    """A sign-up choice on the rider bot, e.g. 'rsu:t:Salisbury' (town) or 'rsu:v:bike' (vehicle type).
+
+    v is the chosen value as t_rider_choices() listed it. Carries no authority and no phone: t_rider_set_profile() finds
+    the rider by the tapping person's from_user.id and accepts only values that are still listed (D39, D41).
+    """
+
+    s: Literal["t", "v"]
+    v: str
+
+
+class RiderOffer(CallbackData, prefix="ro1"):
+    """Accept (a) or decline (d) a job offer on the rider bot, e.g. 'ro1:84217:a' (phase R4, D48).
+
+    d is the delivery_dispatch id. Packing is serialisation, not authorisation: the handler checks that the tapping
+    person's tuid is the dispatch's rider and that the offer is still open before calling respond_to_offer().
+    """
+
+    d: int
+    a: Literal["a", "d"]
