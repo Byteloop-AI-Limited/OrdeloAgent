@@ -7530,7 +7530,7 @@
    "lines": 160,
    "objects": [
     {
-     "description": "One row per Telegram update a bot started handling, keyed by (bot_key, update_id).",
+     "description": "One row per selected Telegram update a protected handler claimed, keyed by (bot_key, update_id).",
      "kind": "table",
      "name": "t_inbox",
      "signature": "t_inbox"
@@ -7570,11 +7570,11 @@
    "sections": {
     "CALLED BY": "t_inbox:\n  sql       t_housekeeping(), t_inbox_claim(), t_inbox_finish()\n  python    channels/telegram/inbox.py (module-level SQL)\nt_inbox_claim:\n  python    channels/telegram/inbox.py: claim()\nt_inbox_finish:\n  python    channels/telegram/inbox.py: finish()",
     "GOTCHAS": "Retention: t_housekeeping() deletes rows older than TGRAM_INBOX_RETENTION_DAYS (7), but it is NOT scheduled on live (docs/to-do.md).",
-    "HOW IT FITS": "Telegram redelivers an update when the webhook is slow or answers non-2xx, and several gunicorn workers can get the retry\n  at the same time as the original. Button taps change orders, so handling one twice is not acceptable (D21). Whether\n  this is \"the first time\" is decided here, in one INSERT ... ON CONFLICT, so no process keeps state.\n    Telegram -> POST /telegram/rest-admin/webhook (watomation/routers/telegram_webhook.py)\n      -> Dispatcher.feed_update -> InboxMiddleware (channels/telegram/inbox.py, outer middleware on dp.update)\n           t_inbox_claim(bot_key, update_id, kind, tuid)   -> 'new': run the handlers | 'duplicate': skip, answer 200\n           handlers run\n           t_inbox_finish(bot_key, update_id, status, err) -> 'done' | 'failed'\n  If this file is not applied the middleware fails OPEN (logs and handles without dedupe).\n  Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).",
+    "HOW IT FITS": "Selected consequential handlers claim by (bot_key, update_id) before their work. Read-only, fallback and unmatched\n  updates make no inbox call. A retry can reach another worker; one INSERT ... ON CONFLICT decides the first caller.\n    Telegram -> POST /telegram/rest-admin/webhook (watomation/routers/telegram_webhook.py)\n      -> Dispatcher.feed_update -> selected handler -> process_once() (channels/telegram/inbox.py)\n           t_inbox_claim(bot_key, update_id, kind, tuid)   -> 'new': run the handlers | 'duplicate': skip, answer 200\n           handlers run\n           t_inbox_finish(bot_key, update_id, status, err) -> 'done' | 'failed'\n  If the claim RPC is unavailable process_once() fails OPEN (logs and handles without dedupe).\n  For rider agent turns, 'done' means the turn was queued, not that it finished.\n  Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "t_inbox.status: processing -> done | failed. A row left in 'processing' means the worker died mid-handler; it is NOT\nretried (the same update again is a duplicate: at-most-once). Look at old 'processing' rows when a tap was lost.\nColumn names: tuid = sender's Telegram user id (NULL for updates without a user).",
+    "LIFECYCLE": "t_inbox.status: processing -> done | failed. A row left in 'processing' means the worker died mid-handler; it is NOT\nretried (the same update again is a duplicate: at-most-once). Look at old 'processing' rows when a tap was lost.\nColumn names: tuid = sender's Telegram user id.",
     "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
-    "OBJECTS": "table  t_inbox\n    One row per Telegram update a bot started handling, keyed by (bot_key, update_id).\nfn     t_inbox_claim(p_bot_key text, p_update_id bigint, p_kind text, p_tuid bigint) -> jsonb\n    Insert the update or report it as a duplicate: returns {result: 'new'} for the first caller, {result: 'duplicate', status} after.\nfn     t_inbox_finish(p_bot_key text, p_update_id bigint, p_status text, p_error text) -> jsonb\n    Record how the handler ended: status 'done' or 'failed' with an optional error.",
+    "OBJECTS": "table  t_inbox\n    One row per selected Telegram update a protected handler claimed, keyed by (bot_key, update_id).\nfn     t_inbox_claim(p_bot_key text, p_update_id bigint, p_kind text, p_tuid bigint) -> jsonb\n    Insert the update or report it as a duplicate: returns {result: 'new'} for the first caller, {result: 'duplicate', status} after.\nfn     t_inbox_finish(p_bot_key text, p_update_id bigint, p_status text, p_error text) -> jsonb\n    Record how the handler ended: status 'done' or 'failed' with an optional error.",
     "PYTHON MODEL": "none",
     "REQUIRES": "none",
     "SECURITY": "t_inbox: RLS ON; Supabase default grants (anon and authenticated can read and write)\nt_inbox_claim(): service role only\nt_inbox_finish(): service role only",
@@ -7594,7 +7594,7 @@
     "tests/sql/test_order_cards_sql.py",
     "tests/sql/test_t_inbox_sql.py"
    ],
-   "title": "Telegram durable inbox: at-most-once handling of Telegram updates across workers."
+   "title": "Telegram durable inbox: at-most-once handling of selected consequential updates across workers."
   },
   {
    "called_by": {
@@ -10973,7 +10973,7 @@
      "via": "python"
     }
    ],
-   "description": "One row per Telegram update a bot started handling, keyed by (bot_key, update_id).",
+   "description": "One row per selected Telegram update a protected handler claimed, keyed by (bot_key, update_id).",
    "file": "telegram/t_inbox.sql",
    "folder": "telegram",
    "kind": "table",

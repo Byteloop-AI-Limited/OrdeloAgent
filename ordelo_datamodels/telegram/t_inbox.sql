@@ -1,10 +1,10 @@
 -- =============================================================================================
 -- ordelo_datamodels/telegram/t_inbox.sql
--- Telegram durable inbox: at-most-once handling of Telegram updates across workers.
+-- Telegram durable inbox: at-most-once handling of selected consequential updates across workers.
 -- =============================================================================================
 -- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
 -- OBJECTS       table  t_inbox
---                   One row per Telegram update a bot started handling, keyed by (bot_key, update_id).
+--                   One row per selected Telegram update a protected handler claimed, keyed by (bot_key, update_id).
 --               fn     t_inbox_claim(p_bot_key text, p_update_id bigint, p_kind text, p_tuid bigint) -> jsonb
 --                   Insert the update or report it as a duplicate: returns {result: 'new'} for the first caller, {result: 'duplicate', status} after.
 --               fn     t_inbox_finish(p_bot_key text, p_update_id bigint, p_status text, p_error text) -> jsonb
@@ -13,19 +13,19 @@
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
 -- SIDE EFFECTS  none when applied.
--- HOW IT FITS   Telegram redelivers an update when the webhook is slow or answers non-2xx, and several gunicorn workers can get the retry
---                 at the same time as the original. Button taps change orders, so handling one twice is not acceptable (D21). Whether
---                 this is "the first time" is decided here, in one INSERT ... ON CONFLICT, so no process keeps state.
+-- HOW IT FITS   Selected consequential handlers claim by (bot_key, update_id) before their work. Read-only, fallback and unmatched
+--                 updates make no inbox call. A retry can reach another worker; one INSERT ... ON CONFLICT decides the first caller.
 --                   Telegram -> POST /telegram/rest-admin/webhook (watomation/routers/telegram_webhook.py)
---                     -> Dispatcher.feed_update -> InboxMiddleware (channels/telegram/inbox.py, outer middleware on dp.update)
+--                     -> Dispatcher.feed_update -> selected handler -> process_once() (channels/telegram/inbox.py)
 --                          t_inbox_claim(bot_key, update_id, kind, tuid)   -> 'new': run the handlers | 'duplicate': skip, answer 200
 --                          handlers run
 --                          t_inbox_finish(bot_key, update_id, status, err) -> 'done' | 'failed'
---                 If this file is not applied the middleware fails OPEN (logs and handles without dedupe).
+--                 If the claim RPC is unavailable process_once() fails OPEN (logs and handles without dedupe).
+--                 For rider agent turns, 'done' means the turn was queued, not that it finished.
 --                 Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).
 -- LIFECYCLE     t_inbox.status: processing -> done | failed. A row left in 'processing' means the worker died mid-handler; it is NOT
 --               retried (the same update again is a duplicate: at-most-once). Look at old 'processing' rows when a tap was lost.
---               Column names: tuid = sender's Telegram user id (NULL for updates without a user).
+--               Column names: tuid = sender's Telegram user id.
 -- CALLED BY     t_inbox:
 --                 sql       t_housekeeping(), t_inbox_claim(), t_inbox_finish()
 --                 python    channels/telegram/inbox.py (module-level SQL)

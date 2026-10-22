@@ -7,10 +7,11 @@ import asyncio
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from aiogram.methods import EditMessageText
 
 from channels.telegram.bots import build_registry
 from config.tgram_setting import TgramBotSettings
-from tests.channels.telegram.conftest import FakeInboxDb, RecordingSession, message_update
+from tests.channels.telegram.conftest import FakeInboxDb, FakeInviteDb, RecordingSession, callback_update, message_update
 from watomation.routers import telegram_webhook
 
 SECRET = "wh-secret"
@@ -22,6 +23,13 @@ HDR = "X-Telegram-Bot-Api-Secret-Token"
 def inbox_db(monkeypatch):
     db = FakeInboxDb()
     monkeypatch.setattr("channels.telegram.inbox.client_ordelo_service", db)
+    return db
+
+
+@pytest.fixture
+def invite_db(monkeypatch):
+    db = FakeInviteDb()
+    monkeypatch.setattr("channels.telegram.invites.client_ordelo_service", db)
     return db
 
 
@@ -99,30 +107,32 @@ def test_handler_timeout_still_200(env, monkeypatch):
     assert r.status_code == 200
 
 
-def test_retried_update_is_handled_once_and_recorded(env, inbox_db):
+def test_retried_update_is_handled_once_and_recorded(env, inbox_db, invite_db):
     """Telegram redelivers an update; the second POST is answered 200 but not handled again."""
     app, session = env
+    code = invite_db.add()
     c = TestClient(app)
     for _ in range(2):
-        r = c.post(URL, json=message_update("/help", update_id=77), headers={HDR: SECRET})
+        r = c.post(URL, json=callback_update(f"inv:{code}:y", update_id=77), headers={HDR: SECRET})
         assert r.status_code == 200 and r.json() == {"ok": True}
-    assert len(session.sent_texts) == 1
+    assert len(session.edited_texts) == 1
     assert inbox_db.status_of(77) == "done"
     assert list(inbox_db.rows) == [("rest_admin", 77)]
 
 
-def test_failed_handler_is_recorded_failed_and_retry_is_not_rerun(env, inbox_db):
+def test_failed_handler_is_recorded_failed_and_retry_is_not_rerun(env, inbox_db, invite_db):
     app, session = env
+    code = invite_db.add()
     calls = []
 
-    # make the Bot API send blow up, so the /help handler raises
+    # make the Bot API edit blow up, so the protected invite handler raises
     async def failing_request(bot, method, timeout=None):
-        calls.append(1)
+        calls.append(method)
         raise RuntimeError("telegram down")
 
     session.make_request = failing_request
     c = TestClient(app)
     for _ in range(2):
-        assert c.post(URL, json=message_update("/help", update_id=78), headers={HDR: SECRET}).status_code == 200
-    assert len(calls) == 1
+        assert c.post(URL, json=callback_update(f"inv:{code}:y", update_id=78), headers={HDR: SECRET}).status_code == 200
+    assert len([method for method in calls if isinstance(method, EditMessageText)]) == 1
     assert inbox_db.status_of(78) == "failed"

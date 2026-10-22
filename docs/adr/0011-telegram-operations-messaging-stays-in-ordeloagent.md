@@ -525,3 +525,23 @@ It supersedes the rider parts of this ADR where they differ.
 - **The rider bot is optional at start-up (D54):** registered only when its token is
   configured, unlike the restaurant bot.
 - Thread and pause decisions: ADR 0012 Amendment 1 and ADR 0013.
+
+## Amendment 4 - 22 October 2026 (selective Telegram inbox)
+
+This supersedes Amendment 2's global inbox requirement (D21) and any earlier
+description of a durable receipt queue. The webhook acknowledges a valid update
+with HTTP 200 before background handling; `t_inbox` deduplicates selected work
+across workers but cannot recover work lost after that acknowledgement.
+
+- Protected handlers opt in through `channels/telegram/inbox.py:process_once`:
+  restaurant order-card and kitchen buttons, invite Yes, verified rider contact
+  linking, rider town/vehicle choices, rider offer Accept/Decline, rider job-card
+  buttons, and rider text only after finding an active Telegram job thread.
+  The rider text lookup and thread touch happen before the claim.
+- Read-only commands, invite No, invalid contacts, fallback, scratchpad and
+  unmatched updates run without inbox RPCs. Redelivery may repeat their reply.
+- A protected first delivery claims and finishes as `done` or `failed`; a duplicate
+  skips the handler. A claim failure stays fail open and does not call finish.
+  For rider agent turns, `done` records that the turn was queued, not its result.
+  The business RPCs retain their own atomic guards against separate button taps.
+- Keep `t_inbox` and its two RPCs. No database migration is required.

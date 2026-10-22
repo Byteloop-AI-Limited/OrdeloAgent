@@ -27,13 +27,14 @@ from html import escape as _html_escape
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
-from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove, Update
 from loguru import logger
 
 from config.tgram_setting import TgramBotSettings
 
 from .. import rider_links
 from ..callbacks import RiderSignup
+from ..inbox import process_once
 from ..keyboards import contact_request_kb, rider_choice_kb
 from ..replies import answer_quietly
 from .commands import HELP_TEXT
@@ -115,7 +116,7 @@ async def cmd_start(message: Message, tgram_settings: TgramBotSettings):
 
 
 # ---- contact share -------------------------------------------------------------------------------------------------
-async def on_contact(message: Message, tgram_settings: TgramBotSettings):
+async def on_contact(message: Message, tgram_settings: TgramBotSettings, event_update: Update):
     if message.chat.type != "private":
         await message.answer(PRIVATE_ONLY)
         return
@@ -123,6 +124,13 @@ async def on_contact(message: Message, tgram_settings: TgramBotSettings):
     if contact.user_id is None or contact.user_id != user.id:
         await message.answer(NOT_YOUR_CONTACT, reply_markup=contact_request_kb())
         return
+    await process_once(
+        tgram_settings.bot_key, event_update, user.id, lambda: _link_contact(message, tgram_settings)
+    )
+
+
+async def _link_contact(message: Message, tgram_settings: TgramBotSettings):
+    user, contact = message.from_user, message.contact
     try:
         out = await rider_links.link(user.id, message.chat.id, contact.phone_number, user.username, user.first_name)
     except Exception:
@@ -176,7 +184,16 @@ async def ask_next_choice(message: Message, town: str | None, vehicle_type: str 
 
 
 # ---- sign-up choices -----------------------------------------------------------------------------------------------
-async def on_signup_choice(query: CallbackQuery, callback_data: RiderSignup, tgram_settings: TgramBotSettings):
+async def on_signup_choice(
+    query: CallbackQuery, callback_data: RiderSignup, tgram_settings: TgramBotSettings, event_update: Update
+):
+    await process_once(
+        tgram_settings.bot_key, event_update, query.from_user.id,
+        lambda: _handle_signup_choice(query, callback_data, tgram_settings),
+    )
+
+
+async def _handle_signup_choice(query: CallbackQuery, callback_data: RiderSignup, tgram_settings: TgramBotSettings):
     answered = asyncio.create_task(answer_quietly(query))
     try:
         await _apply_choice(query, callback_data, tgram_settings)

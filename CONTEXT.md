@@ -272,11 +272,11 @@ _Avoid_: confirmation update, order status update
 
 ### Telegram inbox
 
-The `t_inbox` table: one row per Telegram update the bot has started to handle,
-keyed by `(bot_key, update_id)`. Claiming a row is the first thing the bot does with an
-update, so a Telegram retry of the same update is skipped (at-most-once). `tuid` is the
-sender's Telegram user id.
-_Avoid_: message queue, update log
+The `t_inbox` table: one row per selected consequential Telegram update the bot has
+claimed, keyed by `(bot_key, update_id)`. Protected handlers claim before doing their
+work; a retry of that update is skipped (at-most-once). Read-only, fallback and
+unmatched updates have no inbox row. `tuid` is the sender's Telegram user id.
+_Avoid_: message queue, all-update log
 
 ### Order card
 

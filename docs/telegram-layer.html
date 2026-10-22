@@ -109,6 +109,7 @@ ul.log{padding-left:18px}ul.log li{margin:8px 0}
     <ul>
       <li>The webhook route has no business logic and <strong>always answers 200</strong> after the secret check (Telegram retries anything else).</li>
       <li>Each bot has its <strong>own</strong> aiogram <code>Dispatcher</code> and router tree. Routers are built fresh per bot, never shared.</li>
+      <li>Consequential handlers opt into the inbox: restaurant order/kitchen buttons, invite Yes, verified rider contact, signup choices, offer and job-card buttons, and rider text on an active Telegram thread. Read-only, fallback, scratchpad and unmatched updates make no inbox calls. For background agent work, <code>done</code> means queued.</li>
       <li>The app <strong>never</strong> calls <code>set_webhook</code> or <code>delete_webhook</code>. That is notebook cell 4.</li>
       <li>One webhook per bot token: a token shared with another service sends every update to the last URL set.</li>
       <li>Missing or malformed <code>tgram_rest_admin_bot_token</code> / <code>_webhook_secret</code> stops the service at import.</li>
@@ -196,7 +197,7 @@ const NODES = [
 const FLOWS = {
   "tap Accept (order card)": [
     {n:"tg", t:"Admin taps Accept on the order card", d:"Telegram sends a callback query with data like `ord:ELAS-CEKT-22:d:acc:0` (order, d/t type, action, minutes).", f:"callbacks.py: OrderAction"},
-    {n:"inbox", t:"Inbox claims the update", d:"A double tap or a Telegram retry is handled once.", f:"channels/telegram/inbox.py"},
+    {n:"inbox", t:"Order handler claims the update", d:"The order handler opts into process_once; a retry of the same update is skipped across workers. A separate tap has its own update ID and is guarded by the order SQL.", f:"channels/telegram/inbox.py"},
     {n:"rtr", t:"One handler: OrderCards.tap", d:"`on_order_action` passes the tap to `OrderCards.tap(query, callback_data)`; `order_cards` is injected from the dispatcher.", f:"channels/telegram/rest_admin/orders.py"},
     {n:"db", t:"t_order_decide authorises and decides", d:"Authorises the Telegram USER (never the chat): a claimed invite for the order's restaurant AND the invite phone in `restaurant_master.admins`. Then `restaurant_order_decide` in one conditional UPDATE: the first decision wins, a loser is told who decided. The existing trigger still fires the payment / customer / WhatsApp webhook.", f:"ordelo_datamodels/restaurant_admin/restaurant_order_decision.sql"},
     {n:"tg", t:"The tap is answered", d:"A toast: 'Accepted - pick a time', 'Already accepted by Ada', or an alert for a refused tap.", f:"channels/telegram/rest_admin/order_cards/model.py: toast"},
@@ -214,7 +215,6 @@ const FLOWS = {
     {n:"tg",   t:"Admin taps the invite link", d:"The link is `https://t.me/<bot>?start=<code>`. Telegram sends the message `/start <code>` to the webhook URL set on that bot, with the secret in the `X-Telegram-Bot-Api-Secret-Token` header.", f:"t_invites_shareable view builds the link"},
     {n:"edge", t:"Tunnel forwards the request", d:"Locally this is a Cloudflare tunnel to the FastAPI port. Cloudflared logs only errors, so a quiet log does not mean slow or fast.", f:"docs/local-testing-runbook.md"},
     {n:"route",t:"Webhook route checks the secret", d:"`POST /telegram/{bot_slug}/webhook`: 404 for an unknown bot, 403 for a wrong secret (constant-time compare). Then it validates the Update and logs `delivery_lag` and `handled_ms`.", f:"watomation/routers/telegram_webhook.py"},
-    {n:"inbox",t:"Inbox middleware claims the update", d:"Before any handler runs, `InboxMiddleware` calls `t_inbox_claim(bot_key, update_id, kind, tuid)`. `new` runs the handlers; `duplicate` (a Telegram retry) is skipped and logged. If the inbox is unreachable the update is handled anyway (fail open). After the handlers the row becomes `done` or `failed`.", f:"channels/telegram/inbox.py"},
     {n:"reg",  t:"Registry finds this bot's dispatcher", d:"`find_by_slug(app.state.telegram_bots, 'rest-admin')` returns the `TelegramBot` (settings + `Bot` + `Dispatcher`). The route calls `dp.feed_update(bot, update)` with a 25 s timeout.", f:"channels/telegram/bots.py"},
     {n:"rtr",  t:"`cmd_start` handles the command", d:"Private chats only. With a code it asks the wrapper to preview the invite, then shows 'Link this chat to **name**?' with Yes / No buttons (callback data `inv:<code>:y|n`).", f:"channels/telegram/rest_admin/router.py"},
     {n:"inv",  t:"`preview_invite()` calls the RPC", d:"Validates the code shape, then `client_ordelo_service.rpc('t_invite_preview', ...)` inside `asyncio.to_thread`, and wraps the JSON in an `InviteOutcome`.", f:"channels/telegram/invites.py"},
@@ -223,7 +223,7 @@ const FLOWS = {
   "tap Yes (claim)": [
     {n:"tg",   t:"Admin taps 'Yes, link this chat'", d:"Telegram sends a callback query with data `inv:<code>:y` to the same webhook URL.", f:"callbacks.py: InviteDecision"},
     {n:"route",t:"Webhook route", d:"Same secret check and logging as for messages. `delivery_lag` is n/a for callback queries.", f:"watomation/routers/telegram_webhook.py"},
-    {n:"inbox",t:"Inbox middleware claims the update", d:"A callback query is an update like any other: `t_inbox_claim` makes sure a double tap or a Telegram retry is handled once.", f:"channels/telegram/inbox.py"},
+    {n:"inbox",t:"Invite Yes handler claims the update", d:"The Yes handler opts into `process_once`: `t_inbox_claim` skips a retry of the same update; `t_inbox_finish` records done or failed. A failed claim runs the handler. Invite No has no inbox call.", f:"channels/telegram/inbox.py"},
     {n:"reg",  t:"Registry and dispatcher", d:"The bot's own dispatcher routes it to the `InviteDecision` callback filter.", f:"channels/telegram/bots.py"},
     {n:"rtr",  t:"`on_invite_decision` handles the tap", d:"Answers the callback immediately (clears the spinner). Yes calls the wrapper; No just says the chat was not linked. The message is edited in place, with a fallback to a new message.", f:"channels/telegram/rest_admin/router.py"},
     {n:"inv",  t:"`claim_invite()` calls the RPC", d:"Passes code, bot key, Telegram user id, chat id, username and first name to `t_claim_invite`.", f:"channels/telegram/invites.py"},
@@ -232,7 +232,7 @@ const FLOWS = {
   "/start (no code)": [
     {n:"tg",   t:"Admin sends `/start` or `/whoami`", d:"No invite code in the message.", f:""},
     {n:"route",t:"Webhook route", d:"Secret check, validation, timing log.", f:"watomation/routers/telegram_webhook.py"},
-    {n:"inbox",t:"Inbox middleware claims the update", d:"Records the update in `t_inbox`; a retry of the same `update_id` is skipped.", f:"channels/telegram/inbox.py"},
+    {n:"inbox",t:"No inbox claim", d:"Read-only `/start` and `/whoami` run directly. A redelivery can repeat the reply.", f:"channels/telegram/rest_admin/router.py"},
     {n:"rtr",  t:"Router asks who this user is", d:"`cmd_start` and `cmd_whoami` ask the wrapper which restaurants this Telegram user is linked to.", f:"channels/telegram/rest_admin/router.py"},
     {n:"inv",  t:"`linked_restaurants()` calls the RPC", d:"Calls `t_linked_restaurants(bot_key, user_id)`; returns a list of `LinkedRestaurant`.", f:"channels/telegram/invites.py"},
     {n:"db",   t:"`t_linked_restaurants` reads claimed invites", d:"Returns restaurant ref and name for each `claimed` invite of that user and bot (joined to `restaurant_master`). The bot answers 'Welcome back, linked to ...' or 'This chat isn't linked to a restaurant yet.'", f:"ordelo_datamodels/telegram/t_invites.sql"}
@@ -276,7 +276,7 @@ const FILES = [
   {p:"tests/watomation/routers/test_telegram_webhook.py", a:"Tests", w:"404, 403, invalid update, handler failure still 200.", n:""},
   {p:"docs/adr/0011-...md · docs/local-testing-runbook.md · CONTEXT.md · .claude/skills/database-operations/SKILL.md", a:"Docs", w:"Decisions (with the 15 Oct amendment), local setup, vocabulary, operator SOP for invites.", n:""},
   {p:"tgram_starter/", a:"Reference", w:"Standalone starter kit, kept unchanged for later. Nothing imports it.", n:""},
-  {p:"channels/telegram/inbox.py", a:"DB access", w:"Durable inbox: at-most-once handling per (bot_key, update_id). Thin wrappers over the two inbox RPCs plus the outer middleware.", n:"`claim`, `finish`, `InboxMiddleware`"},
+  {p:"channels/telegram/inbox.py", a:"DB access", w:"Selected consequential handlers opt into at-most-once handling per (bot_key, update_id). Thin wrappers over the two inbox RPCs plus process_once.", n:"`claim`, `finish`, `process_once`"},
   {p:"ordelo_datamodels/telegram/t_inbox.sql", a:"Database", w:"The inbox table and its two RPCs, grants, row lifecycle.", n:"`t_inbox`, `t_inbox_claim`, `t_inbox_finish`"},
   {p:"tests/sql/", a:"Tests", w:"Real migration files applied to a throwaway local Postgres; skipped unless ORDELO_TEST_DB_URI is set; refuses non-local hosts.", n:"`sql_env`, `db`"},
   {p:"utils_common/order_management/restaurant_decision.py", a:"DB access", w:"Shared accept / decline / pickup rule used by WhatsApp now and Telegram later. Thin wrappers over the two decision RPCs.", n:"`decide`, `set_pickup`, `describe`, `DecisionOutcome`, `PickupOutcome`"},
@@ -309,9 +309,9 @@ const XREF = [
   {o:"t_linked_restaurants(p_bot_key, p_user_id)", k:"RPC", def:"telegram/t_invites.sql", py:"invites.linked_restaurants", h:"/start, /whoami", t:"test_invites.py, test_rest_admin_router.py", d:"Restaurants this Telegram user is currently linked to."},
   {o:"ordelo_config.TGRAM_REST_ADMIN_BOT_USERNAME", k:"config row", def:"operator SQL (runbook)", py:"none (read by the view)", h:"n/a", t:"n/a", d:"Change this row when you change bots, and re-run the webhook notebook cell."},
   {o:"restaurant_master", k:"existing table", def:"existing migrations", py:"none (joined inside the RPCs)", h:"n/a", t:"n/a", d:"Source of `rest_ref` (foreign key) and `rest_name`. Its `admins` list is not read by the invite flow yet."},
-  {o:"t_inbox", k:"table", def:"telegram/t_inbox.sql", py:"none directly (through the RPCs)", h:"n/a", t:"FakeInboxDb; tests/sql/test_t_inbox_sql.py", d:"One row per update the bot started to handle: (bot_key, update_id) key, kind, sender tuid, status processing/done/failed. RLS on, no policies."},
-  {o:"t_inbox_claim(p_bot_key, p_update_id, p_kind, p_tuid)", k:"RPC", def:"telegram/t_inbox.sql", py:"inbox.claim (InboxMiddleware)", h:"every update", t:"test_inbox.py, test_telegram_webhook.py, tests/sql", d:"First caller wins: returns new or duplicate (+ current status)."},
-  {o:"t_inbox_finish(p_bot_key, p_update_id, p_status, p_error)", k:"RPC", def:"telegram/t_inbox.sql", py:"inbox.finish (InboxMiddleware)", h:"every update", t:"test_inbox.py, tests/sql", d:"Closes a processing row as done or failed; returns ok or not_processing."},
+  {o:"t_inbox", k:"table", def:"telegram/t_inbox.sql", py:"none directly (through the RPCs)", h:"n/a", t:"FakeInboxDb; tests/sql/test_t_inbox_sql.py", d:"One row per protected update the bot claimed: (bot_key, update_id) key, kind, sender tuid, status processing/done/failed. RLS on, no policies."},
+  {o:"t_inbox_claim(p_bot_key, p_update_id, p_kind, p_tuid)", k:"RPC", def:"telegram/t_inbox.sql", py:"inbox.claim (process_once)", h:"protected handler", t:"test_inbox.py, test_telegram_webhook.py, tests/sql", d:"First caller wins: returns new or duplicate (+ current status)."},
+  {o:"t_inbox_finish(p_bot_key, p_update_id, p_status, p_error)", k:"RPC", def:"telegram/t_inbox.sql", py:"inbox.finish (process_once)", h:"protected handler", t:"test_inbox.py, tests/sql", d:"Closes a processing row as done or failed; returns ok or not_processing. For agent turns done means queued."},
   {o:"delivery_summary_status_check", k:"constraint", def:"restaurant_order_decision.sql (+ delivery/delivery_summary.sql)", py:"none", h:"n/a", t:"tests/sql/test_restaurant_decision_sql.py", d:"Now allows status declined, so a declined delivery order is terminal and never dispatchable (R1-a)."},
   {o:"restaurant_admin_label(p_phone)", k:"function", def:"restaurant_order_decision.sql", py:"none directly", h:"by X in replies", t:"tests/sql/test_restaurant_decision_sql.py", d:"Telegram first name of the phone's latest claimed invite, else the last four digits."},
   {o:"restaurant_order_decide(...)", k:"RPC", def:"restaurant_order_decision.sql", py:"restaurant_decision.decide", h:"WhatsApp Accept tap", t:"test_restaurant_decision.py, test_on_callback_wa_handler.py, tests/sql", d:"First decision wins in one conditional UPDATE; a decline also sets status declined. Returns ok, already_decided (+ who), not_found."},
@@ -354,6 +354,7 @@ const TODO = [
   "Rider bot R2-R4 live since 22 Oct; R5: Telegram location replies, /off /on /shift, the pause sweep, Telegram riders out of the daily shift question; R6: admin pauses."
 ];
 const CHANGELOG = [
+  {d:"2026-10-22", t:"Inbox deduplication moved from dispatcher middleware to selected handlers: order/kitchen taps, invite Yes, verified rider contact, signup, offer and job-card taps, and rider text with an active Telegram thread. Read-only, fallback, scratchpad and unmatched updates use no inbox RPCs. Background agent turn done means queued. No database migration."},
   {d:"2026-10-22", t:"R2-R4 applied and deployed (migrations/rider_telegram_r2_r4.sql, /job in the menu); a rider job tested live on Telegram and WhatsApp."},
   {d:"2026-10-22", t:"Rider bot R2-R4: one rider thread per dispatch (rider_threads.sql, ordelo/agents/rider_threads.py); the agent's run context holds a RiderMessenger (WhatsApp unchanged); delivery_dispatch channel / channel_msg_ref / thread_id with the stamping trigger; dispatch_actions.py shared by both channels; rider/jobs.py (ro1 / rj1 taps, /job, text to the agent); Telegram offers edited to taken / the job is yours / expired. Migration rider_telegram_r2_r4.sql, harness test_rider_telegram_jobs.sql. R1 migration applied on 22 Oct."},
   {d:"2026-10-22", t:"Both Telegram notebooks select rest_admin or rider with BOT_KEY in their first cell. Setup follows the selected settings, dispatcher, webhook URL and command list; scratchpad uses the selected bot and skips the restaurant-admin-only rich text button demo for riders. Files: notebooks/telegram/tgram_setup_bot.py, notebooks/telegram/tgram_scratchpad.py."},

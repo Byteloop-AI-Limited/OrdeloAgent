@@ -6,7 +6,7 @@ Telegram bot registry for OrdeloAgent.
     . Each rest_admin bot also owns its OrderCards (order alerts; channels/telegram/rest_admin/order_cards), exposed as
       TelegramBot.cards for the order-alerts route and injected into handlers as `order_cards`, and its Receipts
       (kitchen receipts; channels/telegram/rest_admin/receipts), exposed as TelegramBot.receipts and injected as `receipts`
-    . Each Dispatcher gets the InboxMiddleware (durable at-most-once handling, channels/telegram/inbox.py)
+    . Consequential handlers opt into the durable inbox through channels/telegram/inbox.py
     . Never sets or deletes a webhook (webhook registration is an explicit operator step)
     . Removable scratchpad router is mounted before the restaurant router's text fallback
     . The rider bot (bot_key 'rider', channels/telegram/rider) is registered only when configured (D54): config.rider_bot
@@ -30,7 +30,6 @@ from loguru import logger
 from config.tgram_setting import REST_ADMIN_BOT_KEY, RIDER_BOT_KEY, TgramBotSettings
 
 from .errors import register_error_handlers
-from .inbox import InboxMiddleware
 from .rest_admin.order_cards import OrderCards
 from .rest_admin.receipts import Receipts
 from .rest_admin.router import build_router as build_rest_admin_router
@@ -55,7 +54,6 @@ def build_rest_admin_dispatcher(
     settings: TgramBotSettings, cards: OrderCards | None = None, receipts: Receipts | None = None
 ) -> Dispatcher:
     dp = Dispatcher()
-    dp.update.outer_middleware(InboxMiddleware(settings.bot_key))  # at-most-once per update_id (D21)
     dp.include_router(build_scratchpad_router())  # unmount /scratchpad: remove this line (and its import)
     dp.include_router(build_rest_admin_router())
     register_error_handlers(dp)
@@ -66,9 +64,8 @@ def build_rest_admin_dispatcher(
 
 
 def build_rider_dispatcher(settings: TgramBotSettings) -> Dispatcher:
-    """The rider bot: its own Dispatcher, inbox and router tree; never shares routers with the restaurant bot."""
+    """The rider bot: its own Dispatcher and router tree; never shares routers with the restaurant bot."""
     dp = Dispatcher()
-    dp.update.outer_middleware(InboxMiddleware(settings.bot_key))  # at-most-once per update_id (D21)
     dp.include_router(build_rider_router())
     register_error_handlers(dp)
     dp["tgram_settings"] = settings

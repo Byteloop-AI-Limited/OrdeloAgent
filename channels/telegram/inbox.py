@@ -1,5 +1,5 @@
 """
-Durable Telegram inbox (t_inbox): handle each Telegram update at most once.
+Durable Telegram inbox (t_inbox): handle selected consequential updates at most once.
     . Thin async wrapper over two SQL functions (RPCs). "Is this the first time?" is decided in the
       database, so any of the (up to 3) gunicorn workers gives the same answer.
     . RPCs and table are DEFINED in: ordelo_datamodels/telegram/t_inbox.sql
@@ -8,18 +8,19 @@ Durable Telegram inbox (t_inbox): handle each Telegram update at most once.
         claim   -> t_inbox_claim(p_bot_key, p_update_id, p_kind, p_tuid)      'new' | 'duplicate'
         finish  -> t_inbox_finish(p_bot_key, p_update_id, p_status, p_error)  'ok' | 'not_processing'
     . Table behind them: t_inbox (primary key (bot_key, update_id))
-    . Called by: InboxMiddleware below, registered once per bot in channels/telegram/bots.py
+    . Called by: protected restaurant and rider handlers through process_once below
     . Uses client_ordelo_service: the RPCs are service-role only (anon is denied)
     . Supabase REST is synchronous, so every call runs in asyncio.to_thread (CLAUDE.md rule)
-    . Policy: at-most-once. A duplicate is skipped, also when the first attempt failed or died.
-      If the inbox itself is unavailable the update is handled anyway (fail OPEN): the state-changing
-      SQL functions are atomic on their own, so a double delivery can not double-apply an order action.
-    . The webhook route needs no change: it already answers 200 after the secret check.
+    . Policy: at-most-once for opted-in handlers. A duplicate is skipped, also when the first attempt failed or died.
+      If the inbox itself is unavailable the update is handled anyway (fail OPEN). Order SQL remains
+      atomic; an agent turn can run twice on a redelivery during an inbox outage.
+    . This is deduplication, not a durable queue: the webhook answers 200 before processing.
+      For background agent turns, done means queued, not completed.
     . Overview and cross-reference table: docs/telegram-layer.md
   Classes/Functions:
     . claim
     . finish
-    . InboxMiddleware
+    . process_once
 
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
   . t_inbox_claim (function, ordelo_datamodels/telegram/t_inbox.sql): calls (name passed to a helper)
@@ -30,7 +31,6 @@ Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamod
 import asyncio
 from typing import Any, Awaitable, Callable
 
-from aiogram import BaseMiddleware
 from aiogram.types import Update
 from loguru import logger
 
@@ -79,36 +79,26 @@ async def _finish_quietly(bot_key: str, update_id: int, status: str, error: str 
         logger.exception(f"telegram[{bot_key}]: inbox finish({status}) failed for update {update_id}")
 
 
-class InboxMiddleware(BaseMiddleware):
-    """Outer middleware on dp.update: claim (bot_key, update_id) before any handler; skip duplicates.
+async def process_once(
+    bot_key: str, event: Update, tuid: int | None, work: Callable[[], Awaitable[Any]]
+) -> Any:
+    """Claim a selected update, run its handler once across workers, and record its outcome.
 
-    aiogram's Dispatcher registers its user-context and error middlewares on dp.update first, so this
-    one runs inside them: `event_from_user` is already set, and handler exceptions reach us before the
-    error handlers in errors.py do.
+    A failed claim runs the work anyway. A failed finish is logged without changing the handler result.
+    A background agent turn is recorded done once queued; its later result is outside this guard.
     """
-
-    def __init__(self, bot_key: str):
-        self.bot_key = bot_key
-
-    async def __call__(
-        self,
-        handler: Callable[[Update, dict[str, Any]], Awaitable[Any]],
-        event: Update,
-        data: dict[str, Any],
-    ) -> Any:
-        user = data.get("event_from_user")
-        try:
-            fresh = await claim(self.bot_key, event.update_id, event.event_type, user.id if user else None)
-        except Exception:  # inbox DB down: fail OPEN; state-changing RPCs are still atomic
-            logger.exception(f"telegram[{self.bot_key}]: inbox claim failed for update {event.update_id}; processing anyway")
-            return await handler(event, data)
-        if not fresh:
-            logger.info(f"telegram[{self.bot_key}]: duplicate update {event.update_id} skipped")
-            return None
-        try:
-            result = await handler(event, data)
-        except BaseException as exc:  # includes CancelledError from the route's wait_for timeout
-            await _finish_quietly(self.bot_key, event.update_id, "failed", repr(exc))
-            raise
-        await _finish_quietly(self.bot_key, event.update_id, "done")
-        return result
+    try:
+        fresh = await claim(bot_key, event.update_id, event.event_type, tuid)
+    except Exception:  # inbox DB down: fail open
+        logger.exception(f"telegram[{bot_key}]: inbox claim failed for update {event.update_id}; processing anyway")
+        return await work()
+    if not fresh:
+        logger.info(f"telegram[{bot_key}]: duplicate update {event.update_id} skipped")
+        return None
+    try:
+        result = await work()
+    except BaseException as exc:  # includes CancelledError from the route's wait_for timeout
+        await _finish_quietly(bot_key, event.update_id, "failed", repr(exc))
+        raise
+    await _finish_quietly(bot_key, event.update_id, "done")
+    return result

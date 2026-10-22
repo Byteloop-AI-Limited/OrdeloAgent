@@ -196,6 +196,8 @@ async def test_same_callback_delivered_twice_is_handled_once(env, inbox_db):
     await dp.feed_update(bot, upd)
     assert [c for c in store.calls if c.startswith("decide")] == ["decide:accept"]
     assert len(session.answers) == 1
+    assert inbox_db.rpc_names == ["t_inbox_claim", "t_inbox_finish", "t_inbox_claim"]
+    assert inbox_db.status_of(555) == "done"
 
 
 async def test_text_message_is_not_taken_by_the_orders_router(env):

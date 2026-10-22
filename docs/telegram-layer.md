@@ -25,12 +25,9 @@ Telegram ──POST /telegram/rest-admin/webhook──▶ Cloudflare tunnel / lo
     2. compare X-Telegram-Bot-Api-Secret-Token (constant time)       403 if wrong, 404 if no such bot
     3. validate the Update, answer 200 at once, and run the handler (25 s timeout) in a BackgroundTask so a slow Telegram call cannot stall the bot's later updates; updates may now run concurrently
     4. dp.feed_update(bot, update)         aiogram Dispatcher for THIS bot only
-         channels/telegram/inbox.py  InboxMiddleware (outer middleware on dp.update)
-           claim → RPC t_inbox_claim   'new' → run the handlers; 'duplicate' → skip (Telegram retry)
-           after the handlers: RPC t_inbox_finish → row 'done' or 'failed'  (inbox down → fail OPEN, log, handle anyway)
          channels/telegram/rest_admin/router.py
            /start <code>   → invites.preview_invite()  → RPC t_invite_preview   → "Link this chat to <b>name</b>?" [Yes][No]
-           tap Yes         → invites.claim_invite()    → RPC t_claim_invite     → "You've been onboarded successfully."
+           tap Yes         → inbox.process_once() → invites.claim_invite() → RPC t_claim_invite
            /start, /whoami → invites.linked_restaurants() → RPC t_linked_restaurants
     5. always return {"ok": true}          Telegram retries non-2xx, so failures are logged, not raised
 ```
@@ -48,7 +45,8 @@ The webhook route does not contain business logic. Per-bot objects are created i
 | Callback data | `channels/telegram/callbacks.py` | `InviteDecision` (`inv:<code>:y\|n`), `OrderAction` (`ord:<order>:d\|t:acc\|dec\|pk:<minutes>`), the 64-byte limit check |
 | Keyboards | `channels/telegram/keyboards.py` | `invite_confirm_kb(code)`; `contact_request_kb()` (unused for now, kept for the later phone-verified flow) |
 | Decision rule (shared) | `utils_common/order_management/restaurant_decision.py` | `decide`, `set_pickup`, `describe`: thin wrappers over `restaurant_order_decide` / `restaurant_order_set_pickup`. Used by the WhatsApp handlers; Telegram reaches the same SQL through `t_order_decide` / `t_order_set_pickup` (`CardStore.decide` / `set_pickup`) |
-| Inbox | `channels/telegram/inbox.py` | `claim`, `finish` (thin wrappers over `t_inbox_claim` / `t_inbox_finish`) and `InboxMiddleware(bot_key)`, registered once per bot in `bots.py`: at-most-once handling per `(bot_key, update_id)` |
+| Inbox | `channels/telegram/inbox.py` | `claim`, `finish` and `process_once`: selected handlers opt into at-most-once handling per `(bot_key, update_id)`. A failed claim runs the handler (fail open); a duplicate skips it. |
+
 | Order cards | `channels/telegram/rest_admin/order_cards/` | `OrderCards(bot, bot_key)` with `remind(order, n, of)`, `refresh(order)` and `tap(query, action)`; public names `OrderCards`, `OrderRef`. `model.py` is pure (immutable `Card` changed by events, every text, button and toast), `store.py` (`CardStore`: the RPCs), `io.py` (`TelegramIO`: send / edit / delete and Telegram error mapping) |
 | Order buttons | `channels/telegram/rest_admin/orders.py` | `build_orders_router()`: ONE handler, `OrderAction.filter()` → `order_cards.tap(query, callback_data)`; included by `router.build_router()`; `order_cards` is injected from `dp["order_cards"]` |
 | Scratchpad | `channels/telegram/rest_admin/scratchpad.py` | Removable `/scratchpad` menu with 27 private-chat examples, including a Salisbury Mini App launcher, structured receipts, coloured/disabled actions, expandable progress and embedded pickup controls. Mounted before the main router in `bots.py`; no business RPCs. |
@@ -93,6 +91,13 @@ The webhook route does not contain business logic. Per-bot objects are created i
 | | `ordelo_datamodels/agent_threads/rider_threads.sql`, `dispatch/delivery_dispatch.sql`, `migrations/rider_telegram_r2_r4.sql`, `test_support/test_rider_telegram_jobs.sql` | rider thread functions; `delivery_dispatch.channel` / `channel_msg_ref` / `thread_id` and the channel-stamping trigger; the R2-R4 migration; the live harness for a Telegram job (with `test_restaurant_notices.sql`) |
 | | `tests/channels/telegram/test_rider_router.py`, `test_rider_jobs.py`, `test_rider_links.py`, `tests/ordelo/test_rider_messaging.py`, `test_dispatch_actions.py`, `agents/test_rider_threads.py`, `test_pauses.py`, `tests/sql/test_rider_*`, `test_pauses_sql.py` | `FakeRiderDb` (conftest) mimics the RPCs; SQL tests on the isolated database incl. both migrations, the thread rules and the harness scripts |
 | Docs | `docs/adr/0011-...md`, `docs/local-testing-runbook.md` (Telegram section), `CONTEXT.md`, `.claude/skills/database-operations/SKILL.md` (invite SOP) | decisions, local setup, vocabulary, operator procedure |
+
+The inbox is called by order-card and kitchen buttons, invite Yes, verified rider contact linking,
+rider town/vehicle choices, rider offer Accept/Decline, rider job-card buttons, and rider text only
+after an active Telegram job thread is found. For rider agent work, `done` means the turn was
+queued. `/start`, `/help`, `/whoami`, `/job`, invite No, invalid contacts, fallback, scratchpad and
+unmatched updates make no inbox calls. The webhook answers 200 before processing, so the inbox
+deduplicates selected updates across workers but does not recover work lost after acknowledgement.
 
 ## 4. Settings, secrets and clients
 
@@ -153,8 +158,8 @@ When you add, rename or change an RPC, update **all three** in the same change.
 | RPC `t_linked_restaurants(p_bot_key, p_user_id)` | `telegram/t_invites.sql` | `invites.linked_restaurants` | `/start`, `/whoami` | `test_invites.py`, `test_rest_admin_router.py` |
 | config row `ordelo_config.TGRAM_REST_ADMIN_BOT_USERNAME` | operator SQL (runbook) | none (read by the view) | n/a | n/a |
 | table `t_inbox` | `telegram/t_inbox.sql` | none directly (through the RPCs) | n/a | `FakeInboxDb` mimics it; `tests/sql/test_t_inbox_sql.py` |
-| RPC `t_inbox_claim(p_bot_key, p_update_id, p_kind, p_tuid)` | `telegram/t_inbox.sql` | `inbox.claim` (via `InboxMiddleware`) | every update | `test_inbox.py`, `test_telegram_webhook.py`, `tests/sql/test_t_inbox_sql.py` |
-| RPC `t_inbox_finish(p_bot_key, p_update_id, p_status, p_error)` | `telegram/t_inbox.sql` | `inbox.finish` (via `InboxMiddleware`) | every update | `test_inbox.py`, `tests/sql/test_t_inbox_sql.py` |
+| RPC `t_inbox_claim(p_bot_key, p_update_id, p_kind, p_tuid)` | `telegram/t_inbox.sql` | `inbox.claim` (via `process_once`) | protected handler | `test_inbox.py`, `test_telegram_webhook.py`, `tests/sql/test_t_inbox_sql.py` |
+| RPC `t_inbox_finish(p_bot_key, p_update_id, p_status, p_error)` | `telegram/t_inbox.sql` | `inbox.finish` (via `process_once`) | protected handler | `test_inbox.py`, `tests/sql/test_t_inbox_sql.py` |
 | constraint `delivery_summary_status_check` | `restaurant_order_decision.sql` (and `delivery/delivery_summary.sql`) | none | n/a | `tests/sql/test_restaurant_decision_sql.py` |
 | function `restaurant_admin_label(p_phone)` | `restaurant_order_decision.sql` | none directly (called inside the two functions below) | "by X" in replies | `tests/sql/test_restaurant_decision_sql.py` |
 | RPC `restaurant_order_decide(p_order_number, p_order_type, p_decision, p_admin_phone, p_channel)` | `restaurant_order_decision.sql` | `restaurant_decision.decide` | WhatsApp Accept tap (`_update_restaurant_order_status`) | `test_restaurant_decision.py`, `test_on_callback_wa_handler.py`, `tests/sql/test_restaurant_decision_sql.py` |
@@ -219,8 +224,8 @@ reply/edit/delete, streamed drafts, a button-driven delivery tracker and restaur
 inline keyboards, **buttons inside the text**, location/contact request keyboards, maps, venues,
 demo contacts, dice, CSV files, message effects, simulated errors and bot info. Each progress tap
 edits its own demo message. All order/contact/address data is fictional; the router does not call
-business RPCs or perform real order/payment transitions. The ordinary inbox middleware still
-records Telegram updates. Contact/location replies are acknowledged only while a scratchpad
+business RPCs or perform real order/payment transitions. Scratchpad updates make no inbox calls.
+Contact/location replies are acknowledged only while a scratchpad
 request is pending; `/scratchpad` clears that state and removes the reply keyboard.
 
 The entire feature lives in `channels/telegram/rest_admin/scratchpad.py`. To unmount it, remove
@@ -262,7 +267,7 @@ API references: [rich buttons](https://docs.aiogram.dev/en/v3.31.0/api/types/ric
 
 - `tests/conftest.py` stubs the AWS secret (including the `tgram_rest_admin_*` keys), so `import config` works in tests.
 - Handlers are tested through a real aiogram `Dispatcher` with a `RecordingSession` (no network); the database is replaced by `FakeInviteDb`, which mimics the three RPCs' return shapes. If an RPC's contract changes, change the fake in the same commit.
-- The webhook tests cover 404 (unknown bot), 403 (bad or missing secret), invalid updates, handler failure still returning 200, and a retried update being handled once (the `t_inbox` outcome is asserted, not just the 200).
+- The webhook tests cover 404 (unknown bot), 403 (bad or missing secret), invalid updates, handler failure still returning 200, and a protected retried update being handled once (the `t_inbox` outcome is asserted, not just the 200).
 - **SQL against an isolated database:** `tests/sql/` applies the real migration files to a throwaway local Postgres and tests the functions, grants and races (8 concurrent claims -> exactly one winner). Set `ORDELO_TEST_DB_URI` to a local server (`tests/sql/conftest.py` refuses non-local hosts and resets the `public` schema); without it the tests are skipped. Never point it at the shared Supabase database.
 - Nothing here proves the SQL itself: it has been parsed, and exercised live for `t_invite_preview` and the insert path, but the full claim path needs a real tap in Telegram.
 
@@ -279,6 +284,7 @@ API references: [rich buttons](https://docs.aiogram.dev/en/v3.31.0/api/types/ric
 
 Add one line per change, newest first: date, what changed, files.
 
+- 2026-10-22: Inbox deduplication moved from dispatcher middleware to selected handlers: order and kitchen taps, invite Yes, verified rider contact, signup, offer and job-card taps, plus rider text with an active Telegram thread. Read-only, fallback, scratchpad and unmatched updates use no inbox RPCs. `done` for background agent turns means queued. `channels/telegram/inbox.py`, bot handlers, tests, SQL header, ADR 0011 Amendment 4, and both guides updated; no database migration.
 - 2026-10-22: R2-R4 applied and deployed by the owner (`migrations/rider_telegram_r2_r4.sql`, `/job` in the menu); a rider job tested live on Telegram and WhatsApp. Headers of `dispatch/delivery_dispatch.sql` and `agent_threads/rider_threads.sql` now say live.
 - 2026-10-22: Rider bot R2-R4 (plan `plans/telegram-rider-bot-plan.md`): one rider thread per dispatch (`agent_threads/rider_threads.sql`, `ordelo/agents/rider_threads.py`; the runner never creates a thread on a late hook); the agent's run context holds a `RiderMessenger` (WhatsApp output unchanged, pinned by tests); `delivery_dispatch.channel` / `channel_msg_ref` / `thread_id` with the stamping trigger; `ordelo/dispatch_actions.py` shared by both channels; rider bot `rider/jobs.py` (`ro1:` / `rj1:` taps, `/job`, text to the agent, other-channel pointer); Telegram offers edited to taken / the job is yours / expired. Migration `migrations/rider_telegram_r2_r4.sql`, harness `test_support/test_rider_telegram_jobs.sql`; `test_restaurant_notices.sql` STAGE 0 closes fake-job threads and requires an active dummy rider. R1 migration marked applied.
 - 2026-10-22: Both Telegram notebooks now select `rest_admin` or `rider` with `BOT_KEY` in their first cell. Setup uses the selected settings, dispatcher, webhook URL and command list; scratchpad uses the selected bot and skips its restaurant-admin-only rich text button demo for riders. `notebooks/telegram/tgram_setup_bot.py`, `notebooks/telegram/tgram_scratchpad.py`.

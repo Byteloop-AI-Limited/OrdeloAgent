@@ -12,13 +12,14 @@ from html import escape as _html_escape
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject, CommandStart
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, Update
 from loguru import logger
 
 from config.tgram_setting import TgramBotSettings
 
 from .. import invites
 from ..callbacks import InviteDecision
+from ..inbox import process_once
 from ..keyboards import invite_confirm_kb
 from ..replies import answer_quietly
 from .commands import HELP_TEXT
@@ -97,7 +98,19 @@ async def _finish(query: CallbackQuery, text: str) -> None:
     await query.bot.send_message(query.from_user.id, text)
 
 
-async def on_invite_decision(query: CallbackQuery, callback_data: InviteDecision, tgram_settings: TgramBotSettings):
+async def on_invite_decision(
+    query: CallbackQuery, callback_data: InviteDecision, tgram_settings: TgramBotSettings, event_update: Update
+):
+    if callback_data.action == "y":
+        await process_once(
+            tgram_settings.bot_key, event_update, query.from_user.id,
+            lambda: _handle_invite_decision(query, callback_data, tgram_settings),
+        )
+    else:
+        await _handle_invite_decision(query, callback_data, tgram_settings)
+
+
+async def _handle_invite_decision(query: CallbackQuery, callback_data: InviteDecision, tgram_settings: TgramBotSettings):
     # Clear the spinner beside the real work, never before it: a hung answer must not block the claim.
     answered = asyncio.create_task(answer_quietly(query))
     try:

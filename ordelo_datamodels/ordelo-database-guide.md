@@ -19,7 +19,7 @@ The SQL under `ordelo_datamodels/` is organised by capability. Each file starts 
 | [`dispatch/`](dispatch/) | Rider dispatch | 10 | 18 | Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep. |
 | [`takeaway/`](takeaway/) | Takeaway (collection) | 2 | 7 | The collection order (takeaway_summary), its creation and the triggers that tell admins and customers about it. |
 | [`restaurant_admin/`](restaurant_admin/) | Restaurant admin actions | 6 | 22 | Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout and the daily availability question. |
-| [`telegram/`](telegram/) | Telegram layer | 6 | 27 | Invite links, the at-most-once update inbox, order cards with reminders, the ledger of sent messages and the daily purge. |
+| [`telegram/`](telegram/) | Telegram layer | 6 | 27 | Invite links, the selective at-most-once update inbox, order cards with reminders, the ledger of sent messages and the daily purge. |
 | [`rider_location/`](rider_location/) | Rider location | 6 | 9 | OwnTracks GPS fixes and region events from a pgmq queue, and on-demand WhatsApp location requests. |
 | [`availability/`](availability/) | Availability pauses | 2 | 7 | Pauses with a mandatory end time for riders (later restaurant admins): is_paused() computes availability from the clock; job_pause_sweep() only sends the ends-soon and back-on messages (ADR 0013). |
 | [`agent_threads/`](agent_threads/) | Agent threads | 4 | 11 | Reading LangGraph checkpoints and closing idle conversation threads (OrdeloAgent and restaurant-agents). |
@@ -75,10 +75,10 @@ One set of SQL rules for both channels. The Telegram wrappers authorise the tapp
 
 ### Telegram layer
 
-Admins link their Telegram account through an invite; every update is handled at most once; order cards follow the database.
+Admins link their Telegram account through an invite; consequential handlers opt into update deduplication; order cards follow the database.
 
 - **Invite** — The operator inserts a t_invites row and copies invite_link from t_invites_shareable. /start <code> calls t_invite_preview(); 'Yes' calls t_claim_invite(); /whoami calls t_linked_restaurants(). (`t_invites`, `t_invites_shareable`, `t_invite_preview`, `t_claim_invite`, `t_linked_restaurants`)
-- **Inbox** — Each Telegram update is claimed once with t_inbox_claim() and closed with t_inbox_finish(), so retries across workers are skipped. (`t_inbox`, `t_inbox_claim`, `t_inbox_finish`)
+- **Inbox** — Selected consequential handlers claim with t_inbox_claim() and close with t_inbox_finish(), so retries across workers are skipped. Read-only and unmatched updates do not use the inbox; a queued rider agent turn is marked done before the turn completes. (`t_inbox`, `t_inbox_claim`, `t_inbox_finish`)
 - **Order cards** — job_t_order_alerts() (5 s) seeds t_order_alerts checkpoints for unconfirmed orders, picks the due reminder and stale copies, and POSTs them to the app, which sends or edits cards and records them with t_order_card_sent() / t_order_card_mark(). (`job_t_order_alerts`, `t_order_alerts`, `t_order_card_snapshot`, `t_order_cards_stale`, `t_order_cards_take`, `t_order_card_sent`, `t_order_card_mark`, `t_sent_messages`)
 - **Housekeeping** — t_housekeeping() purges old inbox, ledger and alert rows. It is NOT scheduled on live (docs/to-do.md). (`t_housekeeping`)
 
@@ -256,7 +256,7 @@ Admin dashboard reads and platform helpers.
 | File | Object | Kind | What it does |
 |---|---|---|---|
 | [`t_housekeeping.sql`](telegram/t_housekeeping.sql) | `t_housekeeping` | function | Delete Telegram inbox, ledger and schedule rows older than their retention settings; returns the counts as jsonb. |
-| [`t_inbox.sql`](telegram/t_inbox.sql) | `t_inbox` | table | One row per Telegram update a bot started handling, keyed by (bot_key, update_id). |
+| [`t_inbox.sql`](telegram/t_inbox.sql) | `t_inbox` | table | One row per selected Telegram update a protected handler claimed, keyed by (bot_key, update_id). |
 | [`t_inbox.sql`](telegram/t_inbox.sql) | `t_inbox_claim` | function | Insert the update or report it as a duplicate: returns {result: 'new'} for the first caller, {result: 'duplicate', status} after. |
 | [`t_inbox.sql`](telegram/t_inbox.sql) | `t_inbox_finish` | function | Record how the handler ended: status 'done' or 'failed' with an optional error. |
 | [`t_invites.sql`](telegram/t_invites.sql) | `t_new_invite_code` | function | Generate a random URL-safe invite code (column default for t_invites.invite_code). |
