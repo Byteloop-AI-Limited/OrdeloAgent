@@ -12,6 +12,11 @@ orders. Offline tests that keep the script honest: `tests/sql/test_restaurant_no
 functions in a throwaway database) and `tests/regressions/test_p7d_test_order_safety.py`. **Change the script and those
 tests in the same commit.** Do not run SQL for testing on the shared database other than this script's own stages.
 
+**Rider on Telegram.** To take the rider side of a fake order in `@ByteloopRidersBot` instead of WhatsApp, run
+`ordelo_datamodels/test_support/test_rider_telegram_jobs.sql` alongside this script (its STAGE 0 and 0b first, then this
+script's STAGE 0-2b, then its STAGE 1-8: offer, Accept, job card, agent chat, codes, missed and expired offers). Offline proof:
+`tests/sql/test_rider_telegram_jobs_script_sql.py`. Since R2 STAGE 0 here also closes the rider threads of the fake jobs.
+
 ## Safety (why it is safe to run against the shared database)
 
 - Every row it creates or deletes has an order number starting `STRK-TEST-` (a test fails if any DELETE or UPDATE is not scoped to it).
@@ -27,7 +32,7 @@ tests in the same commit.** Do not run SQL for testing on the shared database ot
 | Migrations applied, cron jobs `job_t_order_alerts`, `job_t_receipt_refresh`, `job_rider_pickup_alerts` + the dispatch jobs scheduled | operator steps in each migration's footer |
 | `restaurant_master` row for `STRK` with **your phone in `admins`** and a **non-empty `rest_id`** | order webhooks look the restaurant up by `rest_id`. Once: `UPDATE public.restaurant_master SET rest_id = 'STRK01' WHERE rest_ref = 'STRK' AND rest_id IS NULL;` |
 | A claimed `t_invites` row for `STRK` (Telegram) | STAGE 0 copies your existing linked chat if none exists |
-| A rider in town `dummy`, in shift, **also in `overwatch_list`** (a second one for race tests) | owner-managed rows |
+| A rider in town `dummy`, `status = 'active'` (the dispatch gate since 22 Oct 2026), in shift, **also in `overwatch_list`** (a second one for race tests) | owner-managed rows |
 | `ORDELO_APP_URL` pointing at the instance under test | tunnel for local runs: [local-testing-runbook.md](local-testing-runbook.md) |
 
 ## Stages

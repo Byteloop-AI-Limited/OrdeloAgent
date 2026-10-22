@@ -40,6 +40,9 @@ class RecordingRiderMessenger:
     async def mark(self, ref, ok) -> None:
         self._record("mark", ref=ref, ok=ok)
 
+    async def job_card(self, header, text, dispatch_id) -> MsgRef:
+        return self._record("job_card", header=header, text=text, dispatch_id=dispatch_id)
+
     async def offer_job(self, offer) -> MsgRef:
         return self._record("offer_job", offer=offer)
 

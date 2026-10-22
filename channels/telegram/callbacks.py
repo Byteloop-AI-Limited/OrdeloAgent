@@ -64,3 +64,12 @@ class RiderOffer(CallbackData, prefix="ro1"):
 
     d: int
     a: Literal["a", "d"]
+
+
+class RiderJobAction(CallbackData, prefix="rj1"):
+    """A tap on a job-card button on the rider bot, e.g. 'rj1:84217:pk' (pickup pin), 'dr' (drop-off pin), 'cc' (customer
+    contact). The handler checks the tapping person is the dispatch's rider and the dispatch thread is open, then gives the
+    agent the same words a WhatsApp tap gives it (ordelo/rider_messaging/models.JOB_CARD_ACTIONS)."""
+
+    d: int
+    a: Literal["pk", "dr", "cc"]

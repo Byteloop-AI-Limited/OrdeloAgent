@@ -324,6 +324,13 @@ One delivery job proposed to one rider (one dispatch row) with Accept and Declin
 expires or is cancelled, the offer is closed: on Telegram it is edited in place and loses its buttons.
 _Avoid_: dispatch request, job notification
 
+### Job card
+
+The message a rider gets once a job is theirs: pickup time, restaurant, earning, distance, and three buttons (Pickup
+Location, Dropoff Location, Contact Customer). A button tap reaches the rider agent as the rider's own words, so both apps
+behave the same.
+_Avoid_: delivery instructions message (the code's older name)
+
 ### Pause
 
 A period, with a mandatory end time, during which a person receives no jobs (rider) or no alerts (restaurant admin).

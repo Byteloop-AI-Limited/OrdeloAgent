@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS public.delivery_summary (
     pickup_time    timestamptz,
     pickup_date    date         NOT NULL DEFAULT CURRENT_DATE,
     rest_confirmation_code integer NOT NULL DEFAULT 42,
+    cust_confirmation_code integer NOT NULL DEFAULT 57,
     customer_address text NOT NULL DEFAULT '1 High Street, Testville',
     ready_at       timestamptz,
     ready_by       text,
@@ -133,7 +134,23 @@ CREATE TABLE IF NOT EXISTS public.delivery_dispatch (
     order_number varchar(100) NOT NULL,
     rider_id    varchar(12) NOT NULL,
     status      varchar(50) NOT NULL CHECK (status IN ('unassigned', 'timedout', 'declined', 'accepted', 'missed', 'assigned', 'pickedup', 'completed')),
-    status_update_dtts timestamp
+    status_update_dtts timestamp,
+    reason_for_decline text,
+    -- R2-R4 target shape (ordelo_datamodels/dispatch/delivery_dispatch.sql)
+    channel     text NOT NULL DEFAULT 'whatsapp' CHECK (channel IN ('whatsapp', 'telegram')),
+    channel_msg_ref text,
+    thread_id   text
+);
+-- thread: owned by restaurant-agents (shape from utils_common/thread_management/thread_mgmnt_ddl.sql).
+CREATE TABLE IF NOT EXISTS public.thread (
+    thread_id text PRIMARY KEY,
+    agent text,
+    recipient varchar(12),
+    is_active boolean,
+    retain_thread boolean DEFAULT false,
+    dt date DEFAULT current_date,
+    dtts timestamp DEFAULT current_timestamp,
+    last_access_dtts timestamp DEFAULT current_timestamp
 );
 CREATE TABLE IF NOT EXISTS public.delivery_inflight (
     dispatch_id  integer PRIMARY KEY,

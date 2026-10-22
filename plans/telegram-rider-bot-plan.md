@@ -1,7 +1,9 @@
 # Telegram rider bot (@ByteloopRidersBot): plan
 
 **Repository:** `OrdeloAgent`. **Written:** 22 October 2026 (design session with the owner, decisions D39–D54).
-**Status:** R0 (this plan, ADRs, glossary) and the R1 scaffold are written; nothing is applied to the database or deployed.
+**Status:** R0 written. **R1 live** (migration applied and onboarding tested live by the owner on 22 Oct: an existing rider
+was linked and switched to Telegram; an unknown phone was asked for town and vehicle and registered). **R2-R4 live** (migration
+applied, code deployed, `/job` in the menu; the owner tested a rider job end to end on Telegram and on WhatsApp on 22 Oct). Next: R5.
 **Builds on:** [`telegram-rest-admin-scaffold-plan.md`](telegram-rest-admin-scaffold-plan.md) (restaurant-admin bot, decisions D11–D38; detail in [`docs/telegram-layer.md`](../docs/telegram-layer.md)),
 [ADR 0011](../docs/adr/0011-telegram-operations-messaging-stays-in-ordeloagent.md) (Amendment 3),
 [ADR 0012](../docs/adr/0012-rider-threads-follow-dispatch-assignments.md) (Amendment 1),
@@ -20,10 +22,10 @@ restaurant admins' alerts.
 | Phase | What | WhatsApp change | Status |
 |---|---|---|---|
 | **R0** | This plan, ADR 0011 Amendment 3, ADR 0012 Amendment 1, ADR 0013, `CONTEXT.md` terms | none | ✅ written |
-| **R1** | Scaffold: `rider_master` Telegram columns, `channel`, unique `rider_id`; dispatch gate (`status = 'active'`, not paused); onboarding RPCs; `pauses` table + `is_paused()` + sweep job (SQL only); rider bot settings (optional), registry, router with working `/start` onboarding, `/help`, `/whoami`; `ordelo/rider_messaging/` (interface, both adapters, fake); `ordelo/pauses.py`; tests and the live harness | dispatch skips non-`active` riders (owner checks statuses first) | ✅ written, ⬜ owner applies + deploys |
-| **R2** | Rider thread per dispatch: `ORDELO-dispatch-<id>`, `rider_threads.sql`, runner and hook simplifications (below), one active rider thread per rider | thread ids only | ⬜ |
-| **R3** | `ContextSchema.wa_client` → `messenger`; every tool, `respond_node` and rider hook send through `RiderMessenger`; `delivery_dispatch.channel` + `channel_msg_ref`; `for_dispatch()` | none (byte-identical, pinned by tests) | ⬜ |
-| **R4** | Offers on Telegram: `ordelo/dispatch_actions.respond_to_offer()` shared by both channels; `ro1:` taps; `offer_closed` edits (missed, expired, cancelled); `/job`; rider text on Telegram → agent; other-channel pointer reply | none (handler texts kept) | ⬜ |
+| **R1** | Scaffold: `rider_master` Telegram columns, `channel`, unique `rider_id`; dispatch gate (`status = 'active'`, not paused); onboarding RPCs; `pauses` table + `is_paused()` + sweep job (SQL only); rider bot settings (optional), registry, router with working `/start` onboarding, `/help`, `/whoami`; `ordelo/rider_messaging/` (interface, both adapters, fake); `ordelo/pauses.py`; tests and the live harness | dispatch skips non-`active` riders (owner checks statuses first) | ✅ live 22 Oct (migration applied, onboarding tested live) |
+| **R2** | Rider thread per dispatch: `ORDELO-dispatch-<id>`, `rider_threads.sql`, runner and hook simplifications (below), one active rider thread per rider | thread ids only | ✅ live 22 Oct |
+| **R3** | `ContextSchema.wa_client` → `messenger`; every tool, `respond_node` and rider hook send through `RiderMessenger`; `delivery_dispatch.channel` + `channel_msg_ref`; `for_dispatch()` | none (byte-identical, pinned by tests) | ✅ live 22 Oct |
+| **R4** | Offers on Telegram: `ordelo/dispatch_actions.respond_to_offer()` shared by both channels; `ro1:` taps; `rj1:` job-card taps; `offer_closed` edits (missed, assigned, expired); `/job`; rider text on Telegram → agent; other-channel pointer reply | none (handler texts kept) | ✅ live 22 Oct |
 | **R5** | Telegram location requests through WaLocation (`telegram_current`); `/off`, `/on`, `/shift`; `/pause-hooks/sweep` + `job_pause_sweep` scheduled; Telegram riders leave the daily shift question; shift "Yes" refused for non-active riders | WhatsApp riders unchanged | ⬜ |
 | **R6** | Restaurant-admin pauses (`/off`, `/on` on the restaurant bot), last-admin guard, card and notice destinations skip paused admins | — | ⬜ |
 | later | Race-hardening of assignment in SQL (ADR 0011 point 4); rename `wa_location*` to channel-neutral names; Telegram live location | — | not planned |
@@ -83,25 +85,29 @@ never travels in callback data. Choices are the distinct live values (`'TBD'` ex
 | `rider_master` | `rider_id NOT NULL UNIQUE`; `channel` (`whatsapp`\|`telegram`); `tuid` (unique), `tcid`, `t_username`, `t_first_name`, `t_linked_at`, `phone_verified`; `CHECK (tuid IS NULL) = (tcid IS NULL)` | R1 |
 | `get_available_riders()` | `+ status = 'active' AND NOT is_paused('rider', rider_id, NULL)` | R1 |
 | `pauses` | new, channel-neutral: `audience` (`rider`\|`rest_admin`), `principal` (phone), `scope` (`rest_ref` for admins), `starts_at`, `ends_at NOT NULL`, `ended_at`, `end_reason`, `reminded_at`, `announced_at`, `created_via`, `created_by`; one open row per person (unique partial index) | R1 |
-| `thread` | **unchanged**. New rider rows use `thread_id = ORDELO-dispatch-<id>` via rider-only functions | R2 |
-| `delivery_dispatch` | `channel` (copied from the rider at insert), `channel_msg_ref` (offer `MsgRef`) | R3/R4 |
+| `thread` | **unchanged**. New rider rows use `thread_id = ORDELO-dispatch-<id>` via rider-only functions (`agent_threads/rider_threads.sql`) | R2 |
+| `delivery_dispatch` | `channel` (stamped from the rider by the BEFORE INSERT trigger `trigger_delivery_dispatch_stamp_channel`, whatever the insert says), `channel_msg_ref` (offer `MsgRef`), `thread_id` (the dispatch's rider thread, written by `rider_thread_open`; partial index) | R2-R4 |
 | `wa_location_observation` | `source` CHECK gains `'telegram_current'` | R5 |
 | `t_invites` | unchanged; riders never use invites | — |
 
 Files (all with the 13-section header): `core/rider_master.sql`, `telegram/t_rider_onboarding.sql`, `availability/pauses.sql`,
-`availability/job_pause_sweep.sql`, `dispatch/job_create_dispatch.sql`, one-off `migrations/rider_telegram_r1.sql`, live harness
-`test_support/test_rider_onboarding.sql`.
+`availability/job_pause_sweep.sql`, `dispatch/job_create_dispatch.sql`, one-off `migrations/rider_telegram_r1.sql` (applied 22 Oct),
+live harness `test_support/test_rider_onboarding.sql`. R2-R4: `agent_threads/rider_threads.sql`, `dispatch/delivery_dispatch.sql`,
+one-off `migrations/rider_telegram_r2_r4.sql` (the ONE migration for R2-R4), live harness `test_support/test_rider_telegram_jobs.sql`
+(with `test_restaurant_notices.sql`, whose STAGE 0 now also closes the rider threads of fake jobs).
 
 ## Modules (deep modules, small interfaces)
 
 | Module | Interface | Hides | Phase |
 |---|---|---|---|
-| `ordelo/rider_messaging/` | `RiderMessenger`: `say`, `send_place`, `request_location`, `send_contact`, `mark`, `offer_job`, `offer_closed`; `for_rider()`, `for_dispatch()` (R3), `use_messenger()` | channel choice, addresses, pywa vs aiogram, WhatsApp-style → HTML, keyboards, callback packing, reply threading, reactions, edit-in-place | R1 (built), wired in R3 |
+| `ordelo/rider_messaging/` | `RiderMessenger`: `say`, `send_place`, `request_location`, `send_contact`, `mark`, `job_card`, `offer_job`, `offer_closed`; `for_rider()`, `for_dispatch()`, `dispatch_channel()`, `for_thread()`, `use_messenger()` | channel choice, addresses, pywa vs aiogram, WhatsApp-style → HTML, keyboards, callback packing, reply threading, reactions, edit-in-place | R1 (built), wired in R3 |
 | `channels/telegram/rider_links.py` | `link`, `set_profile`, `choices`, `profile` | `t_rider_*` RPCs, link/move/register rules | R1 |
 | `channels/telegram/rider/` | router factory, command menu | onboarding conversation, ops alerts | R1 |
 | `ordelo/pauses.py` | `pause`, `resume`, `current` | durations policy, one-open-pause, extend-not-stack, races, expiry | R1 (built), used R5/R6 |
-| rider threads (`agent_runner` + `rider_threads.sql`) | `run_rider_agent(dispatch_id, …)`, `open_rider_thread(dispatch)`, `close_rider_thread(dispatch_id)` | thread id format, single-active rule, checkpointer config | R2 |
-| `ordelo/dispatch_actions.py` | `respond_to_offer(...) -> OfferOutcome` | stale tap, already on job, taken, own-job cancel | R4 |
+| `ordelo/agents/rider_threads.py` (+ `rider_threads.sql`) | `open_for_dispatch`, `touch`, `active_for_rider`, `describe`, `for_dispatch`, `close` → `RiderThread` / `OpenOutcome` | thread id format, the dispatch join, single-active rule, never re-creating a closed thread | R2 |
+| `ordelo/agents/agent_runner.py` | `resolve_rider_thread(recipient, dispatch_id=, thread_id=)`, `run_rider_agent(thread, …)`, `run_rider_agent_w_custom_msg(…, dispatch_id=, thread_id=)` (returns `None` when no thread is open), `init_ordelo_graph` | which thread a run belongs to, checkpointer config, the run's messenger | R2/R3 |
+| `ordelo/dispatch_actions.py` | `respond_to_offer(...) -> OfferOutcome`, `whatsapp_reply`, `record_offer_ref`, `close_open_offers` | stale tap, already on job, taken, own-job cancel; which offers are still open | R4 |
+| `channels/telegram/rider/jobs.py` | router: `ro1:` / `rj1:` taps, `/job`, text | authorisation by `tuid`, background agent turns, the other-channel pointer | R4 |
 | `ordelo/rider_shift.py` | `set_shift(rider_id, on) -> ShiftOutcome` | status gate, inflight check | R5 |
 
 **Seam check (codebase-design):** `RiderMessenger` has two real adapters (WhatsApp, Telegram) plus the recording fake, so it is a real
@@ -137,10 +143,40 @@ Today every runner call resolves the thread from the phone (`get_config_for_reci
 | `on_message_wa_handler.process_wa_msg`, `on_wa_location_handler`, `wa_location.py:258` | `get_active_thread(phone)` then runner by phone | `rider_thread_active(rider_id)` returns the one open dispatch thread (D47) |
 | `on_message_wa_handler.reset_thread` (`/reset`, dev) | closes every thread of the phone | closes the rider's active dispatch thread |
 | `debug_state(recipient)`, `/debug-state-by-thread`, `fapp /threads` (still queries the old `from_number` column) | phone-based, creates a thread on read | by `dispatch_id` or exact `thread_id`, read-only; `/threads` fixed to `recipient` |
-| `agent_runner.is_food_already_picked_up` | marked superseded | delete in R2 |
+| `agent_runner.is_food_already_picked_up` | marked superseded | kept (still the worked example in `docs/get_latest_state_guide.md`); delete separately |
 
 Threads already running when R2 ships keep their old `ORDELO-<uuid>` ids and close the old way; `get_active_thread` still finds both
 kinds during the change-over.
+
+**Done in R2-R4 (22 Oct):** every row above except `/reset` (it still closes every thread of the phone, which includes the
+dispatch thread: kept, dev only) and `is_food_already_picked_up` (kept). Also: the inflight hook initialises the graph only when
+`rider_thread_open` says `opened`, so a re-fired hook does nothing; Ready from the restaurant (`restaurant_actions._nudge_rider`)
+names its dispatch; `run_system_message` answers 404 for a closed thread; `_send_delivery_instructions` lost its duplicate summary
+query.
+
+### R4 behaviour on Telegram (what a rider sees)
+
+```
+offer (job_create_dispatch -> /delivery-hooks/delivery-dispatch -> for_dispatch().offer_job)    [Accept] [Decline]
+  Accept  ro1:<id>:a -> respond_to_offer: accepted   -> offer reads "👍 Accepted · X  Waiting for confirmation…"
+          job_assign_dispatch picks the winner (5 s) -> inflight hook -> winner's offer "✅ The job is yours · X",
+                                                       other unanswered Telegram offers "❌ Taken by another rider · X"
+                                                       accepted-but-lost (notify-missed-dispatches) "❌ Taken by another rider"
+          -> rider_thread_open -> the agent sends the job card [Pickup Location] [Dropoff Location] [Contact Customer]
+  Decline ro1:<id>:d -> declined                      -> "Declined · X"
+  late tap on a closed offer                          -> "This job is no longer available" / "Taken by another rider"
+  order times out                                     -> open offers "⌛ Offer expired · X"
+job card tap rj1:<id>:pk|dr|cc -> the agent with the WhatsApp words ("Send me the pickup location", ...); closed job: toast
+text -> the agent (typing…, background run); /job -> current job summary; no job -> "No active job. Use /job to check, or /help."
+WhatsApp message while the job is on Telegram -> "Your current job *X* is on Telegram. Please reply there." (and the reverse)
+```
+
+### Known limits until R5
+
+- A Telegram rider cannot answer a location request yet (the agent's request arrives with a "Share current location" button,
+  but the shared location is not ingested until R5, D50). The request expires as on WhatsApp when unanswered.
+- Telegram riders still get the daily WhatsApp shift question (D53, R5) and have no `/off` / `/on` yet.
+- Two agent turns on the same thread at the same moment are not serialised (same as WhatsApp today; `docs/to-do.md`).
 
 ## Verification (every phase; `telegram-vertification-loop` skill)
 
@@ -155,7 +191,23 @@ Label evidence *offline / isolated database / live Telegram*. R1 evidence so far
 | Whole SQL suite (incl. restaurant phases) | `pytest tests/sql` | 299 passed | isolated database |
 | Dispatcher: onboarding, wrong actor, relink, refused, choices, 64-byte limit | `pytest tests/channels/telegram/test_rider_router.py` | 23 passed | offline |
 | Messenger adapters (WhatsApp call shapes, Telegram rendering/edits) | `pytest tests/ordelo/test_rider_messaging.py` | 29 passed | offline |
-| Live `/start` with a real phone | `test_support/test_rider_onboarding.sql` STAGE 8 | — | not verified (needs the bot and deploy) |
+| Live `/start` with a real phone | `test_support/test_rider_onboarding.sql` STAGE 8 | existing rider linked (channel `telegram`); unknown phone asked town + vehicle, row updated | **live Telegram** (owner, 22 Oct) |
+
+R2-R4 evidence (22 Oct, cloud copy; the R1 migration and code as committed by the owner):
+
+| Boundary | Command | Observed | Label |
+|---|---|---|---|
+| SQL: rider threads (every result, one open per rider, decline-reason note, legacy threads, other agents untouched, concurrent opens, grants), channel stamp | `pytest tests/sql/test_rider_threads_sql.py` | 15 passed | isolated database |
+| SQL: R2-R4 migration on the post-R1 live shape (pre-checks, repeatable, VERIFY 3/1/6/0, legacy thread closed by the next job) | `pytest tests/sql/test_rider_telegram_r2_r4_migration_sql.py` | 3 passed | isolated database |
+| SQL: live harness `test_rider_telegram_jobs.sql` (no delete/insert, scoped updates, every stage twice) and the notices harness STAGE 0 thread close | `pytest tests/sql/test_rider_telegram_jobs_script_sql.py tests/sql/test_restaurant_notices_script_sql.py` | 6 + 26 passed | isolated database |
+| Whole SQL suite | `pytest tests/sql` | 324 passed | isolated database |
+| Rider bot jobs: offer taps (every outcome → edit), job-card taps, `/job`, text routing, wrong channel, not linked / not yours / expired, 64 bytes | `pytest tests/channels/telegram/test_rider_jobs.py` | 24 passed | offline (real Dispatcher) |
+| Offer rules, WhatsApp texts unchanged, `close_open_offers` | `pytest tests/ordelo/test_dispatch_actions.py tests/watomation/test_on_callback_wa_handler.py` | 13 + 31 passed | offline |
+| Agent through the messenger (WhatsApp byte-identical), runner thread rules | `pytest tests/ordelo/agents/` | 62 passed | offline |
+| Messenger: job card both adapters, closed-offer texts, `for_dispatch` / `for_thread` | `pytest tests/ordelo/test_rider_messaging.py` | 41 passed | offline |
+| Hooks (offer via messenger, missed/expired/taken edits, `close_threads`), WhatsApp handlers | `pytest tests/watomation/` | 206 passed | offline |
+| Whole offline suite | `pytest --ignore=tests/sql` | all pass except the known baseline failure and 7 header-path checks for files absent from the cloud copy | offline |
+| Live job as a rider, Telegram and WhatsApp | owner, after migration + deploy | works on both apps (owner's report, 22 Oct) | **live Telegram + WhatsApp** |
 
 Repo baseline in that copy: the known failure `test_master_pymodels.py::test_restaurant_master_get_admins_fetches_live_column`; the
 `tests/sql` suite had been broken since the 16 Oct reorganisation (files missing from `MIGRATION_FILES`, no pg_cron stub) and is fixed
@@ -163,20 +215,32 @@ in this change.
 
 ## Operator steps (owner; agents never apply SQL)
 
-1. Create the bot with BotFather: `@ByteloopRidersBot`. Add AWS secrets `tgram_rider_bot_token`, `tgram_rider_bot_username`,
-   `tgram_rider_webhook_secret`, `tgram_rider_webhook_base_url`. Without them the app starts without the rider bot (D54).
-2. Database: `ordelo_datamodels/migrations/rider_telegram_r1.sql`, steps 0–6 (pre-checks first: duplicate/NULL `rider_id`, status
-   spellings). Then `python scripts/datamodels/drift_check.py`. Do **not** apply `availability/job_pause_sweep.sql` yet (R5).
-3. Deploy, then register the webhook for the rider bot (explicit operator step; the app never calls `set_webhook`):
-   URL `<base>/telegram/rider/webhook`, `allowed_updates = ['message', 'callback_query']`, secret = `tgram_rider_webhook_secret`.
-   Publish the command menu from `channels/telegram/rider/commands.py` (`notebooks/telegram/tgram_setup_bot.py` with bot key `rider`).
-4. Smoke test: `ordelo_datamodels/test_support/test_rider_onboarding.sql` stages 0–7, then STAGE 8 with your phone. Run STAGE 0 at the end.
+R1 (all ✅ done by the owner on 22 Oct):
+
+1. ✅ Bot `@ByteloopRidersBot` and the `tgram_rider_*` AWS secrets.
+2. ✅ `migrations/rider_telegram_r1.sql` steps 0–6.
+3. ✅ Deploy, rider webhook, command menu.
+4. ✅ Live onboarding test (existing and new rider).
+
+R2-R4 (all ✅ done by the owner on 22 Oct):
+
+5. ✅ Database: `ordelo_datamodels/migrations/rider_telegram_r2_r4.sql` steps 0–4 (pre-checks; the `delivery_dispatch` ALTERs; the
+   whole `dispatch/delivery_dispatch.sql`; the whole `agent_threads/rider_threads.sql`; VERIFY shows 3 / 1 / 6 / 0). Apply BEFORE
+   deploying: the new code calls `rider_thread_open` at the first assignment. Then `python scripts/datamodels/drift_check.py`.
+6. ✅ Deploy the R2-R4 code.
+7. ✅ Re-publish the rider bot command menu (it now has `/job`): `notebooks/telegram/tgram_setup_bot.py` with `BOT_KEY = 'rider'`.
+   The webhook needs no change (`message`, `callback_query`).
+8. ✅ Live test (owner tested as a rider on Telegram and WhatsApp). For later checks: your rider row must be `status = 'active'`, town `dummy`, in `overwatch_list`, linked on Telegram. Run
+   `test_support/test_rider_telegram_jobs.sql` STAGE 0 and 0b, then `test_restaurant_notices.sql` STAGE 0–2b, then
+   `test_rider_telegram_jobs.sql` STAGE 1–8. Then a WhatsApp pass (a WhatsApp rider, or switch yourself back with STAGE 9) to
+   confirm WhatsApp offers, the job card and the agent replies are unchanged.
 
 ## Known limits and risks
 
 - `rider_master` has RLS off and anon grants, so `tuid`/`tcid` are readable by anon (existing security review item, `docs/to-do.md`).
 - Status gate: any live rider whose status is not exactly `'active'` stops getting offers after step 5 of the migration (pre-check 3).
-- `channel = 'telegram'` is set at link time (R1) but changes nothing visible until R3/R4.
+- `channel = 'telegram'` is set at link time (R1) and moves the rider's next offers to Telegram (live since R4).
+- A rider whose row is re-created by Telegram sign-up starts `inactive` (D41): set `status = 'active'` before expecting offers.
 - Relinking does not notify the old Telegram chat.
 - The town list is whatever distinct values exist; a new town needs one operator row first.
 - Ops alerts go through the existing WhatsApp `WALogger` (overwatch numbers).

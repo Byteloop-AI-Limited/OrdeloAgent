@@ -16,7 +16,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . Ready (delivery and takeaway) and +10/+20 taps go through utils_common.order_management.restaurant_actions (shared with Telegram): the gate (rider on the job, food not collected) and the first-tap-wins rule live in SQL, so a stale button never runs the agent or writes to delivery_summary, and a second Ready tap is told who already pressed it instead of nudging the rider again
     . Ready buttons sent before order_number existed (no order_number in the callback) keep the old gate path (_legacy_collection_ready)
   Functions/Classes:
-    . dispatch_response - Processes rider responses to delivery dispatch assignments
+    . dispatch_response - Processes rider responses to delivery dispatch assignments (rules: ordelo.dispatch_actions, D48)
     . rider_request_location - Handles rider requests for location information
     . handle_shift_availability - Handles rider shift availability responses
     . handle_admin_availability - Handles admin availability responses for order notifications
@@ -46,7 +46,7 @@ from pywa.types import Message
 import json
 
 # project modules
-from ordelo.agent_app_handlers import initial_handle_of_rider_response
+from ordelo import dispatch_actions
 from config import client_ordelo
 from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 from ordelo.delivery_progress import (
@@ -71,86 +71,24 @@ IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 async def dispatch_response(wa: WhatsApp, msg: Message):
     """
     Rider's response to delivery dispatch. This is a blocking operation. Entry point into the graph.
+
+    The rules live in ordelo.dispatch_actions.respond_to_offer (shared with the Telegram rider bot, D48); this handler only
+    parses the WhatsApp payload and sends the same texts as before.
     """
-    # get app state resources
     recipient = msg.sender
 
     # Callback created in @delivery_hooks (/delivery-dispatch) -> wa_send_delivery_dispatch_request ->
     logger.info("Callback data: {}, recipient: {}".format(msg.data, recipient))
     callback_data: dict = json.loads(msg.data)
-    # remove command from callback data and add rider_id
-    callback_data.pop("command")
-    callback_data["rider_id"] = recipient
-    order_number = callback_data["order_number"]
-
-    # If order is not found
-    order_status = (
-        client_ordelo.table("delivery_summary")
-        .select("status")
-        .eq("order_number", order_number)
-        .execute()
+    out = await dispatch_actions.respond_to_offer(
+        rider_id=recipient,
+        dispatch_id=callback_data["dispatch_id"],
+        order_number=callback_data["order_number"],
+        accept=callback_data.get("status") == "accepted",
     )
-
-    if len(order_status.data) == 0:
-        logger.error(
-            "No delivery detail found for order number: {}".format(order_number)
-        )
-        await wa.send_message(
-            to=recipient, text="Sorry, This job is no longer available"
-        )
-        return
-
-    # Check inflight status for this order_number first
-    inflight_for_order = (
-        client_ordelo.table("delivery_inflight")
-        .select("*")
-        .eq("order_number", order_number)
-        .execute()
-    )
-    if len(inflight_for_order.data) > 0:
-        inflight_row = inflight_for_order.data[0]
-        if inflight_row["rider_id"] == recipient:
-            inflight_dispatch_id = inflight_row.get("dispatch_id")
-            callback_dispatch_id = callback_data.get("dispatch_id")
-            is_decline_for_same_dispatch = (
-                callback_data.get("status") == "declined"
-                and inflight_dispatch_id is not None
-                and callback_dispatch_id == inflight_dispatch_id
-            )
-
-            if not is_decline_for_same_dispatch:
-                # Same rider is already on this job; ignore stale accept/decline taps
-                logger.info(
-                    "Rider %s already inflight for order %s",
-                    recipient,
-                    order_number,
-                )
-                await wa.send_message(
-                    to=recipient,
-                    text=f"Sorry, You are already on a job {inflight_row['order_number']}",
-                )
-                return
-
-            # Assigned rider declining their own inflight dispatch:
-            # fall through to initial_handle_of_rider_response() to trigger cancel flow.
-            logger.info(
-                f"Rider {recipient} declining inflight dispatch {inflight_dispatch_id} for order {order_number}; routing to cancel logic"
-            )
-        else:
-            # Another rider already picked this job
-            logger.info(
-                "Order %s already inflight with rider %s (recipient %s)",
-                order_number,
-                inflight_row["rider_id"],
-                recipient,
-            )
-            await wa.send_message(
-                to=recipient, text="Sorry, this job was picked up by another rider."
-            )
-            return
-
-    order_status = order_status.data[0]
-    await initial_handle_of_rider_response(order_status, callback_data)
+    reply = dispatch_actions.whatsapp_reply(out)
+    if reply:
+        await wa.send_message(to=recipient, text=reply)
 
 
 # %%
@@ -177,7 +115,9 @@ async def rider_request_location(wa: WhatsApp, msg: Message):
         logger.info("Dispatch is complete, skipping location request")
     else:
         await run_rider_agent_w_custom_msg(
-            recipient=callback_data["recipient"], human_msg=callback_data["human_msg"]
+            recipient=callback_data["recipient"],
+            human_msg=callback_data["human_msg"],
+            dispatch_id=int(dispatch_id),
         )
 
 

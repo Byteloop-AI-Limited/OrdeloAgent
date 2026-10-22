@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from tests.fixtures.fake_wa import FakeAsyncWhatsApp, FakeMessage
+from ordelo.agents.rider_threads import RiderThread
 from watomation import on_wa_location_handler
 
 
@@ -29,15 +30,13 @@ async def test_manual_pin_is_rejected_without_calling_wa_location(monkeypatch) -
     assert "Share current location" in wa.sent[-1].kwargs["text"]
 
 
-def _thread_handler_factory(*, active: bool):
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
+def _active_thread_factory(*, active: bool):
+    """Stands in for rider_threads.active_for_rider (R2): the rider's one open thread, or None."""
 
-        async def get_active_thread(self, _recipient):
-            return {"thread_id": "t1"} if active else None
+    async def _active(_rider_id, touch=True):
+        return RiderThread("ORDELO-dispatch-10", "RIDER01", dispatch_id=10) if active else None
 
-    return _FakeThreadHandler
+    return _active
 
 
 async def test_current_location_is_forwarded_and_acknowledged_via_agent(monkeypatch, patch_pg_pool) -> None:
@@ -64,9 +63,7 @@ async def test_current_location_is_forwarded_and_acknowledged_via_agent(monkeypa
         agent_calls.append(kwargs)
 
     monkeypatch.setattr(on_wa_location_handler, "WaLocation", _WaLocation)
-    monkeypatch.setattr(
-        on_wa_location_handler, "ThreadHandler", _thread_handler_factory(active=True)
-    )
+    monkeypatch.setattr(on_wa_location_handler, "active_rider_thread", _active_thread_factory(active=True))
     monkeypatch.setattr(
         "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run
     )
@@ -80,6 +77,7 @@ async def test_current_location_is_forwarded_and_acknowledged_via_agent(monkeypa
     assert wa.sent == []
     assert len(agent_calls) == 1
     assert agent_calls[0]["recipient"] == "RIDER01"
+    assert agent_calls[0]["thread_id"] == "ORDELO-dispatch-10"
     assert "shared their current location" in agent_calls[0]["system_msg"]
 
 
@@ -105,9 +103,7 @@ async def test_uncorrelated_location_does_not_invoke_agent(monkeypatch, patch_pg
         agent_calls.append(kwargs)
 
     monkeypatch.setattr(on_wa_location_handler, "WaLocation", _WaLocation)
-    monkeypatch.setattr(
-        on_wa_location_handler, "ThreadHandler", _thread_handler_factory(active=True)
-    )
+    monkeypatch.setattr(on_wa_location_handler, "active_rider_thread", _active_thread_factory(active=True))
     monkeypatch.setattr(
         "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run
     )
@@ -142,9 +138,7 @@ async def test_correlated_location_without_active_thread_skips_agent(monkeypatch
         agent_calls.append(kwargs)
 
     monkeypatch.setattr(on_wa_location_handler, "WaLocation", _WaLocation)
-    monkeypatch.setattr(
-        on_wa_location_handler, "ThreadHandler", _thread_handler_factory(active=False)
-    )
+    monkeypatch.setattr(on_wa_location_handler, "active_rider_thread", _active_thread_factory(active=False))
     monkeypatch.setattr(
         "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run
     )

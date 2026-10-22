@@ -8,9 +8,12 @@ LangGraph agent implementation for rider delivery workflow
     . Marks dispatch as picked up on restaurant code verification
     . Supports rider cancellation before pickup to resume dispatching using state rider metadata
     . Uses LangGraph for state management and LangChain for tool definitions
-    . Communicates via WhatsApp async client
+    . Talks to the rider only through ctx.messenger (a RiderMessenger, ordelo/rider_messaging): the WhatsApp adapter makes
+      the same pywa calls as before, the Telegram adapter renders the same text for the rider bot (R3, D45); the channel
+      is the dispatch's (D44), chosen by the runner
+    . Completion and termination close exactly the run's own thread (ctx.thread_id, R2) instead of every thread of the phone
     . Performs data operations through Supabase REST calls
-    . Retrieves WhatsApp recipients via runnable config for tool execution
+    . ctx.recipient is the rider_id (phone): used for data (e.g. location observations), never as an address
     . Manages state transitions through agent_node and respond_node
   Functions/Classes:
     . AgentState - TypedDict for agent state management
@@ -65,8 +68,6 @@ from langgraph.runtime import Runtime
 from langgraph.types import Command
 from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel, ConfigDict
-from pywa.types import ButtonUrl, Contact
-from pywa_async import WhatsApp
 from typing_extensions import TypedDict, Literal
 from supabase import Client
 
@@ -74,7 +75,6 @@ from config import (
     client_ordelo,
     llm_settings,
     logger,
-    pg_settings,
     project_settings,
 )
 from config.params import get_wa_logger
@@ -87,6 +87,8 @@ from ordelo.agent_app_handlers import (
     post_rider_event_customer_cc,
     post_rider_event_restaurant_cc,
 )
+from ordelo.agents import rider_threads
+from ordelo.rider_messaging import ContactCard, LinkButton, Place, RiderMessenger
 from ordelo.wa_location import WaLocation
 from ordelo_datamodels.wa_location_pymodels import RestaurantConfirmationObservation
 from utils_common.lg_utils import create_agent_w_sys_prompt_n_tools
@@ -117,9 +119,11 @@ class ContextSchema(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     pool: AsyncConnectionPool
-    wa_client: WhatsApp
-    recipient: str
+    messenger: RiderMessenger  # where and how this run talks to the rider (the dispatch's channel)
+    recipient: str  # rider_id (phone), for data only
     client_ordelo: Client
+    thread_id: str | None = None  # the run's own thread; closed by completion / termination
+    dispatch_id: int | None = None
     thread_handler: ThreadHandler | None = None
 
     def model_post_init(self, __context: Any) -> None:
@@ -143,6 +147,21 @@ class ContextSchema(BaseModel):
 
 
 # %%
+async def _close_own_thread(ctx) -> None:
+    """Close exactly the thread this run belongs to (D46/D47). Without a thread id (a context built outside the runner) the
+    rider's open thread is closed, which is the same thread under the one-open-thread rule."""
+    thread_id = getattr(ctx, "thread_id", None)
+    if thread_id is None:
+        open_thread = await rider_threads.active_for_rider(ctx.recipient, touch=False)
+        thread_id = open_thread.thread_id if open_thread else None
+    if thread_id is None:
+        logger.info(f"No open rider thread to close for {ctx.recipient}")
+        return
+    closed = await rider_threads.close(thread_id)
+    logger.info(f"Rider thread {thread_id} closed={closed}")
+
+
+# %%
 async def notify_food_ready_for_pickup(
     restaurant_name: str,
     state: Annotated[dict, InjectedState],
@@ -162,15 +181,13 @@ async def notify_food_ready_for_pickup(
         dict: Command containing ToolMessage and AIMessage updates for the agent's state.
     """
     ctx = runtime.context
-    recipient = ctx.recipient
 
     reply_to_msg_id = state.get("reply_to_msg_id", None)
     rider_name = state.get("rider_name", None)
 
-    await ctx.wa_client.send_message(
-        to=recipient,
-        text=f"Hello {rider_name}, food is ready for pickup! Please hurry to {restaurant_name} to collect the order.",
-        reply_to_message_id=reply_to_msg_id,
+    await ctx.messenger.say(
+        f"Hello {rider_name}, food is ready for pickup! Please hurry to {restaurant_name} to collect the order.",
+        reply_to=reply_to_msg_id,
     )
 
     # TODO: No need for the tool msg
@@ -208,7 +225,6 @@ async def notify_pickup_time_adjusted(
         dict: Command containing ToolMessage and AIMessage updates for the agent's state.
     """
     ctx = runtime.context
-    recipient = ctx.recipient
 
     reply_to_msg_id = state.get("reply_to_msg_id", None)
     rider_name = state.get("rider_name", None)
@@ -229,13 +245,12 @@ async def notify_pickup_time_adjusted(
 
     pickup_time_display = fmt_uk_time(pickup_time)
 
-    await ctx.wa_client.send_message(
-        to=recipient,
-        text=(
+    await ctx.messenger.say(
+        (
             f"⏰ Heads up {rider_name}, the pickup time for order *{order_number}* "
             f"has been updated to *{pickup_time_display}*."
         ),
-        reply_to_message_id=reply_to_msg_id,
+        reply_to=reply_to_msg_id,
     )
 
     return Command(
@@ -279,7 +294,6 @@ async def notify_pickup_reminder(
         dict: Command containing ToolMessage and AIMessage updates for the agent's state.
     """
     ctx = runtime.context
-    recipient = ctx.recipient
 
     reply_to_msg_id = state.get("reply_to_msg_id", None)
     rider_name = state.get("rider_name", None)
@@ -352,11 +366,7 @@ async def notify_pickup_reminder(
         )
         summary = f"about {abs(minutes_to_pickup)} min past pickup"
 
-    await ctx.wa_client.send_message(
-        to=recipient,
-        text=alert_text,
-        reply_to_message_id=reply_to_msg_id,
-    )
+    await ctx.messenger.say(alert_text, reply_to=reply_to_msg_id)
 
     return Command(
         update={
@@ -386,7 +396,6 @@ async def send_pickup_location(
     Returns a Command with ToolMessage and AIMessage.
     """
     ctx = runtime.context
-    recipient = ctx.recipient
     client = ctx.client_ordelo
 
     order_number = state.get("order_number", None)
@@ -411,13 +420,14 @@ async def send_pickup_location(
         .execute()
         .data[0]
     )
-    await ctx.wa_client.send_location(
-        to=recipient,
-        latitude=summary["rest_lat"],
-        longitude=summary["rest_lon"],
-        name=f"{summary['rest_name']} - Pickup",
-        address=summary["rest_address"],
-        reply_to_message_id=reply_to_msg_id,
+    await ctx.messenger.send_place(
+        Place(
+            latitude=summary["rest_lat"],
+            longitude=summary["rest_lon"],
+            name=f"{summary['rest_name']} - Pickup",
+            address=summary["rest_address"],
+        ),
+        reply_to=reply_to_msg_id,
     )
     return Command(
         update={
@@ -472,7 +482,6 @@ async def send_dropoff_location(
     Returns a Command with ToolMessage and AIMessage.
     """
     ctx = runtime.context
-    recipient = ctx.recipient
 
     order_number = state.get("order_number", None)
     reply_to_msg_id = state.get("reply_to_msg_id", None)
@@ -496,20 +505,20 @@ async def send_dropoff_location(
         .data[0]
     )
     warning = await _web_pin_warning(ctx.client_ordelo, order_number)
-    await ctx.wa_client.send_location(
-        to=recipient,
-        latitude=summary["customer_lat"],
-        longitude=summary["customer_lon"],
-        name=" ",
-        address=summary["customer_address"],
-        reply_to_message_id=reply_to_msg_id,
+    await ctx.messenger.send_place(
+        Place(
+            latitude=summary["customer_lat"],
+            longitude=summary["customer_lon"],
+            name=" ",
+            address=summary["customer_address"],
+        ),
+        reply_to=reply_to_msg_id,
     )
-    await ctx.wa_client.send_message(
-        to=recipient,
-        text="Dropoff:\n"
+    await ctx.messenger.say(
+        "Dropoff:\n"
         + summary["customer_address"]
         + (f"\n\n{warning}" if warning else ""),
-        reply_to_message_id=reply_to_msg_id,
+        reply_to=reply_to_msg_id,
     )
     return Command(
         update={
@@ -546,7 +555,6 @@ async def request_rider_current_location(
         dict: Agent to respond as instructed by the tool message.
     """
     ctx = runtime.context
-    recipient = ctx.recipient
 
     request_id = state.get("wa_location_request_id")
     if not request_id:
@@ -562,17 +570,11 @@ async def request_rider_current_location(
         )
 
     try:
-        await ctx.wa_client.send_message(to=recipient, text=intro_message)
-        sent = await ctx.wa_client.request_location(
-            to=recipient, text="Please share your current location."
-        )
-        await WaLocation(wa_client=ctx.wa_client).record_prompt_sent(
-            request_id, sent.id
-        )
+        await ctx.messenger.say(intro_message)
+        prompt_ref = await ctx.messenger.request_location("Please share your current location.")
+        await WaLocation().record_prompt_sent(request_id, prompt_ref)
     except Exception as exc:
-        await WaLocation(wa_client=ctx.wa_client).mark_prompt_failed(
-            request_id, type(exc).__name__
-        )
+        await WaLocation().mark_prompt_failed(request_id, type(exc).__name__)
         return Command(
             update={
                 "wa_location_request_id": None,
@@ -617,7 +619,6 @@ async def send_customer_contact(
         dict: Agent to respond as instructed by the tool message.
     """
     ctx = runtime.context
-    recipient = ctx.recipient
 
     order_number = state.get("order_number", None)
     if not order_number:
@@ -641,22 +642,16 @@ async def send_customer_contact(
     )
     customer_id = delivery_summary["customer_id"]
     if not str(customer_id).isdigit():
-        await ctx.wa_client.send_message(to=recipient, text=(
+        await ctx.messenger.say(
             "No customer phone number is on file for this web order. "
             "Follow the delivery instructions. If you cannot find the customer, contact operations for help."
-        ))
+        )
         return Command(update={"messages": [
             ToolMessage("No customer number on file; rider instructed to contact operations.", tool_call_id=tool_call_id),
             AIMessage("/dontRespond: No customer number on file."),
         ]})
 
-    await ctx.wa_client.send_contact(
-        to=recipient,
-        contact=Contact(
-            name=Contact.Name(formatted_name=order_number, first_name=order_number),
-            phones=[Contact.Phone(phone=customer_id, wa_id=customer_id, type="MOBILE")],
-        ),
-    )
+    await ctx.messenger.send_contact(ContactCard(name=order_number, phone=customer_id))
 
     return Command(
         update={
@@ -720,7 +715,7 @@ async def send_delivery_instructions(
         recipient,
         rider_name,
         client_ordelo,
-        ctx.wa_client,
+        ctx.messenger,
     )
     return Command(
         update={
@@ -754,20 +749,17 @@ async def send_start_live_tracking_link(
         dict: Agent to respond as instructed by the tool message.
     """
     ctx = runtime.context
-    recipient = ctx.recipient
-    wa_client = ctx.wa_client
 
     start_live_tracking_url = state.get("start_live_tracking_url", None)
     reply_to_msg_id = state.get("reply_to_msg_id", None)
     # order_number = state.get("order_number", None)
 
     body_text = "Please turn on the live tracking by clicking the link below."
-    await wa_client.send_message(
-        to=recipient,
+    await ctx.messenger.say(
+        body_text,
         header="Enable Live Tracking",
-        text=body_text,
-        reply_to_message_id=reply_to_msg_id,
-        buttons=ButtonUrl(title="Start live tracking", url=start_live_tracking_url),
+        reply_to=reply_to_msg_id,
+        link=LinkButton(title="Start live tracking", url=start_live_tracking_url),
     )
     return Command(
         update={
@@ -805,7 +797,6 @@ async def verify_restaurant_confirmation_code(
     """
     ctx = runtime.context
     client_ordelo = ctx.client_ordelo
-    wa_client = ctx.wa_client
     recipient = ctx.recipient
 
     # Extract dispatch_id
@@ -851,9 +842,7 @@ async def verify_restaurant_confirmation_code(
         and restaurant_confirmation_code != 77
     ):
         if latest_wa_msg_id is not None:
-            await wa_client.send_reaction(
-                to=recipient, emoji="❌", message_id=latest_wa_msg_id
-            )
+            await ctx.messenger.mark(latest_wa_msg_id, ok=False)
 
         return Command(
             update={
@@ -893,7 +882,7 @@ async def verify_restaurant_confirmation_code(
     # The restaurant point is deliberately approximate and never represents
     # current rider GPS.  WaLocation also verifies the matching inflight row.
     try:
-        await WaLocation(wa_client=wa_client).observe_restaurant_confirmation(
+        await WaLocation().observe_restaurant_confirmation(
             RestaurantConfirmationObservation(
                 order_number=order_number,
                 dispatch_id=dispatch_id,
@@ -914,9 +903,7 @@ async def verify_restaurant_confirmation_code(
 
     # If correct restaurant confirmation code, send reaction and notify customer.
     if latest_wa_msg_id is not None:
-        await wa_client.send_reaction(
-            to=recipient, emoji="✅", message_id=latest_wa_msg_id
-        )
+        await ctx.messenger.mark(latest_wa_msg_id, ok=True)
     await post_rider_event_restaurant_cc(order_number, customer_id)
 
     return Command(
@@ -951,8 +938,6 @@ async def cancel_delivery_before_pickup(
         - Calls dispatch_cancel_before_pickup(p_dispatch_id) RPC to reopen dispatching.
         - Prompts the rider for a cancellation reason.
     """
-    ctx = runtime.context
-    recipient = ctx.recipient
     rider_name = state.get("rider_name")
 
     dispatch_id = state.get("dispatch_id")
@@ -975,7 +960,7 @@ async def cancel_delivery_before_pickup(
         #     function_name="dispatch_cancel_before_pickup",
         #     input_args={"p_dispatch_id": dispatch_id},
         # )
-        response = client_ordelo.rpc(
+        client_ordelo.rpc(
             "dispatch_cancel_before_pickup", {"p_dispatch_id": dispatch_id}
         ).execute()
 
@@ -1025,7 +1010,6 @@ async def capture_reason_for_cancel_before_pickup(
         - Instructs the agent to call terminate_delivery_job.
     """
     ctx = runtime.context
-    recipient = ctx.recipient
 
     dispatch_id = state.get("dispatch_id")
     order_number = state.get("order_number")
@@ -1092,8 +1076,6 @@ async def verify_customer_confirmation_code(
             - timestamp: UTC timestamp of verification attempt
     """
     ctx = runtime.context
-    recipient = ctx.recipient
-    wa_client = ctx.wa_client
     latest_wa_msg_id = state.get("latest_wa_msg_id", None)
 
     # Extract dispatch_id
@@ -1135,9 +1117,7 @@ async def verify_customer_confirmation_code(
         and customer_confirmation_code != 44
     ):
         if latest_wa_msg_id is not None:
-            await wa_client.send_reaction(
-                to=recipient, emoji="❌", message_id=latest_wa_msg_id
-            )
+            await ctx.messenger.mark(latest_wa_msg_id, ok=False)
         return Command(
             update={
                 "messages": [
@@ -1151,9 +1131,7 @@ async def verify_customer_confirmation_code(
 
     # On right confirmation code
     if latest_wa_msg_id is not None:
-        await wa_client.send_reaction(
-            to=recipient, emoji="✅", message_id=latest_wa_msg_id
-        )
+        await ctx.messenger.mark(latest_wa_msg_id, ok=True)
     # Notify customer, end to converstaion session.
     await post_rider_event_customer_cc(order_number, customer_id)
 
@@ -1167,15 +1145,12 @@ async def verify_customer_confirmation_code(
         #     function_name="dispatch_complete_func",
         #     input_args={"p_dispatch_id": dispatch_id},
         # )
-        response = client_ordelo.rpc(
+        client_ordelo.rpc(
             "dispatch_complete_func", {"p_dispatch_id": dispatch_id}
         ).execute()
 
-        # End the thread
-        pool = await pg_settings.get_pool()
-        thread_handler = ThreadHandler(pool)
-        response = await thread_handler.make_threads_inactive(recipient=recipient)
-        logger.info(response["message"])
+        # End exactly this run's thread (R2); a thread opened before R2 also has an exact id
+        await _close_own_thread(ctx)
 
     except Exception as e:
         error_message = f"Error updating delivery status: {str(e)}"
@@ -1221,7 +1196,6 @@ async def end_delivery(
         - cleanup_params: Dict of cleanup configuration parameters
     """
     ctx = runtime.context
-    recipient = ctx.recipient
 
     stop_job_url = await create_stop_job_config()
     reply_to_msg_id = state.get("reply_to_msg_id", None)
@@ -1229,11 +1203,10 @@ async def end_delivery(
     # update delivery detail and dispatch to completed
 
     # Send the URL to the rider
-    await ctx.wa_client.send_message(
-        to=recipient,
-        text="Thank you, delivery is complete. Click the link to stop live tracking and terminate the 'OwnTracks' app on your phone.",
-        reply_to_message_id=reply_to_msg_id,
-        buttons=ButtonUrl(title="Stop live tracking", url=stop_job_url),
+    await ctx.messenger.say(
+        "Thank you, delivery is complete. Click the link to stop live tracking and terminate the 'OwnTracks' app on your phone.",
+        reply_to=reply_to_msg_id,
+        link=LinkButton(title="Stop live tracking", url=stop_job_url),
     )
 
     return Command(
@@ -1262,7 +1235,6 @@ async def terminate_delivery_job(
     the provided `reason_for_decline` will be persisted before closing the job.
     """
     ctx = runtime.context
-    recipient = ctx.recipient
 
     dispatch_id = state.get("dispatch_id")
     awaiting_cancel_reason = bool(state.get("awaiting_cancel_reason"))
@@ -1279,16 +1251,10 @@ async def terminate_delivery_job(
         except Exception as e:
             logger.error(f"Failed to record cancel reason: {str(e)}")
 
-    # End the thread
-    pool = await pg_settings.get_pool()
-    thread_handler = ThreadHandler(pool)
-    await thread_handler.make_threads_inactive(recipient=recipient)
+    # End exactly this run's thread (R2)
+    await _close_own_thread(ctx)
 
-    await ctx.wa_client.send_message(
-        to=recipient,
-        text="Delivery job completed ✅, thank you.",
-        reply_to_message_id=reply_to_msg_id,
-    )
+    await ctx.messenger.say("Delivery job completed ✅, thank you.", reply_to=reply_to_msg_id)
 
     return Command(
         update={
@@ -1418,15 +1384,11 @@ async def respond_node(
     Main agent node that processes user input and determines next action
     """
     ctx = runtime.context
-    wa_client = ctx.wa_client
-    recipient = ctx.recipient
 
     reply_to_msg_id = state.get("reply_to_msg_id", None)
     last_ai_msg = state["messages"][-1]
 
-    await wa_client.send_message(
-        to=recipient, text=last_ai_msg.content, reply_to_message_id=reply_to_msg_id
-    )
+    await ctx.messenger.say(last_ai_msg.content, reply_to=reply_to_msg_id)
 
     return Command(goto=END, update={"messages": [last_ai_msg]})
 

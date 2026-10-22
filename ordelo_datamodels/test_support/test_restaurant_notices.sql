@@ -14,6 +14,7 @@
 --   insert        food_order + order_item (through create_food_order_with_items, the function real orders use),
 --                 delivery_summary, takeaway_summary, and (STAGE 2b, only after you accepted) delivery_detail
 --   insert once   a claimed STRK invite for 447448440754, copied from the chat you already linked, only if none exists
+--   update        thread: STAGE 0 closes (never deletes) the rider threads of STRK-TEST dispatches (after rider_telegram_r2_r4.sql)
 -- It only READS restaurant_master (the STRK row: the order webhooks look the restaurant up by its rest_id) and rider_master;
 -- it does NOT change restaurant_master, riders, ordelo_config, any other restaurant, any other order.
 -- Messages already in your chats stay there, but their buttons answer "This order is no longer available."
@@ -43,7 +44,8 @@
 --     (an owner step, it changes one restaurant_master row; nothing else uses that id):
 --       UPDATE public.restaurant_master SET rest_id = 'STRK01' WHERE rest_ref = 'STRK' AND rest_id IS NULL;
 --   * A CLAIMED t_invites row for rest_ref 'STRK' whose phone is 447448440754 (STAGE 0 copies yours if missing).
---   * At least one rider_master row with town = 'dummy', is_in_shift = true and a vehicle_type your dispatch offers, whose
+--   * At least one rider_master row with town = 'dummy', status = 'active' (the dispatch gate since 2026-10-22),
+--     is_in_shift = true and a vehicle_type your dispatch offers, whose
 --     rider_id is ALSO listed in ordelo_config 'overwatch_list' (TEST3100 orders go to overwatch riders only).
 --     For the race test add a second such rider.
 --   * ORDELO_APP_URL in ordelo_config pointing at the instance under test (tunnel for local runs, docs/local-testing-runbook.md).
@@ -58,7 +60,7 @@ SELECT (SELECT count(*) FROM public.t_order_card_destinations('rest_admin', 'STR
        (SELECT count(*) FROM pg_proc WHERE proname IN ('restaurant_order_ready', 't_receipt_snapshot', 'job_t_receipt_refresh',
                                                        'create_food_order_with_items'))              AS functions_present,        -- 4
        (SELECT rest_id FROM public.restaurant_master WHERE rest_ref = 'STRK')                        AS strk_rest_id,             -- NOT NULL
-       (SELECT count(*) FROM public.rider_master WHERE town = 'dummy' AND is_in_shift)               AS dummy_riders_in_shift,    -- >= 1
+       (SELECT count(*) FROM public.rider_master WHERE town = 'dummy' AND is_in_shift AND status = 'active') AS dummy_riders_in_shift, -- >= 1
        (SELECT config_value FROM public.ordelo_config WHERE config_key = 'overwatch_list')           AS overwatch_list,           -- has your rider
        (SELECT config_value FROM public.ordelo_config WHERE config_key = 'ORDELO_APP_URL')           AS app_url;
 -- Cron (Supabase only):  SELECT jobname, schedule, active FROM cron.job WHERE jobname IN
@@ -68,6 +70,17 @@ SELECT (SELECT count(*) FROM public.t_order_card_destinations('rest_admin', 'STR
 
 
 -- ===== STAGE 0: RESET (wipes earlier STRK-TEST orders; links your chat to STRK if needed) =====
+-- Rider threads of the fake jobs are CLOSED first (never deleted), so the rider is not left in a finished fake job
+-- (rider_threads.sql; skipped until migrations/rider_telegram_r2_r4.sql added delivery_dispatch.thread_id).
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'delivery_dispatch' AND column_name = 'thread_id') THEN
+        EXECUTE $q$UPDATE public.thread t SET is_active = FALSE FROM public.delivery_dispatch d
+                    WHERE d.thread_id = t.thread_id AND d.order_number LIKE 'STRK-TEST-%' AND t.is_active IS TRUE$q$;
+    END IF;
+END $$;
+
 DO $$
 DECLARE s record;
 BEGIN
@@ -123,9 +136,9 @@ DECLARE
     v_rest_name text;
 BEGIN
     SELECT vehicle_type INTO v_vehicle FROM public.rider_master
-     WHERE town = 'dummy' AND is_in_shift ORDER BY priority, id LIMIT 1;
+     WHERE town = 'dummy' AND is_in_shift AND status = 'active' ORDER BY priority, id LIMIT 1;
     IF v_vehicle IS NULL THEN
-        RAISE EXCEPTION 'STAGE 1: no in-shift rider in town dummy (see PREREQUISITES)';
+        RAISE EXCEPTION 'STAGE 1: no active in-shift rider in town dummy (see PREREQUISITES)';
     END IF;
     SELECT rest_id, rest_name INTO v_rest_id, v_rest_name FROM public.restaurant_master WHERE rest_ref = 'STRK';
     IF NOT FOUND THEN
@@ -180,11 +193,11 @@ SELECT dispatch_id, rider_id, status, dtts FROM public.delivery_dispatch WHERE o
 -- shows status = 'unassigned'. Expect the dispatch offer on your dummy rider's WhatsApp within a few seconds.
 INSERT INTO public.delivery_detail (order_number, customer_id, vehicle_type, town, rider_payout, distance, status)
 SELECT s.order_number, s.customer_id,
-       (SELECT vehicle_type FROM public.rider_master WHERE town = 'dummy' AND is_in_shift ORDER BY priority, id LIMIT 1),
+       (SELECT vehicle_type FROM public.rider_master WHERE town = 'dummy' AND is_in_shift AND status = 'active' ORDER BY priority, id LIMIT 1),
        'dummy', 5.00, 1.5, 'unassigned'
   FROM public.delivery_summary s
  WHERE s.order_number LIKE 'STRK-TEST-%' AND s.status = 'unassigned' AND s.pickup_time IS NOT NULL
-   AND (SELECT vehicle_type FROM public.rider_master WHERE town = 'dummy' AND is_in_shift ORDER BY priority, id LIMIT 1) IS NOT NULL
+   AND (SELECT vehicle_type FROM public.rider_master WHERE town = 'dummy' AND is_in_shift AND status = 'active' ORDER BY priority, id LIMIT 1) IS NOT NULL
    AND NOT EXISTS (SELECT 1 FROM public.delivery_detail d WHERE d.order_number = s.order_number);
 SELECT order_number, vehicle_type, town, status FROM public.delivery_detail WHERE order_number LIKE 'STRK-TEST-%';
 

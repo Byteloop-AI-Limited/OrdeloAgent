@@ -2,7 +2,7 @@
 -- ordelo_datamodels/availability/pauses.sql
 -- Pauses: a person steps away from jobs or alerts until a mandatory end time; "paused" is computed from the clock.
 -- =============================================================================================
--- LIVE CHECK    NOT yet live (phase R1 of plans/telegram-rider-bot-plan.md; ADR 0013). Nothing writes pauses until phase R5 (/off).
+-- LIVE CHECK    Live since 2026-10-22 (migrations/rider_telegram_r1.sql step 3; ADR 0013). Nothing writes pauses until phase R5 (/off).
 -- OBJECTS       table  pauses
 --                   One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended.
 --               fn     pause_duration(p_audience text, p_duration text) -> interval

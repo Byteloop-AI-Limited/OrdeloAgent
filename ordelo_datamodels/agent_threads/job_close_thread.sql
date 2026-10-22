@@ -18,6 +18,9 @@
 --                   get_latest_state(_by_thread)()           read a thread's latest checkpoint as JSON (debug endpoints, rider agent)
 --                 job_close_thread(): active threads whose last_access_dtts is older than ordelo_config THREAD_INACTIVE_TIME_INTERVAL
 --                 minutes (default 5) -> POST /delivery-hooks/close-threads. Called from Python (delivery_hooks.py), not by pg_cron.
+--               Rider dispatch threads (ORDELO-dispatch-<id>, since R2 of plans/telegram-rider-bot-plan.md) are in the same payload;
+--                 close_threads() closes exactly that thread (rider_thread_close, agent_threads/rider_threads.sql) whether or not a
+--                 cancel reason was given, and says goodbye on the job's channel (WhatsApp or Telegram). Other threads close as before.
 -- LIFECYCLE     none
 -- CALLED BY     job_close_thread:
 --                 python    watomation/routers/delivery_hooks.py: close_threads()
@@ -26,6 +29,7 @@
 -- TESTS         none
 -- GOTCHAS       The body was taken from live on 2026-10-16 (the previous agent_threads copy differed; the migrations/ordelo_agg_r3.sql copy matched).
 -- SEE ALSO      agent_threads/job_terminate_stale_active_threads.sql
+--               agent_threads/rider_threads.sql
 -- =============================================================================================
 
 -- ---------------------------------------------------------------------------------------------

@@ -19,6 +19,7 @@ from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup
 from channels.telegram.callbacks import RiderOffer, fits_callback_limit
 from ordelo.rider_messaging import (
     ContactCard,
+    DispatchChannel,
     JobOffer,
     LinkButton,
     Place,
@@ -118,6 +119,25 @@ async def test_wa_offer_closed_sends_todays_text_only_when_taken(wa):
     wa.send_message.assert_awaited_once_with(to=PHONE, text=missed_offer_text("ELAS-CEKT-22"))
 
 
+async def test_wa_job_card_matches_the_old_delivery_instructions(wa):
+    """Byte-identical to agent_app_handlers._send_delivery_instructions before R3 (the '/riderLocationRequest' buttons)."""
+    from utils_common.waba_utils.wa_senders import CallbackButtonData
+
+    ref = await WhatsAppRiderMessenger(wa, PHONE).job_card("🌟 ELAS-CEKT-22 🌟", "\nHi Sam, here are the Delivery details:\n", 84217)
+    assert ref == "wamid.SENT"
+    kw = wa.send_message.await_args.kwargs
+    assert (kw["to"], kw["header"], kw["text"], kw["reply_to_message_id"]) == (
+        PHONE, "🌟 ELAS-CEKT-22 🌟", "\nHi Sam, here are the Delivery details:\n", None)
+    assert [b.title for b in kw["buttons"]] == ["Pickup Location", "Dropoff Location", "Contact Customer"]
+    expected = [
+        CallbackButtonData(action="/riderLocationRequest", recipient=PHONE, dispatch_id=84217, ai_msg="", human_msg=h,
+                           response="").model_dump_json()
+        for h in ("Send me the pickup location", "Send me the dropoff location",
+                  "I cannot reach customer, please send me customer contact.")
+    ]
+    assert [b.callback_data for b in kw["buttons"]] == expected
+
+
 def test_missed_text_is_verbatim_from_the_hook():
     from pathlib import Path
 
@@ -201,6 +221,34 @@ async def test_tg_offer_and_closed_edit_in_place(tg):
     assert len(session.sends) == sends_before  # no new message (D49)
 
 
+async def test_tg_job_card_has_the_three_job_buttons(tg):
+    m, session = tg
+    ref = await m.job_card("🌟 ELAS-CEKT-22 🌟", "\nHi Sam\n  ⏰ Pickup Time - *@12:30*\n    ", 84217)
+    send = session.calls[-1]
+    assert isinstance(send, SendMessage) and send.chat_id == 111 and ref == tg_ref(111, parse_tg_ref(ref)[1])
+    assert send.text == "<b>🌟 ELAS-CEKT-22 🌟</b>\nHi Sam\n  ⏰ Pickup Time - <b>@12:30</b>"
+    buttons = [b for row in send.reply_markup.inline_keyboard for b in row]
+    assert [b.text for b in buttons] == ["Pickup Location", "Dropoff Location", "Contact Customer"]
+    assert [b.callback_data for b in buttons] == ["rj1:84217:pk", "rj1:84217:dr", "rj1:84217:cc"]
+
+
+@pytest.mark.parametrize("reason, text", [
+    ("expired", "⌛ Offer expired · <b>X-1</b>"), ("cancelled", "🚫 Order cancelled · <b>X-1</b>"),
+    ("assigned", "✅ The job is yours · <b>X-1</b>"), ("declined", "Declined · <b>X-1</b>"),
+    ("accepted", "👍 Accepted · <b>X-1</b>\nWaiting for confirmation…"), ("gone", "This job is no longer available · <b>X-1</b>"),
+])
+async def test_tg_offer_closed_texts(tg, reason, text):
+    m, session = tg
+    await m.offer_closed(tg_ref(111, 5), "X-1", reason)
+    assert session.calls[-1].text == text
+
+
+async def test_tg_offer_closed_without_an_order_number_drops_the_empty_bold(tg):
+    m, session = tg
+    await m.offer_closed(tg_ref(111, 5), "", "gone")
+    assert session.calls[-1].text == "This job is no longer available"
+
+
 async def test_tg_offer_closed_without_a_telegram_ref_does_nothing(tg):
     m, session = tg
     await m.offer_closed("wamid.X", "ELAS-1", "taken")
@@ -276,3 +324,41 @@ async def test_use_messenger_overrides_everything():
         await m.say("hello")
     assert m is fake and fake.texts == ["hello"]
     assert isinstance(messenger_for(PHONE, "whatsapp", None, wa_client=MagicMock()), WhatsAppRiderMessenger)
+
+
+# ---- per dispatch / per thread (R3, D44) ---------------------------------------------------------------------------
+async def test_dispatch_channel_and_for_dispatch(monkeypatch, recording_bot, patch_supabase_client):
+    from ordelo.rider_messaging import dispatch_channel, for_dispatch
+    from tests.fixtures.fake_supabase import FakeSupabaseResponse
+
+    bot, _ = recording_bot
+    monkeypatch.setattr("config.rider_bot", bot)
+    patch_supabase_client.register(table="delivery_dispatch", verb="select", response=FakeSupabaseResponse(data=[
+        {"dispatch_id": 7, "rider_id": PHONE, "channel": "telegram", "channel_msg_ref": "tg:111:3", "order_number": "X-1",
+         "status": "unassigned"}]))
+    patch_supabase_client.register(table="rider_master", verb="select", response=FakeSupabaseResponse(data=[{"channel": "whatsapp", "tcid": 111}]))
+    dc = await dispatch_channel(7)
+    assert dc == DispatchChannel(7, PHONE, "telegram", 111, "tg:111:3", "X-1", "unassigned")
+    # The dispatch's channel wins over the rider's current one (rider_master says whatsapp now).
+    m = await for_dispatch(7)
+    assert isinstance(m, TelegramRiderMessenger) and m.tcid == 111
+
+
+async def test_for_dispatch_unknown_falls_back_to_whatsapp_or_raises(patch_supabase_client):
+    from ordelo.rider_messaging import for_dispatch
+
+    m = await for_dispatch(99, rider_id=PHONE, wa_client=MagicMock())
+    assert isinstance(m, WhatsAppRiderMessenger) and m.phone == PHONE
+    with pytest.raises(LookupError):
+        await for_dispatch(99)
+
+
+def test_for_thread_uses_the_threads_channel(monkeypatch, recording_bot):
+    from ordelo.agents.rider_threads import RiderThread
+    from ordelo.rider_messaging import for_thread
+
+    bot, _ = recording_bot
+    monkeypatch.setattr("config.rider_bot", bot)
+    tg_m = for_thread(RiderThread("ORDELO-dispatch-7", PHONE, dispatch_id=7, channel="telegram", tcid=111))
+    wa_m = for_thread(RiderThread("ORDELO-legacy", PHONE), wa_client=MagicMock())
+    assert isinstance(tg_m, TelegramRiderMessenger) and isinstance(wa_m, WhatsAppRiderMessenger)

@@ -227,9 +227,15 @@ async def test_text_from_unlinked_person_points_to_start(recording_bot, rider_db
     assert session.sent_texts == ["Please send /start first to link your rider account."]
 
 
-async def test_text_from_linked_rider_is_not_sent_to_any_agent_in_r1(recording_bot, rider_db):
+async def test_text_from_linked_rider_without_a_job_gets_a_fixed_line_not_the_agent(recording_bot, rider_db, monkeypatch):
+    # R4: text goes to the rider agent only when the rider has an open job thread (tests/channels/telegram/test_rider_jobs.py)
     bot, session = recording_bot
     rider_db.add(PHONE, tuid=111, tcid=111)
+
+    async def no_thread(rider_id, touch=True):
+        return None
+
+    monkeypatch.setattr("channels.telegram.rider.jobs.rider_threads.active_for_rider", no_thread)
     await feed(bot, message_update("on my way"))
-    assert session.sent_texts[0].startswith("Nothing to do here yet")
+    assert session.sent_texts == ["No active job. Use /job to check, or /help."]
     assert all(isinstance(c, SendMessage) for c in session.calls)

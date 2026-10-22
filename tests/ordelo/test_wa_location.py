@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 
 from config.pg_setting import PgSetting
+from ordelo.rider_messaging.whatsapp import WhatsAppRiderMessenger
 from ordelo.wa_location import WaLocation, WaLocationConflict, WaLocationForbidden, _DeliveryContext
 from ordelo_datamodels.wa_location_pymodels import WaLocationDemand
 
@@ -400,12 +401,8 @@ async def test_prompt_rider_via_agent_falls_back_to_direct_send_when_thread_inac
             sent_calls.append(kwargs)
             return SimpleNamespace(id="wamid.fallback.1")
 
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
-
-        async def get_active_thread(self, _recipient):
-            return None
+    async def _resolve(_recipient, **_kwargs):  # agent_runner.resolve_rider_thread (R2)
+        return None
 
     async def _pool(_self):
         return object()
@@ -416,8 +413,14 @@ async def test_prompt_rider_via_agent_falls_back_to_direct_send_when_thread_inac
         recorded.append((req_id, message_id))
 
     service = WaLocation(wa_client=_FakeWa())
+
+    async def _for_dispatch(dispatch_id, *, rider_id=None, wa_client=None):
+        assert dispatch_id == context.dispatch_id
+        return WhatsAppRiderMessenger(wa_client, rider_id)  # a WhatsApp-channel dispatch (D44)
+
+    monkeypatch.setattr("ordelo.rider_messaging.for_dispatch", _for_dispatch)
     monkeypatch.setattr(PgSetting, "get_pool", _pool)
-    monkeypatch.setattr("ordelo.wa_location.ThreadHandler", _FakeThreadHandler)
+    monkeypatch.setattr("ordelo.agents.agent_runner.resolve_rider_thread", _resolve)
     monkeypatch.setattr(WaLocation, "record_prompt_sent", _record)
 
     await service._prompt_rider_via_agent(request_id, context, demand)
@@ -441,12 +444,8 @@ async def test_direct_send_failure_does_not_create_a_thread_to_clear_state(
         async def request_location(self, **_kwargs):
             raise RuntimeError("wa down")
 
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
-
-        async def get_active_thread(self, _recipient):
-            return None
+    async def _resolve(_recipient, **_kwargs):  # agent_runner.resolve_rider_thread (R2)
+        return None
 
     async def _pool(_self):
         return object()
@@ -456,12 +455,18 @@ async def test_direct_send_failure_does_not_create_a_thread_to_clear_state(
     async def _mark_failed(_self, req_id, reason):
         failed.append((req_id, reason))
 
-    async def _clear(recipient):
+    async def _clear(recipient, **_kwargs):
         raise AssertionError("clear_wa_location_request must not run a thread was never used")
 
     service = WaLocation(wa_client=_FakeWa())
+
+    async def _for_dispatch(dispatch_id, *, rider_id=None, wa_client=None):
+        assert dispatch_id == context.dispatch_id
+        return WhatsAppRiderMessenger(wa_client, rider_id)  # a WhatsApp-channel dispatch (D44)
+
+    monkeypatch.setattr("ordelo.rider_messaging.for_dispatch", _for_dispatch)
     monkeypatch.setattr(PgSetting, "get_pool", _pool)
-    monkeypatch.setattr("ordelo.wa_location.ThreadHandler", _FakeThreadHandler)
+    monkeypatch.setattr("ordelo.agents.agent_runner.resolve_rider_thread", _resolve)
     monkeypatch.setattr(WaLocation, "mark_prompt_failed", _mark_failed)
     monkeypatch.setattr("ordelo.agents.agent_runner.clear_wa_location_request", _clear)
 
@@ -475,12 +480,8 @@ async def test_prompt_rider_via_agent_runs_graph_and_names_requester(monkeypatch
     context = _context()
     demand = _demand(location_requested_by="restaurant_admin", requester_id="447700900222")
 
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
-
-        async def get_active_thread(self, _recipient):
-            return {"thread_id": "t1"}
+    async def _resolve(_recipient, **_kwargs):  # agent_runner.resolve_rider_thread (R2)
+        return {"thread_id": "t1"}
 
     async def _pool(_self):
         return object()
@@ -495,7 +496,7 @@ async def test_prompt_rider_via_agent_runs_graph_and_names_requester(monkeypatch
 
     service = WaLocation(wa_client=SimpleNamespace())
     monkeypatch.setattr(PgSetting, "get_pool", _pool)
-    monkeypatch.setattr("ordelo.wa_location.ThreadHandler", _FakeThreadHandler)
+    monkeypatch.setattr("ordelo.agents.agent_runner.resolve_rider_thread", _resolve)
     monkeypatch.setattr(
         "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run
     )
@@ -516,12 +517,8 @@ async def test_prompt_rider_via_agent_retries_deterministically_then_marks_faile
     context = _context()
     demand = _demand()
 
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
-
-        async def get_active_thread(self, _recipient):
-            return {"thread_id": "t1"}
+    async def _resolve(_recipient, **_kwargs):  # agent_runner.resolve_rider_thread (R2)
+        return {"thread_id": "t1"}
 
     async def _pool(_self):
         return object()
@@ -544,12 +541,12 @@ async def test_prompt_rider_via_agent_retries_deterministically_then_marks_faile
 
     cleared = []
 
-    async def _clear(recipient):
+    async def _clear(recipient, **_kwargs):
         cleared.append(recipient)
 
     service = WaLocation(wa_client=SimpleNamespace())
     monkeypatch.setattr(PgSetting, "get_pool", _pool)
-    monkeypatch.setattr("ordelo.wa_location.ThreadHandler", _FakeThreadHandler)
+    monkeypatch.setattr("ordelo.agents.agent_runner.resolve_rider_thread", _resolve)
     monkeypatch.setattr(
         "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run
     )
@@ -578,12 +575,8 @@ async def test_prompt_rider_via_agent_skips_retry_when_tool_already_marked_faile
     context = _context()
     demand = _demand()
 
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
-
-        async def get_active_thread(self, _recipient):
-            return {"thread_id": "t1"}
+    async def _resolve(_recipient, **_kwargs):  # agent_runner.resolve_rider_thread (R2)
+        return {"thread_id": "t1"}
 
     async def _pool(_self):
         return object()
@@ -604,12 +597,12 @@ async def test_prompt_rider_via_agent_skips_retry_when_tool_already_marked_faile
 
     cleared = []
 
-    async def _clear(recipient):
+    async def _clear(recipient, **_kwargs):
         cleared.append(recipient)
 
     service = WaLocation(wa_client=SimpleNamespace())
     monkeypatch.setattr(PgSetting, "get_pool", _pool)
-    monkeypatch.setattr("ordelo.wa_location.ThreadHandler", _FakeThreadHandler)
+    monkeypatch.setattr("ordelo.agents.agent_runner.resolve_rider_thread", _resolve)
     monkeypatch.setattr(
         "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run
     )
@@ -630,12 +623,8 @@ async def test_prompt_rider_via_agent_contains_graph_failures(monkeypatch) -> No
     context = _context()
     demand = _demand()
 
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
-
-        async def get_active_thread(self, _recipient):
-            return {"thread_id": "t1"}
+    async def _resolve(_recipient, **_kwargs):  # agent_runner.resolve_rider_thread (R2)
+        return {"thread_id": "t1"}
 
     async def _pool(_self):
         return object()
@@ -650,12 +639,12 @@ async def test_prompt_rider_via_agent_contains_graph_failures(monkeypatch) -> No
 
     cleared = []
 
-    async def _clear(recipient):
+    async def _clear(recipient, **_kwargs):
         cleared.append(recipient)
 
     service = WaLocation(wa_client=SimpleNamespace())
     monkeypatch.setattr(PgSetting, "get_pool", _pool)
-    monkeypatch.setattr("ordelo.wa_location.ThreadHandler", _FakeThreadHandler)
+    monkeypatch.setattr("ordelo.agents.agent_runner.resolve_rider_thread", _resolve)
     monkeypatch.setattr(
         "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _boom
     )

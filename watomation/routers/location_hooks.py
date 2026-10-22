@@ -37,6 +37,7 @@ import psycopg
 import json
 import base64
 from ordelo_datamodels.location_pymodels import Location
+from ordelo.rider_messaging import for_rider
 from config import (
     _async_wa_client,
     pg_settings,
@@ -393,17 +394,14 @@ async def notify_rider_null_or_outdated_location(request: Request):
         rider_id = row["rider_id"]
         order_number = row["order_number"]
         reason = row["reason"]
+        # Rider-facing: through the rider's channel (R3, RiderMessenger); WhatsApp text unchanged.
         if reason == "NO_LOCATION_DATA":
-            await _async_wa_client.send_message(
-                to=rider_id,
-                # header=f"{order_number} Update",
-                text="Please enable live tracking to receive updates on your delivery.",
+            await (await for_rider(rider_id, wa_client=_async_wa_client)).say(
+                "Please enable live tracking to receive updates on your delivery."
             )
         elif reason == "OUTDATED_LOCATION_DATA":
-            await _async_wa_client.send_message(
-                to=rider_id,
-                # header=f"{order_number} Update",
-                text="How is the delivery going? you seemed to have stopped.",
+            await (await for_rider(rider_id, wa_client=_async_wa_client)).say(
+                "How is the delivery going? you seemed to have stopped."
             )
 
     # asyncio.create_task(run_rider_graph(

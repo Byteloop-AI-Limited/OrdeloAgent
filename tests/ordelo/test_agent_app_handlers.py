@@ -25,6 +25,7 @@ import pytest
 import respx
 
 from ordelo import agent_app_handlers
+from ordelo.rider_messaging.whatsapp import WhatsAppRiderMessenger
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
 from tests.fixtures.fake_wa import FakeAsyncWhatsApp
@@ -165,7 +166,7 @@ async def test_send_delivery_instructions_composes_buttons_and_returns_message_i
         "RIDER01",
         "Bas",
         patch_supabase_client,
-        fake_async_wa,
+        WhatsAppRiderMessenger(fake_async_wa, "RIDER01"),  # R3: the run's messenger; WhatsApp output unchanged
     )
 
     assert msg_id == "wamid.send_message.1"
@@ -174,6 +175,8 @@ async def test_send_delivery_instructions_composes_buttons_and_returns_message_i
     sent = fake_async_wa.sent[0]
     assert sent.kwargs["header"] == "🌟 ELAS-ABCD-1 🌟"
     assert [button.title for button in sent.kwargs["buttons"]] == ["Pickup Location", "Dropoff Location", "Contact Customer"]
+    assert sent.kwargs["to"] == "RIDER01"
+    assert len(fake_async_wa.sent) == 2  # the job card, then the timing heads-up
 
 
 @respx.mock

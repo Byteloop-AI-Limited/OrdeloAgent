@@ -6,16 +6,20 @@
 
 Files: port.py (the interface), models.py (MsgRef, Place, ContactCard, LinkButton, JobOffer), whatsapp.py / telegram.py
 (adapters), formatting.py (WhatsApp-style text -> Telegram HTML), factory.py (which channel), fake.py (tests).
-Phase R1 ships the module; the rider agent and hooks switch to it in phase R3 (plans/telegram-rider-bot-plan.md).
+The rider agent, its tools and the rider hooks use it from phase R3 (plans/telegram-rider-bot-plan.md).
 """
 
-from .factory import for_rider, messenger_for, use_messenger
-from .models import ContactCard, JobOffer, LinkButton, MsgRef, Place, is_tg_ref, parse_tg_ref, tg_ref
+from .factory import DispatchChannel, dispatch_channel, for_dispatch, for_rider, for_thread, messenger_for, use_messenger
+from .models import JOB_CARD_ACTIONS, ContactCard, JobOffer, LinkButton, MsgRef, Place, is_tg_ref, parse_tg_ref, tg_ref
 from .port import RiderMessenger
 
 __all__ = [
     "RiderMessenger",
     "for_rider",
+    "for_dispatch",
+    "for_thread",
+    "dispatch_channel",
+    "DispatchChannel",
     "messenger_for",
     "use_messenger",
     "MsgRef",
@@ -23,6 +27,7 @@ __all__ = [
     "ContactCard",
     "LinkButton",
     "JobOffer",
+    "JOB_CARD_ACTIONS",
     "tg_ref",
     "parse_tg_ref",
     "is_tg_ref",

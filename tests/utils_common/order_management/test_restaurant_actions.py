@@ -59,7 +59,8 @@ async def test_ready_whatsapp_calls_shared_rpc_and_nudges_rider_with_todays_text
     assert actions_db.calls == [("restaurant_order_ready", {
         "p_order_number": ORDER, "p_order_type": "delivery", "p_admin_phone": "447700900123", "p_channel": "whatsapp"})]
     assert nudges == [{"recipient": "RIDER01",
-                       "human_msg": "call `tool notify_food_ready_for_pickup`. Rider should hurry to Elai to pickup the food."}]
+                       "human_msg": "call `tool notify_food_ready_for_pickup`. Rider should hurry to Elai to pickup the food.",
+                       "dispatch_id": 10}]  # that job's thread (R2), so the job's channel (D44)
 
 
 async def test_ready_telegram_calls_wrapper_and_nudges_rider(actions_db, nudges):

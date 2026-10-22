@@ -61,10 +61,15 @@ Not fixed by that plan unless a phase says so.
   (`ELAS-…`) get "Ending the conversation…" from Ordelo's WhatsApp number (their threads are not closed, because
   `make_threads_inactive` is scoped to the ORDELO agent). Phase R2 makes the rider path close only `ORDELO-dispatch-*`
   rows; done when the job itself filters by agent (or the owner records that it is intended).
-- [ ] **`fapp_ordelo_agent.py /threads` and `/debug-state-by-thread` query `from_number`,** a column the `thread` table no
-  longer has (renamed to `recipient`). Fixed with the R2 debug clean-up.
+- [x] **`fapp_ordelo_agent.py /threads` and `/debug-state-by-thread` query `from_number`,** a column the `thread` table no
+  longer has (renamed to `recipient`). Fixed in R2 (both use `recipient`; debug reads never create or touch a thread).
 - [ ] **Race-hardening of rider assignment** (ADR 0011 point 4): `dispatch_response` reads state and writes separately.
   Deferred by D48; Telegram does not make it worse.
 - [ ] **Rename `wa_location*`** to channel-neutral names once Telegram locations ship (R5). Cosmetic; touches many files.
+- [ ] **Delete `agent_app_handlers.initial_handle_of_rider_response`.** Superseded by `ordelo/dispatch_actions.respond_to_offer`
+  (R4, shared by WhatsApp and Telegram); it has no production caller left. Delete with its tests after R4 has run live.
+- [ ] **Two agent turns on one rider thread can overlap.** A Telegram text (run in the background), a job-card tap and a
+  hook can reach the same thread at the same moment; LangGraph then interleaves state updates. WhatsApp has the same gap
+  today. A per-thread lock (in-process `asyncio.Lock` keyed by thread id, or `pg_advisory_lock`) would serialise them.
 - [ ] **`rider_master` holds Telegram ids with RLS off.** Part of the existing row-level-security review; `tuid`/`tcid` are
   now readable with the anon key.

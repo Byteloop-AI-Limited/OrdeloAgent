@@ -88,12 +88,8 @@ async def test_init_delivery_summary(patch_supabase_client):
 async def test_process_wa_msg_end_shift_intent(monkeypatch, patch_pg_pool, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp):
     from tests.fixtures.fake_supabase import FakeSupabaseResponse
     patch_supabase_client.register(table="rider_master", verb="select", response=FakeSupabaseResponse(data=[{"is_in_shift": True}]))
-    async def _no_thread(self, r): return None
-    monkeypatch.setattr(
-        h,
-        "ThreadHandler",
-        type("TH", (), {"__init__": lambda self, pool: None, "get_active_thread": _no_thread}),
-    )
+    async def _no_thread(rider_id, touch=True): return None
+    monkeypatch.setattr(h, "active_rider_thread", _no_thread)  # rider_threads.active_for_rider (R2)
     monkeypatch.setattr(h, "get_rider_intent", lambda text: SimpleNamespace(intent="End Shift", confidence=0.9))
     calls = []
     async def _fake_enquire(wa, msg): calls.append(msg.sender)

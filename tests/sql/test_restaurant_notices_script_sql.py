@@ -78,7 +78,7 @@ def schema(db):
     db.execute("TRUNCATE " + ", ".join(f"public.{t}" for t in TABLES) + " RESTART IDENTITY CASCADE")
     db.execute("INSERT INTO public.restaurant_master (rest_ref, rest_id, rest_name, admins) VALUES ('STRK', 'STRK01', 'Strikers Sports Bar', %s)", ([ADMIN],))
     db.execute("INSERT INTO public.restaurant_master (rest_ref, rest_name, admins) VALUES ('ELAS', 'Elas', %s)", ([ADMIN],))
-    db.execute("INSERT INTO public.rider_master (rider_id, rider_name, vehicle_type, town) VALUES ('RIDER01', 'Sam', 'bike', 'dummy')")
+    db.execute("INSERT INTO public.rider_master (rider_id, rider_name, vehicle_type, town, status) VALUES ('RIDER01', 'Sam', 'bike', 'dummy', 'active')")
 
 
 def stages() -> dict[str, str]:
@@ -119,6 +119,9 @@ def test_every_delete_and_update_is_scoped_to_strk_test_rows():
     for u in re.findall(r"UPDATE public\.\w+.*?;", SCRIPT, flags=re.S):
         if u.startswith("UPDATE public.restaurant_master"):   # only the operator hint (comment / error text), never executed
             assert re.fullmatch(r"UPDATE public\.restaurant_master SET rest_id = ''?STRK01''? WHERE rest_ref = ''?STRK''? AND rest_id IS NULL;", u), u
+            continue
+        if u.startswith("UPDATE public.thread"):   # STAGE 0 closes (never deletes) the rider threads of fake jobs
+            assert "SET is_active = FALSE" in u and "d.order_number LIKE 'STRK-TEST-%'" in u, u
             continue
         assert "order_number = v_no" in u or "dispatch_id = (SELECT dispatch_id FROM public.delivery_inflight WHERE order_number LIKE 'STRK-TEST-%'" in u, u
     assert not re.search(r"\b(TRUNCATE|DROP|ALTER)\b", re.sub(r"--.*", "", SCRIPT))
@@ -168,6 +171,21 @@ def test_stage0_wipes_only_strk_test_rows_in_every_table(db):
     left = {r[0] for r in db.execute("SELECT order_number FROM public.food_order").fetchall()}
     assert left == {"ELAS-REAL-1"}
     assert fetch_one(db, "SELECT count(*) FROM public.t_sent_messages WHERE subject_ref IN ('ELAS-REAL-1', 'ELAS')") == 2
+
+
+def test_stage0_closes_the_rider_threads_of_fake_jobs_only(db):
+    db.execute("DELETE FROM public.thread WHERE recipient = 'RIDER01'")
+    fake = fetch_one(db, "INSERT INTO public.delivery_dispatch (order_number, rider_id, status) VALUES ('STRK-TEST-1', 'RIDER01', 'assigned')"
+                         " RETURNING dispatch_id")
+    real = fetch_one(db, "INSERT INTO public.delivery_dispatch (order_number, rider_id, status) VALUES ('ELAS-REAL-1', 'RIDER01', 'completed')"
+                         " RETURNING dispatch_id")
+    for d in (real, fake):  # the real job's thread is closed by the fake one opening (D47); reopen it to see STAGE 0 leave it
+        fetch_one(db, "SELECT public.rider_thread_open('ORDELO', 'RIDER01', %s)", (d,))
+    db.execute("UPDATE public.thread SET is_active = TRUE WHERE thread_id = %s", (f"ORDELO-dispatch-{real}",))
+    run(db, "STAGE 0")
+    states = dict(db.execute("SELECT thread_id, is_active FROM public.thread WHERE recipient = 'RIDER01'").fetchall())
+    assert states == {f"ORDELO-dispatch-{fake}": False, f"ORDELO-dispatch-{real}": True}
+    db.execute("DELETE FROM public.thread WHERE recipient = 'RIDER01'")
 
 
 def test_stage0_copies_the_linked_chat_to_strk_only_once(db):
@@ -226,7 +244,7 @@ def test_stages_refuse_when_the_strk_restaurant_row_is_missing(db, stage):
 def test_stage1_refuses_when_there_is_no_dummy_rider(db):
     db.execute("DELETE FROM public.rider_master")
     run(db, "STAGE 0")
-    with pytest.raises(Exception, match="no in-shift rider in town dummy"):
+    with pytest.raises(Exception, match="no active in-shift rider in town dummy"):
         run(db, "STAGE 1")
     assert fetch_one(db, "SELECT count(*) FROM public.food_order") == 0
 

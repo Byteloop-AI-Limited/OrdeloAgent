@@ -7,6 +7,7 @@ Mapping (D45, D49, D50):
     request_location  send_message with a one-time "📍 Share current location" reply keyboard
     send_contact    send_contact
     mark            set_message_reaction 👍 / 👎 (Telegram's reaction set has no ✅ / ❌)
+    job_card        send_message with Pickup / Dropoff / Contact inline buttons (RiderJobAction 'rj1:<dispatch_id>:pk|dr|cc')
     offer_job       send_message with Accept / Decline inline buttons (RiderOffer 'ro1:<dispatch_id>:a|d')
     offer_closed    edit the offer in place, buttons removed; NO new message (an edit does not buzz the phone)
 Bot API rules from the restaurant bot apply (plans/telegram-rest-admin-scaffold-plan.md rule 3): the shared session has a
@@ -22,7 +23,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReactionTypeEmoji, ReplyParameters
 from loguru import logger
 
-from channels.telegram.keyboards import location_request_kb, rider_offer_kb
+from channels.telegram.keyboards import location_request_kb, rider_job_card_kb, rider_offer_kb
 
 from .formatting import wa_to_html
 from .models import ContactCard, JobOffer, LinkButton, MsgRef, OfferClosedReason, Place, parse_tg_ref, tg_ref
@@ -34,6 +35,10 @@ CLOSED_TEXT: dict[str, str] = {
     "taken": "❌ Taken by another rider · <b>{order}</b>",
     "expired": "⌛ Offer expired · <b>{order}</b>",
     "cancelled": "🚫 Order cancelled · <b>{order}</b>",
+    "assigned": "✅ The job is yours · <b>{order}</b>",
+    "accepted": "👍 Accepted · <b>{order}</b>\nWaiting for confirmation…",
+    "declined": "Declined · <b>{order}</b>",
+    "gone": "This job is no longer available · <b>{order}</b>",
 }
 
 
@@ -89,6 +94,11 @@ class TelegramRiderMessenger:
             self.tcid, parsed[1], reaction=[ReactionTypeEmoji(emoji=REACTION_OK if ok else REACTION_FAIL)]
         )
 
+    async def job_card(self, header: str, text: str, dispatch_id: int) -> MsgRef:
+        body = f"<b>{escape(header, quote=False)}</b>\n{wa_to_html(text.strip())}"
+        sent = await self.bot.send_message(self.tcid, body, reply_markup=rider_job_card_kb(dispatch_id))
+        return tg_ref(self.tcid, sent.message_id)
+
     async def offer_job(self, offer: JobOffer) -> MsgRef:
         body = f"<b>{escape(offer.header, quote=False)}</b>\n{wa_to_html(offer.text.strip())}"
         sent = await self.bot.send_message(self.tcid, body, reply_markup=rider_offer_kb(offer.dispatch_id))
@@ -99,7 +109,9 @@ class TelegramRiderMessenger:
         if parsed is None or parsed[0] != self.tcid:
             logger.warning(f"telegram[rider]: offer_closed without a Telegram offer ref ({ref!r}); nothing to edit")
             return
-        text = CLOSED_TEXT[reason].format(order=escape(order_number, quote=False))
+        text = CLOSED_TEXT[reason].format(order=escape(order_number or "", quote=False))
+        if not order_number:  # the offer row is gone and its order unknown: no empty "· <b></b>"
+            text = text.replace(" · <b></b>", "")
         try:
             await self.bot.edit_message_text(text, chat_id=self.tcid, message_id=parsed[1], reply_markup=None)
         except TelegramBadRequest as e:  # already edited, or deleted by the rider: the buttons are gone either way
