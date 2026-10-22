@@ -24,7 +24,7 @@
    "file": "dispatch/enquire_shift_availability.sql",
    "function": "enquire_shift_availability",
    "job": "enquire_shift_availability",
-   "line": 101,
+   "line": 99,
    "schedule": "0 11 * * *"
   },
   {
@@ -82,12 +82,12 @@
    "schedule": "* * * * *"
   },
   {
-   "active": false,
+   "active": true,
    "command": "SELECT public.job_pause_sweep()",
    "file": "availability/job_pause_sweep.sql",
    "function": "job_pause_sweep",
    "job": "job_pause_sweep",
-   "line": 142,
+   "line": 144,
    "schedule": "* * * * *"
   },
   {
@@ -114,7 +114,7 @@
    "file": "telegram/t_order_alerts.sql",
    "function": "job_t_order_alerts",
    "job": "job_t_order_alerts",
-   "line": 714,
+   "line": 712,
    "schedule": "5 seconds"
   },
   {
@@ -123,7 +123,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "function": "job_t_receipt_refresh",
    "job": "job_t_receipt_refresh",
-   "line": 1030,
+   "line": 1029,
    "schedule": "5 seconds"
   },
   {
@@ -1582,25 +1582,25 @@
    "called_by": {
     "job_pause_sweep": [
      {
-      "text": "'job_pause_sweep' * * * * * (created by migrations/rider_telegram_r5_r6.sql step 6)",
+      "text": "'job_pause_sweep' */5 * * * * on live at 2026-10-22; target * * * * * in step 6",
       "via": "cron"
      }
     ]
    },
    "cron": [
     {
-     "active": false,
+     "active": true,
      "command": "SELECT public.job_pause_sweep()",
      "file": "availability/job_pause_sweep.sql",
      "function": "job_pause_sweep",
      "job": "job_pause_sweep",
-     "line": 142,
+     "line": 144,
      "schedule": "* * * * *"
     }
    ],
    "folder": "availability",
-   "header_lines": 39,
-   "lines": 158,
+   "header_lines": 38,
+   "lines": 157,
    "objects": [
     {
      "description": "Close expired pauses, then POST the due \"ends soon\" and \"back on\" messages; mark them only on a 2xx reply.",
@@ -1632,12 +1632,12 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "job_pause_sweep:\n  cron      'job_pause_sweep' * * * * * (created by migrations/rider_telegram_r5_r6.sql step 6)",
+    "CALLED BY": "job_pause_sweep:\n  cron      'job_pause_sweep' */5 * * * * on live at 2026-10-22; target * * * * * in step 6",
     "GOTCHAS": "The 24-hour window on ANNOUNCE stops a backlog of stale \"you're back on\" messages after a long outage.\nORDELO_APP_URL is shared by test and local runs (see the restaurant plan's known limits): point it at the\n  instance that should send the messages.",
-    "HOW IT FITS": "ADR 0013. The sweep never decides availability (is_paused() does, from the clock); it only:\n  1. CLOSE:   open rows whose ends_at passed -> ended_at = ends_at, end_reason = 'expired' (bookkeeping only).\n  2. REMIND:  open rows ending within PAUSE_REMIND_BEFORE_MINS, not yet reminded   -> payload \"ending_soon\".\n  3. ANNOUNCE: rows closed as 'expired' in the last 24 h whose announced_at is NULL  -> payload \"ended\".\n  4. POST {event_type: 'pause_sweep', ending_soon: [...], ended: [...]} to /pause-hooks/sweep; on 2xx set\n     reminded_at / announced_at for exactly the pause_ids that were sent. A failed POST leaves them for the next\n     minute, so a message is late, never lost and never wrong about availability.\n  Each item: {pause_id, audience, principal, scope, ends_at}. The app routes by audience: 'rider' ->\n  RiderMessenger.for_rider(principal) (ordelo/rider_messaging/: the rider's channel), 'rest_admin' -> the\n  restaurant bot, in the admin's own chats for that restaurant (t_admin_pause_chats(), telegram/t_admin_pauses.sql).\n  Python: watomation/routers/pause_hooks.py <- POST /pause-hooks/sweep (answers 200 at once and sends in the\n  background, like the order-alerts route: a send that fails after the 2xx is logged, not retried).",
+    "HOW IT FITS": "ADR 0013. The sweep never decides availability (is_paused() does, from the clock); it only:\n  1. CLOSE:   open rows whose ends_at passed -> ended_at = ends_at, end_reason = 'expired' (bookkeeping only).\n  2. REMIND:  open rows ending within PAUSE_REMIND_BEFORE_MINS, not yet reminded   -> payload \"ending_soon\".\n  3. ANNOUNCE: rows closed as 'expired' in the last 24 h whose announced_at is NULL  -> payload \"ended\".\n  4. POST {event_type: 'pause_sweep', ending_soon: [...], ended: [...]} to /pause-hooks/sweep; on 2xx set\n     reminded_at / announced_at for exactly the pause_ids handed to the app. A failed POST leaves them for the next\n     scheduled run. A later background send failure is logged but not retried; availability remains clock-derived.\n  Each item: {pause_id, audience, principal, scope, ends_at}. The app routes by audience: 'rider' ->\n  RiderMessenger.for_rider(principal) (ordelo/rider_messaging/: the rider's channel), 'rest_admin' -> the\n  restaurant bot, in the admin's own chats for that restaurant (t_admin_pause_chats(), telegram/t_admin_pauses.sql).\n  Python: watomation/routers/pause_hooks.py <- POST /pause-hooks/sweep (answers 200 at once and sends in the\n  background, like the order-alerts route: a send that fails after the 2xx is logged, not retried).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none (the pause lifecycle is in availability/pauses.sql)",
-    "LIVE CHECK": "NOT yet live (written in phase R1 of plans/telegram-rider-bot-plan.md). migrations/rider_telegram_r5_r6.sql step 6\n  applies this whole file AFTER the R5-R6 code (POST /pause-hooks/sweep) is deployed. Applying earlier is harmless:\n  with no pauses the job returns before any HTTP call.",
+    "LIVE CHECK": "job_pause_sweep() matches the live function on 2026-10-22. The live pg_cron job is ACTIVE at */5 * * * *;\nthe runnable schedule below targets * * * * * (R5-R6 migration step 6, after deploying /pause-hooks/sweep).",
     "OBJECTS": "fn     job_pause_sweep() -> boolean\n    Close expired pauses, then POST the due \"ends soon\" and \"back on\" messages; mark them only on a 2xx reply.",
     "PYTHON MODEL": "none",
     "REQUIRES": "availability/pauses.sql\ncore/ordelo_config.sql",
@@ -1654,7 +1654,7 @@
     "tests/sql/test_pauses_sql.py",
     "tests/watomation/routers/test_pause_hooks.py"
    ],
-   "title": "Every minute: close expired pauses and ask the app to send \"your break ends soon\" and \"you're back on\"."
+   "title": "Target every minute: close expired pauses and ask the app to send \"your break ends soon\" and \"you're back on\"."
   },
   {
    "called_by": {
@@ -1797,7 +1797,7 @@
     "HOW IT FITS": "ADR 0013. Availability is DERIVED, never flipped back by a job:\n  is_paused(audience, principal, scope) = an open row (ended_at IS NULL) with starts_at <= now() < ends_at.\n  The moment ends_at passes the person is available again, with no job involved, so a late, failed or\n  mis-pointed sweep can only delay a MESSAGE, never leave someone switched off.\nAudiences: 'rider' (principal = rider_master.rider_id, scope NULL = all jobs) and 'rest_admin' (principal = the\n  admin's phone as in restaurant_master.admins, digits only; scope = rest_ref, so an admin of two restaurants\n  pauses each one separately).\nReaders: get_available_riders() (dispatch/job_create_dispatch.sql) skips paused riders; t_alert_destinations()\n  (telegram/t_order_alerts.sql) leaves paused admins out of NEW Telegram order cards, kitchen receipts and\n  notices (R6). Copies already in a paused admin's chat keep being updated and their buttons keep working:\n  a pause stops new alerts, it never removes access (t_order_card_destinations() is unchanged).\n  WhatsApp alerts to restaurant admins are not affected (the plan's hard rule: WhatsApp unchanged).\nWriters: pause_start() / pause_end(): riders through ordelo/pauses.py (rider bot /off, /on, R5); restaurant\n  admins through t_admin_pause() / t_admin_resume() (telegram/t_admin_pauses.sql, restaurant bot /off, /on, R6).\nLast-admin guard (D52): pause_start('rest_admin', phone, rest_ref, ...) answers 'not_allowed' when no OTHER\n  admin of that restaurant (restaurant_master.admins) would stay unpaused, and 'not_admin' when the phone is not\n  one of its admins. Two admins pausing at the same moment are serialised by an advisory lock per restaurant,\n  so they cannot both pass the guard.\nMessages: job_pause_sweep() (availability/job_pause_sweep.sql) closes expired rows and asks the app to send\n  \"your break ends soon\" and \"you're back on\" (POST /pause-hooks/sweep, watomation/routers/pause_hooks.py).\nDurations: ordelo_config PAUSE_DURATIONS_<AUDIENCE> (comma-separated keys like 6h,1d,3d). Only listed keys are\n  accepted, so nobody can pause indefinitely; the longest listed key is also the cap.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "open (ended_at NULL, now() < ends_at) --pause_start again--> same row, new ends_at, reminded_at cleared ('extended')\nopen --pause_end--> ended (end_reason 'resumed' | 'operator', announced_at = now(): the bot already replied)\nopen --ends_at passes--> not paused at once; job_pause_sweep() then sets ended_at = ends_at, end_reason 'expired'\nended 'expired' --sweep POST 2xx--> announced_at set (\"you're back on\" sent)\nAn expired-but-unswept row found by pause_start() is closed there ('expired', announced_at = now()) before the\n  new pause starts, so the person gets one message, not two.\nRESULT VOCABULARY (jsonb {result, ...})\n  pause_start:   paused | extended | bad_duration | bad_audience | not_admin | not_allowed (the last two:\n                 rest_admin only)\n  pause_end:     resumed | not_paused\n  pause_current: paused | not_paused\nRows are kept (audit); no housekeeping deletes them.",
-    "LIVE CHECK": "Live since 2026-10-22 (migrations/rider_telegram_r1.sql step 3; ADR 0013). Phases R5-R6 (pause_options(), the\n  restaurant-admin last-admin guard in pause_start()) are applied by migrations/rider_telegram_r5_r6.sql step 3.",
+    "LIVE CHECK": "Live since 2026-10-22 (migrations/rider_telegram_r1.sql step 3; ADR 0013). R5-R6 pause_options() and the\n  restaurant-admin last-admin guard in pause_start() were verified live on 2026-10-22.",
     "OBJECTS": "table  pauses\n    One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended.\nfn     pause_duration(p_audience text, p_duration text) -> interval\n    The interval for a duration key such as '6h' or '1d' if ordelo_config allows it for this audience, else NULL.\nfn     pause_options(p_audience text) -> jsonb\n    The duration keys a person of this audience may pick, in ordelo_config order (the /off buttons).\nfn     is_paused(p_audience text, p_principal text, p_scope text) -> boolean\n    true while an open pause covers now(); the ONE place that answers \"is this person paused?\".\nfn     pause_current(p_audience text, p_principal text, p_scope text) -> jsonb\n    The pause covering now(), or {result: 'not_paused'}; read-only.\nfn     pause_start(p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text) -> jsonb\n    Start a pause, or move the end time of the current one (never stacks); the end time is mandatory.\nfn     pause_end(p_audience text, p_principal text, p_scope text, p_reason text) -> jsonb\n    End the current pause early ('resumed' by the person, 'operator' by Ordelo).",
     "PYTHON MODEL": "ordelo/pauses.py (Pause, PauseOutcome)",
     "REQUIRES": "core/ordelo_config.sql\ncore/restaurant_master.sql",
@@ -1869,7 +1869,7 @@
     "HOW IT FITS": "is_in_shift is one of the dispatch gates (get_available_riders(): status = 'active' AND is_in_shift AND not paused).\n  WhatsApp riders answer the daily shift question (dispatch/enquire_shift_availability.sql, 11:00 UTC): \"Yes\"\n  -> rider_set_shift(rider, true); \"No\" -> rider_set_shift(rider, false) (watomation/on_callback_wa_handler.py).\n  Telegram riders are on by default and step away with a pause instead (availability/pauses.sql, ADR 0013); /on\n  on the rider bot calls rider_set_shift(rider, true) as well, so a Telegram rider whose flag was cleared (by an\n  operator, or by the shift question before R5) is switched back on by the same gate.\n  The status gate (D41): only status = 'active' (exact) may start a shift; a Telegram sign-up starts 'inactive'\n  and stays out of dispatch until an operator activates it, whatever the rider taps.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  p_on true:  on | not_active (+ status) | not_found\n  p_on false: off | on_job (+ order_number) | not_found\non sets is_in_shift = true and shift_response_dtts = now(); off sets is_in_shift = false (shift_response_dtts kept,\n  as the WhatsApp \"No\" always did).",
-    "LIVE CHECK": "NOT yet live (phase R5 of plans/telegram-rider-bot-plan.md). migrations/rider_telegram_r5_r6.sql step 3 applies it.",
+    "LIVE CHECK": "Live on 2026-10-22: rider_set_shift() was verified against the R5-R6 definition.",
     "OBJECTS": "fn     rider_set_shift(p_rider_id text, p_on boolean) -> jsonb\n    Start (p_on) or end a rider's shift: only an 'active' rider can start, and nobody can end one during a job.",
     "PYTHON MODEL": "ordelo/rider_shift.py (ShiftOutcome)",
     "REQUIRES": "core/rider_master.sql\ndispatch/delivery_inflight.sql",
@@ -4002,13 +4002,13 @@
      "file": "dispatch/enquire_shift_availability.sql",
      "function": "enquire_shift_availability",
      "job": "enquire_shift_availability",
-     "line": 101,
+     "line": 99,
      "schedule": "0 11 * * *"
     }
    ],
    "folder": "dispatch",
-   "header_lines": 30,
-   "lines": 117,
+   "header_lines": 28,
+   "lines": 115,
    "objects": [
     {
      "description": "POST the active WhatsApp riders to the shift-availability webhook; returns true on success.",
@@ -4044,7 +4044,7 @@
     "HOW IT FITS": "cron 'enquire_shift_availability' (11:00 UTC) -> enquire_shift_availability() POSTs all rider_master rows with\n  status = 'active' AND channel = 'whatsapp' to /delivery-hooks/shift-availability-enquiry -> the endpoint sets\n  is_in_shift = false for them and sends the WhatsApp shift question; a 'yes' sets is_in_shift = true again through\n  rider_set_shift() (availability/rider_shift.sql; watomation/on_callback_wa_handler.py).\nTelegram riders (channel 'telegram') are never asked (D53): they can be messaged at any time, are on by default\n  and step away with /off (availability/pauses.sql, ADR 0013). The endpoint also switches off and asks only\n  rows that still say 'whatsapp', so a rider who moved to Telegram between the query and the POST is left alone.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.\nEXCEPT phase R5 of plans/telegram-rider-bot-plan.md (not yet live; migrations/rider_telegram_r5_r6.sql step 3 applies\n  this whole file): only channel = 'whatsapp' riders are asked (D53).",
+    "LIVE CHECK": "R5 WhatsApp-only rider filter verified live on 2026-10-22; the function body matches this file.",
     "OBJECTS": "fn     enquire_shift_availability() -> boolean\n    POST the active WhatsApp riders to the shift-availability webhook; returns true on success.",
     "PYTHON MODEL": "none",
     "REQUIRES": "core/rider_master.sql",
@@ -4704,9 +4704,9 @@
    "cron": [],
    "folder": "migrations",
    "header_lines": 0,
-   "lines": 188,
+   "lines": 190,
    "migration": {
-    "applied": "NOT YET (prepared 2026-10-22; the owner applies it).",
+    "applied": "Steps 1-3 verified on 2026-10-22 (VERIFY true / 7 / true / true / 4 / 0 after the owner applied restaurant_ready_adjust_notices.sql). Code and both command menus deployed per owner. Step 6 remains: the active job_pause_sweep job runs every five minutes on live; availability/job_pause_sweep.sql targets every minute.",
     "current": [
      "rider_location/wa_location.sql, availability/pauses.sql, availability/rider_shift.sql,",
      "dispatch/enquire_shift_availability.sql, telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql,",
@@ -6766,13 +6766,13 @@
      "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
      "function": "job_t_receipt_refresh",
      "job": "job_t_receipt_refresh",
-     "line": 1030,
+     "line": 1029,
      "schedule": "5 seconds"
     }
    ],
    "folder": "restaurant_admin",
-   "header_lines": 117,
-   "lines": 1071,
+   "header_lines": 116,
+   "lines": 1070,
    "objects": [
     {
      "description": "Ready, shared by every channel: record the first Ready tap per dispatch (delivery) or per order (takeaway).",
@@ -6879,7 +6879,7 @@
     "HOW IT FITS": "After a restaurant accepts and a rider takes the job, the kitchen gets one message (the receipt) with Ready, +10 and +20\n  (plans/telegram-phase-7-8-kitchen-actions-and-notices.md, D28-D38). One rule for both channels, atomic:\n    Ready: first tap per dispatch wins (ready_at / ready_by / ready_dispatch_id on delivery_summary; takeaway too).\n    +N:    relative to the original pickup (pickup_time_initial); a repeat that changes nothing writes nothing. The UPDATE sets\n           restaurant_confirmation_status 'restaurant_pickuptime_adjusted', so trigger_restaurant_updates POSTs and Python tells\n           the rider; Ready changes no confirmation status, so no trigger fires and the follow-up is Python's.\n  Gate (D31, same as ordelo/delivery_progress.check_delivery_progress): a delivery_inflight row exists and its dispatch is\n  not 'pickedup' / 'completed'; takeaway: status 'pickup_confirmed'.\n  Telegram receipts are t_sent_messages rows (kind 'receipt') that follow the database: a WhatsApp tap changes the receipt\n  status key, job_t_receipt_refresh() (5 s) notices and every Telegram copy is edited. Plain notices (auto-accept, rider\n  alerts, delivered, feedback) are recorded as kind 'notice' for audit.\n  Pauses (R6): a NEW receipt or notice goes to t_alert_destinations() (telegram/t_order_alerts.sql), which leaves\n  out admins who paused their alerts (/off on the restaurant bot); receipts already sent keep being refreshed and\n  tapped (t_receipts_stale() still uses t_order_card_destinations()).\n  Tables used: delivery_summary, takeaway_summary, delivery_inflight, delivery_dispatch, rider_master, restaurant_master,\n  food_order / order_item (restaurant-agents), t_invites, t_sent_messages.\n  Python: utils_common/order_management/restaurant_actions.py ready() / adjust_pickup() (WhatsApp and Telegram actors);\n          channels/telegram/rest_admin/receipts/store.py ReceiptStore; channels/telegram/rest_admin/notices.py Notices;\n          watomation/routers/telegram_order_alerts.py <- job_t_receipt_refresh().",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  restaurant_order_ready:          ok | already_ready | not_ready_state | not_found\n  restaurant_order_adjust_pickup:  ok | unchanged | not_ready_state | not_found\n  t_order_ready / t_order_adjust_pickup: the same, plus not_authorised (checked right after not_found)\nReceipt status keys (must match channels/telegram/rest_admin/receipts/model.py ReceiptStatus):\n  delivery: gone | done | picked_up | ready@HH:MI | open@HH:MI | rider_cancelled ; takeaway: gone | done | ready@HH:MI | open@HH:MI",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.\nEXCEPT phase R6 of plans/telegram-rider-bot-plan.md (not yet live; migrations/rider_telegram_r5_r6.sql step 3 applies\n  this whole file): t_receipt_snapshot() and t_notice_targets() send to t_alert_destinations() (paused admins left out).",
+    "LIVE CHECK": "R6 t_receipt_snapshot() and t_notice_targets() verified live on 2026-10-22 after the owner applied this file;\nboth now use t_alert_destinations() for new sends. Other objects were last compared on 2026-10-16.",
     "OBJECTS": "fn     restaurant_order_ready(p_order_number text, p_order_type text, p_admin_phone text, p_channel text) -> jsonb\n    Ready, shared by every channel: record the first Ready tap per dispatch (delivery) or per order (takeaway).\nfn     restaurant_order_adjust_pickup(p_order_number text, p_target timestamp with time zone, p_admin_phone text, p_channel text) -> jsonb\n    Move a live delivery's pickup to p_target (+10 / +20 from the original); a no-op repeat writes nothing.\nfn     t_order_ready(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text) -> jsonb\n    Telegram Ready: authorise the tapping person (D14), then restaurant_order_ready().\nfn     t_order_adjust_pickup(p_bot_key text, p_tuid bigint, p_order_number text, p_minutes integer) -> jsonb\n    Telegram +N: authorise, compute the target (original pickup + 10 or 20), then restaurant_order_adjust_pickup().\nfn     t_receipt_status(p_order_number text, p_order_type text, p_dispatch_id integer) -> text\n    Compute the receipt status key for an order from the database (gone, done, picked_up, ready@HH:MI, open@HH:MI, rider_cancelled).\nfn     t_receipt_snapshot(p_bot_key text, p_order_number text, p_order_type text, p_dispatch_id integer) -> jsonb\n    Return everything needed to draw one receipt, plus its destinations and reply targets, in one read.\nfn     t_receipt_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_order_number text, p_order_type text, p_rest_ref text, p_dispatch_id integer, p_status text) -> jsonb\n    Record a sent receipt copy and take OLDER receipt copies in that chat for deletion (D35).\nfn     t_receipts_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, dispatch_id integer, authorised boolean, viewer_phone text)\n    List receipt copies whose status key no longer matches the database (read-only).\nfn     t_receipts_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Claim one order's stale receipt copies for one refresh pass (state 'taken').\nfn     t_notice_targets(p_bot_key text, p_rest_ref text, p_order_number text, p_reply_kind text) -> TABLE(tcid bigint, tuid bigint, phone text, reply_to bigint)\n    Return the destinations and reply target for a plain notice to a restaurant's Telegram admins (D36).\nfn     t_notice_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_rest_ref text, p_order_number text, p_notice text) -> void\n    Write an audit row for a sent notice, closed at once (nothing to edit or delete later).\nfn     job_t_receipt_refresh() -> boolean\n    Every 5 seconds: POST orders with stale receipt copies to /telegram/rest-admin/order-alerts (only when there are any).",
     "PYTHON MODEL": "none",
     "REQUIRES": "dispatch/delivery_dispatch.sql\ndispatch/delivery_inflight.sql\ndelivery/delivery_summary.sql\ntakeaway/takeaway_summary.sql\ntelegram/t_order_alerts.sql\ntelegram/t_sent_messages.sql",
@@ -7297,8 +7297,8 @@
    },
    "cron": [],
    "folder": "rider_location",
-   "header_lines": 47,
-   "lines": 159,
+   "header_lines": 46,
+   "lines": 158,
    "objects": [
     {
      "description": "One rider location received on demand (rider GPS share, or the restaurant location inferred at confirmation).",
@@ -7338,10 +7338,10 @@
    "sections": {
     "CALLED BY": "wa_location_observation:\n  python    ordelo/wa_location.py: WaLocation.observe_restaurant_confirmation(), WaLocation.receive_current_location(), WaLocation.request(), WaLocation.route_fulfilled_request()\nwa_location_request:\n  python    ordelo/wa_location.py: WaLocation._expire(), WaLocation._expire_pending_for_context(), WaLocation._fulfil(), WaLocation._mark_delivered(), WaLocation._mark_prompt_failed(), WaLocation._prompt_message_id(), WaLocation._request_status(), WaLocation._save_prompt_message_id(), +5 more",
     "GOTCHAS": "wa_location_request_callback_url_length_ck is NOT VALID: older rows were never checked.\nThe trigger expire_wa_location_requests_on_inflight_delete in migrations/create_wa_location_tables.sql was never created live.",
-    "HOW IT FITS": "ordelo/wa_location.py (WaLocation) owns both tables:\n    a customer or restaurant admin asks where the rider is -> wa_location_request (pending; coalesced with an open\n    request for the same order/rider) -> one WhatsApp 'share your location' prompt to the rider\n    -> the rider shares current location (WhatsApp: watomation/on_wa_location_handler.py; Telegram, R5:\n       channels/telegram/rider/location.py) -> wa_location_observation\n    -> every pending request for that order is fulfilled and routed to its callback_url (delivered).\n  /wa-location-hooks routes (watomation/routers/wa_location_hooks.py) open requests; see docs/location_overview.md.",
+    "HOW IT FITS": "ordelo/wa_location.py (WaLocation) owns both tables:\n    a customer or restaurant admin asks where the rider is -> wa_location_request (pending; coalesced with an open\n    request for the same order/rider) -> one channel-appropriate 'share your location' prompt to the rider\n    -> the rider shares current location (WhatsApp: watomation/on_wa_location_handler.py; Telegram, R5:\n       channels/telegram/rider/location.py) -> wa_location_observation\n    -> every pending request for that order is fulfilled and routed to its callback_url (delivered).\n  /wa-location-hooks routes (watomation/routers/wa_location_hooks.py) open requests; see docs/location_overview.md.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "wa_location_observation.source: whatsapp_current (WhatsApp \"Share current location\"), telegram_current (the rider\n  bot's \"Share current location\" button, R5; wa_inbound_message_id holds 'tg:<chat>:<message>'), restaurant_confirmation\n  (inferred at pickup). The callback to requesters keeps its two-value wire vocabulary: telegram_current is sent\n  as 'whatsapp_current' (\"rider's current GPS\"; ordelo_datamodels/wa_location_pymodels.wire_source) until\n  restaurant-agents accepts the new value.\nwa_location_request.status: pending -> fulfilled -> delivered ; pending -> expired | failed\n(wa_location_request_fulfilment_ck keeps observation_id / wa_location_res_time consistent with the status).",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.\nEXCEPT phase R5 of plans/telegram-rider-bot-plan.md (not yet live; migrations/rider_telegram_r5_r6.sql step 1):\n  wa_location_observation_source_check also allows 'telegram_current' (D50).",
+    "LIVE CHECK": "R5 wa_location_observation_source_check allows 'telegram_current' (verified live on 2026-10-22);\nother objects were last compared with live on 2026-10-16.",
     "OBJECTS": "table  wa_location_observation\n    One rider location received on demand (rider GPS share, or the restaurant location inferred at confirmation).\ntable  wa_location_request\n    One requester waiting for (or already sent) the rider's location for an order.",
     "PYTHON MODEL": "none",
     "REQUIRES": "dispatch/delivery_dispatch.sql\ndelivery/delivery_summary.sql",
@@ -7361,7 +7361,7 @@
     "tests/ordelo/test_wa_location.py",
     "tests/channels/telegram/test_rider_location.py"
    ],
-   "title": "On-demand WhatsApp rider location: who asked where the rider is (requests) and the locations received (observations)."
+   "title": "On-demand rider location from WhatsApp or Telegram: requests, observations and their correlation."
   },
   {
    "called_by": {
@@ -7653,7 +7653,7 @@
     "HOW IT FITS": "ADR 0013, D51, D52. The actor is the Telegram USER (tuid = from_user.id), as for every restaurant-bot action (D14):\n  the restaurants come from t_invites (claimed by this tuid) and the phone from t_order_admin_phone() (the invite\n  phone must still be in restaurant_master.admins), so a revoked invite or a removed admin can neither pause\n  nor resume. The pause itself is pauses.pause_start('rest_admin', phone, rest_ref, ...) per restaurant, which\n  applies the durations policy and the last-admin guard; this file only finds the restaurants and the phone.\n  Python: channels/telegram/admin_pauses.py (wrapper), channels/telegram/rest_admin/pauses.py (/off, /on taps),\n  watomation/routers/pause_hooks.py (the sweep messages to an admin, through t_admin_pause_chats()).\n  Effect: while paused, t_alert_destinations() (telegram/t_order_alerts.sql) leaves the admin out of NEW Telegram\n  order cards, kitchen receipts and notices for that restaurant. WhatsApp alerts are unchanged.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  t_admin_pause:  not_linked | ok + restaurants:[{rest_ref, rest_name, result, ends_at}] where result is\n                  pause_start()'s: paused | extended | bad_duration | not_admin | not_allowed (last admin)\n  t_admin_resume: not_linked | ok + restaurants:[{rest_ref, rest_name, result}] (resumed | not_paused)\n  t_admin_pause_status: not_linked | ok + restaurants:[{rest_ref, rest_name, paused, ends_at}] + options:[keys]\n  t_admin_pause_chats: [{tcid, rest_name}] ('[]' when the admin has no linked chat for that restaurant)",
-    "LIVE CHECK": "NOT yet live (phase R6 of plans/telegram-rider-bot-plan.md). migrations/rider_telegram_r5_r6.sql step 3 applies it.",
+    "LIVE CHECK": "Live on 2026-10-22: all four t_admin_pause* functions were verified against the R6 definitions.",
     "OBJECTS": "fn     t_admin_pause(p_bot_key text, p_tuid bigint, p_duration text) -> jsonb\n    Pause this Telegram user's alerts for every restaurant they are a linked admin of, one pause per restaurant.\nfn     t_admin_resume(p_bot_key text, p_tuid bigint) -> jsonb\n    End this Telegram user's alert pauses now, for every restaurant they are a linked admin of.\nfn     t_admin_pause_status(p_bot_key text, p_tuid bigint) -> jsonb\n    Read-only: per linked restaurant, paused or not and until when, plus the durations /off may offer.\nfn     t_admin_pause_chats(p_bot_key text, p_phone text, p_rest_ref text) -> jsonb\n    Read-only: the Telegram chats of one admin for one restaurant (where \"ends soon\" / \"back on\" go).",
     "PYTHON MODEL": "channels/telegram/admin_pauses.py (AdminPauseOutcome, RestaurantPause)",
     "REQUIRES": "availability/pauses.sql\ntelegram/t_invites.sql\ntelegram/t_order_alerts.sql\nrestaurant_admin/restaurant_order_decision.sql\ncore/restaurant_master.sql",
@@ -8118,13 +8118,13 @@
      "file": "telegram/t_order_alerts.sql",
      "function": "job_t_order_alerts",
      "job": "job_t_order_alerts",
-     "line": 714,
+     "line": 712,
      "schedule": "5 seconds"
     }
    ],
    "folder": "telegram",
-   "header_lines": 111,
-   "lines": 749,
+   "header_lines": 109,
+   "lines": 747,
    "objects": [
     {
      "description": "Reminder schedule: one row per order and offset (seconds after the order) with due time and status.",
@@ -8213,7 +8213,7 @@
     "HOW IT FITS": "Telegram order cards (D12, D14, D22, D24, D26): linked admins get the order card at configured offsets after the order\n  arrives; each new copy replaces the previous one in that chat; every copy follows the order until it is final.\n  The database is authoritative and is checked before every send; the ledger (t_sent_messages) only remembers what to tidy.\n    pg_cron every 5 s -> job_t_order_alerts()\n       SEED    delivery_summary + takeaway_summary rows still 'restaurant_unconfirmed' (< 15 min old) with at least one\n               destination -> one t_order_alerts checkpoint per offset (TGRAM_ORDER_ALERT_OFFSETS_SECS, '0,15,30,45')\n       CANCEL  pending checkpoints of orders no longer unconfirmed\n       DUE     pending checkpoints with due_at <= now(); one winner per order (the largest offset)\n       STALE   up to 50 orders with copies that show an old status or a revoked viewer\n       POST    ORDELO_APP_URL/telegram/rest-admin/order-alerts {reminders, refreshes}\n       MARK    only on a 2xx answer: superseded first, then winners 'sent'\n    -> watomation/routers/telegram_order_alerts.py (background tasks)\n       OrderCards.remind() -> snapshot -> send per destination -> t_order_card_sent -> delete old copies\n       OrderCards.refresh() -> snapshot -> t_order_cards_take -> edit/delete -> t_order_card_mark\n  Python: channels/telegram/rest_admin/order_cards/store.py CardStore.snapshot() / card_sent() / take_for_refresh() / mark().\n  Pauses (R6, ADR 0013): NEW copies go to t_alert_destinations() (linked admins minus paused ones); whether a\n  chat may SEE and TAP a card stays t_order_card_destinations(), so a paused admin's existing copies keep\n  being refreshed and their buttons keep working.\n  Card status keys MUST match channels/telegram/rest_admin/order_cards/model.py (Status):\n    awaiting | accepted | pickup_set | declined | auto_accepted | gone\n  Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "t_order_alerts.status: pending -> sent | superseded | cancelled (order decided before the reminder was due).",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.\nEXCEPT phase R6 of plans/telegram-rider-bot-plan.md (not yet live; migrations/rider_telegram_r5_r6.sql step 3 applies\n  this whole file): t_alert_destinations() is new, and t_order_card_snapshot() / job_t_order_alerts() use it.",
+    "LIVE CHECK": "R6 t_alert_destinations(), t_order_card_snapshot() and job_t_order_alerts() verified live on 2026-10-22.",
     "OBJECTS": "table  t_order_alerts\n    Reminder schedule: one row per order and offset (seconds after the order) with due time and status.\nfn     t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text\n    Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).\nfn     t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)\n    Return the order's current state from delivery_summary or takeaway_summary as one row.\nfn     t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)\n    Return where cards for a restaurant go: the linked admins' chats (the one place that says so).\nfn     t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)\n    t_order_card_destinations() without the admins who paused their alerts: where NEW cards, receipts and notices go.\nfn     t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Return everything needed to draw the card (order, items, status, destinations) in one read.\nfn     t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)\n    List orders whose sent copies show an old status or a revoked viewer (read-only).\nfn     t_order_cards_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Claim one order's stale copies for one refresh pass (state 'taken', SKIP LOCKED).\nfn     job_t_order_alerts() -> boolean\n    Every 5 seconds: seed, cancel, find due reminders and stale cards, POST them, and mark them on success.",
     "PYTHON MODEL": "none",
     "REQUIRES": "delivery/delivery_summary.sql\ntakeaway/takeaway_summary.sql\ncore/restaurant_master.sql\ntelegram/t_invites.sql\ntelegram/t_sent_messages.sql\navailability/pauses.sql",
@@ -9597,7 +9597,7 @@
    "file": "dispatch/enquire_shift_availability.sql",
    "folder": "dispatch",
    "kind": "function",
-   "line": 38,
+   "line": 36,
    "role": "definition",
    "signature": "enquire_shift_availability() -> boolean"
   },
@@ -9949,7 +9949,7 @@
   "job_pause_sweep": {
    "called_by": [
     {
-     "text": "'job_pause_sweep' * * * * * (created by migrations/rider_telegram_r5_r6.sql step 6)",
+     "text": "'job_pause_sweep' */5 * * * * on live at 2026-10-22; target * * * * * in step 6",
      "via": "cron"
     }
    ],
@@ -9957,7 +9957,7 @@
    "file": "availability/job_pause_sweep.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 48,
+   "line": 47,
    "role": "definition",
    "signature": "job_pause_sweep() -> boolean"
   },
@@ -10052,7 +10052,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 538,
+   "line": 536,
    "role": "definition",
    "signature": "job_t_order_alerts() -> boolean"
   },
@@ -10071,7 +10071,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 971,
+   "line": 970,
    "role": "definition",
    "signature": "job_t_receipt_refresh() -> boolean"
   },
@@ -10807,7 +10807,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 264,
+   "line": 263,
    "role": "definition",
    "signature": "restaurant_order_adjust_pickup(p_order_number text, p_target timestamp with time zone, p_admin_phone text, p_channel text) -> jsonb"
   },
@@ -10849,7 +10849,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 136,
+   "line": 135,
    "role": "definition",
    "signature": "restaurant_order_ready(p_order_number text, p_order_type text, p_admin_phone text, p_channel text) -> jsonb"
   },
@@ -11335,7 +11335,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 295,
+   "line": 293,
    "role": "definition",
    "signature": "t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)"
   },
@@ -11527,7 +11527,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 941,
+   "line": 940,
    "role": "definition",
    "signature": "t_notice_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_rest_ref text, p_order_number text, p_notice text) -> void"
   },
@@ -11542,7 +11542,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 890,
+   "line": 889,
    "role": "definition",
    "signature": "t_notice_targets(p_bot_key text, p_rest_ref text, p_order_number text, p_reply_kind text) -> TABLE(tcid bigint, tuid bigint, phone text, reply_to bigint)"
   },
@@ -11557,7 +11557,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 376,
+   "line": 375,
    "role": "definition",
    "signature": "t_order_adjust_pickup(p_bot_key text, p_tuid bigint, p_order_number text, p_minutes integer) -> jsonb"
   },
@@ -11607,7 +11607,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "table",
-   "line": 120,
+   "line": 118,
    "role": "definition",
    "signature": "t_order_alerts"
   },
@@ -11634,7 +11634,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 253,
+   "line": 251,
    "role": "definition",
    "signature": "t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)"
   },
@@ -11680,7 +11680,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 195,
+   "line": 193,
    "role": "definition",
    "signature": "t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)"
   },
@@ -11710,7 +11710,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 330,
+   "line": 328,
    "role": "definition",
    "signature": "t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb"
   },
@@ -11733,7 +11733,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 153,
+   "line": 151,
    "role": "definition",
    "signature": "t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text"
   },
@@ -11752,7 +11752,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 394,
+   "line": 392,
    "role": "definition",
    "signature": "t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)"
   },
@@ -11767,7 +11767,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 452,
+   "line": 450,
    "role": "definition",
    "signature": "t_order_cards_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb"
   },
@@ -11805,7 +11805,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 331,
+   "line": 330,
    "role": "definition",
    "signature": "t_order_ready(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text) -> jsonb"
   },
@@ -11843,7 +11843,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 663,
+   "line": 662,
    "role": "definition",
    "signature": "t_receipt_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_order_number text, p_order_type text, p_rest_ref text, p_dispatch_id integer, p_status text) -> jsonb"
   },
@@ -11858,7 +11858,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 501,
+   "line": 500,
    "role": "definition",
    "signature": "t_receipt_snapshot(p_bot_key text, p_order_number text, p_order_type text, p_dispatch_id integer) -> jsonb"
   },
@@ -11881,7 +11881,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 424,
+   "line": 423,
    "role": "definition",
    "signature": "t_receipt_status(p_order_number text, p_order_type text, p_dispatch_id integer) -> text"
   },
@@ -11900,7 +11900,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 752,
+   "line": 751,
    "role": "definition",
    "signature": "t_receipts_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, dispatch_id integer, authorised boolean, viewer_phone text)"
   },
@@ -11915,7 +11915,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 812,
+   "line": 811,
    "role": "definition",
    "signature": "t_receipts_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb"
   },
@@ -12328,7 +12328,7 @@
    "file": "rider_location/wa_location.sql",
    "folder": "rider_location",
    "kind": "table",
-   "line": 53,
+   "line": 52,
    "role": "definition",
    "signature": "wa_location_observation"
   },
@@ -12343,7 +12343,7 @@
    "file": "rider_location/wa_location.sql",
    "folder": "rider_location",
    "kind": "table",
-   "line": 98,
+   "line": 97,
    "role": "definition",
    "signature": "wa_location_request"
   },

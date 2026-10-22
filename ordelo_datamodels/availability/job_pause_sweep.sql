@@ -1,10 +1,9 @@
 -- =============================================================================================
 -- ordelo_datamodels/availability/job_pause_sweep.sql
--- Every minute: close expired pauses and ask the app to send "your break ends soon" and "you're back on".
+-- Target every minute: close expired pauses and ask the app to send "your break ends soon" and "you're back on".
 -- =============================================================================================
--- LIVE CHECK    NOT yet live (written in phase R1 of plans/telegram-rider-bot-plan.md). migrations/rider_telegram_r5_r6.sql step 6
---                 applies this whole file AFTER the R5-R6 code (POST /pause-hooks/sweep) is deployed. Applying earlier is harmless:
---                 with no pauses the job returns before any HTTP call.
+-- LIVE CHECK    job_pause_sweep() matches the live function on 2026-10-22. The live pg_cron job is ACTIVE at */5 * * * *;
+--               the runnable schedule below targets * * * * * (R5-R6 migration step 6, after deploying /pause-hooks/sweep).
 -- OBJECTS       fn     job_pause_sweep() -> boolean
 --                   Close expired pauses, then POST the due "ends soon" and "back on" messages; mark them only on a 2xx reply.
 -- REQUIRES      availability/pauses.sql
@@ -17,8 +16,8 @@
 --                 2. REMIND:  open rows ending within PAUSE_REMIND_BEFORE_MINS, not yet reminded   -> payload "ending_soon".
 --                 3. ANNOUNCE: rows closed as 'expired' in the last 24 h whose announced_at is NULL  -> payload "ended".
 --                 4. POST {event_type: 'pause_sweep', ending_soon: [...], ended: [...]} to /pause-hooks/sweep; on 2xx set
---                    reminded_at / announced_at for exactly the pause_ids that were sent. A failed POST leaves them for the next
---                    minute, so a message is late, never lost and never wrong about availability.
+--                    reminded_at / announced_at for exactly the pause_ids handed to the app. A failed POST leaves them for the next
+--                    scheduled run. A later background send failure is logged but not retried; availability remains clock-derived.
 --                 Each item: {pause_id, audience, principal, scope, ends_at}. The app routes by audience: 'rider' ->
 --                 RiderMessenger.for_rider(principal) (ordelo/rider_messaging/: the rider's channel), 'rest_admin' -> the
 --                 restaurant bot, in the admin's own chats for that restaurant (t_admin_pause_chats(), telegram/t_admin_pauses.sql).
@@ -26,7 +25,7 @@
 --                 background, like the order-alerts route: a send that fails after the 2xx is logged, not retried).
 -- LIFECYCLE     none (the pause lifecycle is in availability/pauses.sql)
 -- CALLED BY     job_pause_sweep:
---                 cron      'job_pause_sweep' * * * * * (created by migrations/rider_telegram_r5_r6.sql step 6)
+--                 cron      'job_pause_sweep' */5 * * * * on live at 2026-10-22; target * * * * * in step 6
 -- PYTHON MODEL  none
 -- SECURITY      job_pause_sweep(): REVOKE ALL FROM PUBLIC, anon, authenticated (pg_cron runs it as the owner).
 -- TESTS         tests/sql/test_pauses_sql.py
@@ -139,7 +138,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.job_pause_sweep () FROM PUBLIC, anon, authenticated;
 
--- pg_cron job 'job_pause_sweep': runs every * * * * *, INACTIVE (not yet created on live; migrations/rider_telegram_r5_r6.sql step 6) on live.
+-- pg_cron job 'job_pause_sweep': ACTIVE every */5 * * * * on live at 2026-10-22; this statement sets the R5-R6 target of * * * * *.
 -- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('job_pause_sweep', '* * * * *', 'SELECT public.job_pause_sweep()');

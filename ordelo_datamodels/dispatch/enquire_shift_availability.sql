@@ -2,9 +2,7 @@
 -- ordelo_datamodels/dispatch/enquire_shift_availability.sql
 -- Daily: ask every active WhatsApp rider whether they are working today (Telegram riders use /off instead).
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
---               EXCEPT phase R5 of plans/telegram-rider-bot-plan.md (not yet live; migrations/rider_telegram_r5_r6.sql step 3 applies
---                 this whole file): only channel = 'whatsapp' riders are asked (D53).
+-- LIVE CHECK    R5 WhatsApp-only rider filter verified live on 2026-10-22; the function body matches this file.
 -- OBJECTS       fn     enquire_shift_availability() -> boolean
 --                   POST the active WhatsApp riders to the shift-availability webhook; returns true on success.
 -- REQUIRES      core/rider_master.sql

@@ -18,10 +18,10 @@ The SQL under `ordelo_datamodels/` is organised by capability. Each file starts 
 | [`delivery/`](delivery/) | Delivery orders | 6 | 12 | The delivery order as fulfilment sees it (delivery_summary), its priced vehicle options and the 5-second job that opens the next option or times the order out. |
 | [`dispatch/`](dispatch/) | Rider dispatch | 10 | 18 | Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep. |
 | [`takeaway/`](takeaway/) | Takeaway (collection) | 2 | 7 | The collection order (takeaway_summary), its creation and the triggers that tell admins and customers about it. |
-| [`restaurant_admin/`](restaurant_admin/) | Restaurant admin actions | 6 | 22 | Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout and the daily availability question. |
-| [`telegram/`](telegram/) | Telegram layer | 7 | 32 | Invite links, the at-most-once update inbox, order cards with reminders, the ledger of sent messages and the daily purge. |
-| [`rider_location/`](rider_location/) | Rider location | 6 | 9 | OwnTracks GPS fixes and region events from a pgmq queue, and on-demand WhatsApp location requests. |
-| [`availability/`](availability/) | Availability pauses | 3 | 9 | Pauses with a mandatory end time for riders (later restaurant admins): is_paused() computes availability from the clock; job_pause_sweep() only sends the ends-soon and back-on messages (ADR 0013). |
+| [`restaurant_admin/`](restaurant_admin/) | Restaurant admin actions | 6 | 22 | Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout, receipts and notices. New Telegram receipts and notices exclude paused admins. |
+| [`telegram/`](telegram/) | Telegram layer | 7 | 32 | Admin and rider links, the protected update inbox, order cards, alert destinations, admin pause RPCs and the sent-message ledger. |
+| [`rider_location/`](rider_location/) | Rider location | 6 | 9 | OwnTracks GPS fixes and region events from a pgmq queue, plus correlated on-demand WhatsApp and Telegram location replies. |
+| [`availability/`](availability/) | Rider shifts and availability pauses | 3 | 9 | WhatsApp rider shifts and mandatory-end pauses for riders and restaurant admins. is_paused() computes availability from the clock; job_pause_sweep() only closes expired rows and asks the app to send ends-soon and back-on messages (ADR 0013). |
 | [`agent_threads/`](agent_threads/) | Agent threads | 4 | 11 | Reading LangGraph checkpoints and closing idle conversation threads (OrdeloAgent and restaurant-agents). |
 | [`admin_dashboard/`](admin_dashboard/) | Admin dashboard | 3 | 6 | Magic-link sessions, the order views behind the restaurant dashboard and the rider payout report. |
 | [`platform/`](platform/) | Platform and operations | 6 | 5 | HTTP helpers, cron housekeeping and the Fly.io / AWS App Runner switches. |
@@ -50,7 +50,7 @@ Statuses live in delivery_summary.status. Three 5-second cron jobs move an order
 - **1 Create** — init_delivery() inserts the summary: 'restaurant_unconfirmed', or 'unassigned' with a pickup time when resolve_initial_restaurant_acceptance() says the restaurant auto-accepts. (`init_delivery`, `delivery_summary`, `resolve_initial_restaurant_acceptance`)
 - **2 Confirm** — trigger_restaurant_updates POSTs /delivery-hooks/restaurant-confirmation-request; admins answer by WhatsApp or Telegram. restaurant_order_decide() and restaurant_order_set_pickup() record the answer; process_restaurant_confirmation() (10 s) times out unanswered orders. (`trigger_restaurant_updates`, `restaurant_updates_whook`, `restaurant_order_decide`, `restaurant_order_set_pickup`, `process_restaurant_confirmation`)
 - **3 Options** — process_delivery() (5 s) opens one delivery_detail row per vehicle type by delivery_option rank, and marks the order 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout). (`process_delivery`, `delivery_detail`, `delivery_option`, `trigger_delivery_summary_timedout`)
-- **4 Offers** — job_create_dispatch() (5 s) inserts delivery_dispatch offers for get_available_riders(); the statement trigger POSTs /delivery-hooks/delivery-dispatch and riders get a WhatsApp offer. (`job_create_dispatch`, `get_available_riders`, `delivery_dispatch`, `trigger_delivery_dispatch_whook`)
+- **4 Offers** — job_create_dispatch() (5 s) inserts delivery_dispatch offers for get_available_riders(), which requires an active, in-shift, unpaused rider. The statement trigger POSTs /delivery-hooks/delivery-dispatch; each rider's channel determines whether the offer goes to WhatsApp or Telegram. (`job_create_dispatch`, `get_available_riders`, `delivery_dispatch`, `trigger_delivery_dispatch_whook`, `is_paused`)
 - **5 Assign** — job_assign_dispatch() (5 s) gives the order to the first acceptance (assign_accepted_dispatch): dispatch, detail and summary 'assigned' and a delivery_inflight row, whose trigger starts the rider agent. notify_missed_dispatches() tells the other riders. (`job_assign_dispatch`, `assign_accepted_dispatch`, `delivery_inflight`, `trigger_delivery_inflight_whook`, `notify_missed_dispatches`)
 - **6 Deliver** — The rider agent checks the pickup code; dispatch_cancel_before_pickup() re-offers the order; dispatch_complete_func() marks everything 'completed' and removes the inflight row. job_rider_pickup_alerts() nudges riders around pickup time. (`dispatch_cancel_before_pickup`, `dispatch_complete_func`, `job_rider_pickup_alerts`, `rider_pickup_alert`)
 
@@ -70,7 +70,8 @@ One set of SQL rules for both channels. The Telegram wrappers authorise the tapp
 - **Decide** — restaurant_order_decide() records accept / decline ('declined' is terminal); restaurant_order_set_pickup() sets the pickup time. t_order_decide() / t_order_set_pickup() check t_order_admin_phone() first. (`restaurant_order_decide`, `restaurant_order_set_pickup`, `t_order_decide`, `t_order_set_pickup`, `t_order_admin_phone`)
 - **Time out** — process_restaurant_confirmation() (10 s) marks unanswered orders 'restaurant_timedout'; Python then sets a default pickup time. (`process_restaurant_confirmation`)
 - **Ready, +10, +20** — Once a rider has the job, restaurant_order_ready() (first tap per dispatch wins) and restaurant_order_adjust_pickup() (relative to pickup_time_initial). Telegram wrappers: t_order_ready(), t_order_adjust_pickup(). (`restaurant_order_ready`, `restaurant_order_adjust_pickup`, `t_order_ready`, `t_order_adjust_pickup`)
-- **Kitchen receipts** — Telegram receipts are t_sent_messages rows of kind 'receipt'; job_t_receipt_refresh() (5 s) finds stale copies with t_receipts_stale() / t_receipts_take() and Python edits them. (`t_receipt_status`, `t_receipt_snapshot`, `t_receipt_sent`, `t_receipts_stale`, `t_receipts_take`, `job_t_receipt_refresh`)
+- **Kitchen receipts** — New Telegram receipts use t_alert_destinations() to exclude paused admins. Existing receipt copies remain live: job_t_receipt_refresh() (5 s) finds stale copies with t_receipts_stale() / t_receipts_take() and Python edits them. (`t_alert_destinations`, `t_receipt_status`, `t_receipt_snapshot`, `t_receipt_sent`, `t_receipts_stale`, `t_receipts_take`, `job_t_receipt_refresh`)
+- **Plain notices** — t_notice_targets() uses t_alert_destinations() for new Telegram notices, leaving out paused admins; WhatsApp notices are unchanged. (`t_notice_targets`, `t_alert_destinations`)
 - **Daily availability** — enquire_admin_availability() asks each restaurant's admins every morning whether they are open. (`enquire_admin_availability`)
 
 ### Telegram layer
@@ -79,17 +80,18 @@ Admins link their Telegram account through an invite; every update is handled at
 
 - **Invite** — The operator inserts a t_invites row and copies invite_link from t_invites_shareable. /start <code> calls t_invite_preview(); 'Yes' calls t_claim_invite(); /whoami calls t_linked_restaurants(). (`t_invites`, `t_invites_shareable`, `t_invite_preview`, `t_claim_invite`, `t_linked_restaurants`)
 - **Inbox** — Each Telegram update is claimed once with t_inbox_claim() and closed with t_inbox_finish(), so retries across workers are skipped. (`t_inbox`, `t_inbox_claim`, `t_inbox_finish`)
-- **Order cards** — job_t_order_alerts() (5 s) seeds t_order_alerts checkpoints for unconfirmed orders, picks the due reminder and stale copies, and POSTs them to the app, which sends or edits cards and records them with t_order_card_sent() / t_order_card_mark(). (`job_t_order_alerts`, `t_order_alerts`, `t_order_card_snapshot`, `t_order_cards_stale`, `t_order_cards_take`, `t_order_card_sent`, `t_order_card_mark`, `t_sent_messages`)
+- **Order cards** — job_t_order_alerts() (5 s) seeds checkpoints for unconfirmed orders and POSTs due reminders and stale copies to the app. New cards use t_alert_destinations() to exclude paused admins; existing cards remain visible and tappable, and their stale copies are still refreshed. (`job_t_order_alerts`, `t_order_alerts`, `t_alert_destinations`, `t_order_card_snapshot`, `t_order_cards_stale`, `t_order_cards_take`, `t_order_card_sent`, `t_order_card_mark`, `t_sent_messages`)
+- **Admin alert pause** — Restaurant bot /off and /on call t_admin_pause() and t_admin_resume(); pause_start() refuses a pause that would leave no unpaused admin for that restaurant. t_admin_pause_status() supplies the current state and duration choices. (`t_admin_pause`, `t_admin_resume`, `t_admin_pause_status`, `pause_start`, `pause_options`)
 - **Housekeeping** — t_housekeeping() purges old inbox, ledger and alert rows. It is NOT scheduled on live (docs/to-do.md). (`t_housekeeping`)
 
 ### Rider location
 
-Continuous tracking from the OwnTracks app, plus on-demand WhatsApp location requests.
+Continuous tracking from the OwnTracks app, plus on-demand WhatsApp or Telegram rider location replies.
 
 - **Queue** — OwnTracks messages land in the pgmq queue 'owntracks'. job_process_owntracks() (30 s) moves GPS fixes to rider_location and region events to rider_location_event. (`job_process_owntracks`, `rider_location`, `rider_location_event`)
 - **Events** — trigger_rider_location_event_update POSTs every region event to /location-hooks/notify-rider-location-event. (`trigger_rider_location_event_update`, `rider_location_event_update`)
 - **Missing fixes** — job_null_or_outdated_location() would alert about live jobs with no recent fix; its cron job is INACTIVE. (`job_null_or_outdated_location`)
-- **On demand** — A customer or admin asks where the rider is: wa_location_request (pending) -> WhatsApp prompt -> the rider shares -> wa_location_observation -> requests fulfilled. (`wa_location_request`, `wa_location_observation`)
+- **On demand** — A customer or admin asks where the rider is: wa_location_request (pending) -> the assigned rider's WhatsApp or Telegram prompt -> a one-time location share -> wa_location_observation -> requests fulfilled. Telegram shares are stored as telegram_current; restaurant-agents currently receives the compatible whatsapp_current wire value. (`wa_location_request`, `wa_location_observation`)
 
 ### Customer notifications
 
@@ -107,12 +109,20 @@ thread is owned by restaurant-agents; LangGraph writes the checkpoint tables. Or
 - **Close idle OrdeloAgent threads** — job_close_thread() finds threads idle longer than THREAD_INACTIVE_TIME_INTERVAL and POSTs them to /delivery-hooks/close-threads. Python (delivery_hooks.py) calls it; pg_cron does not. (`job_close_thread`)
 - **Terminate idle restaurant threads** — job_terminate_stale_active_threads_new() (every minute, job 'jobTerminateStaleActiveThreadsNew') POSTs per restaurant to restaurant-agents. (`job_terminate_stale_active_threads_new`, `job_terminate_stale_active_threads`)
 
+### Rider shifts and timed pauses
+
+The clock decides when a pause ends; the scheduled sweep handles bookkeeping and messages, not availability.
+
+- **Daily shift** — enquire_shift_availability() asks active WhatsApp riders at 11:00 UTC. WhatsApp Yes/No and the rider bot /on use rider_set_shift(), which refuses a non-active rider's Yes and an off request during a job. Telegram riders do not get the daily question. (`enquire_shift_availability`, `rider_set_shift`, `rider_master`)
+- **Start or end pause** — Rider bot /off and /on use pause_start() and pause_end(); restaurant bot /off and /on use t_admin_pause() and t_admin_resume(). Duration keys come from pause_options() and ordelo_config. is_paused() computes the current state from ends_at. (`pauses`, `pause_options`, `pause_start`, `pause_end`, `is_paused`, `t_admin_pause`, `t_admin_resume`, `ordelo_config`)
+- **Sweep messages** — job_pause_sweep() closes expired pause rows and POSTs due ends-soon and back-on messages to /pause-hooks/sweep. A successful HTTP response marks the rows; actual message delivery is not confirmed by that response. Live pg_cron was active every five minutes at the 22 Oct check; the R5-R6 file targets every minute, still pending after the owner-confirmed deployment. (`job_pause_sweep`, `pauses`)
+
 ### Dashboard and operations
 
 Admin dashboard reads and platform helpers.
 
 - **Dashboard** — Magic-link logins in auth_sessions; orders from v_admin_orders and its daily / monthly totals; get_rider_payout_report() for payouts. (`auth_sessions`, `v_admin_orders`, `v_admin_orders_daily`, `v_admin_orders_monthly`, `get_rider_payout_report`)
-- **Daily rider question** — enquire_shift_availability() asks every active rider whether they are working today. (`enquire_shift_availability`, `rider_master`)
+- **Daily rider question** — enquire_shift_availability() asks active WhatsApp riders whether they are working today; Telegram riders use /off and /on instead. (`enquire_shift_availability`, `rider_master`)
 - **HTTP helpers** — ordelo_post() builds a URL from an ordelo_config key; fly_post() drives Fly.io machines with tokens from fly_config (security finding in docs/to-do.md). (`ordelo_post`, `ordelo_config`, `fly_post`, `fly_config`)
 - **Switches** — job_awsrunner_switch() pauses or resumes AWS App Runner; both cron jobs are INACTIVE. (`job_awsrunner_switch`)
 
@@ -302,7 +312,7 @@ Admin dashboard reads and platform helpers.
 | [`wa_location.sql`](rider_location/wa_location.sql) | `wa_location_observation` | table | One rider location received on demand (rider GPS share, or the restaurant location inferred at confirmation). |
 | [`wa_location.sql`](rider_location/wa_location.sql) | `wa_location_request` | table | One requester waiting for (or already sent) the rider's location for an order. |
 
-### Availability pauses (`availability/`)
+### Rider shifts and availability pauses (`availability/`)
 
 | File | Object | Kind | What it does |
 |---|---|---|---|
@@ -426,12 +436,14 @@ Admin dashboard reads and platform helpers.
 | [`migrations/ordelo_agg_r3.sql`](migrations/ordelo_agg_r3.sql) | Applied: every object it creates exists live (checked 2026-10-16). | agent_threads/job_close_thread.sql, core/restaurant_master.sql, ordering/create_food_order_with_items.sql, ordering/order_access_grant.sql, ordering/web_monitor_run.sql, ordering/web_order_request.sql, ordering/web_payment_release.sql, ordering/web_rate_limit.sql, ordering/web_session_meta.sql |
 | [`migrations/rider_telegram_r1.sql`](migrations/rider_telegram_r1.sql) | Applied by the owner on 2026-10-22 (steps 0-6); onboarding tested live the same day. Next: rider_telegram_r2_r4.sql. | core/rider_master.sql, telegram/t_rider_onboarding.sql, availability/pauses.sql, dispatch/job_create_dispatch.sql |
 | [`migrations/rider_telegram_r2_r4.sql`](migrations/rider_telegram_r2_r4.sql) | Applied by the owner on 2026-10-22 (steps 0-4, VERIFY 3/1/6/0); code deployed and a rider job tested live on Telegram and WhatsApp. | dispatch/delivery_dispatch.sql, agent_threads/rider_threads.sql |
-| [`migrations/rider_telegram_r5_r6.sql`](migrations/rider_telegram_r5_r6.sql) | NOT YET (prepared 2026-10-22; the owner applies it). | rider_location/wa_location.sql, availability/pauses.sql, availability/rider_shift.sql,, dispatch/enquire_shift_availability.sql, telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql,, telegram/t_admin_pauses.sql, availability/job_pause_sweep.sql |
+| [`migrations/rider_telegram_r5_r6.sql`](migrations/rider_telegram_r5_r6.sql) | Steps 1-3 verified on 2026-10-22 (VERIFY true / 7 / true / true / 4 / 0 after the owner applied restaurant_ready_adjust_notices.sql). Code and both command menus deployed per owner. Step 6 remains: the active job_pause_sweep job runs every five minutes on live; availability/job_pause_sweep.sql targets every minute. | rider_location/wa_location.sql, availability/pauses.sql, availability/rider_shift.sql,, dispatch/enquire_shift_availability.sql, telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql,, telegram/t_admin_pauses.sql, availability/job_pause_sweep.sql |
 | [`migrations/test3100_order_routing.sql`](migrations/test3100_order_routing.sql) | Applied: every object it creates exists live (checked 2026-10-16). | dispatch/job_create_dispatch.sql, ordering/create_food_order_with_items.sql, ordering/order_has_test_item.sql |
 
 ## Cron jobs
 
-| Job | Schedule | State | Runs | File |
+Schedule and state below come from the runnable SQL files; they are targets, not a live catalog read. At the 22 Oct R5-R6 check, `job_pause_sweep` was active on live every five minutes while its file targets every minute.
+
+| Job | File schedule | File state | Runs | File |
 |---|---|---|---|---|
 | `delete-job-run-details` | 0 12 * * * | active | `now` | [`platform/cron_housekeeping.sql`](platform/cron_housekeeping.sql) |
 | `enquire_admin_availability` | 0 11 * * * | active | `enquire_admin_availability` | [`restaurant_admin/enquire_admin_availability.sql`](restaurant_admin/enquire_admin_availability.sql) |
@@ -442,7 +454,7 @@ Admin dashboard reads and platform helpers.
 | `job_awsrunner_switch_resume` | 0 6 * * * | inactive | `job_awsrunner_switch` | [`platform/job_awsrunner_switch.sql`](platform/job_awsrunner_switch.sql) |
 | `job_create_dispatch` | 5 seconds | active | `job_create_dispatch` | [`dispatch/job_create_dispatch.sql`](dispatch/job_create_dispatch.sql) |
 | `job_null_or_outdated_location` | * * * * * | inactive | `job_null_or_outdated_location` | [`rider_location/job_null_or_outdated_location.sql`](rider_location/job_null_or_outdated_location.sql) |
-| `job_pause_sweep` | * * * * * | inactive | `job_pause_sweep` | [`availability/job_pause_sweep.sql`](availability/job_pause_sweep.sql) |
+| `job_pause_sweep` | * * * * * | active | `job_pause_sweep` | [`availability/job_pause_sweep.sql`](availability/job_pause_sweep.sql) |
 | `job_process_owntracks` | 30 seconds | active | `job_process_owntracks` | [`rider_location/job_process_owntracks.sql`](rider_location/job_process_owntracks.sql) |
 | `job_rider_pickup_alert` | */5 * * * * | active | `job_rider_pickup_alerts` | [`dispatch/job_rider_pickup_alerts.sql`](dispatch/job_rider_pickup_alerts.sql) |
 | `job_t_order_alerts` | 5 seconds | active | `job_t_order_alerts` | [`telegram/t_order_alerts.sql`](telegram/t_order_alerts.sql) |

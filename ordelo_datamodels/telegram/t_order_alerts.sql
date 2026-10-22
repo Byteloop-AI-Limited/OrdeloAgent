@@ -2,9 +2,7 @@
 -- ordelo_datamodels/telegram/t_order_alerts.sql
 -- Telegram order cards: the reminder schedule (t_order_alerts), the card functions and the 5-second sweep.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
---               EXCEPT phase R6 of plans/telegram-rider-bot-plan.md (not yet live; migrations/rider_telegram_r5_r6.sql step 3 applies
---                 this whole file): t_alert_destinations() is new, and t_order_card_snapshot() / job_t_order_alerts() use it.
+-- LIVE CHECK    R6 t_alert_destinations(), t_order_card_snapshot() and job_t_order_alerts() verified live on 2026-10-22.
 -- OBJECTS       table  t_order_alerts
 --                   Reminder schedule: one row per order and offset (seconds after the order) with due time and status.
 --               fn     t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text
