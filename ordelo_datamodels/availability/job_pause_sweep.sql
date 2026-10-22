@@ -2,8 +2,9 @@
 -- ordelo_datamodels/availability/job_pause_sweep.sql
 -- Every minute: close expired pauses and ask the app to send "your break ends soon" and "you're back on".
 -- =============================================================================================
--- LIVE CHECK    NOT yet live (phase R1 of plans/telegram-rider-bot-plan.md). Apply in phase R5, after /pause-hooks/sweep is deployed.
---                 Applying earlier is harmless: with no pauses the job returns before any HTTP call.
+-- LIVE CHECK    NOT yet live (written in phase R1 of plans/telegram-rider-bot-plan.md). migrations/rider_telegram_r5_r6.sql step 6
+--                 applies this whole file AFTER the R5-R6 code (POST /pause-hooks/sweep) is deployed. Applying earlier is harmless:
+--                 with no pauses the job returns before any HTTP call.
 -- OBJECTS       fn     job_pause_sweep() -> boolean
 --                   Close expired pauses, then POST the due "ends soon" and "back on" messages; mark them only on a 2xx reply.
 -- REQUIRES      availability/pauses.sql
@@ -19,14 +20,17 @@
 --                    reminded_at / announced_at for exactly the pause_ids that were sent. A failed POST leaves them for the next
 --                    minute, so a message is late, never lost and never wrong about availability.
 --                 Each item: {pause_id, audience, principal, scope, ends_at}. The app routes by audience: 'rider' ->
---                 RiderMessenger.for_rider(principal) (ordelo/rider_messaging/), 'rest_admin' -> the restaurant notifier (R6).
---                 Python: watomation/routers/pause_hooks.py (phase R5) <- POST /pause-hooks/sweep.
+--                 RiderMessenger.for_rider(principal) (ordelo/rider_messaging/: the rider's channel), 'rest_admin' -> the
+--                 restaurant bot, in the admin's own chats for that restaurant (t_admin_pause_chats(), telegram/t_admin_pauses.sql).
+--                 Python: watomation/routers/pause_hooks.py <- POST /pause-hooks/sweep (answers 200 at once and sends in the
+--                 background, like the order-alerts route: a send that fails after the 2xx is logged, not retried).
 -- LIFECYCLE     none (the pause lifecycle is in availability/pauses.sql)
 -- CALLED BY     job_pause_sweep:
---                 cron      'job_pause_sweep' * * * * * (apply in phase R5)
+--                 cron      'job_pause_sweep' * * * * * (created by migrations/rider_telegram_r5_r6.sql step 6)
 -- PYTHON MODEL  none
 -- SECURITY      job_pause_sweep(): REVOKE ALL FROM PUBLIC, anon, authenticated (pg_cron runs it as the owner).
 -- TESTS         tests/sql/test_pauses_sql.py
+--               tests/watomation/routers/test_pause_hooks.py
 -- GOTCHAS       The 24-hour window on ANNOUNCE stops a backlog of stale "you're back on" messages after a long outage.
 --               ORDELO_APP_URL is shared by test and local runs (see the restaurant plan's known limits): point it at the
 --                 instance that should send the messages.
@@ -39,7 +43,7 @@
 --   Close expired pauses, then POST the due "ends soon" and "back on" messages; mark them only on a 2xx reply.
 --   Returns false when the POST failed (nothing marked), true otherwise (including "nothing to send").
 --   Data: reads ordelo_config; reads/writes pauses.
---   HTTP: POST /pause-hooks/sweep -> watomation/routers/pause_hooks.py::pause_sweep (phase R5)
+--   HTTP: POST /pause-hooks/sweep -> watomation/routers/pause_hooks.py::pause_sweep
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.job_pause_sweep ()
     RETURNS boolean
@@ -135,7 +139,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.job_pause_sweep () FROM PUBLIC, anon, authenticated;
 
--- pg_cron job 'job_pause_sweep': runs every * * * * *, INACTIVE (not yet created on live; phase R5) on live.
+-- pg_cron job 'job_pause_sweep': runs every * * * * *, INACTIVE (not yet created on live; migrations/rider_telegram_r5_r6.sql step 6) on live.
 -- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('job_pause_sweep', '* * * * *', 'SELECT public.job_pause_sweep()');

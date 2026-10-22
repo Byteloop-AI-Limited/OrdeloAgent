@@ -61,16 +61,23 @@ MIGRATION_FILES = [
     "t_sent_messages.sql",
     "t_invites.sql",
     "restaurant_order_decision.sql",
+    # pauses.sql (rider bot R1) comes before t_order_alerts.sql since R6: t_alert_destinations() (a SQL function, checked
+    # when created) calls is_paused(). On live pauses.sql has been applied since 22 Oct.
+    "pauses.sql",
     "t_order_alerts.sql",
     "restaurant_ready_adjust_notices.sql",
     "t_housekeeping.sql",
     # Rider bot phase R1 (plans/telegram-rider-bot-plan.md): rider_master is created in its target shape by minimal_schema.sql.
     "rider_master.sql",
-    "pauses.sql",
     "t_rider_onboarding.sql",
     "job_pause_sweep.sql",
     # Rider bot phases R2-R4: thread per dispatch (the thread table itself comes from minimal_schema.sql).
     "rider_threads.sql",
+    # Rider bot phases R5-R6: shift rule, WhatsApp-only shift question, admin pauses, Telegram location source.
+    "rider_shift.sql",
+    "enquire_shift_availability.sql",
+    "t_admin_pauses.sql",
+    "wa_location.sql",
 ]
 
 

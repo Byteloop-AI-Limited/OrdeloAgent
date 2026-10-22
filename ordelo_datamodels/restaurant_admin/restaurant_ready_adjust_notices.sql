@@ -3,6 +3,8 @@
 -- Kitchen actions shared by WhatsApp and Telegram (Ready, +10 / +20 pickup), Telegram kitchen receipts and plain notices.
 -- =============================================================================================
 -- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+--               EXCEPT phase R6 of plans/telegram-rider-bot-plan.md (not yet live; migrations/rider_telegram_r5_r6.sql step 3 applies
+--                 this whole file): t_receipt_snapshot() and t_notice_targets() send to t_alert_destinations() (paused admins left out).
 -- OBJECTS       fn     restaurant_order_ready(p_order_number text, p_order_type text, p_admin_phone text, p_channel text) -> jsonb
 --                   Ready, shared by every channel: record the first Ready tap per dispatch (delivery) or per order (takeaway).
 --               fn     restaurant_order_adjust_pickup(p_order_number text, p_target timestamp with time zone, p_admin_phone text, p_channel text) -> jsonb
@@ -47,6 +49,9 @@
 --                 Telegram receipts are t_sent_messages rows (kind 'receipt') that follow the database: a WhatsApp tap changes the receipt
 --                 status key, job_t_receipt_refresh() (5 s) notices and every Telegram copy is edited. Plain notices (auto-accept, rider
 --                 alerts, delivered, feedback) are recorded as kind 'notice' for audit.
+--                 Pauses (R6): a NEW receipt or notice goes to t_alert_destinations() (telegram/t_order_alerts.sql), which leaves
+--                 out admins who paused their alerts (/off on the restaurant bot); receipts already sent keep being refreshed and
+--                 tapped (t_receipts_stale() still uses t_order_card_destinations()).
 --                 Tables used: delivery_summary, takeaway_summary, delivery_inflight, delivery_dispatch, rider_master, restaurant_master,
 --                 food_order / order_item (restaurant-agents), t_invites, t_sent_messages.
 --                 Python: utils_common/order_management/restaurant_actions.py ready() / adjust_pickup() (WhatsApp and Telegram actors);
@@ -93,6 +98,7 @@
 --               Concurrency: one conditional UPDATE decides each tap; receipt copies are claimed in SQL (state 'taken', FOR UPDATE SKIP LOCKED);
 --                 a claim not finished within 30 s is offered again; a newer receipt only deletes OLDER ones (id <).
 -- TESTS         tests/sql/test_restaurant_ready_adjust_notices_sql.py (loads this file into a throwaway Postgres)
+--               tests/sql/test_admin_pauses_sql.py
 --               tests/channels/telegram/test_notices.py
 --               tests/channels/telegram/test_receipts.py
 --               tests/sql/test_restaurant_notices_script_sql.py
@@ -479,7 +485,7 @@ REVOKE ALL ON FUNCTION public.t_receipt_status (text, text, integer) FROM PUBLIC
 -- ---------------------------------------------------------------------------------------------
 -- function t_receipt_snapshot(p_bot_key text, p_order_number text, p_order_type text, p_dispatch_id integer) -> jsonb
 --   Return everything needed to draw one receipt, plus its destinations and reply targets, in one read.
---   Data: reads delivery_dispatch, delivery_inflight, delivery_summary, food_order, order_item, rider_master, t_sent_messages, takeaway_summary; calls restaurant_admin_label(), t_order_card_destinations(), t_receipt_status().
+--   Data: reads delivery_dispatch, delivery_inflight, delivery_summary, food_order, order_item, rider_master, t_sent_messages, takeaway_summary; calls restaurant_admin_label(), t_alert_destinations(), t_receipt_status().
 -- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 6. t_receipt_snapshot(bot_key, order_number, order_type, dispatch_id): everything needed to draw ONE receipt.
@@ -636,7 +642,7 @@ BEGIN
                                     OR m.close_reason = 'edited')
                         ORDER BY m.id DESC LIMIT 1))
         ORDER BY d.tcid)
-        FROM public.t_order_card_destinations (p_bot_key, v_rest_ref) d), '[]'::jsonb));
+        FROM public.t_alert_destinations (p_bot_key, v_rest_ref) d), '[]'::jsonb));
 END
 $$;
 
@@ -873,7 +879,7 @@ REVOKE ALL ON FUNCTION public.t_receipts_take (text, text, text) FROM PUBLIC, an
 -- ---------------------------------------------------------------------------------------------
 -- function t_notice_targets(p_bot_key text, p_rest_ref text, p_order_number text, p_reply_kind text) -> TABLE(tcid bigint, tuid bigint, phone text, reply_to bigint)
 --   Return the destinations and reply target for a plain notice to a restaurant's Telegram admins (D36).
---   Data: reads t_sent_messages; calls t_order_card_destinations().
+--   Data: reads t_sent_messages; calls t_alert_destinations().
 -- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 10. Plain notices (D36). t_notice_targets(bot_key, rest_ref, order_number, reply_kind): where a notice goes
@@ -920,7 +926,7 @@ CREATE OR REPLACE FUNCTION public.t_notice_targets (p_bot_key text, p_rest_ref t
             LIMIT 1)
         END
     FROM
-        public.t_order_card_destinations (p_bot_key, p_rest_ref) d
+        public.t_alert_destinations (p_bot_key, p_rest_ref) d
 $$;
 
 REVOKE ALL ON FUNCTION public.t_notice_targets (text, text, text, text) FROM PUBLIC, anon, authenticated;

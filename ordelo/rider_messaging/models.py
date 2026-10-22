@@ -36,6 +36,13 @@ def wrong_channel_text(order_number: str | None, job_channel: str) -> str:
     return f"Your current job {job} is on {CHANNEL_NAMES.get(job_channel, job_channel)}. Please reply there."
 
 
+def on_telegram_text(bot_username: str | None = None) -> str:
+    """R5: a Telegram rider (rider_master.channel 'telegram') with no job wrote on WhatsApp. Their offers, breaks (/off, /on)
+    and shift status (/shift) are on the rider bot, so the WhatsApp shift question is not used for them (D53)."""
+    where = f"t.me/{bot_username}" if bot_username else "the Byteloop riders bot on Telegram"
+    return f"Your rider messages are on Telegram now: {where}. Send /shift there to see your status, or /off to take a break."
+
+
 _TG_PREFIX = "tg:"
 
 

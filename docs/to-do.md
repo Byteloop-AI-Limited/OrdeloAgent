@@ -65,7 +65,10 @@ Not fixed by that plan unless a phase says so.
   longer has (renamed to `recipient`). Fixed in R2 (both use `recipient`; debug reads never create or touch a thread).
 - [ ] **Race-hardening of rider assignment** (ADR 0011 point 4): `dispatch_response` reads state and writes separately.
   Deferred by D48; Telegram does not make it worse.
-- [ ] **Rename `wa_location*`** to channel-neutral names once Telegram locations ship (R5). Cosmetic; touches many files.
+- [ ] **Rename `wa_location*`** to channel-neutral names now that Telegram locations are built (R5: `receive_current_location`, with `receive_whatsapp_location` kept as an alias). Cosmetic; touches many files.
+- [ ] **Retire the location wire-source mapping.** Telegram locations are stored as `telegram_current` but sent to restaurant-agents as `whatsapp_current` (`wire_source()` in `ordelo_datamodels/wa_location_pymodels.py`), because its callback validates exactly two values. Done when restaurant-agents accepts `telegram_current` and the mapping is removed.
+- [ ] **Single-admin restaurants can never pause alerts** (D52 last-admin guard). STRK has one admin, so the owner's own `/off` on the restaurant bot is refused until a second admin phone is added to `restaurant_master.admins` (owner decision).
+- [ ] **Pause taps and the inbox review.** `rp1:` / `ap1:` taps use `process_once` (so a redelivered tap cannot restart a break after `/on`); include them in the inbox review below.
 - [ ] **Delete `agent_app_handlers.initial_handle_of_rider_response`.** Superseded by `ordelo/dispatch_actions.respond_to_offer`
   (R4, shared by WhatsApp and Telegram); it has no production caller left. Delete with its tests after R4 has run live.
 - [ ] **Two agent turns on one rider thread can overlap.** A Telegram text (run in the background), a job-card tap and a
@@ -73,3 +76,13 @@ Not fixed by that plan unless a phase says so.
   today. A per-thread lock (in-process `asyncio.Lock` keyed by thread id, or `pg_advisory_lock`) would serialise them.
 - [ ] **`rider_master` holds Telegram ids with RLS off.** Part of the existing row-level-security review; `tuid`/`tcid` are
   now readable with the anon key.
+
+## Telegram inbox review (due 15 November 2026)
+
+- [ ] **Decide whether to retire the remaining Telegram inbox protection.** The 22 Oct change limits
+  `t_inbox_claim` / `t_inbox_finish` to consequential handlers, but a new protected update still makes
+  two HTTPS calls and database writes. Review duplicate-update logs and old `processing` / `failed`
+  rows; verify that order, invite and signup RPCs tolerate repeated delivery; and prove a replacement
+  dedupe key or equivalent guard prevents repeated rider agent turns (text and job-card taps) and
+  duplicate offer-decline cancellation. Done when the evidence and a keep-or-remove decision are
+  recorded, with duplicate-delivery tests for every path before removing the RPCs or table.

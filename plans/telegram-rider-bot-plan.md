@@ -3,7 +3,7 @@
 **Repository:** `OrdeloAgent`. **Written:** 22 October 2026 (design session with the owner, decisions D39–D54).
 **Status:** R0 written. **R1 live** (migration applied and onboarding tested live by the owner on 22 Oct: an existing rider
 was linked and switched to Telegram; an unknown phone was asked for town and vehicle and registered). **R2-R4 live** (migration
-applied, code deployed, `/job` in the menu; the owner tested a rider job end to end on Telegram and on WhatsApp on 22 Oct). Next: R5.
+applied, code deployed, `/job` in the menu; the owner tested a rider job end to end on Telegram and on WhatsApp on 22 Oct). **R5-R6 built in the cloud copy (22 Oct), not yet applied or deployed**; offline and isolated-database proof only. Next: the owner's steps 9-16 below.
 **Builds on:** [`telegram-rest-admin-scaffold-plan.md`](telegram-rest-admin-scaffold-plan.md) (restaurant-admin bot, decisions D11–D38; detail in [`docs/telegram-layer.md`](../docs/telegram-layer.md)),
 [ADR 0011](../docs/adr/0011-telegram-operations-messaging-stays-in-ordeloagent.md) (Amendment 3),
 [ADR 0012](../docs/adr/0012-rider-threads-follow-dispatch-assignments.md) (Amendment 1),
@@ -26,8 +26,8 @@ restaurant admins' alerts.
 | **R2** | Rider thread per dispatch: `ORDELO-dispatch-<id>`, `rider_threads.sql`, runner and hook simplifications (below), one active rider thread per rider | thread ids only | ✅ live 22 Oct |
 | **R3** | `ContextSchema.wa_client` → `messenger`; every tool, `respond_node` and rider hook send through `RiderMessenger`; `delivery_dispatch.channel` + `channel_msg_ref`; `for_dispatch()` | none (byte-identical, pinned by tests) | ✅ live 22 Oct |
 | **R4** | Offers on Telegram: `ordelo/dispatch_actions.respond_to_offer()` shared by both channels; `ro1:` taps; `rj1:` job-card taps; `offer_closed` edits (missed, assigned, expired); `/job`; rider text on Telegram → agent; other-channel pointer reply | none (handler texts kept) | ✅ live 22 Oct |
-| **R5** | Telegram location requests through WaLocation (`telegram_current`); `/off`, `/on`, `/shift`; `/pause-hooks/sweep` + `job_pause_sweep` scheduled; Telegram riders leave the daily shift question; shift "Yes" refused for non-active riders | WhatsApp riders unchanged | ⬜ |
-| **R6** | Restaurant-admin pauses (`/off`, `/on` on the restaurant bot), last-admin guard, card and notice destinations skip paused admins | — | ⬜ |
+| **R5** | Telegram location requests through WaLocation (`telegram_current`); `/off`, `/on`, `/shift`; `/pause-hooks/sweep` + `job_pause_sweep` scheduled; Telegram riders leave the daily shift question; shift "Yes" refused for non-active riders | WhatsApp riders unchanged | 🟡 built, not yet live |
+| **R6** | Restaurant-admin pauses (`/off`, `/on` on the restaurant bot), last-admin guard, new card, receipt and notice destinations skip paused admins (`t_alert_destinations`) | — | 🟡 built, not yet live |
 | later | Race-hardening of assignment in SQL (ADR 0011 point 4); rename `wa_location*` to channel-neutral names; Telegram live location | — | not planned |
 
 ## Decisions (settled with the owner on 22 Oct 2026; numbers continue the restaurant plan's D11–D38)
@@ -47,7 +47,7 @@ restaurant admins' alerts.
 | D49 | **Missed / closed offers:** `delivery_dispatch.channel_msg_ref` stores the offer's `MsgRef`. `offer_closed(ref, order, reason)`: WhatsApp sends today's "picked up by another rider" text; Telegram **edits the offer to "Taken by another rider" and removes the buttons**, sending nothing new, so no late Accept is possible. `notify_missed_dispatches_hook` loops dispatches through it. |
 | D50 | **Telegram location:** one-off location via the same WaLocation module and tables (`source = 'telegram_current'`, `tg:` inbound id in the existing unique column). Telegram **live** location is out of scope. |
 | D51 | **Pauses (ADR 0013):** one channel-neutral `pauses` table for riders and restaurant admins, `ends_at` mandatory, durations only from `ordelo_config`. **Availability is computed** (`is_paused()` from the clock), so no job flips anyone back on; `job_pause_sweep()` only closes rows and sends "ends soon" / "back on" messages, marking on 2xx. A second `/off` replaces the end time (never stacks). |
-| D52 | **Last-admin guard:** a restaurant admin cannot pause if no other admin of that restaurant would stay unpaused (`not_allowed`). Built in R6; `pause_start` refuses `rest_admin` (`not_supported`) until then. |
+| D52 | **Last-admin guard:** a restaurant admin cannot pause if no other admin of that restaurant would stay unpaused (`not_allowed`). Built in R6 (`pause_start` takes a per-restaurant advisory lock; a non-admin gets `not_admin`). |
 | D53 | **Telegram riders leave the daily shift question** (`enquire_shift_availability` selects `channel = 'whatsapp'`; linking sets `is_in_shift = true` once). Rider bot commands: `/start`, `/help`, `/whoami` (R1), `/job` (R4), `/shift`, `/off`, `/on` (R5). Plain text reaches the agent only when the rider has an active thread on Telegram; no AI intent detection on Telegram. WhatsApp dev commands stay WhatsApp-only. |
 | D54 | **Rider bot is optional at start-up:** registered only when `tgram_rider_bot_token` is set (warning otherwise), so the scaffold can deploy before the bot exists; a token that is set but malformed, or a missing secret next to it, still fails fast. |
 
@@ -87,7 +87,8 @@ never travels in callback data. Choices are the distinct live values (`'TBD'` ex
 | `pauses` | new, channel-neutral: `audience` (`rider`\|`rest_admin`), `principal` (phone), `scope` (`rest_ref` for admins), `starts_at`, `ends_at NOT NULL`, `ended_at`, `end_reason`, `reminded_at`, `announced_at`, `created_via`, `created_by`; one open row per person (unique partial index) | R1 |
 | `thread` | **unchanged**. New rider rows use `thread_id = ORDELO-dispatch-<id>` via rider-only functions (`agent_threads/rider_threads.sql`) | R2 |
 | `delivery_dispatch` | `channel` (stamped from the rider by the BEFORE INSERT trigger `trigger_delivery_dispatch_stamp_channel`, whatever the insert says), `channel_msg_ref` (offer `MsgRef`), `thread_id` (the dispatch's rider thread, written by `rider_thread_open`; partial index) | R2-R4 |
-| `wa_location_observation` | `source` CHECK gains `'telegram_current'` | R5 |
+| `wa_location_observation` | `source` CHECK gains `'telegram_current'` (wire source mapped for restaurant-agents) | R5 (built) |
+| `rider_set_shift`, `pause_options`, `t_admin_pause*`, `t_alert_destinations` | new functions (see `docs/telegram-layer.md` section 6) | R5-R6 (built) |
 | `t_invites` | unchanged; riders never use invites | — |
 
 Files (all with the 13-section header): `core/rider_master.sql`, `telegram/t_rider_onboarding.sql`, `availability/pauses.sql`,
@@ -108,7 +109,10 @@ one-off `migrations/rider_telegram_r2_r4.sql` (the ONE migration for R2-R4), liv
 | `ordelo/agents/agent_runner.py` | `resolve_rider_thread(recipient, dispatch_id=, thread_id=)`, `run_rider_agent(thread, …)`, `run_rider_agent_w_custom_msg(…, dispatch_id=, thread_id=)` (returns `None` when no thread is open), `init_ordelo_graph` | which thread a run belongs to, checkpointer config, the run's messenger | R2/R3 |
 | `ordelo/dispatch_actions.py` | `respond_to_offer(...) -> OfferOutcome`, `whatsapp_reply`, `record_offer_ref`, `close_open_offers` | stale tap, already on job, taken, own-job cancel; which offers are still open | R4 |
 | `channels/telegram/rider/jobs.py` | router: `ro1:` / `rj1:` taps, `/job`, text | authorisation by `tuid`, background agent turns, the other-channel pointer | R4 |
-| `ordelo/rider_shift.py` | `set_shift(rider_id, on) -> ShiftOutcome` | status gate, inflight check | R5 |
+| `ordelo/rider_shift.py` | `set_shift(rider_id, on) -> ShiftOutcome` | status gate, inflight check | R5 (built) |
+| `channels/telegram/rider/availability.py`, `rider/location.py` | routers: `/shift`, `/off` (+ `rp1:` taps), `/on`; a shared location | break flow, correlation through `WaLocation`, agent acknowledgement | R5 (built) |
+| `ordelo/pause_notices.py`, `watomation/routers/pause_hooks.py` | `tell_rider`, `tell_admin`; `POST /pause-hooks/sweep` | ends-soon / back-on texts, 2xx marking, background sends | R5-R6 (built) |
+| `channels/telegram/admin_pauses.py`, `rest_admin/pauses.py` | wrappers over `t_admin_pause*`; `/off` (+ `ap1:` taps), `/on` | last-admin guard, per-restaurant results | R6 (built) |
 
 **Seam check (codebase-design):** `RiderMessenger` has two real adapters (WhatsApp, Telegram) plus the recording fake, so it is a real
 seam, not a hypothetical one. The deletion test passes: without it, ~20 send sites would each branch on channel.
@@ -171,11 +175,11 @@ text -> the agent (typing…, background run); /job -> current job summary; no j
 WhatsApp message while the job is on Telegram -> "Your current job *X* is on Telegram. Please reply there." (and the reverse)
 ```
 
-### Known limits until R5
+### Known limits after R5-R6
 
-- A Telegram rider cannot answer a location request yet (the agent's request arrives with a "Share current location" button,
-  but the shared location is not ingested until R5, D50). The request expires as on WhatsApp when unanswered.
-- Telegram riders still get the daily WhatsApp shift question (D53, R5) and have no `/off` / `/on` yet.
+- Location: a Telegram share is stored as `telegram_current`, but restaurant-agents still receives only `whatsapp_current` / `restaurant_confirmation` (`wire_source()` maps it; retire when restaurant-agents accepts the new value, `docs/to-do.md`).
+- A restaurant with ONE admin can never pause (D52 guard); STRK has one, so the owner's own `/off` there is refused until a second admin phone exists.
+- A pause stops NEW Telegram alerts only. Cards already in a chat keep updating and stay tappable; WhatsApp admin alerts are not affected.
 - Two agent turns on the same thread at the same moment are not serialised (same as WhatsApp today; `docs/to-do.md`).
 
 ## Verification (every phase; `telegram-vertification-loop` skill)
@@ -206,7 +210,7 @@ R2-R4 evidence (22 Oct, cloud copy; the R1 migration and code as committed by th
 | Agent through the messenger (WhatsApp byte-identical), runner thread rules | `pytest tests/ordelo/agents/` | 62 passed | offline |
 | Messenger: job card both adapters, closed-offer texts, `for_dispatch` / `for_thread` | `pytest tests/ordelo/test_rider_messaging.py` | 41 passed | offline |
 | Hooks (offer via messenger, missed/expired/taken edits, `close_threads`), WhatsApp handlers | `pytest tests/watomation/` | 206 passed | offline |
-| Whole offline suite | `pytest --ignore=tests/sql` | all pass except the known baseline failure and 7 header-path checks for files absent from the cloud copy | offline |
+| Whole offline suite | `pytest tests --ignore=tests/sql` | 1553 passed, 8 failed: the known baseline (1 admins-column test + 7 `ordering/*.sql` header-path checks for files absent from the cloud copy) | offline |
 | Live job as a rider, Telegram and WhatsApp | owner, after migration + deploy | works on both apps (owner's report, 22 Oct) | **live Telegram + WhatsApp** |
 
 Repo baseline in that copy: the known failure `test_master_pymodels.py::test_restaurant_master_get_admins_fetches_live_column`; the
@@ -235,6 +239,17 @@ R2-R4 (all ✅ done by the owner on 22 Oct):
    `test_rider_telegram_jobs.sql` STAGE 1–8. Then a WhatsApp pass (a WhatsApp rider, or switch yourself back with STAGE 9) to
    confirm WhatsApp offers, the job card and the agent replies are unchanged.
 
+R5-R6 (owner; **not done yet**; mirror of the steps in `migrations/rider_telegram_r5_r6.sql`, which is the authority):
+
+9. ☐ Run the four PRE-CHECK queries (R1-R4 in place; Telegram riders' shift flag; admins per restaurant; location sources) and read them.
+10. ☐ Migration steps 1-3: the `wa_location_observation` source CHECK; the UPDATE that puts Telegram riders in shift; then the whole files in order: `pauses.sql`, `rider_shift.sql`, `enquire_shift_availability.sql`, `t_order_alerts.sql`, `restaurant_ready_adjust_notices.sql`, `t_admin_pauses.sql`. Apply BEFORE deploying.
+11. ☐ VERIFY must show `true / 7 / true / true / 4 / 0`.
+12. ☐ Deploy the R5-R6 code, then `python scripts/datamodels/drift_check.py`.
+13. ☐ Apply `availability/job_pause_sweep.sql` AFTER the deploy (creates the pg_cron job, every minute); VERIFY 2 shows 1. `ORDELO_APP_URL` must point at the deployed instance.
+14. ☐ Re-publish both command menus with `notebooks/telegram/tgram_setup_bot.py`: `BOT_KEY = 'rider'` (adds `/shift /off /on`) and `BOT_KEY = 'rest_admin'` (adds `/off /on`). Webhooks need no change.
+15. ☐ Live test with `test_support/test_rider_pauses_and_locations.sql` (stages 0-10, one at a time). Decide whether to add a second admin phone to STRK to see a restaurant pause succeed.
+16. ☐ WhatsApp regression pass: a WhatsApp rider's shift "Yes"/"No" texts are unchanged; a WhatsApp rider still gets the 11:00 question; a Telegram rider does not.
+
 ## Known limits and risks
 
 - `rider_master` has RLS off and anon grants, so `tuid`/`tcid` are readable by anon (existing security review item, `docs/to-do.md`).
@@ -244,3 +259,16 @@ R2-R4 (all ✅ done by the owner on 22 Oct):
 - Relinking does not notify the old Telegram chat.
 - The town list is whatever distinct values exist; a new town needs one operator row first.
 - Ops alerts go through the existing WhatsApp `WALogger` (overwatch numbers).
+
+## R5-R6 evidence (22 Oct, cloud copy merged with the owner's "inbox streamlining" commit)
+
+| Boundary | Command | Observed | Label |
+|---|---|---|---|
+| Whole SQL suite (pauses, shift, admin pauses, migration, harness script) | `pytest tests/sql` | 358 passed | isolated database (Postgres 16) |
+| Offline: Telegram, WhatsApp handlers, ordelo | `pytest tests/channels tests/watomation tests/ordelo` | 769 passed | offline |
+| Whole offline suite (cloud copy, before the inbox-policy fix) | `pytest tests --ignore=tests/sql` | 1552 passed; 9 failed (1 inbox-policy failure subsequently fixed; the other 8 were baseline failures in that copy) | offline |
+| Whole offline suite (owner's machine, after R5-R6 review) | `.venv/bin/python -m pytest tests --ignore=tests/sql -q` | 1560 passed, 1 skipped, 1 existing `RestaurantMaster.get_admins` failure | offline |
+| Affected suites after duplicate-tap acknowledgement fix | `.venv/bin/python -m pytest tests/channels tests/watomation tests/ordelo tests/test_datamodels_standard.py -q` | 1057 passed, 1 skipped | offline |
+| SQL suite on owner's machine | `.venv/bin/python -m pytest tests/sql -q` | 358 skipped: `ORDELO_TEST_DB_URI` unset; Docker daemon unavailable | no isolated database evidence on this machine |
+| Ruff on changed Python files | `ruff check` (39 files; local Mason executable) | 7 existing F401/F841 findings; all present in `HEAD` and no new findings | static |
+| Live Telegram / WhatsApp | stages of `test_rider_pauses_and_locations.sql` | **not run yet** | owner |

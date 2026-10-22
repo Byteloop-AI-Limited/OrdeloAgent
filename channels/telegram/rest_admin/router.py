@@ -2,8 +2,9 @@
 
 Linking flow: the admin opens a private invite link (t.me/<bot>?start=<code>), the bot shows which
 restaurant it would link and asks for confirmation, and a tap on Yes claims the invite atomically
-(channels/telegram/invites.py). Order actions and acknowledgement come later
-(plans/telegram-rest-admin-scaffold-plan.md).
+(channels/telegram/invites.py). Order buttons: orders.py. Alert pauses (/off, /on, phase R6 of
+plans/telegram-rider-bot-plan.md): pauses.py. The text fallback is a sub-router included LAST, because aiogram tries a
+router's own handlers before its included routers (a fallback registered here would swallow /off and /on).
 """
 
 import asyncio
@@ -25,6 +26,7 @@ from ..replies import answer_quietly
 from .commands import HELP_TEXT
 from .order_cards.model import TROUBLE
 from .orders import build_orders_router
+from .pauses import build_pauses_router
 
 
 
@@ -182,5 +184,8 @@ def build_router() -> Router:
     router.message.register(cmd_whoami, Command("whoami"))
     router.callback_query.register(on_invite_decision, InviteDecision.filter())
     router.include_router(build_orders_router())  # order-card buttons (callback queries; the text fallback is a message handler)
-    router.message.register(fallback, F.text)  # last: swallows any other text
+    router.include_router(build_pauses_router())  # R6: /off (+ length taps), /on
+    last = Router(name="rest_admin_fallback")  # last: swallows any other text
+    last.message.register(fallback, F.text)
+    router.include_router(last)
     return router

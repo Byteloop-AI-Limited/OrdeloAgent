@@ -9,7 +9,7 @@
     {"folder": "dispatch", "title": "Rider dispatch", "summary": "Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep."},
     {"folder": "takeaway", "title": "Takeaway (collection)", "summary": "The collection order (takeaway_summary), its creation and the triggers that tell admins and customers about it."},
     {"folder": "restaurant_admin", "title": "Restaurant admin actions", "summary": "Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout and the daily availability question."},
-    {"folder": "telegram", "title": "Telegram layer", "summary": "Invite links, the selective at-most-once update inbox, order cards with reminders, the ledger of sent messages and the daily purge."},
+    {"folder": "telegram", "title": "Telegram layer", "summary": "Invite links, the at-most-once update inbox, order cards with reminders, the ledger of sent messages and the daily purge."},
     {"folder": "rider_location", "title": "Rider location", "summary": "OwnTracks GPS fixes and region events from a pgmq queue, and on-demand WhatsApp location requests."},
     {"folder": "availability", "title": "Availability pauses", "summary": "Pauses with a mandatory end time for riders (later restaurant admins): is_paused() computes availability from the clock; job_pause_sweep() only sends the ends-soon and back-on messages (ADR 0013)."},
     {"folder": "agent_threads", "title": "Agent threads", "summary": "Reading LangGraph checkpoints and closing idle conversation threads (OrdeloAgent and restaurant-agents)."},
@@ -73,10 +73,10 @@
     {
       "id": "telegram",
       "title": "Telegram layer",
-      "summary": "Admins link their Telegram account through an invite; consequential handlers opt into update deduplication; order cards follow the database.",
+      "summary": "Admins link their Telegram account through an invite; every update is handled at most once; order cards follow the database.",
       "steps": [
         {"title": "Invite", "text": "The operator inserts a t_invites row and copies invite_link from t_invites_shareable. /start <code> calls t_invite_preview(); 'Yes' calls t_claim_invite(); /whoami calls t_linked_restaurants().", "objects": ["t_invites", "t_invites_shareable", "t_invite_preview", "t_claim_invite", "t_linked_restaurants"]},
-        {"title": "Inbox", "text": "Selected consequential handlers claim with t_inbox_claim() and close with t_inbox_finish(), so retries across workers are skipped. Read-only and unmatched updates do not use the inbox; a queued rider agent turn is marked done before the turn completes.", "objects": ["t_inbox", "t_inbox_claim", "t_inbox_finish"]},
+        {"title": "Inbox", "text": "Each Telegram update is claimed once with t_inbox_claim() and closed with t_inbox_finish(), so retries across workers are skipped.", "objects": ["t_inbox", "t_inbox_claim", "t_inbox_finish"]},
         {"title": "Order cards", "text": "job_t_order_alerts() (5 s) seeds t_order_alerts checkpoints for unconfirmed orders, picks the due reminder and stale copies, and POSTs them to the app, which sends or edits cards and records them with t_order_card_sent() / t_order_card_mark().", "objects": ["job_t_order_alerts", "t_order_alerts", "t_order_card_snapshot", "t_order_cards_stale", "t_order_cards_take", "t_order_card_sent", "t_order_card_mark", "t_sent_messages"]},
         {"title": "Housekeeping", "text": "t_housekeeping() purges old inbox, ledger and alert rows. It is NOT scheduled on live (docs/to-do.md).", "objects": ["t_housekeeping"]}
       ]

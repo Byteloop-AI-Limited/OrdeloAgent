@@ -3,6 +3,8 @@
 -- Telegram order cards: the reminder schedule (t_order_alerts), the card functions and the 5-second sweep.
 -- =============================================================================================
 -- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+--               EXCEPT phase R6 of plans/telegram-rider-bot-plan.md (not yet live; migrations/rider_telegram_r5_r6.sql step 3 applies
+--                 this whole file): t_alert_destinations() is new, and t_order_card_snapshot() / job_t_order_alerts() use it.
 -- OBJECTS       table  t_order_alerts
 --                   Reminder schedule: one row per order and offset (seconds after the order) with due time and status.
 --               fn     t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text
@@ -11,6 +13,8 @@
 --                   Return the order's current state from delivery_summary or takeaway_summary as one row.
 --               fn     t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)
 --                   Return where cards for a restaurant go: the linked admins' chats (the one place that says so).
+--               fn     t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)
+--                   t_order_card_destinations() without the admins who paused their alerts: where NEW cards, receipts and notices go.
 --               fn     t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb
 --                   Return everything needed to draw the card (order, items, status, destinations) in one read.
 --               fn     t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)
@@ -24,6 +28,7 @@
 --               core/restaurant_master.sql
 --               telegram/t_invites.sql
 --               telegram/t_sent_messages.sql
+--               availability/pauses.sql
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
 -- SIDE EFFECTS  Applying the file inserts TGRAM_ORDER_ALERT_OFFSETS_SECS if missing. The cron job POSTs every 5 s when something is due.
@@ -42,6 +47,9 @@
 --                      OrderCards.remind() -> snapshot -> send per destination -> t_order_card_sent -> delete old copies
 --                      OrderCards.refresh() -> snapshot -> t_order_cards_take -> edit/delete -> t_order_card_mark
 --                 Python: channels/telegram/rest_admin/order_cards/store.py CardStore.snapshot() / card_sent() / take_for_refresh() / mark().
+--                 Pauses (R6, ADR 0013): NEW copies go to t_alert_destinations() (linked admins minus paused ones); whether a
+--                 chat may SEE and TAP a card stays t_order_card_destinations(), so a paused admin's existing copies keep
+--                 being refreshed and their buttons keep working.
 --                 Card status keys MUST match channels/telegram/rest_admin/order_cards/model.py (Status):
 --                   awaiting | accepted | pickup_set | declined | auto_accepted | gone
 --                 Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).
@@ -60,12 +68,15 @@
 --                 sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)
 --                 sql       t_order_cards_stale() (telegram/t_order_alerts.sql)
 --               t_order_card_destinations:
+--                 sql       t_alert_destinations() (telegram/t_order_alerts.sql)
+--                 sql       t_order_cards_stale() (telegram/t_order_alerts.sql)
+--                 sql       t_receipts_stale() (restaurant_admin/restaurant_ready_adjust_notices.sql)
+--                 sql       t_admin_pause_chats() (telegram/t_admin_pauses.sql)
+--               t_alert_destinations:
 --                 sql       job_t_order_alerts() (telegram/t_order_alerts.sql)
 --                 sql       t_notice_targets() (restaurant_admin/restaurant_ready_adjust_notices.sql)
 --                 sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)
---                 sql       t_order_cards_stale() (telegram/t_order_alerts.sql)
 --                 sql       t_receipt_snapshot() (restaurant_admin/restaurant_ready_adjust_notices.sql)
---                 sql       t_receipts_stale() (restaurant_admin/restaurant_ready_adjust_notices.sql)
 --               t_order_card_snapshot:
 --                 python    channels/telegram/rest_admin/order_cards/store.py: CardStore.snapshot()
 --               t_order_cards_stale:
@@ -86,6 +97,7 @@
 --               tests/sql/test_order_test_script_sql.py
 --               tests/sql/test_restaurant_notices_script_sql.py
 --               tests/sql/test_restaurant_ready_adjust_notices_sql.py
+--               tests/sql/test_admin_pauses_sql.py
 --               tests/watomation/routers/test_telegram_order_alerts.py
 -- GOTCHAS       Destinations are looked up by the summary's rest_ref (the order-number prefix): a restaurant whose orders use an alias
 --                 prefix (config/params.py _REST_REF_ALIAS_MAP) gets no cards until the alias is resolved here.
@@ -274,9 +286,39 @@ $$;
 REVOKE ALL ON FUNCTION public.t_order_card_destinations (text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
+-- function t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)
+--   t_order_card_destinations() without the admins who paused their alerts for this restaurant (is_paused('rest_admin',
+--   phone, rest_ref), ADR 0013, phase R6): where NEW cards, receipts and notices go. Authorisation (who may see and tap)
+--   stays t_order_card_destinations().
+--   Data: calls is_paused(), t_order_card_destinations().
+-- ---------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.t_alert_destinations (p_bot_key text, p_rest_ref text)
+    RETURNS TABLE (
+        tcid bigint,
+        tuid bigint,
+        phone text,
+        label text)
+    LANGUAGE sql
+    STABLE
+    SET search_path = public
+    AS $$
+    SELECT
+        d.tcid,
+        d.tuid,
+        d.phone,
+        d.label
+    FROM
+        public.t_order_card_destinations (p_bot_key, p_rest_ref) d
+    WHERE
+        NOT public.is_paused ('rest_admin', d.phone, p_rest_ref)
+$$;
+
+REVOKE ALL ON FUNCTION public.t_alert_destinations (text, text) FROM PUBLIC, anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------
 -- function t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb
 --   Return everything needed to draw the card (order, items, status, destinations) in one read.
---   Data: reads food_order, order_item; calls restaurant_admin_label(), t_order_card_destinations(), t_order_card_row(), t_order_card_status().
+--   Data: reads food_order, order_item; calls restaurant_admin_label(), t_alert_destinations(), t_order_card_row(), t_order_card_status().
 -- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 5. t_order_card_snapshot(bot_key, order_number, order_type): everything needed to draw the card.
@@ -331,7 +373,7 @@ BEGIN
             SELECT
                 jsonb_agg(jsonb_build_object('tcid', d.tcid, 'tuid', d.tuid, 'phone', d.phone, 'label', d.label)
             ORDER BY d.tcid)
-            FROM public.t_order_card_destinations (p_bot_key, o.rest_ref) d), '[]'::jsonb));
+            FROM public.t_alert_destinations (p_bot_key, o.rest_ref) d), '[]'::jsonb));
 END
 $$;
 
@@ -486,7 +528,7 @@ ON CONFLICT (config_key)
 -- ---------------------------------------------------------------------------------------------
 -- function job_t_order_alerts() -> boolean
 --   Every 5 seconds: seed, cancel, find due reminders and stale cards, POST them, and mark them on success.
---   Data: reads delivery_summary, ordelo_config, takeaway_summary; writes t_order_alerts; calls parse_alert_offsets(), t_order_card_destinations(), t_order_card_row(), t_order_cards_stale().
+--   Data: reads delivery_summary, ordelo_config, takeaway_summary; writes t_order_alerts; calls parse_alert_offsets(), t_alert_destinations(), t_order_card_row(), t_order_cards_stale().
 --   HTTP: POST /telegram/rest-admin/order-alerts -> watomation/routers/telegram_order_alerts.py::order_alerts
 -- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
@@ -550,7 +592,7 @@ WHERE
         SELECT
             1
         FROM
-            public.t_order_card_destinations (v_bot, o.rest_ref))
+            public.t_alert_destinations (v_bot, o.rest_ref))
 ON CONFLICT (bot_key,
     order_number,
     offset_secs)
@@ -685,6 +727,8 @@ COMMENT ON FUNCTION public.t_order_card_status (p_rcs text, p_pickup timestamp w
 COMMENT ON FUNCTION public.t_order_card_row (p_order_number text, p_order_type text) IS 'Return the order''s current state from delivery_summary or takeaway_summary as one row.';
 
 COMMENT ON FUNCTION public.t_order_card_destinations (p_bot_key text, p_rest_ref text) IS 'Return where cards for a restaurant go: the linked admins'' chats (the one place that says so).';
+
+COMMENT ON FUNCTION public.t_alert_destinations (p_bot_key text, p_rest_ref text) IS 't_order_card_destinations() without the admins who paused their alerts: where NEW cards, receipts and notices go.';
 
 COMMENT ON FUNCTION public.t_order_card_snapshot (p_bot_key text, p_order_number text, p_order_type text) IS 'Return everything needed to draw the card (order, items, status, destinations) in one read.';
 

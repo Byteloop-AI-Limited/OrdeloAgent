@@ -70,7 +70,7 @@ SELECT public.t_rider_set_profile(999000000804, 'Atlantis', NULL) ->> 'result' A
 SELECT rider_id, rider_name, status, town, vehicle_type, channel, phone_verified
   FROM public.rider_master WHERE rider_id = '447700900804';  -- Newbie | inactive | dummy | bike | telegram | true
 
--- ===== STAGE 6: pauses (what /off and /on will call in phase R5) =====
+-- ===== STAGE 6: pauses (what the rider bot's /off and /on call since phase R5) =====
 SELECT public.pause_start('rider', '447700900801', NULL, '6h', 'operator', 'harness') ->> 'result' AS result;  -- paused
 SELECT public.is_paused('rider', '447700900801', NULL) AS paused;                                           -- true
 SELECT public.pause_start('rider', '447700900801', NULL, '1d', 'operator', 'harness') AS out;               -- result extended, ends_at about 24 h from now

@@ -2,11 +2,14 @@
 -- ordelo_datamodels/availability/pauses.sql
 -- Pauses: a person steps away from jobs or alerts until a mandatory end time; "paused" is computed from the clock.
 -- =============================================================================================
--- LIVE CHECK    Live since 2026-10-22 (migrations/rider_telegram_r1.sql step 3; ADR 0013). Nothing writes pauses until phase R5 (/off).
+-- LIVE CHECK    Live since 2026-10-22 (migrations/rider_telegram_r1.sql step 3; ADR 0013). Phases R5-R6 (pause_options(), the
+--                 restaurant-admin last-admin guard in pause_start()) are applied by migrations/rider_telegram_r5_r6.sql step 3.
 -- OBJECTS       table  pauses
 --                   One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended.
 --               fn     pause_duration(p_audience text, p_duration text) -> interval
 --                   The interval for a duration key such as '6h' or '1d' if ordelo_config allows it for this audience, else NULL.
+--               fn     pause_options(p_audience text) -> jsonb
+--                   The duration keys a person of this audience may pick, in ordelo_config order (the /off buttons).
 --               fn     is_paused(p_audience text, p_principal text, p_scope text) -> boolean
 --                   true while an open pause covers now(); the ONE place that answers "is this person paused?".
 --               fn     pause_current(p_audience text, p_principal text, p_scope text) -> jsonb
@@ -16,6 +19,7 @@
 --               fn     pause_end(p_audience text, p_principal text, p_scope text, p_reason text) -> jsonb
 --                   End the current pause early ('resumed' by the person, 'operator' by Ordelo).
 -- REQUIRES      core/ordelo_config.sql
+--               core/restaurant_master.sql
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
 -- SIDE EFFECTS  Inserts the PAUSE_DURATIONS_RIDER, PAUSE_DURATIONS_REST_ADMIN and PAUSE_REMIND_BEFORE_MINS config rows if missing.
@@ -24,12 +28,21 @@
 --                 The moment ends_at passes the person is available again, with no job involved, so a late, failed or
 --                 mis-pointed sweep can only delay a MESSAGE, never leave someone switched off.
 --               Audiences: 'rider' (principal = rider_master.rider_id, scope NULL = all jobs) and 'rest_admin' (principal = the
---                 admin's phone as in restaurant_master.admins, scope = rest_ref; wired in phase R6 with the last-admin guard).
---               Readers: get_available_riders() (dispatch/job_create_dispatch.sql) skips paused riders; from R6
---                 t_order_card_destinations() and the restaurant notifier skip paused admins.
---               Writers: pause_start() / pause_end() through ordelo/pauses.py, called by the bots' /off and /on (R5, R6).
+--                 admin's phone as in restaurant_master.admins, digits only; scope = rest_ref, so an admin of two restaurants
+--                 pauses each one separately).
+--               Readers: get_available_riders() (dispatch/job_create_dispatch.sql) skips paused riders; t_alert_destinations()
+--                 (telegram/t_order_alerts.sql) leaves paused admins out of NEW Telegram order cards, kitchen receipts and
+--                 notices (R6). Copies already in a paused admin's chat keep being updated and their buttons keep working:
+--                 a pause stops new alerts, it never removes access (t_order_card_destinations() is unchanged).
+--                 WhatsApp alerts to restaurant admins are not affected (the plan's hard rule: WhatsApp unchanged).
+--               Writers: pause_start() / pause_end(): riders through ordelo/pauses.py (rider bot /off, /on, R5); restaurant
+--                 admins through t_admin_pause() / t_admin_resume() (telegram/t_admin_pauses.sql, restaurant bot /off, /on, R6).
+--               Last-admin guard (D52): pause_start('rest_admin', phone, rest_ref, ...) answers 'not_allowed' when no OTHER
+--                 admin of that restaurant (restaurant_master.admins) would stay unpaused, and 'not_admin' when the phone is not
+--                 one of its admins. Two admins pausing at the same moment are serialised by an advisory lock per restaurant,
+--                 so they cannot both pass the guard.
 --               Messages: job_pause_sweep() (availability/job_pause_sweep.sql) closes expired rows and asks the app to send
---                 "your break ends soon" and "you're back on" (POST /pause-hooks/sweep, R5).
+--                 "your break ends soon" and "you're back on" (POST /pause-hooks/sweep, watomation/routers/pause_hooks.py).
 --               Durations: ordelo_config PAUSE_DURATIONS_<AUDIENCE> (comma-separated keys like 6h,1d,3d). Only listed keys are
 --                 accepted, so nobody can pause indefinitely; the longest listed key is also the cap.
 -- LIFECYCLE     open (ended_at NULL, now() < ends_at) --pause_start again--> same row, new ends_at, reminded_at cleared ('extended')
@@ -39,7 +52,8 @@
 --               An expired-but-unswept row found by pause_start() is closed there ('expired', announced_at = now()) before the
 --                 new pause starts, so the person gets one message, not two.
 --               RESULT VOCABULARY (jsonb {result, ...})
---                 pause_start:   paused | extended | bad_duration | bad_audience | not_supported (rest_admin until R6)
+--                 pause_start:   paused | extended | bad_duration | bad_audience | not_admin | not_allowed (the last two:
+--                                rest_admin only)
 --                 pause_end:     resumed | not_paused
 --                 pause_current: paused | not_paused
 --               Rows are kept (audit); no housekeeping deletes them.
@@ -47,24 +61,33 @@
 --                 sql       is_paused(), pause_current(), pause_start(), pause_end(), job_pause_sweep()
 --               pause_duration:
 --                 sql       pause_start() (availability/pauses.sql)
+--               pause_options:
+--                 python    ordelo/pauses.py: options()
+--                 sql       t_admin_pause_status() (telegram/t_admin_pauses.sql)
 --               is_paused:
 --                 sql       get_available_riders() (dispatch/job_create_dispatch.sql)
+--                 sql       pause_start() (availability/pauses.sql)
+--                 sql       t_alert_destinations() (telegram/t_order_alerts.sql)
 --               pause_current:
 --                 python    ordelo/pauses.py: current()
 --               pause_start:
 --                 python    ordelo/pauses.py: pause()
+--                 sql       t_admin_pause() (telegram/t_admin_pauses.sql)
 --               pause_end:
 --                 python    ordelo/pauses.py: resume()
+--                 sql       t_admin_resume() (telegram/t_admin_pauses.sql)
 -- PYTHON MODEL  ordelo/pauses.py (Pause, PauseOutcome)
 -- SECURITY      pauses: RLS ON, no policies, REVOKE ALL FROM anon/authenticated. Every function: REVOKE ALL FROM PUBLIC, anon,
 --                 authenticated (service role and the owner only; get_available_riders() runs from pg_cron as the owner).
 -- TESTS         tests/sql/test_pauses_sql.py
+--               tests/sql/test_admin_pauses_sql.py
 --               tests/ordelo/test_pauses.py
 -- GOTCHAS       principal is a phone (digits only) for both audiences, so a pause follows the person across channels.
+--               An operator pause of a restaurant admin goes through the same guard (pause_start); pause_end never refuses.
 --               scope NULL and scope '' are the same (the unique index and every lookup use coalesce(scope, '')).
 --               is_paused() is STABLE and cheap (unique index on open rows); it is safe inside get_available_riders().
---               rest_admin pauses are refused (not_supported) until phase R6 adds the last-admin guard (D52).
 -- SEE ALSO      availability/job_pause_sweep.sql
+--               telegram/t_admin_pauses.sql
 --               core/rider_master.sql
 --               dispatch/job_create_dispatch.sql
 --               docs/adr/0013-pauses-have-a-mandatory-end-and-are-computed.md
@@ -150,6 +173,36 @@ $$;
 REVOKE ALL ON FUNCTION public.pause_duration (text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
+-- function pause_options(p_audience text) -> jsonb
+--   The duration keys this audience may pick, normalised ('6h', '1d') and in the order PAUSE_DURATIONS_<AUDIENCE> lists
+--   them, duplicates and malformed keys left out: the buttons under /off. '[]' when the row is missing or blank (/off off).
+--   Data: reads ordelo_config.
+-- ---------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.pause_options (p_audience text)
+    RETURNS jsonb
+    LANGUAGE sql
+    STABLE
+    SET search_path = public
+    AS $$
+    SELECT
+        coalesce(jsonb_agg(k.key ORDER BY k.first_pos), '[]'::jsonb)
+    FROM (
+        SELECT
+            lower(btrim(t.key)) AS key,
+            min(t.pos) AS first_pos
+        FROM
+            ordelo_config oc,
+            LATERAL regexp_split_to_table(coalesce(oc.config_value, ''), ',') WITH ORDINALITY AS t (key, pos)
+        WHERE
+            oc.config_key = 'PAUSE_DURATIONS_' || upper(p_audience)
+            AND lower(btrim(t.key)) ~ '^[1-9][0-9]{0,2}[hd]$'
+        GROUP BY
+            lower(btrim(t.key))) k;
+$$;
+
+REVOKE ALL ON FUNCTION public.pause_options (text) FROM PUBLIC, anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------
 -- function is_paused(p_audience text, p_principal text, p_scope text) -> boolean
 --   true while an open pause covers now(). Expired rows count as NOT paused even before the sweep closes them.
 --   Data: reads pauses.
@@ -209,7 +262,9 @@ REVOKE ALL ON FUNCTION public.pause_current (text, text, text) FROM PUBLIC, anon
 --   Start a pause of the given duration key from now, or, if one is open, move its end to now() + duration ('extended':
 --   a second /off replaces the end time, it never stacks). An open row whose end already passed is closed first
 --   ('expired', announced_at = now()). Returns {result, pause_id, ends_at}.
---   Data: reads ordelo_config; reads/writes pauses; calls pause_duration().
+--   rest_admin only: 'not_admin' unless p_principal is one of restaurant_master.admins of p_scope, and 'not_allowed' when no
+--   other admin of p_scope would stay unpaused (the last-admin guard, D52).
+--   Data: reads ordelo_config, restaurant_master; reads/writes pauses; calls is_paused(), pause_duration().
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.pause_start (p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text DEFAULT NULL)
     RETURNS jsonb
@@ -220,17 +275,41 @@ DECLARE
     v_len interval;
     v_id bigint;
     v_ends timestamptz;
+    v_admins text[];
 BEGIN
     IF p_audience NOT IN ('rider', 'rest_admin') THEN
         RETURN jsonb_build_object('result', 'bad_audience');
     END IF;
-    IF p_audience = 'rest_admin' THEN
-        -- Phase R6 replaces this with the last-admin guard (D52): refuse when no other admin of p_scope stays unpaused.
-        RETURN jsonb_build_object('result', 'not_supported');
-    END IF;
     v_len := pause_duration (p_audience, p_duration);
     IF v_len IS NULL THEN
         RETURN jsonb_build_object('result', 'bad_duration');
+    END IF;
+    IF p_audience = 'rest_admin' THEN
+        -- Last-admin guard (D52). One advisory lock per restaurant serialises two admins pausing at the same moment, so
+        -- the second one sees the first one's pause (each statement below takes a fresh snapshot after the lock).
+        PERFORM
+            pg_advisory_xact_lock(hashtextextended('pauses:rest_admin:' || coalesce(p_scope, ''), 0));
+        SELECT
+            coalesce(array_agg(DISTINCT regexp_replace(a, '\D', '', 'g')), '{}') INTO v_admins
+        FROM
+            restaurant_master rm,
+            unnest(rm.admins) AS a
+        WHERE
+            rm.rest_ref = p_scope
+            AND regexp_replace(a, '\D', '', 'g') <> '';
+        IF NOT (p_principal = ANY (v_admins)) THEN
+            RETURN jsonb_build_object('result', 'not_admin');
+        END IF;
+        IF NOT EXISTS (
+            SELECT
+                1
+            FROM
+                unnest(v_admins) AS other (phone)
+            WHERE
+                other.phone <> p_principal
+                AND NOT is_paused ('rest_admin', other.phone, p_scope)) THEN
+            RETURN jsonb_build_object('result', 'not_allowed');
+        END IF;
     END IF;
     -- Close an expired-but-unswept open row so the unique index admits the new pause; no "back on" message for it.
     UPDATE
@@ -337,6 +416,8 @@ COMMENT ON TABLE public.pauses IS 'One row per pause: who (audience + principal 
 
 COMMENT ON FUNCTION public.pause_duration (p_audience text, p_duration text) IS 'The interval for a duration key such as 6h or 1d if ordelo_config allows it for this audience, else NULL.';
 
+COMMENT ON FUNCTION public.pause_options (p_audience text) IS 'The duration keys a person of this audience may pick, in ordelo_config order (the /off buttons).';
+
 COMMENT ON FUNCTION public.is_paused (p_audience text, p_principal text, p_scope text) IS 'true while an open pause covers now(); the one place that answers "is this person paused?".';
 
 COMMENT ON FUNCTION public.pause_current (p_audience text, p_principal text, p_scope text) IS 'The pause covering now(), or {result: not_paused}; read-only.';
@@ -356,3 +437,7 @@ COMMENT ON FUNCTION public.pause_end (p_audience text, p_principal text, p_scope
 --
 -- End a pause early on their behalf:
 -- SELECT pause_end('rider', '447...', NULL, 'operator');
+--
+-- A restaurant admin (phone digits as in restaurant_master.admins; the last-admin guard applies):
+-- SELECT pause_start('rest_admin', '447...', 'ELAS', '6h', 'operator', 'ops');
+-- SELECT pause_end('rest_admin', '447...', 'ELAS', 'operator');

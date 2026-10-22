@@ -1034,12 +1034,17 @@ async def shift_availability_enquiry_hook(
     event_type = payload.get("event_type", "unknown")
     rider_ids = [rider.get("rider_id") for rider in riders]
 
+    # WhatsApp riders only (D53, R5): the SQL already sends only channel = 'whatsapp'; filtering the UPDATE as well means a
+    # Telegram rider is never switched off or asked, even by an older enquire_shift_availability() or a stale payload.
     update_shift_status = (
         client_ordelo.table("rider_master")
         .update({"is_in_shift": False, "shift_response_dtts": "now()"})
         .in_("rider_id", rider_ids)
+        .eq("channel", "whatsapp")
         .execute()
     )
+    switched_off = {row.get("rider_id") for row in (update_shift_status.data or [])}
+    riders = [rider for rider in riders if rider.get("rider_id") in switched_off]
 
     if riders:
         logger.info(f"Scheduling {len(riders)} riders for {event_type} processing")

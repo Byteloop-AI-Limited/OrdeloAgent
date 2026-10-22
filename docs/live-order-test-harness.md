@@ -17,6 +17,8 @@ tests in the same commit.** Do not run SQL for testing on the shared database ot
 script's STAGE 0-2b, then its STAGE 1-8: offer, Accept, job card, agent chat, codes, missed and expired offers). Offline proof:
 `tests/sql/test_rider_telegram_jobs_script_sql.py`. Since R2 STAGE 0 here also closes the rider threads of the fake jobs.
 
+**Breaks, locations and admin pauses (R5-R6).** `ordelo_datamodels/test_support/test_rider_pauses_and_locations.sql` walks `/shift`, `/off`, `/on`, the "ends soon" / "back on" messages, a location shared in Telegram, and the restaurant bot's `/off` / `/on` with the last-admin guard. Its only writes are UPDATEs of `pauses` rows for the owner's phone; proof: `tests/sql/test_rider_pauses_and_locations_script_sql.py`.
+
 ## Safety (why it is safe to run against the shared database)
 
 - Every row it creates or deletes has an order number starting `STRK-TEST-` (a test fails if any DELETE or UPDATE is not scoped to it).

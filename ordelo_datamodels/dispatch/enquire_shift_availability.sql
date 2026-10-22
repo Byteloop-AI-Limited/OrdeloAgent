@@ -1,30 +1,37 @@
 -- =============================================================================================
 -- ordelo_datamodels/dispatch/enquire_shift_availability.sql
--- Daily: ask every active rider whether they are working today.
+-- Daily: ask every active WhatsApp rider whether they are working today (Telegram riders use /off instead).
 -- =============================================================================================
 -- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+--               EXCEPT phase R5 of plans/telegram-rider-bot-plan.md (not yet live; migrations/rider_telegram_r5_r6.sql step 3 applies
+--                 this whole file): only channel = 'whatsapp' riders are asked (D53).
 -- OBJECTS       fn     enquire_shift_availability() -> boolean
---                   POST the active riders to the shift-availability webhook; returns true on success.
--- REQUIRES      none
+--                   POST the active WhatsApp riders to the shift-availability webhook; returns true on success.
+-- REQUIRES      core/rider_master.sql
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
--- SIDE EFFECTS  Each run POSTs to /delivery-hooks/shift-availability-enquiry (which takes every active rider off shift until they answer).
+-- SIDE EFFECTS  Each run POSTs to /delivery-hooks/shift-availability-enquiry (which takes every asked rider off shift until they answer).
 -- HOW IT FITS   cron 'enquire_shift_availability' (11:00 UTC) -> enquire_shift_availability() POSTs all rider_master rows with
---                 status = 'active' to /delivery-hooks/shift-availability-enquiry -> the endpoint sets is_in_shift = false for them and
---                 sends the WhatsApp shift question; a 'yes' sets is_in_shift = true again (watomation/on_callback_wa_handler.py).
+--                 status = 'active' AND channel = 'whatsapp' to /delivery-hooks/shift-availability-enquiry -> the endpoint sets
+--                 is_in_shift = false for them and sends the WhatsApp shift question; a 'yes' sets is_in_shift = true again through
+--                 rider_set_shift() (availability/rider_shift.sql; watomation/on_callback_wa_handler.py).
+--               Telegram riders (channel 'telegram') are never asked (D53): they can be messaged at any time, are on by default
+--                 and step away with /off (availability/pauses.sql, ADR 0013). The endpoint also switches off and asks only
+--                 rows that still say 'whatsapp', so a rider who moved to Telegram between the query and the POST is left alone.
 -- LIFECYCLE     none
 -- CALLED BY     enquire_shift_availability:
 --                 cron      'enquire_shift_availability' 0 11 * * *
 -- PYTHON MODEL  none
 -- SECURITY      enquire_shift_availability(): executable by PUBLIC (default)
--- TESTS         none
+-- TESTS         tests/sql/test_rider_shift_sql.py
 -- GOTCHAS       11:00 UTC is 12:00 in British Summer Time and 11:00 in winter.
 -- SEE ALSO      core/rider_master.sql
+--               availability/rider_shift.sql
 -- =============================================================================================
 
 -- ---------------------------------------------------------------------------------------------
 -- function enquire_shift_availability() -> boolean
---   POST the active riders to the shift-availability webhook; returns true on success.
+--   POST the active WhatsApp riders to the shift-availability webhook; returns true on success.
 --   Data: reads ordelo_config, rider_master.
 --   HTTP: POST /delivery-hooks/shift-availability-enquiry -> watomation/routers/delivery_hooks.py::shift_availability_enquiry_hook
 -- ---------------------------------------------------------------------------------------------
@@ -48,6 +55,7 @@ BEGIN
             rider_master
         WHERE
             status = 'active'
+            AND channel = 'whatsapp'
         LIMIT 20) active_riders;
     -- Construct the webhook payload
     webhook_payload := json_build_object('event_type', 'shift_availability_enquiry', 'timestamp', extract(epoch FROM now()), 'riders', COALESCE(riders_data, '[]'::jsonb))::jsonb;
@@ -99,7 +107,7 @@ SELECT
 -- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
 -- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
 -- ---------------------------------------------------------------------------------------------
-COMMENT ON FUNCTION public.enquire_shift_availability () IS 'POST the active riders to the shift-availability webhook; returns true on success.';
+COMMENT ON FUNCTION public.enquire_shift_availability () IS 'POST the active WhatsApp riders to the shift-availability webhook; returns true on success.';
 
 -- =============================================================================================
 -- EXAMPLES AND OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

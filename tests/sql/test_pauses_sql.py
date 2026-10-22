@@ -3,7 +3,7 @@
 Proves the design's main claim: availability is computed from the clock, so an expired pause stops counting at once,
 before and without any sweep; the sweep only closes rows and asks the app to send messages, marking them on 2xx.
 Also: durations come only from ordelo_config, a second /off moves the end (never stacks), concurrent starts give one row,
-rest_admin is refused until R6, and the grants. Phones are in Ofcom's drama range 07700 900xxx.
+restaurant admins go through the last-admin guard (detail in test_admin_pauses_sql.py), the /off options, and the grants. Phones are in Ofcom's drama range 07700 900xxx.
 """
 
 from __future__ import annotations
@@ -105,8 +105,17 @@ def test_operator_end_reason(db):
 
 
 def test_rest_admin_and_unknown_audiences(db):
-    assert start(db, audience="rest_admin", scope="ELAS") == {"result": "not_supported"}
+    """A phone that is not one of the restaurant's admins cannot pause (R6; the full guard: test_admin_pauses_sql.py)."""
+    assert start(db, audience="rest_admin", scope="ELAS") == {"result": "not_admin"}
     assert start(db, audience="customer") == {"result": "bad_audience"}
+
+
+def test_pause_options_follow_config_order_without_duplicates_or_junk(db):
+    db.execute("UPDATE public.ordelo_config SET config_value = ' 1D, 6h,junk,1d,0h,3d' WHERE config_key = 'PAUSE_DURATIONS_RIDER'")
+    assert fetch_one(db, "SELECT public.pause_options('rider')") == ["1d", "6h", "3d"]
+    db.execute("UPDATE public.ordelo_config SET config_value = '' WHERE config_key = 'PAUSE_DURATIONS_RIDER'")
+    assert fetch_one(db, "SELECT public.pause_options('rider')") == []
+    assert fetch_one(db, "SELECT public.pause_options('nobody')") == []
 
 
 def test_concurrent_offs_give_one_open_row():
@@ -203,6 +212,7 @@ def test_public_roles_cannot_call_or_read(db, role):
                     "SELECT public.pause_end('rider', '447700900601', NULL, 'resumed')",
                     "SELECT public.pause_current('rider', '447700900601', NULL)",
                     "SELECT public.is_paused('rider', '447700900601', NULL)",
+                    "SELECT public.pause_options('rider')",
                     "SELECT public.job_pause_sweep()",
                     "SELECT * FROM public.pauses"):
             with pytest.raises(psycopg.errors.InsufficientPrivilege):

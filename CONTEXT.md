@@ -336,3 +336,7 @@ _Avoid_: delivery instructions message (the code's older name)
 A period, with a mandatory end time, during which a person receives no jobs (rider) or no alerts (restaurant admin).
 Whether someone is paused is worked out from the clock, so a pause ends by itself at its end time.
 _Avoid_: off shift, holiday, mute
+
+### Last-admin guard
+
+A restaurant admin cannot pause alerts if no other admin of that restaurant would stay unpaused, so a restaurant always has someone receiving its new Telegram order alerts.
