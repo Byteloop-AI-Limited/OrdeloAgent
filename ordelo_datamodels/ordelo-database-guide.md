@@ -115,7 +115,7 @@ The clock decides when a pause ends; the scheduled sweep handles bookkeeping and
 
 - **Daily shift** — enquire_shift_availability() asks active WhatsApp riders at 11:00 UTC. WhatsApp Yes/No and the rider bot /on use rider_set_shift(), which refuses a non-active rider's Yes and an off request during a job. Telegram riders do not get the daily question. (`enquire_shift_availability`, `rider_set_shift`, `rider_master`)
 - **Start or end pause** — Rider bot /off and /on use pause_start() and pause_end(), which refuse the rider while a delivery_inflight row exists; an operator can still end a pause. Telegram also hides those commands in that rider's chat during the job. Restaurant bot /off and /on use t_admin_pause() and t_admin_resume(). Duration keys come from pause_options() and ordelo_config. is_paused() computes the current state from ends_at. (`delivery_inflight`, `pauses`, `pause_options`, `pause_start`, `pause_end`, `is_paused`, `t_admin_pause`, `t_admin_resume`, `ordelo_config`)
-- **Sweep messages** — job_pause_sweep() closes expired pause rows and POSTs due ends-soon and back-on messages to /pause-hooks/sweep. A successful HTTP response marks the rows; actual message delivery is not confirmed by that response. Live pg_cron was active every five minutes at the 22 Oct check; the R5-R6 file targets every minute, still pending after the owner-confirmed deployment. (`job_pause_sweep`, `pauses`)
+- **Sweep messages** — job_pause_sweep() closes expired pause rows and POSTs due ends-soon and back-on messages to /pause-hooks/sweep. A successful HTTP response marks the rows; actual message delivery is not confirmed by that response. pg_cron runs it every minute (since 23 Oct). (`job_pause_sweep`, `pauses`)
 
 ### Dashboard and operations
 

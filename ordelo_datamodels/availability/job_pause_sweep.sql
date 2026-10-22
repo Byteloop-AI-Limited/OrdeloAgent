@@ -2,8 +2,8 @@
 -- ordelo_datamodels/availability/job_pause_sweep.sql
 -- Target every minute: close expired pauses and ask the app to send "your break ends soon" and "you're back on".
 -- =============================================================================================
--- LIVE CHECK    job_pause_sweep() matches the live function on 2026-10-22. The live pg_cron job is ACTIVE at */5 * * * *;
---               the runnable schedule below targets * * * * * (R5-R6 migration step 6, after deploying /pause-hooks/sweep).
+-- LIVE CHECK    job_pause_sweep() matches the live function on 2026-10-22. The pg_cron job is scheduled every minute
+--               (* * * * *; the owner applied this file 2026-10-23, after deploying /pause-hooks/sweep).
 -- OBJECTS       fn     job_pause_sweep() -> boolean
 --                   Close expired pauses, then POST the due "ends soon" and "back on" messages; mark them only on a 2xx reply.
 -- REQUIRES      availability/pauses.sql
@@ -25,7 +25,7 @@
 --                 background, like the order-alerts route: a send that fails after the 2xx is logged, not retried).
 -- LIFECYCLE     none (the pause lifecycle is in availability/pauses.sql)
 -- CALLED BY     job_pause_sweep:
---                 cron      'job_pause_sweep' */5 * * * * on live at 2026-10-22; target * * * * * in step 6
+--                 cron      'job_pause_sweep' * * * * * (applied 2026-10-23)
 -- PYTHON MODEL  none
 -- SECURITY      job_pause_sweep(): REVOKE ALL FROM PUBLIC, anon, authenticated (pg_cron runs it as the owner).
 -- TESTS         tests/sql/test_pauses_sql.py
@@ -138,7 +138,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.job_pause_sweep () FROM PUBLIC, anon, authenticated;
 
--- pg_cron job 'job_pause_sweep': ACTIVE every */5 * * * * on live at 2026-10-22; this statement sets the R5-R6 target of * * * * *.
+-- pg_cron job 'job_pause_sweep': every minute (applied 2026-10-23; it was */5 before).
 -- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('job_pause_sweep', '* * * * *', 'SELECT public.job_pause_sweep()');

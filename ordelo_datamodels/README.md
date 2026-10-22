@@ -45,7 +45,7 @@ Every file starts with a fixed header: `LIVE CHECK`, `OBJECTS`, `REQUIRES`, `HOW
 4. After applying to live: `python scripts/datamodels/drift_check.py` (needs `ORDELO_LIVE_DB_URI` and a local `ORDELO_TEST_DB_URI`).
 5. `pytest tests/test_datamodels_standard.py`; SQL behaviour tests: `ORDELO_TEST_DB_URI=... pytest tests/sql`.
 
-**R5-R6 status (22 Oct 2026):** the migration's read-only live VERIFY returns `true / 7 / true / true / 4 / 0` after the owner applied `restaurant_ready_adjust_notices.sql`. The owner confirms app deployment and both command menus. The live `job_pause_sweep` entry is active at `*/5 * * * *`; its owner file targets the planned `* * * * *`, still pending. The local full drift run stopped before comparison because pgvector is absent (PostGIS is absent too). These are separate from the 358 passing isolated SQL behaviour tests.
+**R5-R6 status (23 Oct 2026):** live. The migration's VERIFY returned `true / 7 / true / true / 4 / 0`; the app and both command menus are deployed; `drift_check.py` is successful; `job_pause_sweep` runs every minute; pauses, the `delivery_inflight` guard and the Telegram and WhatsApp delivery flows were checked live by the owner.
 
 ## Files that are not hand-edited
 
