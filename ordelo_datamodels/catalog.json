@@ -1723,8 +1723,8 @@
    },
    "cron": [],
    "folder": "availability",
-   "header_lines": 94,
-   "lines": 444,
+   "header_lines": 96,
+   "lines": 458,
    "objects": [
     {
      "description": "One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended.",
@@ -1757,13 +1757,13 @@
      "signature": "pause_current(p_audience text, p_principal text, p_scope text) -> jsonb"
     },
     {
-     "description": "Start a pause, or move the end time of the current one (never stacks); the end time is mandatory.",
+     "description": "Start or extend a pause; a rider with a delivery_inflight row is refused.",
      "kind": "function",
      "name": "pause_start",
      "signature": "pause_start(p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text) -> jsonb"
     },
     {
-     "description": "End the current pause early ('resumed' by the person, 'operator' by Ordelo).",
+     "description": "End the current pause early; a rider's own /on is refused during an inflight delivery.",
      "kind": "function",
      "name": "pause_end",
      "signature": "pause_end(p_audience text, p_principal text, p_scope text, p_reason text) -> jsonb"
@@ -1773,7 +1773,8 @@
    "path_line": "ordelo_datamodels/availability/pauses.sql",
    "requires": [
     "core/ordelo_config.sql",
-    "core/restaurant_master.sql"
+    "core/restaurant_master.sql",
+    "dispatch/delivery_inflight.sql"
    ],
    "role": "definition",
    "section_order": [
@@ -1793,14 +1794,14 @@
    ],
    "sections": {
     "CALLED BY": "pauses:\n  sql       is_paused(), pause_current(), pause_start(), pause_end(), job_pause_sweep()\npause_duration:\n  sql       pause_start() (availability/pauses.sql)\npause_options:\n  python    ordelo/pauses.py: options()\n  sql       t_admin_pause_status() (telegram/t_admin_pauses.sql)\nis_paused:\n  sql       get_available_riders() (dispatch/job_create_dispatch.sql)\n  sql       pause_start() (availability/pauses.sql)\n  sql       t_alert_destinations() (telegram/t_order_alerts.sql)\npause_current:\n  python    ordelo/pauses.py: current()\npause_start:\n  python    ordelo/pauses.py: pause()\n  sql       t_admin_pause() (telegram/t_admin_pauses.sql)\npause_end:\n  python    ordelo/pauses.py: resume()\n  sql       t_admin_resume() (telegram/t_admin_pauses.sql)",
-    "GOTCHAS": "principal is a phone (digits only) for both audiences, so a pause follows the person across channels.\nAn operator pause of a restaurant admin goes through the same guard (pause_start); pause_end never refuses.\nscope NULL and scope '' are the same (the unique index and every lookup use coalesce(scope, '')).\nis_paused() is STABLE and cheap (unique index on open rows); it is safe inside get_available_riders().",
+    "GOTCHAS": "principal is a phone (digits only) for both audiences, so a pause follows the person across channels.\nAn operator pause of a restaurant admin goes through the same guard (pause_start); operator pause_end remains\n  available during a rider's inflight delivery, while the rider's own /on is refused.\nscope NULL and scope '' are the same (the unique index and every lookup use coalesce(scope, '')).\nis_paused() is STABLE and cheap (unique index on open rows); it is safe inside get_available_riders().",
     "HOW IT FITS": "ADR 0013. Availability is DERIVED, never flipped back by a job:\n  is_paused(audience, principal, scope) = an open row (ended_at IS NULL) with starts_at <= now() < ends_at.\n  The moment ends_at passes the person is available again, with no job involved, so a late, failed or\n  mis-pointed sweep can only delay a MESSAGE, never leave someone switched off.\nAudiences: 'rider' (principal = rider_master.rider_id, scope NULL = all jobs) and 'rest_admin' (principal = the\n  admin's phone as in restaurant_master.admins, digits only; scope = rest_ref, so an admin of two restaurants\n  pauses each one separately).\nReaders: get_available_riders() (dispatch/job_create_dispatch.sql) skips paused riders; t_alert_destinations()\n  (telegram/t_order_alerts.sql) leaves paused admins out of NEW Telegram order cards, kitchen receipts and\n  notices (R6). Copies already in a paused admin's chat keep being updated and their buttons keep working:\n  a pause stops new alerts, it never removes access (t_order_card_destinations() is unchanged).\n  WhatsApp alerts to restaurant admins are not affected (the plan's hard rule: WhatsApp unchanged).\nWriters: pause_start() / pause_end(): riders through ordelo/pauses.py (rider bot /off, /on, R5); restaurant\n  admins through t_admin_pause() / t_admin_resume() (telegram/t_admin_pauses.sql, restaurant bot /off, /on, R6).\nLast-admin guard (D52): pause_start('rest_admin', phone, rest_ref, ...) answers 'not_allowed' when no OTHER\n  admin of that restaurant (restaurant_master.admins) would stay unpaused, and 'not_admin' when the phone is not\n  one of its admins. Two admins pausing at the same moment are serialised by an advisory lock per restaurant,\n  so they cannot both pass the guard.\nMessages: job_pause_sweep() (availability/job_pause_sweep.sql) closes expired rows and asks the app to send\n  \"your break ends soon\" and \"you're back on\" (POST /pause-hooks/sweep, watomation/routers/pause_hooks.py).\nDurations: ordelo_config PAUSE_DURATIONS_<AUDIENCE> (comma-separated keys like 6h,1d,3d). Only listed keys are\n  accepted, so nobody can pause indefinitely; the longest listed key is also the cap.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "open (ended_at NULL, now() < ends_at) --pause_start again--> same row, new ends_at, reminded_at cleared ('extended')\nopen --pause_end--> ended (end_reason 'resumed' | 'operator', announced_at = now(): the bot already replied)\nopen --ends_at passes--> not paused at once; job_pause_sweep() then sets ended_at = ends_at, end_reason 'expired'\nended 'expired' --sweep POST 2xx--> announced_at set (\"you're back on\" sent)\nAn expired-but-unswept row found by pause_start() is closed there ('expired', announced_at = now()) before the\n  new pause starts, so the person gets one message, not two.\nRESULT VOCABULARY (jsonb {result, ...})\n  pause_start:   paused | extended | bad_duration | bad_audience | not_admin | not_allowed (the last two:\n                 rest_admin only)\n  pause_end:     resumed | not_paused\n  pause_current: paused | not_paused\nRows are kept (audit); no housekeeping deletes them.",
-    "LIVE CHECK": "Live since 2026-10-22 (migrations/rider_telegram_r1.sql step 3; ADR 0013). R5-R6 pause_options() and the\n  restaurant-admin last-admin guard in pause_start() were verified live on 2026-10-22.",
-    "OBJECTS": "table  pauses\n    One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended.\nfn     pause_duration(p_audience text, p_duration text) -> interval\n    The interval for a duration key such as '6h' or '1d' if ordelo_config allows it for this audience, else NULL.\nfn     pause_options(p_audience text) -> jsonb\n    The duration keys a person of this audience may pick, in ordelo_config order (the /off buttons).\nfn     is_paused(p_audience text, p_principal text, p_scope text) -> boolean\n    true while an open pause covers now(); the ONE place that answers \"is this person paused?\".\nfn     pause_current(p_audience text, p_principal text, p_scope text) -> jsonb\n    The pause covering now(), or {result: 'not_paused'}; read-only.\nfn     pause_start(p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text) -> jsonb\n    Start a pause, or move the end time of the current one (never stacks); the end time is mandatory.\nfn     pause_end(p_audience text, p_principal text, p_scope text, p_reason text) -> jsonb\n    End the current pause early ('resumed' by the person, 'operator' by Ordelo).",
+    "LIFECYCLE": "open (ended_at NULL, now() < ends_at) --pause_start again--> same row, new ends_at, reminded_at cleared ('extended')\nopen --pause_end--> ended (end_reason 'resumed' | 'operator', announced_at = now(): the bot already replied)\nopen --ends_at passes--> not paused at once; job_pause_sweep() then sets ended_at = ends_at, end_reason 'expired'\nended 'expired' --sweep POST 2xx--> announced_at set (\"you're back on\" sent)\nAn expired-but-unswept row found by pause_start() is closed there ('expired', announced_at = now()) before the\n  new pause starts, so the person gets one message, not two.\nRESULT VOCABULARY (jsonb {result, ...})\n  pause_start:   paused | extended | on_job (rider only) | bad_duration | bad_audience | not_admin |\n                 not_allowed (the last two: rest_admin only)\n  pause_end:     resumed | not_paused | on_job (rider /on only)\n  pause_current: paused | not_paused\nRows are kept (audit); no housekeeping deletes them.",
+    "LIVE CHECK": "Live catalog checked 2026-10-22 after the owner re-applied this file: pause_start() and pause_end() both\n  read delivery_inflight and return on_job; pause_end() retains the operator exception. App deployment pending.",
+    "OBJECTS": "table  pauses\n    One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended.\nfn     pause_duration(p_audience text, p_duration text) -> interval\n    The interval for a duration key such as '6h' or '1d' if ordelo_config allows it for this audience, else NULL.\nfn     pause_options(p_audience text) -> jsonb\n    The duration keys a person of this audience may pick, in ordelo_config order (the /off buttons).\nfn     is_paused(p_audience text, p_principal text, p_scope text) -> boolean\n    true while an open pause covers now(); the ONE place that answers \"is this person paused?\".\nfn     pause_current(p_audience text, p_principal text, p_scope text) -> jsonb\n    The pause covering now(), or {result: 'not_paused'}; read-only.\nfn     pause_start(p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text) -> jsonb\n    Start or extend a pause; a rider with a delivery_inflight row is refused.\nfn     pause_end(p_audience text, p_principal text, p_scope text, p_reason text) -> jsonb\n    End the current pause early; a rider's own /on is refused during an inflight delivery.",
     "PYTHON MODEL": "ordelo/pauses.py (Pause, PauseOutcome)",
-    "REQUIRES": "core/ordelo_config.sql\ncore/restaurant_master.sql",
+    "REQUIRES": "core/ordelo_config.sql\ncore/restaurant_master.sql\ndispatch/delivery_inflight.sql",
     "SECURITY": "pauses: RLS ON, no policies, REVOKE ALL FROM anon/authenticated. Every function: REVOKE ALL FROM PUBLIC, anon,\n  authenticated (service role and the owner only; get_available_riders() runs from pg_cron as the owner).",
     "SEE ALSO": "availability/job_pause_sweep.sql\ntelegram/t_admin_pauses.sql\ncore/rider_master.sql\ndispatch/job_create_dispatch.sql\ndocs/adr/0013-pauses-have-a-mandatory-end-and-are-computed.md",
     "SIDE EFFECTS": "Inserts the PAUSE_DURATIONS_RIDER, PAUSE_DURATIONS_REST_ADMIN and PAUSE_REMIND_BEFORE_MINS config rows if missing.",
@@ -3767,6 +3768,10 @@
      {
       "text": "watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook()",
       "via": "python"
+     },
+     {
+      "text": "ordelo/rider_shift.py: inflight_order() gates rider /off, /on and command menus",
+      "via": "python"
      }
     ],
     "delivery_inflight_whook": [
@@ -3778,8 +3783,8 @@
    },
    "cron": [],
    "folder": "dispatch",
-   "header_lines": 75,
-   "lines": 185,
+   "header_lines": 76,
+   "lines": 186,
    "objects": [
     {
      "description": "Row trigger function: start the rider agent for a newly assigned job and tell the riders who missed it.",
@@ -3820,7 +3825,7 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "delivery_inflight_whook:\n  trigger   trigger_delivery_inflight_whook on delivery_inflight\ndelivery_inflight:\n  sql       assign_accepted_dispatch(), cleanup_delivery_order(), complete_dispatch()\n            dispatch_accept_func(), dispatch_cancel_before_pickup(), dispatch_complete_func()\n            get_available_riders(), handle_delivery_dispatch_changes()\n            job_null_or_outdated_location(), job_process_owntracks(), job_rider_pickup_alerts()\n            restaurant_order_adjust_pickup(), restaurant_order_ready(), sync_delivery_inflight()\n            t_receipt_snapshot(), t_receipt_status(), test_reset_order_and_dispatch()\n  python    ordelo/agent_app_handlers.py: get_live_map_location_url()\n  python    ordelo/agents/agent_runner.py: is_food_already_picked_up()\n  python    ordelo/delivery_progress.py: check_delivery_progress()\n  python    ordelo/wa_location.py: WaLocation._exact_inflight_assignment_exists_in_cursor()\n  python    utils_common/notify/restaurant_notifier.py: KitchenReceipt()\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    watomation/on_callback_wa_handler.py: dispatch_response(), handle_shift_availability()\n  python    watomation/on_message_wa_handler.py: live_location(), reset_thread(), send_live_map_location()\n  python    watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook()",
+    "CALLED BY": "delivery_inflight_whook:\n  trigger   trigger_delivery_inflight_whook on delivery_inflight\ndelivery_inflight:\n  sql       assign_accepted_dispatch(), cleanup_delivery_order(), complete_dispatch()\n            dispatch_accept_func(), dispatch_cancel_before_pickup(), dispatch_complete_func()\n            get_available_riders(), handle_delivery_dispatch_changes()\n            job_null_or_outdated_location(), job_process_owntracks(), job_rider_pickup_alerts()\n            restaurant_order_adjust_pickup(), restaurant_order_ready(), sync_delivery_inflight()\n            t_receipt_snapshot(), t_receipt_status(), test_reset_order_and_dispatch()\n  python    ordelo/agent_app_handlers.py: get_live_map_location_url()\n  python    ordelo/agents/agent_runner.py: is_food_already_picked_up()\n  python    ordelo/delivery_progress.py: check_delivery_progress()\n  python    ordelo/wa_location.py: WaLocation._exact_inflight_assignment_exists_in_cursor()\n  python    utils_common/notify/restaurant_notifier.py: KitchenReceipt()\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    watomation/on_callback_wa_handler.py: dispatch_response(), handle_shift_availability()\n  python    watomation/on_message_wa_handler.py: live_location(), reset_thread(), send_live_map_location()\n  python    watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook()\n  python    ordelo/rider_shift.py: inflight_order() gates rider /off, /on and command menus",
     "GOTCHAS": "The Ready / +10 / +20 kitchen rule gates on this table: a delivery is 'in progress' while an inflight row exists and its\n  dispatch is not 'pickedup' / 'completed' (restaurant_admin/restaurant_ready_adjust_notices.sql).\nexpire_wa_location_requests_on_inflight_delete (migrations/create_wa_location_tables.sql) is not live.",
     "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.\n  assign_accepted_dispatch() inserts the row; the trigger below then POSTs /delivery-hooks/delivery-inflight-graph-init\n  (starts the rider LangGraph agent for this job) and calls notify_missed_dispatches() for the other riders.\n  get_available_riders() treats any rider with an inflight row as busy. dispatch_complete_func() and\n  dispatch_cancel_before_pickup() delete the row.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
@@ -4706,7 +4711,7 @@
    "header_lines": 0,
    "lines": 190,
    "migration": {
-    "applied": "Steps 1-3 verified on 2026-10-22 (VERIFY true / 7 / true / true / 4 / 0 after the owner applied restaurant_ready_adjust_notices.sql). Code and both command menus deployed per owner. Step 6 remains: the active job_pause_sweep job runs every five minutes on live; availability/job_pause_sweep.sql targets every minute.",
+    "applied": "Steps 1-3 verified on 2026-10-22 (VERIFY true / 7 / true / true / 4 / 0 after the owner applied restaurant_ready_adjust_notices.sql). Code and both command menus deployed per owner. Step 6 done: job_pause_sweep is scheduled (owner, 2026-10-23); live tests and drift_check passed.",
     "current": [
      "rider_location/wa_location.sql, availability/pauses.sql, availability/rider_shift.sql,",
      "dispatch/enquire_shift_availability.sql, telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql,",
@@ -8748,7 +8753,7 @@
    "cron": [],
    "folder": "test_support",
    "header_lines": 0,
-   "lines": 383,
+   "lines": 388,
    "objects": [],
    "path": "test_support/test_restaurant_notices.sql",
    "role": "script",
@@ -9290,13 +9295,17 @@
     {
      "text": "watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook()",
      "via": "python"
+    },
+    {
+     "text": "ordelo/rider_shift.py: inflight_order() gates rider /off, /on and command menus",
+     "via": "python"
     }
    ],
    "description": "Live job: dispatch_id (PK), order, rider and customer. Exists from assignment until completion or cancellation.",
    "file": "dispatch/delivery_inflight.sql",
    "folder": "dispatch",
    "kind": "table",
-   "line": 166,
+   "line": 167,
    "role": "definition",
    "signature": "delivery_inflight"
   },
@@ -9311,7 +9320,7 @@
    "file": "dispatch/delivery_inflight.sql",
    "folder": "dispatch",
    "kind": "function",
-   "line": 84,
+   "line": 85,
    "role": "definition",
    "signature": "delivery_inflight_whook() -> trigger"
   },
@@ -9848,7 +9857,7 @@
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 210,
+   "line": 212,
    "role": "definition",
    "signature": "is_paused(p_audience text, p_principal text, p_scope text) -> boolean"
   },
@@ -10427,7 +10436,7 @@
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 238,
+   "line": 240,
    "role": "definition",
    "signature": "pause_current(p_audience text, p_principal text, p_scope text) -> jsonb"
   },
@@ -10442,7 +10451,7 @@
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 151,
+   "line": 153,
    "role": "definition",
    "signature": "pause_duration(p_audience text, p_duration text) -> interval"
   },
@@ -10457,11 +10466,11 @@
      "via": "sql"
     }
    ],
-   "description": "End the current pause early ('resumed' by the person, 'operator' by Ordelo).",
+   "description": "End the current pause early; a rider's own /on is refused during an inflight delivery.",
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 376,
+   "line": 385,
    "role": "definition",
    "signature": "pause_end(p_audience text, p_principal text, p_scope text, p_reason text) -> jsonb"
   },
@@ -10480,7 +10489,7 @@
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 181,
+   "line": 183,
    "role": "definition",
    "signature": "pause_options(p_audience text) -> jsonb"
   },
@@ -10495,11 +10504,11 @@
      "via": "sql"
     }
    ],
-   "description": "Start a pause, or move the end time of the current one (never stacks); the end time is mandatory.",
+   "description": "Start or extend a pause; a rider with a delivery_inflight row is refused.",
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 269,
+   "line": 272,
    "role": "definition",
    "signature": "pause_start(p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text) -> jsonb"
   },
@@ -10514,7 +10523,7 @@
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "table",
-   "line": 100,
+   "line": 102,
    "role": "definition",
    "signature": "pauses"
   },
@@ -12142,7 +12151,7 @@
    "file": "dispatch/delivery_inflight.sql",
    "folder": "dispatch",
    "kind": "trigger",
-   "line": 157,
+   "line": 158,
    "role": "definition",
    "signature": "trigger_delivery_inflight_whook on delivery_inflight -> delivery_inflight_whook()"
   },

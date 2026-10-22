@@ -227,12 +227,27 @@ async def test_every_choice_button_fits_callback_limit():
 
 
 # ---- help, whoami, fallback ----------------------------------------------------------------------------------------
-async def test_help_lists_only_rider_commands(recording_bot):
+async def test_help_lists_only_rider_commands(recording_bot, rider_db, monkeypatch):
     bot, session = recording_bot
+    rider_db.add(PHONE, tuid=111, tcid=111)
+    async def no_job(rider_id):
+        return None
+    monkeypatch.setattr("channels.telegram.rider.router.rider_shift.inflight_order", no_job)
     await feed(bot, message_update("/help"))
     for c in RIDER_COMMANDS:
         assert f"/{c.command}" in session.sent_texts[0]
     assert "restaurant" not in session.sent_texts[0].lower()
+
+
+async def test_help_during_inflight_omits_off_and_on(recording_bot, rider_db, monkeypatch):
+    bot, session = recording_bot
+    rider_db.add(PHONE, tuid=111, tcid=111)
+    async def on_job(rider_id):
+        assert rider_id == PHONE
+        return "ELAS-ABCD-1"
+    monkeypatch.setattr("channels.telegram.rider.router.rider_shift.inflight_order", on_job)
+    await feed(bot, message_update("/help"))
+    assert "/off" not in session.sent_texts[0] and "/on " not in session.sent_texts[0]
 
 
 async def test_whoami_shows_ids_and_link(recording_bot, rider_db):

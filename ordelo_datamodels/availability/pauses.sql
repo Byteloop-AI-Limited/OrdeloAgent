@@ -2,8 +2,8 @@
 -- ordelo_datamodels/availability/pauses.sql
 -- Pauses: a person steps away from jobs or alerts until a mandatory end time; "paused" is computed from the clock.
 -- =============================================================================================
--- LIVE CHECK    Live since 2026-10-22 (migrations/rider_telegram_r1.sql step 3; ADR 0013). R5-R6 pause_options() and the
---                 restaurant-admin last-admin guard in pause_start() were verified live on 2026-10-22.
+-- LIVE CHECK    Live catalog checked 2026-10-22 after the owner re-applied this file: pause_start() and pause_end() both
+--                 read delivery_inflight and return on_job; pause_end() retains the operator exception. App deployment pending.
 -- OBJECTS       table  pauses
 --                   One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended.
 --               fn     pause_duration(p_audience text, p_duration text) -> interval
@@ -15,11 +15,12 @@
 --               fn     pause_current(p_audience text, p_principal text, p_scope text) -> jsonb
 --                   The pause covering now(), or {result: 'not_paused'}; read-only.
 --               fn     pause_start(p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text) -> jsonb
---                   Start a pause, or move the end time of the current one (never stacks); the end time is mandatory.
+--                   Start or extend a pause; a rider with a delivery_inflight row is refused.
 --               fn     pause_end(p_audience text, p_principal text, p_scope text, p_reason text) -> jsonb
---                   End the current pause early ('resumed' by the person, 'operator' by Ordelo).
+--                   End the current pause early; a rider's own /on is refused during an inflight delivery.
 -- REQUIRES      core/ordelo_config.sql
 --               core/restaurant_master.sql
+--               dispatch/delivery_inflight.sql
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
 -- SIDE EFFECTS  Inserts the PAUSE_DURATIONS_RIDER, PAUSE_DURATIONS_REST_ADMIN and PAUSE_REMIND_BEFORE_MINS config rows if missing.
@@ -52,9 +53,9 @@
 --               An expired-but-unswept row found by pause_start() is closed there ('expired', announced_at = now()) before the
 --                 new pause starts, so the person gets one message, not two.
 --               RESULT VOCABULARY (jsonb {result, ...})
---                 pause_start:   paused | extended | bad_duration | bad_audience | not_admin | not_allowed (the last two:
---                                rest_admin only)
---                 pause_end:     resumed | not_paused
+--                 pause_start:   paused | extended | on_job (rider only) | bad_duration | bad_audience | not_admin |
+--                                not_allowed (the last two: rest_admin only)
+--                 pause_end:     resumed | not_paused | on_job (rider /on only)
 --                 pause_current: paused | not_paused
 --               Rows are kept (audit); no housekeeping deletes them.
 -- CALLED BY     pauses:
@@ -83,7 +84,8 @@
 --               tests/sql/test_admin_pauses_sql.py
 --               tests/ordelo/test_pauses.py
 -- GOTCHAS       principal is a phone (digits only) for both audiences, so a pause follows the person across channels.
---               An operator pause of a restaurant admin goes through the same guard (pause_start); pause_end never refuses.
+--               An operator pause of a restaurant admin goes through the same guard (pause_start); operator pause_end remains
+--                 available during a rider's inflight delivery, while the rider's own /on is refused.
 --               scope NULL and scope '' are the same (the unique index and every lookup use coalesce(scope, '')).
 --               is_paused() is STABLE and cheap (unique index on open rows); it is safe inside get_available_riders().
 -- SEE ALSO      availability/job_pause_sweep.sql
@@ -264,7 +266,8 @@ REVOKE ALL ON FUNCTION public.pause_current (text, text, text) FROM PUBLIC, anon
 --   ('expired', announced_at = now()). Returns {result, pause_id, ends_at}.
 --   rest_admin only: 'not_admin' unless p_principal is one of restaurant_master.admins of p_scope, and 'not_allowed' when no
 --   other admin of p_scope would stay unpaused (the last-admin guard, D52).
---   Data: reads ordelo_config, restaurant_master; reads/writes pauses; calls is_paused(), pause_duration().
+--   rider only: 'on_job' when delivery_inflight still contains this rider (no pause is changed).
+--   Data: reads ordelo_config, restaurant_master, delivery_inflight; reads/writes pauses; calls is_paused(), pause_duration().
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.pause_start (p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text DEFAULT NULL)
     RETURNS jsonb
@@ -283,6 +286,11 @@ BEGIN
     v_len := pause_duration (p_audience, p_duration);
     IF v_len IS NULL THEN
         RETURN jsonb_build_object('result', 'bad_duration');
+    END IF;
+    IF p_audience = 'rider' AND EXISTS (
+        SELECT 1 FROM delivery_inflight WHERE rider_id = p_principal
+    ) THEN
+        RETURN jsonb_build_object('result', 'on_job');
     END IF;
     IF p_audience = 'rest_admin' THEN
         -- Last-admin guard (D52). One advisory lock per restaurant serialises two admins pausing at the same moment, so
@@ -370,8 +378,9 @@ REVOKE ALL ON FUNCTION public.pause_start (text, text, text, text, text, text) F
 -- ---------------------------------------------------------------------------------------------
 -- function pause_end(p_audience text, p_principal text, p_scope text, p_reason text) -> jsonb
 --   End the pause covering now(): ended_at = now(), end_reason = p_reason ('resumed' default, or 'operator'),
---   announced_at = now() (the caller tells the person). Returns {result: 'resumed', pause_id} or {result: 'not_paused'}.
---   Data: reads/writes pauses.
+--   announced_at = now() (the caller tells the person). Rider /on returns 'on_job' during an inflight delivery;
+--   an operator can still end a pause. Otherwise returns {result: 'resumed', pause_id} or {result: 'not_paused'}.
+--   Data: reads delivery_inflight; reads/writes pauses.
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.pause_end (p_audience text, p_principal text, p_scope text, p_reason text DEFAULT 'resumed')
     RETURNS jsonb
@@ -381,6 +390,11 @@ CREATE OR REPLACE FUNCTION public.pause_end (p_audience text, p_principal text, 
 DECLARE
     v_id bigint;
 BEGIN
+    IF p_audience = 'rider' AND p_reason IS DISTINCT FROM 'operator' AND EXISTS (
+        SELECT 1 FROM delivery_inflight WHERE rider_id = p_principal
+    ) THEN
+        RETURN jsonb_build_object('result', 'on_job');
+    END IF;
     UPDATE
         pauses
     SET
@@ -422,9 +436,9 @@ COMMENT ON FUNCTION public.is_paused (p_audience text, p_principal text, p_scope
 
 COMMENT ON FUNCTION public.pause_current (p_audience text, p_principal text, p_scope text) IS 'The pause covering now(), or {result: not_paused}; read-only.';
 
-COMMENT ON FUNCTION public.pause_start (p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text) IS 'Start a pause, or move the end time of the current one (never stacks); the end time is mandatory.';
+COMMENT ON FUNCTION public.pause_start (p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text) IS 'Start or extend a pause; a rider with a delivery_inflight row is refused.';
 
-COMMENT ON FUNCTION public.pause_end (p_audience text, p_principal text, p_scope text, p_reason text) IS 'End the current pause early (resumed by the person, operator by Ordelo).';
+COMMENT ON FUNCTION public.pause_end (p_audience text, p_principal text, p_scope text, p_reason text) IS 'End the current pause early; a rider own /on is refused during an inflight delivery.';
 
 -- =============================================================================================
 -- OPERATOR SQL (commented out: applying this file never runs them; copy what you need)

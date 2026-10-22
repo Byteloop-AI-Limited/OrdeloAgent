@@ -54,6 +54,7 @@
 --                 python    watomation/on_callback_wa_handler.py: dispatch_response(), handle_shift_availability()
 --                 python    watomation/on_message_wa_handler.py: live_location(), reset_thread(), send_live_map_location()
 --                 python    watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook()
+--                 python    ordelo/rider_shift.py: inflight_order() gates rider /off, /on and command menus
 -- PYTHON MODEL  none
 -- SECURITY      delivery_inflight_whook(): executable by PUBLIC (default)
 --               delivery_inflight: RLS OFF; Supabase default grants (anon and authenticated can read and write)

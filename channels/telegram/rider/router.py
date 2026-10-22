@@ -32,6 +32,7 @@ from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove, Update
 from loguru import logger
 
 from config.tgram_setting import TgramBotSettings
+from ordelo import rider_shift
 
 from .. import rider_links
 from ..callbacks import RiderSignup
@@ -39,7 +40,7 @@ from ..inbox import process_once
 from ..keyboards import contact_request_kb, rider_choice_kb
 from ..replies import answer_quietly
 from .availability import build_availability_router
-from .commands import HELP_TEXT
+from .commands import HELP_TEXT, INFLIGHT_HELP_TEXT, set_inflight_menu
 from .jobs import build_jobs_router
 from .location import build_location_router
 
@@ -248,7 +249,16 @@ async def _apply_choice(query: CallbackQuery, data: RiderSignup, tgram_settings:
 
 # ---- help, whoami, fallback ----------------------------------------------------------------------------------------
 async def cmd_help(message: Message):
-    await message.answer(HELP_TEXT)
+    inflight = False
+    try:
+        prof = await rider_links.profile(message.from_user.id)
+        if prof.is_linked:
+            inflight = await rider_shift.inflight_order(prof.rider_id) is not None
+            if message.chat.type == "private":
+                await set_inflight_menu(message.bot, message.chat.id, inflight)
+    except Exception:
+        logger.exception(f"telegram[rider]: /help menu sync failed for user {message.from_user.id}")
+    await message.answer(INFLIGHT_HELP_TEXT if inflight else HELP_TEXT)
 
 
 async def cmd_whoami(message: Message, tgram_settings: TgramBotSettings):

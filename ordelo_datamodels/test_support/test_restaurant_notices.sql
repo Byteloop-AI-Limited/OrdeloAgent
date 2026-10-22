@@ -80,7 +80,6 @@ BEGIN
                     WHERE d.thread_id = t.thread_id AND d.order_number LIKE 'STRK-TEST-%' AND t.is_active IS TRUE$q$;
     END IF;
 END $$;
-
 DO $$
 DECLARE s record;
 BEGIN
@@ -110,19 +109,27 @@ BEGIN
     END LOOP;
 END $$;
 
+-- select * from rider_master;
 update rider_master
 set is_in_shift = true,
     town = 'dummy',
-    vehicle_type = 'bicycle'
-where rider_name = 'Lohith';
+    vehicle_type = 'bicycle',
+    channel='telegram'
+where rider_name in ('lohith', 'lohithNwg');
+
+-- only overwatch riders get the test orders (the TEST3100 item sets payment_mode = 'test')
+INSERT INTO ordelo_config (config_key, config_value, description)
+-- VALUES ('overwatch_list', '447448440754,447424334783', 'list of numbers to alert')
+VALUES ('overwatch_list', '447448440754,447446933210,447929843965', 'list of numbers to alert')
+ON CONFLICT (config_key) 
+DO UPDATE SET config_value = '447448440754,447446933210,447929843965';
 
 
-
-INSERT INTO public.t_invites (rest_ref, phone_number, status, claimed_at, telegram_user_id, telegram_chat_id, telegram_first_name)
-SELECT 'STRK', '447448440754', 'claimed', now(), telegram_user_id, telegram_chat_id, telegram_first_name
-  FROM public.t_invites WHERE status = 'claimed' AND telegram_user_id IS NOT NULL
-   AND NOT EXISTS (SELECT 1 FROM public.t_invites WHERE rest_ref = 'STRK' AND status = 'claimed')   -- once only: never add a second claim
- ORDER BY claimed_at DESC LIMIT 1;
+-- INSERT INTO public.t_invites (rest_ref, phone_number, status, claimed_at, telegram_user_id, telegram_chat_id, telegram_first_name)
+-- SELECT 'STRK', '447448440754', 'claimed', now(), telegram_user_id, telegram_chat_id, telegram_first_name
+--   FROM public.t_invites WHERE status = 'claimed' AND telegram_user_id IS NOT NULL
+--    AND NOT EXISTS (SELECT 1 FROM public.t_invites WHERE rest_ref = 'STRK' AND status = 'claimed')   -- once only: never add a second claim
+--  ORDER BY claimed_at DESC LIMIT 1;
 
 -- ===== STAGE 1: NEW DELIVERY ORDER (notes, small-order fee, modifications, TEST3100 item) =====
 -- Expect: the order card on Telegram (reminders at +15/+30/+45 s) and the WhatsApp confirmation prompt, both within ~5 s.
@@ -146,7 +153,6 @@ BEGIN
     ELSIF v_rest_id IS NULL THEN
         RAISE EXCEPTION 'STAGE 1: restaurant_master.rest_id is NULL for STRK. Give it one (once, see PREREQUISITES): UPDATE public.restaurant_master SET rest_id = ''STRK01'' WHERE rest_ref = ''STRK'' AND rest_id IS NULL;';
     END IF;
-
     -- The food order FIRST: the delivery_summary trigger reads it. payment_mode is derived from the TEST3100 item.
     PERFORM public.create_food_order_with_items(
         jsonb_build_object('order_id', v_id, 'order_number', v_no, 'recipient', '447448440754',
@@ -161,7 +167,6 @@ BEGIN
     UPDATE public.food_order
        SET small_order_fee = 1.00, final_order_value = 22.50, rest_cost = 15.00, service_charge = 0, delivery_fee = 0
      WHERE order_number = v_no;
-
     INSERT INTO public.delivery_summary (
         order_number, rest_id, rest_name, rest_lon, rest_lat, rest_address, town,
         customer_id, customer_name, customer_lon, customer_lat, customer_address,

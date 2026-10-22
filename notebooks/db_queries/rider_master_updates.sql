@@ -3,7 +3,9 @@
 -- Consolidated from CommonQueries.sql and config_updates.sql.
 select * from rider_registrations order by inserted_at desc;
 select * from rider_master where town='Orpington' and status='active' order by shift_response_dtts desc, is_in_shift desc, status;
-select * from rider_master where town='Salisbury' order by shift_response_dtts desc; 
+
+select * from rider_master;
+
 
 select * from ordelo_config where config_key like '%_APP_URL';
 
@@ -56,12 +58,6 @@ VALUES
 update rider_master set status='inactive' where rider_name in ('Marian', 'Luis', 'Suraj', 'Jamie', 'Ganesh', 'Ain', 'Agam');
 update rider_master set is_in_shift=true where rider_name in ('Rishi', 'Abubakar', 'Bokul', 'Mohammed Hoque', 'Rangaswamy');
 
-select * from rider_master where rider_name = 'Marian';
-
-
--- Orp
-select * from rider_master where town='Orpington' order by id;
-Rakesh,  -- Doc pending
-Dhruva, Hammad ;
-
-update rider_master set status='active', is_in_shift=false where town='Orpington';
+select * from rider_master where town='Orpington';
+update rider_master set status='active', is_in_shift=true, channel='whatsapp' where rider_name='lohith';
+update rider_master set status='active', is_in_shift=true, channel='telegram' where town='Orpington';

@@ -25,6 +25,7 @@ FAKE = "4477009006%"
 @pytest.fixture(autouse=True)
 def clean(db):
     def wipe():
+        db.execute("DELETE FROM public.delivery_inflight WHERE rider_id = %s", (R1,))
         db.execute("DELETE FROM public.pauses WHERE principal LIKE %s", (FAKE,))
         db.execute("DELETE FROM public.http_calls")
         db.execute("UPDATE public.http_stub_status SET status = 200")
@@ -86,6 +87,17 @@ def test_start_then_paused_then_resume(db):
     row = db.execute("SELECT end_reason, announced_at IS NOT NULL FROM public.pauses WHERE pause_id = %s", (out["pause_id"],)).fetchone()
     assert row == ("resumed", True)  # the bot replies itself: no "back on" message from the sweep
     assert fetch_one(db, "SELECT public.pause_end('rider', %s, NULL, 'resumed')", (R1,)) == {"result": "not_paused"}
+
+
+def test_rider_cannot_start_extend_or_end_own_pause_while_inflight(db):
+    first = start(db)
+    db.execute("INSERT INTO public.delivery_inflight (dispatch_id, order_number, rider_id)"
+               " VALUES (990601, 'ELAS-TEST-PAUSE', %s)", (R1,))
+    assert start(db) == {"result": "on_job"}
+    assert fetch_one(db, "SELECT public.pause_end('rider', %s, NULL, 'resumed')", (R1,)) == {"result": "on_job"}
+    assert fetch_one(db, "SELECT pause_id FROM public.pauses WHERE principal = %s AND ended_at IS NULL", (R1,)) == first["pause_id"]
+    assert fetch_one(db, "SELECT public.pause_end('rider', %s, NULL, 'operator')", (R1,))["result"] == "resumed"
+    assert start(db) == {"result": "on_job"}
 
 
 def test_second_off_moves_the_end_and_never_stacks(db):

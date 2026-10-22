@@ -587,6 +587,13 @@ async def delivery_inflight_graph_init_hook(
     delivery_summary = DeliverySummary(**payload["delivery_summary"])
     rest_confirmation_code = delivery_summary.rest_confirmation_code
     rider_master = payload.get("rider_master")
+    rider_name = rider_master.get("rider_name", "Unknown") if rider_master else "Unknown"
+    rider_id = rider_master.get("rider_id", "Unknown") if rider_master else "Unknown"
+
+    # Run before the slower payment and graph tasks: the inflight row already exists.
+    from channels.telegram.rider.commands import sync_rider_menu
+
+    background_tasks.add_task(sync_rider_menu, rider_id)
 
     # 1. Capture Stripe Payment - This also issues print job
     logger.info("step1: capture stripe delivery payment")
@@ -609,10 +616,6 @@ async def delivery_inflight_graph_init_hook(
 
     # 4. Initialize ordelo graph as background task
     logger.info("step4: initialize ordelo graph")
-    rider_name = (
-        rider_master.get("rider_name", "Unknown") if rider_master else "Unknown"
-    )
-    rider_id = rider_master.get("rider_id", "Unknown") if rider_master else "Unknown"
     background_tasks.add_task(
         init_ordelo_graph,
         delivery_summary,

@@ -3,7 +3,7 @@
 **Repository:** `OrdeloAgent`. **Written:** 22 October 2026 (design session with the owner, decisions D39–D54).
 **Status:** R0 written. **R1 live** (migration applied and onboarding tested live by the owner on 22 Oct: an existing rider
 was linked and switched to Telegram; an unknown phone was asked for town and vehicle and registered). **R2-R4 live** (migration
-applied, code deployed, `/job` in the menu; the owner tested a rider job end to end on Telegram and on WhatsApp on 22 Oct). **R5-R6 SQL verified live on 22 Oct**: the migration VERIFY is `true / 7 / true / true / 4 / 0` after the owner applied `restaurant_ready_adjust_notices.sql`. The owner confirms the R5-R6 app code is deployed and both command menus are published; live R5-R6 Telegram/WhatsApp tests are not yet evidenced here. The live pause-sweep job is active every five minutes; the R5-R6 target is every minute (step 13).
+applied, code deployed, `/job` in the menu; the owner tested a rider job end to end on Telegram and on WhatsApp on 22 Oct). **R5-R6 live** (migration VERIFY `true / 7 / true / true / 4 / 0` on 22 Oct; on 23 Oct the owner confirmed code deployed, both menus published, `drift_check.py` successful, `job_pause_sweep` scheduled, rider `/on` `/off` `/shift` and restaurant-admin pauses working, the `delivery_inflight` guard working, and the full delivery flow on Telegram and WhatsApp with no regression). Nothing pending for R5-R6 except the follow-ups in `docs/to-do.md`.
 **Builds on:** [`telegram-rest-admin-scaffold-plan.md`](telegram-rest-admin-scaffold-plan.md) (restaurant-admin bot, decisions D11–D38; detail in [`docs/telegram-layer.md`](../docs/telegram-layer.md)),
 [ADR 0011](../docs/adr/0011-telegram-operations-messaging-stays-in-ordeloagent.md) (Amendment 3),
 [ADR 0012](../docs/adr/0012-rider-threads-follow-dispatch-assignments.md) (Amendment 1),
@@ -26,8 +26,8 @@ restaurant admins' alerts.
 | **R2** | Rider thread per dispatch: `ORDELO-dispatch-<id>`, `rider_threads.sql`, runner and hook simplifications (below), one active rider thread per rider | thread ids only | ✅ live 22 Oct |
 | **R3** | `ContextSchema.wa_client` → `messenger`; every tool, `respond_node` and rider hook send through `RiderMessenger`; `delivery_dispatch.channel` + `channel_msg_ref`; `for_dispatch()` | none (byte-identical, pinned by tests) | ✅ live 22 Oct |
 | **R4** | Offers on Telegram: `ordelo/dispatch_actions.respond_to_offer()` shared by both channels; `ro1:` taps; `rj1:` job-card taps; `offer_closed` edits (missed, assigned, expired); `/job`; rider text on Telegram → agent; other-channel pointer reply | none (handler texts kept) | ✅ live 22 Oct |
-| **R5** | Telegram location requests through WaLocation (`telegram_current`); `/off`, `/on`, `/shift`; `/pause-hooks/sweep` + `job_pause_sweep` scheduled; Telegram riders leave the daily shift question; shift "Yes" refused for non-active riders | WhatsApp riders unchanged | SQL verified live; app and menu deployment owner confirmed; one-minute sweep and live test pending |
-| **R6** | Restaurant-admin pauses (`/off`, `/on` on the restaurant bot), last-admin guard, new card, receipt and notice destinations skip paused admins (`t_alert_destinations`) | — | SQL verified live; app and menu deployment owner confirmed; live test pending |
+| **R5** | Telegram location requests through WaLocation (`telegram_current`); `/off`, `/on`, `/shift`; `/pause-hooks/sweep` + `job_pause_sweep` scheduled; Telegram riders leave the daily shift question; shift "Yes" refused for non-active riders | WhatsApp riders unchanged | ✅ live 23 Oct |
+| **R6** | Restaurant-admin pauses (`/off`, `/on` on the restaurant bot), last-admin guard, new card, receipt and notice destinations skip paused admins (`t_alert_destinations`) | — | ✅ live 23 Oct |
 | later | Race-hardening of assignment in SQL (ADR 0011 point 4); rename `wa_location*` to channel-neutral names; Telegram live location | — | not planned |
 
 ## Decisions (settled with the owner on 22 Oct 2026; numbers continue the restaurant plan's D11–D38)
@@ -239,16 +239,22 @@ R2-R4 (all ✅ done by the owner on 22 Oct):
    `test_rider_telegram_jobs.sql` STAGE 1–8. Then a WhatsApp pass (a WhatsApp rider, or switch yourself back with STAGE 9) to
    confirm WhatsApp offers, the job card and the agent replies are unchanged.
 
-R5-R6 (owner; database VERIFY passes; app deployment and both menus owner confirmed; live bot checks still need evidence. These steps mirror `migrations/rider_telegram_r5_r6.sql`, which is the authority):
+R5-R6 (all ✅ done and live-tested by the owner on 23 Oct. These steps mirror `migrations/rider_telegram_r5_r6.sql`, which is the authority):
 
-9. ☐ Run the four PRE-CHECK queries (R1-R4 in place; Telegram riders' shift flag; admins per restaurant; location sources) and read them.
+9. ✅ Run the four PRE-CHECK queries (R1-R4 in place; Telegram riders' shift flag; admins per restaurant; location sources) and read them.
 10. ✅ R5-R6 database state from migration steps 1-3 verified live on 22 Oct: the `wa_location_observation` source CHECK; no Telegram rider out of shift; and the 14 targeted R5-R6 function definitions across `pauses.sql`, `rider_shift.sql`, `enquire_shift_availability.sql`, `t_order_alerts.sql`, `restaurant_ready_adjust_notices.sql`, `t_admin_pauses.sql` and `job_pause_sweep.sql`. The owner separately confirmed running `restaurant_ready_adjust_notices.sql` after two old definitions were found. This focused check does not replace full drift detection for every object in those files.
 11. ✅ Live read-only VERIFY returned `true / 7 / true / true / 4 / 0` on 22 Oct.
-12. ◐ The owner confirms the R5-R6 code is deployed. Full `drift_check.py` remains unrun because the local scratch server lacks pgvector and PostGIS; the focused R5-R6 catalog comparison and migration VERIFY are recorded above.
-13. ☐ Confirm `ORDELO_APP_URL` points at the deployed app, then apply `availability/job_pause_sweep.sql` to set the existing active pg_cron job from `*/5 * * * *` (live read on 22 Oct) to the planned `* * * * *`. The job already exists, so VERIFY 2's count of 1 alone does not prove its schedule; check `schedule`, `command` and `active` too.
+12. ✅ Code deployed; `drift_check.py` successful (owner, 23 Oct).
+13. ✅ (job scheduled, owner 23 Oct) Confirm `ORDELO_APP_URL` points at the deployed app, then apply `availability/job_pause_sweep.sql` to set the existing active pg_cron job from `*/5 * * * *` (live read on 22 Oct) to the planned `* * * * *`. The job already exists, so VERIFY 2's count of 1 alone does not prove its schedule; check `schedule`, `command` and `active` too.
 14. ✅ The owner confirms both command menus were republished: `BOT_KEY = 'rider'` (`/shift /off /on`) and `BOT_KEY = 'rest_admin'` (`/off /on`). Live display has not been independently checked here.
-15. ☐ Live test with `test_support/test_rider_pauses_and_locations.sql` (stages 0-10, one at a time). Decide whether to add a second admin phone to STRK to see a restaurant pause succeed.
-16. ☐ WhatsApp regression pass: a WhatsApp rider's shift "Yes"/"No" texts are unchanged; a WhatsApp rider still gets the 11:00 question; a Telegram rider does not.
+15. ✅ Live test with `test_support/test_rider_pauses_and_locations.sql` (stages 0-10, one at a time). Decide whether to add a second admin phone to STRK to see a restaurant pause succeed.
+16. ✅ WhatsApp regression pass: a WhatsApp rider's shift "Yes"/"No" texts are unchanged; a WhatsApp rider still gets the 11:00 question; a Telegram rider does not.
+
+Follow-on rider inflight guard (SQL re-applied 22 Oct; app deployed and checked 23 Oct):
+
+17. ✅ The owner re-applied `availability/pauses.sql`. Read-only catalog verification found the `delivery_inflight` / `on_job` guard in `pause_start()` and `pause_end()`, and the operator exception in `pause_end()`. No live state-changing call was made by this check.
+18. ✅ Deploy the app update. The assignment hook hides `/off` and `/on` using a Telegram per-chat command scope; completion/cancellation restores the default menu. `/shift` and `/help` reconcile the menu if a transition was missed. The handlers refuse typed commands and older duration buttons while inflight.
+19. ✅ Live check with one Telegram rider: observe the menu before assignment, during `delivery_inflight`, and after completion/cancellation; try typed `/off`, `/on` and a saved old duration button during the job. Confirm no pause or shift change. Offline dispatcher tests passed; isolated SQL and live Telegram checks remain pending.
 
 ## Known limits and risks
 

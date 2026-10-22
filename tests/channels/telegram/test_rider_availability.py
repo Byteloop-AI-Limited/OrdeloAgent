@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from aiogram.methods import EditMessageText
+from aiogram.methods import DeleteMyCommands, EditMessageText, SetMyCommands
 from aiogram.types import Update
 
 from channels.telegram.bots import build_rider_dispatcher
@@ -21,6 +21,7 @@ from channels.telegram.callbacks import RiderPause, fits_callback_limit
 from channels.telegram.keyboards import pause_duration_kb
 from channels.telegram.rider import availability
 from channels.telegram.rider.commands import HELP_TEXT, RIDER_COMMANDS
+from channels.telegram.rider.commands import INFLIGHT_COMMANDS, set_inflight_menu, sync_rider_menu
 from config.tgram_setting import TgramBotSettings
 from ordelo import pauses, rider_shift
 from ordelo.agents.rider_threads import RiderThread
@@ -53,6 +54,7 @@ def domain(monkeypatch):
         paused_until: datetime | None = None
         shift_result = rider_shift.ON
         job: RiderThread | None = None
+        inflight_order: str | None = None
         calls: list[tuple] = []
         fail = False
 
@@ -96,11 +98,16 @@ def domain(monkeypatch):
         d.calls.append(("job", touch))
         return d.job
 
+    async def inflight_order(rider_id):
+        d.calls.append(("inflight", rider_id))
+        return d.inflight_order
+
     monkeypatch.setattr(availability.pauses, "options", options)
     monkeypatch.setattr(availability.pauses, "current", current)
     monkeypatch.setattr(availability.pauses, "pause", pause)
     monkeypatch.setattr(availability.pauses, "resume", resume)
     monkeypatch.setattr(availability.rider_shift, "set_shift", set_shift)
+    monkeypatch.setattr(availability.rider_shift, "inflight_order", inflight_order)
     monkeypatch.setattr(availability.rider_threads, "active_for_rider", active_for_rider)
     return d
 
@@ -113,6 +120,55 @@ def until() -> str:
 def test_menu_and_help_list_the_r5_commands():
     names = [c.command for c in RIDER_COMMANDS]
     assert {"shift", "off", "on"} <= set(names) and all(f"/{n}" in HELP_TEXT for n in ("shift", "off", "on"))
+
+
+async def test_per_chat_menu_hides_commands_then_inherits_default(recording_bot):
+    bot, session = recording_bot
+    await set_inflight_menu(bot, 111, True)
+    await set_inflight_menu(bot, 111, False)
+    set_call, delete_call = [call for call in session.calls if isinstance(call, (SetMyCommands, DeleteMyCommands))]
+    assert [command.command for command in set_call.commands] == [command.command for command in INFLIGHT_COMMANDS]
+    assert set_call.scope.chat_id == delete_call.scope.chat_id == 111
+
+
+async def test_inflight_transition_syncs_the_riders_private_menu(recording_bot, monkeypatch):
+    import config
+
+    bot, session = recording_bot
+    order = "ELAS-ABCD-1"
+
+    class RiderRows:
+        def table(self, name):
+            assert name == "rider_master"
+            return self
+
+        def select(self, columns):
+            assert columns == "tcid"
+            return self
+
+        def eq(self, column, value):
+            assert (column, value) == ("rider_id", PHONE)
+            return self
+
+        def limit(self, count):
+            assert count == 1
+            return self
+
+        def execute(self):
+            return type("Result", (), {"data": [{"tcid": 111}]})()
+
+    async def inflight_order(rider_id):
+        assert rider_id == PHONE
+        return order
+
+    monkeypatch.setattr(config, "rider_bot", bot)
+    monkeypatch.setattr(config, "client_ordelo_service", RiderRows())
+    monkeypatch.setattr(rider_shift, "inflight_order", inflight_order)
+
+    await sync_rider_menu(PHONE)
+    order = None
+    await sync_rider_menu(PHONE)
+    assert [type(call) for call in session.calls] == [SetMyCommands, DeleteMyCommands]
 
 
 def test_break_length_buttons_fit_and_skip_what_cannot_be_packed():
@@ -135,6 +191,16 @@ async def test_off_while_on_a_break_says_until_when(recording_bot, rider, domain
     domain.paused_until = ENDS
     await feed(bot, message_update("/off"))
     assert session.sent_texts[0].startswith(f"You're on a break until <b>{until()}</b>.")
+
+
+async def test_off_during_inflight_refuses_without_showing_lengths(recording_bot, rider, domain):
+    bot, session = recording_bot
+    domain.inflight_order = "ELAS-ABCD-1"
+    await feed(bot, message_update("/off"))
+    assert session.sent_texts == [availability.ON_JOB]
+    assert not [call for call in domain.calls if call[0] in {"options", "pause"}]
+    menu = next(call for call in session.calls if isinstance(call, SetMyCommands))
+    assert menu.scope.chat_id == 111 and "off" not in {command.command for command in menu.commands}
 
 
 @pytest.mark.parametrize("setup, expected", [
@@ -178,12 +244,13 @@ async def test_redelivered_tap_after_on_is_acknowledged_without_restarting_break
     assert inbox_db.status_of(2, "rider") == "done"
 
 
-async def test_tap_during_a_job_says_the_job_carries_on(recording_bot, rider, domain):
+async def test_old_pause_tap_during_inflight_is_refused(recording_bot, rider, domain):
     bot, session = recording_bot
-    domain.job = RiderThread("ORDELO-dispatch-7", PHONE, dispatch_id=7, order_number="ELAS-ABCD-1", channel="telegram")
+    domain.inflight_order = "ELAS-ABCD-1"
     await feed(bot, callback_update(RiderPause(k="6h").pack()))
-    assert session.edited_texts[0].endswith("Your current job <b>ELAS-ABCD-1</b> (/job) carries on.")
-    assert ("job", False) in domain.calls  # looking at the job never keeps its thread alive
+    assert session.edited_texts == [availability.ON_JOB]
+    assert not [call for call in domain.calls if call[0] == "pause"]
+    assert session.answers == [(None, False)]
 
 
 async def test_tap_with_a_length_no_longer_allowed(recording_bot, rider, domain):
@@ -214,6 +281,16 @@ async def test_on_when_already_on(recording_bot, rider, domain):
     bot, session = recording_bot
     await feed(bot, message_update("/on"))
     assert session.sent_texts == [availability.ALREADY_ON]
+
+
+async def test_on_during_inflight_does_not_resume_or_change_shift(recording_bot, rider, domain):
+    bot, session = recording_bot
+    domain.inflight_order = "ELAS-ABCD-1"
+    domain.paused_until = ENDS
+    await feed(bot, message_update("/on"))
+    assert session.sent_texts == [availability.ON_JOB]
+    assert domain.paused_until == ENDS
+    assert not [call for call in domain.calls if call[0] in {"resume", "set_shift"}]
 
 
 async def test_on_for_a_rider_who_is_not_active(recording_bot, rider, domain):
@@ -253,6 +330,15 @@ async def test_shift_shows_the_current_job(recording_bot, rider, domain):
     domain.job = RiderThread("ORDELO-dispatch-7", PHONE, dispatch_id=7, order_number="ELAS-ABCD-1", channel="telegram")
     await feed(bot, message_update("/shift"))
     assert session.sent_texts[0].endswith("\nCurrent job: <b>ELAS-ABCD-1</b> (/job)")
+
+
+async def test_shift_reconciles_menu_using_inflight_even_before_thread_opens(recording_bot, rider, domain):
+    bot, session = recording_bot
+    domain.inflight_order = "ELAS-ABCD-1"
+    await feed(bot, message_update("/shift"))
+    assert session.sent_texts == ["🛵 On a delivery. Please complete the current order before changing availability.\n"
+                                  "Current job: <b>ELAS-ABCD-1</b> (/job)"]
+    assert any(isinstance(call, SetMyCommands) for call in session.calls)
 
 
 async def test_shift_when_the_db_is_down(recording_bot, rider, domain):

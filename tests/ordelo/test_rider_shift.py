@@ -49,3 +49,29 @@ async def test_unexpected_response_raises(db, data):
     db(data)
     with pytest.raises(RuntimeError):
         await rider_shift.set_shift("447700900501", False)
+
+
+@pytest.mark.parametrize("rows, expected", [([{"order_number": "ELAS-A-1"}], "ELAS-A-1"), ([], None)])
+async def test_inflight_order_reads_live_assignment(monkeypatch, rows, expected):
+    class FakeRows:
+        def table(self, name):
+            assert name == "delivery_inflight"
+            return self
+
+        def select(self, columns):
+            assert columns == "order_number"
+            return self
+
+        def eq(self, column, value):
+            assert (column, value) == ("rider_id", "447700900501")
+            return self
+
+        def limit(self, count):
+            assert count == 1
+            return self
+
+        def execute(self):
+            return type("Result", (), {"data": rows})()
+
+    monkeypatch.setattr(rider_shift, "client_ordelo_service", FakeRows())
+    assert await rider_shift.inflight_order("447700900501") == expected
