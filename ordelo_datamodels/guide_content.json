@@ -8,10 +8,10 @@
     {"folder": "delivery", "title": "Delivery orders", "summary": "The delivery order as fulfilment sees it (delivery_summary), its priced vehicle options and the 5-second job that opens the next option or times the order out."},
     {"folder": "dispatch", "title": "Rider dispatch", "summary": "Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep."},
     {"folder": "takeaway", "title": "Takeaway (collection)", "summary": "The collection order (takeaway_summary), its creation and the triggers that tell admins and customers about it."},
-    {"folder": "restaurant_admin", "title": "Restaurant admin actions", "summary": "Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout and the daily availability question."},
-    {"folder": "telegram", "title": "Telegram layer", "summary": "Invite links, the at-most-once update inbox, order cards with reminders, the ledger of sent messages and the daily purge."},
-    {"folder": "rider_location", "title": "Rider location", "summary": "OwnTracks GPS fixes and region events from a pgmq queue, and on-demand WhatsApp location requests."},
-    {"folder": "availability", "title": "Availability pauses", "summary": "Pauses with a mandatory end time for riders (later restaurant admins): is_paused() computes availability from the clock; job_pause_sweep() only sends the ends-soon and back-on messages (ADR 0013)."},
+    {"folder": "restaurant_admin", "title": "Restaurant admin actions", "summary": "Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout, receipts and notices. New Telegram receipts and notices exclude paused admins."},
+    {"folder": "telegram", "title": "Telegram layer", "summary": "Admin and rider links, the protected update inbox, order cards, alert destinations, admin pause RPCs and the sent-message ledger."},
+    {"folder": "rider_location", "title": "Rider location", "summary": "OwnTracks GPS fixes and region events from a pgmq queue, plus correlated on-demand WhatsApp and Telegram location replies."},
+    {"folder": "availability", "title": "Rider shifts and availability pauses", "summary": "WhatsApp rider shifts and mandatory-end pauses for riders and restaurant admins. is_paused() computes availability from the clock; job_pause_sweep() only closes expired rows and asks the app to send ends-soon and back-on messages (ADR 0013)."},
     {"folder": "agent_threads", "title": "Agent threads", "summary": "Reading LangGraph checkpoints and closing idle conversation threads (OrdeloAgent and restaurant-agents)."},
     {"folder": "admin_dashboard", "title": "Admin dashboard", "summary": "Magic-link sessions, the order views behind the restaurant dashboard and the rider payout report."},
     {"folder": "platform", "title": "Platform and operations", "summary": "HTTP helpers, cron housekeeping and the Fly.io / AWS App Runner switches."},
@@ -42,7 +42,7 @@
         {"title": "1 Create", "text": "init_delivery() inserts the summary: 'restaurant_unconfirmed', or 'unassigned' with a pickup time when resolve_initial_restaurant_acceptance() says the restaurant auto-accepts.", "objects": ["init_delivery", "delivery_summary", "resolve_initial_restaurant_acceptance"]},
         {"title": "2 Confirm", "text": "trigger_restaurant_updates POSTs /delivery-hooks/restaurant-confirmation-request; admins answer by WhatsApp or Telegram. restaurant_order_decide() and restaurant_order_set_pickup() record the answer; process_restaurant_confirmation() (10 s) times out unanswered orders.", "objects": ["trigger_restaurant_updates", "restaurant_updates_whook", "restaurant_order_decide", "restaurant_order_set_pickup", "process_restaurant_confirmation"]},
         {"title": "3 Options", "text": "process_delivery() (5 s) opens one delivery_detail row per vehicle type by delivery_option rank, and marks the order 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).", "objects": ["process_delivery", "delivery_detail", "delivery_option", "trigger_delivery_summary_timedout"]},
-        {"title": "4 Offers", "text": "job_create_dispatch() (5 s) inserts delivery_dispatch offers for get_available_riders(); the statement trigger POSTs /delivery-hooks/delivery-dispatch and riders get a WhatsApp offer.", "objects": ["job_create_dispatch", "get_available_riders", "delivery_dispatch", "trigger_delivery_dispatch_whook"]},
+        {"title": "4 Offers", "text": "job_create_dispatch() (5 s) inserts delivery_dispatch offers for get_available_riders(), which requires an active, in-shift, unpaused rider. The statement trigger POSTs /delivery-hooks/delivery-dispatch; each rider's channel determines whether the offer goes to WhatsApp or Telegram.", "objects": ["job_create_dispatch", "get_available_riders", "delivery_dispatch", "trigger_delivery_dispatch_whook", "is_paused"]},
         {"title": "5 Assign", "text": "job_assign_dispatch() (5 s) gives the order to the first acceptance (assign_accepted_dispatch): dispatch, detail and summary 'assigned' and a delivery_inflight row, whose trigger starts the rider agent. notify_missed_dispatches() tells the other riders.", "objects": ["job_assign_dispatch", "assign_accepted_dispatch", "delivery_inflight", "trigger_delivery_inflight_whook", "notify_missed_dispatches"]},
         {"title": "6 Deliver", "text": "The rider agent checks the pickup code; dispatch_cancel_before_pickup() re-offers the order; dispatch_complete_func() marks everything 'completed' and removes the inflight row. job_rider_pickup_alerts() nudges riders around pickup time.", "objects": ["dispatch_cancel_before_pickup", "dispatch_complete_func", "job_rider_pickup_alerts", "rider_pickup_alert"]}
       ]
@@ -66,7 +66,8 @@
         {"title": "Decide", "text": "restaurant_order_decide() records accept / decline ('declined' is terminal); restaurant_order_set_pickup() sets the pickup time. t_order_decide() / t_order_set_pickup() check t_order_admin_phone() first.", "objects": ["restaurant_order_decide", "restaurant_order_set_pickup", "t_order_decide", "t_order_set_pickup", "t_order_admin_phone"]},
         {"title": "Time out", "text": "process_restaurant_confirmation() (10 s) marks unanswered orders 'restaurant_timedout'; Python then sets a default pickup time.", "objects": ["process_restaurant_confirmation"]},
         {"title": "Ready, +10, +20", "text": "Once a rider has the job, restaurant_order_ready() (first tap per dispatch wins) and restaurant_order_adjust_pickup() (relative to pickup_time_initial). Telegram wrappers: t_order_ready(), t_order_adjust_pickup().", "objects": ["restaurant_order_ready", "restaurant_order_adjust_pickup", "t_order_ready", "t_order_adjust_pickup"]},
-        {"title": "Kitchen receipts", "text": "Telegram receipts are t_sent_messages rows of kind 'receipt'; job_t_receipt_refresh() (5 s) finds stale copies with t_receipts_stale() / t_receipts_take() and Python edits them.", "objects": ["t_receipt_status", "t_receipt_snapshot", "t_receipt_sent", "t_receipts_stale", "t_receipts_take", "job_t_receipt_refresh"]},
+        {"title": "Kitchen receipts", "text": "New Telegram receipts use t_alert_destinations() to exclude paused admins. Existing receipt copies remain live: job_t_receipt_refresh() (5 s) finds stale copies with t_receipts_stale() / t_receipts_take() and Python edits them.", "objects": ["t_alert_destinations", "t_receipt_status", "t_receipt_snapshot", "t_receipt_sent", "t_receipts_stale", "t_receipts_take", "job_t_receipt_refresh"]},
+        {"title": "Plain notices", "text": "t_notice_targets() uses t_alert_destinations() for new Telegram notices, leaving out paused admins; WhatsApp notices are unchanged.", "objects": ["t_notice_targets", "t_alert_destinations"]},
         {"title": "Daily availability", "text": "enquire_admin_availability() asks each restaurant's admins every morning whether they are open.", "objects": ["enquire_admin_availability"]}
       ]
     },
@@ -77,19 +78,20 @@
       "steps": [
         {"title": "Invite", "text": "The operator inserts a t_invites row and copies invite_link from t_invites_shareable. /start <code> calls t_invite_preview(); 'Yes' calls t_claim_invite(); /whoami calls t_linked_restaurants().", "objects": ["t_invites", "t_invites_shareable", "t_invite_preview", "t_claim_invite", "t_linked_restaurants"]},
         {"title": "Inbox", "text": "Each Telegram update is claimed once with t_inbox_claim() and closed with t_inbox_finish(), so retries across workers are skipped.", "objects": ["t_inbox", "t_inbox_claim", "t_inbox_finish"]},
-        {"title": "Order cards", "text": "job_t_order_alerts() (5 s) seeds t_order_alerts checkpoints for unconfirmed orders, picks the due reminder and stale copies, and POSTs them to the app, which sends or edits cards and records them with t_order_card_sent() / t_order_card_mark().", "objects": ["job_t_order_alerts", "t_order_alerts", "t_order_card_snapshot", "t_order_cards_stale", "t_order_cards_take", "t_order_card_sent", "t_order_card_mark", "t_sent_messages"]},
+        {"title": "Order cards", "text": "job_t_order_alerts() (5 s) seeds checkpoints for unconfirmed orders and POSTs due reminders and stale copies to the app. New cards use t_alert_destinations() to exclude paused admins; existing cards remain visible and tappable, and their stale copies are still refreshed.", "objects": ["job_t_order_alerts", "t_order_alerts", "t_alert_destinations", "t_order_card_snapshot", "t_order_cards_stale", "t_order_cards_take", "t_order_card_sent", "t_order_card_mark", "t_sent_messages"]},
+        {"title": "Admin alert pause", "text": "Restaurant bot /off and /on call t_admin_pause() and t_admin_resume(); pause_start() refuses a pause that would leave no unpaused admin for that restaurant. t_admin_pause_status() supplies the current state and duration choices.", "objects": ["t_admin_pause", "t_admin_resume", "t_admin_pause_status", "pause_start", "pause_options"]},
         {"title": "Housekeeping", "text": "t_housekeeping() purges old inbox, ledger and alert rows. It is NOT scheduled on live (docs/to-do.md).", "objects": ["t_housekeeping"]}
       ]
     },
     {
       "id": "rider-location",
       "title": "Rider location",
-      "summary": "Continuous tracking from the OwnTracks app, plus on-demand WhatsApp location requests.",
+      "summary": "Continuous tracking from the OwnTracks app, plus on-demand WhatsApp or Telegram rider location replies.",
       "steps": [
         {"title": "Queue", "text": "OwnTracks messages land in the pgmq queue 'owntracks'. job_process_owntracks() (30 s) moves GPS fixes to rider_location and region events to rider_location_event.", "objects": ["job_process_owntracks", "rider_location", "rider_location_event"]},
         {"title": "Events", "text": "trigger_rider_location_event_update POSTs every region event to /location-hooks/notify-rider-location-event.", "objects": ["trigger_rider_location_event_update", "rider_location_event_update"]},
         {"title": "Missing fixes", "text": "job_null_or_outdated_location() would alert about live jobs with no recent fix; its cron job is INACTIVE.", "objects": ["job_null_or_outdated_location"]},
-        {"title": "On demand", "text": "A customer or admin asks where the rider is: wa_location_request (pending) -> WhatsApp prompt -> the rider shares -> wa_location_observation -> requests fulfilled.", "objects": ["wa_location_request", "wa_location_observation"]}
+        {"title": "On demand", "text": "A customer or admin asks where the rider is: wa_location_request (pending) -> the assigned rider's WhatsApp or Telegram prompt -> a one-time location share -> wa_location_observation -> requests fulfilled. Telegram shares are stored as telegram_current; restaurant-agents currently receives the compatible whatsapp_current wire value.", "objects": ["wa_location_request", "wa_location_observation"]}
       ]
     },
     {
@@ -113,12 +115,22 @@
       ]
     },
     {
+      "id": "availability",
+      "title": "Rider shifts and timed pauses",
+      "summary": "The clock decides when a pause ends; the scheduled sweep handles bookkeeping and messages, not availability.",
+      "steps": [
+        {"title": "Daily shift", "text": "enquire_shift_availability() asks active WhatsApp riders at 11:00 UTC. WhatsApp Yes/No and the rider bot /on use rider_set_shift(), which refuses a non-active rider's Yes and an off request during a job. Telegram riders do not get the daily question.", "objects": ["enquire_shift_availability", "rider_set_shift", "rider_master"]},
+        {"title": "Start or end pause", "text": "Rider bot /off and /on use pause_start() and pause_end(); restaurant bot /off and /on use t_admin_pause() and t_admin_resume(). Duration keys come from pause_options() and ordelo_config. is_paused() computes the current state from ends_at.", "objects": ["pauses", "pause_options", "pause_start", "pause_end", "is_paused", "t_admin_pause", "t_admin_resume", "ordelo_config"]},
+        {"title": "Sweep messages", "text": "job_pause_sweep() closes expired pause rows and POSTs due ends-soon and back-on messages to /pause-hooks/sweep. A successful HTTP response marks the rows; actual message delivery is not confirmed by that response. Live pg_cron was active every five minutes at the 22 Oct check; the R5-R6 file targets every minute, still pending after the owner-confirmed deployment.", "objects": ["job_pause_sweep", "pauses"]}
+      ]
+    },
+    {
       "id": "operations",
       "title": "Dashboard and operations",
       "summary": "Admin dashboard reads and platform helpers.",
       "steps": [
         {"title": "Dashboard", "text": "Magic-link logins in auth_sessions; orders from v_admin_orders and its daily / monthly totals; get_rider_payout_report() for payouts.", "objects": ["auth_sessions", "v_admin_orders", "v_admin_orders_daily", "v_admin_orders_monthly", "get_rider_payout_report"]},
-        {"title": "Daily rider question", "text": "enquire_shift_availability() asks every active rider whether they are working today.", "objects": ["enquire_shift_availability", "rider_master"]},
+        {"title": "Daily rider question", "text": "enquire_shift_availability() asks active WhatsApp riders whether they are working today; Telegram riders use /off and /on instead.", "objects": ["enquire_shift_availability", "rider_master"]},
         {"title": "HTTP helpers", "text": "ordelo_post() builds a URL from an ordelo_config key; fly_post() drives Fly.io machines with tokens from fly_config (security finding in docs/to-do.md).", "objects": ["ordelo_post", "ordelo_config", "fly_post", "fly_config"]},
         {"title": "Switches", "text": "job_awsrunner_switch() pauses or resumes AWS App Runner; both cron jobs are INACTIVE.", "objects": ["job_awsrunner_switch"]}
       ]

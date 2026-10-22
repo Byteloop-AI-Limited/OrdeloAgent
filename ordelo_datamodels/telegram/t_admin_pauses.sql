@@ -2,7 +2,7 @@
 -- ordelo_datamodels/telegram/t_admin_pauses.sql
 -- Restaurant admins pause and resume their Telegram order alerts (/off, /on on the restaurant bot; phase R6).
 -- =============================================================================================
--- LIVE CHECK    NOT yet live (phase R6 of plans/telegram-rider-bot-plan.md). migrations/rider_telegram_r5_r6.sql step 3 applies it.
+-- LIVE CHECK    Live on 2026-10-22: all four t_admin_pause* functions were verified against the R6 definitions.
 -- OBJECTS       fn     t_admin_pause(p_bot_key text, p_tuid bigint, p_duration text) -> jsonb
 --                   Pause this Telegram user's alerts for every restaurant they are a linked admin of, one pause per restaurant.
 --               fn     t_admin_resume(p_bot_key text, p_tuid bigint) -> jsonb

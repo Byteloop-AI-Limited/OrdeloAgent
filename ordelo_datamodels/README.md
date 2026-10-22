@@ -16,9 +16,10 @@ The SQL is the authoritative description of the live Supabase database for every
 | `delivery/` | `delivery_summary`, options, `init_delivery`, `process_delivery` |
 | `dispatch/` | offers, assignment, in-flight job, completion, pickup alerts |
 | `takeaway/` | `takeaway_summary`, `init_takeaway` |
-| `restaurant_admin/` | accept / decline, pickup time, Ready, +10 / +20, confirmation timeout |
-| `telegram/` | invites, inbox, order cards, sent-message ledger, housekeeping |
-| `rider_location/` | OwnTracks fixes and events, WhatsApp location requests |
+| `restaurant_admin/` | accept / decline, pickup time, Ready, +10 / +20, confirmation timeout, receipts and notices |
+| `telegram/` | invites, inbox, order cards, paused-admin alert destinations, admin pause RPCs, sent-message ledger, housekeeping |
+| `rider_location/` | OwnTracks fixes and events, WhatsApp and Telegram location replies |
+| `availability/` | WhatsApp rider shift rule, timed rider/admin pauses, pause-message sweep |
 | `agent_threads/` | LangGraph state reads, idle thread jobs |
 | `admin_dashboard/` | magic-link sessions, order views, rider payout report |
 | `platform/` | HTTP helpers, cron housekeeping, Fly / AWS switches |
@@ -43,6 +44,8 @@ Every file starts with a fixed header: `LIVE CHECK`, `OBJECTS`, `REQUIRES`, `HOW
 3. `python scripts/datamodels/format_sql.py` then `python scripts/datamodels/build_guide.py`.
 4. After applying to live: `python scripts/datamodels/drift_check.py` (needs `ORDELO_LIVE_DB_URI` and a local `ORDELO_TEST_DB_URI`).
 5. `pytest tests/test_datamodels_standard.py`; SQL behaviour tests: `ORDELO_TEST_DB_URI=... pytest tests/sql`.
+
+**R5-R6 status (22 Oct 2026):** the migration's read-only live VERIFY returns `true / 7 / true / true / 4 / 0` after the owner applied `restaurant_ready_adjust_notices.sql`. The owner confirms app deployment and both command menus. The live `job_pause_sweep` entry is active at `*/5 * * * *`; its owner file targets the planned `* * * * *`, still pending. The local full drift run stopped before comparison because pgvector is absent (PostGIS is absent too). These are separate from the 358 passing isolated SQL behaviour tests.
 
 ## Files that are not hand-edited
 

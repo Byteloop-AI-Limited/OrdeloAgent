@@ -1,10 +1,9 @@
 -- =============================================================================================
 -- ordelo_datamodels/rider_location/wa_location.sql
--- On-demand WhatsApp rider location: who asked where the rider is (requests) and the locations received (observations).
+-- On-demand rider location from WhatsApp or Telegram: requests, observations and their correlation.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
---               EXCEPT phase R5 of plans/telegram-rider-bot-plan.md (not yet live; migrations/rider_telegram_r5_r6.sql step 1):
---                 wa_location_observation_source_check also allows 'telegram_current' (D50).
+-- LIVE CHECK    R5 wa_location_observation_source_check allows 'telegram_current' (verified live on 2026-10-22);
+--               other objects were last compared with live on 2026-10-16.
 -- OBJECTS       table  wa_location_observation
 --                   One rider location received on demand (rider GPS share, or the restaurant location inferred at confirmation).
 --               table  wa_location_request
@@ -16,7 +15,7 @@
 -- SIDE EFFECTS  none
 -- HOW IT FITS   ordelo/wa_location.py (WaLocation) owns both tables:
 --                   a customer or restaurant admin asks where the rider is -> wa_location_request (pending; coalesced with an open
---                   request for the same order/rider) -> one WhatsApp 'share your location' prompt to the rider
+--                   request for the same order/rider) -> one channel-appropriate 'share your location' prompt to the rider
 --                   -> the rider shares current location (WhatsApp: watomation/on_wa_location_handler.py; Telegram, R5:
 --                      channels/telegram/rider/location.py) -> wa_location_observation
 --                   -> every pending request for that order is fulfilled and routed to its callback_url (delivered).

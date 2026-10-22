@@ -4,6 +4,8 @@ Source review: 7 October 2026. Scope: active Ordelo order/customer/rider/admin/o
 
 Companion: [interactive guide](alerts-and-notifications.html). Canonical vocabulary: [Ordelo glossary](../GLOSSARY.md), [frontend glossary](../../restaurant-frontend/GLOSSARY.md). Context: [web ordering guide](../docs/web-ordering-playground.md), [existing domain context](../CONTEXT.md).
 
+**Telegram operations update (22 October 2026):** This guide's detailed paths below are the 7 October source-review snapshot. Rider offers and active-job messages now route through the rider's WhatsApp or Telegram channel (R2-R4). For R5-R6, the owner confirms code deployment and both bot menus; the live database excludes paused restaurant admins from **new Telegram** cards, receipts and notices. Existing cards remain usable and WhatsApp admin notices are unchanged. The pause sweep is active every five minutes on live, with a one-minute schedule in its SQL file still pending. See the [Telegram layer](telegram-layer.md) and [database guide](../ordelo_datamodels/ordelo-database-guide.md) for current paths; live R5-R6 bot behavior is not established by this database check.
+
 ## Start here
 
 There are **two main communication paths**, with several direct-send exceptions and supporting flows:

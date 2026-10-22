@@ -2,9 +2,8 @@
 -- ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql
 -- Kitchen actions shared by WhatsApp and Telegram (Ready, +10 / +20 pickup), Telegram kitchen receipts and plain notices.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
---               EXCEPT phase R6 of plans/telegram-rider-bot-plan.md (not yet live; migrations/rider_telegram_r5_r6.sql step 3 applies
---                 this whole file): t_receipt_snapshot() and t_notice_targets() send to t_alert_destinations() (paused admins left out).
+-- LIVE CHECK    R6 t_receipt_snapshot() and t_notice_targets() verified live on 2026-10-22 after the owner applied this file;
+--               both now use t_alert_destinations() for new sends. Other objects were last compared on 2026-10-16.
 -- OBJECTS       fn     restaurant_order_ready(p_order_number text, p_order_type text, p_admin_phone text, p_channel text) -> jsonb
 --                   Ready, shared by every channel: record the first Ready tap per dispatch (delivery) or per order (takeaway).
 --               fn     restaurant_order_adjust_pickup(p_order_number text, p_target timestamp with time zone, p_admin_phone text, p_channel text) -> jsonb

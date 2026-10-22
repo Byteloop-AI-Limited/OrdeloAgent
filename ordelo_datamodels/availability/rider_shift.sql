@@ -2,7 +2,7 @@
 -- ordelo_datamodels/availability/rider_shift.sql
 -- A rider starts or ends a shift (rider_master.is_in_shift), with the status gate and the on-a-job check in one place.
 -- =============================================================================================
--- LIVE CHECK    NOT yet live (phase R5 of plans/telegram-rider-bot-plan.md). migrations/rider_telegram_r5_r6.sql step 3 applies it.
+-- LIVE CHECK    Live on 2026-10-22: rider_set_shift() was verified against the R5-R6 definition.
 -- OBJECTS       fn     rider_set_shift(p_rider_id text, p_on boolean) -> jsonb
 --                   Start (p_on) or end a rider's shift: only an 'active' rider can start, and nobody can end one during a job.
 -- REQUIRES      core/rider_master.sql
