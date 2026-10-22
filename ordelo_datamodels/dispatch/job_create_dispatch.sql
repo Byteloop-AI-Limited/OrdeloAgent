@@ -2,12 +2,15 @@
 -- ordelo_datamodels/dispatch/job_create_dispatch.sql
 -- Every 5 seconds: offer open delivery options to available riders (insert delivery_dispatch rows), in batches.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- LIVE CHECK    TARGET SHAPE (phase R1 of plans/telegram-rider-bot-plan.md): job_create_dispatch() matches live (2026-10-16);
+--                 get_available_riders() here adds status = 'active' and NOT is_paused(...), which are NOT yet live. The owner
+--                 applies availability/pauses.sql, then this file (see migrations/rider_telegram_r1.sql for the order).
 -- OBJECTS       fn     job_create_dispatch() -> TABLE(action text)
 --                   Create the next batch of offers for every open delivery option, or time the vehicle type out; returns what it did.
 --               fn     get_available_riders(p_order_number text, p_town text, p_vehicle_type text) -> TABLE(rider_id character varying, priority integer)
 --                   Return the riders (rider_id, priority) who may be offered this order for this town and vehicle type.
--- REQUIRES      none
+-- REQUIRES      core/rider_master.sql
+--               availability/pauses.sql
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
 -- SIDE EFFECTS  Each run inserts delivery_dispatch rows (one webhook per run via the statement trigger) and may mark
@@ -41,11 +44,14 @@
 -- PYTHON MODEL  none
 -- SECURITY      job_create_dispatch(): executable by PUBLIC (default)
 --               get_available_riders(): executable by PUBLIC (default)
--- TESTS         none
+-- TESTS         tests/sql/test_rider_onboarding_sql.py (get_available_riders: status gate and pauses)
 -- GOTCHAS       TEST3100 orders (order_has_test_item) are offered only to riders listed in ordelo_config overwatch_list.
+--               Only rider_master.status = 'active' (exact, case-sensitive) is dispatchable (D41): Telegram sign-ups start
+--                 'inactive'. A rider with an open pause (availability/pauses.sql) is skipped until its end time (D51).
 --               A rider is never offered the same order twice, and riders on another job (delivery_inflight) are skipped.
 -- SEE ALSO      dispatch/delivery_dispatch.sql
 --               core/rider_master.sql
+--               availability/pauses.sql
 --               ordering/order_has_test_item.sql
 --               docs/dispatch_flow.md
 -- =============================================================================================
@@ -168,9 +174,9 @@ LANGUAGE plpgsql;
 -- ---------------------------------------------------------------------------------------------
 -- function get_available_riders(p_order_number text, p_town text, p_vehicle_type text) -> TABLE(rider_id character varying, priority integer)
 --   Return the riders (rider_id, priority) who may be offered this order for this town and vehicle type.
---   Same town (case-insensitive) and vehicle, is_in_shift, not offered this order before, not on another job;
---   TEST3100 orders only to overwatch_list riders.
---   Data: reads delivery_dispatch, delivery_inflight, ordelo_config, rider_master; calls order_has_test_item().
+--   status = 'active', same town (case-insensitive) and vehicle, is_in_shift, not paused, not offered this order before,
+--   not on another job; TEST3100 orders only to overwatch_list riders.
+--   Data: reads delivery_dispatch, delivery_inflight, ordelo_config, rider_master; calls order_has_test_item(), is_paused().
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION get_available_riders (p_order_number text, p_town text, p_vehicle_type text)
     RETURNS TABLE (
@@ -200,9 +206,11 @@ BEGIN
     FROM
         rider_master allRiders
     WHERE
-        LOWER(allRiders.town) = LOWER(p_town)
+        allRiders.status = 'active'
+        AND LOWER(allRiders.town) = LOWER(p_town)
         AND allRiders.vehicle_type = p_vehicle_type
         AND allRiders.is_in_shift
+        AND NOT public.is_paused ('rider', allRiders.rider_id, NULL)
         -- Restrict before priority/batch ranking. Unknown orders have no candidates.
         AND CASE public.order_has_test_item (p_order_number)
         WHEN FALSE THEN

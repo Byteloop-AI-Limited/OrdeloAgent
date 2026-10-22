@@ -82,6 +82,13 @@ The webhook route does not contain business logic. Per-bot objects are created i
 | | `tests/sql/test_restaurant_ready_adjust_notices_sql.py`, `test_restaurant_notices_script_sql.py` | the migration (first Ready wins, +N relative to the original pickup, status keys, destinations, races) and the fake-row script, in the isolated database |
 | | `tests/sql/` | isolated-database tests of the migrations (skipped without `ORDELO_TEST_DB_URI`; local throwaway Postgres only) |
 | | `tests/watomation/routers/test_telegram_webhook.py` | 404 / 403 / invalid update / handler failure still 200 / retried update handled once |
+| **Rider bot** (R1) | `channels/telegram/rider/router.py`, `rider/commands.py` | `@ByteloopRidersBot` (bot key `rider`, webhook `/telegram/rider/webhook`): `/start` onboarding by shared phone (contact.user_id must equal from_user.id), town / vehicle buttons, `/help`, `/whoami`, text fallback; ops alerts through `WALogger`. Registered only when configured (`config.rider_bot`, D54). Plan: `plans/telegram-rider-bot-plan.md` |
+| | `channels/telegram/rider_links.py` | `link`, `set_profile`, `choices`, `profile`: thin wrappers over the `t_rider_*` RPCs |
+| | `channels/telegram/callbacks.py`, `keyboards.py` | `RiderSignup` (`rsu:t\|v:<value>`), `RiderOffer` (`ro1:<dispatch_id>:a\|d`, R4); `rider_choice_kb`, `rider_offer_kb`, `location_request_kb` |
+| Rider messaging | `ordelo/rider_messaging/` | `RiderMessenger` interface (`say`, `send_place`, `request_location`, `send_contact`, `mark`, `offer_job`, `offer_closed`), WhatsApp adapter (byte-identical pywa calls), Telegram adapter (HTML, reactions, edit-in-place), `for_rider()`, `use_messenger()`, recording fake. Wired into the agent in R3 |
+| Pauses | `ordelo/pauses.py` | `pause`, `resume`, `current` over `pause_start` / `pause_end` / `pause_current` (ADR 0013); used by `/off` `/on` from R5 |
+| | `ordelo_datamodels/telegram/t_rider_onboarding.sql`, `availability/pauses.sql`, `availability/job_pause_sweep.sql`, `core/rider_master.sql`, `migrations/rider_telegram_r1.sql`, `test_support/test_rider_onboarding.sql` | rider onboarding RPCs, pauses, the sweep (R5), the R1 target shape of `rider_master`, the one-off migration with pre-checks, the live harness |
+| | `tests/channels/telegram/test_rider_router.py`, `test_rider_links.py`, `tests/ordelo/test_rider_messaging.py`, `test_pauses.py`, `tests/sql/test_rider_*`, `test_pauses_sql.py` | `FakeRiderDb` (conftest) mimics the RPCs; SQL tests on the isolated database incl. the migration on a pre-R1 table |
 | Docs | `docs/adr/0011-...md`, `docs/local-testing-runbook.md` (Telegram section), `CONTEXT.md`, `.claude/skills/database-operations/SKILL.md` (invite SOP) | decisions, local setup, vocabulary, operator procedure |
 
 ## 4. Settings, secrets and clients
@@ -179,6 +186,16 @@ When you add, rename or change an RPC, update **all three** in the same change.
 | config rows `TGRAM_ORDER_ALERT_OFFSETS_SECS`, `TGRAM_INBOX_RETENTION_DAYS`, `TGRAM_LEDGER_RETENTION_DAYS` | `telegram/t_order_alerts.sql` (offsets); retention keys are read by `telegram/t_housekeeping.sql` | none (read by the SQL) | n/a | `tests/sql/test_order_cards_sql.py` |
 | existing function `parse_alert_offsets(p_config_key)` | `dispatch/job_rider_pickup_alerts.sql` | none | n/a | copied into `tests/sql/minimal_schema.sql` |
 | existing table `restaurant_master` | existing migrations | none (joined inside the RPCs for the restaurant name) | n/a | n/a |
+| columns `rider_master.channel/tuid/tcid/t_username/t_first_name/t_linked_at/phone_verified`, unique `rider_id`, `rider_master_tuid_uidx` | `core/rider_master.sql` (+ `migrations/rider_telegram_r1.sql`) | none directly (through the RPCs); `ordelo/rider_messaging/factory.for_rider` reads `channel`, `tcid` | n/a | `tests/sql/test_rider_onboarding_sql.py`, `test_rider_telegram_r1_migration_sql.py` |
+| RPC `t_rider_link(p_tuid, p_tcid, p_phone, p_username, p_first_name)` | `telegram/t_rider_onboarding.sql` | `rider_links.link` | contact message (rider bot) | `test_rider_links.py`, `test_rider_router.py`, SQL test (every result, concurrent first link) |
+| RPC `t_rider_set_profile(p_tuid, p_town, p_vehicle_type)` | `telegram/t_rider_onboarding.sql` | `rider_links.set_profile` | town / vehicle buttons | same |
+| RPC `t_rider_choices()` | `telegram/t_rider_onboarding.sql` | `rider_links.choices` | sign-up buttons | same |
+| RPC `t_rider_profile(p_tuid)` | `telegram/t_rider_onboarding.sql` | `rider_links.profile` | `/start`, `/whoami`, fallback | same |
+| function `t_rider_phone_digits(p_phone)` | `telegram/t_rider_onboarding.sql` | none (inside `t_rider_link`) | n/a | SQL test |
+| table `pauses`, functions `is_paused`, `pause_duration` | `availability/pauses.sql` | none directly; `get_available_riders()` calls `is_paused` | n/a | `tests/sql/test_pauses_sql.py`, `test_rider_onboarding_sql.py` (dispatch gate) |
+| RPCs `pause_start`, `pause_end`, `pause_current` | `availability/pauses.sql` | `ordelo/pauses.pause` / `resume` / `current` | `/off`, `/on`, `/shift` (R5) | `tests/ordelo/test_pauses.py`, `tests/sql/test_pauses_sql.py` |
+| function `job_pause_sweep()` | `availability/job_pause_sweep.sql` | none (pg_cron every minute, from R5) | POSTs `/pause-hooks/sweep` (R5) | `tests/sql/test_pauses_sql.py` (clock decides, marks only on 2xx) |
+| function `get_available_riders(...)` (changed) | `dispatch/job_create_dispatch.sql` | none | n/a | `tests/sql/test_rider_onboarding_sql.py` (`status = 'active'`, not paused) |
 
 ## 7. Invite lifecycle and operations
 
@@ -251,12 +268,13 @@ API references: [rich buttons](https://docs.aiogram.dev/en/v3.31.0/api/types/ric
 - **Long cards:** an order with a very long item list is not truncated to Telegram's 4096 characters.
 - **Order actions** are authorised per tap (claimed invite for the restaurant AND the invite phone in `restaurant_master.admins`). Ready and +10 / +20 are built (Phases 7-8, on the kitchen receipt). Not built: adjusting a takeaway pickup time, a takeaway `completed` writer (its receipt stays "ready"), and a tap on a card that has no ledger row (an old card sent before the migration is answered but not redrawn).
 - **Phases 7-8 are scheduling and live checks for the owner:** apply `restaurant_ready_adjust_notices.sql`, schedule `job_t_receipt_refresh()`, put the dummy rider in `overwatch_list`, deploy, then run the live script (`test_support/test_restaurant_notices.sql`). Out of scope: rider-nearby (G) and availability enquiry (J).
-- **Rider bot** (`DISPATCHER_FACTORIES` is ready for a second key) and the **phone-verified** contact flow.
+- **Rider bot:** R1 (onboarding by verified phone) is scaffolded; offers, the job conversation, locations, `/off` / `/on` and the pause sweep are phases R2-R6 of `plans/telegram-rider-bot-plan.md`. Restaurant admins still link by invite (no phone-verified flow).
 
 ## Change log
 
 Add one line per change, newest first: date, what changed, files.
 
+- 2026-10-22: Rider bot R0 + R1 scaffold (plan `plans/telegram-rider-bot-plan.md`, D39-D54; ADR 0011 Amendment 3, ADR 0012 Amendment 1, ADR 0013): `config.tgram_setting.optional_bot` / `rider_bot`, `bots.build_rider_dispatcher`, `channels/telegram/rider/`, `rider_links.py`, `RiderSignup` / `RiderOffer`, `ordelo/rider_messaging/`, `ordelo/pauses.py`; SQL `core/rider_master.sql` (target shape), `telegram/t_rider_onboarding.sql`, `availability/pauses.sql`, `availability/job_pause_sweep.sql`, `get_available_riders` gate, `migrations/rider_telegram_r1.sql`, harness `test_support/test_rider_onboarding.sql`; `tests/sql/conftest.py` fixed (missing files, pg_cron stub). Apply the migration (pre-checks first), add the `tgram_rider_*` secrets, deploy, register the rider webhook.
 - 2026-10-16: Added Salisbury Mini App to `/scratchpad`: private-chat `WebAppInfo` button opens the real `https://restaurant.ordelo.app/town/salisbury` storefront inside Telegram. Router, dispatcher test and both guides updated; no webhook/menu registration changed.
 - 2026-10-16: Six restaurant-focused rich-message scratchpad examples: native receipt details/table, coloured decisions, expandable Show progress with genuinely disabled completed/future steps, and embedded prep-preset, pickup-time and ready/hold controls. Temporary per-message demo state guards completed actions and preserves selected timestamps; dispatcher tests cover the payloads and transitions. `scratchpad.py`, `test_scratchpad.py`, recording-session support in `conftest.py`, and both guides updated. Orange represented by 🟠 because the Bot API has no orange button style.
 - 2026-10-16: Main-bot `/scratchpad` playground in `rest_admin/scratchpad.py`, mounted before the main router in `bots.py`; 20 private-chat demos, working rich-text button callbacks and demo order/tracker controls, scoped reply-keyboard input and offline dispatcher tests. Notebook cell 7a reuses the renderer; separate-token/polling cells removed. Unmount with one router include; existing webhook and business actions retained.

@@ -47,3 +47,24 @@ record these as follow-ups; the organisation work documents them but does not ch
   keep, or drop with explicit approval.
 - [ ] **Rotate the Supabase database password.** A fragment appeared in local tool output during the live check (not
   sent anywhere).
+
+## Rider bot findings (design session, 22 Oct 2026)
+
+Found while planning the Telegram rider bot ([`plans/telegram-rider-bot-plan.md`](../plans/telegram-rider-bot-plan.md)).
+Not fixed by that plan unless a phase says so.
+
+- [ ] **`job_close_thread` header does not match live.** `agent_threads/job_close_thread.sql` says it is "called from Python,
+  not by pg_cron"; the owner says the stale-thread close is a scheduled cron job. Read `cron.job` and make the file show
+  the live schedule (`drift_check.py`).
+- [ ] **`job_close_thread` can say goodbye to customers.** It selects idle threads of EVERY agent except `WEB` and its payload
+  has no `agent`, so `delivery_hooks.close_threads` cannot skip anything: idle restaurant-agent customer threads
+  (`ELAS-…`) get "Ending the conversation…" from Ordelo's WhatsApp number (their threads are not closed, because
+  `make_threads_inactive` is scoped to the ORDELO agent). Phase R2 makes the rider path close only `ORDELO-dispatch-*`
+  rows; done when the job itself filters by agent (or the owner records that it is intended).
+- [ ] **`fapp_ordelo_agent.py /threads` and `/debug-state-by-thread` query `from_number`,** a column the `thread` table no
+  longer has (renamed to `recipient`). Fixed with the R2 debug clean-up.
+- [ ] **Race-hardening of rider assignment** (ADR 0011 point 4): `dispatch_response` reads state and writes separately.
+  Deferred by D48; Telegram does not make it worse.
+- [ ] **Rename `wa_location*`** to channel-neutral names once Telegram locations ship (R5). Cosmetic; touches many files.
+- [ ] **`rider_master` holds Telegram ids with RLS off.** Part of the existing row-level-security review; `tuid`/`tcid` are
+  now readable with the anon key.

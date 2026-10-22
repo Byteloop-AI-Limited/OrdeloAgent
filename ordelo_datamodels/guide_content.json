@@ -11,6 +11,7 @@
     {"folder": "restaurant_admin", "title": "Restaurant admin actions", "summary": "Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout and the daily availability question."},
     {"folder": "telegram", "title": "Telegram layer", "summary": "Invite links, the at-most-once update inbox, order cards with reminders, the ledger of sent messages and the daily purge."},
     {"folder": "rider_location", "title": "Rider location", "summary": "OwnTracks GPS fixes and region events from a pgmq queue, and on-demand WhatsApp location requests."},
+    {"folder": "availability", "title": "Availability pauses", "summary": "Pauses with a mandatory end time for riders (later restaurant admins): is_paused() computes availability from the clock; job_pause_sweep() only sends the ends-soon and back-on messages (ADR 0013)."},
     {"folder": "agent_threads", "title": "Agent threads", "summary": "Reading LangGraph checkpoints and closing idle conversation threads (OrdeloAgent and restaurant-agents)."},
     {"folder": "admin_dashboard", "title": "Admin dashboard", "summary": "Magic-link sessions, the order views behind the restaurant dashboard and the rider payout report."},
     {"folder": "platform", "title": "Platform and operations", "summary": "HTTP helpers, cron housekeeping and the Fly.io / AWS App Runner switches."},

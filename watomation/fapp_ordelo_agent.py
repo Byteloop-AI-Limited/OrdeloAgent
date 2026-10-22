@@ -5,7 +5,7 @@ FastAPI application for Ordelo WhatsApp automation service.
     . Exposes diagnostic endpoints for debugging agent state and flows
     . Serves as entry point when running OrdeloAgent with WhatsApp integration
     . Recovers unattempted customer notifications with an application-owned sweep
-    . Serves Telegram webhooks (restaurant-admin bot) and builds/closes the Telegram bot registry
+    . Serves Telegram webhooks (restaurant-admin bot; rider bot when configured) and builds/closes the Telegram bot registry
   Functions/Classes:
     . app - FastAPI application instance
     . custom_404_handler - Handles 404 errors with template response

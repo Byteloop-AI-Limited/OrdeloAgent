@@ -495,3 +495,33 @@ It supersedes "Ingress in step 1" above where they differ.
   WhatsApp. A chat id never authorises anything, so a group chat works unchanged. The
   tapper's own copy and everyone else's are redrawn from the database after every
   outcome, including a refused tap.
+
+## Amendment 3 - 22 October 2026 (rider bot, phases R0-R6)
+
+Decided in the rider grilling session of
+[the rider plan](../../plans/telegram-rider-bot-plan.md) (decisions D39-D54).
+It supersedes the rider parts of this ADR where they differ.
+
+- **Rider identity lives on the domain row (D40), not in the Telegram adapter.**
+  `rider_master` gains `tuid` (unique), `tcid`, `t_username`, `t_first_name`,
+  `t_linked_at`, `phone_verified` and `channel`; `rider_id` becomes `NOT NULL UNIQUE`.
+  Decision 5's "the Telegram adapter owns identities" holds for restaurant admins
+  (`t_invites`) but not for riders: a second identity table would duplicate the rider,
+  and the owner wants one table. Writes still go only through service-role RPCs
+  (`telegram/t_rider_onboarding.sql`); `tuid` authorises, `tcid` addresses (D25).
+- **No invites for riders (D39).** One generic link; the rider proves the phone with
+  Telegram's contact button and the bot accepts it only when
+  `contact.user_id == from_user.id`. Unknown phones become `status = 'inactive'`
+  riders, and dispatch now requires `status = 'active'` (D41).
+- **One channel per rider, fixed per dispatch (D43, D44)**, instead of the restaurant
+  "both channels" rule (D28). A job conversation never moves between apps.
+- **The rider port is `RiderMessenger` (D45), deliberately not a pure intent port.**
+  Decision 3 rejected a generic `send_text(to, text, buttons)`. `RiderMessenger` is
+  bound to one rider and one channel, so callers never pass addresses, keyboards or
+  callback data; but its operations take the text the callers already write
+  (WhatsApp style), because moving 20+ messages into two adapters would risk changing
+  the WhatsApp wording, which the owner ruled out. The adapters own rendering, reply
+  threading, reactions, offer buttons and editing a closed offer in place (D49).
+- **The rider bot is optional at start-up (D54):** registered only when its token is
+  configured, unlike the restaurant bot.
+- Thread and pause decisions: ADR 0012 Amendment 1 and ADR 0013.

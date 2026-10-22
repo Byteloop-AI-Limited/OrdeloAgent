@@ -99,6 +99,11 @@ _STUB_AGENT_ENV: dict = {
     "tgram_rest_admin_bot_username": "test_rest_admin_bot",
     "tgram_rest_admin_webhook_secret": "test-tgram-secret",
     "tgram_rest_admin_webhook_base_url": "https://test.example.com",
+    # Telegram (rider bot, optional: D54)
+    "tgram_rider_bot_token": "654321:TEST-rider-token",
+    "tgram_rider_bot_username": "test_riders_bot",
+    "tgram_rider_webhook_secret": "test-rider-secret",
+    "tgram_rider_webhook_base_url": "https://test.example.com",
 }
 
 

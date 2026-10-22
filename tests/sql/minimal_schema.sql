@@ -105,10 +105,28 @@ CREATE TABLE IF NOT EXISTS public.order_item (
 );
 
 -- ---- restaurant_ready_adjust_notices.sql needs the dispatch tables and riders (columns used only) ----------------------
+-- rider_master: the R1 target shape (ordelo_datamodels/core/rider_master.sql). town / vehicle_type / status get test-only
+-- defaults so older tests can insert (rider_id, rider_name) alone; the live table has no such defaults.
 CREATE TABLE IF NOT EXISTS public.rider_master (
-    id         serial PRIMARY KEY,
-    rider_id   varchar(12),
-    rider_name text NOT NULL
+    id           serial PRIMARY KEY,
+    rider_id     varchar(12) NOT NULL,
+    rider_name   text NOT NULL,
+    vehicle_type varchar(15) NOT NULL DEFAULT 'bike',
+    town         varchar(255) NOT NULL DEFAULT 'dummy',
+    status       varchar(50) NOT NULL DEFAULT 'active',
+    is_in_shift  boolean NOT NULL DEFAULT true,
+    priority     int NOT NULL DEFAULT 1,
+    dtts         timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    shift_response_dtts timestamp,
+    channel      text NOT NULL DEFAULT 'whatsapp' CHECK (channel IN ('whatsapp', 'telegram')),
+    tuid         bigint,
+    tcid         bigint,
+    t_username   text,
+    t_first_name text,
+    t_linked_at  timestamptz,
+    phone_verified boolean NOT NULL DEFAULT false,
+    CONSTRAINT rider_master_rider_id_key UNIQUE (rider_id),
+    CONSTRAINT rider_master_tg_link_complete CHECK ((tuid IS NULL) = (tcid IS NULL))
 );
 CREATE TABLE IF NOT EXISTS public.delivery_dispatch (
     dispatch_id serial PRIMARY KEY,

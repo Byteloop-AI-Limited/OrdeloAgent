@@ -122,3 +122,29 @@ async def test_bot_session_fails_fast_and_drops_idle_connections():
         assert client.connector._keepalive_timeout == BOT_KEEPALIVE_SECS
     finally:
         await bot.session.close()
+
+
+# ---- rider bot: optional (D54) ----------------------------------------------------------------------------------------
+from config.tgram_setting import RIDER_BOT_KEY, optional_bot  # noqa: E402
+
+
+def test_rider_bot_absent_is_none_not_an_error(monkeypatch):
+    monkeypatch.delenv("TGRAM_RIDER_BOT_TOKEN", raising=False)
+    assert optional_bot(RIDER_BOT_KEY, {"tgram_rest_admin_bot_token": "1:x"}) == (None, None)
+
+
+def test_rider_bot_present_builds_with_its_own_webhook_path(monkeypatch):
+    monkeypatch.delenv("TGRAM_RIDER_WEBHOOK_SECRET", raising=False)
+    settings, bot = optional_bot(RIDER_BOT_KEY, {"tgram_rider_bot_token": "654321:ABC-rider", "tgram_rider_webhook_secret": "s"})
+    assert settings.bot_key == "rider" and settings.webhook_path == "/telegram/rider/webhook" and bot is not None
+
+
+def test_rider_token_without_secret_still_fails_fast(monkeypatch):
+    monkeypatch.delenv("TGRAM_RIDER_WEBHOOK_SECRET", raising=False)
+    with pytest.raises(RuntimeError, match="tgram_rider_webhook_secret"):
+        optional_bot(RIDER_BOT_KEY, {"tgram_rider_bot_token": "654321:ABC-rider"})
+
+
+def test_malformed_rider_token_fails_fast():
+    with pytest.raises(RuntimeError, match="malformed"):
+        optional_bot(RIDER_BOT_KEY, {"tgram_rider_bot_token": "not-a-token", "tgram_rider_webhook_secret": "s"})
