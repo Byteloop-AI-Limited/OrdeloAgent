@@ -35,7 +35,7 @@ def nudges(monkeypatch):
     """Rider nudges and customer events recorded instead of run (their wording is proven in test_restaurant_actions.py)."""
     sent = []
 
-    async def rider(rider_id, rest_name):
+    async def rider(rider_id, rest_name, dispatch_id=None):  # dispatch_id: that job's thread (R2)
         sent.append(("rider", rider_id, rest_name))
 
     async def customer(order_number, data, phone):
@@ -131,7 +131,7 @@ async def test_status_change_while_sending_triggers_a_redraw(env):
 # ---- taps --------------------------------------------------------------------------------------------------------
 
 
-async def test_ready_tap_notifies_the_rider_answers_and_redraws_every_copy(env, nudges):
+async def test_ready_tap_notifies_the_rider_answers_and_redraws_every_copy(env, nudges, inbox_db):
     receipts, store, session, db, tap, _ = env
     await receipts.send(DELIVERY, 10)
     await tap(f"ord:{ORDER}:d:rdy:0", 111)
@@ -141,6 +141,7 @@ async def test_ready_tap_notifies_the_rider_answers_and_redraws_every_copy(env, 
     assert "✅ Marked ready by You" in ada.text and "✅ Marked ready by Ada" in bob.text
     assert [b.callback_data.split(":")[3] for b in ada.reply_markup.inline_keyboard[0]] == ["adj", "adj"]
     assert {r["status"] for r in store.live()} == {"ready@13:00"}
+    assert inbox_db.rpc_names == ["t_inbox_claim", "t_inbox_finish"]
 
 
 async def test_second_ready_tap_by_the_other_admin_is_told_and_does_not_nudge_again(env, nudges):

@@ -1,7 +1,14 @@
-"""Typed contracts for the durable on-demand WhatsApp location flow.
+"""Typed contracts for the durable on-demand rider location flow (WhatsApp and, from phase R5, Telegram).
 
 These models deliberately contain no arbitrary rider identifier or coordinates
 supplied by an LLM. Ordelo resolves those values from the delivery assignment.
+
+Two source vocabularies (D50):
+    . ObservationSource: what is STORED in wa_location_observation.source (rider_location/wa_location.sql):
+      whatsapp_current | telegram_current | restaurant_confirmation
+    . LocationSource: what is SENT to requesters (the callback and the request outcome). It keeps its two values because
+      restaurant-agents validates them strictly (its WaLocationPoint.source); a Telegram share is the rider's current GPS,
+      so wire_source() reports it as 'whatsapp_current' until restaurant-agents accepts 'telegram_current'.
 """
 
 from __future__ import annotations
@@ -16,6 +23,13 @@ from urllib.parse import urlsplit
 
 LocationRequester = Literal["customer", "restaurant_admin"]
 LocationSource = Literal["whatsapp_current", "restaurant_confirmation"]
+CurrentLocationSource = Literal["whatsapp_current", "telegram_current"]
+ObservationSource = Literal["whatsapp_current", "telegram_current", "restaurant_confirmation"]
+
+
+def wire_source(source: str) -> LocationSource:
+    """The stored source as requesters see it: any rider GPS share is 'whatsapp_current' on the wire (see module docstring)."""
+    return "restaurant_confirmation" if source == "restaurant_confirmation" else "whatsapp_current"
 LocationRequestStatus = Literal[
     "location_available", "rider_prompted", "waiting_for_rider"
 ]
@@ -55,7 +69,9 @@ class WaLocationRequestOutcome(BaseModel):
 
 
 class WhatsAppLocationReceipt(BaseModel):
-    """Current-location response received from a rider's WhatsApp message."""
+    """Current-location response received from a rider: a WhatsApp message, or (source 'telegram_current', R5) a Telegram
+    location message. Telegram ids are MsgRefs ('tg:<chat>:<message>'), so they never collide with wamids in the unique
+    wa_inbound_message_id column."""
 
     rider_id: str = Field(min_length=1, max_length=50)
     latitude: float = Field(ge=-90, le=90)
@@ -63,6 +79,10 @@ class WhatsAppLocationReceipt(BaseModel):
     observed_at: datetime
     inbound_message_id: str = Field(min_length=1, max_length=255)
     reply_to_message_id: str | None = Field(default=None, max_length=255)
+    source: CurrentLocationSource = "whatsapp_current"
+
+
+CurrentLocationReceipt = WhatsAppLocationReceipt
 
 
 class RestaurantConfirmationObservation(BaseModel):

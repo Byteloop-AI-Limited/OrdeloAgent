@@ -173,12 +173,12 @@ function selectObject(name,scroll){selObj=name;var o=D.objects[name];if(!o)retur
  p.appendChild(el('div',{class:'split'},[listBox,detail]));[qIn,kSel,fSel].forEach(function(x){x.oninput=renderList;x.onchange=renderList;});renderList();})();
 /* cron */
 (function(){var p=panels.cron;p.appendChild(el('h2',{text:'Cron jobs'}));
- p.appendChild(el('p',{text:'pg_cron jobs as defined by the runnable cron.schedule() statements in the SQL files. "Inactive" means the file re-disables the job. Live matches this table (checked by scripts/datamodels/drift_check.py).'}));
+ p.appendChild(el('p',{text:'Schedules and states here are targets from the runnable SQL files, not a live catalog read. At the 22 Oct R5-R6 check, job_pause_sweep was active on live every five minutes while its file targets every minute. The full drift check has not completed.'}));
  var tb=el('tbody');D.cron.forEach(function(j){var tr=el('tr');tr.appendChild(el('td',null,[el('code',{text:j.job})]));tr.appendChild(el('td',{text:j.schedule}));
   tr.appendChild(el('td',null,[j.active?'active':el('span',{class:'tag off',text:'inactive'})]));
   var fn=el('td');if(j['function']){fn.appendChild(chip(j['function']));}else fn.appendChild(el('code',{text:j.command}));tr.appendChild(fn);
   var f=el('td');var b=el('button',{class:'secondary',type:'button',text:j.file});b.style.cssText='padding:2px 8px;font-weight:400';b.onclick=function(){openFile(j.file,j.line);};f.appendChild(b);tr.appendChild(f);tb.appendChild(tr);});
- var t=el('table',null,[el('thead',null,[el('tr',null,['Job','Schedule','State','Runs','File'].map(function(h){return el('th',{text:h});}))]),tb]);p.appendChild(el('div',{class:'table-wrap'},[t]));
+ var t=el('table',null,[el('thead',null,[el('tr',null,['Job','File schedule','File state','Runs','File'].map(function(h){return el('th',{text:h});}))]),tb]);p.appendChild(el('div',{class:'table-wrap'},[t]));
  if(D.cron_notes.length){var u=el('ul');D.cron_notes.forEach(function(n){u.appendChild(el('li',{text:n}));});p.appendChild(el('h3',{text:'Known gaps'}));p.appendChild(u);}})();
 /* drift */
 (function(){var p=panels.drift;p.appendChild(el('h2',{text:'Orphans and external objects'}));

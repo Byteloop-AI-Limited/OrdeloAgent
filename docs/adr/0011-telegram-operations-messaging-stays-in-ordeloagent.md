@@ -495,3 +495,53 @@ It supersedes "Ingress in step 1" above where they differ.
   WhatsApp. A chat id never authorises anything, so a group chat works unchanged. The
   tapper's own copy and everyone else's are redrawn from the database after every
   outcome, including a refused tap.
+
+## Amendment 3 - 22 October 2026 (rider bot, phases R0-R6)
+
+Decided in the rider grilling session of
+[the rider plan](../../plans/telegram-rider-bot-plan.md) (decisions D39-D54).
+It supersedes the rider parts of this ADR where they differ.
+
+- **Rider identity lives on the domain row (D40), not in the Telegram adapter.**
+  `rider_master` gains `tuid` (unique), `tcid`, `t_username`, `t_first_name`,
+  `t_linked_at`, `phone_verified` and `channel`; `rider_id` becomes `NOT NULL UNIQUE`.
+  Decision 5's "the Telegram adapter owns identities" holds for restaurant admins
+  (`t_invites`) but not for riders: a second identity table would duplicate the rider,
+  and the owner wants one table. Writes still go only through service-role RPCs
+  (`telegram/t_rider_onboarding.sql`); `tuid` authorises, `tcid` addresses (D25).
+- **No invites for riders (D39).** One generic link; the rider proves the phone with
+  Telegram's contact button and the bot accepts it only when
+  `contact.user_id == from_user.id`. Unknown phones become `status = 'inactive'`
+  riders, and dispatch now requires `status = 'active'` (D41).
+- **One channel per rider, fixed per dispatch (D43, D44)**, instead of the restaurant
+  "both channels" rule (D28). A job conversation never moves between apps.
+- **The rider port is `RiderMessenger` (D45), deliberately not a pure intent port.**
+  Decision 3 rejected a generic `send_text(to, text, buttons)`. `RiderMessenger` is
+  bound to one rider and one channel, so callers never pass addresses, keyboards or
+  callback data; but its operations take the text the callers already write
+  (WhatsApp style), because moving 20+ messages into two adapters would risk changing
+  the WhatsApp wording, which the owner ruled out. The adapters own rendering, reply
+  threading, reactions, offer buttons and editing a closed offer in place (D49).
+- **The rider bot is optional at start-up (D54):** registered only when its token is
+  configured, unlike the restaurant bot.
+- Thread and pause decisions: ADR 0012 Amendment 1 and ADR 0013.
+
+## Amendment 4 - 22 October 2026 (selective Telegram inbox)
+
+This supersedes Amendment 2's global inbox requirement (D21) and any earlier
+description of a durable receipt queue. The webhook acknowledges a valid update
+with HTTP 200 before background handling; `t_inbox` deduplicates selected work
+across workers but cannot recover work lost after that acknowledgement.
+
+- Protected handlers opt in through `channels/telegram/inbox.py:process_once`:
+  restaurant order-card and kitchen buttons, invite Yes, verified rider contact
+  linking, rider town/vehicle choices, rider offer Accept/Decline, rider job-card
+  buttons, and rider text only after finding an active Telegram job thread.
+  The rider text lookup and thread touch happen before the claim.
+- Read-only commands, invite No, invalid contacts, fallback, scratchpad and
+  unmatched updates run without inbox RPCs. Redelivery may repeat their reply.
+- A protected first delivery claims and finishes as `done` or `failed`; a duplicate
+  skips the handler. A claim failure stays fail open and does not call finish.
+  For rider agent turns, `done` records that the turn was queued, not its result.
+  The business RPCs retain their own atomic guards against separate button taps.
+- Keep `t_inbox` and its two RPCs. No database migration is required.

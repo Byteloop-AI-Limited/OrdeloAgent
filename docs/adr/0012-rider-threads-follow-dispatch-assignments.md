@@ -144,3 +144,38 @@ read-only exact debug, and historical lookup after dispatch cleanup.
 - [LangGraph checkpointers](https://docs.langchain.com/oss/python/langgraph/checkpointers)
 - [Telegram inline callback data](https://core.telegram.org/bots/api#inlinekeyboardbutton)
 - [aiogram callback packing](https://docs.aiogram.dev/en/v3.31.0/dispatcher/filters/callback_data.html)
+
+## Amendment 1 - 22 October 2026 (thread id format; shared table untouched)
+
+Decided with the owner in the rider grilling session
+([rider plan](../../plans/telegram-rider-bot-plan.md), D46, D47).
+
+- **Format.** New rider threads use `thread_id = ORDELO-dispatch-<dispatch_id>`, not
+  `ordelo:rider:dispatch:<id>`. The `thread` table is shared with restaurant-agents
+  and the WEB checkout, whose ids are `<agent>-<uuid>` (`ELAS-…`, `WEB-…`), and the live
+  per-restaurant stale-thread cron (`job_terminate_stale_active_threads_new`) reads the
+  restaurant from `upper(split_part(thread_id, '-', 1))`. `ORDELO-dispatch-…` parses
+  exactly like today's rider ids (`ORDELO-<uuid>`, never a 4-letter `rest_ref`) and keeps
+  the convention.
+- **No schema change to `thread`.** No new columns; `create_thread`,
+  `get_or_create_thread`, `make_threads_inactive`, the cron jobs, restaurant-agents and
+  customer threads are untouched. Rider-only SQL (`agent_threads/rider_threads.sql`,
+  phase R2) adds `rider_thread_open` (idempotent insert of the computed id) and
+  `rider_thread_close(thread_id)` (exactly one row). Nothing parses the id: code
+  computes it from the dispatch; rider → dispatch comes from `delivery_inflight` and
+  the graph state.
+- **At most one active rider thread per rider (D47)**, enforced when a thread opens:
+  opening B closes A and records A's pending cancel reason as not given. This replaces
+  the "job selection prompt" and reply-index routing above for the overlap case;
+  inbound text goes actor → rider → the single active thread. The scheduled stale
+  close also closes a rider thread whose cancel reason is still missing;
+  `retain_thread` stays `false` on rider threads.
+- **As built (R2, 22 October 2026).** The dispatch → thread link is stored, not derived:
+  `rider_thread_open` writes the id to `delivery_dispatch.thread_id`, and every lookup
+  (`rider_thread_touch`, `rider_thread_active`, `rider_thread_describe`) joins
+  `thread.thread_id = delivery_dispatch.thread_id` to return the dispatch, order, the
+  dispatch's channel and the rider's Telegram chat in one call. `rider_thread_open` takes a
+  per-rider advisory lock, is the only creator of rider threads (the runner never calls
+  `get_or_create_thread` for riders, so a late hook can no longer create a thread), and
+  never reopens a closed one. Threads opened before R2 (`ORDELO-<uuid>`) are still found by
+  `rider_thread_active` and are closed when the rider's next dispatch thread opens.

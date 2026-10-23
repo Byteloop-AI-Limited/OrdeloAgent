@@ -145,7 +145,12 @@ def build_md(c: dict, content: dict, ext: dict) -> str:
                 else:
                     out.append(f"| {link} | `{o['name']}` | {o['kind']} | {md_cell(o['description'])} |")
         out.append("")
-    out += ["## Cron jobs", "", "| Job | Schedule | State | Runs | File |", "|---|---|---|---|---|"]
+    out += [
+        "## Cron jobs", "",
+        "Schedule and state below come from the runnable SQL files; they are targets, not a live catalog read. "
+        "At the 22 Oct R5-R6 check, `job_pause_sweep` was active on live every five minutes while its file targets every minute.",
+        "", "| Job | File schedule | File state | Runs | File |", "|---|---|---|---|---|",
+    ]
     for j in c["cron"]:
         out.append(f"| `{j['job']}` | {j['schedule']} | {'active' if j['active'] else 'inactive'} | `{j['function'] or j['command']}` | [`{j['file']}`]({j['file']}) |")
     if c["cron_notes"]:

@@ -12,7 +12,7 @@ from config.tgram_setting import TgramBotSettings
 
 from .conftest import callback_update, message_update
 
-pytestmark = pytest.mark.usefixtures("inbox_db")  # the dispatcher claims every update in the inbox
+pytestmark = pytest.mark.usefixtures("inbox_db")  # protected handlers claim through the inbox
 
 SETTINGS = TgramBotSettings.for_bot(
     "rest_admin",

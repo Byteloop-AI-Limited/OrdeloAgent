@@ -9,7 +9,9 @@ WhatsApp message handler for Ordelo delivery system
     . Handles error cases and provides appropriate responses
     . Uses asyncio.create_task for long-running RPC calls to avoid timeouts
   Functions/Classes:
-    . process_wa_msg - Main entry point for WhatsApp message processing
+    . process_wa_msg - Main entry point for WhatsApp message processing: runs the rider's single open dispatch thread
+      (ordelo.agents.rider_threads, R2); a job that lives on Telegram gets a "please reply there" line instead (D44); a
+      Telegram rider with no job is pointed to the rider bot instead of getting the shift question (D53, R5)
     . live_location - Handles live location updates from riders
     . reset_thread - Resets conversation thread state
     . test_delivery - Creates test delivery for debugging
@@ -52,7 +54,6 @@ from config import (
     llm_settings,
     logger,
     pg_settings,
-    client_ordelo,
 )
 from ordelo.agent_app_handlers import (
     # enquire_shift_availability_non_template,
@@ -66,6 +67,8 @@ from config.params import get_restaurant_base_url_async
 # project modules
 # from utils_common.db_utils.sbase_rest_ops import sbase_get
 from utils_common.thread_management import ThreadHandler
+from ordelo.agents.rider_threads import active_for_rider as active_rider_thread
+from ordelo.rider_messaging.models import on_telegram_text, wrong_channel_text
 
 # %% Intent Classifier
 
@@ -138,20 +141,26 @@ async def send_closed_message(wa: WhatsApp, msg: Message):
 # %% Run graph on msg
 async def process_wa_msg(wa: WhatsApp, msg: Message):
     await msg.indicate_typing()
-    pool: AsyncConnectionPool = await pg_settings.get_pool()
     recipient = msg.sender
-    thread_handler = ThreadHandler(pool)
 
-    thread_row = await thread_handler.get_active_thread(recipient)
+    # The rider's single open rider thread (R2, D47); None when no delivery is in progress.
+    thread_row = await active_rider_thread(recipient)
 
-    is_in_shift: bool = (
+    rider_row: dict = (
         client_ordelo.table("rider_master")
-        .select("is_in_shift")
+        .select("is_in_shift, channel")
         .eq("rider_id", recipient)
         .execute()
-        .data[0]["is_in_shift"]
+        .data[0]
     )
+    is_in_shift: bool = rider_row["is_in_shift"]
 
+    # A Telegram rider with no job in progress (R5, D53): their shift and breaks live on the rider bot, not in this chat.
+    if thread_row is None and rider_row.get("channel") == "telegram":
+        from config.tgram_setting import tgram_rider_settings
+
+        await wa.send_message(to=recipient, text=on_telegram_text(getattr(tgram_rider_settings, "bot_username", None)))
+        return
     # If not on active delivery and is not in shift
     if not is_in_shift:
         await enquire_shift_availability_non_template(wa, msg)
@@ -165,10 +174,15 @@ async def process_wa_msg(wa: WhatsApp, msg: Message):
             await wa.send_message(to=recipient, text="You have no active delivery")
         return
 
-    # Run the graph
+    # The job lives on Telegram (D44): do not pass WhatsApp text to the agent, point the rider there.
+    if thread_row.channel != "whatsapp":
+        await wa.send_message(to=recipient, text=wrong_channel_text(thread_row.order_number, thread_row.channel))
+        return
+
+    # Run the graph on exactly that thread
     _state_update_dict = {"latest_wa_msg_id": msg.id}
     await run_rider_agent_w_custom_msg(
-        recipient, human_msg=msg.text, state_update_dict=_state_update_dict
+        recipient, human_msg=msg.text, state_update_dict=_state_update_dict, thread_id=thread_row.thread_id
     )
 
 

@@ -11,9 +11,12 @@ Restaurant-admin order buttons: ONE handler for every tap on an order card.
 """
 
 from aiogram import Router
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, Update
+
+from config.tgram_setting import TgramBotSettings
 
 from ..callbacks import OrderAction
+from ..inbox import process_once
 from .order_cards import OrderCards
 from .receipts import Receipts
 
@@ -23,11 +26,15 @@ def build_orders_router() -> Router:
 
     @router.callback_query(OrderAction.filter())
     async def on_order_action(
-        query: CallbackQuery, callback_data: OrderAction, order_cards: OrderCards, receipts: Receipts
+        query: CallbackQuery, callback_data: OrderAction, order_cards: OrderCards, receipts: Receipts,
+        tgram_settings: TgramBotSettings, event_update: Update,
     ):
-        if callback_data.a in ("rdy", "adj"):
-            await receipts.tap(query, callback_data)
-        else:
-            await order_cards.tap(query, callback_data)
+        async def work():
+            if callback_data.a in ("rdy", "adj"):
+                await receipts.tap(query, callback_data)
+            else:
+                await order_cards.tap(query, callback_data)
+
+        await process_once(tgram_settings.bot_key, event_update, query.from_user.id, work)
 
     return router

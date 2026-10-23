@@ -16,9 +16,10 @@ WhatsApp callback button handler for delivery dispatch responses
     . Ready (delivery and takeaway) and +10/+20 taps go through utils_common.order_management.restaurant_actions (shared with Telegram): the gate (rider on the job, food not collected) and the first-tap-wins rule live in SQL, so a stale button never runs the agent or writes to delivery_summary, and a second Ready tap is told who already pressed it instead of nudging the rider again
     . Ready buttons sent before order_number existed (no order_number in the callback) keep the old gate path (_legacy_collection_ready)
   Functions/Classes:
-    . dispatch_response - Processes rider responses to delivery dispatch assignments
+    . dispatch_response - Processes rider responses to delivery dispatch assignments (rules: ordelo.dispatch_actions, D48)
     . rider_request_location - Handles rider requests for location information
-    . handle_shift_availability - Handles rider shift availability responses
+    . handle_shift_availability - Handles rider shift availability responses (rules: ordelo.rider_shift, R5: "Yes" from a
+      rider whose status is not 'active' is refused; the other texts are unchanged)
     . handle_admin_availability - Handles admin availability responses for order notifications
     . handle_restaurant_confirmation - Processes restaurant prep time confirmation
     . restaurant_order_accept_decline_handler - Handles restaurant accept/decline responses
@@ -32,9 +33,9 @@ WhatsApp callback button handler for delivery dispatch responses
       (shared with the Telegram taps); this file keeps only the WhatsApp parsing and replies
 
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
-  . delivery_inflight (table, ordelo_datamodels/dispatch/delivery_inflight.sql): reads, named in code (passed to a query helper)
   . delivery_summary (table, ordelo_datamodels/delivery/delivery_summary.sql): reads, named in code (passed to a query helper)
-  . rider_master (table, ordelo_datamodels/core/rider_master.sql): named in code (passed to a query helper), updates
+  . rider_set_shift (function, ordelo_datamodels/availability/rider_shift.sql): calls through ordelo.rider_shift.set_shift
+    (reads delivery_inflight, updates rider_master)
 (end of database objects)
 """
 
@@ -46,8 +47,7 @@ from pywa.types import Message
 import json
 
 # project modules
-from ordelo.agent_app_handlers import initial_handle_of_rider_response
-from config import client_ordelo
+from ordelo import dispatch_actions, rider_shift
 from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 from ordelo.delivery_progress import (
     GATE_REPLIES,
@@ -71,86 +71,24 @@ IS_DISPATCH_RESPONSE = filters.contains("/dispatchResponse", ignore_case=False)
 async def dispatch_response(wa: WhatsApp, msg: Message):
     """
     Rider's response to delivery dispatch. This is a blocking operation. Entry point into the graph.
+
+    The rules live in ordelo.dispatch_actions.respond_to_offer (shared with the Telegram rider bot, D48); this handler only
+    parses the WhatsApp payload and sends the same texts as before.
     """
-    # get app state resources
     recipient = msg.sender
 
     # Callback created in @delivery_hooks (/delivery-dispatch) -> wa_send_delivery_dispatch_request ->
     logger.info("Callback data: {}, recipient: {}".format(msg.data, recipient))
     callback_data: dict = json.loads(msg.data)
-    # remove command from callback data and add rider_id
-    callback_data.pop("command")
-    callback_data["rider_id"] = recipient
-    order_number = callback_data["order_number"]
-
-    # If order is not found
-    order_status = (
-        client_ordelo.table("delivery_summary")
-        .select("status")
-        .eq("order_number", order_number)
-        .execute()
+    out = await dispatch_actions.respond_to_offer(
+        rider_id=recipient,
+        dispatch_id=callback_data["dispatch_id"],
+        order_number=callback_data["order_number"],
+        accept=callback_data.get("status") == "accepted",
     )
-
-    if len(order_status.data) == 0:
-        logger.error(
-            "No delivery detail found for order number: {}".format(order_number)
-        )
-        await wa.send_message(
-            to=recipient, text="Sorry, This job is no longer available"
-        )
-        return
-
-    # Check inflight status for this order_number first
-    inflight_for_order = (
-        client_ordelo.table("delivery_inflight")
-        .select("*")
-        .eq("order_number", order_number)
-        .execute()
-    )
-    if len(inflight_for_order.data) > 0:
-        inflight_row = inflight_for_order.data[0]
-        if inflight_row["rider_id"] == recipient:
-            inflight_dispatch_id = inflight_row.get("dispatch_id")
-            callback_dispatch_id = callback_data.get("dispatch_id")
-            is_decline_for_same_dispatch = (
-                callback_data.get("status") == "declined"
-                and inflight_dispatch_id is not None
-                and callback_dispatch_id == inflight_dispatch_id
-            )
-
-            if not is_decline_for_same_dispatch:
-                # Same rider is already on this job; ignore stale accept/decline taps
-                logger.info(
-                    "Rider %s already inflight for order %s",
-                    recipient,
-                    order_number,
-                )
-                await wa.send_message(
-                    to=recipient,
-                    text=f"Sorry, You are already on a job {inflight_row['order_number']}",
-                )
-                return
-
-            # Assigned rider declining their own inflight dispatch:
-            # fall through to initial_handle_of_rider_response() to trigger cancel flow.
-            logger.info(
-                f"Rider {recipient} declining inflight dispatch {inflight_dispatch_id} for order {order_number}; routing to cancel logic"
-            )
-        else:
-            # Another rider already picked this job
-            logger.info(
-                "Order %s already inflight with rider %s (recipient %s)",
-                order_number,
-                inflight_row["rider_id"],
-                recipient,
-            )
-            await wa.send_message(
-                to=recipient, text="Sorry, this job was picked up by another rider."
-            )
-            return
-
-    order_status = order_status.data[0]
-    await initial_handle_of_rider_response(order_status, callback_data)
+    reply = dispatch_actions.whatsapp_reply(out)
+    if reply:
+        await wa.send_message(to=recipient, text=reply)
 
 
 # %%
@@ -177,7 +115,9 @@ async def rider_request_location(wa: WhatsApp, msg: Message):
         logger.info("Dispatch is complete, skipping location request")
     else:
         await run_rider_agent_w_custom_msg(
-            recipient=callback_data["recipient"], human_msg=callback_data["human_msg"]
+            recipient=callback_data["recipient"],
+            human_msg=callback_data["human_msg"],
+            dispatch_id=int(dispatch_id),
         )
 
 
@@ -185,52 +125,36 @@ async def rider_request_location(wa: WhatsApp, msg: Message):
 IS_SHIFT_AVAILABILITY = filters.contains("/shiftAvailability", ignore_case=False)
 
 
+SHIFT_YES_TEXT = "Great! You will receive notifications for new jobs."
+SHIFT_NO_TEXT = "Ok. You will not receive job notifications for the next 24 hrs."
+SHIFT_NOT_ACTIVE_TEXT = (
+    "Your rider account is not active yet, so you won't receive job notifications. Ordelo will let you know when it is."
+)
+
+
 async def handle_shift_availability(wa: WhatsApp, msg: Message):
+    """The rider's answer to the shift question. The rules (status gate, on-a-job check) live in rider_set_shift()
+    (ordelo.rider_shift, R5); the texts are the ones WhatsApp riders always got, plus one for a rider who is not active."""
     # Callback created in enquire_shift_availability, in wa_senders.py
     callback_data: dict = json.loads(msg.data)
     recipient = callback_data["recipient"]
     human_msg = callback_data["human_msg"]
-    if human_msg == "Yes":
-        await wa.send_message(
-            to=recipient, text="Great! You will receive notifications for new jobs."
-        )
-        update_shift_status = (
-            client_ordelo.table("rider_master")
-            .update({"is_in_shift": True, "shift_response_dtts": "now()"})
-            .eq("rider_id", recipient)
-            .execute()
-        )
-        logger.info(f"Started shift status for rider {recipient}")
-    else:
-        # Check if rider is currently on a job
-        inflight_check = (
-            client_ordelo.table("delivery_inflight")
-            .select("order_number")
-            .eq("rider_id", recipient)
-            .execute()
-        )
-        if len(inflight_check.data) > 0:
-            order_number = inflight_check.data[0]["order_number"]
-            await wa.send_message(
-                to=recipient,
-                text=f"You are currently on a job for order {order_number}. Please complete the job first.",
-            )
-            logger.info(
-                f"Rider {recipient} tried to end shift but is on job {order_number}"
-            )
-            return
-
+    out = await rider_shift.set_shift(recipient, on=human_msg == "Yes")
+    if out.result == rider_shift.NOT_ACTIVE:
+        await wa.send_message(to=recipient, text=SHIFT_NOT_ACTIVE_TEXT)
+        logger.info(f"Rider {recipient} tried to start a shift but is {out.status!r}, not active")
+    elif out.result == rider_shift.ON_JOB:
         await wa.send_message(
             to=recipient,
-            text="Ok. You will not receive job notifications for the next 24 hrs.",
+            text=f"You are currently on a job for order {out.order_number}. Please complete the job first.",
         )
-        update_shift_status = (
-            client_ordelo.table("rider_master")
-            .update({"is_in_shift": False})
-            .eq("rider_id", recipient)
-            .execute()
-        )
-        logger.info(f"Ended shift status for rider {recipient}")
+        logger.info(f"Rider {recipient} tried to end shift but is on job {out.order_number}")
+    elif human_msg == "Yes":  # on, or not_found (unknown number: the same reply as before, nothing written)
+        await wa.send_message(to=recipient, text=SHIFT_YES_TEXT)
+        logger.info(f"Started shift status for rider {recipient} ({out.result})")
+    else:  # off, or not_found
+        await wa.send_message(to=recipient, text=SHIFT_NO_TEXT)
+        logger.info(f"Ended shift status for rider {recipient} ({out.result})")
 
 
 # %%

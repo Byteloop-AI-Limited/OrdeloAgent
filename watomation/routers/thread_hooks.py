@@ -78,11 +78,15 @@ async def run_system_message(request: RunSystemMessageRequest):
             )
         recipient = result.data[0]["recipient"]
 
+    # Run exactly the named thread (R2): no longer reduced to "the rider's thread" by phone.
     ai_response = await run_rider_agent_w_custom_msg(
         recipient=recipient,
         system_msg=request.update_message,
         state_update_dict=request.state_update_dict,
+        thread_id=request.thread_id,
     )
+    if ai_response is None:
+        raise HTTPException(status_code=404, detail=f"Thread not found or inactive: {request.thread_id}")
     return {
         "status": "success",
         "thread_id": request.thread_id,

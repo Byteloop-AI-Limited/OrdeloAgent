@@ -1,4 +1,8 @@
-"""Durable on-demand WhatsApp location orchestration.
+"""Durable on-demand rider location orchestration (WhatsApp; Telegram from phase R5, D50).
+
+The rider answers on the channel of their job: WhatsApp's "Share current location" (watomation/on_wa_location_handler.py)
+or the rider bot's button (channels/telegram/rider/location.py). Both arrive here as a receipt with its source
+('whatsapp_current' | 'telegram_current'); requesters always see the two-value wire vocabulary (wire_source).
 
 This module owns the delivery-authority checks, request/observation persistence,
 prompt coalescing, correlation, and response routing.  HTTP and PyWa adapters
@@ -36,8 +40,8 @@ from ordelo_datamodels.wa_location_pymodels import (
     WaLocationDemand,
     WaLocationRequestOutcome,
     WhatsAppLocationReceipt,
+    wire_source,
 )
-from utils_common.thread_management import ThreadHandler
 
 FRESHNESS = timedelta(minutes=5)
 PROMPT_COOLDOWN = timedelta(minutes=5)
@@ -90,7 +94,9 @@ def utcnow() -> datetime:
 class WaLocation:
     """Ordelo-owned durable implementation of the WaLocation public interface."""
 
-    def __init__(self, *, wa_client: Any) -> None:
+    def __init__(self, *, wa_client: Any = None) -> None:
+        # Optional since R3: prompts go through the dispatch's RiderMessenger; a client given here is used on the
+        # WhatsApp side (callers and tests that hold their own pywa client).
         self._wa_client = wa_client
 
     async def request(
@@ -226,7 +232,7 @@ class WaLocation:
             if route_status != "delivered":
                 raise WaLocationCallbackDeliveryFailed()
             return WaLocationRequestOutcome(
-                request_id=request_id, status="location_available", source=source
+                request_id=request_id, status="location_available", source=wire_source(source)
             )
         if action == "wait":
             return WaLocationRequestOutcome(
@@ -255,23 +261,24 @@ class WaLocation:
         """
         agent_invoked = False
         try:
-            if not await ThreadHandler(await pg_settings.get_pool()).get_active_thread(
-                context.rider_id
-            ):
-                sent = await self._wa_client.request_location(
-                    to=context.rider_id,
-                    text=(
-                        "Please share your current location so we can update the "
-                        "person waiting for your delivery."
-                    ),
-                )
-                await self.record_prompt_sent(request_id, sent.id)
-                return
-
             from ordelo.agents.agent_runner import (
                 clear_wa_location_request,
+                resolve_rider_thread,
                 run_rider_agent_w_custom_msg,
             )
+
+            if not await resolve_rider_thread(context.rider_id, dispatch_id=context.dispatch_id, touch=False):
+                from ordelo.rider_messaging import for_dispatch
+
+                messenger = await for_dispatch(
+                    context.dispatch_id, rider_id=context.rider_id, wa_client=self._wa_client
+                )
+                prompt_ref = await messenger.request_location(
+                    "Please share your current location so we can update the "
+                    "person waiting for your delivery."
+                )
+                await self.record_prompt_sent(request_id, prompt_ref)
+                return
 
             agent_invoked = True
 
@@ -282,6 +289,7 @@ class WaLocation:
             )
             await run_rider_agent_w_custom_msg(
                 recipient=context.rider_id,
+                dispatch_id=context.dispatch_id,
                 system_msg=(
                     f"Rider's location requested by the {requester}. "
                     "Call `request_rider_current_location`."
@@ -301,6 +309,7 @@ class WaLocation:
             ):
                 await run_rider_agent_w_custom_msg(
                     recipient=context.rider_id,
+                    dispatch_id=context.dispatch_id,
                     system_msg="Location prompt was not sent; send it now.",
                     state_update_dict={"force_wa_location_prompt": True},
                 )
@@ -314,7 +323,7 @@ class WaLocation:
                     request_id,
                 )
                 await self.mark_prompt_failed(request_id, "prompt_not_sent")
-                await clear_wa_location_request(context.rider_id)
+                await clear_wa_location_request(context.rider_id, dispatch_id=context.dispatch_id)
         except Exception as exc:
             logger.exception(
                 "Failed to prompt rider via agent for request_id={} error={}",
@@ -330,7 +339,7 @@ class WaLocation:
                 try:
                     from ordelo.agents.agent_runner import clear_wa_location_request
 
-                    await clear_wa_location_request(context.rider_id)
+                    await clear_wa_location_request(context.rider_id, dispatch_id=context.dispatch_id)
                 except Exception:
                     logger.exception(
                         "Failed to clear wa_location_request state for rider={}",
@@ -338,7 +347,16 @@ class WaLocation:
                     )
 
     async def receive_whatsapp_location(self, receipt: WhatsAppLocationReceipt) -> int:
-        """Persist one correlated current location and route all pending demands."""
+        """The WhatsApp entry point (kept name); same as receive_current_location."""
+        return await self.receive_current_location(receipt)
+
+    async def receive_current_location(self, receipt: WhatsAppLocationReceipt) -> int:
+        """Persist one correlated current location (WhatsApp or Telegram, receipt.source) and route all pending demands.
+
+        Correlation: the reply-to id must be the prompt this rider was sent (wa_request_message_id holds the prompt's MsgRef
+        on both channels); without one (a Telegram button share is never a reply), exactly one pending request whose job is
+        still the rider's inflight job is accepted, otherwise the share is ignored (returns 0).
+        """
 
         pool = await pg_settings.get_pool()
         request_ids: list[UUID] = []
@@ -407,7 +425,7 @@ class WaLocation:
                         INSERT INTO wa_location_observation (
                             order_number, dispatch_id, rider_id, latitude, longitude,
                             source, observed_at, wa_inbound_message_id
-                        ) VALUES (%s, %s, %s, %s, %s, 'whatsapp_current', %s, %s)
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (wa_inbound_message_id) WHERE wa_inbound_message_id IS NOT NULL
                         DO NOTHING
                         RETURNING observation_id
@@ -418,6 +436,7 @@ class WaLocation:
                             context.rider_id,
                             receipt.latitude,
                             receipt.longitude,
+                            receipt.source,
                             receipt.observed_at,
                             receipt.inbound_message_id,
                         ),
@@ -559,7 +578,7 @@ class WaLocation:
                 location={
                     "latitude": row["latitude"],
                     "longitude": row["longitude"],
-                    "source": row["source"],
+                    "source": wire_source(row["source"]),
                     "observed_at": row["observed_at"].isoformat(),
                 },
             ).model_dump(mode="json")

@@ -99,4 +99,9 @@ SET config_value = EXCLUDED.config_value,
     updated_at = CURRENT_TIMESTAMP;
 
 
-select * from restaurant_master where rest_ref = 'BNAT';
+select * from restaurant_master where rest_ref like 'STR%';
+
+
+update restaurant_master 
+set admins = Array['447448440754', '447929843965']
+where rest_ref = 'STRK';

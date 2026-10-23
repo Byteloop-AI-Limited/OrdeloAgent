@@ -2,13 +2,13 @@
 
 This guide explains how OwnTracks location events travel from the queue into database tables and out to webhooks. It ties together `ordelo_datamodels/rider_location/rider_location.sql`, `ordelo_datamodels/rider_location/job_process_owntracks.sql`, and `watomation/routers/location_hooks.py`.
 
-## On-demand WhatsApp location
+## On-demand rider location (WhatsApp and Telegram)
 
 OwnTracks remains a legacy ingestion and map path; it is no longer a required
 rider workflow. The separate `WaLocation` flow accepts open
 `POST /wa-request-location` demands with public HTTPS callback URLs, validates the exact active
 `delivery_inflight(order_number, dispatch_id, rider_id)` assignment, and asks
-the rider for a native WhatsApp current location only when an authorised
+the assigned rider for a one-time current location on their job's channel only when an authorised
 request needs one. Its durable request/observation schema and rollout boundary
 are documented in [WaLocation Implementation Plan](wa_location_implementation_plan.md).
 
@@ -45,6 +45,8 @@ the requester's callback as before, then — if it correlated to a pending reque
 runs the rider graph once more with a system message so the agent can acknowledge
 the rider briefly; an unsolicited or ambiguous location reply does not invoke the
 agent.
+
+**Telegram rider replies (R5):** `channels/telegram/rider/location.py` accepts a private-chat, one-time location from the linked rider's **Share current location** button. It rejects live locations and venues, and calls the same `WaLocation.receive_current_location()` correlation path. The observation source is `telegram_current`; its inbound ID is `tg:<chat>:<message>`. A correlated reply routes pending requester callbacks and is acknowledged on the rider's Telegram job thread. For restaurant-agents, `wire_source()` currently maps this stored source to `whatsapp_current` because that service accepts only two source values. See the [Telegram layer](telegram-layer.md) and [R5-R6 plan](../plans/telegram-rider-bot-plan.md). The R5 database objects have been verified live and the owner confirms app deployment; a live Telegram location reply has not been confirmed in this document.
 
 ## End-to-End Flow
 

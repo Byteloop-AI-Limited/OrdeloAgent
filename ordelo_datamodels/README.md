@@ -16,9 +16,10 @@ The SQL is the authoritative description of the live Supabase database for every
 | `delivery/` | `delivery_summary`, options, `init_delivery`, `process_delivery` |
 | `dispatch/` | offers, assignment, in-flight job, completion, pickup alerts |
 | `takeaway/` | `takeaway_summary`, `init_takeaway` |
-| `restaurant_admin/` | accept / decline, pickup time, Ready, +10 / +20, confirmation timeout |
-| `telegram/` | invites, inbox, order cards, sent-message ledger, housekeeping |
-| `rider_location/` | OwnTracks fixes and events, WhatsApp location requests |
+| `restaurant_admin/` | accept / decline, pickup time, Ready, +10 / +20, confirmation timeout, receipts and notices |
+| `telegram/` | invites, inbox, order cards, paused-admin alert destinations, admin pause RPCs, sent-message ledger, housekeeping |
+| `rider_location/` | OwnTracks fixes and events, WhatsApp and Telegram location replies |
+| `availability/` | WhatsApp rider shift rule, timed rider/admin pauses, pause-message sweep |
 | `agent_threads/` | LangGraph state reads, idle thread jobs |
 | `admin_dashboard/` | magic-link sessions, order views, rider payout report |
 | `platform/` | HTTP helpers, cron housekeeping, Fly / AWS switches |
@@ -43,6 +44,8 @@ Every file starts with a fixed header: `LIVE CHECK`, `OBJECTS`, `REQUIRES`, `HOW
 3. `python scripts/datamodels/format_sql.py` then `python scripts/datamodels/build_guide.py`.
 4. After applying to live: `python scripts/datamodels/drift_check.py` (needs `ORDELO_LIVE_DB_URI` and a local `ORDELO_TEST_DB_URI`).
 5. `pytest tests/test_datamodels_standard.py`; SQL behaviour tests: `ORDELO_TEST_DB_URI=... pytest tests/sql`.
+
+**R5-R6 status (23 Oct 2026):** live. The migration's VERIFY returned `true / 7 / true / true / 4 / 0`; the app and both command menus are deployed; `drift_check.py` is successful; `job_pause_sweep` is active at `*/5 * * * *` on live (its owner file targets `* * * * *`; moving it is optional, see `docs/to-do.md`); pauses, the `delivery_inflight` guard and the Telegram and WhatsApp delivery flows were checked live by the owner.
 
 ## Files that are not hand-edited
 

@@ -32,13 +32,14 @@ Delivery webhook handlers for Ordelo delivery system
     . RestaurantConfirmationPayload - Pydantic model for restaurant confirmation webhook with trigger_reason
     . get_payload - Helper to parse webhook payloads
     . cancel_payment - Cancels payment for an order via payment microservice
-    . wa_send_delivery_dispatch_request_to_rider - Notifies riders via WhatsApp
+    . wa_send_delivery_dispatch_request_to_rider - Sends the job offer on the dispatch's channel (RiderMessenger.offer_job;
+      WhatsApp byte-identical) and stores its MsgRef on delivery_dispatch.channel_msg_ref (R4, D44/D49)
     . post_rider_event_inflight - Posts delivery summary to webhook (accepts DeliverySummary param)
     . post_delivery_timedout - Posts delivery timeout information
     . delivery_hook_root - Root endpoint for delivery hooks
     . delivery_dispatch_hook - Processes dispatch assignments
     . delivery_inflight_graph_init_hook - Initializes inflight tracking
-    . notify_missed_dispatches_hook - Handles missed dispatch cases
+    . notify_missed_dispatches_hook - Handles missed dispatch cases (Telegram offers edited in place, WhatsApp text unchanged)
     . notify_food_ready_for_pickup - Notifies rider about food readiness (skipped after pickup)
     . delivery_timedout - Handles delivery timeout events
     . check_rider_allocation_status - Checks rider allocation status
@@ -53,7 +54,9 @@ Delivery webhook handlers for Ordelo delivery system
     . _handle_restaurant_decline - Terminal decline (status 'declined'): cancels the payment and tells the customer (mirrors takeaway)
     . _handle_restaurant_timedout - Logs restaurant confirmation timeout event
     . _handle_restaurant_pickuptime_adjusted - Notifies the inflight rider when an admin adjusts the pickup time (skipped after pickup)
-    . close_threads - Closes inactive threads and sends goodbye messages
+    . close_threads - Closes inactive threads and sends goodbye messages (a rider dispatch thread: exactly that thread, on
+      the job's channel; every other thread as before)
+    . delivery_inflight_graph_init_hook / delivery_timedout also close still-open Telegram offers of the order (D49)
     . Routes customer notifications through the R1b notifier (always on since R3.1)
 
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
@@ -86,14 +89,12 @@ from utils_common.notify.customer_notifier import CustomerOrderEvent
 
 # %%
 import asyncio
-import json
 from datetime import timedelta
 from typing import List, Optional
 from utils_common.tz_utils import UK_TZ, fmt_uk_time, parse_db_iso, to_uk_epoch
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
-from pywa.types import Button
 from pywa_async import WhatsApp
 from config.params import get_wa_logger
 from ordelo_datamodels.restaurant_master_pymodel import RestaurantMaster
@@ -116,6 +117,10 @@ from ordelo.agents.agent_runner import (
     clear_pickup_alert_cue,
 )
 from ordelo.delivery_progress import DeliveryProgress, check_delivery_progress
+from ordelo import dispatch_actions
+from ordelo.agents import rider_threads
+from ordelo.rider_messaging import JobOffer, dispatch_channel, for_dispatch, for_thread
+from ordelo.rider_messaging.factory import messenger_for_dispatch
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.test_order_dispatch import (
@@ -321,22 +326,6 @@ async def wa_send_delivery_dispatch_request_to_rider(
 
     pickup_time = fmt_uk_time(delivery_summary["pickup_time"])
 
-    accept_pl = {
-        "command": "/dispatchResponse",
-        "order_number": order_number,
-        "dispatch_id": dispatch_id,
-        "status": "accepted",
-        "rider_id": recipient,
-    }
-
-    decline_pl = {
-        "command": "/dispatchResponse",
-        "order_number": order_number,
-        "dispatch_id": dispatch_id,
-        "status": "declined",
-        "rider_id": recipient,
-    }
-
     header_text = f"{delivery_summary['distance']} miles, £{delivery_summary['rider_payout']}, @{pickup_time}"
     wa_text = f"""
     Pickup time - *{pickup_time}*
@@ -352,17 +341,16 @@ Order number - *{delivery_summary["order_number"]}*
 Vehicle type - *{delivery_summary["vehicle_type"]}*
     """
     logger.info(f"Sending dispatch to rider {recipient} for order {order_number}")
-    await _async_wa_client.send_message(
-        to=recipient,
-        # reply_to_message_id=msg.id,
-        header=header_text,
-        text=wa_text,
-        footer="♾️ Byteloop AI",
-        buttons=[
-            Button(title="Accept", callback_data=json.dumps(accept_pl)),
-            Button(title="Decline", callback_data=json.dumps(decline_pl)),
-        ],
+    # The offer goes out on the dispatch's channel (stamped from the rider at INSERT, D44). On WhatsApp this is exactly
+    # the old message with its JSON Accept / Decline payloads (ordelo/rider_messaging/whatsapp.py offer_job).
+    messenger = await for_dispatch(dispatch_id, rider_id=recipient, wa_client=_async_wa_client)
+    ref = await messenger.offer_job(
+        JobOffer(dispatch_id=dispatch_id, order_number=order_number, header=header_text, text=wa_text)
     )
+    try:
+        await dispatch_actions.record_offer_ref(dispatch_id, ref)
+    except Exception:
+        logger.exception(f"Could not store the offer ref for dispatch {dispatch_id}")
 
 
 # %% notify overwatch
@@ -512,10 +500,20 @@ async def delivery_dispatch_hook(
     return {"status": "success"}
 
 
-async def _send_missed_dispatch_if_allowed(order_number: str, to: str, text: str):
-    """Keep stale missed-notice payloads inside the same TEST3100 audience."""
-    if await rider_dispatch_allowed(order_number, to):
-        await _async_wa_client.send_message(to=to, text=text)
+async def _send_missed_dispatch_if_allowed(order_number: str, to: str, text: str, dispatch_id: int | None = None):
+    """Keep stale missed-notice payloads inside the same TEST3100 audience.
+
+    WhatsApp offers get `text` exactly as before. A Telegram offer is edited in place to "Taken by another rider" with its
+    buttons removed, and nothing new is sent (D49).
+    """
+    if not await rider_dispatch_allowed(order_number, to):
+        return
+    if dispatch_id is not None:
+        dc = await dispatch_channel(dispatch_id)
+        if dc is not None and dc.channel == "telegram":
+            await messenger_for_dispatch(dc).offer_closed(dc.msg_ref, order_number, "taken")
+            return
+    await _async_wa_client.send_message(to=to, text=text)
 
 
 # %% Delivery Inflight Graph Init; Fix this
@@ -589,6 +587,13 @@ async def delivery_inflight_graph_init_hook(
     delivery_summary = DeliverySummary(**payload["delivery_summary"])
     rest_confirmation_code = delivery_summary.rest_confirmation_code
     rider_master = payload.get("rider_master")
+    rider_name = rider_master.get("rider_name", "Unknown") if rider_master else "Unknown"
+    rider_id = rider_master.get("rider_id", "Unknown") if rider_master else "Unknown"
+
+    # Run before the slower payment and graph tasks: the inflight row already exists.
+    from channels.telegram.rider.commands import sync_rider_menu
+
+    background_tasks.add_task(sync_rider_menu, rider_id)
 
     # 1. Capture Stripe Payment - This also issues print job
     logger.info("step1: capture stripe delivery payment")
@@ -611,16 +616,22 @@ async def delivery_inflight_graph_init_hook(
 
     # 4. Initialize ordelo graph as background task
     logger.info("step4: initialize ordelo graph")
-    rider_name = (
-        rider_master.get("rider_name", "Unknown") if rider_master else "Unknown"
-    )
-    rider_id = rider_master.get("rider_id", "Unknown") if rider_master else "Unknown"
     background_tasks.add_task(
         init_ordelo_graph,
         delivery_summary,
         rider_id=rider_id,
         rider_name=rider_name,
         dispatch_id=dispatch_id,
+    )
+
+    # 4b. Telegram offers of this order that nobody answered are edited to "Taken by another rider"; the winner's to
+    #     "The job is yours" (D49). Accepted-but-lost offers are handled by /notify-missed-dispatches. WhatsApp unchanged.
+    background_tasks.add_task(
+        dispatch_actions.close_open_offers,
+        delivery_summary.order_number,
+        "taken",
+        statuses=("unassigned",),
+        winner_dispatch_id=dispatch_id,
     )
 
     # 5. Notify overwatch
@@ -716,7 +727,11 @@ async def notify_missed_dispatches_hook(
 
             # Send notification to rider in background
             background_tasks.add_task(
-                _send_missed_dispatch_if_allowed, order_number=order_number, to=rider_id, text=_text
+                _send_missed_dispatch_if_allowed,
+                order_number=order_number,
+                to=rider_id,
+                text=_text,
+                dispatch_id=dispatch_id,
             )
 
         # Mark dispatches as missed, they will not be pickup by notify_missed_dispatches sql function again
@@ -857,6 +872,14 @@ async def delivery_timedout(
             delivery_summary,
             payment_cancelled=payment_cancelled,
         )
+
+    # Telegram offers still open for this order: edit to "Offer expired" (D49). WhatsApp unchanged.
+    background_tasks.add_task(
+        dispatch_actions.close_open_offers,
+        delivery_summary["order_number"],
+        "expired",
+        statuses=("unassigned", "accepted"),
+    )
     return {"status": "success"}
 
 
@@ -878,6 +901,9 @@ async def check_rider_allocation_status(
         .data[0]
     )
     return {"delivery_summary_status": delivery_summary["status"]}
+
+
+_GOODBYE_TEXT = "Ending the converstaion, thank you and good bye 👋"
 
 
 @router.post(
@@ -926,13 +952,23 @@ async def close_threads(request: Request):
             for record in payload:
                 if record.get("recipient") is None or record.get("agent") == "WEB":
                     continue
+                # A rider DISPATCH thread (R2): close exactly that thread and say goodbye on the job's channel (D44).
+                dispatch_thread = (
+                    await rider_threads.describe(record["thread_id"]) if record.get("thread_id") else None
+                )
+                if dispatch_thread is not None and dispatch_thread.is_dispatch_thread:
+                    await rider_threads.close(dispatch_thread.thread_id)
+                    logger.info(f"Rider thread closed: {record}")
+                    await for_thread(dispatch_thread, wa_client=_async_wa_client).say(_GOODBYE_TEXT)
+                    continue
+                # Every other thread: unchanged behaviour (see docs/to-do.md about customer threads in this payload)
                 await thread_handler.make_threads_inactive(
                     recipient=record["recipient"]
                 )
                 logger.info(f"Thread closed: {record}")
                 await _async_wa_client.send_message(
                     to=record["recipient"],
-                    text="Ending the converstaion, thank you and good bye 👋",
+                    text=_GOODBYE_TEXT,
                 )
         return {"status": "success", "processed_count": len(payload) if payload else 0}
     except Exception as e:
@@ -1001,12 +1037,17 @@ async def shift_availability_enquiry_hook(
     event_type = payload.get("event_type", "unknown")
     rider_ids = [rider.get("rider_id") for rider in riders]
 
+    # WhatsApp riders only (D53, R5): the SQL already sends only channel = 'whatsapp'; filtering the UPDATE as well means a
+    # Telegram rider is never switched off or asked, even by an older enquire_shift_availability() or a stale payload.
     update_shift_status = (
         client_ordelo.table("rider_master")
         .update({"is_in_shift": False, "shift_response_dtts": "now()"})
         .in_("rider_id", rider_ids)
+        .eq("channel", "whatsapp")
         .execute()
     )
+    switched_off = {row.get("rider_id") for row in (update_shift_status.data or [])}
+    riders = [rider for rider in riders if rider.get("rider_id") in switched_off]
 
     if riders:
         logger.info(f"Scheduling {len(riders)} riders for {event_type} processing")
@@ -1223,6 +1264,7 @@ async def _process_rider_pickup_alerts(alerts: list):
             # this task running, the order has been re-dispatched and the payload
             # names someone who no longer has the job.
             rider_id = (row or {}).get("rider_id") or rider_id
+            dispatch_id = (row or {}).get("dispatch_id")
 
             if audience == "ops":
                 # Never reaches the rider, so this is a direct send rather than a
@@ -1262,6 +1304,7 @@ async def _process_rider_pickup_alerts(alerts: list):
                 try:
                     await run_rider_agent_w_custom_msg(
                         recipient=rider_id,
+                        dispatch_id=dispatch_id,
                         system_msg=(
                             "call tool `notify_pickup_reminder`. A pickup alert is due "
                             "for this order."
@@ -1276,7 +1319,7 @@ async def _process_rider_pickup_alerts(alerts: list):
                 finally:
                     # The cue is single-use. Disarm it whatever happened, so a turn
                     # hours later cannot re-fire this alert.
-                    await clear_pickup_alert_cue(rider_id)
+                    await clear_pickup_alert_cue(rider_id, dispatch_id=dispatch_id)
             else:
                 logger.error(
                     f"Pickup alert for order {order_number} has unknown audience "
@@ -1589,6 +1632,7 @@ async def _handle_restaurant_pickuptime_adjusted(
 
     await run_rider_agent_w_custom_msg(
         recipient=rider_id,
+        dispatch_id=row.get("dispatch_id"),
         system_msg=(
             "call tool `notify_pickup_time_adjusted`. The restaurant has updated the "
             "pickup time for this order."

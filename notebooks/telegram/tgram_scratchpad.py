@@ -1,5 +1,7 @@
-# %% [markdown]
-# # Telegram bot scratchpad (restaurant-admin bot)
+# %% 1. Setup: select the bot, then load its settings and client
+BOT_KEY = "rest_admin"  # Change to "rider" to operate the rider bot.
+
+# # Telegram bot scratchpad
 # Run cell by cell (VS Code "Run Cell", Jupyter, or `ipython`). Cells use top-level `await`.
 # Run from the repo root with the main project .venv, PYTHONPATH="$PWD" and AWS_SETTINGS_* set
 # (see docs/local-testing-runbook.md section 1): importing `config` loads every OrdeloAgent setting.
@@ -8,11 +10,10 @@
 # - Sending to a chat only works after that person pressed Start on the bot (or you did).
 # - Webhook registration lives in tgram_setup_bot.py. This notebook only sends and inspects.
 # - This talks to the REAL Bot API. Anything you send is really sent.
-# - The dev bot is shared with tgram_starter; see tgram_setup_bot.py before changing its webhook.
-# - Interactive versions of these demos: send /scratchpad to the main restaurant-admin bot.
+# - A shared bot may also be used by tgram_starter; see tgram_setup_bot.py before changing its webhook.
+# - Interactive versions of these demos: send /scratchpad to the restaurant-admin bot.
 #   Router: channels/telegram/rest_admin/scratchpad.py (mounted in channels/telegram/bots.py).
 
-# %% 1. Setup: imports, settings, bot
 import sys
 from pathlib import Path
 
@@ -24,7 +25,15 @@ from aiogram.types import (  # noqa: E402
     KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove,  # noqa: F401 (used in commented cell)
 )
 
-from config import rest_admin_bot as bot, tgram_rest_admin_settings as settings  # noqa: E402
+from config import rest_admin_bot, rider_bot, tgram_rest_admin_settings, tgram_rider_settings  # noqa: E402
+from config.tgram_setting import REST_ADMIN_BOT_KEY, RIDER_BOT_KEY  # noqa: E402
+
+assert BOT_KEY in (REST_ADMIN_BOT_KEY, RIDER_BOT_KEY), f"unsupported BOT_KEY: {BOT_KEY!r}"
+settings, bot = {
+    REST_ADMIN_BOT_KEY: (tgram_rest_admin_settings, rest_admin_bot),
+    RIDER_BOT_KEY: (tgram_rider_settings, rider_bot),
+}[BOT_KEY]
+assert settings is not None and bot is not None, f"{BOT_KEY} bot is not configured"
 
 print("bot_key:", settings.bot_key, "| username:", settings.bot_username, "| webhook:", settings.webhook_url or "(base url not set)")
 
@@ -221,11 +230,13 @@ await bot.send_message(CHAT_ID, "Custom keyboard", reply_markup=kb)
 # Unlike cell 7's keyboard below the message, RichTextButton sits between words.
 # https://docs.aiogram.dev/en/v3.31.0/api/types/rich_text_button.html
 # https://docs.aiogram.dev/en/v3.31.0/api/methods/edit_message_text.html
-# The main bot's scratchpad router handles the taps through its existing webhook.
-# Run the app with the new router mounted, then send /scratchpad → Buttons inside text.
-from channels.telegram.rest_admin.scratchpad import rich_button_message  # noqa: E402
+# Only the restaurant-admin bot has the scratchpad callback router.
+if BOT_KEY == REST_ADMIN_BOT_KEY:
+    from channels.telegram.rest_admin.scratchpad import rich_button_message  # noqa: E402
 
-await bot.send_rich_message(chat_id=CHAT_ID, rich_message=rich_button_message())
+    await bot.send_rich_message(chat_id=CHAT_ID, rich_message=rich_button_message())
+else:
+    print("Skipped: rich text button demo is handled by the restaurant-admin bot only")
 
 # %% 8. Reply keyboard (location/contact request) and removing it
 rk = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="📍 Share location", request_location=True)]],

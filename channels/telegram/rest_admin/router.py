@@ -2,8 +2,9 @@
 
 Linking flow: the admin opens a private invite link (t.me/<bot>?start=<code>), the bot shows which
 restaurant it would link and asks for confirmation, and a tap on Yes claims the invite atomically
-(channels/telegram/invites.py). Order actions and acknowledgement come later
-(plans/telegram-rest-admin-scaffold-plan.md).
+(channels/telegram/invites.py). Order buttons: orders.py. Alert pauses (/off, /on, phase R6 of
+plans/telegram-rider-bot-plan.md): pauses.py. The text fallback is a sub-router included LAST, because aiogram tries a
+router's own handlers before its included routers (a fallback registered here would swallow /off and /on).
 """
 
 import asyncio
@@ -12,18 +13,20 @@ from html import escape as _html_escape
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject, CommandStart
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, Update
 from loguru import logger
 
 from config.tgram_setting import TgramBotSettings
 
 from .. import invites
 from ..callbacks import InviteDecision
+from ..inbox import process_once
 from ..keyboards import invite_confirm_kb
 from ..replies import answer_quietly
 from .commands import HELP_TEXT
 from .order_cards.model import TROUBLE
 from .orders import build_orders_router
+from .pauses import build_pauses_router
 
 
 
@@ -97,7 +100,19 @@ async def _finish(query: CallbackQuery, text: str) -> None:
     await query.bot.send_message(query.from_user.id, text)
 
 
-async def on_invite_decision(query: CallbackQuery, callback_data: InviteDecision, tgram_settings: TgramBotSettings):
+async def on_invite_decision(
+    query: CallbackQuery, callback_data: InviteDecision, tgram_settings: TgramBotSettings, event_update: Update
+):
+    if callback_data.action == "y":
+        await process_once(
+            tgram_settings.bot_key, event_update, query.from_user.id,
+            lambda: _handle_invite_decision(query, callback_data, tgram_settings),
+        )
+    else:
+        await _handle_invite_decision(query, callback_data, tgram_settings)
+
+
+async def _handle_invite_decision(query: CallbackQuery, callback_data: InviteDecision, tgram_settings: TgramBotSettings):
     # Clear the spinner beside the real work, never before it: a hung answer must not block the claim.
     answered = asyncio.create_task(answer_quietly(query))
     try:
@@ -169,5 +184,8 @@ def build_router() -> Router:
     router.message.register(cmd_whoami, Command("whoami"))
     router.callback_query.register(on_invite_decision, InviteDecision.filter())
     router.include_router(build_orders_router())  # order-card buttons (callback queries; the text fallback is a message handler)
-    router.message.register(fallback, F.text)  # last: swallows any other text
+    router.include_router(build_pauses_router())  # R6: /off (+ length taps), /on
+    last = Router(name="rest_admin_fallback")  # last: swallows any other text
+    last.message.register(fallback, F.text)
+    router.include_router(last)
     return router
