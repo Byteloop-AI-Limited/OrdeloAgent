@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from html import escape
 from typing import Literal
 
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, InputRichMessage
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from loguru import logger
 
@@ -99,9 +99,14 @@ class Viewer:
 
 @dataclass(frozen=True)
 class View:
+    """What one copy of a message shows. `text` + `keyboard` are the HTML form every message has. `rich`, when a
+    message supplies it, is the same content as a Telegram rich message (buttons embedded in it); TelegramIO tries it
+    first and falls back to the HTML form if Telegram rejects it."""
+
     text: str
     keyboard: InlineKeyboardMarkup | None
     terminal: bool
+    rich: InputRichMessage | None = None
 
 
 @dataclass(frozen=True)

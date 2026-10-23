@@ -425,8 +425,36 @@ def test_receipt_snapshot_fields_and_reply_to(db):
     assert f["small_order_fee"] == 1.5 and f["total"] == 23.5 and f["notes"] == "No <onions> & extra naan"
     assert f["pay_at_restaurant"] is False
     assert f["ready_by"] == {"label": "Ada", "phone": ADA} and f["ready_at"] is not None
-    assert f["pickup_adjusted_by"] is None
+    assert f["pickup_adjusted_by"] is None and "accepted_by" in f
     assert [(d["tcid"], d["reply_to"]) for d in snap["destinations"]] == [(111, 11), (222, 20)]
+
+
+def test_receipt_snapshot_accepted_by_and_time(db):
+    delivery(db)  # helper inserts restaurant_admin = ADA, restaurant_confirmation_status 'restaurant_accept'
+    db.execute("UPDATE public.delivery_summary SET restaurant_update_dtts = now() - interval '5 minutes' WHERE order_number = %s", (ORDER,))
+    link(db)
+    did = rider(db)
+    f = fetch_one(db, "SELECT public.t_receipt_snapshot(%s, %s, 'delivery', %s)", (BOT, ORDER, did))["facts"]
+    assert f["accepted_by"] == {"label": "Ada", "phone": ADA}
+    assert f["accepted_at"] is not None and f["accepted_auto"] is False
+
+
+def test_receipt_snapshot_accepted_at_is_null_once_the_pickup_was_moved(db):
+    delivery(db)
+    did = rider(db)
+    adjust(db, "(SELECT pickup_time + interval '10 minutes' FROM public.delivery_summary)", phone=BOB)
+    f = fetch_one(db, "SELECT public.t_receipt_snapshot(%s, %s, 'delivery', %s)", (BOT, ORDER, did))["facts"]
+    assert f["accepted_at"] is None  # restaurant_update_dtts now holds the adjust time
+    assert f["accepted_by"]["phone"] == ADA
+
+
+def test_receipt_snapshot_auto_accept_and_takeaway(db):
+    delivery(db, restaurant_confirmation_status="auto_accept", restaurant_admin=None)
+    f = fetch_one(db, "SELECT public.t_receipt_snapshot(%s, %s, 'delivery', NULL)", (BOT, ORDER))["facts"]
+    assert f["accepted_auto"] is True and f["accepted_by"] is None
+    takeaway(db)
+    t = fetch_one(db, "SELECT public.t_receipt_snapshot(%s, %s, 'takeaway', NULL)", (BOT, TAKE))["facts"]
+    assert t["accepted_by"]["phone"] == ADA and t["accepted_auto"] is False
 
 
 def test_receipt_snapshot_dispatch_none_means_current_rider_and_adjust_is_visible(db):

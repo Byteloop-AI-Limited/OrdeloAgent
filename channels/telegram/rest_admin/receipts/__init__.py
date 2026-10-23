@@ -8,6 +8,7 @@ Ready / +10 / +20 buttons, and keeping every copy truthful.
     . The database is authoritative and checked before and after every send (D24); the ledger (t_sent_messages,
       kind 'receipt') only remembers where copies live. A new rider's receipt replaces the old one in each chat (D35).
     . A tap runs restaurant_actions.ready / adjust_pickup (the same rule WhatsApp uses) and then redraws every copy;
+      a tap on the status badge ('st') only redraws the copies;
       a WhatsApp tap is caught by the 5-second job job_t_receipt_refresh() -> POST /telegram/rest-admin/order-alerts
     . Callers: utils_common/notify/restaurant_notifier.py (send), watomation/routers/telegram_order_alerts.py (refresh),
       the rest-admin orders router (tap)
@@ -30,7 +31,7 @@ from ...callbacks import OrderAction
 from ...replies import answer_quietly
 from ..order_cards.io import TelegramIO
 from ..order_cards.model import TROUBLE, OrderRef, Viewer
-from .model import Receipt, ReceiptSnapshot, gone_view, receipt_toast, status_kind
+from .model import UP_TO_DATE, Receipt, ReceiptSnapshot, gone_view, receipt_toast, status_kind
 from .store import ReceiptCopy, ReceiptStore
 
 __all__ = ["Receipts"]
@@ -125,6 +126,9 @@ class Receipts:
         not_authorised, is shown by refreshing from the database. Never raises to the user.
         """
         order = OrderRef(action.o, "delivery" if action.t == "d" else "takeaway")
+        if action.a == "st":  # the status badge: changes nothing, just redraws every copy from the database
+            await asyncio.gather(answer_quietly(query, UP_TO_DATE, False), self._refresh_quietly(order))
+            return
         actor = TelegramActor(self._bot_key, query.from_user.id)
         t0 = time.monotonic()
         tag = f"telegram[{self._bot_key}]: tap {action.a} on {order.order_number} by tuid={query.from_user.id}"
