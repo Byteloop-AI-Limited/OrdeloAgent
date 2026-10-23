@@ -17,6 +17,7 @@ from channels.telegram.rest_admin.router import build_router as build_rest_admin
 from channels.telegram.rest_admin.scratchpad import DEMOS, Demo, build_scratchpad_router
 from config.tgram_setting import TgramBotSettings
 
+from .rich_view import rich_text
 from .conftest import callback_update, message_update
 
 
@@ -80,7 +81,7 @@ async def test_unmount_leaves_command_and_callbacks_unhandled(recording_bot):
     ("receipt", SendRichMessage), ("colours", SendRichMessage), ("progress", SendRichMessage),
     ("pickup_slots", SendRichMessage), ("pickup_eta", SendRichMessage), ("pickup_ready", SendRichMessage),
     ("seen_log", SendMessage), ("seen_badge", SendRichMessage), ("seen_nudge", SendMessage),
-    ("seen_bump", SendMessage),
+    ("seen_bump", SendMessage), ("rcpt_phases", SendRichMessage), ("rcpt_probe", SendRichMessage),
 ])
 async def test_menu_actions_use_correct_api_and_private_destination(recording_bot, action, method):
     bot, session = recording_bot
@@ -559,3 +560,16 @@ async def test_seen_demo_ends_restarts_and_expires_with_the_menu(recording_bot):
     edits = len(session.edits)
     await tap(dp, bot, "sn_next", message_id=card)
     assert len(session.edits) == edits and "expired" in session.sent_texts[-1]
+
+
+async def test_receipt_phases_demo_steps_through_every_real_state_and_wraps_around(recording_bot):
+    from channels.telegram.rest_admin.scratchpad import RECEIPT_PHASES, demo_receipt
+
+    bot, session = recording_bot
+    dp = dispatcher()
+    for i, status in enumerate(RECEIPT_PHASES):
+        text = rich_text(demo_receipt(i))
+        assert "DEMO-PHASE-1" in text and f"(now: {status.partition('@')[0]})" in text
+    assert "🔵 Order details" in rich_text(demo_receipt(2)) and "🔵 Order details" not in rich_text(demo_receipt(1))
+    await tap(dp, bot, "rp_next", len(RECEIPT_PHASES))                     # wraps back to the first state
+    assert "Preparing" in rich_text(session.edits[-1].rich_message)

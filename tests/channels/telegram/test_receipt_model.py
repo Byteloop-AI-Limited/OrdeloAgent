@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from html import escape
+
 import pytest
 
 from channels.telegram.callbacks import CALLBACK_DATA_MAX_BYTES
 from channels.telegram.rest_admin.order_cards.model import Viewer
 from channels.telegram.rest_admin.receipts.model import (
+    FLOW_ROWS_IN_DETAILS,
     TEXT_LIMIT,
     Receipt,
     ReceiptSnapshot,
@@ -53,7 +56,7 @@ def test_open_delivery_has_everything_the_kitchen_needs():
                  "Small order fee: £1.00", "<b>Total: £21.50</b>", "📝 <b>Notes</b>", "<i>Please ring the bell twice</i>",
                  "🏠 Customer: 1 Test Street — 4474"):
         assert part in t, part
-    assert "✅" not in t  # no status line until something happened
+    assert t.splitlines()[2].startswith("🔑")  # no status line in the head until something happened
 
 
 def test_open_delivery_buttons_are_ready_then_plus_ten_and_twenty():
@@ -186,20 +189,138 @@ def test_takeaway_badge_says_collected_and_a_group_never_says_you():
     assert rich_buttons_of(shared.rich)[0]["text"] == "✅ Marked ready by Ada"
 
 
-def test_flow_is_a_closed_native_block_marking_done_now_and_to_come():
-    flow = next(b for b in rich_blocks(view("ready@13:30", **READY)) if b["type"] == "details")
-    assert flow["summary"] == "Progress · step 2 of 4" and flow["is_open"] is False
-    assert [b["text"] for b in flow["blocks"]] == ["✓ Preparing", "● Ready", "🔒 Picked up", "🔒 Delivered"]
+# snap() times are UTC; the receipt shows UK time (BST in October): 10:40Z -> 11:40 AM, 12:00Z pickup -> 1:00 PM
+ACCEPTED = {"accepted_by": ADA, "accepted_at": "2026-10-15T10:40:00+00:00"}
+READY_AT = {"ready_at": "2026-10-15T10:55:00+00:00", "ready_by": ADA}
+DONE_AT = {"completed_at": "2026-10-15T11:25:00+00:00"}
+
+
+def steps_of(status="open@13:00", order_type="delivery", viewer=None, **facts):
+    r = Receipt.from_snapshot(snap(status, order_type, **facts))
+    return [(s.text(), s.state) for s in r.timeline(viewer or Viewer("447700900002"))]
+
+
+@pytest.mark.parametrize("status,order_type,phase", [
+    ("open@13:00", "delivery", "kitchen"), ("ready@13:00", "delivery", "kitchen"), ("rider_cancelled", "delivery", "kitchen"),
+    ("picked_up", "delivery", "handed_over"), ("done", "delivery", "handed_over"),
+    ("open@13:00", "takeaway", "kitchen"), ("done", "takeaway", "handed_over"),
+])
+def test_phase_follows_the_status_key(status, order_type, phase):
+    assert Receipt.from_snapshot(snap(status, order_type)).phase == phase
+
+
+def test_timeline_open_delivery():
+    assert steps_of(**ACCEPTED) == [
+        ("✓ ✅ Accepted by Ada · 11:40 AM", "done"),  # viewer ...002 is not Ada, so never "You"
+        ("● ⏰ Pickup 1:00 PM", "latest"),
+        ("🔒 🍳 Food ready · pending", "todo"),
+        ("🔒 🛵 Rider picks up · pending", "todo"),
+        ("🔒 🏁 Delivered · pending", "todo"),
+    ]
+
+
+def test_timeline_done_delivery_marks_everything_and_delivered_is_latest():
+    s = steps_of("done", **DONE_AT, **ACCEPTED, **READY_AT)
+    assert [st for _, st in s] == ["done", "done", "done", "done", "latest"]
+    assert s[2][0] == "✓ 🍳 Ready by Ada · 11:55 AM" and s[3][0] == "✓ 🛵 Picked up by Sam" and s[4][0] == "● 🏁 Delivered · 12:25 PM"
+
+
+def test_timeline_rider_cancelled_ends_in_red_with_nothing_to_come():
+    s = steps_of("rider_cancelled", **READY_AT)
+    assert s[-1] == ("⚠️ This rider is no longer on the job", "failed")
+    assert [st for _, st in s] == ["done", "done", "done", "failed"]
+
+
+def test_timeline_takeaway_has_four_steps_ending_collected():
+    s = steps_of("done", "takeaway", **READY_AT)
+    assert len(s) == 4 and s[-1] == ("● 🏁 Collected", "latest")
+
+
+def test_timeline_accepted_variants():
+    assert steps_of(accepted_auto=True)[0][0] == "✓ ✅ Accepted automatically"
+    assert steps_of()[0][0] == "✓ ✅ Accepted"  # snapshot from the old SQL: no accepted keys
+    assert steps_of(viewer=Viewer("447700900001"), **ACCEPTED)[0][0].startswith("✓ ✅ Accepted by You")
+    assert steps_of(viewer=Viewer(None, shared=True), **ACCEPTED)[0][0].startswith("✓ ✅ Accepted by Ada")
+
+
+def test_timeline_ready_not_marked_when_the_order_moved_past_it():
+    assert steps_of("picked_up")[2] == ("✓ 🍳 Ready (not marked)", "done")
+
+
+def test_handed_over_rich_layout_folds_the_order_away():
+    v = view("done", **DONE_AT, **ACCEPTED, **READY_AT)
+    top = rich_blocks(v)
+    assert [b["type"] for b in top] == ["heading", "paragraph", "buttons", *["buttons"] * 5, "paragraph", "details"]
+    assert top[-1]["summary"] == "🔵 Order details · tap to expand" and top[-1]["is_open"] is False
+    above, folded = rich_text(v.rich).split("🔵 Order details", 1)
+    for part in ("⏰ Pickup:", "🔑 Restaurant code", "Items", "Total: £21.50", "📝 Notes", "🏠 Customer"):
+        assert part in folded and part not in above, part
+    assert "🛵 Rider: Sam — RIDER01" in above and "[● 🏁 Delivered · 12:25 PM]" in above
+    assert not [b for b in rich_buttons_of(v.rich) if "callback_data" in b]  # nothing to tap once delivered
+
+
+def test_flow_rows_are_disabled_and_coloured_by_state():
+    rows = rich_buttons_of(view("picked_up", **ACCEPTED, **READY_AT).rich)[1:]  # [0] is the badge
+    assert all("disabled" in b and "callback_data" not in b for b in rows)
+    assert [b.get("style") for b in rows] == [None, None, None, "success", None]
+    assert any(b.get("style") == "danger" for b in rich_buttons_of(view("rider_cancelled", **READY_AT).rich))
+
+
+def test_kitchen_flow_is_inside_the_closed_progress_block():
+    flow = next(b for b in rich_blocks(view("ready@13:00", **ACCEPTED, **READY_AT)) if b["type"] == "details")
+    assert flow["summary"] == "Progress · step 3 of 5" and flow["is_open"] is False
+    assert all(b["type"] == ("buttons" if FLOW_ROWS_IN_DETAILS else "paragraph") for b in flow["blocks"])
     takeaway = next(b for b in rich_blocks(view(order_type="takeaway")) if b["type"] == "details")
-    assert takeaway["summary"] == "Progress · step 1 of 3"
-    assert [b["text"] for b in takeaway["blocks"]] == ["● Preparing", "🔒 Ready", "🔒 Collected"]
-    assert not any(b["type"] == "details" for b in rich_blocks(view("rider_cancelled")))  # no flow once the rider is off
+    assert takeaway["summary"] == "Progress · step 2 of 4"
+    cancelled = next(b for b in rich_blocks(view("rider_cancelled")) if b["type"] == "details")
+    assert cancelled["summary"] == "Progress · rider no longer on the job"
 
 
-def test_relative_time_under_the_badge_only_once_something_has_happened():
-    assert "⟨when⟩" in rich_text(view("ready@13:30", **READY).rich)
-    assert "Marked ready ⟨when⟩" in rich_text(view("ready@13:30", **READY).rich)
-    assert "⟨when⟩" not in rich_text(view().rich)
+def test_handed_over_html_folds_the_order_into_an_expandable_quote():
+    t = view("done", **DONE_AT, **ACCEPTED).text
+    cut = t.index("<blockquote expandable><b>🔵 Order details · tap to expand</b>")
+    above, folded = t[:cut], t[cut:]
+    assert "<b>● 🏁 Delivered · 12:25 PM</b>" in above and "🛵 Rider: Sam" in above
+    for part in ("🔑 Restaurant code", "⏰ Pickup:", "<b>Items</b>", "Total: £21.50", "📝 <b>Notes</b>", "🏠 Customer"):
+        assert part in folded and part not in above, part
+    assert t.endswith("</blockquote>")
+
+
+def test_kitchen_html_has_the_progress_quote_and_everything_else_as_before():
+    t = view(**ACCEPTED).text
+    assert "<blockquote expandable><b>Progress · step 2 of 5</b>" in t and "🔒 🏁 Delivered · pending" in t
+    assert "🔑 Restaurant code: <b>47</b>" in t.split("<blockquote")[0]
+
+
+def test_rich_and_html_show_the_same_steps():
+    for status in ("open@13:00", "ready@13:00", "picked_up", "done", "rider_cancelled"):
+        r = Receipt.from_snapshot(snap(status, **ACCEPTED, **READY_AT))
+        v = r.view(Viewer("447700900001"))
+        for st in r.timeline(Viewer("447700900001")):
+            assert st.text() in rich_text(v.rich) and escape(st.text()) in v.text, (status, st)
+
+
+def test_no_relative_time_anywhere():
+    for status in ("open@13:00", "ready@13:00", "done"):
+        assert "date_time" not in view(status, **READY_AT).rich.model_dump_json()
+
+
+def test_flow_text_is_escaped_in_html_only():
+    v = view("picked_up", rider={"id": "R1", "name": "<b>Sam</b> & co"})
+    assert "Picked up by &lt;b&gt;Sam&lt;/b&gt; &amp; co" in v.text and "Picked up by <b>Sam</b> & co" in rich_text(v.rich)
+
+
+def test_huge_handed_over_order_still_fits_and_matches():
+    items = [{"qty": 1, "name": f"Dish {i} " + "x" * 60, "line_total": 1.5, "mods": ["m" * 40]} for i in range(120)]
+    v = view("done", items=items, notes="n" * 5000)
+    assert len(v.text) <= TEXT_LIMIT and v.text.count("• ") == rich_text(v.rich).count("• ") < 120
+
+
+def test_snapshot_reads_the_accepted_keys_and_defaults_without_them():
+    f = snap(**ACCEPTED, accepted_auto=False).facts
+    assert f.accepted_by.label == "Ada" and f.accepted_at is not None and f.accepted_auto is False
+    old = snap().facts
+    assert old.accepted_by is None and old.accepted_at is None and old.accepted_auto is False
 
 
 @pytest.mark.parametrize("status,extra,order_type", [
