@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 
 from config.pg_setting import PgSetting
+from ordelo.rider_messaging.whatsapp import WhatsAppRiderMessenger
 from ordelo.wa_location import WaLocation, WaLocationConflict, WaLocationForbidden, _DeliveryContext
 from ordelo_datamodels.wa_location_pymodels import WaLocationDemand
 
@@ -138,8 +139,17 @@ async def test_exact_inflight_query_never_uses_rider_id_alone() -> None:
     assert executed[0][1] == ("SFCS-123", 17, "447700900111")
 
 
+@pytest.mark.parametrize(
+    "stored, wire",
+    [
+        ("whatsapp_current", "whatsapp_current"),
+        # R5 (D50): a Telegram share is the rider's current GPS; requesters keep the two-value vocabulary.
+        ("telegram_current", "whatsapp_current"),
+        ("restaurant_confirmation", "restaurant_confirmation"),
+    ],
+)
 async def test_fulfilled_request_posts_open_callback_before_marking_delivered(
-    monkeypatch,
+    monkeypatch, stored, wire
 ) -> None:
     request_id = uuid4()
     row = {
@@ -153,7 +163,7 @@ async def test_fulfilled_request_posts_open_callback_before_marking_delivered(
         "customer_id": "447700900000",
         "latitude": 51.5,
         "longitude": -0.12,
-        "source": "whatsapp_current",
+        "source": stored,
         "observed_at": datetime.now(timezone.utc),
     }
 
@@ -232,6 +242,7 @@ async def test_fulfilled_request_posts_open_callback_before_marking_delivered(
     assert callback["url"] == "https://service.example.com/wa-location"
     assert callback["payload"]["requester_id"] == "447700900000"
     assert callback["payload"]["location"]["latitude"] == 51.5
+    assert callback["payload"]["location"]["source"] == wire
     assert callback["client_kwargs"]["follow_redirects"] is False
     assert delivered == [request_id]
 
@@ -400,12 +411,8 @@ async def test_prompt_rider_via_agent_falls_back_to_direct_send_when_thread_inac
             sent_calls.append(kwargs)
             return SimpleNamespace(id="wamid.fallback.1")
 
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
-
-        async def get_active_thread(self, _recipient):
-            return None
+    async def _resolve(_recipient, **_kwargs):  # agent_runner.resolve_rider_thread (R2)
+        return None
 
     async def _pool(_self):
         return object()
@@ -416,8 +423,14 @@ async def test_prompt_rider_via_agent_falls_back_to_direct_send_when_thread_inac
         recorded.append((req_id, message_id))
 
     service = WaLocation(wa_client=_FakeWa())
+
+    async def _for_dispatch(dispatch_id, *, rider_id=None, wa_client=None):
+        assert dispatch_id == context.dispatch_id
+        return WhatsAppRiderMessenger(wa_client, rider_id)  # a WhatsApp-channel dispatch (D44)
+
+    monkeypatch.setattr("ordelo.rider_messaging.for_dispatch", _for_dispatch)
     monkeypatch.setattr(PgSetting, "get_pool", _pool)
-    monkeypatch.setattr("ordelo.wa_location.ThreadHandler", _FakeThreadHandler)
+    monkeypatch.setattr("ordelo.agents.agent_runner.resolve_rider_thread", _resolve)
     monkeypatch.setattr(WaLocation, "record_prompt_sent", _record)
 
     await service._prompt_rider_via_agent(request_id, context, demand)
@@ -441,12 +454,8 @@ async def test_direct_send_failure_does_not_create_a_thread_to_clear_state(
         async def request_location(self, **_kwargs):
             raise RuntimeError("wa down")
 
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
-
-        async def get_active_thread(self, _recipient):
-            return None
+    async def _resolve(_recipient, **_kwargs):  # agent_runner.resolve_rider_thread (R2)
+        return None
 
     async def _pool(_self):
         return object()
@@ -456,12 +465,18 @@ async def test_direct_send_failure_does_not_create_a_thread_to_clear_state(
     async def _mark_failed(_self, req_id, reason):
         failed.append((req_id, reason))
 
-    async def _clear(recipient):
+    async def _clear(recipient, **_kwargs):
         raise AssertionError("clear_wa_location_request must not run a thread was never used")
 
     service = WaLocation(wa_client=_FakeWa())
+
+    async def _for_dispatch(dispatch_id, *, rider_id=None, wa_client=None):
+        assert dispatch_id == context.dispatch_id
+        return WhatsAppRiderMessenger(wa_client, rider_id)  # a WhatsApp-channel dispatch (D44)
+
+    monkeypatch.setattr("ordelo.rider_messaging.for_dispatch", _for_dispatch)
     monkeypatch.setattr(PgSetting, "get_pool", _pool)
-    monkeypatch.setattr("ordelo.wa_location.ThreadHandler", _FakeThreadHandler)
+    monkeypatch.setattr("ordelo.agents.agent_runner.resolve_rider_thread", _resolve)
     monkeypatch.setattr(WaLocation, "mark_prompt_failed", _mark_failed)
     monkeypatch.setattr("ordelo.agents.agent_runner.clear_wa_location_request", _clear)
 
@@ -475,12 +490,8 @@ async def test_prompt_rider_via_agent_runs_graph_and_names_requester(monkeypatch
     context = _context()
     demand = _demand(location_requested_by="restaurant_admin", requester_id="447700900222")
 
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
-
-        async def get_active_thread(self, _recipient):
-            return {"thread_id": "t1"}
+    async def _resolve(_recipient, **_kwargs):  # agent_runner.resolve_rider_thread (R2)
+        return {"thread_id": "t1"}
 
     async def _pool(_self):
         return object()
@@ -495,7 +506,7 @@ async def test_prompt_rider_via_agent_runs_graph_and_names_requester(monkeypatch
 
     service = WaLocation(wa_client=SimpleNamespace())
     monkeypatch.setattr(PgSetting, "get_pool", _pool)
-    monkeypatch.setattr("ordelo.wa_location.ThreadHandler", _FakeThreadHandler)
+    monkeypatch.setattr("ordelo.agents.agent_runner.resolve_rider_thread", _resolve)
     monkeypatch.setattr(
         "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run
     )
@@ -516,12 +527,8 @@ async def test_prompt_rider_via_agent_retries_deterministically_then_marks_faile
     context = _context()
     demand = _demand()
 
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
-
-        async def get_active_thread(self, _recipient):
-            return {"thread_id": "t1"}
+    async def _resolve(_recipient, **_kwargs):  # agent_runner.resolve_rider_thread (R2)
+        return {"thread_id": "t1"}
 
     async def _pool(_self):
         return object()
@@ -544,12 +551,12 @@ async def test_prompt_rider_via_agent_retries_deterministically_then_marks_faile
 
     cleared = []
 
-    async def _clear(recipient):
+    async def _clear(recipient, **_kwargs):
         cleared.append(recipient)
 
     service = WaLocation(wa_client=SimpleNamespace())
     monkeypatch.setattr(PgSetting, "get_pool", _pool)
-    monkeypatch.setattr("ordelo.wa_location.ThreadHandler", _FakeThreadHandler)
+    monkeypatch.setattr("ordelo.agents.agent_runner.resolve_rider_thread", _resolve)
     monkeypatch.setattr(
         "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run
     )
@@ -578,12 +585,8 @@ async def test_prompt_rider_via_agent_skips_retry_when_tool_already_marked_faile
     context = _context()
     demand = _demand()
 
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
-
-        async def get_active_thread(self, _recipient):
-            return {"thread_id": "t1"}
+    async def _resolve(_recipient, **_kwargs):  # agent_runner.resolve_rider_thread (R2)
+        return {"thread_id": "t1"}
 
     async def _pool(_self):
         return object()
@@ -604,12 +607,12 @@ async def test_prompt_rider_via_agent_skips_retry_when_tool_already_marked_faile
 
     cleared = []
 
-    async def _clear(recipient):
+    async def _clear(recipient, **_kwargs):
         cleared.append(recipient)
 
     service = WaLocation(wa_client=SimpleNamespace())
     monkeypatch.setattr(PgSetting, "get_pool", _pool)
-    monkeypatch.setattr("ordelo.wa_location.ThreadHandler", _FakeThreadHandler)
+    monkeypatch.setattr("ordelo.agents.agent_runner.resolve_rider_thread", _resolve)
     monkeypatch.setattr(
         "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _fake_run
     )
@@ -630,12 +633,8 @@ async def test_prompt_rider_via_agent_contains_graph_failures(monkeypatch) -> No
     context = _context()
     demand = _demand()
 
-    class _FakeThreadHandler:
-        def __init__(self, _pool):
-            pass
-
-        async def get_active_thread(self, _recipient):
-            return {"thread_id": "t1"}
+    async def _resolve(_recipient, **_kwargs):  # agent_runner.resolve_rider_thread (R2)
+        return {"thread_id": "t1"}
 
     async def _pool(_self):
         return object()
@@ -650,12 +649,12 @@ async def test_prompt_rider_via_agent_contains_graph_failures(monkeypatch) -> No
 
     cleared = []
 
-    async def _clear(recipient):
+    async def _clear(recipient, **_kwargs):
         cleared.append(recipient)
 
     service = WaLocation(wa_client=SimpleNamespace())
     monkeypatch.setattr(PgSetting, "get_pool", _pool)
-    monkeypatch.setattr("ordelo.wa_location.ThreadHandler", _FakeThreadHandler)
+    monkeypatch.setattr("ordelo.agents.agent_runner.resolve_rider_thread", _resolve)
     monkeypatch.setattr(
         "ordelo.agents.agent_runner.run_rider_agent_w_custom_msg", _boom
     )
@@ -666,3 +665,86 @@ async def test_prompt_rider_via_agent_contains_graph_failures(monkeypatch) -> No
 
     assert failed == [(request_id, "RuntimeError")]
     assert cleared == [context.rider_id]
+
+
+@pytest.mark.parametrize("source", ["whatsapp_current", "telegram_current"])
+async def test_receive_current_location_stores_the_receipts_source(monkeypatch, source) -> None:
+    """R5 (D50): one code path for both apps; the observation row carries where the share came from."""
+    from ordelo_datamodels.wa_location_pymodels import WhatsAppLocationReceipt
+
+    request_id, observation_id = uuid4(), uuid4()
+    executed: list[tuple[str, tuple]] = []
+    answers = iter([
+        {"request_id": request_id, "order_number": "SFCS-123", "dispatch_id": 17, "rider_id": "447700900111"},  # correlated
+        {"observation_id": observation_id},  # INSERT ... RETURNING
+    ])
+
+    class _Cursor:
+        async def execute(self, sql, params=()):
+            executed.append((" ".join(sql.split()), params))
+
+        async def fetchone(self):
+            return next(answers)
+
+        async def fetchall(self):
+            return [{"request_id": request_id}]
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+    class _Tx:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+    class _Connection:
+        def cursor(self, *_args, **_kwargs):
+            return _Cursor()
+
+        def transaction(self):
+            return _Tx()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+    class _Pool:
+        def connection(self):
+            return _Connection()
+
+    async def _pool(_self):
+        return _Pool()
+
+    service = WaLocation()
+    routed = []
+
+    async def _inflight(_cur, _context):
+        return True
+
+    async def _route(rid):
+        routed.append(rid)
+        return "delivered"
+
+    monkeypatch.setattr(PgSetting, "get_pool", _pool)
+    monkeypatch.setattr(service, "_exact_inflight_assignment_exists_in_cursor", _inflight)
+    monkeypatch.setattr(service, "route_fulfilled_request", _route)
+    receipt = WhatsAppLocationReceipt(
+        rider_id="447700900111", latitude=51.07, longitude=-1.79, observed_at=datetime.now(timezone.utc),
+        inbound_message_id="tg:111:42" if source == "telegram_current" else "wamid.X",
+        reply_to_message_id="tg:111:40" if source == "telegram_current" else "wamid.P", source=source,
+    )
+    assert await service.receive_current_location(receipt) == 1
+    insert_sql, insert_params = next(e for e in executed if e[0].startswith("INSERT INTO wa_location_observation"))
+    assert insert_params[5] == source and insert_params[7] == receipt.inbound_message_id
+    assert executed[0][1] == (receipt.reply_to_message_id, "447700900111")  # correlation by the prompt's MsgRef first
+    assert routed == [request_id]
+    # The WhatsApp entry point keeps its name and defaults to whatsapp_current.
+    assert WhatsAppLocationReceipt(rider_id="1", latitude=0, longitude=0, observed_at=datetime.now(timezone.utc),
+                                   inbound_message_id="w").source == "whatsapp_current"

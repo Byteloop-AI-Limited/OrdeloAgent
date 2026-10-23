@@ -55,12 +55,13 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime, timezone
-from types import SimpleNamespace
 
 import httpx
 import pytest
 import respx
 
+from ordelo.rider_messaging import DispatchChannel, use_messenger
+from ordelo.rider_messaging.fake import RecordingRiderMessenger
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from utils_common.notify import restaurant_notifier
 from utils_common.notify.restaurant_notifier import AutoAccepted, KitchenReceipt, RiderAlert
@@ -79,7 +80,7 @@ def cue_clears(monkeypatch):
     """
     calls = []
 
-    async def _clear(recipient):
+    async def _clear(recipient, **_kwargs):  # dispatch_id= since R2 (the alert names its dispatch)
         calls.append(recipient)
 
     monkeypatch.setattr(delivery_hooks, "clear_pickup_alert_cue", _clear)
@@ -189,7 +190,11 @@ def _restaurant_payload(trigger_reason="restaurant_unconfirmed", admins=None):
     }
 
 
-async def test_wa_send_delivery_dispatch_request_to_rider_builds_accept_decline_buttons(fake_async_wa: FakeAsyncWhatsApp) -> None:
+async def test_wa_send_delivery_dispatch_request_to_rider_builds_accept_decline_buttons(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    # The dispatch row says WhatsApp (stamped from rider_master at INSERT, D44): the old message, byte for byte.
+    patch_supabase_client.register(table="delivery_dispatch", verb="select", response=FakeSupabaseResponse(data=[
+        {"dispatch_id": 10, "rider_id": "RIDER01", "channel": "whatsapp", "channel_msg_ref": None, "order_number": "ELAS-ABCD-1", "status": "unassigned"}
+    ]))
     await delivery_hooks.wa_send_delivery_dispatch_request_to_rider("RIDER01", _summary_row(), 10, _async_wa_client=fake_async_wa)
 
     sent = fake_async_wa.sent[-1]
@@ -197,6 +202,19 @@ async def test_wa_send_delivery_dispatch_request_to_rider_builds_accept_decline_
     assert "2.3 miles" in sent.kwargs["header"]
     payloads = [json.loads(button.callback_data) for button in sent.kwargs["buttons"]]
     assert {payload["status"] for payload in payloads} == {"accepted", "declined"}
+    # The offer's MsgRef (the wamid) is stored on the dispatch for later edits / threading (D49).
+    assert patch_supabase_client.calls[-1].payload == {"channel_msg_ref": "wamid.send_message.1"}
+
+
+async def test_dispatch_request_on_a_telegram_dispatch_goes_to_the_rider_bot(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    fake = RecordingRiderMessenger(channel="telegram")
+    patch_supabase_client.register(table="delivery_dispatch", verb="update", response=FakeSupabaseResponse(data=[]))
+    with use_messenger(fake):
+        await delivery_hooks.wa_send_delivery_dispatch_request_to_rider("RIDER01", _summary_row(), 10, _async_wa_client=fake_async_wa)
+    assert fake_async_wa.sent == []
+    [(method, kwargs)] = fake.calls
+    assert method == "offer_job" and kwargs["offer"].dispatch_id == 10 and kwargs["offer"].order_number == "ELAS-ABCD-1"
+    assert patch_supabase_client.calls[-1].payload == {"channel_msg_ref": "fake:1"}
 
 
 async def test_delivery_dispatch_hook_empty_and_overwatch_scheduling(monkeypatch) -> None:
@@ -248,6 +266,74 @@ async def test_blocked_stale_dispatch_and_missed_notice_never_send(monkeypatch, 
     assert fake_async_wa.sent == []
 
 
+async def test_missed_notice_whatsapp_text_unchanged_telegram_offer_edited(monkeypatch, fake_async_wa):
+    async def allowed(*args):
+        return True
+
+    monkeypatch.setattr(delivery_hooks, "rider_dispatch_allowed", allowed)
+    monkeypatch.setattr(delivery_hooks, "_async_wa_client", fake_async_wa)
+    channels = {
+        1: DispatchChannel(1, "RIDER_WA", "whatsapp", None, "wamid.1", "ELAS-ABCD-1", "accepted"),
+        2: DispatchChannel(2, "RIDER_TG", "telegram", 555, "tg:555:9", "ELAS-ABCD-1", "accepted"),
+    }
+
+    async def fake_dc(dispatch_id):
+        return channels.get(dispatch_id)
+
+    monkeypatch.setattr(delivery_hooks, "dispatch_channel", fake_dc)
+    fake = RecordingRiderMessenger(channel="telegram")
+    with use_messenger(fake):
+        await delivery_hooks._send_missed_dispatch_if_allowed("ELAS-ABCD-1", "RIDER_WA", "missed text", dispatch_id=1)
+        await delivery_hooks._send_missed_dispatch_if_allowed("ELAS-ABCD-1", "RIDER_TG", "missed text", dispatch_id=2)
+    assert [s.kwargs for s in fake_async_wa.sent] == [{"to": "RIDER_WA", "text": "missed text"}]
+    assert fake.calls == [("offer_closed", {"ref": "tg:555:9", "order_number": "ELAS-ABCD-1", "reason": "taken"})]
+
+
+class _JsonRequest:
+    def __init__(self, body):
+        self._body = body
+
+    async def json(self):
+        return self._body
+
+
+async def test_close_threads_closes_a_dispatch_thread_exactly_and_legacy_threads_as_before(monkeypatch, patch_pg_pool, fake_async_wa):
+    """R2: a rider dispatch thread is closed by id and the goodbye goes out on the job's channel; others are unchanged."""
+    from ordelo.agents.rider_threads import RiderThread
+
+    monkeypatch.setattr(delivery_hooks, "_async_wa_client", fake_async_wa)
+    threads = {"ORDELO-dispatch-7": RiderThread("ORDELO-dispatch-7", "RIDER_TG", dispatch_id=7, channel="telegram", tcid=555)}
+    closed, made_inactive = [], []
+
+    async def describe(thread_id):
+        return threads.get(thread_id)
+
+    async def close(thread_id):
+        closed.append(thread_id)
+        return True
+
+    class _Handler:
+        def __init__(self, pool):
+            pass
+
+        async def make_threads_inactive(self, recipient):
+            made_inactive.append(recipient)
+
+    monkeypatch.setattr(delivery_hooks.rider_threads, "describe", describe)
+    monkeypatch.setattr(delivery_hooks.rider_threads, "close", close)
+    monkeypatch.setattr("utils_common.thread_management.ThreadHandler", _Handler)
+    fake = RecordingRiderMessenger(channel="telegram")
+    with use_messenger(fake):
+        out = await delivery_hooks.close_threads(_JsonRequest([
+            {"thread_id": "ORDELO-dispatch-7", "recipient": "RIDER_TG"},
+            {"thread_id": "ORDELO-uuid-legacy", "recipient": "RIDER_WA"},
+        ]))
+    assert out == {"status": "success", "processed_count": 2}
+    assert closed == ["ORDELO-dispatch-7"] and made_inactive == ["RIDER_WA"]
+    assert fake.texts == [delivery_hooks._GOODBYE_TEXT]
+    assert [s.kwargs for s in fake_async_wa.sent] == [{"to": "RIDER_WA", "text": delivery_hooks._GOODBYE_TEXT}]
+
+
 async def test_delivery_inflight_graph_init_hook_schedules_core_background_tasks() -> None:
     bg = _FakeBackgroundTasks()
     payload = {
@@ -259,23 +345,31 @@ async def test_delivery_inflight_graph_init_hook_schedules_core_background_tasks
     result = await delivery_hooks.delivery_inflight_graph_init_hook(bg, payload=payload)
 
     assert result == {"status": "success"}
+    from channels.telegram.rider.commands import sync_rider_menu
+
     assert [task["func"] for task in bg.tasks] == [
+        sync_rider_menu,
         delivery_hooks.capture_delivery_payment,
         delivery_hooks.post_rider_event_inflight,
         restaurant_notifier.notify,
         delivery_hooks.init_ordelo_graph,
+        delivery_hooks.dispatch_actions.close_open_offers,
         delivery_hooks.notify_overwatch,
     ]
-    assert bg.tasks[3]["kwargs"]["rider_id"] == "RIDER01"
+    assert bg.tasks[0]["args"] == ("RIDER01",)
+    assert bg.tasks[4]["kwargs"]["rider_id"] == "RIDER01"
+    # D49: unanswered Telegram offers of this order become "Taken by another rider"; the winner's "The job is yours".
+    assert bg.tasks[5]["args"] == ("ELAS-ABCD-1", "taken")
+    assert bg.tasks[5]["kwargs"] == {"statuses": ("unassigned",), "winner_dispatch_id": 10}
     # Step 3 hands the notifier exactly what admin_order_reciept used to get (WhatsApp parity), plus the dispatch id for Telegram.
-    assert bg.tasks[2]["args"] == (
+    assert bg.tasks[3]["args"] == (
         KitchenReceipt(
             delivery_summary=DeliverySummary(**_summary_row()),
             rider_master={"rider_id": "RIDER01", "rider_name": "Bas"},
             dispatch_id=10,
         ),
     )
-    assert bg.tasks[2]["kwargs"] == {}
+    assert bg.tasks[3]["kwargs"] == {}
 
 
 async def test_notify_missed_dispatches_hook_updates_dispatches_and_schedules_messages(monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp) -> None:
@@ -344,6 +438,10 @@ async def test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook(
     assert [sent.kwargs["to"] for sent in patch_async_wa_client.sent[-2:]] == ["ADMIN01", "ADMIN02"]
     assert bg.tasks[0]["func"] == delivery_hooks.post_delivery_timedout
     assert bg.tasks[0]["kwargs"]["payment_cancelled"] is True
+    # D49: Telegram offers still open (never answered, or accepted but never assigned) become "Offer expired".
+    assert bg.tasks[1]["func"] == delivery_hooks.dispatch_actions.close_open_offers
+    assert bg.tasks[1]["args"] == ("ELAS-ABCD-1", "expired")
+    assert bg.tasks[1]["kwargs"] == {"statuses": ("unassigned", "accepted")}
 
 
 async def test_delivery_timedout_forwards_unconfirmed_cancellation(monkeypatch, patch_async_wa_client: FakeAsyncWhatsApp) -> None:
@@ -416,14 +514,20 @@ async def test_check_rider_allocation_status_returns_summary_status(monkeypatch,
 
 
 async def test_shift_and_admin_availability_hooks_schedule_background_processing(patch_supabase_client) -> None:
+    # The UPDATE is filtered to WhatsApp riders (R5); only the rows it switched off are asked.
+    patch_supabase_client.register(table="rider_master", verb="update",
+                                   response=FakeSupabaseResponse(data=[{"rider_id": "RIDER01"}]))
     bg = _FakeBackgroundTasks()
     result = await delivery_hooks.shift_availability_enquiry_hook(
-        payload={"event_type": "shift", "riders": [{"rider_id": "RIDER01", "rider_name": "Bas"}]},
+        payload={"event_type": "shift", "riders": [{"rider_id": "RIDER01", "rider_name": "Bas"},
+                                                   {"rider_id": "TGRIDER", "rider_name": "Tom"}]},
         background_tasks=bg,
     )
     assert result == {"status": "success", "riders_scheduled": 1}
-    assert patch_supabase_client.calls[-1].payload["is_in_shift"] is False
+    update = patch_supabase_client.calls[-1]
+    assert update.payload["is_in_shift"] is False and update.filters["eq:channel"] == "whatsapp"
     assert bg.tasks[-1]["func"] == delivery_hooks._process_shift_availability
+    assert bg.tasks[-1]["args"][0] == [{"rider_id": "RIDER01", "rider_name": "Bas"}]
 
     bg2 = _FakeBackgroundTasks()
     result = await delivery_hooks.admin_availability_enquiry_hook(

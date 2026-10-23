@@ -39,3 +39,57 @@ class OrderAction(CallbackData, prefix="ord"):
     t: Literal["d", "t"]
     a: Literal["acc", "dec", "pk", "rdy", "adj"]
     m: int = 0
+
+
+# ---- rider bot (bot_key 'rider'; plans/telegram-rider-bot-plan.md) ------------------------------------------------------
+
+
+class RiderSignup(CallbackData, prefix="rsu"):
+    """A sign-up choice on the rider bot, e.g. 'rsu:t:Salisbury' (town) or 'rsu:v:bike' (vehicle type).
+
+    v is the chosen value as t_rider_choices() listed it. Carries no authority and no phone: t_rider_set_profile() finds
+    the rider by the tapping person's from_user.id and accepts only values that are still listed (D39, D41).
+    """
+
+    s: Literal["t", "v"]
+    v: str
+
+
+class RiderOffer(CallbackData, prefix="ro1"):
+    """Accept (a) or decline (d) a job offer on the rider bot, e.g. 'ro1:84217:a' (phase R4, D48).
+
+    d is the delivery_dispatch id. Packing is serialisation, not authorisation: the handler checks that the tapping
+    person's tuid is the dispatch's rider and that the offer is still open before calling respond_to_offer().
+    """
+
+    d: int
+    a: Literal["a", "d"]
+
+
+class RiderJobAction(CallbackData, prefix="rj1"):
+    """A tap on a job-card button on the rider bot, e.g. 'rj1:84217:pk' (pickup pin), 'dr' (drop-off pin), 'cc' (customer
+    contact). The handler checks the tapping person is the dispatch's rider and the dispatch thread is open, then gives the
+    agent the same words a WhatsApp tap gives it (ordelo/rider_messaging/models.JOB_CARD_ACTIONS)."""
+
+    d: int
+    a: Literal["pk", "dr", "cc"]
+
+
+class RiderPause(CallbackData, prefix="rp1"):
+    """A break length picked under /off on the rider bot, e.g. 'rp1:6h' (phase R5, ADR 0013).
+
+    k is a duration key as pause_options('rider') listed it. Carries no authority: the handler finds the rider by the
+    tapping person's from_user.id, and pause_start() accepts only keys still listed in ordelo_config.
+    """
+
+    k: str
+
+
+class AdminPause(CallbackData, prefix="ap1"):
+    """An alert-pause length picked under /off on the restaurant bot, e.g. 'ap1:1d' (phase R6, D52).
+
+    k is a duration key as pause_options('rest_admin') listed it. Carries no authority: t_admin_pause() finds the
+    restaurants and the admin phone by the tapping person's from_user.id and applies the last-admin guard.
+    """
+
+    k: str

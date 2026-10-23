@@ -50,7 +50,7 @@ import psycopg
 from psycopg_pool import ConnectionPool
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from pywa_async import WhatsApp
-from pywa.types import Message, Template as Temp, ButtonUrl, Button
+from pywa.types import Message, Template as Temp, ButtonUrl
 from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText
 from config import (
     pg_settings,
@@ -64,7 +64,6 @@ from typing import Optional
 from utils_common.lg_utils import (
     get_state_values,
     shorten_state_messages,
-    get_config_for_recipient,
 )
 from utils_common.tz_utils import fmt_uk_time
 from supabase._sync.client import Client
@@ -408,36 +407,14 @@ async def _send_delivery_instructions(
     recipient: str,
     rider_name: str,
     client_ordelo: Client,
-    wa_client: WhatsApp,
+    messenger,
 ):
     """
-    Sends delivery instructions (pickup and drop-off locations) via WhatsApp for a given dispatch_id.
+    Sends the delivery instructions (job card with Pickup / Dropoff / Contact buttons) and the timing reminder
+    for a given dispatch_id, through the run's RiderMessenger (R3): WhatsApp gets exactly the old message and
+    '/riderLocationRequest' buttons, Telegram the same text with rider-bot buttons.
+    Returns (reference of the job card, body_text); the reference becomes the thread's reply_to_msg_id.
     """
-    pickup_cb_data = CallbackButtonData(
-        action="/riderLocationRequest",
-        recipient=recipient,
-        dispatch_id=dispatch_id,
-        ai_msg="",
-        human_msg="Send me the pickup location",
-        response="",
-    )
-    dropoff_cb_data = CallbackButtonData(
-        action="/riderLocationRequest",
-        recipient=recipient,
-        dispatch_id=dispatch_id,
-        ai_msg="",
-        human_msg="Send me the dropoff location",
-        response="",
-    )
-    request_customer_contact = CallbackButtonData(
-        action="/riderLocationRequest",
-        recipient=recipient,
-        dispatch_id=dispatch_id,
-        ai_msg="",
-        human_msg="I cannot reach customer, please send me customer contact.",
-        response="",
-    )
-
     dispatch = (
         client_ordelo.table("delivery_dispatch")
         .select("*")
@@ -448,14 +425,6 @@ async def _send_delivery_instructions(
     )
     order_number = dispatch["order_number"]
 
-    summary = (
-        client_ordelo.table("delivery_summary")
-        .select("*")
-        .eq("order_number", order_number)
-        .limit(1)
-        .execute()
-        .data[0]
-    )
     summary = DeliverySummary.from_order_number(order_number)
     summary: dict = summary.model_dump()
     logger.info(f"Summary: {summary}")
@@ -476,37 +445,18 @@ Hi {rider_name}, here are the Delivery details:
 
 👨‍💻 Please let me know if you have any questions during the delivery process.
     """
-    reply_to_msg_id = await wa_client.send_message(
-        to=recipient,
-        header=f"🌟 {summary['order_number']} 🌟",
-        text=body_text,
-        reply_to_message_id=None,
-        buttons=[
-            Button(
-                title="Pickup Location", callback_data=pickup_cb_data.model_dump_json()
-            ),
-            Button(
-                title="Dropoff Location",
-                callback_data=dropoff_cb_data.model_dump_json(),
-            ),
-            Button(
-                title="Contact Customer",
-                callback_data=request_customer_contact.model_dump_json(),
-            ),
-        ],
-    )
+    card_ref = await messenger.job_card(f"🌟 {summary['order_number']} 🌟", body_text, dispatch_id)
 
     # Timing reminder — ask rider to arrive at pickup time, not before
-    await wa_client.send_message(
-        to=recipient,
-        text=(
+    await messenger.say(
+        (
             f"⏱️ *Heads up!* The restaurant will have your order ready at *{pickup_display}*.\n\n"
             f"Please plan to arrive at the restaurant right around that time — "
             f"no need to head over early. We appreciate you helping us keep things running smoothly! 🙌"
         ),
-        reply_to_message_id=reply_to_msg_id.id,
+        reply_to=card_ref,
     )
-    return reply_to_msg_id.id, body_text
+    return card_ref, body_text
 
 
 # %%
@@ -543,7 +493,13 @@ async def post_rider_event_restaurant_cc(order_number: str, customer_id: int):
 
 # %% Debug State
 async def debug_state(recipient: str, graph, pool) -> dict:
-    config, is_new_thread = await get_config_for_recipient(recipient, pool)
+    """State of the rider's open thread; read-only since R2 (it used to create a thread when there was none)."""
+    from ordelo.agents.agent_runner import resolve_rider_thread  # local: agent_runner imports this module
+
+    thread = await resolve_rider_thread(recipient, touch=False)
+    if thread is None:
+        return {"error": f"no open rider thread for {recipient}"}
+    config = {"configurable": {"thread_id": thread.thread_id}}
     state = await graph.aget_state(config=config)
 
     debug_stack = {

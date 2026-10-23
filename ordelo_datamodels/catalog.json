@@ -24,7 +24,7 @@
    "file": "dispatch/enquire_shift_availability.sql",
    "function": "enquire_shift_availability",
    "job": "enquire_shift_availability",
-   "line": 93,
+   "line": 99,
    "schedule": "0 11 * * *"
   },
   {
@@ -69,7 +69,7 @@
    "file": "dispatch/job_create_dispatch.sql",
    "function": "job_create_dispatch",
    "job": "job_create_dispatch",
-   "line": 235,
+   "line": 242,
    "schedule": "5 seconds"
   },
   {
@@ -79,6 +79,15 @@
    "function": "job_null_or_outdated_location",
    "job": "job_null_or_outdated_location",
    "line": 129,
+   "schedule": "* * * * *"
+  },
+  {
+   "active": true,
+   "command": "SELECT public.job_pause_sweep()",
+   "file": "availability/job_pause_sweep.sql",
+   "function": "job_pause_sweep",
+   "job": "job_pause_sweep",
+   "line": 144,
    "schedule": "* * * * *"
   },
   {
@@ -105,7 +114,7 @@
    "file": "telegram/t_order_alerts.sql",
    "function": "job_t_order_alerts",
    "job": "job_t_order_alerts",
-   "line": 672,
+   "line": 712,
    "schedule": "5 seconds"
   },
   {
@@ -114,7 +123,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "function": "job_t_receipt_refresh",
    "job": "job_t_receipt_refresh",
-   "line": 1024,
+   "line": 1029,
    "schedule": "5 seconds"
   },
   {
@@ -1291,8 +1300,8 @@
    },
    "cron": [],
    "folder": "agent_threads",
-   "header_lines": 29,
-   "lines": 121,
+   "header_lines": 33,
+   "lines": 125,
    "objects": [
     {
      "description": "POST idle active threads to /delivery-hooks/close-threads; returns whether it posted.",
@@ -1323,7 +1332,7 @@
    "sections": {
     "CALLED BY": "job_close_thread:\n  python    watomation/routers/delivery_hooks.py: close_threads()",
     "GOTCHAS": "The body was taken from live on 2026-10-16 (the previous agent_threads copy differed; the migrations/ordelo_agg_r3.sql copy matched).",
-    "HOW IT FITS": "Agent threads (the LangGraph conversation per WhatsApp user and agent):\n  thread (owned by restaurant-agents) maps (recipient, agent) to a LangGraph thread_id; the checkpoint tables are\n  written by LangGraph's AsyncPostgresSaver. OrdeloAgent reads the latest state for debugging and closes idle threads:\n    job_close_thread()                       idle OrdeloAgent threads -> POST /delivery-hooks/close-threads\n    job_terminate_stale_active_threads_new() idle restaurant threads  -> POST <REST>_APP_URL/thread-hooks/<rest>/terminate-stale-active-threads\n                                             (restaurant-agents), per restaurant, every minute\n    get_latest_state(_by_thread)()           read a thread's latest checkpoint as JSON (debug endpoints, rider agent)\n  job_close_thread(): active threads whose last_access_dtts is older than ordelo_config THREAD_INACTIVE_TIME_INTERVAL\n  minutes (default 5) -> POST /delivery-hooks/close-threads. Called from Python (delivery_hooks.py), not by pg_cron.",
+    "HOW IT FITS": "Agent threads (the LangGraph conversation per WhatsApp user and agent):\n  thread (owned by restaurant-agents) maps (recipient, agent) to a LangGraph thread_id; the checkpoint tables are\n  written by LangGraph's AsyncPostgresSaver. OrdeloAgent reads the latest state for debugging and closes idle threads:\n    job_close_thread()                       idle OrdeloAgent threads -> POST /delivery-hooks/close-threads\n    job_terminate_stale_active_threads_new() idle restaurant threads  -> POST <REST>_APP_URL/thread-hooks/<rest>/terminate-stale-active-threads\n                                             (restaurant-agents), per restaurant, every minute\n    get_latest_state(_by_thread)()           read a thread's latest checkpoint as JSON (debug endpoints, rider agent)\n  job_close_thread(): active threads whose last_access_dtts is older than ordelo_config THREAD_INACTIVE_TIME_INTERVAL\n  minutes (default 5) -> POST /delivery-hooks/close-threads. Called from Python (delivery_hooks.py), not by pg_cron.\nRider dispatch threads (ORDELO-dispatch-<id>, since R2 of plans/telegram-rider-bot-plan.md) are in the same payload;\n  close_threads() closes exactly that thread (rider_thread_close, agent_threads/rider_threads.sql) whether or not a\n  cancel reason was given, and says goodbye on the job's channel (WhatsApp or Telegram). Other threads close as before.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none",
     "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
@@ -1331,12 +1340,13 @@
     "PYTHON MODEL": "none",
     "REQUIRES": "none",
     "SECURITY": "job_close_thread(): executable by PUBLIC (default)",
-    "SEE ALSO": "agent_threads/job_terminate_stale_active_threads.sql",
+    "SEE ALSO": "agent_threads/job_terminate_stale_active_threads.sql\nagent_threads/rider_threads.sql",
     "SIDE EFFECTS": "Each call may POST to /delivery-hooks/close-threads.",
     "TESTS": "none"
    },
    "see_also": [
-    "agent_threads/job_terminate_stale_active_threads.sql"
+    "agent_threads/job_terminate_stale_active_threads.sql",
+    "agent_threads/rider_threads.sql"
    ],
    "tests": [],
    "title": "Find OrdeloAgent threads idle longer than THREAD_INACTIVE_TIME_INTERVAL and ask the app to close them."
@@ -1435,6 +1445,450 @@
     "tests/ordelo_datamodels/test_stale_thread_job_sql.py"
    ],
    "title": "Every minute: per restaurant, find idle agent threads and ask restaurant-agents to terminate them."
+  },
+  {
+   "called_by": {
+    "rider_thread_active": [
+     {
+      "text": "ordelo/agents/rider_threads.py: active_for_rider()",
+      "via": "python"
+     }
+    ],
+    "rider_thread_close": [
+     {
+      "text": "ordelo/agents/rider_threads.py: close()",
+      "via": "python"
+     }
+    ],
+    "rider_thread_describe": [
+     {
+      "text": "ordelo/agents/rider_threads.py: describe(), for_dispatch()",
+      "via": "python"
+     }
+    ],
+    "rider_thread_id": [
+     {
+      "text": "rider_thread_open() (agent_threads/rider_threads.sql)",
+      "via": "sql"
+     }
+    ],
+    "rider_thread_open": [
+     {
+      "text": "ordelo/agents/rider_threads.py: open_for_dispatch()",
+      "via": "python"
+     }
+    ],
+    "rider_thread_touch": [
+     {
+      "text": "ordelo/agents/rider_threads.py: touch()",
+      "via": "python"
+     }
+    ]
+   },
+   "cron": [],
+   "folder": "agent_threads",
+   "header_lines": 74,
+   "lines": 341,
+   "objects": [
+    {
+     "description": "The thread id of a dispatch: '<agent>-dispatch-<dispatch_id>' (e.g. ORDELO-dispatch-84217).",
+     "kind": "function",
+     "name": "rider_thread_id",
+     "signature": "rider_thread_id(p_agent text, p_dispatch_id bigint) -> text"
+    },
+    {
+     "description": "Open the thread of an assigned dispatch (idempotent) and close the rider's other rider threads (D47).",
+     "kind": "function",
+     "name": "rider_thread_open",
+     "signature": "rider_thread_open(p_agent text, p_rider_id text, p_dispatch_id bigint) -> jsonb"
+    },
+    {
+     "description": "Mark an open thread as just used (last_access_dtts) and return its snapshot; refuses closed threads.",
+     "kind": "function",
+     "name": "rider_thread_touch",
+     "signature": "rider_thread_touch(p_thread_id text) -> jsonb"
+    },
+    {
+     "description": "The rider's open rider thread (newest), with its dispatch and channel; optionally touches it.",
+     "kind": "function",
+     "name": "rider_thread_active",
+     "signature": "rider_thread_active(p_agent text, p_rider_id text, p_touch boolean) -> jsonb"
+    },
+    {
+     "description": "Read-only snapshot of one thread, found by thread id or by dispatch id (debug, close-threads, hooks).",
+     "kind": "function",
+     "name": "rider_thread_describe",
+     "signature": "rider_thread_describe(p_thread_id text, p_dispatch_id bigint) -> jsonb"
+    },
+    {
+     "description": "Close exactly this thread (never every thread of the phone).",
+     "kind": "function",
+     "name": "rider_thread_close",
+     "signature": "rider_thread_close(p_thread_id text) -> jsonb"
+    }
+   ],
+   "path": "agent_threads/rider_threads.sql",
+   "path_line": "ordelo_datamodels/agent_threads/rider_threads.sql",
+   "requires": [
+    "dispatch/delivery_dispatch.sql (thread_id, channel columns)",
+    "core/rider_master.sql (tcid)",
+    "restaurant-agents: thread"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "rider_thread_id:\n  sql       rider_thread_open() (agent_threads/rider_threads.sql)\nrider_thread_open:\n  python    ordelo/agents/rider_threads.py: open_for_dispatch()\nrider_thread_touch:\n  python    ordelo/agents/rider_threads.py: touch()\nrider_thread_active:\n  python    ordelo/agents/rider_threads.py: active_for_rider()\nrider_thread_describe:\n  python    ordelo/agents/rider_threads.py: describe(), for_dispatch()\nrider_thread_close:\n  python    ordelo/agents/rider_threads.py: close()",
+    "GOTCHAS": "thread.recipient is varchar(12): the rider_id (phone) fits; the thread is still addressed by its dispatch's channel.\nrider_thread_open() serialises per rider with pg_advisory_xact_lock(hashtext('rider_thread:' || rider_id)), so two\n  assignments for one rider at the same moment cannot both stay open.\nA dispatch id is never reused (serial), so a closed dispatch thread is never reopened.",
+    "HOW IT FITS": "D46 / D47 (ADR 0012 Amendment 1). The thread table belongs to restaurant-agents and is shared with customer and WEB\n  threads; its functions (create_thread, get_or_create_thread, make_threads_inactive, ...) are NOT changed. New\n  rider threads are ordinary rows whose id is computed from the dispatch, so the id keeps the '<agent>-<suffix>'\n  shape that job_terminate_stale_active_threads_new() reads with split_part(thread_id, '-', 1).\nNothing parses the id: rider_thread_open() writes it to delivery_dispatch.thread_id, and every lookup joins\n  thread.thread_id = delivery_dispatch.thread_id to get the dispatch, its order, its channel (D44) and the rider's\n  Telegram chat (rider_master.tcid).\nFlow: delivery_inflight INSERT -> /delivery-hooks/delivery-inflight-graph-init -> rider_threads.open_for_dispatch()\n  -> rider_thread_open() 'opened' -> the graph is initialised once ('existing' -> nothing, the hook re-fired).\n  Every run of the rider graph first calls rider_thread_touch() (or rider_thread_active() for a message that\n  names no dispatch): a closed thread is never run and never re-created, and last_access_dtts stays fresh for the\n  stale-thread close job (job_close_thread).\n  Completion / termination tools close exactly their own thread (rider_thread_close()).\nThreads that were open before R2 (ids 'ORDELO-<uuid>', no delivery_dispatch.thread_id) are still found by\n  rider_thread_active() (dispatch fields NULL, channel 'whatsapp') and close the old way.",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
+    "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  rider_thread_open:     opened | existing (already open) | closed (this dispatch's thread already finished:\n                         never reopened) | not_found (no such dispatch, or it is another rider's)\n                         + thread_id, closed (array of the rider's other threads closed now)\n  rider_thread_touch:    active | inactive | not_found (+ snapshot)\n  rider_thread_active:   active | none (+ snapshot)\n  rider_thread_describe: found | not_found (+ snapshot)\n  rider_thread_close:    closed | not_active\nSnapshot: thread_id, rider_id, is_active, dispatch_id, order_number, dispatch_status, channel, tcid.\nClosing another thread on open (D47) records its missing cancel reason as 'not given (next job started)'.",
+    "LIVE CHECK": "Live since 2026-10-22 (migrations/rider_telegram_r2_r4.sql step 3; ADR 0012 Amendment 1); tested live with a rider job.",
+    "OBJECTS": "fn     rider_thread_id(p_agent text, p_dispatch_id bigint) -> text\n    The thread id of a dispatch: '<agent>-dispatch-<dispatch_id>' (e.g. ORDELO-dispatch-84217).\nfn     rider_thread_open(p_agent text, p_rider_id text, p_dispatch_id bigint) -> jsonb\n    Open the thread of an assigned dispatch (idempotent) and close the rider's other rider threads (D47).\nfn     rider_thread_touch(p_thread_id text) -> jsonb\n    Mark an open thread as just used (last_access_dtts) and return its snapshot; refuses closed threads.\nfn     rider_thread_active(p_agent text, p_rider_id text, p_touch boolean) -> jsonb\n    The rider's open rider thread (newest), with its dispatch and channel; optionally touches it.\nfn     rider_thread_describe(p_thread_id text, p_dispatch_id bigint) -> jsonb\n    Read-only snapshot of one thread, found by thread id or by dispatch id (debug, close-threads, hooks).\nfn     rider_thread_close(p_thread_id text) -> jsonb\n    Close exactly this thread (never every thread of the phone).",
+    "PYTHON MODEL": "ordelo/agents/rider_threads.py (RiderThread)",
+    "REQUIRES": "dispatch/delivery_dispatch.sql (thread_id, channel columns)\ncore/rider_master.sql (tcid)\nrestaurant-agents: thread",
+    "SECURITY": "Every function: REVOKE ALL FROM PUBLIC, anon, authenticated; called through the psycopg pool (as ThreadHandler is).",
+    "SEE ALSO": "dispatch/delivery_dispatch.sql\nagent_threads/job_close_thread.sql\ndocs/adr/0012-rider-threads-follow-dispatch-assignments.md",
+    "SIDE EFFECTS": "none when applied (functions only).",
+    "TESTS": "tests/sql/test_rider_threads_sql.py\ntests/sql/test_rider_telegram_r2_r4_migration_sql.py\ntests/sql/test_rider_telegram_jobs_script_sql.py\ntests/ordelo/agents/test_rider_threads.py"
+   },
+   "see_also": [
+    "dispatch/delivery_dispatch.sql",
+    "agent_threads/job_close_thread.sql",
+    "docs/adr/0012-rider-threads-follow-dispatch-assignments.md"
+   ],
+   "tests": [
+    "tests/sql/test_rider_threads_sql.py",
+    "tests/sql/test_rider_telegram_r2_r4_migration_sql.py",
+    "tests/sql/test_rider_telegram_jobs_script_sql.py",
+    "tests/ordelo/agents/test_rider_threads.py"
+   ],
+   "title": "Rider agent threads, one per assigned dispatch: open, touch, find, close (the shared thread table is not changed)."
+  },
+  {
+   "called_by": {
+    "job_pause_sweep": [
+     {
+      "text": "'job_pause_sweep' */5 * * * * on live at 2026-10-23; target * * * * * in step 6",
+      "via": "cron"
+     }
+    ]
+   },
+   "cron": [
+    {
+     "active": true,
+     "command": "SELECT public.job_pause_sweep()",
+     "file": "availability/job_pause_sweep.sql",
+     "function": "job_pause_sweep",
+     "job": "job_pause_sweep",
+     "line": 144,
+     "schedule": "* * * * *"
+    }
+   ],
+   "folder": "availability",
+   "header_lines": 38,
+   "lines": 157,
+   "objects": [
+    {
+     "description": "Close expired pauses, then POST the due \"ends soon\" and \"back on\" messages; mark them only on a 2xx reply.",
+     "kind": "function",
+     "name": "job_pause_sweep",
+     "signature": "job_pause_sweep() -> boolean"
+    }
+   ],
+   "path": "availability/job_pause_sweep.sql",
+   "path_line": "ordelo_datamodels/availability/job_pause_sweep.sql",
+   "requires": [
+    "availability/pauses.sql",
+    "core/ordelo_config.sql"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "job_pause_sweep:\n  cron      'job_pause_sweep' */5 * * * * on live at 2026-10-23; target * * * * * in step 6",
+    "GOTCHAS": "The 24-hour window on ANNOUNCE stops a backlog of stale \"you're back on\" messages after a long outage.\nORDELO_APP_URL is shared by test and local runs (see the restaurant plan's known limits): point it at the\n  instance that should send the messages.",
+    "HOW IT FITS": "ADR 0013. The sweep never decides availability (is_paused() does, from the clock); it only:\n  1. CLOSE:   open rows whose ends_at passed -> ended_at = ends_at, end_reason = 'expired' (bookkeeping only).\n  2. REMIND:  open rows ending within PAUSE_REMIND_BEFORE_MINS, not yet reminded   -> payload \"ending_soon\".\n  3. ANNOUNCE: rows closed as 'expired' in the last 24 h whose announced_at is NULL  -> payload \"ended\".\n  4. POST {event_type: 'pause_sweep', ending_soon: [...], ended: [...]} to /pause-hooks/sweep; on 2xx set\n     reminded_at / announced_at for exactly the pause_ids handed to the app. A failed POST leaves them for the next\n     scheduled run. A later background send failure is logged but not retried; availability remains clock-derived.\n  Each item: {pause_id, audience, principal, scope, ends_at}. The app routes by audience: 'rider' ->\n  RiderMessenger.for_rider(principal) (ordelo/rider_messaging/: the rider's channel), 'rest_admin' -> the\n  restaurant bot, in the admin's own chats for that restaurant (t_admin_pause_chats(), telegram/t_admin_pauses.sql).\n  Python: watomation/routers/pause_hooks.py <- POST /pause-hooks/sweep (answers 200 at once and sends in the\n  background, like the order-alerts route: a send that fails after the 2xx is logged, not retried).",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
+    "LIFECYCLE": "none (the pause lifecycle is in availability/pauses.sql)",
+    "LIVE CHECK": "job_pause_sweep() matches the live function on 2026-10-22. The live pg_cron job is ACTIVE at */5 * * * *;\nthe runnable schedule below targets * * * * * (R5-R6 migration step 6, after deploying /pause-hooks/sweep).",
+    "OBJECTS": "fn     job_pause_sweep() -> boolean\n    Close expired pauses, then POST the due \"ends soon\" and \"back on\" messages; mark them only on a 2xx reply.",
+    "PYTHON MODEL": "none",
+    "REQUIRES": "availability/pauses.sql\ncore/ordelo_config.sql",
+    "SECURITY": "job_pause_sweep(): REVOKE ALL FROM PUBLIC, anon, authenticated (pg_cron runs it as the owner).",
+    "SEE ALSO": "availability/pauses.sql\ntelegram/t_order_alerts.sql (same POST-then-mark pattern)",
+    "SIDE EFFECTS": "Schedules the pg_cron job 'job_pause_sweep' (every minute). Each run may POST to <ORDELO_APP_URL>/pause-hooks/sweep.",
+    "TESTS": "tests/sql/test_pauses_sql.py\ntests/watomation/routers/test_pause_hooks.py"
+   },
+   "see_also": [
+    "availability/pauses.sql",
+    "telegram/t_order_alerts.sql (same POST-then-mark pattern)"
+   ],
+   "tests": [
+    "tests/sql/test_pauses_sql.py",
+    "tests/watomation/routers/test_pause_hooks.py"
+   ],
+   "title": "Target every minute: close expired pauses and ask the app to send \"your break ends soon\" and \"you're back on\"."
+  },
+  {
+   "called_by": {
+    "is_paused": [
+     {
+      "text": "get_available_riders() (dispatch/job_create_dispatch.sql)",
+      "via": "sql"
+     },
+     {
+      "text": "pause_start() (availability/pauses.sql)",
+      "via": "sql"
+     },
+     {
+      "text": "t_alert_destinations() (telegram/t_order_alerts.sql)",
+      "via": "sql"
+     }
+    ],
+    "pause_current": [
+     {
+      "text": "ordelo/pauses.py: current()",
+      "via": "python"
+     }
+    ],
+    "pause_duration": [
+     {
+      "text": "pause_start() (availability/pauses.sql)",
+      "via": "sql"
+     }
+    ],
+    "pause_end": [
+     {
+      "text": "ordelo/pauses.py: resume()",
+      "via": "python"
+     },
+     {
+      "text": "t_admin_resume() (telegram/t_admin_pauses.sql)",
+      "via": "sql"
+     }
+    ],
+    "pause_options": [
+     {
+      "text": "ordelo/pauses.py: options()",
+      "via": "python"
+     },
+     {
+      "text": "t_admin_pause_status() (telegram/t_admin_pauses.sql)",
+      "via": "sql"
+     }
+    ],
+    "pause_start": [
+     {
+      "text": "ordelo/pauses.py: pause()",
+      "via": "python"
+     },
+     {
+      "text": "t_admin_pause() (telegram/t_admin_pauses.sql)",
+      "via": "sql"
+     }
+    ],
+    "pauses": [
+     {
+      "text": "is_paused(), pause_current(), pause_start(), pause_end(), job_pause_sweep()",
+      "via": "sql"
+     }
+    ]
+   },
+   "cron": [],
+   "folder": "availability",
+   "header_lines": 96,
+   "lines": 458,
+   "objects": [
+    {
+     "description": "One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended.",
+     "kind": "table",
+     "name": "pauses",
+     "signature": "pauses"
+    },
+    {
+     "description": "The interval for a duration key such as '6h' or '1d' if ordelo_config allows it for this audience, else NULL.",
+     "kind": "function",
+     "name": "pause_duration",
+     "signature": "pause_duration(p_audience text, p_duration text) -> interval"
+    },
+    {
+     "description": "The duration keys a person of this audience may pick, in ordelo_config order (the /off buttons).",
+     "kind": "function",
+     "name": "pause_options",
+     "signature": "pause_options(p_audience text) -> jsonb"
+    },
+    {
+     "description": "true while an open pause covers now(); the ONE place that answers \"is this person paused?\".",
+     "kind": "function",
+     "name": "is_paused",
+     "signature": "is_paused(p_audience text, p_principal text, p_scope text) -> boolean"
+    },
+    {
+     "description": "The pause covering now(), or {result: 'not_paused'}; read-only.",
+     "kind": "function",
+     "name": "pause_current",
+     "signature": "pause_current(p_audience text, p_principal text, p_scope text) -> jsonb"
+    },
+    {
+     "description": "Start or extend a pause; a rider with a delivery_inflight row is refused.",
+     "kind": "function",
+     "name": "pause_start",
+     "signature": "pause_start(p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text) -> jsonb"
+    },
+    {
+     "description": "End the current pause early; a rider's own /on is refused during an inflight delivery.",
+     "kind": "function",
+     "name": "pause_end",
+     "signature": "pause_end(p_audience text, p_principal text, p_scope text, p_reason text) -> jsonb"
+    }
+   ],
+   "path": "availability/pauses.sql",
+   "path_line": "ordelo_datamodels/availability/pauses.sql",
+   "requires": [
+    "core/ordelo_config.sql",
+    "core/restaurant_master.sql",
+    "dispatch/delivery_inflight.sql"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "pauses:\n  sql       is_paused(), pause_current(), pause_start(), pause_end(), job_pause_sweep()\npause_duration:\n  sql       pause_start() (availability/pauses.sql)\npause_options:\n  python    ordelo/pauses.py: options()\n  sql       t_admin_pause_status() (telegram/t_admin_pauses.sql)\nis_paused:\n  sql       get_available_riders() (dispatch/job_create_dispatch.sql)\n  sql       pause_start() (availability/pauses.sql)\n  sql       t_alert_destinations() (telegram/t_order_alerts.sql)\npause_current:\n  python    ordelo/pauses.py: current()\npause_start:\n  python    ordelo/pauses.py: pause()\n  sql       t_admin_pause() (telegram/t_admin_pauses.sql)\npause_end:\n  python    ordelo/pauses.py: resume()\n  sql       t_admin_resume() (telegram/t_admin_pauses.sql)",
+    "GOTCHAS": "principal is a phone (digits only) for both audiences, so a pause follows the person across channels.\nAn operator pause of a restaurant admin goes through the same guard (pause_start); operator pause_end remains\n  available during a rider's inflight delivery, while the rider's own /on is refused.\nscope NULL and scope '' are the same (the unique index and every lookup use coalesce(scope, '')).\nis_paused() is STABLE and cheap (unique index on open rows); it is safe inside get_available_riders().",
+    "HOW IT FITS": "ADR 0013. Availability is DERIVED, never flipped back by a job:\n  is_paused(audience, principal, scope) = an open row (ended_at IS NULL) with starts_at <= now() < ends_at.\n  The moment ends_at passes the person is available again, with no job involved, so a late, failed or\n  mis-pointed sweep can only delay a MESSAGE, never leave someone switched off.\nAudiences: 'rider' (principal = rider_master.rider_id, scope NULL = all jobs) and 'rest_admin' (principal = the\n  admin's phone as in restaurant_master.admins, digits only; scope = rest_ref, so an admin of two restaurants\n  pauses each one separately).\nReaders: get_available_riders() (dispatch/job_create_dispatch.sql) skips paused riders; t_alert_destinations()\n  (telegram/t_order_alerts.sql) leaves paused admins out of NEW Telegram order cards, kitchen receipts and\n  notices (R6). Copies already in a paused admin's chat keep being updated and their buttons keep working:\n  a pause stops new alerts, it never removes access (t_order_card_destinations() is unchanged).\n  WhatsApp alerts to restaurant admins are not affected (the plan's hard rule: WhatsApp unchanged).\nWriters: pause_start() / pause_end(): riders through ordelo/pauses.py (rider bot /off, /on, R5); restaurant\n  admins through t_admin_pause() / t_admin_resume() (telegram/t_admin_pauses.sql, restaurant bot /off, /on, R6).\nLast-admin guard (D52): pause_start('rest_admin', phone, rest_ref, ...) answers 'not_allowed' when no OTHER\n  admin of that restaurant (restaurant_master.admins) would stay unpaused, and 'not_admin' when the phone is not\n  one of its admins. Two admins pausing at the same moment are serialised by an advisory lock per restaurant,\n  so they cannot both pass the guard.\nMessages: job_pause_sweep() (availability/job_pause_sweep.sql) closes expired rows and asks the app to send\n  \"your break ends soon\" and \"you're back on\" (POST /pause-hooks/sweep, watomation/routers/pause_hooks.py).\nDurations: ordelo_config PAUSE_DURATIONS_<AUDIENCE> (comma-separated keys like 6h,1d,3d). Only listed keys are\n  accepted, so nobody can pause indefinitely; the longest listed key is also the cap.",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
+    "LIFECYCLE": "open (ended_at NULL, now() < ends_at) --pause_start again--> same row, new ends_at, reminded_at cleared ('extended')\nopen --pause_end--> ended (end_reason 'resumed' | 'operator', announced_at = now(): the bot already replied)\nopen --ends_at passes--> not paused at once; job_pause_sweep() then sets ended_at = ends_at, end_reason 'expired'\nended 'expired' --sweep POST 2xx--> announced_at set (\"you're back on\" sent)\nAn expired-but-unswept row found by pause_start() is closed there ('expired', announced_at = now()) before the\n  new pause starts, so the person gets one message, not two.\nRESULT VOCABULARY (jsonb {result, ...})\n  pause_start:   paused | extended | on_job (rider only) | bad_duration | bad_audience | not_admin |\n                 not_allowed (the last two: rest_admin only)\n  pause_end:     resumed | not_paused | on_job (rider /on only)\n  pause_current: paused | not_paused\nRows are kept (audit); no housekeeping deletes them.",
+    "LIVE CHECK": "Live catalog checked 2026-10-22 after the owner re-applied this file: pause_start() and pause_end() both\n  read delivery_inflight and return on_job; pause_end() retains the operator exception. App deployed and checked live 2026-10-23.",
+    "OBJECTS": "table  pauses\n    One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended.\nfn     pause_duration(p_audience text, p_duration text) -> interval\n    The interval for a duration key such as '6h' or '1d' if ordelo_config allows it for this audience, else NULL.\nfn     pause_options(p_audience text) -> jsonb\n    The duration keys a person of this audience may pick, in ordelo_config order (the /off buttons).\nfn     is_paused(p_audience text, p_principal text, p_scope text) -> boolean\n    true while an open pause covers now(); the ONE place that answers \"is this person paused?\".\nfn     pause_current(p_audience text, p_principal text, p_scope text) -> jsonb\n    The pause covering now(), or {result: 'not_paused'}; read-only.\nfn     pause_start(p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text) -> jsonb\n    Start or extend a pause; a rider with a delivery_inflight row is refused.\nfn     pause_end(p_audience text, p_principal text, p_scope text, p_reason text) -> jsonb\n    End the current pause early; a rider's own /on is refused during an inflight delivery.",
+    "PYTHON MODEL": "ordelo/pauses.py (Pause, PauseOutcome)",
+    "REQUIRES": "core/ordelo_config.sql\ncore/restaurant_master.sql\ndispatch/delivery_inflight.sql",
+    "SECURITY": "pauses: RLS ON, no policies, REVOKE ALL FROM anon/authenticated. Every function: REVOKE ALL FROM PUBLIC, anon,\n  authenticated (service role and the owner only; get_available_riders() runs from pg_cron as the owner).",
+    "SEE ALSO": "availability/job_pause_sweep.sql\ntelegram/t_admin_pauses.sql\ncore/rider_master.sql\ndispatch/job_create_dispatch.sql\ndocs/adr/0013-pauses-have-a-mandatory-end-and-are-computed.md",
+    "SIDE EFFECTS": "Inserts the PAUSE_DURATIONS_RIDER, PAUSE_DURATIONS_REST_ADMIN and PAUSE_REMIND_BEFORE_MINS config rows if missing.",
+    "TESTS": "tests/sql/test_pauses_sql.py\ntests/sql/test_admin_pauses_sql.py\ntests/ordelo/test_pauses.py"
+   },
+   "see_also": [
+    "availability/job_pause_sweep.sql",
+    "telegram/t_admin_pauses.sql",
+    "core/rider_master.sql",
+    "dispatch/job_create_dispatch.sql",
+    "docs/adr/0013-pauses-have-a-mandatory-end-and-are-computed.md"
+   ],
+   "tests": [
+    "tests/sql/test_pauses_sql.py",
+    "tests/sql/test_admin_pauses_sql.py",
+    "tests/ordelo/test_pauses.py"
+   ],
+   "title": "Pauses: a person steps away from jobs or alerts until a mandatory end time; \"paused\" is computed from the clock."
+  },
+  {
+   "called_by": {
+    "rider_set_shift": [
+     {
+      "text": "ordelo/rider_shift.py: set_shift()",
+      "via": "python"
+     }
+    ]
+   },
+   "cron": [],
+   "folder": "availability",
+   "header_lines": 37,
+   "lines": 112,
+   "objects": [
+    {
+     "description": "Start (p_on) or end a rider's shift: only an 'active' rider can start, and nobody can end one during a job.",
+     "kind": "function",
+     "name": "rider_set_shift",
+     "signature": "rider_set_shift(p_rider_id text, p_on boolean) -> jsonb"
+    }
+   ],
+   "path": "availability/rider_shift.sql",
+   "path_line": "ordelo_datamodels/availability/rider_shift.sql",
+   "requires": [
+    "core/rider_master.sql",
+    "dispatch/delivery_inflight.sql"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "rider_set_shift:\n  python    ordelo/rider_shift.py: set_shift()",
+    "GOTCHAS": "on_job is checked against delivery_inflight (the rider's live job), the same check the WhatsApp \"No\" made.\nA rider who is not active can still end a shift (harmless; they are not dispatched either way).",
+    "HOW IT FITS": "is_in_shift is one of the dispatch gates (get_available_riders(): status = 'active' AND is_in_shift AND not paused).\n  WhatsApp riders answer the daily shift question (dispatch/enquire_shift_availability.sql, 11:00 UTC): \"Yes\"\n  -> rider_set_shift(rider, true); \"No\" -> rider_set_shift(rider, false) (watomation/on_callback_wa_handler.py).\n  Telegram riders are on by default and step away with a pause instead (availability/pauses.sql, ADR 0013); /on\n  on the rider bot calls rider_set_shift(rider, true) as well, so a Telegram rider whose flag was cleared (by an\n  operator, or by the shift question before R5) is switched back on by the same gate.\n  The status gate (D41): only status = 'active' (exact) may start a shift; a Telegram sign-up starts 'inactive'\n  and stays out of dispatch until an operator activates it, whatever the rider taps.",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
+    "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  p_on true:  on | not_active (+ status) | not_found\n  p_on false: off | on_job (+ order_number) | not_found\non sets is_in_shift = true and shift_response_dtts = now(); off sets is_in_shift = false (shift_response_dtts kept,\n  as the WhatsApp \"No\" always did).",
+    "LIVE CHECK": "Live on 2026-10-22: rider_set_shift() was verified against the R5-R6 definition.",
+    "OBJECTS": "fn     rider_set_shift(p_rider_id text, p_on boolean) -> jsonb\n    Start (p_on) or end a rider's shift: only an 'active' rider can start, and nobody can end one during a job.",
+    "PYTHON MODEL": "ordelo/rider_shift.py (ShiftOutcome)",
+    "REQUIRES": "core/rider_master.sql\ndispatch/delivery_inflight.sql",
+    "SECURITY": "rider_set_shift(): REVOKE ALL FROM PUBLIC, anon, authenticated (service role only; client_ordelo_service).",
+    "SEE ALSO": "dispatch/enquire_shift_availability.sql\ndispatch/job_create_dispatch.sql\navailability/pauses.sql",
+    "SIDE EFFECTS": "none when applied (one function).",
+    "TESTS": "tests/sql/test_rider_shift_sql.py\ntests/ordelo/test_rider_shift.py"
+   },
+   "see_also": [
+    "dispatch/enquire_shift_availability.sql",
+    "dispatch/job_create_dispatch.sql",
+    "availability/pauses.sql"
+   ],
+   "tests": [
+    "tests/sql/test_rider_shift_sql.py",
+    "tests/ordelo/test_rider_shift.py"
+   ],
+   "title": "A rider starts or ends a shift (rider_master.is_in_shift), with the status gate and the on-a-job check in one place."
   },
   {
    "called_by": {
@@ -2277,7 +2731,7 @@
    "called_by": {
     "rider_master": [
      {
-      "text": "delivery_inflight_whook(), enquire_shift_availability(), fake_delivery_dispatch_whook() get_available_riders(), get_rider_payout_report(), job_rider_pickup_alerts() t_receipt_snapshot()",
+      "text": "delivery_inflight_whook(), enquire_shift_availability(), fake_delivery_dispatch_whook() get_available_riders(), get_rider_payout_report(), job_rider_pickup_alerts() t_receipt_snapshot() t_rider_link(), t_rider_set_profile(), t_rider_choices(), t_rider_profile()",
       "via": "sql"
      },
      {
@@ -2313,6 +2767,10 @@
       "via": "python"
      },
      {
+      "text": "ordelo/rider_messaging/factory.py: for_rider() (channel, tcid)",
+      "via": "python"
+     },
+     {
       "text": "restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts",
       "via": "frontend"
      },
@@ -2328,11 +2786,11 @@
    },
    "cron": [],
    "folder": "core",
-   "header_lines": 49,
-   "lines": 78,
+   "header_lines": 73,
+   "lines": 125,
    "objects": [
     {
-     "description": "Riders that can be offered delivery jobs, keyed in practice by rider_id (their WhatsApp number).",
+     "description": "Riders that can be offered delivery jobs, keyed by rider_id (their phone number, digits only).",
      "kind": "table",
      "name": "rider_master",
      "signature": "rider_master"
@@ -2358,34 +2816,38 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "rider_master:\n  sql       delivery_inflight_whook(), enquire_shift_availability(), fake_delivery_dispatch_whook()\n            get_available_riders(), get_rider_payout_report(), job_rider_pickup_alerts()\n            t_receipt_snapshot()\n  python    utils_common/notify/restaurant_notifier.py (module-level SQL)\n  python    utils_common/waba_utils/wa_senders.py: notify_ops_rider_alert(), notify_rest_admins_rider_alert()\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/on_callback_wa_handler.py: handle_shift_availability()\n  python    watomation/on_message_wa_handler.py: process_wa_msg()\n  python    watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook(), shift_availability_enquiry_hook()\n  python    watomation/routers/rider_auth_session.py: _resolve_rider_id()\n  python    watomation/routers/sys_admin_auth_session.py: get_rider_payout()\n  frontend  restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts\n  frontend  restaurant-frontend/app/rider/more/page.tsx\n  frontend  restaurant-frontend/app/sys-admin/riders-inshift/page.tsx",
-    "GOTCHAS": "rider_id is nullable and not unique in the DDL, although the code treats it as the rider's key.\nRead with the anon key by restaurant-frontend and RLS is off: see docs/to-do.md (security review).",
-    "HOW IT FITS": "get_available_riders() (dispatch/job_create_dispatch.sql) picks riders here: same town (case-insensitive), same\n  vehicle_type, is_in_shift = true, not already offered this order and not on another job (delivery_inflight);\n  TEST3100 orders only go to riders in ordelo_config overwatch_list. job_create_dispatch() then ranks by priority.\n  Daily shift cycle: cron 'enquire_shift_availability' (11:00 UTC) -> enquire_shift_availability() POSTs the\n  status = 'active' riders -> /delivery-hooks/shift-availability-enquiry sets is_in_shift = false for them and sends\n  the shift question -> a 'yes' tap sets is_in_shift = true (watomation/on_callback_wa_handler.py).\n  rider_id is the WhatsApp phone number and is what delivery_dispatch / delivery_inflight store.",
-    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "Riders are added by onboarding (rider_registrations -> manual insert into rider_master).\nis_in_shift: reset to false every day by the shift enquiry, back to true when the rider answers yes.",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
-    "OBJECTS": "table  rider_master\n    Riders that can be offered delivery jobs, keyed in practice by rider_id (their WhatsApp number).",
+    "CALLED BY": "rider_master:\n  sql       delivery_inflight_whook(), enquire_shift_availability(), fake_delivery_dispatch_whook()\n            get_available_riders(), get_rider_payout_report(), job_rider_pickup_alerts()\n            t_receipt_snapshot()\n            t_rider_link(), t_rider_set_profile(), t_rider_choices(), t_rider_profile()\n  python    utils_common/notify/restaurant_notifier.py (module-level SQL)\n  python    utils_common/waba_utils/wa_senders.py: notify_ops_rider_alert(), notify_rest_admins_rider_alert()\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/on_callback_wa_handler.py: handle_shift_availability()\n  python    watomation/on_message_wa_handler.py: process_wa_msg()\n  python    watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook(), shift_availability_enquiry_hook()\n  python    watomation/routers/rider_auth_session.py: _resolve_rider_id()\n  python    watomation/routers/sys_admin_auth_session.py: get_rider_payout()\n  python    ordelo/rider_messaging/factory.py: for_rider() (channel, tcid)\n  frontend  restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts\n  frontend  restaurant-frontend/app/rider/more/page.tsx\n  frontend  restaurant-frontend/app/sys-admin/riders-inshift/page.tsx",
+    "GOTCHAS": "rider_id is NOT NULL and UNIQUE only since migrations/rider_telegram_r1.sql (2026-10-22); older copies of this table\n  (other environments) may still have duplicates or NULLs: run that migration's pre-checks there first.\nRead with the anon key by restaurant-frontend and RLS is off, so tuid/tcid are readable by anon too: see\n  docs/to-do.md (security review). The Telegram columns are written only through the service-role t_rider_*\n  functions, but nothing stops a direct anon write while RLS is off.\nstatus has no CHECK: dispatch now requires exactly 'active' (case-sensitive). The migration pre-check prints\n  the live status values so no existing rider is cut off by spelling.",
+    "HOW IT FITS": "get_available_riders() (dispatch/job_create_dispatch.sql) picks riders here: status = 'active', same town\n  (case-insensitive), same vehicle_type, is_in_shift = true, not paused (availability/pauses.sql is_paused()), not\n  already offered this order and not on another job (delivery_inflight); TEST3100 orders only go to riders in\n  ordelo_config overwatch_list. job_create_dispatch() then ranks by priority.\n  Daily shift cycle (WhatsApp riders): cron 'enquire_shift_availability' (11:00 UTC) -> enquire_shift_availability()\n  POSTs the status = 'active' riders -> /delivery-hooks/shift-availability-enquiry sets is_in_shift = false for\n  them and sends the shift question -> a 'yes' tap sets is_in_shift = true (watomation/on_callback_wa_handler.py).\n  Telegram riders (channel = 'telegram', from phase R5) leave the daily cycle and use /off with a mandatory end\n  time instead (availability/pauses.sql).\n  rider_id is the phone number and is what delivery_dispatch / delivery_inflight / thread.recipient store.\n  channel picks where messages WE start go ('whatsapp' | 'telegram'; RiderMessenger in ordelo/rider_messaging/).\n  tuid authorises (the Telegram person, from_user.id); tcid addresses (the chat). Both are written only by the\n  t_rider_* functions (telegram/t_rider_onboarding.sql) after the rider shared their OWN phone number.",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.\nOn the existing live table the CREATE TABLE is a no-op: the R1 columns come from migrations/rider_telegram_r1.sql.",
+    "LIFECYCLE": "Riders are added by (a) the web onboarding form (rider_registrations -> manual insert) or (b) the rider bot's\n  /start for an unknown phone: t_rider_link() inserts status = 'inactive', town/vehicle_type 'TBD', then\n  t_rider_set_profile() stores the chosen town and vehicle. An operator activates: status = 'active'.\nTelegram link: t_rider_link() sets tuid/tcid/t_*/phone_verified and channel = 'telegram' (and is_in_shift = true\n  once, for an existing rider); a later contact share by a different Telegram account MOVES the link (D42).\nis_in_shift: WhatsApp riders: reset to false every day by the shift enquiry, back to true on 'yes'.",
+    "LIVE CHECK": "Matches live: migrations/rider_telegram_r1.sql applied by the owner on 2026-10-22 (rider_id NOT NULL + UNIQUE,\n  channel, tuid, tcid, t_username, t_first_name, t_linked_at, phone_verified, rider_master_tuid_uidx), and the\n  Telegram onboarding was tested live the same day (existing and new riders).",
+    "OBJECTS": "table  rider_master\n    Riders that can be offered delivery jobs, keyed by rider_id (their phone number, digits only).",
     "PYTHON MODEL": "none",
     "REQUIRES": "none",
     "SECURITY": "rider_master: RLS OFF; Supabase default grants (anon and authenticated can read and write)",
-    "SEE ALSO": "dispatch/job_create_dispatch.sql (get_available_riders)\ndispatch/enquire_shift_availability.sql\ncore/rider_registrations.sql",
+    "SEE ALSO": "dispatch/job_create_dispatch.sql (get_available_riders)\ndispatch/enquire_shift_availability.sql\ncore/rider_registrations.sql\ntelegram/t_rider_onboarding.sql\navailability/pauses.sql\nmigrations/rider_telegram_r1.sql",
     "SIDE EFFECTS": "none (DDL only)",
-    "TESTS": "tests/regressions/test_p7_msg_handler.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/utils_common/test_restaurant_notifier.py\ntests/watomation/routers/test_delivery_hooks.py\ntests/watomation/test_on_message_wa_handler.py"
+    "TESTS": "tests/regressions/test_p7_msg_handler.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/sql/test_rider_onboarding_sql.py\ntests/utils_common/test_restaurant_notifier.py\ntests/watomation/routers/test_delivery_hooks.py\ntests/watomation/test_on_message_wa_handler.py"
    },
    "see_also": [
     "dispatch/job_create_dispatch.sql (get_available_riders)",
     "dispatch/enquire_shift_availability.sql",
-    "core/rider_registrations.sql"
+    "core/rider_registrations.sql",
+    "telegram/t_rider_onboarding.sql",
+    "availability/pauses.sql",
+    "migrations/rider_telegram_r1.sql"
    ],
    "tests": [
     "tests/regressions/test_p7_msg_handler.py",
     "tests/sql/test_restaurant_notices_script_sql.py",
     "tests/sql/test_restaurant_ready_adjust_notices_sql.py",
+    "tests/sql/test_rider_onboarding_sql.py",
     "tests/utils_common/test_restaurant_notifier.py",
     "tests/watomation/routers/test_delivery_hooks.py",
     "tests/watomation/test_on_message_wa_handler.py"
    ],
-   "title": "One row per rider: phone (rider_id), vehicle, town, status and whether they are on shift."
+   "title": "One row per rider: phone (rider_id), vehicle, town, status, shift flag, channel and Telegram link."
   },
   {
    "called_by": {
@@ -3109,6 +3571,18 @@
       "via": "python"
      },
      {
+      "text": "ordelo/dispatch_actions.py: respond_to_offer(), close_open_offers()",
+      "via": "python"
+     },
+     {
+      "text": "ordelo/rider_messaging/factory.py: for_dispatch(), dispatch_channel()",
+      "via": "python"
+     },
+     {
+      "text": "rider_thread_open(), rider_thread_touch(), rider_thread_active(), rider_thread_describe()",
+      "via": "sql"
+     },
+     {
       "text": "ordelo/wa_location.py: WaLocation._load_delivery_context()",
       "via": "python"
      },
@@ -3145,6 +3619,12 @@
       "via": "frontend"
      }
     ],
+    "delivery_dispatch_stamp_channel": [
+     {
+      "text": "trigger_delivery_dispatch_stamp_channel on delivery_dispatch",
+      "via": "trigger"
+     }
+    ],
     "delivery_dispatch_whook_statement": [
      {
       "text": "trigger_delivery_dispatch_whook on delivery_dispatch",
@@ -3154,8 +3634,8 @@
    },
    "cron": [],
    "folder": "dispatch",
-   "header_lines": 82,
-   "lines": 213,
+   "header_lines": 104,
+   "lines": 285,
    "objects": [
     {
      "description": "Statement trigger function: POST every offer inserted by one statement to /delivery-hooks/delivery-dispatch.",
@@ -3164,10 +3644,22 @@
      "signature": "delivery_dispatch_whook_statement() -> trigger"
     },
     {
+     "description": "Row trigger function: copy the rider's channel (rider_master.channel) onto each new offer (D44).",
+     "kind": "function",
+     "name": "delivery_dispatch_stamp_channel",
+     "signature": "delivery_dispatch_stamp_channel() -> trigger"
+    },
+    {
      "description": "Offer of one delivery order to one rider (dispatch_id), with payout, distance, status and payout-paid state.",
      "kind": "table",
      "name": "delivery_dispatch",
      "signature": "delivery_dispatch"
+    },
+    {
+     "description": "BEFORE INSERT FOR EACH ROW: the offer keeps the channel it was made on until the job ends.",
+     "kind": "trigger",
+     "name": "trigger_delivery_dispatch_stamp_channel",
+     "signature": "trigger_delivery_dispatch_stamp_channel on delivery_dispatch -> delivery_dispatch_stamp_channel()"
     },
     {
      "description": "AFTER INSERT ... FOR EACH STATEMENT with REFERENCING NEW TABLE new_rows: one webhook per batch of offers.",
@@ -3178,7 +3670,9 @@
    ],
    "path": "dispatch/delivery_dispatch.sql",
    "path_line": "ordelo_datamodels/dispatch/delivery_dispatch.sql",
-   "requires": [],
+   "requires": [
+    "core/rider_master.sql (channel column)"
+   ],
    "role": "definition",
    "section_order": [
     "LIVE CHECK",
@@ -3196,19 +3690,19 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "delivery_dispatch_whook_statement:\n  trigger   trigger_delivery_dispatch_whook on delivery_dispatch\ndelivery_dispatch:\n  sql       assign_accepted_dispatch(), cleanup_delivery_order(), clear_dispatch()\n            complete_dispatch(), dispatch_accept_func(), dispatch_cancel_before_pickup()\n            dispatch_complete_func(), get_available_riders(), get_rider_payout_report()\n            job_create_dispatch(), job_rider_pickup_alerts(), notify_missed_dispatches()\n            notify_missed_dispatches_for_order(), overwatch_view(), restaurant_order_adjust_pickup()\n            restaurant_order_ready(), t_receipt_snapshot(), t_receipt_status()\n            test_reset_order_and_dispatch()\n  python    ordelo/agent_app_handlers.py: _send_delivery_instructions(), initial_handle_of_rider_response(), process_dispatch_response_from_rider_sync()\n  python    ordelo/agents/agent_runner.py: is_food_already_picked_up()\n  python    ordelo/agents/rider_agent.py: capture_reason_for_cancel_before_pickup(), terminate_delivery_job(), verify_restaurant_confirmation_code()\n  python    ordelo/delivery_progress.py: check_delivery_progress()\n  python    ordelo/wa_location.py: WaLocation._load_delivery_context()\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/routers/delivery_hooks.py: delivery_dispatch_hook(), notify_missed_dispatches_hook()\n  python    watomation/routers/sys_admin_auth_session.py: get_rider_payout(), update_paid_status()\n  frontend  restaurant-frontend/app/api/rider/jobs/route.ts\n  frontend  restaurant-frontend/app/api/rider/jobs/summary/route.ts\n  frontend  restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts\n  frontend  restaurant-frontend/app/rider/jobs/_lib/server-fetcher.ts",
+    "CALLED BY": "delivery_dispatch_whook_statement:\n  trigger   trigger_delivery_dispatch_whook on delivery_dispatch\ndelivery_dispatch_stamp_channel:\n  trigger   trigger_delivery_dispatch_stamp_channel on delivery_dispatch\ndelivery_dispatch:\n  sql       assign_accepted_dispatch(), cleanup_delivery_order(), clear_dispatch()\n            complete_dispatch(), dispatch_accept_func(), dispatch_cancel_before_pickup()\n            dispatch_complete_func(), get_available_riders(), get_rider_payout_report()\n            job_create_dispatch(), job_rider_pickup_alerts(), notify_missed_dispatches()\n            notify_missed_dispatches_for_order(), overwatch_view(), restaurant_order_adjust_pickup()\n            restaurant_order_ready(), t_receipt_snapshot(), t_receipt_status()\n            test_reset_order_and_dispatch()\n  python    ordelo/agent_app_handlers.py: _send_delivery_instructions(), initial_handle_of_rider_response(), process_dispatch_response_from_rider_sync()\n  python    ordelo/agents/agent_runner.py: is_food_already_picked_up()\n  python    ordelo/agents/rider_agent.py: capture_reason_for_cancel_before_pickup(), terminate_delivery_job(), verify_restaurant_confirmation_code()\n  python    ordelo/delivery_progress.py: check_delivery_progress()\n  python    ordelo/dispatch_actions.py: respond_to_offer(), close_open_offers()\n  python    ordelo/rider_messaging/factory.py: for_dispatch(), dispatch_channel()\n  sql       rider_thread_open(), rider_thread_touch(), rider_thread_active(), rider_thread_describe()\n  python    ordelo/wa_location.py: WaLocation._load_delivery_context()\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/routers/delivery_hooks.py: delivery_dispatch_hook(), notify_missed_dispatches_hook()\n  python    watomation/routers/sys_admin_auth_session.py: get_rider_payout(), update_paid_status()\n  frontend  restaurant-frontend/app/api/rider/jobs/route.ts\n  frontend  restaurant-frontend/app/api/rider/jobs/summary/route.ts\n  frontend  restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts\n  frontend  restaurant-frontend/app/rider/jobs/_lib/server-fetcher.ts",
     "GOTCHAS": "No foreign keys to delivery_summary or rider_master: the links are by order_number and rider_id only.\nrider_pickup_alert has ON DELETE CASCADE to dispatch_id: deleting a dispatch (cancel before pickup) removes its alert ledger.",
-    "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.\n  The statement-level trigger below batches every offer inserted by one job_create_dispatch() run into one\n  POST /delivery-hooks/delivery-dispatch, which sends each rider a WhatsApp offer with Accept / Decline buttons.\n  The rider dashboard and sys-admin payouts (restaurant-frontend) read paid_status / paid_dtts.",
+    "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.\n  The statement-level trigger below batches every offer inserted by one job_create_dispatch() run into one\n  POST /delivery-hooks/delivery-dispatch, which sends each rider a WhatsApp offer with Accept / Decline buttons.\n  The rider dashboard and sys-admin payouts (restaurant-frontend) read paid_status / paid_dtts.\n  Rider bot (plans/telegram-rider-bot-plan.md): channel is stamped from rider_master.channel when the offer row is\n  inserted and never changes (D44): the offer, Accept and the whole job conversation use it\n  (ordelo/rider_messaging/factory.for_dispatch). channel_msg_ref is the MsgRef of the offer message\n  (WhatsApp wamid or 'tg:<tcid>:<message_id>'), written by delivery_hooks after sending, so a closed Telegram offer\n  can be edited in place (D49). thread_id is the rider agent thread of an assigned dispatch\n  ('ORDELO-dispatch-<dispatch_id>'), written by rider_thread_open() (agent_threads/rider_threads.sql, D46).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "delivery_dispatch.status (one row per offer of an order to one rider):\n  unassigned (offer sent) -> accepted (rider tapped Accept) -> assigned (won the order) -> pickedup -> completed\n  unassigned -> declined (rider said no, or cancelled before pickup) | missed (another rider won) | timedout\npaid_status: unpaid -> paid (sys-admin marks payouts paid; paid_dtts set).",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
-    "OBJECTS": "fn     delivery_dispatch_whook_statement() -> trigger\n    Statement trigger function: POST every offer inserted by one statement to /delivery-hooks/delivery-dispatch.\ntable  delivery_dispatch\n    Offer of one delivery order to one rider (dispatch_id), with payout, distance, status and payout-paid state.\ntrg    trigger_delivery_dispatch_whook on delivery_dispatch -> delivery_dispatch_whook_statement()\n    AFTER INSERT ... FOR EACH STATEMENT with REFERENCING NEW TABLE new_rows: one webhook per batch of offers.",
+    "LIFECYCLE": "channel: set once at INSERT (trigger), never updated. channel_msg_ref: set once after the offer is sent.\nthread_id: set once when the dispatch is assigned and its rider thread opens; kept after completion (audit).\ndelivery_dispatch.status (one row per offer of an order to one rider):\n  unassigned (offer sent) -> accepted (rider tapped Accept) -> assigned (won the order) -> pickedup -> completed\n  unassigned -> declined (rider said no, or cancelled before pickup) | missed (another rider won) | timedout\npaid_status: unpaid -> paid (sys-admin marks payouts paid; paid_dtts set).",
+    "LIVE CHECK": "Matches live: the table, the statement trigger and its function (2026-10-16), plus channel, channel_msg_ref,\n  thread_id, delivery_dispatch_thread_id_idx and trigger_delivery_dispatch_stamp_channel (migrations/rider_telegram_r2_r4.sql,\n  applied by the owner on 2026-10-22; a rider job was tested live on Telegram and WhatsApp the same day).",
+    "OBJECTS": "fn     delivery_dispatch_whook_statement() -> trigger\n    Statement trigger function: POST every offer inserted by one statement to /delivery-hooks/delivery-dispatch.\nfn     delivery_dispatch_stamp_channel() -> trigger\n    Row trigger function: copy the rider's channel (rider_master.channel) onto each new offer (D44).\ntable  delivery_dispatch\n    Offer of one delivery order to one rider (dispatch_id), with payout, distance, status and payout-paid state.\ntrg    trigger_delivery_dispatch_stamp_channel on delivery_dispatch -> delivery_dispatch_stamp_channel()\n    BEFORE INSERT FOR EACH ROW: the offer keeps the channel it was made on until the job ends.\ntrg    trigger_delivery_dispatch_whook on delivery_dispatch -> delivery_dispatch_whook_statement()\n    AFTER INSERT ... FOR EACH STATEMENT with REFERENCING NEW TABLE new_rows: one webhook per batch of offers.",
     "PYTHON MODEL": "ordelo_datamodels/delivery_pymodels.py DeliveryDispatch",
-    "REQUIRES": "none",
-    "SECURITY": "delivery_dispatch_whook_statement(): executable by PUBLIC (default)\ndelivery_dispatch: RLS OFF; Supabase default grants (anon and authenticated can read and write)",
+    "REQUIRES": "core/rider_master.sql (channel column)",
+    "SECURITY": "delivery_dispatch_whook_statement(), delivery_dispatch_stamp_channel(): executable by PUBLIC (default; trigger functions)\ndelivery_dispatch: RLS OFF; Supabase default grants (anon and authenticated can read and write)",
     "SEE ALSO": "dispatch/job_create_dispatch.sql\ndispatch/job_assign_dispatch.sql\ndispatch/dispatch_cancel_before_pickup.sql\nrestaurant_admin/restaurant_ready_adjust_notices.sql (Ready reads the dispatch status)\ndocs/dispatch_flow.md",
     "SIDE EFFECTS": "Applying the file re-creates the statement trigger. Each INSERT statement then POSTs once to /delivery-hooks/delivery-dispatch.",
-    "TESTS": "tests/ordelo/agents/test_rider_agent.py\ntests/ordelo/test_agent_app_handlers.py\ntests/ordelo/test_delivery_progress.py\ntests/ordelo_datamodels/test_delivery_pymodels.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/watomation/routers/test_delivery_hooks.py\ntests/watomation/routers/test_sys_admin_auth_session.py"
+    "TESTS": "tests/ordelo/agents/test_rider_agent.py\ntests/ordelo/test_agent_app_handlers.py\ntests/ordelo/test_delivery_progress.py\ntests/ordelo_datamodels/test_delivery_pymodels.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/sql/test_rider_threads_sql.py\ntests/sql/test_rider_telegram_r2_r4_migration_sql.py\ntests/ordelo/test_dispatch_actions.py\ntests/watomation/routers/test_delivery_hooks.py\ntests/watomation/routers/test_sys_admin_auth_session.py"
    },
    "see_also": [
     "dispatch/job_create_dispatch.sql",
@@ -3224,6 +3718,9 @@
     "tests/ordelo_datamodels/test_delivery_pymodels.py",
     "tests/sql/test_restaurant_notices_script_sql.py",
     "tests/sql/test_restaurant_ready_adjust_notices_sql.py",
+    "tests/sql/test_rider_threads_sql.py",
+    "tests/sql/test_rider_telegram_r2_r4_migration_sql.py",
+    "tests/ordelo/test_dispatch_actions.py",
     "tests/watomation/routers/test_delivery_hooks.py",
     "tests/watomation/routers/test_sys_admin_auth_session.py"
    ],
@@ -3271,6 +3768,10 @@
      {
       "text": "watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook()",
       "via": "python"
+     },
+     {
+      "text": "ordelo/rider_shift.py: inflight_order() gates rider /off, /on and command menus",
+      "via": "python"
      }
     ],
     "delivery_inflight_whook": [
@@ -3282,8 +3783,8 @@
    },
    "cron": [],
    "folder": "dispatch",
-   "header_lines": 75,
-   "lines": 185,
+   "header_lines": 76,
+   "lines": 186,
    "objects": [
     {
      "description": "Row trigger function: start the rider agent for a newly assigned job and tell the riders who missed it.",
@@ -3324,7 +3825,7 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "delivery_inflight_whook:\n  trigger   trigger_delivery_inflight_whook on delivery_inflight\ndelivery_inflight:\n  sql       assign_accepted_dispatch(), cleanup_delivery_order(), complete_dispatch()\n            dispatch_accept_func(), dispatch_cancel_before_pickup(), dispatch_complete_func()\n            get_available_riders(), handle_delivery_dispatch_changes()\n            job_null_or_outdated_location(), job_process_owntracks(), job_rider_pickup_alerts()\n            restaurant_order_adjust_pickup(), restaurant_order_ready(), sync_delivery_inflight()\n            t_receipt_snapshot(), t_receipt_status(), test_reset_order_and_dispatch()\n  python    ordelo/agent_app_handlers.py: get_live_map_location_url()\n  python    ordelo/agents/agent_runner.py: is_food_already_picked_up()\n  python    ordelo/delivery_progress.py: check_delivery_progress()\n  python    ordelo/wa_location.py: WaLocation._exact_inflight_assignment_exists_in_cursor()\n  python    utils_common/notify/restaurant_notifier.py: KitchenReceipt()\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    watomation/on_callback_wa_handler.py: dispatch_response(), handle_shift_availability()\n  python    watomation/on_message_wa_handler.py: live_location(), reset_thread(), send_live_map_location()\n  python    watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook()",
+    "CALLED BY": "delivery_inflight_whook:\n  trigger   trigger_delivery_inflight_whook on delivery_inflight\ndelivery_inflight:\n  sql       assign_accepted_dispatch(), cleanup_delivery_order(), complete_dispatch()\n            dispatch_accept_func(), dispatch_cancel_before_pickup(), dispatch_complete_func()\n            get_available_riders(), handle_delivery_dispatch_changes()\n            job_null_or_outdated_location(), job_process_owntracks(), job_rider_pickup_alerts()\n            restaurant_order_adjust_pickup(), restaurant_order_ready(), sync_delivery_inflight()\n            t_receipt_snapshot(), t_receipt_status(), test_reset_order_and_dispatch()\n  python    ordelo/agent_app_handlers.py: get_live_map_location_url()\n  python    ordelo/agents/agent_runner.py: is_food_already_picked_up()\n  python    ordelo/delivery_progress.py: check_delivery_progress()\n  python    ordelo/wa_location.py: WaLocation._exact_inflight_assignment_exists_in_cursor()\n  python    utils_common/notify/restaurant_notifier.py: KitchenReceipt()\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    watomation/on_callback_wa_handler.py: dispatch_response(), handle_shift_availability()\n  python    watomation/on_message_wa_handler.py: live_location(), reset_thread(), send_live_map_location()\n  python    watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook()\n  python    ordelo/rider_shift.py: inflight_order() gates rider /off, /on and command menus",
     "GOTCHAS": "The Ready / +10 / +20 kitchen rule gates on this table: a delivery is 'in progress' while an inflight row exists and its\n  dispatch is not 'pickedup' / 'completed' (restaurant_admin/restaurant_ready_adjust_notices.sql).\nexpire_wa_location_requests_on_inflight_delete (migrations/create_wa_location_tables.sql) is not live.",
     "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.\n  assign_accepted_dispatch() inserts the row; the trigger below then POSTs /delivery-hooks/delivery-inflight-graph-init\n  (starts the rider LangGraph agent for this job) and calls notify_missed_dispatches() for the other riders.\n  get_available_riders() treats any rider with an inflight row as busy. dispatch_complete_func() and\n  dispatch_cancel_before_pickup() delete the row.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
@@ -3506,16 +4007,16 @@
      "file": "dispatch/enquire_shift_availability.sql",
      "function": "enquire_shift_availability",
      "job": "enquire_shift_availability",
-     "line": 93,
+     "line": 99,
      "schedule": "0 11 * * *"
     }
    ],
    "folder": "dispatch",
-   "header_lines": 23,
-   "lines": 109,
+   "header_lines": 28,
+   "lines": 115,
    "objects": [
     {
-     "description": "POST the active riders to the shift-availability webhook; returns true on success.",
+     "description": "POST the active WhatsApp riders to the shift-availability webhook; returns true on success.",
      "kind": "function",
      "name": "enquire_shift_availability",
      "signature": "enquire_shift_availability() -> boolean"
@@ -3523,7 +4024,9 @@
    ],
    "path": "dispatch/enquire_shift_availability.sql",
    "path_line": "ordelo_datamodels/dispatch/enquire_shift_availability.sql",
-   "requires": [],
+   "requires": [
+    "core/rider_master.sql"
+   ],
    "role": "definition",
    "section_order": [
     "LIVE CHECK",
@@ -3543,23 +4046,26 @@
    "sections": {
     "CALLED BY": "enquire_shift_availability:\n  cron      'enquire_shift_availability' 0 11 * * *",
     "GOTCHAS": "11:00 UTC is 12:00 in British Summer Time and 11:00 in winter.",
-    "HOW IT FITS": "cron 'enquire_shift_availability' (11:00 UTC) -> enquire_shift_availability() POSTs all rider_master rows with\n  status = 'active' to /delivery-hooks/shift-availability-enquiry -> the endpoint sets is_in_shift = false for them and\n  sends the WhatsApp shift question; a 'yes' sets is_in_shift = true again (watomation/on_callback_wa_handler.py).",
+    "HOW IT FITS": "cron 'enquire_shift_availability' (11:00 UTC) -> enquire_shift_availability() POSTs all rider_master rows with\n  status = 'active' AND channel = 'whatsapp' to /delivery-hooks/shift-availability-enquiry -> the endpoint sets\n  is_in_shift = false for them and sends the WhatsApp shift question; a 'yes' sets is_in_shift = true again through\n  rider_set_shift() (availability/rider_shift.sql; watomation/on_callback_wa_handler.py).\nTelegram riders (channel 'telegram') are never asked (D53): they can be messaged at any time, are on by default\n  and step away with /off (availability/pauses.sql, ADR 0013). The endpoint also switches off and asks only\n  rows that still say 'whatsapp', so a rider who moved to Telegram between the query and the POST is left alone.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
-    "OBJECTS": "fn     enquire_shift_availability() -> boolean\n    POST the active riders to the shift-availability webhook; returns true on success.",
+    "LIVE CHECK": "R5 WhatsApp-only rider filter verified live on 2026-10-22; the function body matches this file.",
+    "OBJECTS": "fn     enquire_shift_availability() -> boolean\n    POST the active WhatsApp riders to the shift-availability webhook; returns true on success.",
     "PYTHON MODEL": "none",
-    "REQUIRES": "none",
+    "REQUIRES": "core/rider_master.sql",
     "SECURITY": "enquire_shift_availability(): executable by PUBLIC (default)",
-    "SEE ALSO": "core/rider_master.sql",
-    "SIDE EFFECTS": "Each run POSTs to /delivery-hooks/shift-availability-enquiry (which takes every active rider off shift until they answer).",
-    "TESTS": "none"
+    "SEE ALSO": "core/rider_master.sql\navailability/rider_shift.sql",
+    "SIDE EFFECTS": "Each run POSTs to /delivery-hooks/shift-availability-enquiry (which takes every asked rider off shift until they answer).",
+    "TESTS": "tests/sql/test_rider_shift_sql.py"
    },
    "see_also": [
-    "core/rider_master.sql"
+    "core/rider_master.sql",
+    "availability/rider_shift.sql"
    ],
-   "tests": [],
-   "title": "Daily: ask every active rider whether they are working today."
+   "tests": [
+    "tests/sql/test_rider_shift_sql.py"
+   ],
+   "title": "Daily: ask every active WhatsApp rider whether they are working today (Telegram riders use /off instead)."
   },
   {
    "called_by": {
@@ -3672,13 +4178,13 @@
      "file": "dispatch/job_create_dispatch.sql",
      "function": "job_create_dispatch",
      "job": "job_create_dispatch",
-     "line": 235,
+     "line": 242,
      "schedule": "5 seconds"
     }
    ],
    "folder": "dispatch",
-   "header_lines": 51,
-   "lines": 247,
+   "header_lines": 56,
+   "lines": 254,
    "objects": [
     {
      "description": "Create the next batch of offers for every open delivery option, or time the vehicle type out; returns what it did.",
@@ -3695,7 +4201,10 @@
    ],
    "path": "dispatch/job_create_dispatch.sql",
    "path_line": "ordelo_datamodels/dispatch/job_create_dispatch.sql",
-   "requires": [],
+   "requires": [
+    "core/rider_master.sql",
+    "availability/pauses.sql"
+   ],
    "role": "definition",
    "section_order": [
     "LIVE CHECK",
@@ -3714,26 +4223,29 @@
    ],
    "sections": {
     "CALLED BY": "job_create_dispatch:\n  cron      'job_create_dispatch' 5 seconds\nget_available_riders:\n  sql       job_create_dispatch() (dispatch/job_create_dispatch.sql)",
-    "GOTCHAS": "TEST3100 orders (order_has_test_item) are offered only to riders listed in ordelo_config overwatch_list.\nA rider is never offered the same order twice, and riders on another job (delivery_inflight) are skipped.",
+    "GOTCHAS": "TEST3100 orders (order_has_test_item) are offered only to riders listed in ordelo_config overwatch_list.\nOnly rider_master.status = 'active' (exact, case-sensitive) is dispatchable (D41): Telegram sign-ups start\n  'inactive'. A rider with an open pause (availability/pauses.sql) is skipped until its end time (D51).\nA rider is never offered the same order twice, and riders on another job (delivery_inflight) are skipped.",
     "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "For each delivery_detail in 'unassigned' (only when no offer for that order/vehicle is still 'unassigned'):\n  get_available_riders() -> rank by rider_master.priority -> insert the next DISPATCH_BATCH_SIZE_<VEHICLE> offers.\n  When no rider is left for that vehicle type -> delivery_detail.status = 'vehicle_type_timedout'\n  (process_delivery() then opens the next vehicle type or times the order out).",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
+    "LIVE CHECK": "Matches live: job_create_dispatch() (2026-10-16) and get_available_riders() with status = 'active' and\n  NOT is_paused(...) (migrations/rider_telegram_r1.sql step 5, applied by the owner on 2026-10-22).",
     "OBJECTS": "fn     job_create_dispatch() -> TABLE(action text)\n    Create the next batch of offers for every open delivery option, or time the vehicle type out; returns what it did.\nfn     get_available_riders(p_order_number text, p_town text, p_vehicle_type text) -> TABLE(rider_id character varying, priority integer)\n    Return the riders (rider_id, priority) who may be offered this order for this town and vehicle type.",
     "PYTHON MODEL": "none",
-    "REQUIRES": "none",
+    "REQUIRES": "core/rider_master.sql\navailability/pauses.sql",
     "SECURITY": "job_create_dispatch(): executable by PUBLIC (default)\nget_available_riders(): executable by PUBLIC (default)",
-    "SEE ALSO": "dispatch/delivery_dispatch.sql\ncore/rider_master.sql\nordering/order_has_test_item.sql\ndocs/dispatch_flow.md",
+    "SEE ALSO": "dispatch/delivery_dispatch.sql\ncore/rider_master.sql\navailability/pauses.sql\nordering/order_has_test_item.sql\ndocs/dispatch_flow.md",
     "SIDE EFFECTS": "Each run inserts delivery_dispatch rows (one webhook per run via the statement trigger) and may mark\ndelivery_detail 'vehicle_type_timedout'.",
-    "TESTS": "none"
+    "TESTS": "tests/sql/test_rider_onboarding_sql.py (get_available_riders: status gate and pauses)"
    },
    "see_also": [
     "dispatch/delivery_dispatch.sql",
     "core/rider_master.sql",
+    "availability/pauses.sql",
     "ordering/order_has_test_item.sql",
     "docs/dispatch_flow.md"
    ],
-   "tests": [],
+   "tests": [
+    "tests/sql/test_rider_onboarding_sql.py (get_available_riders: status gate and pauses)"
+   ],
    "title": "Every 5 seconds: offer open delivery options to available riders (insert delivery_dispatch rows), in batches."
   },
   {
@@ -4158,6 +4670,59 @@
    "path": "migrations/ordelo_agg_r3.sql",
    "role": "migration",
    "title": "Web ordering R3: web checkout/access tables, cut-off columns, thread close changes."
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
+   "lines": 148,
+   "migration": {
+    "applied": "Applied by the owner on 2026-10-22 (steps 0-6); onboarding tested live the same day. Next: rider_telegram_r2_r4.sql.",
+    "current": [
+     "core/rider_master.sql, telegram/t_rider_onboarding.sql, availability/pauses.sql, dispatch/job_create_dispatch.sql"
+    ],
+    "purpose": "Rider Telegram onboarding (R1): rider_master gets a unique rider_id, channel and the Telegram link columns."
+   },
+   "objects": [],
+   "path": "migrations/rider_telegram_r1.sql",
+   "role": "migration",
+   "title": "Rider Telegram onboarding (R1): rider_master gets a unique rider_id, channel and the Telegram link columns."
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
+   "lines": 121,
+   "migration": {
+    "applied": "Applied by the owner on 2026-10-22 (steps 0-4, VERIFY 3/1/6/0); code deployed and a rider job tested live on Telegram and WhatsApp.",
+    "current": [
+     "dispatch/delivery_dispatch.sql, agent_threads/rider_threads.sql"
+    ],
+    "purpose": "Telegram rider bot R2-R4: delivery_dispatch gets the offer's channel (fixed per dispatch), the offer message ref and the rider thread id; the rider thread functions (one thread per assigned dispatch). The shared thread table is unchanged."
+   },
+   "objects": [],
+   "path": "migrations/rider_telegram_r2_r4.sql",
+   "role": "migration",
+   "title": "Telegram rider bot R2-R4: delivery_dispatch gets the offer's channel (fixed per dispatch), the offer message ref and the rider thread id; the rider thread functions (one thread per assigned dispatch). The shared thread table is unchanged."
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
+   "lines": 190,
+   "migration": {
+    "applied": "Steps 1-3 verified on 2026-10-22 (VERIFY true / 7 / true / true / 4 / 0 after the owner applied restaurant_ready_adjust_notices.sql). Code and both command menus deployed per owner. Step 6 done: job_pause_sweep is scheduled (owner, 2026-10-23); live tests and drift_check passed.",
+    "current": [
+     "rider_location/wa_location.sql, availability/pauses.sql, availability/rider_shift.sql,",
+     "dispatch/enquire_shift_availability.sql, telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql,",
+     "telegram/t_admin_pauses.sql, availability/job_pause_sweep.sql"
+    ],
+    "purpose": "Telegram rider bot R5-R6 (plans/telegram-rider-bot-plan.md). R5: Telegram location replies are stored as 'telegram_current'; riders' shift start/end goes through one RPC with the status gate; only WhatsApp riders get the daily shift question; Telegram riders are switched on once; the pause sweep is scheduled. R6: restaurant admins can pause their Telegram alerts (last-admin guard), and new cards, receipts and notices skip paused admins."
+   },
+   "objects": [],
+   "path": "migrations/rider_telegram_r5_r6.sql",
+   "role": "migration",
+   "title": "Telegram rider bot R5-R6 (plans/telegram-rider-bot-plan.md). R5: Telegram location replies are stored as 'telegram_current'; riders' shift start/end goes through one RPC with the status gate; only WhatsApp riders get the daily shift question; Telegram riders are switched on once; the pause sweep is scheduled. R6: restaurant admins can pause their Telegram alerts (last-admin guard), and new cards, receipts and notices skip paused admins."
   },
   {
    "cron": [],
@@ -6206,13 +6771,13 @@
      "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
      "function": "job_t_receipt_refresh",
      "job": "job_t_receipt_refresh",
-     "line": 1024,
+     "line": 1029,
      "schedule": "5 seconds"
     }
    ],
    "folder": "restaurant_admin",
-   "header_lines": 111,
-   "lines": 1065,
+   "header_lines": 116,
+   "lines": 1070,
    "objects": [
     {
      "description": "Ready, shared by every channel: record the first Ready tap per dispatch (delivery) or per order (takeaway).",
@@ -6316,17 +6881,17 @@
    "sections": {
     "CALLED BY": "restaurant_order_ready:\n  sql       t_order_ready() (restaurant_admin/restaurant_ready_adjust_notices.sql)\n  python    utils_common/order_management/restaurant_actions.py: ready()\nrestaurant_order_adjust_pickup:\n  sql       t_order_adjust_pickup() (restaurant_admin/restaurant_ready_adjust_notices.sql)\n  python    utils_common/order_management/restaurant_actions.py: adjust_pickup()\nt_order_ready:\n  python    utils_common/order_management/restaurant_actions.py: ready()\nt_order_adjust_pickup:\n  python    utils_common/order_management/restaurant_actions.py: adjust_pickup()\nt_receipt_status:\n  sql       t_receipt_sent() (restaurant_admin/restaurant_ready_adjust_notices.sql)\n  sql       t_receipt_snapshot() (restaurant_admin/restaurant_ready_adjust_notices.sql)\n  sql       t_receipts_stale() (restaurant_admin/restaurant_ready_adjust_notices.sql)\nt_receipt_snapshot:\n  python    channels/telegram/rest_admin/receipts/store.py: ReceiptStore.snapshot()\nt_receipt_sent:\n  python    channels/telegram/rest_admin/receipts/store.py: ReceiptStore.receipt_sent()\nt_receipts_stale:\n  sql       job_t_receipt_refresh() (restaurant_admin/restaurant_ready_adjust_notices.sql)\n  sql       t_receipts_take() (restaurant_admin/restaurant_ready_adjust_notices.sql)\nt_receipts_take:\n  python    channels/telegram/rest_admin/receipts/store.py: ReceiptStore.take_for_refresh()\nt_notice_targets:\n  python    channels/telegram/rest_admin/notices.py: NoticeStore.targets()\nt_notice_sent:\n  python    channels/telegram/rest_admin/notices.py: NoticeStore.notice_sent()\njob_t_receipt_refresh:\n  cron      'job_t_receipt_refresh' 5 seconds\n  python    watomation/routers/telegram_order_alerts.py (module-level SQL)",
     "GOTCHAS": "The kitchen columns live in delivery/delivery_summary.sql and takeaway/takeaway_summary.sql, and t_sent_messages.dispatch_id in\n  telegram/t_sent_messages.sql (Gate 1 decision Q6). Re-running this file does not add them.\nNot yet done: takeaway adjust-pickup; a takeaway 'completed' writer; group chats (D27); restaurants whose orders use an\n  alias prefix (config/params.py _REST_REF_ALIAS_MAP).",
-    "HOW IT FITS": "After a restaurant accepts and a rider takes the job, the kitchen gets one message (the receipt) with Ready, +10 and +20\n  (plans/telegram-phase-7-8-kitchen-actions-and-notices.md, D28-D38). One rule for both channels, atomic:\n    Ready: first tap per dispatch wins (ready_at / ready_by / ready_dispatch_id on delivery_summary; takeaway too).\n    +N:    relative to the original pickup (pickup_time_initial); a repeat that changes nothing writes nothing. The UPDATE sets\n           restaurant_confirmation_status 'restaurant_pickuptime_adjusted', so trigger_restaurant_updates POSTs and Python tells\n           the rider; Ready changes no confirmation status, so no trigger fires and the follow-up is Python's.\n  Gate (D31, same as ordelo/delivery_progress.check_delivery_progress): a delivery_inflight row exists and its dispatch is\n  not 'pickedup' / 'completed'; takeaway: status 'pickup_confirmed'.\n  Telegram receipts are t_sent_messages rows (kind 'receipt') that follow the database: a WhatsApp tap changes the receipt\n  status key, job_t_receipt_refresh() (5 s) notices and every Telegram copy is edited. Plain notices (auto-accept, rider\n  alerts, delivered, feedback) are recorded as kind 'notice' for audit.\n  Tables used: delivery_summary, takeaway_summary, delivery_inflight, delivery_dispatch, rider_master, restaurant_master,\n  food_order / order_item (restaurant-agents), t_invites, t_sent_messages.\n  Python: utils_common/order_management/restaurant_actions.py ready() / adjust_pickup() (WhatsApp and Telegram actors);\n          channels/telegram/rest_admin/receipts/store.py ReceiptStore; channels/telegram/rest_admin/notices.py Notices;\n          watomation/routers/telegram_order_alerts.py <- job_t_receipt_refresh().",
+    "HOW IT FITS": "After a restaurant accepts and a rider takes the job, the kitchen gets one message (the receipt) with Ready, +10 and +20\n  (plans/telegram-phase-7-8-kitchen-actions-and-notices.md, D28-D38). One rule for both channels, atomic:\n    Ready: first tap per dispatch wins (ready_at / ready_by / ready_dispatch_id on delivery_summary; takeaway too).\n    +N:    relative to the original pickup (pickup_time_initial); a repeat that changes nothing writes nothing. The UPDATE sets\n           restaurant_confirmation_status 'restaurant_pickuptime_adjusted', so trigger_restaurant_updates POSTs and Python tells\n           the rider; Ready changes no confirmation status, so no trigger fires and the follow-up is Python's.\n  Gate (D31, same as ordelo/delivery_progress.check_delivery_progress): a delivery_inflight row exists and its dispatch is\n  not 'pickedup' / 'completed'; takeaway: status 'pickup_confirmed'.\n  Telegram receipts are t_sent_messages rows (kind 'receipt') that follow the database: a WhatsApp tap changes the receipt\n  status key, job_t_receipt_refresh() (5 s) notices and every Telegram copy is edited. Plain notices (auto-accept, rider\n  alerts, delivered, feedback) are recorded as kind 'notice' for audit.\n  Pauses (R6): a NEW receipt or notice goes to t_alert_destinations() (telegram/t_order_alerts.sql), which leaves\n  out admins who paused their alerts (/off on the restaurant bot); receipts already sent keep being refreshed and\n  tapped (t_receipts_stale() still uses t_order_card_destinations()).\n  Tables used: delivery_summary, takeaway_summary, delivery_inflight, delivery_dispatch, rider_master, restaurant_master,\n  food_order / order_item (restaurant-agents), t_invites, t_sent_messages.\n  Python: utils_common/order_management/restaurant_actions.py ready() / adjust_pickup() (WhatsApp and Telegram actors);\n          channels/telegram/rest_admin/receipts/store.py ReceiptStore; channels/telegram/rest_admin/notices.py Notices;\n          watomation/routers/telegram_order_alerts.py <- job_t_receipt_refresh().",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  restaurant_order_ready:          ok | already_ready | not_ready_state | not_found\n  restaurant_order_adjust_pickup:  ok | unchanged | not_ready_state | not_found\n  t_order_ready / t_order_adjust_pickup: the same, plus not_authorised (checked right after not_found)\nReceipt status keys (must match channels/telegram/rest_admin/receipts/model.py ReceiptStatus):\n  delivery: gone | done | picked_up | ready@HH:MI | open@HH:MI | rider_cancelled ; takeaway: gone | done | ready@HH:MI | open@HH:MI",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
+    "LIVE CHECK": "R6 t_receipt_snapshot() and t_notice_targets() verified live on 2026-10-22 after the owner applied this file;\nboth now use t_alert_destinations() for new sends. Other objects were last compared on 2026-10-16.",
     "OBJECTS": "fn     restaurant_order_ready(p_order_number text, p_order_type text, p_admin_phone text, p_channel text) -> jsonb\n    Ready, shared by every channel: record the first Ready tap per dispatch (delivery) or per order (takeaway).\nfn     restaurant_order_adjust_pickup(p_order_number text, p_target timestamp with time zone, p_admin_phone text, p_channel text) -> jsonb\n    Move a live delivery's pickup to p_target (+10 / +20 from the original); a no-op repeat writes nothing.\nfn     t_order_ready(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text) -> jsonb\n    Telegram Ready: authorise the tapping person (D14), then restaurant_order_ready().\nfn     t_order_adjust_pickup(p_bot_key text, p_tuid bigint, p_order_number text, p_minutes integer) -> jsonb\n    Telegram +N: authorise, compute the target (original pickup + 10 or 20), then restaurant_order_adjust_pickup().\nfn     t_receipt_status(p_order_number text, p_order_type text, p_dispatch_id integer) -> text\n    Compute the receipt status key for an order from the database (gone, done, picked_up, ready@HH:MI, open@HH:MI, rider_cancelled).\nfn     t_receipt_snapshot(p_bot_key text, p_order_number text, p_order_type text, p_dispatch_id integer) -> jsonb\n    Return everything needed to draw one receipt, plus its destinations and reply targets, in one read.\nfn     t_receipt_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_order_number text, p_order_type text, p_rest_ref text, p_dispatch_id integer, p_status text) -> jsonb\n    Record a sent receipt copy and take OLDER receipt copies in that chat for deletion (D35).\nfn     t_receipts_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, dispatch_id integer, authorised boolean, viewer_phone text)\n    List receipt copies whose status key no longer matches the database (read-only).\nfn     t_receipts_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Claim one order's stale receipt copies for one refresh pass (state 'taken').\nfn     t_notice_targets(p_bot_key text, p_rest_ref text, p_order_number text, p_reply_kind text) -> TABLE(tcid bigint, tuid bigint, phone text, reply_to bigint)\n    Return the destinations and reply target for a plain notice to a restaurant's Telegram admins (D36).\nfn     t_notice_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_rest_ref text, p_order_number text, p_notice text) -> void\n    Write an audit row for a sent notice, closed at once (nothing to edit or delete later).\nfn     job_t_receipt_refresh() -> boolean\n    Every 5 seconds: POST orders with stale receipt copies to /telegram/rest-admin/order-alerts (only when there are any).",
     "PYTHON MODEL": "none",
     "REQUIRES": "dispatch/delivery_dispatch.sql\ndispatch/delivery_inflight.sql\ndelivery/delivery_summary.sql\ntakeaway/takeaway_summary.sql\ntelegram/t_order_alerts.sql\ntelegram/t_sent_messages.sql",
     "SECURITY": "Every function is revoked from PUBLIC/anon/authenticated: only the service key can call them.\nConcurrency: one conditional UPDATE decides each tap; receipt copies are claimed in SQL (state 'taken', FOR UPDATE SKIP LOCKED);\n  a claim not finished within 30 s is offered again; a newer receipt only deletes OLDER ones (id <).",
     "SEE ALSO": "restaurant_admin/restaurant_order_decision.sql\ntelegram/t_sent_messages.sql\ntelegram/t_order_alerts.sql\ndocs/telegram-layer.md\ndocs/live-order-test-harness.md",
     "SIDE EFFECTS": "none when applied (functions + cron). The cron job POSTs stale receipts to /telegram/rest-admin/order-alerts every 5 s.",
-    "TESTS": "tests/sql/test_restaurant_ready_adjust_notices_sql.py (loads this file into a throwaway Postgres)\ntests/channels/telegram/test_notices.py\ntests/channels/telegram/test_receipts.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/utils_common/order_management/test_restaurant_actions.py\ntests/watomation/test_on_callback_wa_handler.py"
+    "TESTS": "tests/sql/test_restaurant_ready_adjust_notices_sql.py (loads this file into a throwaway Postgres)\ntests/sql/test_admin_pauses_sql.py\ntests/channels/telegram/test_notices.py\ntests/channels/telegram/test_receipts.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/utils_common/order_management/test_restaurant_actions.py\ntests/watomation/test_on_callback_wa_handler.py"
    },
    "see_also": [
     "restaurant_admin/restaurant_order_decision.sql",
@@ -6337,6 +6902,7 @@
    ],
    "tests": [
     "tests/sql/test_restaurant_ready_adjust_notices_sql.py (loads this file into a throwaway Postgres)",
+    "tests/sql/test_admin_pauses_sql.py",
     "tests/channels/telegram/test_notices.py",
     "tests/channels/telegram/test_receipts.py",
     "tests/sql/test_restaurant_notices_script_sql.py",
@@ -6723,7 +7289,7 @@
    "called_by": {
     "wa_location_observation": [
      {
-      "text": "ordelo/wa_location.py: WaLocation.observe_restaurant_confirmation(), WaLocation.receive_whatsapp_location(), WaLocation.request(), WaLocation.route_fulfilled_request()",
+      "text": "ordelo/wa_location.py: WaLocation.observe_restaurant_confirmation(), WaLocation.receive_current_location(), WaLocation.request(), WaLocation.route_fulfilled_request()",
       "via": "python"
      }
     ],
@@ -6736,8 +7302,8 @@
    },
    "cron": [],
    "folder": "rider_location",
-   "header_lines": 36,
-   "lines": 141,
+   "header_lines": 46,
+   "lines": 158,
    "objects": [
     {
      "description": "One rider location received on demand (rider GPS share, or the restaurant location inferred at confirmation).",
@@ -6775,19 +7341,19 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "wa_location_observation:\n  python    ordelo/wa_location.py: WaLocation.observe_restaurant_confirmation(), WaLocation.receive_whatsapp_location(), WaLocation.request(), WaLocation.route_fulfilled_request()\nwa_location_request:\n  python    ordelo/wa_location.py: WaLocation._expire(), WaLocation._expire_pending_for_context(), WaLocation._fulfil(), WaLocation._mark_delivered(), WaLocation._mark_prompt_failed(), WaLocation._prompt_message_id(), WaLocation._request_status(), WaLocation._save_prompt_message_id(), +5 more",
+    "CALLED BY": "wa_location_observation:\n  python    ordelo/wa_location.py: WaLocation.observe_restaurant_confirmation(), WaLocation.receive_current_location(), WaLocation.request(), WaLocation.route_fulfilled_request()\nwa_location_request:\n  python    ordelo/wa_location.py: WaLocation._expire(), WaLocation._expire_pending_for_context(), WaLocation._fulfil(), WaLocation._mark_delivered(), WaLocation._mark_prompt_failed(), WaLocation._prompt_message_id(), WaLocation._request_status(), WaLocation._save_prompt_message_id(), +5 more",
     "GOTCHAS": "wa_location_request_callback_url_length_ck is NOT VALID: older rows were never checked.\nThe trigger expire_wa_location_requests_on_inflight_delete in migrations/create_wa_location_tables.sql was never created live.",
-    "HOW IT FITS": "ordelo/wa_location.py (WaLocation) owns both tables:\n    a customer or restaurant admin asks where the rider is -> wa_location_request (pending; coalesced with an open\n    request for the same order/rider) -> one WhatsApp 'share your location' prompt to the rider\n    -> the rider shares current location (watomation/on_wa_location_handler.py) -> wa_location_observation\n    -> every pending request for that order is fulfilled and routed to its callback_url (delivered).\n  /wa-location-hooks routes (watomation/routers/wa_location_hooks.py) open requests; see docs/location_overview.md.",
+    "HOW IT FITS": "ordelo/wa_location.py (WaLocation) owns both tables:\n    a customer or restaurant admin asks where the rider is -> wa_location_request (pending; coalesced with an open\n    request for the same order/rider) -> one channel-appropriate 'share your location' prompt to the rider\n    -> the rider shares current location (WhatsApp: watomation/on_wa_location_handler.py; Telegram, R5:\n       channels/telegram/rider/location.py) -> wa_location_observation\n    -> every pending request for that order is fulfilled and routed to its callback_url (delivered).\n  /wa-location-hooks routes (watomation/routers/wa_location_hooks.py) open requests; see docs/location_overview.md.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "wa_location_request.status: pending -> fulfilled -> delivered ; pending -> expired | failed\n(wa_location_request_fulfilment_ck keeps observation_id / wa_location_res_time consistent with the status).",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
+    "LIFECYCLE": "wa_location_observation.source: whatsapp_current (WhatsApp \"Share current location\"), telegram_current (the rider\n  bot's \"Share current location\" button, R5; wa_inbound_message_id holds 'tg:<chat>:<message>'), restaurant_confirmation\n  (inferred at pickup). The callback to requesters keeps its two-value wire vocabulary: telegram_current is sent\n  as 'whatsapp_current' (\"rider's current GPS\"; ordelo_datamodels/wa_location_pymodels.wire_source) until\n  restaurant-agents accepts the new value.\nwa_location_request.status: pending -> fulfilled -> delivered ; pending -> expired | failed\n(wa_location_request_fulfilment_ck keeps observation_id / wa_location_res_time consistent with the status).",
+    "LIVE CHECK": "R5 wa_location_observation_source_check allows 'telegram_current' (verified live on 2026-10-22);\nother objects were last compared with live on 2026-10-16.",
     "OBJECTS": "table  wa_location_observation\n    One rider location received on demand (rider GPS share, or the restaurant location inferred at confirmation).\ntable  wa_location_request\n    One requester waiting for (or already sent) the rider's location for an order.",
     "PYTHON MODEL": "none",
     "REQUIRES": "dispatch/delivery_dispatch.sql\ndelivery/delivery_summary.sql",
     "SECURITY": "wa_location_observation: RLS ON; service role only (anon/authenticated revoked)\nwa_location_request: RLS ON; service role only (anon/authenticated revoked)",
     "SEE ALSO": "dispatch/delivery_inflight.sql\ndocs/location_overview.md\nmigrations/create_wa_location_tables.sql (history)",
     "SIDE EFFECTS": "none",
-    "TESTS": "tests/watomation/routers/test_wa_location_hooks.py"
+    "TESTS": "tests/watomation/routers/test_wa_location_hooks.py\ntests/sql/test_rider_telegram_r5_r6_migration_sql.py\ntests/ordelo/test_wa_location.py\ntests/channels/telegram/test_rider_location.py"
    },
    "see_also": [
     "dispatch/delivery_inflight.sql",
@@ -6795,9 +7361,12 @@
     "migrations/create_wa_location_tables.sql (history)"
    ],
    "tests": [
-    "tests/watomation/routers/test_wa_location_hooks.py"
+    "tests/watomation/routers/test_wa_location_hooks.py",
+    "tests/sql/test_rider_telegram_r5_r6_migration_sql.py",
+    "tests/ordelo/test_wa_location.py",
+    "tests/channels/telegram/test_rider_location.py"
    ],
-   "title": "On-demand WhatsApp rider location: who asked where the rider is (requests) and the locations received (observations)."
+   "title": "On-demand rider location from WhatsApp or Telegram: requests, observations and their correlation."
   },
   {
    "called_by": {
@@ -7003,6 +7572,115 @@
   },
   {
    "called_by": {
+    "t_admin_pause": [
+     {
+      "text": "channels/telegram/admin_pauses.py: pause()",
+      "via": "python"
+     }
+    ],
+    "t_admin_pause_chats": [
+     {
+      "text": "channels/telegram/admin_pauses.py: chats()",
+      "via": "python"
+     }
+    ],
+    "t_admin_pause_status": [
+     {
+      "text": "channels/telegram/admin_pauses.py: status()",
+      "via": "python"
+     }
+    ],
+    "t_admin_resume": [
+     {
+      "text": "channels/telegram/admin_pauses.py: resume()",
+      "via": "python"
+     }
+    ]
+   },
+   "cron": [],
+   "folder": "telegram",
+   "header_lines": 57,
+   "lines": 245,
+   "objects": [
+    {
+     "description": "Pause this Telegram user's alerts for every restaurant they are a linked admin of, one pause per restaurant.",
+     "kind": "function",
+     "name": "t_admin_pause",
+     "signature": "t_admin_pause(p_bot_key text, p_tuid bigint, p_duration text) -> jsonb"
+    },
+    {
+     "description": "End this Telegram user's alert pauses now, for every restaurant they are a linked admin of.",
+     "kind": "function",
+     "name": "t_admin_resume",
+     "signature": "t_admin_resume(p_bot_key text, p_tuid bigint) -> jsonb"
+    },
+    {
+     "description": "Read-only: per linked restaurant, paused or not and until when, plus the durations /off may offer.",
+     "kind": "function",
+     "name": "t_admin_pause_status",
+     "signature": "t_admin_pause_status(p_bot_key text, p_tuid bigint) -> jsonb"
+    },
+    {
+     "description": "Read-only: the Telegram chats of one admin for one restaurant (where \"ends soon\" / \"back on\" go).",
+     "kind": "function",
+     "name": "t_admin_pause_chats",
+     "signature": "t_admin_pause_chats(p_bot_key text, p_phone text, p_rest_ref text) -> jsonb"
+    }
+   ],
+   "path": "telegram/t_admin_pauses.sql",
+   "path_line": "ordelo_datamodels/telegram/t_admin_pauses.sql",
+   "requires": [
+    "availability/pauses.sql",
+    "telegram/t_invites.sql",
+    "telegram/t_order_alerts.sql",
+    "restaurant_admin/restaurant_order_decision.sql",
+    "core/restaurant_master.sql"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "t_admin_pause:\n  python    channels/telegram/admin_pauses.py: pause()\nt_admin_resume:\n  python    channels/telegram/admin_pauses.py: resume()\nt_admin_pause_status:\n  python    channels/telegram/admin_pauses.py: status()\nt_admin_pause_chats:\n  python    channels/telegram/admin_pauses.py: chats()",
+    "GOTCHAS": "One /off pauses every restaurant the person is an admin of; a restaurant where they are the last unpaused\n  admin answers not_allowed and stays on, the others are paused.\nRestaurants are visited in rest_ref order, so two admins of the same two restaurants take the per-restaurant\n  advisory locks (pause_start) in the same order and cannot deadlock.",
+    "HOW IT FITS": "ADR 0013, D51, D52. The actor is the Telegram USER (tuid = from_user.id), as for every restaurant-bot action (D14):\n  the restaurants come from t_invites (claimed by this tuid) and the phone from t_order_admin_phone() (the invite\n  phone must still be in restaurant_master.admins), so a revoked invite or a removed admin can neither pause\n  nor resume. The pause itself is pauses.pause_start('rest_admin', phone, rest_ref, ...) per restaurant, which\n  applies the durations policy and the last-admin guard; this file only finds the restaurants and the phone.\n  Python: channels/telegram/admin_pauses.py (wrapper), channels/telegram/rest_admin/pauses.py (/off, /on taps),\n  watomation/routers/pause_hooks.py (the sweep messages to an admin, through t_admin_pause_chats()).\n  Effect: while paused, t_alert_destinations() (telegram/t_order_alerts.sql) leaves the admin out of NEW Telegram\n  order cards, kitchen receipts and notices for that restaurant. WhatsApp alerts are unchanged.",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
+    "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  t_admin_pause:  not_linked | ok + restaurants:[{rest_ref, rest_name, result, ends_at}] where result is\n                  pause_start()'s: paused | extended | bad_duration | not_admin | not_allowed (last admin)\n  t_admin_resume: not_linked | ok + restaurants:[{rest_ref, rest_name, result}] (resumed | not_paused)\n  t_admin_pause_status: not_linked | ok + restaurants:[{rest_ref, rest_name, paused, ends_at}] + options:[keys]\n  t_admin_pause_chats: [{tcid, rest_name}] ('[]' when the admin has no linked chat for that restaurant)",
+    "LIVE CHECK": "Live on 2026-10-22: all four t_admin_pause* functions were verified against the R6 definitions.",
+    "OBJECTS": "fn     t_admin_pause(p_bot_key text, p_tuid bigint, p_duration text) -> jsonb\n    Pause this Telegram user's alerts for every restaurant they are a linked admin of, one pause per restaurant.\nfn     t_admin_resume(p_bot_key text, p_tuid bigint) -> jsonb\n    End this Telegram user's alert pauses now, for every restaurant they are a linked admin of.\nfn     t_admin_pause_status(p_bot_key text, p_tuid bigint) -> jsonb\n    Read-only: per linked restaurant, paused or not and until when, plus the durations /off may offer.\nfn     t_admin_pause_chats(p_bot_key text, p_phone text, p_rest_ref text) -> jsonb\n    Read-only: the Telegram chats of one admin for one restaurant (where \"ends soon\" / \"back on\" go).",
+    "PYTHON MODEL": "channels/telegram/admin_pauses.py (AdminPauseOutcome, RestaurantPause)",
+    "REQUIRES": "availability/pauses.sql\ntelegram/t_invites.sql\ntelegram/t_order_alerts.sql\nrestaurant_admin/restaurant_order_decision.sql\ncore/restaurant_master.sql",
+    "SECURITY": "Every function: REVOKE ALL FROM PUBLIC, anon, authenticated (service role only; client_ordelo_service).",
+    "SEE ALSO": "availability/pauses.sql\navailability/job_pause_sweep.sql\ntelegram/t_order_alerts.sql\ndocs/adr/0013-pauses-have-a-mandatory-end-and-are-computed.md",
+    "SIDE EFFECTS": "none when applied (functions only).",
+    "TESTS": "tests/sql/test_admin_pauses_sql.py\ntests/channels/telegram/test_rest_admin_pauses.py"
+   },
+   "see_also": [
+    "availability/pauses.sql",
+    "availability/job_pause_sweep.sql",
+    "telegram/t_order_alerts.sql",
+    "docs/adr/0013-pauses-have-a-mandatory-end-and-are-computed.md"
+   ],
+   "tests": [
+    "tests/sql/test_admin_pauses_sql.py",
+    "tests/channels/telegram/test_rest_admin_pauses.py"
+   ],
+   "title": "Restaurant admins pause and resume their Telegram order alerts (/off, /on on the restaurant bot; phase R6)."
+  },
+  {
+   "called_by": {
     "t_housekeeping": [
      {
       "text": "found (no code, trigger, cron job or other SQL refers to it)",
@@ -7099,7 +7777,7 @@
    "lines": 160,
    "objects": [
     {
-     "description": "One row per Telegram update a bot started handling, keyed by (bot_key, update_id).",
+     "description": "One row per selected Telegram update a protected handler claimed, keyed by (bot_key, update_id).",
      "kind": "table",
      "name": "t_inbox",
      "signature": "t_inbox"
@@ -7139,11 +7817,11 @@
    "sections": {
     "CALLED BY": "t_inbox:\n  sql       t_housekeeping(), t_inbox_claim(), t_inbox_finish()\n  python    channels/telegram/inbox.py (module-level SQL)\nt_inbox_claim:\n  python    channels/telegram/inbox.py: claim()\nt_inbox_finish:\n  python    channels/telegram/inbox.py: finish()",
     "GOTCHAS": "Retention: t_housekeeping() deletes rows older than TGRAM_INBOX_RETENTION_DAYS (7), but it is NOT scheduled on live (docs/to-do.md).",
-    "HOW IT FITS": "Telegram redelivers an update when the webhook is slow or answers non-2xx, and several gunicorn workers can get the retry\n  at the same time as the original. Button taps change orders, so handling one twice is not acceptable (D21). Whether\n  this is \"the first time\" is decided here, in one INSERT ... ON CONFLICT, so no process keeps state.\n    Telegram -> POST /telegram/rest-admin/webhook (watomation/routers/telegram_webhook.py)\n      -> Dispatcher.feed_update -> InboxMiddleware (channels/telegram/inbox.py, outer middleware on dp.update)\n           t_inbox_claim(bot_key, update_id, kind, tuid)   -> 'new': run the handlers | 'duplicate': skip, answer 200\n           handlers run\n           t_inbox_finish(bot_key, update_id, status, err) -> 'done' | 'failed'\n  If this file is not applied the middleware fails OPEN (logs and handles without dedupe).\n  Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).",
+    "HOW IT FITS": "Selected consequential handlers claim by (bot_key, update_id) before their work. Read-only, fallback and unmatched\n  updates make no inbox call. A retry can reach another worker; one INSERT ... ON CONFLICT decides the first caller.\n    Telegram -> POST /telegram/rest-admin/webhook (watomation/routers/telegram_webhook.py)\n      -> Dispatcher.feed_update -> selected handler -> process_once() (channels/telegram/inbox.py)\n           t_inbox_claim(bot_key, update_id, kind, tuid)   -> 'new': run the handlers | 'duplicate': skip, answer 200\n           handlers run\n           t_inbox_finish(bot_key, update_id, status, err) -> 'done' | 'failed'\n  If the claim RPC is unavailable process_once() fails OPEN (logs and handles without dedupe).\n  For rider agent turns, 'done' means the turn was queued, not that it finished.\n  Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "t_inbox.status: processing -> done | failed. A row left in 'processing' means the worker died mid-handler; it is NOT\nretried (the same update again is a duplicate: at-most-once). Look at old 'processing' rows when a tap was lost.\nColumn names: tuid = sender's Telegram user id (NULL for updates without a user).",
+    "LIFECYCLE": "t_inbox.status: processing -> done | failed. A row left in 'processing' means the worker died mid-handler; it is NOT\nretried (the same update again is a duplicate: at-most-once). Look at old 'processing' rows when a tap was lost.\nColumn names: tuid = sender's Telegram user id.",
     "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
-    "OBJECTS": "table  t_inbox\n    One row per Telegram update a bot started handling, keyed by (bot_key, update_id).\nfn     t_inbox_claim(p_bot_key text, p_update_id bigint, p_kind text, p_tuid bigint) -> jsonb\n    Insert the update or report it as a duplicate: returns {result: 'new'} for the first caller, {result: 'duplicate', status} after.\nfn     t_inbox_finish(p_bot_key text, p_update_id bigint, p_status text, p_error text) -> jsonb\n    Record how the handler ended: status 'done' or 'failed' with an optional error.",
+    "OBJECTS": "table  t_inbox\n    One row per selected Telegram update a protected handler claimed, keyed by (bot_key, update_id).\nfn     t_inbox_claim(p_bot_key text, p_update_id bigint, p_kind text, p_tuid bigint) -> jsonb\n    Insert the update or report it as a duplicate: returns {result: 'new'} for the first caller, {result: 'duplicate', status} after.\nfn     t_inbox_finish(p_bot_key text, p_update_id bigint, p_status text, p_error text) -> jsonb\n    Record how the handler ended: status 'done' or 'failed' with an optional error.",
     "PYTHON MODEL": "none",
     "REQUIRES": "none",
     "SECURITY": "t_inbox: RLS ON; Supabase default grants (anon and authenticated can read and write)\nt_inbox_claim(): service role only\nt_inbox_finish(): service role only",
@@ -7163,7 +7841,7 @@
     "tests/sql/test_order_cards_sql.py",
     "tests/sql/test_t_inbox_sql.py"
    ],
-   "title": "Telegram durable inbox: at-most-once handling of Telegram updates across workers."
+   "title": "Telegram durable inbox: at-most-once handling of selected consequential updates across workers."
   },
   {
    "called_by": {
@@ -7333,6 +8011,24 @@
       "via": "python"
      }
     ],
+    "t_alert_destinations": [
+     {
+      "text": "job_t_order_alerts() (telegram/t_order_alerts.sql)",
+      "via": "sql"
+     },
+     {
+      "text": "t_notice_targets() (restaurant_admin/restaurant_ready_adjust_notices.sql)",
+      "via": "sql"
+     },
+     {
+      "text": "t_order_card_snapshot() (telegram/t_order_alerts.sql)",
+      "via": "sql"
+     },
+     {
+      "text": "t_receipt_snapshot() (restaurant_admin/restaurant_ready_adjust_notices.sql)",
+      "via": "sql"
+     }
+    ],
     "t_order_alerts": [
      {
       "text": "job_t_order_alerts(), t_housekeeping()",
@@ -7349,15 +8045,7 @@
     ],
     "t_order_card_destinations": [
      {
-      "text": "job_t_order_alerts() (telegram/t_order_alerts.sql)",
-      "via": "sql"
-     },
-     {
-      "text": "t_notice_targets() (restaurant_admin/restaurant_ready_adjust_notices.sql)",
-      "via": "sql"
-     },
-     {
-      "text": "t_order_card_snapshot() (telegram/t_order_alerts.sql)",
+      "text": "t_alert_destinations() (telegram/t_order_alerts.sql)",
       "via": "sql"
      },
      {
@@ -7365,11 +8053,11 @@
       "via": "sql"
      },
      {
-      "text": "t_receipt_snapshot() (restaurant_admin/restaurant_ready_adjust_notices.sql)",
+      "text": "t_receipts_stale() (restaurant_admin/restaurant_ready_adjust_notices.sql)",
       "via": "sql"
      },
      {
-      "text": "t_receipts_stale() (restaurant_admin/restaurant_ready_adjust_notices.sql)",
+      "text": "t_admin_pause_chats() (telegram/t_admin_pauses.sql)",
       "via": "sql"
      }
     ],
@@ -7435,13 +8123,13 @@
      "file": "telegram/t_order_alerts.sql",
      "function": "job_t_order_alerts",
      "job": "job_t_order_alerts",
-     "line": 672,
+     "line": 712,
      "schedule": "5 seconds"
     }
    ],
    "folder": "telegram",
-   "header_lines": 99,
-   "lines": 705,
+   "header_lines": 109,
+   "lines": 747,
    "objects": [
     {
      "description": "Reminder schedule: one row per order and offset (seconds after the order) with due time and status.",
@@ -7466,6 +8154,12 @@
      "kind": "function",
      "name": "t_order_card_destinations",
      "signature": "t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)"
+    },
+    {
+     "description": "t_order_card_destinations() without the admins who paused their alerts: where NEW cards, receipts and notices go.",
+     "kind": "function",
+     "name": "t_alert_destinations",
+     "signature": "t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)"
     },
     {
      "description": "Return everything needed to draw the card (order, items, status, destinations) in one read.",
@@ -7499,7 +8193,8 @@
     "takeaway/takeaway_summary.sql",
     "core/restaurant_master.sql",
     "telegram/t_invites.sql",
-    "telegram/t_sent_messages.sql"
+    "telegram/t_sent_messages.sql",
+    "availability/pauses.sql"
    ],
    "role": "definition",
    "section_order": [
@@ -7518,19 +8213,19 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "t_order_alerts:\n  sql       job_t_order_alerts(), t_housekeeping()\n  python    channels/telegram/rest_admin/order_cards/__init__.py (module-level SQL)\n  python    watomation/routers/telegram_order_alerts.py (module-level SQL)\nt_order_card_status:\n  sql       t_order_card_sent() (telegram/t_sent_messages.sql)\n  sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)\n  sql       t_order_cards_stale() (telegram/t_order_alerts.sql)\nt_order_card_row:\n  sql       job_t_order_alerts() (telegram/t_order_alerts.sql)\n  sql       t_order_card_sent() (telegram/t_sent_messages.sql)\n  sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)\n  sql       t_order_cards_stale() (telegram/t_order_alerts.sql)\nt_order_card_destinations:\n  sql       job_t_order_alerts() (telegram/t_order_alerts.sql)\n  sql       t_notice_targets() (restaurant_admin/restaurant_ready_adjust_notices.sql)\n  sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)\n  sql       t_order_cards_stale() (telegram/t_order_alerts.sql)\n  sql       t_receipt_snapshot() (restaurant_admin/restaurant_ready_adjust_notices.sql)\n  sql       t_receipts_stale() (restaurant_admin/restaurant_ready_adjust_notices.sql)\nt_order_card_snapshot:\n  python    channels/telegram/rest_admin/order_cards/store.py: CardStore.snapshot()\nt_order_cards_stale:\n  sql       job_t_order_alerts() (telegram/t_order_alerts.sql)\n  sql       t_order_cards_take() (telegram/t_order_alerts.sql)\nt_order_cards_take:\n  python    channels/telegram/rest_admin/order_cards/store.py: CardStore.take_for_refresh()\njob_t_order_alerts:\n  cron      'job_t_order_alerts' 5 seconds\n  python    watomation/routers/telegram_order_alerts.py (module-level SQL)",
+    "CALLED BY": "t_order_alerts:\n  sql       job_t_order_alerts(), t_housekeeping()\n  python    channels/telegram/rest_admin/order_cards/__init__.py (module-level SQL)\n  python    watomation/routers/telegram_order_alerts.py (module-level SQL)\nt_order_card_status:\n  sql       t_order_card_sent() (telegram/t_sent_messages.sql)\n  sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)\n  sql       t_order_cards_stale() (telegram/t_order_alerts.sql)\nt_order_card_row:\n  sql       job_t_order_alerts() (telegram/t_order_alerts.sql)\n  sql       t_order_card_sent() (telegram/t_sent_messages.sql)\n  sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)\n  sql       t_order_cards_stale() (telegram/t_order_alerts.sql)\nt_order_card_destinations:\n  sql       t_alert_destinations() (telegram/t_order_alerts.sql)\n  sql       t_order_cards_stale() (telegram/t_order_alerts.sql)\n  sql       t_receipts_stale() (restaurant_admin/restaurant_ready_adjust_notices.sql)\n  sql       t_admin_pause_chats() (telegram/t_admin_pauses.sql)\nt_alert_destinations:\n  sql       job_t_order_alerts() (telegram/t_order_alerts.sql)\n  sql       t_notice_targets() (restaurant_admin/restaurant_ready_adjust_notices.sql)\n  sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)\n  sql       t_receipt_snapshot() (restaurant_admin/restaurant_ready_adjust_notices.sql)\nt_order_card_snapshot:\n  python    channels/telegram/rest_admin/order_cards/store.py: CardStore.snapshot()\nt_order_cards_stale:\n  sql       job_t_order_alerts() (telegram/t_order_alerts.sql)\n  sql       t_order_cards_take() (telegram/t_order_alerts.sql)\nt_order_cards_take:\n  python    channels/telegram/rest_admin/order_cards/store.py: CardStore.take_for_refresh()\njob_t_order_alerts:\n  cron      'job_t_order_alerts' 5 seconds\n  python    watomation/routers/telegram_order_alerts.py (module-level SQL)",
     "GOTCHAS": "Destinations are looked up by the summary's rest_ref (the order-number prefix): a restaurant whose orders use an alias\n  prefix (config/params.py _REST_REF_ALIAS_MAP) gets no cards until the alias is resolved here.\nGroup chats (D27) would be a UNION ALL branch in t_order_card_destinations().\nA per-restaurant <REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS wins over the global offsets.",
-    "HOW IT FITS": "Telegram order cards (D12, D14, D22, D24, D26): linked admins get the order card at configured offsets after the order\n  arrives; each new copy replaces the previous one in that chat; every copy follows the order until it is final.\n  The database is authoritative and is checked before every send; the ledger (t_sent_messages) only remembers what to tidy.\n    pg_cron every 5 s -> job_t_order_alerts()\n       SEED    delivery_summary + takeaway_summary rows still 'restaurant_unconfirmed' (< 15 min old) with at least one\n               destination -> one t_order_alerts checkpoint per offset (TGRAM_ORDER_ALERT_OFFSETS_SECS, '0,15,30,45')\n       CANCEL  pending checkpoints of orders no longer unconfirmed\n       DUE     pending checkpoints with due_at <= now(); one winner per order (the largest offset)\n       STALE   up to 50 orders with copies that show an old status or a revoked viewer\n       POST    ORDELO_APP_URL/telegram/rest-admin/order-alerts {reminders, refreshes}\n       MARK    only on a 2xx answer: superseded first, then winners 'sent'\n    -> watomation/routers/telegram_order_alerts.py (background tasks)\n       OrderCards.remind() -> snapshot -> send per destination -> t_order_card_sent -> delete old copies\n       OrderCards.refresh() -> snapshot -> t_order_cards_take -> edit/delete -> t_order_card_mark\n  Python: channels/telegram/rest_admin/order_cards/store.py CardStore.snapshot() / card_sent() / take_for_refresh() / mark().\n  Card status keys MUST match channels/telegram/rest_admin/order_cards/model.py (Status):\n    awaiting | accepted | pickup_set | declined | auto_accepted | gone\n  Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).",
+    "HOW IT FITS": "Telegram order cards (D12, D14, D22, D24, D26): linked admins get the order card at configured offsets after the order\n  arrives; each new copy replaces the previous one in that chat; every copy follows the order until it is final.\n  The database is authoritative and is checked before every send; the ledger (t_sent_messages) only remembers what to tidy.\n    pg_cron every 5 s -> job_t_order_alerts()\n       SEED    delivery_summary + takeaway_summary rows still 'restaurant_unconfirmed' (< 15 min old) with at least one\n               destination -> one t_order_alerts checkpoint per offset (TGRAM_ORDER_ALERT_OFFSETS_SECS, '0,15,30,45')\n       CANCEL  pending checkpoints of orders no longer unconfirmed\n       DUE     pending checkpoints with due_at <= now(); one winner per order (the largest offset)\n       STALE   up to 50 orders with copies that show an old status or a revoked viewer\n       POST    ORDELO_APP_URL/telegram/rest-admin/order-alerts {reminders, refreshes}\n       MARK    only on a 2xx answer: superseded first, then winners 'sent'\n    -> watomation/routers/telegram_order_alerts.py (background tasks)\n       OrderCards.remind() -> snapshot -> send per destination -> t_order_card_sent -> delete old copies\n       OrderCards.refresh() -> snapshot -> t_order_cards_take -> edit/delete -> t_order_card_mark\n  Python: channels/telegram/rest_admin/order_cards/store.py CardStore.snapshot() / card_sent() / take_for_refresh() / mark().\n  Pauses (R6, ADR 0013): NEW copies go to t_alert_destinations() (linked admins minus paused ones); whether a\n  chat may SEE and TAP a card stays t_order_card_destinations(), so a paused admin's existing copies keep\n  being refreshed and their buttons keep working.\n  Card status keys MUST match channels/telegram/rest_admin/order_cards/model.py (Status):\n    awaiting | accepted | pickup_set | declined | auto_accepted | gone\n  Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "t_order_alerts.status: pending -> sent | superseded | cancelled (order decided before the reminder was due).",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
-    "OBJECTS": "table  t_order_alerts\n    Reminder schedule: one row per order and offset (seconds after the order) with due time and status.\nfn     t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text\n    Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).\nfn     t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)\n    Return the order's current state from delivery_summary or takeaway_summary as one row.\nfn     t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)\n    Return where cards for a restaurant go: the linked admins' chats (the one place that says so).\nfn     t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Return everything needed to draw the card (order, items, status, destinations) in one read.\nfn     t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)\n    List orders whose sent copies show an old status or a revoked viewer (read-only).\nfn     t_order_cards_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Claim one order's stale copies for one refresh pass (state 'taken', SKIP LOCKED).\nfn     job_t_order_alerts() -> boolean\n    Every 5 seconds: seed, cancel, find due reminders and stale cards, POST them, and mark them on success.",
+    "LIVE CHECK": "R6 t_alert_destinations(), t_order_card_snapshot() and job_t_order_alerts() verified live on 2026-10-22.",
+    "OBJECTS": "table  t_order_alerts\n    Reminder schedule: one row per order and offset (seconds after the order) with due time and status.\nfn     t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text\n    Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).\nfn     t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)\n    Return the order's current state from delivery_summary or takeaway_summary as one row.\nfn     t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)\n    Return where cards for a restaurant go: the linked admins' chats (the one place that says so).\nfn     t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)\n    t_order_card_destinations() without the admins who paused their alerts: where NEW cards, receipts and notices go.\nfn     t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Return everything needed to draw the card (order, items, status, destinations) in one read.\nfn     t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)\n    List orders whose sent copies show an old status or a revoked viewer (read-only).\nfn     t_order_cards_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Claim one order's stale copies for one refresh pass (state 'taken', SKIP LOCKED).\nfn     job_t_order_alerts() -> boolean\n    Every 5 seconds: seed, cancel, find due reminders and stale cards, POST them, and mark them on success.",
     "PYTHON MODEL": "none",
-    "REQUIRES": "delivery/delivery_summary.sql\ntakeaway/takeaway_summary.sql\ncore/restaurant_master.sql\ntelegram/t_invites.sql\ntelegram/t_sent_messages.sql",
+    "REQUIRES": "delivery/delivery_summary.sql\ntakeaway/takeaway_summary.sql\ncore/restaurant_master.sql\ntelegram/t_invites.sql\ntelegram/t_sent_messages.sql\navailability/pauses.sql",
     "SECURITY": "RLS ON with no policies; every function is revoked from PUBLIC/anon/authenticated: only the service key can call them.\nConcurrency: up to 3 gunicorn workers may remind / refresh the same order; copies are claimed in SQL (state 'taken',\n  FOR UPDATE SKIP LOCKED), a claim not finished in 30 s is offered again, and a newer copy only deletes OLDER ones (id <).",
     "SEE ALSO": "telegram/t_sent_messages.sql\ntelegram/t_housekeeping.sql\nrestaurant_admin/restaurant_order_decision.sql\nrestaurant_admin/restaurant_ready_adjust_notices.sql\ndocs/telegram-layer.md",
     "SIDE EFFECTS": "Applying the file inserts TGRAM_ORDER_ALERT_OFFSETS_SECS if missing. The cron job POSTs every 5 s when something is due.",
-    "TESTS": "tests/sql/test_order_cards_sql.py (loads this file into a throwaway Postgres)\ntests/channels/telegram/test_order_card_store.py\ntests/sql/test_order_cards_sql.py\ntests/sql/test_order_test_script_sql.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/watomation/routers/test_telegram_order_alerts.py"
+    "TESTS": "tests/sql/test_order_cards_sql.py (loads this file into a throwaway Postgres)\ntests/channels/telegram/test_order_card_store.py\ntests/sql/test_order_cards_sql.py\ntests/sql/test_order_test_script_sql.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/sql/test_admin_pauses_sql.py\ntests/watomation/routers/test_telegram_order_alerts.py"
    },
    "see_also": [
     "telegram/t_sent_messages.sql",
@@ -7546,9 +8241,132 @@
     "tests/sql/test_order_test_script_sql.py",
     "tests/sql/test_restaurant_notices_script_sql.py",
     "tests/sql/test_restaurant_ready_adjust_notices_sql.py",
+    "tests/sql/test_admin_pauses_sql.py",
     "tests/watomation/routers/test_telegram_order_alerts.py"
    ],
    "title": "Telegram order cards: the reminder schedule (t_order_alerts), the card functions and the 5-second sweep."
+  },
+  {
+   "called_by": {
+    "t_rider_choices": [
+     {
+      "text": "t_rider_set_profile() (telegram/t_rider_onboarding.sql)",
+      "via": "sql"
+     },
+     {
+      "text": "channels/telegram/rider_links.py: choices()",
+      "via": "python"
+     }
+    ],
+    "t_rider_link": [
+     {
+      "text": "channels/telegram/rider_links.py: link()",
+      "via": "python"
+     }
+    ],
+    "t_rider_phone_digits": [
+     {
+      "text": "t_rider_link() (telegram/t_rider_onboarding.sql)",
+      "via": "sql"
+     }
+    ],
+    "t_rider_profile": [
+     {
+      "text": "channels/telegram/rider_links.py: profile()",
+      "via": "python"
+     }
+    ],
+    "t_rider_set_profile": [
+     {
+      "text": "channels/telegram/rider_links.py: set_profile()",
+      "via": "python"
+     }
+    ]
+   },
+   "cron": [],
+   "folder": "telegram",
+   "header_lines": 67,
+   "lines": 365,
+   "objects": [
+    {
+     "description": "Normalise a phone number to digits only (Telegram sends '+44...' or '44...'); NULL when it cannot be a rider_id.",
+     "kind": "function",
+     "name": "t_rider_phone_digits",
+     "signature": "t_rider_phone_digits(p_phone text) -> text"
+    },
+    {
+     "description": "Link this Telegram account to the rider with this (verified) phone, move an older link, or register a new rider.",
+     "kind": "function",
+     "name": "t_rider_link",
+     "signature": "t_rider_link(p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text) -> jsonb"
+    },
+    {
+     "description": "Store the town and/or vehicle a new rider picked; only fills values that are still 'TBD'.",
+     "kind": "function",
+     "name": "t_rider_set_profile",
+     "signature": "t_rider_set_profile(p_tuid bigint, p_town text, p_vehicle_type text) -> jsonb"
+    },
+    {
+     "description": "The towns and vehicle types a sign-up can pick: distinct values already in rider_master (never 'TBD').",
+     "kind": "function",
+     "name": "t_rider_choices",
+     "signature": "t_rider_choices() -> jsonb"
+    },
+    {
+     "description": "Who this Telegram account is as a rider (rider_id, name, status, town, vehicle, channel, shift); read-only.",
+     "kind": "function",
+     "name": "t_rider_profile",
+     "signature": "t_rider_profile(p_tuid bigint) -> jsonb"
+    }
+   ],
+   "path": "telegram/t_rider_onboarding.sql",
+   "path_line": "ordelo_datamodels/telegram/t_rider_onboarding.sql",
+   "requires": [
+    "core/rider_master.sql",
+    "migrations/rider_telegram_r1.sql"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "t_rider_phone_digits:\n  sql       t_rider_link() (telegram/t_rider_onboarding.sql)\nt_rider_link:\n  python    channels/telegram/rider_links.py: link()\nt_rider_set_profile:\n  python    channels/telegram/rider_links.py: set_profile()\nt_rider_choices:\n  sql       t_rider_set_profile() (telegram/t_rider_onboarding.sql)\n  python    channels/telegram/rider_links.py: choices()\nt_rider_profile:\n  python    channels/telegram/rider_links.py: profile()",
+    "GOTCHAS": "rider_master has RLS OFF (see core/rider_master.sql): these functions are the only intended writers of the\n  Telegram columns, but a direct anon write is not blocked until the security review lands (docs/to-do.md).\nA Telegram contact's phone_number may start with '+' or not; t_rider_phone_digits() strips everything that is\n  not a digit. UK numbers arrive as 44..., which matches how rider_id is stored today.\nMoving a link (relinked) does NOT notify the old chat: the old account can no longer prove the number.",
+    "HOW IT FITS": "Generic invite: everybody gets the same link t.me/ByteloopRidersBot?start=join (no per-phone invite rows, D39).\n  /start -> the bot asks for the phone with Telegram's \"Share my phone number\" button -> the router accepts the\n  contact ONLY when contact.user_id == from_user.id (the number is the sender's own, as Telegram registered it)\n  -> t_rider_link(). Typed numbers are never accepted. Unknown phone -> a new rider_master row\n  (status 'inactive', town/vehicle 'TBD') -> the bot offers t_rider_choices() as buttons ->\n  t_rider_set_profile() -> \"Thanks, Ordelo will activate your account\". An operator activates by setting\n  status = 'active'; until then get_available_riders() never offers the rider a job (D41).\n  The phone is never carried in callback data: after the contact step every call is keyed by tuid, which\n  Telegram supplies and the bot cannot be tricked into changing.\n  Python: channels/telegram/rider_links.py (wrapper), channels/telegram/rider/router.py (handlers).",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
+    "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  t_rider_link:        linked          existing rider, was not linked; now linked (channel -> 'telegram')\n                       relinked        existing rider linked to ANOTHER Telegram account; link moved here\n                                       (previous_tuid / previous_username returned for the ops alert, D42)\n                       already_linked  same rider, same account; tcid / username / first name refreshed\n                       registered      unknown phone: new rider row, status 'inactive', town/vehicle 'TBD'\n                       tuid_taken      this Telegram account is linked to a DIFFERENT rider row: refused (D42)\n                       bad_phone       the number cannot be a rider_id (not 8-12 digits)\n  Every non-error result carries the rider snapshot: rider_id, rider_name, status, town, vehicle_type,\n  needs_profile (town or vehicle still 'TBD').\n  t_rider_set_profile: ok | not_linked | bad_town | bad_vehicle | locked (the value is no longer 'TBD')\n  t_rider_profile:     ok | not_linked",
+    "LIVE CHECK": "Live since 2026-10-22 (migrations/rider_telegram_r1.sql step 4); onboarding tested live the same day.",
+    "OBJECTS": "fn     t_rider_phone_digits(p_phone text) -> text\n    Normalise a phone number to digits only (Telegram sends '+44...' or '44...'); NULL when it cannot be a rider_id.\nfn     t_rider_link(p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text) -> jsonb\n    Link this Telegram account to the rider with this (verified) phone, move an older link, or register a new rider.\nfn     t_rider_set_profile(p_tuid bigint, p_town text, p_vehicle_type text) -> jsonb\n    Store the town and/or vehicle a new rider picked; only fills values that are still 'TBD'.\nfn     t_rider_choices() -> jsonb\n    The towns and vehicle types a sign-up can pick: distinct values already in rider_master (never 'TBD').\nfn     t_rider_profile(p_tuid bigint) -> jsonb\n    Who this Telegram account is as a rider (rider_id, name, status, town, vehicle, channel, shift); read-only.",
+    "PYTHON MODEL": "channels/telegram/rider_links.py (RiderLink, RiderChoices outcome dataclasses)",
+    "REQUIRES": "core/rider_master.sql\nmigrations/rider_telegram_r1.sql",
+    "SECURITY": "Every function: REVOKE ALL FROM PUBLIC, anon, authenticated; called with client_ordelo_service only.",
+    "SEE ALSO": "core/rider_master.sql\ntelegram/t_invites.sql\ntest_support/test_rider_onboarding.sql",
+    "SIDE EFFECTS": "none when applied (functions only).",
+    "TESTS": "tests/sql/test_rider_onboarding_sql.py\ntests/channels/telegram/test_rider_router.py\ntests/channels/telegram/test_rider_links.py"
+   },
+   "see_also": [
+    "core/rider_master.sql",
+    "telegram/t_invites.sql",
+    "test_support/test_rider_onboarding.sql"
+   ],
+   "tests": [
+    "tests/sql/test_rider_onboarding_sql.py",
+    "tests/channels/telegram/test_rider_router.py",
+    "tests/channels/telegram/test_rider_links.py"
+   ],
+   "title": "Rider bot onboarding: link a Telegram account to rider_master by a shared, verified phone number, or register a new rider."
   },
   {
    "called_by": {
@@ -7935,11 +8753,41 @@
    "cron": [],
    "folder": "test_support",
    "header_lines": 0,
-   "lines": 370,
+   "lines": 388,
    "objects": [],
    "path": "test_support/test_restaurant_notices.sql",
    "role": "script",
    "title": "TEST HARNESS (not a migration): fake STRK orders to try the kitchen receipt, Ready / +10 / +20 and the restaurant"
+  },
+  {
+   "cron": [],
+   "folder": "test_support",
+   "header_lines": 0,
+   "lines": 102,
+   "objects": [],
+   "path": "test_support/test_rider_onboarding.sql",
+   "role": "script",
+   "title": "TEST HARNESS (not a migration): exercise the rider bot onboarding functions, the pauses and the R1 dispatch gate on the"
+  },
+  {
+   "cron": [],
+   "folder": "test_support",
+   "header_lines": 0,
+   "lines": 124,
+   "objects": [],
+   "path": "test_support/test_rider_pauses_and_locations.sql",
+   "role": "script",
+   "title": "TEST HARNESS (not a migration): Telegram breaks and locations for riders, alert pauses for restaurant admins (phases"
+  },
+  {
+   "cron": [],
+   "folder": "test_support",
+   "header_lines": 0,
+   "lines": 119,
+   "objects": [],
+   "path": "test_support/test_rider_telegram_jobs.sql",
+   "role": "script",
+   "title": "TEST HARNESS (not a migration): a rider job on TELEGRAM end to end (phases R2-R4 of plans/telegram-rider-bot-plan.md):"
   }
  ],
  "objects": {
@@ -8305,6 +9153,18 @@
      "via": "python"
     },
     {
+     "text": "ordelo/dispatch_actions.py: respond_to_offer(), close_open_offers()",
+     "via": "python"
+    },
+    {
+     "text": "ordelo/rider_messaging/factory.py: for_dispatch(), dispatch_channel()",
+     "via": "python"
+    },
+    {
+     "text": "rider_thread_open(), rider_thread_touch(), rider_thread_active(), rider_thread_describe()",
+     "via": "sql"
+    },
+    {
      "text": "ordelo/wa_location.py: WaLocation._load_delivery_context()",
      "via": "python"
     },
@@ -8345,9 +9205,24 @@
    "file": "dispatch/delivery_dispatch.sql",
    "folder": "dispatch",
    "kind": "table",
-   "line": 167,
+   "line": 189,
    "role": "definition",
    "signature": "delivery_dispatch"
+  },
+  "delivery_dispatch_stamp_channel": {
+   "called_by": [
+    {
+     "text": "trigger_delivery_dispatch_stamp_channel on delivery_dispatch",
+     "via": "trigger"
+    }
+   ],
+   "description": "Row trigger function: copy the rider's channel (rider_master.channel) onto each new offer (D44).",
+   "file": "dispatch/delivery_dispatch.sql",
+   "folder": "dispatch",
+   "kind": "function",
+   "line": 225,
+   "role": "definition",
+   "signature": "delivery_dispatch_stamp_channel() -> trigger"
   },
   "delivery_dispatch_whook": {
    "called_by": [
@@ -8375,7 +9250,7 @@
    "file": "dispatch/delivery_dispatch.sql",
    "folder": "dispatch",
    "kind": "function",
-   "line": 91,
+   "line": 113,
    "role": "definition",
    "signature": "delivery_dispatch_whook_statement() -> trigger"
   },
@@ -8420,13 +9295,17 @@
     {
      "text": "watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook()",
      "via": "python"
+    },
+    {
+     "text": "ordelo/rider_shift.py: inflight_order() gates rider /off, /on and command menus",
+     "via": "python"
     }
    ],
    "description": "Live job: dispatch_id (PK), order, rider and customer. Exists from assignment until completion or cancellation.",
    "file": "dispatch/delivery_inflight.sql",
    "folder": "dispatch",
    "kind": "table",
-   "line": 166,
+   "line": 167,
    "role": "definition",
    "signature": "delivery_inflight"
   },
@@ -8441,7 +9320,7 @@
    "file": "dispatch/delivery_inflight.sql",
    "folder": "dispatch",
    "kind": "function",
-   "line": 84,
+   "line": 85,
    "role": "definition",
    "signature": "delivery_inflight_whook() -> trigger"
   },
@@ -8723,11 +9602,11 @@
      "via": "cron"
     }
    ],
-   "description": "POST the active riders to the shift-availability webhook; returns true on success.",
+   "description": "POST the active WhatsApp riders to the shift-availability webhook; returns true on success.",
    "file": "dispatch/enquire_shift_availability.sql",
    "folder": "dispatch",
    "kind": "function",
-   "line": 31,
+   "line": 36,
    "role": "definition",
    "signature": "enquire_shift_availability() -> boolean"
   },
@@ -8812,7 +9691,7 @@
    "file": "dispatch/job_create_dispatch.sql",
    "folder": "dispatch",
    "kind": "function",
-   "line": 175,
+   "line": 180,
    "role": "definition",
    "signature": "get_available_riders(p_order_number text, p_town text, p_vehicle_type text) -> TABLE(rider_id character varying, priority integer)"
   },
@@ -8959,6 +9838,29 @@
    "role": "orphan",
    "signature": "insert_delivery_detail(p_cust_id character varying, p_order_number character varying, p_vehicle_type character varying) -> void"
   },
+  "is_paused": {
+   "called_by": [
+    {
+     "text": "get_available_riders() (dispatch/job_create_dispatch.sql)",
+     "via": "sql"
+    },
+    {
+     "text": "pause_start() (availability/pauses.sql)",
+     "via": "sql"
+    },
+    {
+     "text": "t_alert_destinations() (telegram/t_order_alerts.sql)",
+     "via": "sql"
+    }
+   ],
+   "description": "true while an open pause covers now(); the ONE place that answers \"is this person paused?\".",
+   "file": "availability/pauses.sql",
+   "folder": "availability",
+   "kind": "function",
+   "line": 212,
+   "role": "definition",
+   "signature": "is_paused(p_audience text, p_principal text, p_scope text) -> boolean"
+  },
   "job_assign_delivery": {
    "called_by": [
     {
@@ -9019,7 +9921,7 @@
    "file": "agent_threads/job_close_thread.sql",
    "folder": "agent_threads",
    "kind": "function",
-   "line": 37,
+   "line": 41,
    "role": "definition",
    "signature": "job_close_thread() -> boolean"
   },
@@ -9034,7 +9936,7 @@
    "file": "dispatch/job_create_dispatch.sql",
    "folder": "dispatch",
    "kind": "function",
-   "line": 58,
+   "line": 63,
    "role": "definition",
    "signature": "job_create_dispatch() -> TABLE(action text)"
   },
@@ -9052,6 +9954,21 @@
    "line": 41,
    "role": "definition",
    "signature": "job_null_or_outdated_location() -> boolean"
+  },
+  "job_pause_sweep": {
+   "called_by": [
+    {
+     "text": "'job_pause_sweep' */5 * * * * on live at 2026-10-23; target * * * * * in step 6",
+     "via": "cron"
+    }
+   ],
+   "description": "Close expired pauses, then POST the due \"ends soon\" and \"back on\" messages; mark them only on a 2xx reply.",
+   "file": "availability/job_pause_sweep.sql",
+   "folder": "availability",
+   "kind": "function",
+   "line": 47,
+   "role": "definition",
+   "signature": "job_pause_sweep() -> boolean"
   },
   "job_payment_init_reconciler": {
    "called_by": [
@@ -9144,7 +10061,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 496,
+   "line": 536,
    "role": "definition",
    "signature": "job_t_order_alerts() -> boolean"
   },
@@ -9163,7 +10080,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 965,
+   "line": 970,
    "role": "definition",
    "signature": "job_t_receipt_refresh() -> boolean"
   },
@@ -9508,6 +10425,108 @@
    "role": "definition",
    "signature": "parse_alert_offsets(p_config_key text) -> integer[]"
   },
+  "pause_current": {
+   "called_by": [
+    {
+     "text": "ordelo/pauses.py: current()",
+     "via": "python"
+    }
+   ],
+   "description": "The pause covering now(), or {result: 'not_paused'}; read-only.",
+   "file": "availability/pauses.sql",
+   "folder": "availability",
+   "kind": "function",
+   "line": 240,
+   "role": "definition",
+   "signature": "pause_current(p_audience text, p_principal text, p_scope text) -> jsonb"
+  },
+  "pause_duration": {
+   "called_by": [
+    {
+     "text": "pause_start() (availability/pauses.sql)",
+     "via": "sql"
+    }
+   ],
+   "description": "The interval for a duration key such as '6h' or '1d' if ordelo_config allows it for this audience, else NULL.",
+   "file": "availability/pauses.sql",
+   "folder": "availability",
+   "kind": "function",
+   "line": 153,
+   "role": "definition",
+   "signature": "pause_duration(p_audience text, p_duration text) -> interval"
+  },
+  "pause_end": {
+   "called_by": [
+    {
+     "text": "ordelo/pauses.py: resume()",
+     "via": "python"
+    },
+    {
+     "text": "t_admin_resume() (telegram/t_admin_pauses.sql)",
+     "via": "sql"
+    }
+   ],
+   "description": "End the current pause early; a rider's own /on is refused during an inflight delivery.",
+   "file": "availability/pauses.sql",
+   "folder": "availability",
+   "kind": "function",
+   "line": 385,
+   "role": "definition",
+   "signature": "pause_end(p_audience text, p_principal text, p_scope text, p_reason text) -> jsonb"
+  },
+  "pause_options": {
+   "called_by": [
+    {
+     "text": "ordelo/pauses.py: options()",
+     "via": "python"
+    },
+    {
+     "text": "t_admin_pause_status() (telegram/t_admin_pauses.sql)",
+     "via": "sql"
+    }
+   ],
+   "description": "The duration keys a person of this audience may pick, in ordelo_config order (the /off buttons).",
+   "file": "availability/pauses.sql",
+   "folder": "availability",
+   "kind": "function",
+   "line": 183,
+   "role": "definition",
+   "signature": "pause_options(p_audience text) -> jsonb"
+  },
+  "pause_start": {
+   "called_by": [
+    {
+     "text": "ordelo/pauses.py: pause()",
+     "via": "python"
+    },
+    {
+     "text": "t_admin_pause() (telegram/t_admin_pauses.sql)",
+     "via": "sql"
+    }
+   ],
+   "description": "Start or extend a pause; a rider with a delivery_inflight row is refused.",
+   "file": "availability/pauses.sql",
+   "folder": "availability",
+   "kind": "function",
+   "line": 272,
+   "role": "definition",
+   "signature": "pause_start(p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text) -> jsonb"
+  },
+  "pauses": {
+   "called_by": [
+    {
+     "text": "is_paused(), pause_current(), pause_start(), pause_end(), job_pause_sweep()",
+     "via": "sql"
+    }
+   ],
+   "description": "One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended.",
+   "file": "availability/pauses.sql",
+   "folder": "availability",
+   "kind": "table",
+   "line": 102,
+   "role": "definition",
+   "signature": "pauses"
+  },
   "payment_details": {
    "called_by": [
     {
@@ -9797,7 +10816,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 258,
+   "line": 263,
    "role": "definition",
    "signature": "restaurant_order_adjust_pickup(p_order_number text, p_target timestamp with time zone, p_admin_phone text, p_channel text) -> jsonb"
   },
@@ -9839,7 +10858,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 130,
+   "line": 135,
    "role": "definition",
    "signature": "restaurant_order_ready(p_order_number text, p_order_type text, p_admin_phone text, p_channel text) -> jsonb"
   },
@@ -9949,7 +10968,7 @@
   "rider_master": {
    "called_by": [
     {
-     "text": "delivery_inflight_whook(), enquire_shift_availability(), fake_delivery_dispatch_whook() get_available_riders(), get_rider_payout_report(), job_rider_pickup_alerts() t_receipt_snapshot()",
+     "text": "delivery_inflight_whook(), enquire_shift_availability(), fake_delivery_dispatch_whook() get_available_riders(), get_rider_payout_report(), job_rider_pickup_alerts() t_receipt_snapshot() t_rider_link(), t_rider_set_profile(), t_rider_choices(), t_rider_profile()",
      "via": "sql"
     },
     {
@@ -9985,6 +11004,10 @@
      "via": "python"
     },
     {
+     "text": "ordelo/rider_messaging/factory.py: for_rider() (channel, tcid)",
+     "via": "python"
+    },
+    {
      "text": "restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts",
      "via": "frontend"
     },
@@ -9997,11 +11020,11 @@
      "via": "frontend"
     }
    ],
-   "description": "Riders that can be offered delivery jobs, keyed in practice by rider_id (their WhatsApp number).",
+   "description": "Riders that can be offered delivery jobs, keyed by rider_id (their phone number, digits only).",
    "file": "core/rider_master.sql",
    "folder": "core",
    "kind": "table",
-   "line": 57,
+   "line": 82,
    "role": "definition",
    "signature": "rider_master"
   },
@@ -10057,6 +11080,111 @@
    "line": 34,
    "role": "definition",
    "signature": "rider_registrations"
+  },
+  "rider_set_shift": {
+   "called_by": [
+    {
+     "text": "ordelo/rider_shift.py: set_shift()",
+     "via": "python"
+    }
+   ],
+   "description": "Start (p_on) or end a rider's shift: only an 'active' rider can start, and nobody can end one during a job.",
+   "file": "availability/rider_shift.sql",
+   "folder": "availability",
+   "kind": "function",
+   "line": 44,
+   "role": "definition",
+   "signature": "rider_set_shift(p_rider_id text, p_on boolean) -> jsonb"
+  },
+  "rider_thread_active": {
+   "called_by": [
+    {
+     "text": "ordelo/agents/rider_threads.py: active_for_rider()",
+     "via": "python"
+    }
+   ],
+   "description": "The rider's open rider thread (newest), with its dispatch and channel; optionally touches it.",
+   "file": "agent_threads/rider_threads.sql",
+   "folder": "agent_threads",
+   "kind": "function",
+   "line": 256,
+   "role": "definition",
+   "signature": "rider_thread_active(p_agent text, p_rider_id text, p_touch boolean) -> jsonb"
+  },
+  "rider_thread_close": {
+   "called_by": [
+    {
+     "text": "ordelo/agents/rider_threads.py: close()",
+     "via": "python"
+    }
+   ],
+   "description": "Close exactly this thread (never every thread of the phone).",
+   "file": "agent_threads/rider_threads.sql",
+   "folder": "agent_threads",
+   "kind": "function",
+   "line": 293,
+   "role": "definition",
+   "signature": "rider_thread_close(p_thread_id text) -> jsonb"
+  },
+  "rider_thread_describe": {
+   "called_by": [
+    {
+     "text": "ordelo/agents/rider_threads.py: describe(), for_dispatch()",
+     "via": "python"
+    }
+   ],
+   "description": "Read-only snapshot of one thread, found by thread id or by dispatch id (debug, close-threads, hooks).",
+   "file": "agent_threads/rider_threads.sql",
+   "folder": "agent_threads",
+   "kind": "function",
+   "line": 96,
+   "role": "definition",
+   "signature": "rider_thread_describe(p_thread_id text, p_dispatch_id bigint) -> jsonb"
+  },
+  "rider_thread_id": {
+   "called_by": [
+    {
+     "text": "rider_thread_open() (agent_threads/rider_threads.sql)",
+     "via": "sql"
+    }
+   ],
+   "description": "The thread id of a dispatch: '<agent>-dispatch-<dispatch_id>' (e.g. ORDELO-dispatch-84217).",
+   "file": "agent_threads/rider_threads.sql",
+   "folder": "agent_threads",
+   "kind": "function",
+   "line": 80,
+   "role": "definition",
+   "signature": "rider_thread_id(p_agent text, p_dispatch_id bigint) -> text"
+  },
+  "rider_thread_open": {
+   "called_by": [
+    {
+     "text": "ordelo/agents/rider_threads.py: open_for_dispatch()",
+     "via": "python"
+    }
+   ],
+   "description": "Open the thread of an assigned dispatch (idempotent) and close the rider's other rider threads (D47).",
+   "file": "agent_threads/rider_threads.sql",
+   "folder": "agent_threads",
+   "kind": "function",
+   "line": 131,
+   "role": "definition",
+   "signature": "rider_thread_open(p_agent text, p_rider_id text, p_dispatch_id bigint) -> jsonb"
+  },
+  "rider_thread_touch": {
+   "called_by": [
+    {
+     "text": "ordelo/agents/rider_threads.py: touch()",
+     "via": "python"
+    }
+   ],
+   "description": "Mark an open thread as just used (last_access_dtts) and return its snapshot; refuses closed threads.",
+   "file": "agent_threads/rider_threads.sql",
+   "folder": "agent_threads",
+   "kind": "function",
+   "line": 221,
+   "role": "definition",
+   "signature": "rider_thread_touch(p_thread_id text) -> jsonb"
   },
   "sbase_test_realtime": {
    "called_by": [
@@ -10133,6 +11261,93 @@
    "role": "orphan",
    "signature": "sync_delivery_inflight() -> trigger"
   },
+  "t_admin_pause": {
+   "called_by": [
+    {
+     "text": "channels/telegram/admin_pauses.py: pause()",
+     "via": "python"
+    }
+   ],
+   "description": "Pause this Telegram user's alerts for every restaurant they are a linked admin of, one pause per restaurant.",
+   "file": "telegram/t_admin_pauses.sql",
+   "folder": "telegram",
+   "kind": "function",
+   "line": 64,
+   "role": "definition",
+   "signature": "t_admin_pause(p_bot_key text, p_tuid bigint, p_duration text) -> jsonb"
+  },
+  "t_admin_pause_chats": {
+   "called_by": [
+    {
+     "text": "channels/telegram/admin_pauses.py: chats()",
+     "via": "python"
+    }
+   ],
+   "description": "Read-only: the Telegram chats of one admin for one restaurant (where \"ends soon\" / \"back on\" go).",
+   "file": "telegram/t_admin_pauses.sql",
+   "folder": "telegram",
+   "kind": "function",
+   "line": 206,
+   "role": "definition",
+   "signature": "t_admin_pause_chats(p_bot_key text, p_phone text, p_rest_ref text) -> jsonb"
+  },
+  "t_admin_pause_status": {
+   "called_by": [
+    {
+     "text": "channels/telegram/admin_pauses.py: status()",
+     "via": "python"
+    }
+   ],
+   "description": "Read-only: per linked restaurant, paused or not and until when, plus the durations /off may offer.",
+   "file": "telegram/t_admin_pauses.sql",
+   "folder": "telegram",
+   "kind": "function",
+   "line": 158,
+   "role": "definition",
+   "signature": "t_admin_pause_status(p_bot_key text, p_tuid bigint) -> jsonb"
+  },
+  "t_admin_resume": {
+   "called_by": [
+    {
+     "text": "channels/telegram/admin_pauses.py: resume()",
+     "via": "python"
+    }
+   ],
+   "description": "End this Telegram user's alert pauses now, for every restaurant they are a linked admin of.",
+   "file": "telegram/t_admin_pauses.sql",
+   "folder": "telegram",
+   "kind": "function",
+   "line": 111,
+   "role": "definition",
+   "signature": "t_admin_resume(p_bot_key text, p_tuid bigint) -> jsonb"
+  },
+  "t_alert_destinations": {
+   "called_by": [
+    {
+     "text": "job_t_order_alerts() (telegram/t_order_alerts.sql)",
+     "via": "sql"
+    },
+    {
+     "text": "t_notice_targets() (restaurant_admin/restaurant_ready_adjust_notices.sql)",
+     "via": "sql"
+    },
+    {
+     "text": "t_order_card_snapshot() (telegram/t_order_alerts.sql)",
+     "via": "sql"
+    },
+    {
+     "text": "t_receipt_snapshot() (restaurant_admin/restaurant_ready_adjust_notices.sql)",
+     "via": "sql"
+    }
+   ],
+   "description": "t_order_card_destinations() without the admins who paused their alerts: where NEW cards, receipts and notices go.",
+   "file": "telegram/t_order_alerts.sql",
+   "folder": "telegram",
+   "kind": "function",
+   "line": 293,
+   "role": "definition",
+   "signature": "t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)"
+  },
   "t_claim_invite": {
    "called_by": [
     {
@@ -10174,7 +11389,7 @@
      "via": "python"
     }
    ],
-   "description": "One row per Telegram update a bot started handling, keyed by (bot_key, update_id).",
+   "description": "One row per selected Telegram update a protected handler claimed, keyed by (bot_key, update_id).",
    "file": "telegram/t_inbox.sql",
    "folder": "telegram",
    "kind": "table",
@@ -10321,7 +11536,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 935,
+   "line": 940,
    "role": "definition",
    "signature": "t_notice_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_rest_ref text, p_order_number text, p_notice text) -> void"
   },
@@ -10336,7 +11551,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 884,
+   "line": 889,
    "role": "definition",
    "signature": "t_notice_targets(p_bot_key text, p_rest_ref text, p_order_number text, p_reply_kind text) -> TABLE(tcid bigint, tuid bigint, phone text, reply_to bigint)"
   },
@@ -10351,7 +11566,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 370,
+   "line": 375,
    "role": "definition",
    "signature": "t_order_adjust_pickup(p_bot_key text, p_tuid bigint, p_order_number text, p_minutes integer) -> jsonb"
   },
@@ -10401,22 +11616,14 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "table",
-   "line": 108,
+   "line": 118,
    "role": "definition",
    "signature": "t_order_alerts"
   },
   "t_order_card_destinations": {
    "called_by": [
     {
-     "text": "job_t_order_alerts() (telegram/t_order_alerts.sql)",
-     "via": "sql"
-    },
-    {
-     "text": "t_notice_targets() (restaurant_admin/restaurant_ready_adjust_notices.sql)",
-     "via": "sql"
-    },
-    {
-     "text": "t_order_card_snapshot() (telegram/t_order_alerts.sql)",
+     "text": "t_alert_destinations() (telegram/t_order_alerts.sql)",
      "via": "sql"
     },
     {
@@ -10424,11 +11631,11 @@
      "via": "sql"
     },
     {
-     "text": "t_receipt_snapshot() (restaurant_admin/restaurant_ready_adjust_notices.sql)",
+     "text": "t_receipts_stale() (restaurant_admin/restaurant_ready_adjust_notices.sql)",
      "via": "sql"
     },
     {
-     "text": "t_receipts_stale() (restaurant_admin/restaurant_ready_adjust_notices.sql)",
+     "text": "t_admin_pause_chats() (telegram/t_admin_pauses.sql)",
      "via": "sql"
     }
    ],
@@ -10436,7 +11643,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 241,
+   "line": 251,
    "role": "definition",
    "signature": "t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)"
   },
@@ -10482,7 +11689,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 183,
+   "line": 193,
    "role": "definition",
    "signature": "t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)"
   },
@@ -10512,7 +11719,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 288,
+   "line": 328,
    "role": "definition",
    "signature": "t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb"
   },
@@ -10535,7 +11742,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 141,
+   "line": 151,
    "role": "definition",
    "signature": "t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text"
   },
@@ -10554,7 +11761,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 352,
+   "line": 392,
    "role": "definition",
    "signature": "t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)"
   },
@@ -10569,7 +11776,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 410,
+   "line": 450,
    "role": "definition",
    "signature": "t_order_cards_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb"
   },
@@ -10607,7 +11814,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 325,
+   "line": 330,
    "role": "definition",
    "signature": "t_order_ready(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text) -> jsonb"
   },
@@ -10645,7 +11852,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 657,
+   "line": 662,
    "role": "definition",
    "signature": "t_receipt_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_order_number text, p_order_type text, p_rest_ref text, p_dispatch_id integer, p_status text) -> jsonb"
   },
@@ -10660,7 +11867,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 495,
+   "line": 500,
    "role": "definition",
    "signature": "t_receipt_snapshot(p_bot_key text, p_order_number text, p_order_type text, p_dispatch_id integer) -> jsonb"
   },
@@ -10683,7 +11890,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 418,
+   "line": 423,
    "role": "definition",
    "signature": "t_receipt_status(p_order_number text, p_order_type text, p_dispatch_id integer) -> text"
   },
@@ -10702,7 +11909,7 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 746,
+   "line": 751,
    "role": "definition",
    "signature": "t_receipts_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, dispatch_id integer, authorised boolean, viewer_phone text)"
   },
@@ -10717,9 +11924,88 @@
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 806,
+   "line": 811,
    "role": "definition",
    "signature": "t_receipts_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb"
+  },
+  "t_rider_choices": {
+   "called_by": [
+    {
+     "text": "t_rider_set_profile() (telegram/t_rider_onboarding.sql)",
+     "via": "sql"
+    },
+    {
+     "text": "channels/telegram/rider_links.py: choices()",
+     "via": "python"
+    }
+   ],
+   "description": "The towns and vehicle types a sign-up can pick: distinct values already in rider_master (never 'TBD').",
+   "file": "telegram/t_rider_onboarding.sql",
+   "folder": "telegram",
+   "kind": "function",
+   "line": 212,
+   "role": "definition",
+   "signature": "t_rider_choices() -> jsonb"
+  },
+  "t_rider_link": {
+   "called_by": [
+    {
+     "text": "channels/telegram/rider_links.py: link()",
+     "via": "python"
+    }
+   ],
+   "description": "Link this Telegram account to the rider with this (verified) phone, move an older link, or register a new rider.",
+   "file": "telegram/t_rider_onboarding.sql",
+   "folder": "telegram",
+   "kind": "function",
+   "line": 98,
+   "role": "definition",
+   "signature": "t_rider_link(p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text) -> jsonb"
+  },
+  "t_rider_phone_digits": {
+   "called_by": [
+    {
+     "text": "t_rider_link() (telegram/t_rider_onboarding.sql)",
+     "via": "sql"
+    }
+   ],
+   "description": "Normalise a phone number to digits only (Telegram sends '+44...' or '44...'); NULL when it cannot be a rider_id.",
+   "file": "telegram/t_rider_onboarding.sql",
+   "folder": "telegram",
+   "kind": "function",
+   "line": 73,
+   "role": "definition",
+   "signature": "t_rider_phone_digits(p_phone text) -> text"
+  },
+  "t_rider_profile": {
+   "called_by": [
+    {
+     "text": "channels/telegram/rider_links.py: profile()",
+     "via": "python"
+    }
+   ],
+   "description": "Who this Telegram account is as a rider (rider_id, name, status, town, vehicle, channel, shift); read-only.",
+   "file": "telegram/t_rider_onboarding.sql",
+   "folder": "telegram",
+   "kind": "function",
+   "line": 319,
+   "role": "definition",
+   "signature": "t_rider_profile(p_tuid bigint) -> jsonb"
+  },
+  "t_rider_set_profile": {
+   "called_by": [
+    {
+     "text": "channels/telegram/rider_links.py: set_profile()",
+     "via": "python"
+    }
+   ],
+   "description": "Store the town and/or vehicle a new rider picked; only fills values that are still 'TBD'.",
+   "file": "telegram/t_rider_onboarding.sql",
+   "folder": "telegram",
+   "kind": "function",
+   "line": 249,
+   "role": "definition",
+   "signature": "t_rider_set_profile(p_tuid bigint, p_town text, p_vehicle_type text) -> jsonb"
   },
   "t_sent_messages": {
    "called_by": [
@@ -10839,13 +12125,23 @@
    "role": "definition",
    "signature": "test_reset_takeaway_order(p_order_number text) -> text"
   },
+  "trigger_delivery_dispatch_stamp_channel": {
+   "called_by": [],
+   "description": "BEFORE INSERT FOR EACH ROW: the offer keeps the channel it was made on until the job ends.",
+   "file": "dispatch/delivery_dispatch.sql",
+   "folder": "dispatch",
+   "kind": "trigger",
+   "line": 246,
+   "role": "definition",
+   "signature": "trigger_delivery_dispatch_stamp_channel on delivery_dispatch -> delivery_dispatch_stamp_channel()"
+  },
   "trigger_delivery_dispatch_whook": {
    "called_by": [],
    "description": "AFTER INSERT ... FOR EACH STATEMENT with REFERENCING NEW TABLE new_rows: one webhook per batch of offers.",
    "file": "dispatch/delivery_dispatch.sql",
    "folder": "dispatch",
    "kind": "trigger",
-   "line": 195,
+   "line": 257,
    "role": "definition",
    "signature": "trigger_delivery_dispatch_whook on delivery_dispatch -> delivery_dispatch_whook_statement()"
   },
@@ -10855,7 +12151,7 @@
    "file": "dispatch/delivery_inflight.sql",
    "folder": "dispatch",
    "kind": "trigger",
-   "line": 157,
+   "line": 158,
    "role": "definition",
    "signature": "trigger_delivery_inflight_whook on delivery_inflight -> delivery_inflight_whook()"
   },
@@ -11033,7 +12329,7 @@
   "wa_location_observation": {
    "called_by": [
     {
-     "text": "ordelo/wa_location.py: WaLocation.observe_restaurant_confirmation(), WaLocation.receive_whatsapp_location(), WaLocation.request(), WaLocation.route_fulfilled_request()",
+     "text": "ordelo/wa_location.py: WaLocation.observe_restaurant_confirmation(), WaLocation.receive_current_location(), WaLocation.request(), WaLocation.route_fulfilled_request()",
      "via": "python"
     }
    ],
@@ -11041,7 +12337,7 @@
    "file": "rider_location/wa_location.sql",
    "folder": "rider_location",
    "kind": "table",
-   "line": 42,
+   "line": 52,
    "role": "definition",
    "signature": "wa_location_observation"
   },
@@ -11056,7 +12352,7 @@
    "file": "rider_location/wa_location.sql",
    "folder": "rider_location",
    "kind": "table",
-   "line": 80,
+   "line": 97,
    "role": "definition",
    "signature": "wa_location_request"
   },

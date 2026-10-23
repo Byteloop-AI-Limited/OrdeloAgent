@@ -58,11 +58,39 @@ def _connect(autocommit: bool = True):
 # Migrations are applied in this order (each file is idempotent). Extended as phases are added.
 MIGRATION_FILES = [
     "t_inbox.sql",
+    "t_sent_messages.sql",
     "t_invites.sql",
     "restaurant_order_decision.sql",
+    # pauses.sql (rider bot R1) comes before t_order_alerts.sql since R6: t_alert_destinations() (a SQL function, checked
+    # when created) calls is_paused(). On live pauses.sql has been applied since 22 Oct.
+    "pauses.sql",
     "t_order_alerts.sql",
     "restaurant_ready_adjust_notices.sql",
+    "t_housekeeping.sql",
+    # Rider bot phase R1 (plans/telegram-rider-bot-plan.md): rider_master is created in its target shape by minimal_schema.sql.
+    "rider_master.sql",
+    "t_rider_onboarding.sql",
+    "job_pause_sweep.sql",
+    # Rider bot phases R2-R4: thread per dispatch (the thread table itself comes from minimal_schema.sql).
+    "rider_threads.sql",
+    # Rider bot phases R5-R6: shift rule, WhatsApp-only shift question, admin pauses, Telegram location source.
+    "rider_shift.sql",
+    "enquire_shift_availability.sql",
+    "t_admin_pauses.sql",
+    "wa_location.sql",
 ]
+
+
+def dispatch_channel_trigger_sql() -> str:
+    """Only the channel-stamping row trigger from dispatch/delivery_dispatch.sql (R2-R4).
+
+    The rest of that file (the statement trigger that POSTs every offer) is left out on purpose: other SQL tests insert
+    delivery_dispatch rows and must not see extra http_calls.
+    """
+    text = sql_path("delivery_dispatch.sql").read_text()
+    start = text.index("CREATE OR REPLACE FUNCTION public.delivery_dispatch_stamp_channel")
+    end = text.index("EXECUTE FUNCTION delivery_dispatch_stamp_channel ();") + len("EXECUTE FUNCTION delivery_dispatch_stamp_channel ();")
+    return text[start:end]
 
 # The embedded test server has no pgcrypto. t_invites.sql needs gen_random_bytes() (invite codes) only,
 # so that one statement is removed and a stand-in function is created in the `extensions` schema. Nothing else
@@ -72,6 +100,21 @@ _GEN_RANDOM_BYTES_STUB = """
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE OR REPLACE FUNCTION extensions.gen_random_bytes(n int) RETURNS bytea LANGUAGE sql VOLATILE AS $$
     SELECT decode(substr(md5(random()::text || clock_timestamp()::text), 1, n * 2), 'hex')
+$$;
+"""
+
+# The files under ordelo_datamodels/ schedule their own pg_cron jobs (SQL standard rule 1). The test server has no
+# pg_cron, so a stand-in cron.schedule()/cron.unschedule() records the calls in cron.job and does nothing else.
+_PG_CRON_STUB = """
+CREATE SCHEMA IF NOT EXISTS cron;
+CREATE TABLE IF NOT EXISTS cron.job (jobname text PRIMARY KEY, schedule text NOT NULL, command text NOT NULL);
+CREATE OR REPLACE FUNCTION cron.schedule(p_jobname text, p_schedule text, p_command text) RETURNS bigint LANGUAGE sql AS $$
+    INSERT INTO cron.job VALUES (p_jobname, p_schedule, p_command)
+    ON CONFLICT (jobname) DO UPDATE SET schedule = EXCLUDED.schedule, command = EXCLUDED.command
+    RETURNING 1::bigint
+$$;
+CREATE OR REPLACE FUNCTION cron.unschedule(p_jobname text) RETURNS boolean LANGUAGE sql AS $$
+    WITH d AS (DELETE FROM cron.job WHERE jobname = p_jobname RETURNING 1) SELECT EXISTS (SELECT 1 FROM d)
 $$;
 """
 
@@ -97,9 +140,12 @@ def sql_env():
             )
             conn.execute(f"GRANT USAGE ON SCHEMA public TO {role}")
         conn.execute(_GEN_RANDOM_BYTES_STUB)
+        conn.execute("DROP SCHEMA IF EXISTS cron CASCADE")
+        conn.execute(_PG_CRON_STUB)
         conn.execute((HERE / "minimal_schema.sql").read_text())
         for name in MIGRATION_FILES:
             conn.execute(migration_sql(name))
+        conn.execute(dispatch_channel_trigger_sql())
     return URI
 
 

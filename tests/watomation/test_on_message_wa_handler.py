@@ -8,6 +8,8 @@ Key Functions:
   - test_process_wa_msg_not_in_shift_enquires_availability
   - test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery
   - test_process_wa_msg_with_active_thread_runs_rider_graph
+  - test_process_wa_msg_for_a_telegram_job_points_the_rider_there
+  - test_process_wa_msg_from_a_telegram_rider_without_a_job_points_to_the_bot
   - test_send_live_map_location_handles_no_inflight_missing_and_success
   - test_reset_thread_closes_dispatch_and_thread
   - test_test_delivery_schedules_init_and_updates_summary
@@ -17,6 +19,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from ordelo.agents.rider_threads import RiderThread
 from watomation import on_message_wa_handler as handler
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
 from tests.fixtures.fake_wa import FakeAsyncWhatsApp, FakeMessage
@@ -37,9 +40,18 @@ class _FakeThreadHandler:
         return {"message": "closed"}
 
 
+def _patch_active_thread(monkeypatch, thread):
+    """process_wa_msg asks rider_threads.active_for_rider (R2) for the rider's one open thread."""
+
+    async def _active(rider_id, touch=True):
+        return thread
+
+    monkeypatch.setattr(handler, "active_rider_thread", _active)
+
+
 async def test_process_wa_msg_not_in_shift_enquires_availability(monkeypatch, patch_pg_pool, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
     patch_supabase_client.register(table="rider_master", verb="select", response=FakeSupabaseResponse(data=[{"is_in_shift": False}]))
-    monkeypatch.setattr(handler, "ThreadHandler", _FakeThreadHandler)
+    _patch_active_thread(monkeypatch, None)
     calls = []
 
     async def _fake_enquire(wa, msg):
@@ -53,9 +65,8 @@ async def test_process_wa_msg_not_in_shift_enquires_availability(monkeypatch, pa
 
 
 async def test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery(monkeypatch, patch_pg_pool, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
-    _FakeThreadHandler.active_thread = None
     patch_supabase_client.register(table="rider_master", verb="select", response=FakeSupabaseResponse(data=[{"is_in_shift": True}]))
-    monkeypatch.setattr(handler, "ThreadHandler", _FakeThreadHandler)
+    _patch_active_thread(monkeypatch, None)
     monkeypatch.setattr(handler, "get_rider_intent", lambda text: SimpleNamespace(intent="SomethingElse", confidence=0.9))
 
     await handler.process_wa_msg(fake_async_wa, FakeMessage(sender="RIDER01", text="hello"))
@@ -64,9 +75,8 @@ async def test_process_wa_msg_in_shift_without_thread_sends_no_active_delivery(m
 
 
 async def test_process_wa_msg_with_active_thread_runs_rider_graph(monkeypatch, patch_pg_pool, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
-    _FakeThreadHandler.active_thread = {"thread_id": "thread-1"}
     patch_supabase_client.register(table="rider_master", verb="select", response=FakeSupabaseResponse(data=[{"is_in_shift": True}]))
-    monkeypatch.setattr(handler, "ThreadHandler", _FakeThreadHandler)
+    _patch_active_thread(monkeypatch, RiderThread("ORDELO-dispatch-10", "RIDER01", dispatch_id=10, order_number="ELAS-ABCD-1"))
     calls = []
 
     async def _fake_run(recipient, human_msg=None, state_update_dict=None, **kwargs):
@@ -77,7 +87,43 @@ async def test_process_wa_msg_with_active_thread_runs_rider_graph(monkeypatch, p
 
     await handler.process_wa_msg(fake_async_wa, msg)
 
-    assert calls == [{"recipient": "RIDER01", "human_msg": "code 11", "state_update_dict": {"latest_wa_msg_id": msg.id}}]
+    assert calls == [{"recipient": "RIDER01", "human_msg": "code 11", "state_update_dict": {"latest_wa_msg_id": msg.id},
+                      "thread_id": "ORDELO-dispatch-10"}]
+
+
+async def test_process_wa_msg_for_a_telegram_job_points_the_rider_there(monkeypatch, patch_pg_pool, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    """D44: the job's channel is fixed; WhatsApp text about a Telegram job is not given to the agent."""
+    patch_supabase_client.register(table="rider_master", verb="select", response=FakeSupabaseResponse(data=[{"is_in_shift": True}]))
+    _patch_active_thread(monkeypatch, RiderThread("ORDELO-dispatch-10", "RIDER01", dispatch_id=10, order_number="ELAS-ABCD-1",
+                                                  channel="telegram", tcid=555))
+
+    async def _never(*args, **kwargs):
+        raise AssertionError("the agent must not run for a Telegram job")
+
+    monkeypatch.setattr(handler, "run_rider_agent_w_custom_msg", _never)
+    await handler.process_wa_msg(fake_async_wa, FakeMessage(sender="RIDER01", text="hi"))
+    assert fake_async_wa.sent[-1].kwargs == {"to": "RIDER01", "text": "Your current job *ELAS-ABCD-1* is on Telegram. Please reply there."}
+
+
+async def test_process_wa_msg_from_a_telegram_rider_without_a_job_points_to_the_bot(monkeypatch, patch_pg_pool, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    """R5, D53: a Telegram rider gets no shift question and no intent guess on WhatsApp, only a pointer to the rider bot."""
+    patch_supabase_client.register(table="rider_master", verb="select",
+                                   response=FakeSupabaseResponse(data=[{"is_in_shift": False, "channel": "telegram"}]))
+    _patch_active_thread(monkeypatch, None)
+
+    async def _never(*args, **kwargs):
+        raise AssertionError("no shift question for a Telegram rider")
+
+    monkeypatch.setattr(handler, "enquire_shift_availability_non_template", _never)
+    monkeypatch.setattr(handler, "get_rider_intent", _never)
+    monkeypatch.setattr("config.tgram_setting.tgram_rider_settings", SimpleNamespace(bot_username="ByteloopRidersBot"))
+    await handler.process_wa_msg(fake_async_wa, FakeMessage(sender="RIDER01", text="end my shift"))
+    assert fake_async_wa.sent[-1].kwargs == {
+        "to": "RIDER01",
+        "text": "Your rider messages are on Telegram now: t.me/ByteloopRidersBot. Send /shift there to see your status, "
+                "or /off to take a break.",
+    }
+    assert patch_supabase_client.calls[-1].payload == "is_in_shift, channel"
 
 
 async def test_send_live_map_location_handles_no_inflight_missing_and_success(monkeypatch, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:

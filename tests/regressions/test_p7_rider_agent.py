@@ -2,6 +2,7 @@
 from __future__ import annotations
 from types import SimpleNamespace
 from ordelo.agents import rider_agent
+from ordelo.rider_messaging.fake import RecordingRiderMessenger
 
 
 class _FakeWa:
@@ -14,7 +15,8 @@ class _FakeWa:
 class _FakeCtx:
     def __init__(self):
         self.recipient = "R1"
-        self.wa_client = _FakeWa()
+        self.messenger = RecordingRiderMessenger(rider_id="R1")  # the tools talk through ctx.messenger since R3
+        self.thread_id = "ORDELO-dispatch-10"
         self.client_ordelo = SimpleNamespace(
             table=lambda name: SimpleNamespace(
                 select=lambda *a: SimpleNamespace(

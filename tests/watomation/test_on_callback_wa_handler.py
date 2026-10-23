@@ -6,9 +6,12 @@ confirmation, pickup-time updates, and ready notifications.
 
 Key Functions:
   - test_dispatch_response_handles_missing_and_inflight_orders
-  - test_dispatch_response_falls_through_to_initial_handler
+  - test_dispatch_response_accept_marks_the_offer_accepted_without_a_message
+  - test_dispatch_response_sends_the_unchanged_whatsapp_texts
   - test_rider_request_location_handles_completed_missing_and_active_dispatch
-  - test_handle_shift_availability_yes_no_and_on_job_paths
+  - test_handle_shift_availability_yes_no_and_on_job_paths (rule faked: ordelo.rider_shift)
+  - test_handle_shift_availability_yes_from_a_rider_who_is_not_active
+  - test_handle_shift_availability_unknown_number_gets_the_old_reply
   - test_handle_admin_availability_replies
   - test_update_restaurant_order_status_success_and_stale_tap
   - test_update_restaurant_order_status_decline_and_stale_tap_names_the_decliner
@@ -89,19 +92,32 @@ async def test_dispatch_response_handles_missing_and_inflight_orders(patch_supab
     assert fake_async_wa.sent[-1].kwargs["text"] == "Sorry, this job was picked up by another rider."
 
 
-async def test_dispatch_response_falls_through_to_initial_handler(monkeypatch, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+async def test_dispatch_response_accept_marks_the_offer_accepted_without_a_message(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    """Since R4 the rules run in ordelo.dispatch_actions.respond_to_offer (shared with Telegram, D48)."""
     patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[{"status": "unassigned"}]))
     patch_supabase_client.register(table="delivery_inflight", verb="select", response=FakeSupabaseResponse(data=[]))
-    calls = []
-
-    async def _fake_initial(order_status, callback_data):
-        calls.append((order_status, callback_data))
-
-    monkeypatch.setattr(handler, "initial_handle_of_rider_response", _fake_initial)
 
     await handler.dispatch_response(fake_async_wa, FakeMessage(sender="RIDER01", data=_dispatch_payload()))
 
-    assert calls == [({"status": "unassigned"}, {"order_number": "ELAS-ABCD-1", "dispatch_id": 10, "status": "accepted", "rider_id": "RIDER01"})]
+    assert fake_async_wa.sent == []
+    assert patch_supabase_client.calls[-1].payload == {"status": "accepted"}
+
+
+async def test_dispatch_response_sends_the_unchanged_whatsapp_texts(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[]))
+    await handler.dispatch_response(fake_async_wa, FakeMessage(sender="RIDER01", data=_dispatch_payload()))
+    assert fake_async_wa.sent[-1].kwargs == {"to": "RIDER01", "text": "Sorry, This job is no longer available"}
+
+    patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[{"status": "inflight"}]))
+    patch_supabase_client.register(table="delivery_inflight", verb="select",
+                                   response=FakeSupabaseResponse(data=[{"rider_id": "OTHER", "dispatch_id": 11, "order_number": "ELAS-ABCD-1"}]))
+    await handler.dispatch_response(fake_async_wa, FakeMessage(sender="RIDER01", data=_dispatch_payload()))
+    assert fake_async_wa.sent[-1].kwargs == {"to": "RIDER01", "text": "Sorry, this job was picked up by another rider."}
+
+    patch_supabase_client.register(table="delivery_inflight", verb="select",
+                                   response=FakeSupabaseResponse(data=[{"rider_id": "RIDER01", "dispatch_id": 9, "order_number": "ELAS-ABCD-1"}]))
+    await handler.dispatch_response(fake_async_wa, FakeMessage(sender="RIDER01", data=_dispatch_payload()))
+    assert fake_async_wa.sent[-1].kwargs == {"to": "RIDER01", "text": "Sorry, You are already on a job ELAS-ABCD-1"}
 
 
 async def test_rider_request_location_handles_completed_missing_and_active_dispatch(monkeypatch, fake_async_wa: FakeAsyncWhatsApp) -> None:
@@ -121,24 +137,66 @@ async def test_rider_request_location_handles_completed_missing_and_active_dispa
     monkeypatch.setattr(handler.DeliveryDispatch, "from_dispatch_id", classmethod(lambda cls, dispatch_id: SimpleNamespace(status="assigned")))
     monkeypatch.setattr(handler, "run_rider_agent_w_custom_msg", _fake_run)
     await handler.rider_request_location(fake_async_wa, FakeMessage(data=json.dumps({"dispatch_id": 1, "recipient": "RIDER01", "human_msg": "pickup"})))
-    assert calls == [{"recipient": "RIDER01", "human_msg": "pickup"}]
+    assert calls == [{"recipient": "RIDER01", "human_msg": "pickup", "dispatch_id": 1}]  # that dispatch's thread (R2)
 
 
-async def test_handle_shift_availability_yes_no_and_on_job_paths(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+@pytest.fixture
+def shift_rule(monkeypatch):
+    """Fakes ordelo.rider_shift.set_shift (the rider_set_shift RPC, proven in tests/sql/test_rider_shift_sql.py)."""
+    from ordelo import rider_shift
+
+    class Rule:
+        outcome = rider_shift.ShiftOutcome(rider_shift.ON)
+        calls: list[tuple[str, bool]] = []
+
+    rule = Rule()
+    rule.calls = []
+
+    async def fake_set_shift(rider_id, on):
+        rule.calls.append((rider_id, on))
+        return rule.outcome
+
+    monkeypatch.setattr(handler.rider_shift, "set_shift", fake_set_shift)
+    return rule
+
+
+async def test_handle_shift_availability_yes_no_and_on_job_paths(shift_rule, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    """The WhatsApp texts are the ones riders always got; the rule decides (R5)."""
+    from ordelo import rider_shift
+
     yes = json.dumps({"recipient": "RIDER01", "human_msg": "Yes"})
-    await handler.handle_shift_availability(fake_async_wa, FakeMessage(data=yes))
-    assert fake_async_wa.sent[-1].kwargs["text"] == "Great! You will receive notifications for new jobs."
-    assert patch_supabase_client.calls[-1].payload["is_in_shift"] is True
-
-    patch_supabase_client.register(table="delivery_inflight", verb="select", response=FakeSupabaseResponse(data=[{"order_number": "ELAS-ABCD-1"}]))
     no = json.dumps({"recipient": "RIDER01", "human_msg": "No"})
-    await handler.handle_shift_availability(fake_async_wa, FakeMessage(data=no))
-    assert "currently on a job" in fake_async_wa.sent[-1].kwargs["text"]
+    await handler.handle_shift_availability(fake_async_wa, FakeMessage(data=yes))
+    assert fake_async_wa.sent[-1].kwargs == {"to": "RIDER01", "text": "Great! You will receive notifications for new jobs."}
 
-    patch_supabase_client.register(table="delivery_inflight", verb="select", response=FakeSupabaseResponse(data=[]))
+    shift_rule.outcome = rider_shift.ShiftOutcome(rider_shift.ON_JOB, order_number="ELAS-ABCD-1")
+    await handler.handle_shift_availability(fake_async_wa, FakeMessage(data=no))
+    assert fake_async_wa.sent[-1].kwargs["text"] == ("You are currently on a job for order ELAS-ABCD-1. "
+                                                     "Please complete the job first.")
+
+    shift_rule.outcome = rider_shift.ShiftOutcome(rider_shift.OFF)
     await handler.handle_shift_availability(fake_async_wa, FakeMessage(data=no))
     assert fake_async_wa.sent[-1].kwargs["text"] == "Ok. You will not receive job notifications for the next 24 hrs."
-    assert patch_supabase_client.calls[-1].payload == {"is_in_shift": False}
+    assert shift_rule.calls == [("RIDER01", True), ("RIDER01", False), ("RIDER01", False)]
+
+
+async def test_handle_shift_availability_yes_from_a_rider_who_is_not_active(shift_rule, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    from ordelo import rider_shift
+
+    shift_rule.outcome = rider_shift.ShiftOutcome(rider_shift.NOT_ACTIVE, status="inactive")
+    await handler.handle_shift_availability(fake_async_wa, FakeMessage(data=json.dumps({"recipient": "RIDER01", "human_msg": "Yes"})))
+    assert fake_async_wa.sent[-1].kwargs["text"] == handler.SHIFT_NOT_ACTIVE_TEXT
+    assert "not active" in handler.SHIFT_NOT_ACTIVE_TEXT
+
+
+@pytest.mark.parametrize("answer, text", [("Yes", "Great! You will receive notifications for new jobs."),
+                                          ("No", "Ok. You will not receive job notifications for the next 24 hrs.")])
+async def test_handle_shift_availability_unknown_number_gets_the_old_reply(shift_rule, fake_async_wa, answer, text) -> None:
+    from ordelo import rider_shift
+
+    shift_rule.outcome = rider_shift.ShiftOutcome(rider_shift.NOT_FOUND)
+    await handler.handle_shift_availability(fake_async_wa, FakeMessage(data=json.dumps({"recipient": "RIDER09", "human_msg": answer})))
+    assert fake_async_wa.sent[-1].kwargs["text"] == text
 
 
 async def test_handle_admin_availability_replies() -> None:

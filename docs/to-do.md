@@ -47,3 +47,59 @@ record these as follow-ups; the organisation work documents them but does not ch
   keep, or drop with explicit approval.
 - [ ] **Rotate the Supabase database password.** A fragment appeared in local tool output during the live check (not
   sent anywhere).
+
+## Rider bot findings (design session, 22 Oct 2026)
+
+Found while planning the Telegram rider bot ([`plans/telegram-rider-bot-plan.md`](../plans/telegram-rider-bot-plan.md)).
+Not fixed by that plan unless a phase says so.
+
+- [ ] **`job_close_thread` header does not match live.** `agent_threads/job_close_thread.sql` says it is "called from Python,
+  not by pg_cron"; the owner says the stale-thread close is a scheduled cron job. Read `cron.job` and make the file show
+  the live schedule (`drift_check.py`).
+- [ ] **`job_close_thread` can say goodbye to customers.** It selects idle threads of EVERY agent except `WEB` and its payload
+  has no `agent`, so `delivery_hooks.close_threads` cannot skip anything: idle restaurant-agent customer threads
+  (`ELAS-…`) get "Ending the conversation…" from Ordelo's WhatsApp number (their threads are not closed, because
+  `make_threads_inactive` is scoped to the ORDELO agent). Phase R2 makes the rider path close only `ORDELO-dispatch-*`
+  rows; done when the job itself filters by agent (or the owner records that it is intended).
+- [x] **`fapp_ordelo_agent.py /threads` and `/debug-state-by-thread` query `from_number`,** a column the `thread` table no
+  longer has (renamed to `recipient`). Fixed in R2 (both use `recipient`; debug reads never create or touch a thread).
+- [ ] **Race-hardening of rider assignment** (ADR 0011 point 4): `dispatch_response` reads state and writes separately.
+  Deferred by D48; Telegram does not make it worse.
+- [ ] **Rename `wa_location*`** to channel-neutral names now that Telegram locations are built (R5: `receive_current_location`, with `receive_whatsapp_location` kept as an alias). Cosmetic; touches many files.
+- [ ] **Retire the location wire-source mapping.** Telegram locations are stored as `telegram_current` but sent to restaurant-agents as `whatsapp_current` (`wire_source()` in `ordelo_datamodels/wa_location_pymodels.py`), because its callback validates exactly two values. Done when restaurant-agents accepts `telegram_current` and the mapping is removed.
+- [ ] **Single-admin restaurants can never pause alerts** (D52 last-admin guard). STRK has one admin, so the owner's own `/off` on the restaurant bot is refused until a second admin phone is added to `restaurant_master.admins` (owner decision).
+- [ ] **Bring the pause sweep onto its planned schedule.** Live `job_pause_sweep` is active at `*/5 * * * *` (confirmed 23 Oct); `availability/job_pause_sweep.sql` targets `* * * * *`. Apply the whole job file when the owner wants one-minute messages, then verify `cron.job.schedule`, `command` and `active`. The five-minute schedule only delays reminder and back-on messages; `is_paused()` still changes availability on time.
+- [ ] **Pause taps and the inbox review.** `rp1:` / `ap1:` taps use `process_once` (so a redelivered tap cannot restart a break after `/on`); include them in the inbox review below.
+- [ ] **Delete `agent_app_handlers.initial_handle_of_rider_response`.** Superseded by `ordelo/dispatch_actions.respond_to_offer`
+  (R4, shared by WhatsApp and Telegram); it has no production caller left. Delete with its tests after R4 has run live.
+- [ ] **Two agent turns on one rider thread can overlap.** A Telegram text (run in the background), a job-card tap and a
+  hook can reach the same thread at the same moment; LangGraph then interleaves state updates. WhatsApp has the same gap
+  today. A per-thread lock (in-process `asyncio.Lock` keyed by thread id, or `pg_advisory_lock`) would serialise them.
+- [ ] **`rider_master` holds Telegram ids with RLS off.** Part of the existing row-level-security review; `tuid`/`tcid` are
+  now readable with the anon key.
+
+## Rider alert findings (23 Oct 2026)
+
+- [ ] **Overwatch rider alerts never reach Telegram.** Found on test order `STRK-TEST-231130`: the 🔴 "🚨 … collected but
+  has not delivered — 38 min past the pickup time" message reached WhatsApp but not Telegram. It is the `ops` audience:
+  `notify_ops_rider_alert` (`utils_common/waba_utils/wa_senders.py`) sends only through `WALogger.critical()` to the
+  numbers in `ordelo_config.overwatch_list`, with no Telegram sink. The restaurant-admin alert (`rest_admins` audience,
+  🛵 wording) goes to both channels through `restaurant_notifier.notify(RiderAlert(...))`, so the restaurant side is
+  not the gap. Done when the owner decides whether overwatch should also be told on Telegram and, if yes, a Telegram
+  sink sits beside `WALogger` (the rider bot's onboarding alert in `channels/telegram/rider/router.py` uses the same
+  WhatsApp-only logger) and the ops alert calls it, with tests.
+- [ ] **Restaurant admins get no "collected but not delivered" alert on either channel by default.**
+  `rider_alert_to_rest_admins_delivery_intervals` defaults to blank (inactive), so only the overwatch message above
+  fires for that phase. Done when the owner sets a value (for example `30`) live and checks the 🛵 message arrives on
+  WhatsApp and Telegram (runbook step 8b in `dispatch/job_rider_pickup_alerts.sql`), or records that it stays off.
+  Live `ordelo_config` values were not checked when this was logged.
+
+## Telegram inbox review (due 15 November 2026)
+
+- [ ] **Decide whether to retire the remaining Telegram inbox protection.** The 22 Oct change limits
+  `t_inbox_claim` / `t_inbox_finish` to consequential handlers, but a new protected update still makes
+  two HTTPS calls and database writes. Review duplicate-update logs and old `processing` / `failed`
+  rows; verify that order, invite and signup RPCs tolerate repeated delivery; and prove a replacement
+  dedupe key or equivalent guard prevents repeated rider agent turns (text and job-card taps) and
+  duplicate offer-decline cancellation. Done when the evidence and a keep-or-remove decision are
+  recorded, with duplicate-delivery tests for every path before removing the RPCs or table.

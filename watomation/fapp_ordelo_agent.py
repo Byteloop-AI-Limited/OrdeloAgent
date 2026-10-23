@@ -5,7 +5,7 @@ FastAPI application for Ordelo WhatsApp automation service.
     . Exposes diagnostic endpoints for debugging agent state and flows
     . Serves as entry point when running OrdeloAgent with WhatsApp integration
     . Recovers unattempted customer notifications with an application-owned sweep
-    . Serves Telegram webhooks (restaurant-admin bot) and builds/closes the Telegram bot registry
+    . Serves Telegram webhooks (restaurant-admin bot; rider bot when configured) and builds/closes the Telegram bot registry
   Functions/Classes:
     . app - FastAPI application instance
     . custom_404_handler - Handles 404 errors with template response
@@ -42,7 +42,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from config import waba_business_settings, pg_settings, client_ordelo
 from utils_common.notify.customer_notifier import run_sweeper
 from channels.telegram.bots import close_registry, default_registry
-from watomation.routers import telegram_order_alerts, telegram_webhook, web_hooks
+from watomation.routers import pause_hooks, telegram_order_alerts, telegram_webhook, web_hooks
 from utils_common.web_ordering.common import WebError
 from ordelo.agents.rider_agent import builder
 from ordelo.agent_app_handlers import (
@@ -172,6 +172,7 @@ app.include_router(wa_location_hooks.router)
 app.include_router(web_hooks.router, prefix="/web")
 app.include_router(telegram_webhook.router)
 app.include_router(telegram_order_alerts.router)
+app.include_router(pause_hooks.router)  # POST /pause-hooks/sweep (job_pause_sweep, R5-R6)
 
 @app.exception_handler(WebError)
 async def web_error_handler(request, exc):
@@ -392,8 +393,8 @@ async def reset_restaurant_base_url_cache_endpoint(
 async def get_threads(recipient: Optional[str] = "447448440754"):
     threads = (
         client_ordelo.table("thread")
-        .select("thread_id, dtts")
-        .eq("from_number", recipient)
+        .select("thread_id, dtts, is_active")
+        .eq("recipient", recipient)
         .order("dtts", desc=True)
         .execute()
     )
@@ -435,13 +436,13 @@ async def debug_state_by_thread_path(thread_id: str):
     # Get thread using thread_id
     thread = (
         client_ordelo.table("thread")
-        .select("thread_id, from_number")
+        .select("thread_id, recipient")
         .eq("thread_id", thread_id)
         .execute()
         .data[0]
     )
     debug_stack = await debug_state_by_thread(
-        thread["from_number"], thread_id, graph, pool
+        thread["recipient"], thread_id, graph, pool
     )
     return debug_stack
 

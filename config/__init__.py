@@ -20,6 +20,8 @@ __all__ = [
     "TgramBotSettings",
     "tgram_rest_admin_settings",
     "rest_admin_bot",
+    "tgram_rider_settings",
+    "rider_bot",
 ]
 from .project_setting import project_settings, get_project_root
 from .waba_setting import (
@@ -43,4 +45,4 @@ from .params import (
 )
 from .llm_setting import llm_settings
 from .wa_location_setting import wa_location_settings
-from .tgram_setting import TgramBotSettings, tgram_rest_admin_settings, rest_admin_bot
+from .tgram_setting import TgramBotSettings, tgram_rest_admin_settings, rest_admin_bot, tgram_rider_settings, rider_bot

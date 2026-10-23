@@ -40,12 +40,18 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.graph import END
 
 from ordelo.agents import rider_agent
+from ordelo.rider_messaging.whatsapp import WhatsAppRiderMessenger
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
 from tests.fixtures.fake_wa import FakeAsyncWhatsApp
 
 
-def _runtime(*, client, wa, recipient="RIDER01"):
-    return SimpleNamespace(context=SimpleNamespace(client_ordelo=client, wa_client=wa, recipient=recipient))
+def _runtime(*, client, wa, recipient="RIDER01", thread_id="ORDELO-dispatch-10"):
+    """The tools talk through ctx.messenger since R3. The WhatsApp adapter around the fake pywa client proves the
+    rider still gets exactly the same WhatsApp calls (every assertion below is on fake_async_wa)."""
+    return SimpleNamespace(context=SimpleNamespace(
+        client_ordelo=client, messenger=WhatsAppRiderMessenger(wa, recipient), recipient=recipient,
+        thread_id=thread_id, dispatch_id=10,
+    ))
 
 
 def _summary_row(**overrides):
@@ -405,7 +411,7 @@ async def test_verify_restaurant_confirmation_code_wrong_and_success_paths(monke
         return _Logger()
 
     class _FakeWaLocation:
-        def __init__(self, *, wa_client):
+        def __init__(self, *, wa_client=None):
             self.wa_client = wa_client
 
         async def observe_restaurant_confirmation(self, observation):
@@ -445,7 +451,13 @@ async def test_verify_customer_confirmation_code_wrong_path(patch_supabase_clien
 
 
 async def test_terminate_delivery_job_records_cancel_reason_and_closes_thread(monkeypatch, patch_pg_pool, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
-    patch_pg_pool.register_sql("make_threads_inactive", [(1,)])
+    closed = []
+
+    async def fake_close(thread_id):
+        closed.append(thread_id)
+        return True
+
+    monkeypatch.setattr(rider_agent.rider_threads, "close", fake_close)
     patch_supabase_client.register(table="delivery_dispatch", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
 
     result = await rider_agent.terminate_delivery_job(
@@ -459,6 +471,7 @@ async def test_terminate_delivery_job_records_cancel_reason_and_closes_thread(mo
     assert patch_supabase_client.calls[-1].payload["reason_for_decline"] == "Bike puncture"
     assert fake_async_wa.sent[-1].kwargs["text"] == "Delivery job completed ✅, thank you."
     assert "buttons" not in fake_async_wa.sent[-1].kwargs
+    assert closed == ["ORDELO-dispatch-10"]  # exactly the run's own thread (R2), not every thread of the phone
 
 
 async def test_request_rider_current_location_sends_intro_and_request_and_records_id(
@@ -467,7 +480,7 @@ async def test_request_rider_current_location_sends_intro_and_request_and_record
     recorded = []
 
     class _FakeWaLocation:
-        def __init__(self, *, wa_client):
+        def __init__(self, *, wa_client=None):
             self.wa_client = wa_client
 
         async def record_prompt_sent(self, request_id, message_id):
@@ -514,7 +527,7 @@ async def test_request_rider_current_location_marks_failed_on_send_error(
     failed = []
 
     class _FakeWaLocation:
-        def __init__(self, *, wa_client):
+        def __init__(self, *, wa_client=None):
             self.wa_client = wa_client
 
         async def record_prompt_sent(self, request_id, message_id):
@@ -590,7 +603,13 @@ async def test_verify_customer_confirmation_code_right_code_tells_the_restaurant
     from utils_common.notify import restaurant_notifier
     from utils_common.notify.restaurant_notifier import DeliveryCompleted
 
-    patch_pg_pool.register_sql("make_threads_inactive", [(1,)])
+    closed = []
+
+    async def fake_close(thread_id):
+        closed.append(thread_id)
+        return True
+
+    monkeypatch.setattr(rider_agent.rider_threads, "close", fake_close)
     patch_supabase_client.register(table="delivery_summary", verb="select", response=FakeSupabaseResponse(data=[_summary_row()]))
     patch_supabase_client.register_rpc("dispatch_complete_func", FakeSupabaseResponse(data=[{"ok": True}]))
     monkeypatch.setattr(rider_agent, "client_ordelo", patch_supabase_client)
@@ -614,3 +633,4 @@ async def test_verify_customer_confirmation_code_right_code_tells_the_restaurant
 
     assert result.update["is_customer_confirmation_code_verified"] is True
     assert seen == [DeliveryCompleted("ELAS-ABCD-1", "ELAS")]
+    assert closed == ["ORDELO-dispatch-10"]

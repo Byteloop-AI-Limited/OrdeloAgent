@@ -125,7 +125,7 @@ async def ready(order_number: str, order_type: str, actor: Actor) -> ActionOutco
         return out
     try:
         if order_type == "delivery":
-            await _nudge_rider(data["rider_id"], data["rest_name"])
+            await _nudge_rider(data["rider_id"], data["rest_name"], data.get("dispatch_id"))
         else:
             await _announce_takeaway_ready(order_number, data, _actor_phone(actor, data))
     except Exception:
@@ -134,13 +134,15 @@ async def ready(order_number: str, order_type: str, actor: Actor) -> ActionOutco
     return out
 
 
-async def _nudge_rider(rider_id: str, rest_name: str) -> None:
+async def _nudge_rider(rider_id: str, rest_name: str, dispatch_id: int | None = None) -> None:
     # Imported here: the agent runner is heavy and only this path needs it (takeaway_hooks does the same for queue_release).
     from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 
+    # dispatch_id (from the RPC) runs exactly that job's thread (R2) and so reaches the rider on the job's channel (D44).
     await run_rider_agent_w_custom_msg(
         recipient=rider_id,
         human_msg=f"call `tool notify_food_ready_for_pickup`. Rider should hurry to {rest_name} to pickup the food.",
+        dispatch_id=dispatch_id,
     )
 
 

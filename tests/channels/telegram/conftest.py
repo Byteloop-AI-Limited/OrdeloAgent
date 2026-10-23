@@ -5,7 +5,16 @@ from __future__ import annotations
 import pytest
 from aiogram import Bot
 from aiogram.client.session.base import BaseSession
-from aiogram.methods import AnswerCallbackQuery, DeleteMessage, EditMessageText, SendMessage, SendRichMessage
+from aiogram.methods import (
+    AnswerCallbackQuery,
+    DeleteMessage,
+    EditMessageText,
+    SendContact,
+    SendLocation,
+    SendMessage,
+    SendRichMessage,
+    SendVenue,
+)
 from aiogram.types import Message
 
 
@@ -26,7 +35,7 @@ class RecordingSession(BaseSession):
             err = self.fail(method)
             if err is not None:
                 raise err
-        if isinstance(method, (SendMessage, SendRichMessage)):
+        if isinstance(method, (SendMessage, SendRichMessage, SendVenue, SendLocation, SendContact)):
             self.next_message_id += 1
             return Message.model_validate(
                 {
@@ -391,3 +400,141 @@ def card_store():
     store = FakeCardStore()
     store.admins = {111: Actor("Ada", "447700900001"), 222: Actor("Bob", "447700900002")}  # instance copy, not class state
     return store
+
+
+# ---- rider bot (telegram/t_rider_onboarding.sql) ------------------------------------------------------------------------
+
+
+def contact_update(phone: str, user_id: int = 111, contact_user_id: int | None = 111, update_id: int = 3,
+                   first_name: str = "Ada", username: str = "ada") -> dict:
+    """A contact message, as sent by the 'Share my phone number' button (contact.user_id == from.id) or forwarded."""
+    contact = {"phone_number": phone, "first_name": first_name}
+    if contact_user_id is not None:
+        contact["user_id"] = contact_user_id
+    return {
+        "update_id": update_id,
+        "message": {
+            "message_id": 11,
+            "date": 1_700_000_000,
+            "chat": {"id": user_id, "type": "private"},
+            "from": {"id": user_id, "is_bot": False, "first_name": first_name, "username": username},
+            "contact": contact,
+        },
+    }
+
+
+class FakeRiderDb:
+    """In-memory mimic of the t_rider_* SQL functions (same result vocabulary and rules). Change it with the SQL."""
+
+    def __init__(self):
+        self.riders: dict[str, dict] = {}
+        self.rpc_names: list[str] = []
+        self.rpc_args: list[tuple[str, dict]] = []
+        self.towns = ["Andover", "Salisbury"]
+        self.vehicles = ["bike", "car"]
+        self.fail = False
+
+    def add(self, phone, name="Sam", status="active", town="Salisbury", vehicle="bike", tuid=None, tcid=None):
+        self.riders[phone] = dict(rider_id=phone, rider_name=name, status=status, town=town, vehicle_type=vehicle,
+                                  tuid=tuid, tcid=tcid, t_username=None, channel="telegram" if tuid else "whatsapp",
+                                  is_in_shift=True)
+        return self.riders[phone]
+
+    @staticmethod
+    def _digits(p):
+        d = "".join(ch for ch in (p or "") if ch.isdigit())
+        return d if 8 <= len(d) <= 12 else None
+
+    def _snap(self, r, result, **extra):
+        return {"result": result, "rider_id": r["rider_id"], "rider_name": r["rider_name"], "status": r["status"],
+                "town": r["town"], "vehicle_type": r["vehicle_type"],
+                "needs_profile": r["town"] == "TBD" or r["vehicle_type"] == "TBD",
+                "previous_tuid": None, "previous_username": None, **extra}
+
+    def by_tuid(self, tuid):
+        return next((r for r in self.riders.values() if r["tuid"] == tuid), None)
+
+    def _link(self, a):
+        phone = self._digits(a["p_phone"])
+        if phone is None:
+            return {"result": "bad_phone"}
+        other = self.by_tuid(a["p_tuid"])
+        if other and other["rider_id"] != phone:
+            return {"result": "tuid_taken", "rider_id": other["rider_id"]}
+        r = self.riders.get(phone)
+        if r is None:
+            r = self.add(phone, name=(a["p_first_name"] or "").strip() or "TBD", status="inactive", town="TBD",
+                         vehicle="TBD", tuid=a["p_tuid"], tcid=a["p_tcid"])
+            r["t_username"] = a["p_username"]
+            return self._snap(r, "registered")
+        if r["tuid"] is None:
+            r.update(tuid=a["p_tuid"], tcid=a["p_tcid"], t_username=a["p_username"], channel="telegram", is_in_shift=True)
+            return self._snap(r, "linked")
+        if r["tuid"] == a["p_tuid"]:
+            r.update(tcid=a["p_tcid"], t_username=a["p_username"])
+            return self._snap(r, "already_linked")
+        prev = (r["tuid"], r["t_username"])
+        r.update(tuid=a["p_tuid"], tcid=a["p_tcid"], t_username=a["p_username"], channel="telegram")
+        return self._snap(r, "relinked", previous_tuid=prev[0], previous_username=prev[1])
+
+    def _set_profile(self, a):
+        r = self.by_tuid(a["p_tuid"])
+        if r is None:
+            return {"result": "not_linked"}
+        town = next((t for t in self.towns if a["p_town"] and t.lower() == a["p_town"].strip().lower()), None)
+        if a["p_town"] is not None:
+            if town is None:
+                return {"result": "bad_town"}
+            if r["town"] != "TBD" and r["town"].lower() != town.lower():
+                return {"result": "locked", "town": r["town"], "vehicle_type": r["vehicle_type"]}
+        veh = a["p_vehicle_type"] if a["p_vehicle_type"] in self.vehicles else None
+        if a["p_vehicle_type"] is not None:
+            if veh is None:
+                return {"result": "bad_vehicle"}
+            if r["vehicle_type"] != "TBD" and r["vehicle_type"] != veh:
+                return {"result": "locked", "town": r["town"], "vehicle_type": r["vehicle_type"]}
+        r["town"] = town or r["town"]
+        r["vehicle_type"] = veh or r["vehicle_type"]
+        return {"result": "ok", "town": r["town"], "vehicle_type": r["vehicle_type"],
+                "needs_profile": r["town"] == "TBD" or r["vehicle_type"] == "TBD"}
+
+    def _choices(self, a):
+        return {"towns": list(self.towns), "vehicle_types": list(self.vehicles)}
+
+    def _profile(self, a):
+        r = self.by_tuid(a["p_tuid"])
+        if r is None:
+            return {"result": "not_linked"}
+        return {"result": "ok", "rider_id": r["rider_id"], "rider_name": r["rider_name"], "status": r["status"],
+                "town": r["town"], "vehicle_type": r["vehicle_type"], "channel": r["channel"],
+                "is_in_shift": r["is_in_shift"], "tcid": r["tcid"],
+                "needs_profile": r["town"] == "TBD" or r["vehicle_type"] == "TBD"}
+
+    def rpc(self, name, args=None):
+        if self.fail:
+            raise RuntimeError("rider db down")
+        self.rpc_names.append(name)
+        self.rpc_args.append((name, dict(args or {})))
+        fn = {"t_rider_link": self._link, "t_rider_set_profile": self._set_profile, "t_rider_choices": self._choices,
+              "t_rider_profile": self._profile}[name]
+        data = fn(args or {})
+        return type("Q", (), {"execute": lambda self_: FakeResp(data)})()
+
+
+@pytest.fixture
+def rider_db(monkeypatch):
+    db = FakeRiderDb()
+    monkeypatch.setattr("channels.telegram.rider_links.client_ordelo_service", db)
+    return db
+
+
+@pytest.fixture
+def ops_alerts(monkeypatch):
+    """Captures rider bot ops alerts instead of sending WhatsApp messages."""
+    sent: list[str] = []
+
+    async def fake_alert(text):
+        sent.append(text)
+
+    monkeypatch.setattr("channels.telegram.rider.router.alert_ops", fake_alert)
+    return sent

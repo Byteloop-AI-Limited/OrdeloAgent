@@ -8,7 +8,7 @@ Telegram webhook ingress for OrdeloAgent (thin route; logic lives in channels/te
     . Consequence: updates of one bot may now run concurrently, so ordering is not guaranteed. Order actions are
       atomic SQL functions, so this is safe for taps; multi-step FSM flows from one user are the one thing to watch.
     . Always 200 after the secret check: Telegram retries non-2xx and a failing update would loop
-    . Duplicate deliveries are dropped by the durable inbox (InboxMiddleware, channels/telegram/inbox.py)
+    . Selected consequential handlers deduplicate through channels/telegram/inbox.py; other updates run without an inbox claim
 """
 
 import asyncio

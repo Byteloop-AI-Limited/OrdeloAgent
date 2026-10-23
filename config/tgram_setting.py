@@ -5,19 +5,25 @@ Telegram bot settings for OrdeloAgent.
       so the service refuses to start (fail fast) instead of silently running without the bot
     . Builds aiogram Bot objects at import (no network call until the first API request)
     . Exposes the restaurant-admin bot used by channels/telegram and notebooks/telegram
+    . Exposes the rider bot (@ByteloopRidersBot, bot_key 'rider') as OPTIONAL (D54): no `tgram_rider_bot_token` -> the rider
+      bot is simply not registered (warning logged), so deploying before the bot exists cannot stop the service; a token that
+      IS set but malformed, or a missing/invalid webhook secret next to a token, still fails fast
     . Admin identities are NOT configured here; restaurant admins come from restaurant_master.admins
     . Depends on: pydantic_settings, aiogram, loguru, aws_setting
   Classes/Functions:
     . TgramBotSettings
     . build_session (10 s request timeout, 5 s keep-alive: a dead idle connection must not hang a call)
     . build_bot
+    . optional_bot
   Module values:
-    . REST_ADMIN_BOT_KEY
+    . REST_ADMIN_BOT_KEY, RIDER_BOT_KEY
     . tgram_rest_admin_settings
     . rest_admin_bot
+    . tgram_rider_settings, rider_bot (None when the rider bot is not configured)
 """
 
 # %%
+import os
 import re
 from typing import Any, Mapping
 
@@ -33,6 +39,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from aws_setting import agent_env
 
 REST_ADMIN_BOT_KEY = "rest_admin"
+RIDER_BOT_KEY = "rider"
 # Telegram setWebhook secret_token rule: 1-256 chars of A-Z a-z 0-9 _ -
 _WEBHOOK_SECRET_RE = re.compile(r"^[A-Za-z0-9_-]{1,256}$")
 
@@ -128,6 +135,22 @@ def build_bot(settings: TgramBotSettings) -> Bot:
     return bot
 
 
+def optional_bot(bot_key: str, env: Mapping[str, Any]) -> tuple[TgramBotSettings, Bot] | tuple[None, None]:
+    """Settings and Bot for a bot that may not be set up yet (D54).
+
+    No token in env (`tgram_<bot_key>_bot_token`) or in the environment (`TGRAM_<BOT_KEY>_BOT_TOKEN`) -> (None, None) and a
+    warning. A token that is present makes every other rule strict again: missing webhook secret or malformed token raises.
+    """
+    if not (env.get(f"tgram_{bot_key}_bot_token") or os.environ.get(f"TGRAM_{bot_key.upper()}_BOT_TOKEN")):
+        logger.warning(f"telegram[{bot_key}]: not configured (no tgram_{bot_key}_bot_token); bot not registered")
+        return None, None
+    settings = TgramBotSettings.for_bot(bot_key, env)
+    return settings, build_bot(settings)
+
+
 #%%
 tgram_rest_admin_settings = TgramBotSettings.for_bot(REST_ADMIN_BOT_KEY, agent_env)
 rest_admin_bot: Bot = build_bot(tgram_rest_admin_settings)
+tgram_rider_settings, rider_bot = optional_bot(RIDER_BOT_KEY, agent_env)
+
+

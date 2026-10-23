@@ -1,0 +1,27 @@
+---
+status: accepted
+---
+
+# Pauses have a mandatory end and availability is computed from the clock
+
+On Telegram a rider can be messaged at any time, so the daily WhatsApp shift question (needed only because of WhatsApp's 24-hour window) goes away for Telegram riders: they are on by default and step away with `/off` for 6 hours, 1 day or 3 days. Restaurant admins will switch their alerts off the same way. The owner required an end time on every pause so nobody forgets to come back, and the same mechanism for both audiences.
+
+The obvious design sets `is_in_shift = false` and has a cron job set it back when the time is up. It was rejected because a missed, failed or mis-pointed run (the shared `ORDELO_APP_URL` has pointed at stale tunnels before) leaves a person switched off with nobody noticing, which is the very failure the end time was meant to prevent.
+
+Instead a pause is a row in one channel-neutral table, `pauses` (`availability/pauses.sql`), with `audience` (`rider` | `rest_admin`), `principal` (the phone), optional `scope` (`rest_ref` for an admin) and a **mandatory** `ends_at`. Whether someone is paused is computed live by one SQL function, `is_paused()`: an open row whose `ends_at` is still in the future. Dispatch (`get_available_riders`) and, from phase R6, the restaurant alert destinations call it directly, so the moment the end time passes the person is available again with no job involved. A sweep, `job_pause_sweep()`, only closes expired rows and asks the app to send "your break ends soon" and "you're back on", marking each message only after a 2xx reply. A late sweep delays a message; it can never make availability wrong. Durations come only from `ordelo_config` (`PAUSE_DURATIONS_<AUDIENCE>`), so there is no open-ended pause; a second `/off` replaces the end time rather than stacking. A restaurant admin may not pause if that would leave the restaurant with no unpaused admin (phase R6).
+
+Rider handlers reach pauses through `ordelo/pauses.py` (`pause`, `resume`, `current`, `options`) over service-role RPCs. The restaurant bot uses `channels/telegram/admin_pauses.py` over its restaurant-scoped RPCs, which enforce the last-admin guard. The rider bot's `/on` also calls `ordelo/rider_shift.py`; WhatsApp riders keep the daily shift question, and `is_in_shift` is separate from pause state.
+
+Considered and rejected: flipping `is_in_shift` with a reset job (above); a per-audience table (two copies of the same rules); stacking extensions (surprising end times and no hard cap).
+
+## Amendment 1 (22 Oct 2026): R5-R6 built
+
+The restaurant-admin audience is built in code: `pause_start` takes a per-restaurant advisory lock and refuses with `not_allowed` when no other admin of that restaurant would stay unpaused (D52), or `not_admin` when the principal is not in `restaurant_master.admins`; `pause_options(audience)` returns the allowed lengths from `ordelo_config`. A pause stops only NEW Telegram alerts: `t_alert_destinations` is `t_order_card_destinations` minus paused admins and feeds new cards, receipts and notices; existing cards stay visible and tappable and WhatsApp admin alerts are unchanged. `rider_set_shift` is the one rule for switching a rider on or off (status exactly `active` to start; no end while a delivery is in flight), used by `/on` and by the WhatsApp shift "Yes"/"No". The sweep (`job_pause_sweep`) posts to `/pause-hooks/sweep`, which asks the app to send "ends soon" and "back on" messages and marks rows only on a 2xx response.
+
+## Application status (23 Oct 2026)
+
+Live and verified by the owner: the migration VERIFY returned `true / 7 / true / true / 4 / 0` (22 Oct); the app code and both command menus are deployed; `drift_check.py` is successful; `job_pause_sweep` is scheduled; pauses work for riders and restaurant admins, the inflight guard holds, and the Telegram and WhatsApp delivery flows show no regression.
+
+## Amendment 2 (22 Oct 2026): hide rider availability commands during a delivery
+
+An inflight delivery is represented by `delivery_inflight`, independently of the rider's shift and pause state. The rider's `/off`, `/on` and old pause-length buttons refuse while that row exists. The pause RPCs also return `on_job` for a rider's own start or end attempt; an operator may still end a pause. Telegram supports a command list for one private chat (`BotCommandScopeChat`), so the assignment hook hides `/off` and `/on` there, and completion or cancellation restores the default list. The menu is guidance, not authority: a rider can type a hidden command or tap an older button, and the handler/database checks still apply. `/shift` and `/help` reconcile the scoped menu if a lifecycle update was missed. The owner re-applied the SQL on 22 Oct; a read-only live catalog check found the new guard in both functions. The app update is not yet confirmed deployed.

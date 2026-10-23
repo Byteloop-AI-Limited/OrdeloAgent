@@ -6,12 +6,15 @@ Telegram bot registry for OrdeloAgent.
     . Each rest_admin bot also owns its OrderCards (order alerts; channels/telegram/rest_admin/order_cards), exposed as
       TelegramBot.cards for the order-alerts route and injected into handlers as `order_cards`, and its Receipts
       (kitchen receipts; channels/telegram/rest_admin/receipts), exposed as TelegramBot.receipts and injected as `receipts`
-    . Each Dispatcher gets the InboxMiddleware (durable at-most-once handling, channels/telegram/inbox.py)
+    . Consequential handlers opt into the durable inbox through channels/telegram/inbox.py
     . Never sets or deletes a webhook (webhook registration is an explicit operator step)
     . Removable scratchpad router is mounted before the restaurant router's text fallback
+    . The rider bot (bot_key 'rider', channels/telegram/rider) is registered only when configured (D54): config.rider_bot
+      is None without a tgram_rider_bot_token, and default_registry() then builds the restaurant-admin bot alone
   Classes/Functions:
     . TelegramBot
     . build_rest_admin_dispatcher
+    . build_rider_dispatcher
     . build_registry
     . default_registry
     . find_by_slug
@@ -24,14 +27,14 @@ from typing import Callable, Iterable
 from aiogram import Bot, Dispatcher
 from loguru import logger
 
-from config.tgram_setting import REST_ADMIN_BOT_KEY, TgramBotSettings
+from config.tgram_setting import REST_ADMIN_BOT_KEY, RIDER_BOT_KEY, TgramBotSettings
 
 from .errors import register_error_handlers
-from .inbox import InboxMiddleware
 from .rest_admin.order_cards import OrderCards
 from .rest_admin.receipts import Receipts
 from .rest_admin.router import build_router as build_rest_admin_router
 from .rest_admin.scratchpad import build_scratchpad_router
+from .rider.router import build_router as build_rider_router
 
 
 @dataclass(frozen=True)
@@ -51,7 +54,6 @@ def build_rest_admin_dispatcher(
     settings: TgramBotSettings, cards: OrderCards | None = None, receipts: Receipts | None = None
 ) -> Dispatcher:
     dp = Dispatcher()
-    dp.update.outer_middleware(InboxMiddleware(settings.bot_key))  # at-most-once per update_id (D21)
     dp.include_router(build_scratchpad_router())  # unmount /scratchpad: remove this line (and its import)
     dp.include_router(build_rest_admin_router())
     register_error_handlers(dp)
@@ -61,9 +63,18 @@ def build_rest_admin_dispatcher(
     return dp
 
 
+def build_rider_dispatcher(settings: TgramBotSettings) -> Dispatcher:
+    """The rider bot: its own Dispatcher and router tree; never shares routers with the restaurant bot."""
+    dp = Dispatcher()
+    dp.include_router(build_rider_router())
+    register_error_handlers(dp)
+    dp["tgram_settings"] = settings
+    return dp
+
+
 DISPATCHER_FACTORIES: dict[str, Callable[..., Dispatcher]] = {
     REST_ADMIN_BOT_KEY: build_rest_admin_dispatcher,
-    # "rider": build_rider_dispatcher,  # later phase
+    RIDER_BOT_KEY: build_rider_dispatcher,
 }
 
 
@@ -81,9 +92,12 @@ def build_registry(entries: Iterable[tuple[TgramBotSettings, Bot]]) -> dict[str,
 
 
 def default_registry() -> dict[str, TelegramBot]:
-    from config import rest_admin_bot, tgram_rest_admin_settings
+    from config import rest_admin_bot, rider_bot, tgram_rest_admin_settings, tgram_rider_settings
 
-    return build_registry([(tgram_rest_admin_settings, rest_admin_bot)])
+    entries = [(tgram_rest_admin_settings, rest_admin_bot)]
+    if tgram_rider_settings is not None and rider_bot is not None:
+        entries.append((tgram_rider_settings, rider_bot))
+    return build_registry(entries)
 
 
 def find_by_slug(registry: dict[str, TelegramBot], slug: str) -> TelegramBot | None:
