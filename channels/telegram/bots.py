@@ -54,7 +54,7 @@ def build_rest_admin_dispatcher(
     settings: TgramBotSettings, cards: OrderCards | None = None, receipts: Receipts | None = None
 ) -> Dispatcher:
     dp = Dispatcher()
-    dp.include_router(build_scratchpad_router())  # unmount /scratchpad: remove this line (and its import)
+    dp.include_router(build_scratchpad_router())  # unmount /eg: remove this line (and its import)
     dp.include_router(build_rest_admin_router())
     register_error_handlers(dp)
     dp["tgram_settings"] = settings  # injected into handlers that declare `tgram_settings`

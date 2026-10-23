@@ -1,11 +1,13 @@
-"""Removable /scratchpad playground for the restaurant-admin bot (aiogram 3.31.0).
+"""Removable /eg playground for the restaurant-admin bot (aiogram 3.31.0).
 
 Mount build_scratchpad_router() BEFORE the main rest_admin router in bots.py; remove
 that include_router line to disable the command, callbacks and input handlers together.
 Private-chat demos use dummy data and Bot API calls only: no order/payment/RPC calls.
 ScratchpadInput holds only a pending contact/location request, never business state.
-RichDemo keeps per-message demo controls in the dispatcher's temporary FSM storage;
-/scratchpad or a restart clears those examples. No restaurant state is changed.
+RichDemo keeps per-message demo controls in the dispatcher's temporary FSM storage; SeenDemo does
+the same for the four "latest status since you last looked" examples (Telegram sends bots no read
+receipts, so "seen" there means the admin tapped something). /eg or a restart clears those
+examples. No restaurant state is changed.
 Notebook companion: notebooks/telegram/tgram_scratchpad.py.
 """
 
@@ -46,6 +48,9 @@ DEMOS = (
     ("🧾 Expandable receipt", "receipt"), ("🎨 Coloured actions", "colours"),
     ("🟠 Show progress", "progress"), ("⏱ Pickup: prep presets", "pickup_slots"),
     ("➕ Pickup: adjust time", "pickup_eta"), ("🍽 Pickup: ready / hold", "pickup_ready"),
+    ("🆕 Since last seen", "seen_log"), ("🚦 Status badge + flow", "seen_badge"),
+    ("🔔 Rolling nudge", "seen_nudge"), ("⬇️ Re-post latest", "seen_bump"),
+    ("🧾 Receipt phases", "rcpt_phases"), ("🧪 Rows in details", "rcpt_probe"),
     ("📝 Text & formatting", "text"), ("↩️ Reply", "reply"),
     ("✏️ Edit a message", "edit"), ("🗑 Delete a message", "delete"),
     ("⏳ Draft preview", "draft"), ("🛵 Delivery tracker", "tracker"),
@@ -61,6 +66,17 @@ STEPS = ("🧾 Order received", "👨‍🍳 Preparing", "🛵 Rider picked up",
 CARD_STATUS = ("New order", "Preparing", "Ready", "Picked up", "Delivered", "Declined")
 RICH_DEMOS = {"receipt", "colours", "progress", "pickup_slots", "pickup_eta", "pickup_ready"}
 DEMO_NOTE = "Demo only · these controls do not change a real order or contact a rider."
+SEEN_DEMOS = {"seen_log", "seen_badge", "seen_nudge", "seen_bump"}
+SEEN_UPDATES = (
+    "🔔 New order — accept or decline",
+    "🔔 Reminder 2 of 4 — nobody has answered",
+    "✅ Accepted by Ada — waiting for pickup time",
+    "⏰ Pickup time set by Ada",
+    "🍽 Food ready for the rider",
+)
+SEEN_STYLES = ("primary", "primary", "success", "success", "success")
+SEEN_GAP = 180  # demo updates are three minutes apart, so the relative times differ
+SEEN_NOTE = "Demo only · Next update pretends the system edited this card while you were away."
 
 
 @dataclass(frozen=True)
@@ -73,6 +89,30 @@ class RichDemo:
     decision: int = 0
     completed: int = 2
     expanded: bool = False
+
+
+@dataclass(frozen=True)
+class SeenDemo:
+    """State of one "since you last looked" example message.
+
+    `n` updates have happened and the admin has acknowledged the first `seen` of them. Telegram
+    gives bots no read receipts or view counts, so acknowledging means tapping: Mark seen, the
+    badge, the nudge's Seen button, or (on a real card) any button.
+    """
+
+    kind: str
+    base: int  # unix time of update 0; update i happened at base + i * SEEN_GAP
+    n: int = 1
+    seen: int = 1
+    nudge_id: int = 0  # seen_nudge only: message id of the one live nudge, 0 for none
+    expanded: bool = False  # seen_badge only: is the step flow open
+
+    @property
+    def unseen(self) -> int:
+        return self.n - self.seen
+
+    def at(self, index: int) -> int:
+        return self.base + index * SEEN_GAP
 
 
 def rich_action(text: str, action: str | None = None, value: int = 0,
@@ -242,7 +282,7 @@ async def run_rich_demo(query: CallbackQuery, demo: Demo, state: FSMContext) -> 
     saved = (await state.get_data()).get(key)
     updated = advance_rich_demo(RichDemo(**saved), demo.action, demo.value) if saved else None
     if updated is None:
-        await query.bot.send_message(query.message.chat.id, "This demo expired or that action isn't available. Open it again from /scratchpad.")
+        await query.bot.send_message(query.message.chat.id, "This demo expired or that action isn't available. Open it again from /eg.")
         return
     await state.update_data({key: asdict(updated)})
     await edit_demo(query, rich_message=render_rich_demo(updated))
@@ -262,14 +302,14 @@ def menu_keyboard() -> InlineKeyboardMarkup:
 
 async def show_menu(message: Message, state: FSMContext) -> None:
     if message.chat.type != "private":
-        await message.answer("Open /scratchpad in a private chat with this bot.")
+        await message.answer("Open /eg in a private chat with this bot.")
         return
     await state.clear()
     await message.answer("Scratchpad keyboard cleared.", reply_markup=ReplyKeyboardRemove())
     await message.answer(
         "<b>Telegram scratchpad</b>\nChoose an example to try.\n"
         "All orders, contacts and addresses here are demo data.\n"
-        "Send /scratchpad anytime to return to this menu.",
+        "Send /eg anytime to return to this menu.",
         parse_mode="HTML", reply_markup=menu_keyboard(),
     )
 
@@ -333,12 +373,250 @@ async def edit_demo(query: CallbackQuery, **content) -> None:
             raise
 
 
+def seen_key(message_id: int) -> str:
+    return f"scratchpad_seen:{message_id}"
+
+
+def new_seen_demo(kind: str) -> SeenDemo:
+    """The admin has just looked at the first update; the last one will be 'now'."""
+    base = int(time.time()) - (len(SEEN_UPDATES) - 1) * SEEN_GAP
+    if kind == "seen_badge":  # opens mid-flow with two unseen updates: something to see before any tap
+        return SeenDemo(kind=kind, base=base, n=3, seen=1, expanded=True)
+    return SeenDemo(kind=kind, base=base)
+
+
+def seen_time(unix: int) -> str:
+    """Relative time ("5 minutes ago") that Telegram clients keep current without any edit."""
+    return f'<tg-time unix="{unix}" format="r">earlier</tg-time>'
+
+
+def plural(count: int, word: str) -> str:
+    return f"{count} {word}{'' if count == 1 else 's'}"
+
+
+def seen_card(demo: SeenDemo) -> tuple[str, InlineKeyboardMarkup]:
+    """HTML card for seen_log (full change log), seen_nudge and seen_bump (was -> now)."""
+    latest = SEEN_UPDATES[demo.n - 1]
+    mark = "🆕 " if demo.unseen else ""
+    banner = (f"🆕 <b>{plural(demo.unseen, 'update')} since you last looked</b>" if demo.unseen
+              else "✓ <b>You're up to date</b>")
+    when = seen_time(demo.at(demo.n - 1))
+    if demo.kind == "seen_bump":
+        # A re-posted card is a new message, so its first line is the lock-screen preview: status first.
+        lines = [f"{mark}<b>{latest}</b>", f"Demo order #1042 · Kitchen · updated {when}", banner]
+    else:
+        lines = ["<b>Demo order #1042 · Kitchen</b>", banner, "", f"{mark}<b>{latest}</b>", f"updated {when}"]
+    if demo.kind == "seen_log" and demo.n > 1:
+        # tg-time stays outside <b>/<i>: Telegram does not guarantee entity nesting for it.
+        earlier = [
+            f"🆕 <b>{SEEN_UPDATES[i]}</b> · {seen_time(demo.at(i))}" if i >= demo.seen
+            else f"<i>{SEEN_UPDATES[i]}</i> · {seen_time(demo.at(i))}"
+            for i in reversed(range(demo.n - 1))
+        ]
+        lines += ["", "\n".join(["<blockquote expandable><b>Earlier</b>", *earlier]) + "</blockquote>"]
+    elif demo.kind != "seen_log" and demo.unseen:
+        lines += ["", f"Was: <i>{SEEN_UPDATES[demo.seen - 1]}</i>"]
+    lines += ["", f"<i>{SEEN_NOTE}</i>"]
+    row = [("👁 Mark seen", "sn_seen", 0)] if demo.unseen else []
+    row.append(("Next update →", "sn_next", 0) if demo.n < len(SEEN_UPDATES) else ("Restart", "sn_reset", 0))
+    return "\n".join(lines), buttons(row)
+
+
+def seen_step_button(demo: SeenDemo, index: int) -> RichMessageButton:
+    """One stage of the flow. Colour = newer than you have looked at; grey = quiet; lock = still to come."""
+    label = SEEN_UPDATES[index]
+    if index >= demo.n:
+        return rich_action(f"🔒 {label} · pending")
+    if index == demo.n - 1:  # the current stage: tappable (marks seen) while unread
+        if demo.unseen:
+            return rich_action(f"🆕 {label}", "sn_seen", style=SEEN_STYLES[index])
+        return rich_action(f"● {label}")
+    if index >= demo.seen:  # passed while you were away: completed, but new to you
+        return rich_action(f"🆕 {label}", style="success")
+    return rich_action(f"✓ {label}")
+
+
+def seen_badge_message(demo: SeenDemo) -> InputRichMessage:
+    """One glanceable message: a status badge, plus a collapsible visual flow of every stage."""
+    latest = SEEN_UPDATES[demo.n - 1]
+    badge = (rich_action(f"🆕 {latest}", "sn_seen", style=SEEN_STYLES[demo.n - 1]) if demo.unseen
+             else rich_action(f"✓ {latest}"))
+    when = RichTextDateTime(text="earlier", unix_time=demo.at(demo.n - 1), date_time_format="r")
+    blocks = [
+        InputRichBlockSectionHeading(text="Demo order #1042 · Latest status", size=3),
+        InputRichBlockButtons(buttons=[badge]),
+        InputRichBlockParagraph(text=[
+            "Updated ", when,
+            f" · {plural(demo.unseen, 'update')} since you last looked (tap the badge to mark seen). "
+            if demo.unseen else " · you've seen this. ",
+            RichTextButton(button=rich_action("Hide steps" if demo.expanded else "Show steps",
+                                             "sn_toggle", int(not demo.expanded))),
+        ]),
+    ]
+    if demo.expanded:
+        blocks += [InputRichBlockButtons(buttons=[seen_step_button(demo, i)]) for i in range(len(SEEN_UPDATES))]
+    more = demo.n < len(SEEN_UPDATES)
+    blocks.append(InputRichBlockParagraph(text=[
+        RichTextButton(button=rich_action("Next update →" if more else "Restart demo",
+                                         "sn_next" if more else "sn_reset")),
+        " pretends the system edited this message while you were away.",
+    ]))
+    blocks.append(InputRichBlockParagraph(text=DEMO_NOTE))
+    return InputRichMessage(blocks=blocks)
+
+
+RECEIPT_PHASES = ("open@13:00", "ready@13:00", "picked_up", "done", "rider_cancelled")
+
+
+def demo_receipt(index: int) -> InputRichMessage:
+    """The REAL Receipt.view() for a fake delivery in each state, plus a 'Next state' control (a Demo callback).
+
+    Stateless: the state index is in the callback data. The receipt's own Ready / +N / badge buttons carry real
+    OrderAction data for the fake order DEMO-PHASE-1; the orders router answers them with 'no longer available'."""
+    from .order_cards.model import Viewer
+    from .receipts.model import Receipt, ReceiptSnapshot
+
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+
+    def iso(minutes: int) -> str:
+        return (now + timedelta(minutes=minutes)).isoformat()
+
+    index %= len(RECEIPT_PHASES)
+    status = RECEIPT_PHASES[index]
+    ada = {"label": "Ada", "phone": "447700900001"}
+    ready = status != "open@13:00"
+    facts = {
+        "order_number": "DEMO-PHASE-1", "order_type": "delivery", "rest_name": "Demo", "rest_code": 47,
+        "pickup_at": iso(10), "pickup_initial": iso(0), "pickup_adjusted_by": ada,
+        "ready_at": iso(-2) if ready else None, "ready_by": ada if ready else None,
+        "rider": {"id": "447700900123", "name": "Demo Rider"},
+        "customer": {"address": "1 Demo Street, Salisbury SP1 3TA", "phone": "447700900999"},
+        "items": [{"qty": 2, "name": "Chicken Shawarma", "line_total": 17.0, "mods": ["extra garlic sauce"]},
+                  {"qty": 1, "name": "Fries", "line_total": 3.5, "mods": []}],
+        "small_order_fee": 1.0, "total": 21.5, "notes": "Please ring the bell twice (demo)", "pay_at_restaurant": False,
+        "completed_at": iso(25) if status == "done" else None,
+        "accepted_by": ada, "accepted_at": iso(-20), "accepted_auto": False,
+    }
+    snap = ReceiptSnapshot.from_json({"status": status, "rest_ref": "DEMO", "dispatch_id": 1, "facts": facts})
+    rich = Receipt.from_snapshot(snap).view(Viewer("447700900002")).rich
+    nav = InputRichBlockButtons(buttons=[rich_action(f"Next state → (now: {status.partition('@')[0]})", "rp_next", index + 1, "primary")])
+    return InputRichMessage(blocks=[*rich.blocks, nav, InputRichBlockParagraph(text=DEMO_NOTE)])
+
+
+def nested_rows_probe() -> InputRichMessage:
+    """Spike: button rows inside a closed details block, plus the three disabled styles side by side."""
+    def row(text: str, style: str | None = None) -> InputRichBlockButtons:
+        return InputRichBlockButtons(buttons=[rich_action(text, style=style)])
+
+    return InputRichMessage(blocks=[
+        InputRichBlockSectionHeading(text="Spike · rows inside details", size=3),
+        InputRichBlockDetails(summary="Progress · step 3 of 5", is_open=False, blocks=[
+            row("✓ ✅ Accepted by Ada · 9:02 AM"), row("✓ ⏰ Pickup 9:41 AM"), row("● 🍳 Ready by Ada · 9:35 AM", "success"),
+            row("🔒 🛵 Rider picks up · pending"), row("🔒 🏁 Delivered · pending"),
+        ]),
+        row("disabled · default style"), row("disabled · success", "success"), row("disabled · danger", "danger"),
+        InputRichBlockParagraph(text=DEMO_NOTE),
+    ])
+
+
+def seen_content(demo: SeenDemo) -> dict:
+    """Keyword arguments shared by send and edit for whichever kind of message the demo is."""
+    if demo.kind == "seen_badge":
+        return {"rich_message": seen_badge_message(demo)}
+    text, keyboard = seen_card(demo)
+    return {"text": text, "parse_mode": "HTML", "reply_markup": keyboard}
+
+
+async def send_seen(bot, chat_id: int, demo: SeenDemo) -> Message:
+    content = seen_content(demo)
+    if demo.kind == "seen_badge":
+        return await bot.send_rich_message(chat_id, rich_message=content["rich_message"])
+    return await bot.send_message(chat_id, **content)
+
+
+async def delete_quietly(bot, chat_id: int, message_id: int) -> None:
+    try:
+        await bot.delete_message(chat_id, message_id)
+    except TelegramBadRequest:
+        pass  # already deleted by the admin
+
+
+def advance_seen_demo(current: SeenDemo, action: str, value: int = 0) -> SeenDemo | None:
+    """Only the actions a message currently offers apply; a queued stale tap is refused."""
+    if action == "sn_reset":
+        return replace(new_seen_demo(current.kind), nudge_id=current.nudge_id)
+    if action == "sn_next" and current.n < len(SEEN_UPDATES):
+        return replace(current, n=current.n + 1)
+    if action in ("sn_seen", "sn_nudge_seen"):
+        return replace(current, seen=current.n)
+    if action == "sn_toggle" and value in (0, 1):
+        return replace(current, expanded=bool(value))
+    return None
+
+
+async def run_seen_demo(query: CallbackQuery, demo: Demo, state: FSMContext) -> None:
+    bot, chat_id = query.bot, query.message.chat.id
+    if demo.action in SEEN_DEMOS:
+        current = new_seen_demo(demo.action)
+        message = await send_seen(bot, chat_id, current)
+        await state.update_data({seen_key(message.message_id): asdict(current)})
+        return
+    # Only the nudge's Seen button carries a card id (it lives in a different message than its card).
+    card_id = demo.value if demo.action == "sn_nudge_seen" else query.message.message_id
+    key = seen_key(card_id)
+    saved = (await state.get_data()).get(key)
+    current = SeenDemo(**saved) if saved else None
+    updated = advance_seen_demo(current, demo.action, demo.value) if current else None
+    if updated is None:
+        await bot.send_message(chat_id, "This demo expired or that action isn't available. Open it again from /eg.")
+        return
+    if updated.kind == "seen_nudge":
+        # Edits are silent, so a change also sends ONE notifying reply under the card. Its first line
+        # is the status because that line is the lock-screen preview. A newer change, Mark seen or
+        # Restart removes the older nudge, so at most one is ever live.
+        if demo.action == "sn_next":
+            nudge = await bot.send_message(
+                chat_id, f"<b>{SEEN_UPDATES[updated.n - 1]}</b>\nOrder #1042 · tap Seen once you've looked",
+                parse_mode="HTML",
+                reply_parameters=ReplyParameters(message_id=card_id, allow_sending_without_reply=True),
+                reply_markup=buttons([("👁 Seen", "sn_nudge_seen", card_id)]),
+            )
+            updated = replace(updated, nudge_id=nudge.message_id)
+        else:
+            updated = replace(updated, nudge_id=0)
+        if current.nudge_id:
+            await delete_quietly(bot, chat_id, current.nudge_id)
+    if updated.kind == "seen_bump" and demo.action == "sn_next":
+        # Edits never move a message or notify. Re-posting does both; the state follows the new id.
+        message = await send_seen(bot, chat_id, updated)
+        data = await state.get_data()
+        data.pop(key, None)
+        data[seen_key(message.message_id)] = asdict(updated)
+        await state.set_data(data)
+        await delete_quietly(bot, chat_id, card_id)
+        return
+    await state.update_data({key: asdict(updated)})
+    try:
+        await bot.edit_message_text(chat_id=chat_id, message_id=card_id, **seen_content(updated))
+    except TelegramBadRequest as exc:
+        if "message is not modified" not in exc.message.lower():
+            raise
+
+
 async def run_demo(query: CallbackQuery, demo: Demo, state: FSMContext) -> None:
     """One bounded demo per tap; progress cards advance by buttons, not long-running loops."""
     bot, chat_id = query.bot, query.message.chat.id
     action, value = demo.action, demo.value
     if action in RICH_DEMOS or action.startswith("rx_"):
         await run_rich_demo(query, demo, state)
+    elif action in SEEN_DEMOS or action.startswith("sn_"):
+        await run_seen_demo(query, demo, state)
+    elif action == "rcpt_probe":
+        await bot.send_rich_message(chat_id, rich_message=nested_rows_probe())
+    elif action == "rcpt_phases":
+        await bot.send_rich_message(chat_id, rich_message=demo_receipt(0))
+    elif action == "rp_next":
+        await edit_demo(query, rich_message=demo_receipt(value))
     elif action == "mini_app":
         await bot.send_message(
             chat_id, "Browse Salisbury restaurants inside Telegram (live storefront).",
@@ -393,7 +671,7 @@ async def run_demo(query: CallbackQuery, demo: Demo, state: FSMContext) -> None:
         location = action == "ask_location"
         key = KeyboardButton(text="📍 Share location", request_location=True) if location else KeyboardButton(text="👤 Share my contact", request_contact=True)
         await state.set_state(ScratchpadInput.waiting)
-        await bot.send_message(chat_id, "Scratchpad: try the keyboard below. /scratchpad cancels.",
+        await bot.send_message(chat_id, "Scratchpad: try the keyboard below. /eg cancels.",
                                reply_markup=ReplyKeyboardMarkup(keyboard=[[key]], resize_keyboard=True, one_time_keyboard=True))
     elif action == "remove":
         await state.clear()
@@ -420,18 +698,18 @@ async def run_demo(query: CallbackQuery, demo: Demo, state: FSMContext) -> None:
         me = await bot.get_me()
         await bot.send_message(chat_id, f"Bot: @{me.username}\nBot id: {me.id}\nYour private chat id: {chat_id}")
     else:
-        await bot.send_message(chat_id, "That scratchpad button is no longer available. Send /scratchpad.")
+        await bot.send_message(chat_id, "That scratchpad button is no longer available. Send /eg.")
 
 
 def build_scratchpad_router() -> Router:
     router = Router(name="rest_admin_scratchpad")
-    router.message.register(show_menu, Command("scratchpad"))
+    router.message.register(show_menu, Command("eg", "scratchpad"))  # /scratchpad kept as an alias
 
     @router.callback_query(Demo.filter())
     async def on_demo(query: CallbackQuery, callback_data: Demo, state: FSMContext):
         if (not isinstance(query.message, Message) or query.message.chat.type != "private"
                 or query.message.chat.id != query.from_user.id):
-            await answer_quietly(query, "Use /scratchpad in your private chat with the bot.")
+            await answer_quietly(query, "Use /eg in your private chat with the bot.")
             return
         answered = asyncio.create_task(answer_quietly(query))
         try:
@@ -444,6 +722,6 @@ def build_scratchpad_router() -> Router:
     @router.message(ScratchpadInput.waiting, F.chat.type == "private", F.location | F.contact)
     async def received_input(message: Message, state: FSMContext):
         await state.clear()
-        await message.answer("Scratchpad received your location/contact. Send /scratchpad to try another example.", reply_markup=ReplyKeyboardRemove())
+        await message.answer("Scratchpad received your location/contact. Send /eg to try another example.", reply_markup=ReplyKeyboardRemove())
 
     return router
