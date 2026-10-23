@@ -6,6 +6,8 @@ Both channels act on ONE order state (FakeActionsDb), so the WhatsApp-vs-Telegra
 from __future__ import annotations
 
 import pytest
+from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
+from aiogram.methods import EditMessageText, SendMessage, SendRichMessage
 from aiogram.types import Update
 
 from channels.telegram.bots import build_rest_admin_dispatcher
@@ -18,6 +20,7 @@ from utils_common.order_management.restaurant_actions import WhatsAppActor
 
 from .conftest import callback_update
 from .fake_receipt_store import ADA, BOB, FakeReceiptStore
+from .rich_view import all_sends, button_data_of, rich_buttons_of, text_of
 
 pytestmark = pytest.mark.usefixtures("inbox_db")
 
@@ -80,11 +83,11 @@ async def test_send_posts_a_receipt_to_every_destination_as_a_reply_to_the_card(
     receipts, store, session, db, tap, _ = env
     store.destinations = [type(ADA)(111, 111, ADA_PHONE, "Ada", reply_to=77), type(BOB)(222, 222, BOB_PHONE, "Bob", reply_to=None)]
     await receipts.send(DELIVERY, 10)
-    assert sorted(s.chat_id for s in session.sends) == [111, 222]
-    by_chat = {s.chat_id: s for s in session.sends}
+    assert sorted(s.chat_id for s in all_sends(session)) == [111, 222] and session.sends == []  # rich, not HTML
+    by_chat = {s.chat_id: s for s in all_sends(session)}
     assert by_chat[111].reply_parameters.message_id == 77 and by_chat[111].reply_parameters.allow_sending_without_reply
     assert by_chat[222].reply_parameters is None
-    assert by_chat[111].text.startswith("🧾 KITCHEN RECEIPT · 🚚 Delivery")
+    assert text_of(by_chat[111]).startswith("🧾 Kitchen receipt · 🚚 Delivery")
     assert len(store.live()) == 2 and all(r["status"] == "open@13:00" for r in store.live())
 
 
@@ -102,7 +105,7 @@ async def test_send_for_a_vanished_order_sends_nothing(env):
     receipts, store, session, db, *_ = env
     del db.orders[("delivery", ORDER)]
     await receipts.send(DELIVERY, 10)
-    assert session.sends == []
+    assert all_sends(session) == []
 
 
 async def test_one_chat_failing_does_not_stop_the_other(env):
@@ -125,7 +128,7 @@ async def test_status_change_while_sending_triggers_a_redraw(env):
 
     store.receipt_sent = sent_then_ready
     await receipts.send(DELIVERY, 10)
-    assert edits_for(session, 111) and "Marked ready" in edits_for(session, 111)[-1].text
+    assert edits_for(session, 111) and "Marked ready" in text_of(edits_for(session, 111)[-1])
 
 
 # ---- taps --------------------------------------------------------------------------------------------------------
@@ -138,8 +141,8 @@ async def test_ready_tap_notifies_the_rider_answers_and_redraws_every_copy(env, 
     assert session.answers == [("Marked ready — rider told", False)]
     assert nudges == [("rider", "RIDER01", "Elai")]
     ada, bob = edits_for(session, 111)[-1], edits_for(session, 222)[-1]
-    assert "✅ Marked ready by You" in ada.text and "✅ Marked ready by Ada" in bob.text
-    assert [b.callback_data.split(":")[3] for b in ada.reply_markup.inline_keyboard[0]] == ["adj", "adj"]
+    assert "✅ Marked ready by You" in text_of(ada) and "✅ Marked ready by Ada" in text_of(bob)
+    assert [d.split(":")[3] for d in button_data_of(ada)] == ["st", "adj", "adj"]  # badge, then +10 / +20 (no Ready)
     assert {r["status"] for r in store.live()} == {"ready@13:00"}
     assert inbox_db.rpc_names == ["t_inbox_claim", "t_inbox_finish"]
 
@@ -163,8 +166,8 @@ async def test_plus_ten_moves_the_pickup_and_is_not_cumulative(env):
     assert session.answers[-1] == ("Pickup already 1:10 PM", False)
     await tap(f"ord:{ORDER}:d:adj:20", 222)                                   # +20 is over the ORIGINAL pickup, not +30
     assert db.orders[("delivery", ORDER)]["pickup"] == "2026-10-15T12:20:00+00:00"
-    last = edits_for(session, 111)[-1].text
-    assert "⏰ Pickup: <b>1:20 PM</b> (moved +20 by Bob)" in last and "(+10)" not in last.split("Items")[0]
+    last = text_of(edits_for(session, 111)[-1])
+    assert "⏰ Pickup: 1:20 PM (moved +20 by Bob)" in last and "(+10)" not in last.split("Items")[0]
     assert {r["status"] for r in store.live()} == {"open@13:20"}
 
 
@@ -185,7 +188,8 @@ async def test_revoked_admin_copy_turns_into_the_locked_view_on_refresh(env):
     await tap(f"ord:{ORDER}:d:rdy:0", 111)
     assert session.answers[-1][1] is True
     ada = edits_for(session, 111)
-    assert ada and ada[-1].text.startswith("🔒") and ada[-1].reply_markup is None
+    assert ada and text_of(ada[-1]).startswith("🔒") and button_data_of(ada[-1]) == []
+    assert ada[-1].rich_message is not None and ada[-1].text is None  # a rich copy stays rich: never rich -> plain text
     assert db.orders[("delivery", ORDER)]["ready_at"] is None
 
 
@@ -196,7 +200,8 @@ async def test_stale_ready_button_after_pickup_is_refused_and_copies_show_picked
     await tap(f"ord:{ORDER}:d:rdy:0", 111)
     assert session.answers == [("Food already picked up", False)] and nudges == []
     last = edits_for(session, 111)[-1]
-    assert "🛵 Picked up by the rider" in last.text and last.reply_markup is None
+    assert "🛵 Picked up by the rider" in text_of(last)
+    assert [d.split(":")[3] for d in button_data_of(last)] == ["st"]  # only the badge: no Ready, no +N
 
 
 async def test_tap_on_a_cancelled_riders_receipt(env, nudges):
@@ -205,7 +210,7 @@ async def test_tap_on_a_cancelled_riders_receipt(env, nudges):
     db.orders[("delivery", ORDER)]["inflight"] = None                         # rider cancelled, nobody new yet
     await tap(f"ord:{ORDER}:d:rdy:0", 111)
     assert session.answers == [("This order is no longer in progress", False)] and nudges == []
-    assert "⚠️ This rider is no longer on the job" in edits_for(session, 111)[-1].text
+    assert "⚠️ This rider is no longer on the job" in text_of(edits_for(session, 111)[-1])
     assert [r["state"] for r in store.ledger] == ["closed", "closed"]
 
 
@@ -225,7 +230,7 @@ async def test_whatsapp_ready_first_then_telegram_tap_loses_and_copies_catch_up(
     await tap(f"ord:{ORDER}:d:rdy:0", 222)
     assert session.answers == [("Already marked ready by Ada", False)]
     assert len(nudges) == 1
-    assert "✅ Marked ready by Ada" in edits_for(session, 222)[-1].text
+    assert "✅ Marked ready by Ada" in text_of(edits_for(session, 222)[-1])
 
 
 async def test_whatsapp_tap_alone_is_caught_by_the_sweep_refresh(env):
@@ -233,7 +238,7 @@ async def test_whatsapp_tap_alone_is_caught_by_the_sweep_refresh(env):
     await receipts.send(DELIVERY, 10)
     await restaurant_actions.adjust_pickup(ORDER, WhatsAppActor(ADA_PHONE), target="2026-10-15T12:10:00+00:00")
     await receipts.refresh(DELIVERY)                                          # what POST /order-alerts {"receipts": [...]} runs
-    assert len(session.edits) == 2 and all("(moved +10 by" in e.text for e in session.edits)
+    assert len(session.edits) == 2 and all("(moved +10 by" in text_of(e) for e in session.edits)
     session.calls.clear()
     await receipts.refresh(DELIVERY)                                          # nothing stale any more: silent
     assert session.calls == []
@@ -251,7 +256,7 @@ async def test_downstream_failure_still_records_ready_and_tells_the_admin(env, m
     text, alert = session.answers[-1]
     assert alert is True and "could not be messaged" in text
     assert db.orders[("delivery", ORDER)]["ready_at"] is not None
-    assert "✅ Marked ready" in edits_for(session, 111)[-1].text
+    assert "✅ Marked ready" in text_of(edits_for(session, 111)[-1])
 
 
 async def test_database_failure_answers_with_the_trouble_text_and_changes_nothing(env):
@@ -285,12 +290,13 @@ async def test_forged_adjust_minutes_are_refused_without_touching_the_order(env)
 async def test_takeaway_receipt_ready_tap_notifies_the_customer(env, nudges):
     receipts, store, session, db, tap, _ = env
     await receipts.send(TAKEAWAY, None)
-    sent = [s for s in session.sends if s.chat_id == 111][0]
-    assert "🥡 Takeaway" in sent.text and [b.callback_data for b in sent.reply_markup.inline_keyboard[0]] == ["ord:ELAS-TK-1:t:rdy:0"]
+    sent = [s for s in all_sends(session) if s.chat_id == 111][0]
+    assert "🥡 Takeaway" in text_of(sent)
+    assert button_data_of(sent) == ["ord:ELAS-TK-1:t:st:0", "ord:ELAS-TK-1:t:rdy:0"]  # badge, Ready
     await tap("ord:ELAS-TK-1:t:rdy:0", 111)
     assert session.answers == [("Marked ready — customer told", False)] and nudges == [("customer", "ELAS-TK-1", ADA_PHONE)]
     last = edits_for(session, 111)[-1]
-    assert "✅ Marked ready by You" in last.text and last.reply_markup is None
+    assert "✅ Marked ready by You" in text_of(last) and button_data_of(last) == ["ord:ELAS-TK-1:t:st:0"]
 
 
 async def test_old_card_buttons_still_reach_the_order_cards(env, card_store):
@@ -321,9 +327,9 @@ async def test_a_delayed_event_for_the_old_rider_does_not_touch_the_current_rece
     db.orders[("delivery", ORDER)]["inflight"] = dict(dispatch_id=11, rider_id="RIDER02", status="assigned")
     await receipts.send(DELIVERY, 11)
     current = {r["tcid"]: r["message_id"] for r in store.live()}
-    sends, deletes = len(session.sends), len(session.deleted)
+    sends, deletes = len(all_sends(session)), len(session.deleted)
     await receipts.send(DELIVERY, 10)                                          # the old rider's event arrives late
-    assert (len(session.sends), len(session.deleted)) == (sends, deletes)
+    assert (len(all_sends(session)), len(session.deleted)) == (sends, deletes)
     assert {r["tcid"]: r["message_id"] for r in store.live()} == current
 
 
@@ -338,3 +344,74 @@ async def test_cancel_then_refresh_then_reassign_deletes_the_cancelled_receipt(e
     await receipts.send(DELIVERY, 11)                                          # D35: the new rider's receipt replaces the old ones
     assert sorted(session.deleted) == old
     assert len(store.live()) == 2 and all(r["dispatch_id"] == 11 for r in store.live())
+
+
+# ---- the rich receipt: badge, tap-to-refresh, and the HTML fallback ----------------------------------------------------
+
+
+async def test_badge_is_coloured_by_state_and_follows_the_order(env, nudges):
+    receipts, store, session, db, tap, _ = env
+    await receipts.send(DELIVERY, 10)
+    first = [s for s in all_sends(session) if s.chat_id == 111][0]
+    badge = rich_buttons_of(first.rich_message)[0]
+    assert (badge["text"], badge["style"]) == ("📋 Preparing · pickup 1:00 PM", "primary")
+    await tap(f"ord:{ORDER}:d:rdy:0", 111)
+    badge = rich_buttons_of(edits_for(session, 111)[-1].rich_message)[0]
+    assert (badge["text"], badge["style"]) == ("✅ Marked ready by You", "success")
+
+
+async def test_tapping_the_badge_only_redraws_stale_copies_and_never_reaches_the_order_card(env, nudges, card_store):
+    receipts, store, session, db, tap, _ = env
+    await receipts.send(DELIVERY, 10)
+    await restaurant_actions.adjust_pickup(ORDER, WhatsAppActor(ADA_PHONE), target="2026-10-15T12:10:00+00:00")
+    before = len(db.calls)
+    await tap(f"ord:{ORDER}:d:st:0", 222)
+    assert session.answers == [("Up to date", False)]
+    assert len(session.edits) == 2 and all("(moved +10 by" in text_of(e) for e in session.edits)
+    assert not {c[0] for c in db.calls[before:]} & {"t_order_ready", "t_order_adjust_pickup", "t_order_decide"}
+    assert nudges == [] and card_store.calls == []  # the order card's else-branch would have meant "decline"
+    session.calls.clear()
+    await tap(f"ord:{ORDER}:d:st:0", 999)  # not an admin: the same harmless redraw, nothing changes
+    assert session.answers == [("Up to date", False)] and not session.edits
+    assert db.orders[("delivery", ORDER)]["ready_at"] is None
+
+
+async def test_telegram_rejecting_the_rich_form_sends_the_html_receipt_instead(env):
+    receipts, store, session, db, tap, _ = env
+    refuses_rich = lambda m: isinstance(m, SendRichMessage) or (isinstance(m, EditMessageText) and m.rich_message is not None)  # noqa: E731
+    session.fail = lambda m: TelegramBadRequest(method=m, message="rich messages are not supported") if refuses_rich(m) else None
+    await receipts.send(DELIVERY, 10)
+    html = [c for c in session.calls if isinstance(c, SendMessage) and c.chat_id == 111]
+    assert len(html) == 1 and html[0].text.startswith("🧾 KITCHEN RECEIPT · 🚚 Delivery") and html[0].parse_mode == "HTML"
+    assert [b.callback_data.split(":")[3] for b in html[0].reply_markup.inline_keyboard[0]] == ["rdy"]
+    assert len(store.live()) == 2  # one ledger row per chat, exactly as before
+    await tap(f"ord:{ORDER}:d:rdy:0", 111)  # the HTML-form copy keeps working: rich edit rejected, HTML edit used
+    assert session.answers[-1] == ("Marked ready — rider told", False)
+    last = edits_for(session, 111)[-1]
+    assert last.rich_message is None and "✅ Marked ready by You" in last.text
+
+
+async def test_a_rejected_rich_edit_falls_back_to_the_html_edit(env):
+    receipts, store, session, db, tap, _ = env
+    await receipts.send(DELIVERY, 10)
+    session.fail = lambda m: TelegramBadRequest(method=m, message="can't edit this message") if isinstance(m, EditMessageText) and m.rich_message is not None else None
+    await restaurant_actions.adjust_pickup(ORDER, WhatsAppActor(ADA_PHONE), target="2026-10-15T12:10:00+00:00")
+    await receipts.refresh(DELIVERY)
+    html_edits = [e for e in session.edits if e.rich_message is None]
+    assert len(html_edits) == 2 and all("(moved +10 by" in e.text for e in html_edits)
+    assert {r["status"] for r in store.live()} == {"open@13:10"}
+
+
+async def test_a_network_error_on_the_rich_send_never_sends_a_second_copy(env):
+    receipts, store, session, db, tap, _ = env
+    session.fail = lambda m: TelegramNetworkError(method=m, message="timeout") if isinstance(m, SendRichMessage) else None
+    await receipts.send(DELIVERY, 10)  # the first send may have been delivered: do not send the HTML form as well
+    assert not [c for c in session.calls if isinstance(c, SendMessage)] and store.live() == []
+
+
+async def test_a_vanished_order_turns_a_rich_copy_into_a_rich_notice(env):
+    receipts, store, session, db, tap, _ = env
+    await receipts.send(DELIVERY, 10)
+    del db.orders[("delivery", ORDER)]
+    await receipts.refresh(DELIVERY)
+    assert session.edits and all(text_of(e) == "This order is no longer available." and e.rich_message is not None for e in session.edits)

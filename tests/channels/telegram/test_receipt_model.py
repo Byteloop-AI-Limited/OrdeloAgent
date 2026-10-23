@@ -15,6 +15,8 @@ from channels.telegram.rest_admin.receipts.model import (
 )
 from utils_common.order_management.restaurant_actions import ActionOutcome
 
+from .rich_view import rich_buttons_of, rich_text
+
 
 def snap(status="open@13:00", order_type="delivery", **facts):
     base = {
@@ -152,3 +154,96 @@ def test_status_kind():
 ])
 def test_toasts(action, order_type, out, expect):
     assert receipt_toast(action, order_type, out) == expect
+
+
+# ---- the rich form: status badge, collapsible flow, embedded buttons ------------------------------------------------------
+
+READY = dict(ready_by=ADA, ready_at="2026-10-15T12:30:00+00:00")
+
+
+def rich_blocks(v):
+    return v.rich.model_dump(mode="json", exclude_none=True)["blocks"]
+
+
+@pytest.mark.parametrize("status,extra,text,style,tappable", [
+    ("open@13:00", {}, "📋 Preparing · pickup 1:00 PM", "primary", True),
+    ("ready@13:30", READY, "✅ Marked ready by You", "success", True),
+    ("picked_up", {}, "🛵 Picked up by the rider", "success", True),
+    ("done", {}, "✅ Delivered", "success", False),
+    ("rider_cancelled", {}, "⚠️ This rider is no longer on the job", "danger", False),
+])
+def test_badge_text_colour_and_whether_it_can_be_tapped(status, extra, text, style, tappable):
+    badge = rich_buttons_of(view(status, **extra).rich)[0]
+    assert (badge["text"], badge["style"]) == (text, style)
+    assert ("callback_data" in badge) is tappable and ("disabled" in badge) is not tappable
+    if tappable:  # a refresh, never an action on the order
+        assert badge["callback_data"] == "ord:ELAS-CEKT-22:d:st:0"
+
+
+def test_takeaway_badge_says_collected_and_a_group_never_says_you():
+    assert rich_buttons_of(view("done", order_type="takeaway").rich)[0]["text"] == "✅ Collected"
+    shared = view("ready@13:30", viewer=Viewer(None, shared=True), **READY)
+    assert rich_buttons_of(shared.rich)[0]["text"] == "✅ Marked ready by Ada"
+
+
+def test_flow_is_a_closed_native_block_marking_done_now_and_to_come():
+    flow = next(b for b in rich_blocks(view("ready@13:30", **READY)) if b["type"] == "details")
+    assert flow["summary"] == "Progress · step 2 of 4" and flow["is_open"] is False
+    assert [b["text"] for b in flow["blocks"]] == ["✓ Preparing", "● Ready", "🔒 Picked up", "🔒 Delivered"]
+    takeaway = next(b for b in rich_blocks(view(order_type="takeaway")) if b["type"] == "details")
+    assert takeaway["summary"] == "Progress · step 1 of 3"
+    assert [b["text"] for b in takeaway["blocks"]] == ["● Preparing", "🔒 Ready", "🔒 Collected"]
+    assert not any(b["type"] == "details" for b in rich_blocks(view("rider_cancelled")))  # no flow once the rider is off
+
+
+def test_relative_time_under_the_badge_only_once_something_has_happened():
+    assert "⟨when⟩" in rich_text(view("ready@13:30", **READY).rich)
+    assert "Marked ready ⟨when⟩" in rich_text(view("ready@13:30", **READY).rich)
+    assert "⟨when⟩" not in rich_text(view().rich)
+
+
+@pytest.mark.parametrize("status,extra,order_type", [
+    ("open@13:00", {}, "delivery"), ("ready@13:30", READY, "delivery"), ("picked_up", {}, "delivery"),
+    ("done", {}, "delivery"), ("open@13:00", {}, "takeaway"), ("ready@13:30", READY, "takeaway"),
+])
+def test_rich_buttons_are_the_html_buttons_plus_the_badge(status, extra, order_type):
+    v = view(status, order_type=order_type, **extra)
+    rich = [b["callback_data"] for b in rich_buttons_of(v.rich) if "callback_data" in b]
+    html = [b.callback_data for b in buttons(v)]
+    badge = [d for d in rich if d.split(":")[3] == "st"]
+    assert [d for d in rich if d not in badge] == html
+    assert len(badge) == (0 if status == "done" else 1)
+    assert all(len(d.encode()) <= CALLBACK_DATA_MAX_BYTES for d in rich)
+
+
+def test_the_rich_form_shows_the_same_items_and_the_same_cut_as_the_html():
+    items = [{"qty": 1, "name": f"Dish number {i} " + "x" * 60, "line_total": 1.5, "mods": ["m" * 40, "n" * 40]} for i in range(120)]
+    v = view(items=items, notes="n" * 5000)
+    html_items, rich_items = v.text.count("• "), rich_text(v.rich).count("• ")
+    assert 0 < rich_items == html_items < 120
+    assert "more items (see WhatsApp/printer)" in rich_text(v.rich)
+    assert "Total: £21.50" in rich_text(v.rich) and "📝 Notes" in rich_text(v.rich)
+
+
+def test_rich_text_is_not_html_escaped_but_html_still_is():
+    v = view(items=[{"qty": 1, "name": "Fish & <b>Chips</b>", "line_total": 5.0, "mods": []}])
+    assert "Fish & <b>Chips</b>" in rich_text(v.rich)
+    assert "Fish &amp; &lt;b&gt;Chips&lt;/b&gt;" in v.text
+
+
+def test_gone_and_locked_copies_stay_rich_so_a_rich_message_is_never_edited_to_plain_text():
+    locked = Receipt.from_snapshot(snap()).view(Viewer("447700900001", authorised=False))
+    assert rich_text(locked.rich).startswith("🔒") and rich_buttons_of(locked.rich) == []
+    assert rich_text(view("gone").rich) == "This order is no longer available."
+    from channels.telegram.rest_admin.receipts.model import gone_view
+
+    assert rich_text(gone_view().rich) == "This order is no longer available."
+
+
+def test_a_failure_building_the_rich_form_leaves_the_html_form_working(monkeypatch):
+    def boom(self, viewer, shown):
+        raise RuntimeError("rich form broke")
+
+    monkeypatch.setattr(Receipt, "_rich", boom)
+    v = view()
+    assert v.rich is None and v.text.startswith("🧾 KITCHEN RECEIPT") and buttons(v)

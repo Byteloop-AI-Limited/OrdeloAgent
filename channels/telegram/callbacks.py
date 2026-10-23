@@ -30,14 +30,15 @@ class OrderAction(CallbackData, prefix="ord"):
     """A tap on an order card or kitchen receipt, e.g. 'ord:ELAS-CEKT-22:d:pk:15'.
 
     o: order number; t: 'd' delivery / 't' takeaway; a: 'acc' accept, 'dec' decline, 'pk' pickup
-    time (order cards); 'rdy' food ready, 'adj' move pickup later (kitchen receipts).
+    time (order cards); 'rdy' food ready, 'adj' move pickup later, 'st' tap on the status badge (kitchen receipts;
+    'st' changes nothing: it only redraws the receipt's copies from the database).
     m: minutes after the order time for 'pk'; +minutes over the ORIGINAL pickup (10 or 20) for 'adj'; 0 otherwise.
     Carries no authority: the database re-checks who tapped and the order's current state on every tap.
     """
 
     o: str
     t: Literal["d", "t"]
-    a: Literal["acc", "dec", "pk", "rdy", "adj"]
+    a: Literal["acc", "dec", "pk", "rdy", "adj", "st"]
     m: int = 0
 
 
