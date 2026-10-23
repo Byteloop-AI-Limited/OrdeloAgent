@@ -2,7 +2,11 @@
 -- ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql
 -- Kitchen actions shared by WhatsApp and Telegram (Ready, +10 / +20 pickup), Telegram kitchen receipts and plain notices.
 -- =============================================================================================
--- LIVE CHECK    R6 t_receipt_snapshot() and t_notice_targets() verified live on 2026-10-22 after the owner applied this file;
+-- LIVE CHECK    2026-10-23: t_receipt_snapshot() gained facts.accepted_by / accepted_at / accepted_auto (receipt progress flow,
+--               plans/telegram-receipt-phases-plan.md D58): read-only, from existing columns; PENDING until the owner applies this file.
+--               accepted_at is NULL once the pickup was moved (+10/+20 overwrite restaurant_update_dtts); "accepted by" is whoever
+--               last set the pickup time. Python defaults the keys, so Python and SQL can deploy in either order.
+--               R6 t_receipt_snapshot() and t_notice_targets() verified live on 2026-10-22 after the owner applied this file;
 --               both now use t_alert_destinations() for new sends. Other objects were last compared on 2026-10-16.
 -- OBJECTS       fn     restaurant_order_ready(p_order_number text, p_order_type text, p_admin_phone text, p_channel text) -> jsonb
 --                   Ready, shared by every channel: record the first Ready tap per dispatch (delivery) or per order (takeaway).
@@ -519,6 +523,10 @@ DECLARE
     v_completed timestamptz;
     f record;
     v_items jsonb;
+    v_acc_by text;
+    v_acc_at timestamptz;
+    v_adj_at timestamptz;
+    v_rcs text;
 BEGIN
     IF p_order_type = 'delivery' THEN
         SELECT
@@ -531,7 +539,11 @@ BEGIN
             s.ready_at,
             s.ready_by,
             s.customer_address,
-            s.customer_id INTO v_rest_ref,
+            s.customer_id,
+            s.restaurant_admin,
+            s.restaurant_update_dtts,
+            s.pickup_adjusted_at,
+            s.restaurant_confirmation_status INTO v_rest_ref,
             v_rest_name,
             v_code,
             v_pickup,
@@ -540,7 +552,11 @@ BEGIN
             v_ready_at,
             v_ready_by,
             v_cust_addr,
-            v_cust_phone
+            v_cust_phone,
+            v_acc_by,
+            v_acc_at,
+            v_adj_at,
+            v_rcs
         FROM
             public.delivery_summary s
         WHERE
@@ -581,12 +597,18 @@ BEGIN
             s.rest_confirmation_code,
             s.pickup_time,
             s.ready_at,
-            s.ready_by INTO v_rest_ref,
+            s.ready_by,
+            s.restaurant_admin,
+            s.restaurant_update_dtts,
+            s.restaurant_confirmation_status INTO v_rest_ref,
             v_rest_name,
             v_code,
             v_pickup,
             v_ready_at,
-            v_ready_by
+            v_ready_by,
+            v_acc_by,
+            v_acc_at,
+            v_rcs
         FROM
             public.takeaway_summary s
         WHERE
@@ -625,7 +647,13 @@ BEGIN
             ELSE
                 NULL
             END, 'items', v_items, 'small_order_fee', f.small_order_fee, 'total', f.total_price, 'notes', f.notes, 'pay_at_restaurant', (p_order_type = 'takeaway'
-                AND f.payment_status = 'pay_at_rest'), 'completed_at', v_completed), 'destinations', COALESCE((
+                AND f.payment_status = 'pay_at_rest'), 'completed_at', v_completed, 'accepted_by', CASE WHEN v_acc_by IS NULL THEN
+                NULL
+            ELSE
+                jsonb_build_object('label', public.restaurant_admin_label (v_acc_by), 'phone', v_acc_by)
+            END, 'accepted_at', CASE WHEN v_adj_at IS NULL THEN
+                v_acc_at
+            END, 'accepted_auto', COALESCE(v_rcs = 'auto_accept', FALSE)), 'destinations', COALESCE((
             SELECT
                 jsonb_agg(jsonb_build_object('tcid', d.tcid, 'tuid', d.tuid, 'phone', d.phone, 'label', d.label, 'reply_to', (
                             SELECT

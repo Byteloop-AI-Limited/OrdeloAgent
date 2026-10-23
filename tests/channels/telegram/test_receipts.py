@@ -233,6 +233,19 @@ async def test_whatsapp_ready_first_then_telegram_tap_loses_and_copies_catch_up(
     assert "✅ Marked ready by Ada" in text_of(edits_for(session, 222)[-1])
 
 
+async def test_pickup_redraws_the_copy_as_rich_with_the_order_folded_into_order_details(env):
+    receipts, store, session, db, tap, _ = env
+    await receipts.send(DELIVERY, 10)
+    db.orders[("delivery", ORDER)]["inflight"]["status"] = "pickedup"
+    await receipts.refresh(DELIVERY)
+    last = edits_for(session, 111)[-1]
+    assert last.rich_message is not None                                      # a rich message is never edited down to HTML
+    above, folded = text_of(last).split("🔵 Order details", 1)
+    assert "🛵 Picked up by the rider" in above and "🔑 Restaurant code" in folded and "Items" in folded
+    assert "Items" not in above and "Ready" not in "".join(button_data_of(last))
+    assert [d.split(":")[3] for d in button_data_of(last)] == ["st"]          # only the badge is tappable
+
+
 async def test_whatsapp_tap_alone_is_caught_by_the_sweep_refresh(env):
     receipts, store, session, db, *_ = env
     await receipts.send(DELIVERY, 10)

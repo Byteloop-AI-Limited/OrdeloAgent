@@ -50,6 +50,7 @@ DEMOS = (
     ("➕ Pickup: adjust time", "pickup_eta"), ("🍽 Pickup: ready / hold", "pickup_ready"),
     ("🆕 Since last seen", "seen_log"), ("🚦 Status badge + flow", "seen_badge"),
     ("🔔 Rolling nudge", "seen_nudge"), ("⬇️ Re-post latest", "seen_bump"),
+    ("🧾 Receipt phases", "rcpt_phases"), ("🧪 Rows in details", "rcpt_probe"),
     ("📝 Text & formatting", "text"), ("↩️ Reply", "reply"),
     ("✏️ Edit a message", "edit"), ("🗑 Delete a message", "delete"),
     ("⏳ Draft preview", "draft"), ("🛵 Delivery tracker", "tracker"),
@@ -464,6 +465,60 @@ def seen_badge_message(demo: SeenDemo) -> InputRichMessage:
     return InputRichMessage(blocks=blocks)
 
 
+RECEIPT_PHASES = ("open@13:00", "ready@13:00", "picked_up", "done", "rider_cancelled")
+
+
+def demo_receipt(index: int) -> InputRichMessage:
+    """The REAL Receipt.view() for a fake delivery in each state, plus a 'Next state' control (a Demo callback).
+
+    Stateless: the state index is in the callback data. The receipt's own Ready / +N / badge buttons carry real
+    OrderAction data for the fake order DEMO-PHASE-1; the orders router answers them with 'no longer available'."""
+    from .order_cards.model import Viewer
+    from .receipts.model import Receipt, ReceiptSnapshot
+
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+
+    def iso(minutes: int) -> str:
+        return (now + timedelta(minutes=minutes)).isoformat()
+
+    index %= len(RECEIPT_PHASES)
+    status = RECEIPT_PHASES[index]
+    ada = {"label": "Ada", "phone": "447700900001"}
+    ready = status != "open@13:00"
+    facts = {
+        "order_number": "DEMO-PHASE-1", "order_type": "delivery", "rest_name": "Demo", "rest_code": 47,
+        "pickup_at": iso(10), "pickup_initial": iso(0), "pickup_adjusted_by": ada,
+        "ready_at": iso(-2) if ready else None, "ready_by": ada if ready else None,
+        "rider": {"id": "447700900123", "name": "Demo Rider"},
+        "customer": {"address": "1 Demo Street, Salisbury SP1 3TA", "phone": "447700900999"},
+        "items": [{"qty": 2, "name": "Chicken Shawarma", "line_total": 17.0, "mods": ["extra garlic sauce"]},
+                  {"qty": 1, "name": "Fries", "line_total": 3.5, "mods": []}],
+        "small_order_fee": 1.0, "total": 21.5, "notes": "Please ring the bell twice (demo)", "pay_at_restaurant": False,
+        "completed_at": iso(25) if status == "done" else None,
+        "accepted_by": ada, "accepted_at": iso(-20), "accepted_auto": False,
+    }
+    snap = ReceiptSnapshot.from_json({"status": status, "rest_ref": "DEMO", "dispatch_id": 1, "facts": facts})
+    rich = Receipt.from_snapshot(snap).view(Viewer("447700900002")).rich
+    nav = InputRichBlockButtons(buttons=[rich_action(f"Next state → (now: {status.partition('@')[0]})", "rp_next", index + 1, "primary")])
+    return InputRichMessage(blocks=[*rich.blocks, nav, InputRichBlockParagraph(text=DEMO_NOTE)])
+
+
+def nested_rows_probe() -> InputRichMessage:
+    """Spike: button rows inside a closed details block, plus the three disabled styles side by side."""
+    def row(text: str, style: str | None = None) -> InputRichBlockButtons:
+        return InputRichBlockButtons(buttons=[rich_action(text, style=style)])
+
+    return InputRichMessage(blocks=[
+        InputRichBlockSectionHeading(text="Spike · rows inside details", size=3),
+        InputRichBlockDetails(summary="Progress · step 3 of 5", is_open=False, blocks=[
+            row("✓ ✅ Accepted by Ada · 9:02 AM"), row("✓ ⏰ Pickup 9:41 AM"), row("● 🍳 Ready by Ada · 9:35 AM", "success"),
+            row("🔒 🛵 Rider picks up · pending"), row("🔒 🏁 Delivered · pending"),
+        ]),
+        row("disabled · default style"), row("disabled · success", "success"), row("disabled · danger", "danger"),
+        InputRichBlockParagraph(text=DEMO_NOTE),
+    ])
+
+
 def seen_content(demo: SeenDemo) -> dict:
     """Keyword arguments shared by send and edit for whichever kind of message the demo is."""
     if demo.kind == "seen_badge":
@@ -556,6 +611,12 @@ async def run_demo(query: CallbackQuery, demo: Demo, state: FSMContext) -> None:
         await run_rich_demo(query, demo, state)
     elif action in SEEN_DEMOS or action.startswith("sn_"):
         await run_seen_demo(query, demo, state)
+    elif action == "rcpt_probe":
+        await bot.send_rich_message(chat_id, rich_message=nested_rows_probe())
+    elif action == "rcpt_phases":
+        await bot.send_rich_message(chat_id, rich_message=demo_receipt(0))
+    elif action == "rp_next":
+        await edit_demo(query, rich_message=demo_receipt(value))
     elif action == "mini_app":
         await bot.send_message(
             chat_id, "Browse Salisbury restaurants inside Telegram (live storefront).",
