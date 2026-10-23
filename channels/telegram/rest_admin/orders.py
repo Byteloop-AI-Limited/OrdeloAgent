@@ -2,7 +2,7 @@
 Restaurant-admin order buttons: ONE handler for every tap on an order card.
     . build_orders_router() returns a NEW router per call (aiogram routers join only one parent)
     . OrderAction.filter() -> accept / decline / pickup time (a = acc | dec | pk) go to OrderCards.tap;
-      Ready and +10/+20 (a = rdy | adj) go to Receipts.tap. Both authorise the Telegram user in SQL (D14), act,
+      Ready, +10/+20 and the status badge (a = rdy | adj | st) go to Receipts.tap. Both authorise the Telegram user in SQL (D14), act,
       answer the tap and refresh every copy. All wording lives in order_cards/model.py and receipts/model.py.
     . `order_cards` and `receipts` are injected from dp["order_cards"] / dp["receipts"] (set in channels/telegram/bots.py,
       like `tgram_settings`)
@@ -30,7 +30,7 @@ def build_orders_router() -> Router:
         tgram_settings: TgramBotSettings, event_update: Update,
     ):
         async def work():
-            if callback_data.a in ("rdy", "adj"):
+            if callback_data.a in ("rdy", "adj", "st"):
                 await receipts.tap(query, callback_data)
             else:
                 await order_cards.tap(query, callback_data)

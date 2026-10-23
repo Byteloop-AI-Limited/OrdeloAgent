@@ -3,6 +3,9 @@
     . send   -> message_id | None      None = the chat can not receive it (bot blocked, kicked, chat gone) or
                                        the send failed; the caller skips that destination
     . edit   -> 'edited' | 'gone' | 'retry'
+    . A View with a `rich` form is sent/edited as a rich message first. Only a definitive rejection (TelegramBadRequest:
+      nothing was sent or changed) falls back to the HTML form; a timeout or network error never does, so a message that
+      may already have been delivered is not sent twice.
     . delete -> 'deleted' | 'gone' | 'retry'
     . 'retry' means "leave the ledger row claimed": the sweep offers it again after 30 seconds
     . Error mapping (plans/archive/telegram-rest-admin-scaffold-plan-full-2026-10-15.md): "message is not modified" = edited;
@@ -57,6 +60,21 @@ class TelegramIO:
             if reply_to is not None
             else {}
         )
+        if view.rich is not None:
+            try:
+                msg = await self._with_backoff(
+                    lambda: self._bot.send_rich_message(tcid, rich_message=view.rich, **extra)
+                )
+                return msg.message_id
+            except TelegramBadRequest as e:
+                if _is_gone(e):
+                    logger.info(f"telegram: rich send to chat {tcid} not possible: {e}")
+                    return None
+                logger.warning(f"telegram: rich message to chat {tcid} rejected, sending the HTML form instead: {e}")
+            except (TelegramAPIError, OSError) as e:
+                level = "info" if _is_gone(e) else "error"
+                logger.log(level.upper(), f"telegram: rich send to chat {tcid} failed: {e}")
+                return None
         try:
             msg = await self._with_backoff(
                 lambda: self._bot.send_message(
@@ -69,7 +87,33 @@ class TelegramIO:
             logger.log(level.upper(), f"telegram: order card send to chat {tcid} failed: {e}")
             return None
 
+    async def _edit_rich(self, copy, view: View) -> Literal["edited", "gone", "retry"] | None:
+        """Edit to the rich form. None = Telegram rejected it (nothing changed), so the caller tries the HTML form."""
+        try:
+            await self._with_backoff(
+                lambda: self._bot.edit_message_text(
+                    chat_id=copy.tcid, message_id=copy.message_id, rich_message=view.rich
+                )
+            )
+            return "edited"
+        except TelegramBadRequest as e:
+            if _is_not_modified(e):
+                return "edited"
+            if _is_gone(e):
+                return "gone"
+            logger.warning(f"telegram: rich edit of {copy.tcid}/{copy.message_id} rejected, trying the HTML form: {e}")
+            return None
+        except TelegramForbiddenError:
+            return "gone"
+        except (TelegramAPIError, OSError) as e:
+            logger.error(f"telegram: rich edit of {copy.tcid}/{copy.message_id} failed: {e}")
+            return "retry"
+
     async def edit(self, copy, view: View) -> Literal["edited", "gone", "retry"]:
+        if view.rich is not None:
+            outcome = await self._edit_rich(copy, view)
+            if outcome is not None:
+                return outcome
         try:
             await self._with_backoff(
                 lambda: self._bot.edit_message_text(

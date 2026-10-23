@@ -11,7 +11,7 @@ BOT_KEY = "rest_admin"  # Change to "rider" to operate the rider bot.
 # - Webhook registration lives in tgram_setup_bot.py. This notebook only sends and inspects.
 # - This talks to the REAL Bot API. Anything you send is really sent.
 # - A shared bot may also be used by tgram_starter; see tgram_setup_bot.py before changing its webhook.
-# - Interactive versions of these demos: send /scratchpad to the restaurant-admin bot.
+# - Interactive versions of these demos: send /eg to the restaurant-admin bot.
 #   Router: channels/telegram/rest_admin/scratchpad.py (mounted in channels/telegram/bots.py).
 
 import sys

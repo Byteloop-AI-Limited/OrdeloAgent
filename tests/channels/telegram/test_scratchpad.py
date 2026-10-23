@@ -40,7 +40,7 @@ async def test_command_routes_before_restaurant_text_fallback(recording_bot, inb
         "tgram_rest_admin_bot_token": "123456:TEST-token", "tgram_rest_admin_webhook_secret": "abc",
     })
     dp = build_rest_admin_dispatcher(settings)
-    await feed(dp, bot, message_update("/scratchpad"))
+    await feed(dp, bot, message_update("/eg"))
     assert "Telegram scratchpad" in session.sent_texts[-1]
     keyboard = session.last_keyboard.inline_keyboard
     assert {Demo.unpack(b.callback_data).action for row in keyboard for b in row} == {a for _, a in DEMOS}
@@ -48,6 +48,14 @@ async def test_command_routes_before_restaurant_text_fallback(recording_bot, inb
     session.calls.clear()
     await feed(dp, bot, message_update("hello", update_id=2))
     assert session.sent_texts == ["I don't understand that yet. Try /help."]
+
+
+@pytest.mark.parametrize("command", ["/eg", "/scratchpad"])
+async def test_menu_opens_with_short_command_and_old_alias(recording_bot, command):
+    bot, session = recording_bot
+    await feed(dispatcher(), bot, message_update(command))
+    assert "Telegram scratchpad" in session.sent_texts[-1] and "Send /eg anytime" in session.sent_texts[-1]
+    assert len(keyboard_labels(session.last_keyboard)) == len(DEMOS)
 
 
 async def test_unmount_leaves_command_and_callbacks_unhandled(recording_bot):
@@ -71,6 +79,8 @@ async def test_unmount_leaves_command_and_callbacks_unhandled(recording_bot):
     ("dice", SendDice), ("file", SendDocument), ("effect", SendMessage), ("error", SendMessage),
     ("receipt", SendRichMessage), ("colours", SendRichMessage), ("progress", SendRichMessage),
     ("pickup_slots", SendRichMessage), ("pickup_eta", SendRichMessage), ("pickup_ready", SendRichMessage),
+    ("seen_log", SendMessage), ("seen_badge", SendRichMessage), ("seen_nudge", SendMessage),
+    ("seen_bump", SendMessage),
 ])
 async def test_menu_actions_use_correct_api_and_private_destination(recording_bot, action, method):
     bot, session = recording_bot
@@ -208,7 +218,7 @@ async def test_duplicate_edits_and_unsupported_features(recording_bot, error, ex
 async def test_stale_or_invalid_demo_action_gets_recovery_message(recording_bot, action, value):
     bot, session = recording_bot
     await tap(dispatcher(), bot, action, value)
-    assert "Send /scratchpad" in session.sent_texts[0] and len(session.answers) == 1
+    assert "Send /eg" in session.sent_texts[0] and len(session.answers) == 1
 
 
 async def test_failed_callback_answer_does_not_prevent_demo(recording_bot):
@@ -355,7 +365,8 @@ async def test_demo_state_is_per_message_and_cleared_by_menu(recording_bot):
     assert len(session.edits) == edits and "expired" in session.sent_texts[-1]
 
 
-@pytest.mark.parametrize("kind", ["receipt", "colours", "progress", "pickup_slots", "pickup_eta", "pickup_ready"])
+@pytest.mark.parametrize("kind", ["receipt", "colours", "progress", "pickup_slots", "pickup_eta", "pickup_ready",
+                                  "seen_badge"])
 async def test_rich_demo_payload_has_one_button_action_and_legal_styles(recording_bot, kind):
     bot, _ = recording_bot
     _, _, message = await open_rich_demo(recording_bot, kind)
@@ -367,3 +378,184 @@ async def test_rich_demo_payload_has_one_button_action_and_legal_styles(recordin
         assert button.get("style") in (None, "success", "danger", "primary", "link")
         if "callback_data" in button:
             assert len(button["callback_data"].encode()) <= 64
+
+
+# ---- "latest status since you last looked" examples -------------------------------------------
+
+def keyboard_labels(markup):
+    return [b.text for row in markup.inline_keyboard for b in row]
+
+
+async def open_seen(recording_bot, kind):
+    bot, session = recording_bot
+    dp = dispatcher()
+    await tap(dp, bot, kind)
+    return dp, session.next_message_id
+
+
+def preview(html_text):
+    """What a lock-screen notification shows: the message's first line, without formatting."""
+    import re
+
+    return re.sub(r"<[^>]+>", "", html_text).splitlines()[0]
+
+
+def assert_balanced_html(text):
+    """Telegram rejects unbalanced tags; the recording session would not notice."""
+    from html.parser import HTMLParser
+
+    stack = []
+
+    class Parser(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            stack.append(tag)
+
+        def handle_endtag(self, tag):
+            assert stack and stack.pop() == tag, f"unbalanced </{tag}> in {text!r}"
+
+    Parser().feed(text)
+    assert not stack, f"unclosed {stack} in {text!r}"
+
+
+async def test_since_last_seen_marks_unseen_changes_and_clears_on_mark_seen(recording_bot):
+    bot, session = recording_bot
+    dp, card = await open_seen(recording_bot, "seen_log")
+    opened = session.sends[-1]
+    assert "You're up to date" in opened.text and "🆕" not in opened.text
+    assert "👁 Mark seen" not in keyboard_labels(opened.reply_markup)
+
+    for _ in range(3):
+        await tap(dp, bot, "sn_next", message_id=card)
+    away = session.edits[-1]
+    assert away.message_id == card and len(session.sends) == 1  # same message, edited in place
+    assert "3 updates since you last looked" in away.text
+    assert "🆕 <b>⏰ Pickup time set by Ada</b>" in away.text  # the latest status leads
+    assert "<i>🔔 New order — accept or decline</i>" in away.text  # already-seen history is quiet
+    assert away.text.count("🆕") == 4  # banner, latest and the two unseen earlier lines
+    assert "<blockquote expandable>" in away.text
+    assert "👁 Mark seen" in keyboard_labels(away.reply_markup)
+    assert_balanced_html(away.text)
+
+    await tap(dp, bot, "sn_seen", message_id=card)
+    caught_up = session.edits[-1]
+    assert "You're up to date" in caught_up.text and "🆕" not in caught_up.text
+    assert "👁 Mark seen" not in keyboard_labels(caught_up.reply_markup)
+    assert "<i>🔔 Reminder 2 of 4 — nobody has answered</i>" in caught_up.text
+    assert_balanced_html(caught_up.text)
+
+
+async def test_status_badge_and_flow_show_what_is_new_before_any_tap(recording_bot):
+    bot, session = recording_bot
+    dp, card = await open_seen(recording_bot, "seen_badge")
+    opened = next(c for c in session.calls if isinstance(c, SendRichMessage)).rich_message
+    # Buttons in message order: badge, flow toggle, five flow stages, Next update.
+    badge, toggle, *stages, _next = rich_buttons(opened)
+    assert badge["text"] == "🆕 ✅ Accepted by Ada — waiting for pickup time" and badge["style"] == "success"
+    assert Demo.unpack(badge["callback_data"]) == Demo(action="sn_seen", value=0)
+    assert toggle["text"] == "Hide steps" and Demo.unpack(toggle["callback_data"]) == Demo(action="sn_toggle", value=0)
+    assert [s["text"] for s in stages] == [
+        "✓ 🔔 New order — accept or decline",  # already seen: quiet
+        "🆕 🔔 Reminder 2 of 4 — nobody has answered",  # passed while away: new to you
+        "🆕 ✅ Accepted by Ada — waiting for pickup time",  # current
+        "🔒 ⏰ Pickup time set by Ada · pending",
+        "🔒 🍽 Food ready for the rider · pending",
+    ]
+    assert "disabled" in stages[0] and "style" not in stages[0]
+    assert "disabled" in stages[1] and stages[1]["style"] == "success"
+    assert Demo.unpack(stages[2]["callback_data"]).action == "sn_seen" and stages[2]["style"] == "success"
+    assert all("disabled" in s and "callback_data" not in s for s in stages[3:])
+
+    await tap(dp, bot, "sn_seen", message_id=card)  # tapping the badge acknowledges everything
+    badge, _, *stages, _ = rich_buttons(session.edits[-1].rich_message)
+    assert badge["text"] == "✓ ✅ Accepted by Ada — waiting for pickup time"
+    assert "disabled" in badge and "callback_data" not in badge and "style" not in badge
+    assert [s["text"][:1] for s in stages[:3]] == ["✓", "✓", "●"]
+    assert all("disabled" in s and "style" not in s for s in stages[:3])
+
+    await tap(dp, bot, "sn_toggle", 0, message_id=card)  # collapse: only badge, toggle and Next update remain
+    collapsed = rich_buttons(session.edits[-1].rich_message)
+    assert [b["text"] for b in collapsed][1] == "Show steps" and len(collapsed) == 3
+    await tap(dp, bot, "sn_toggle", 1, message_id=card)
+    assert len(rich_buttons(session.edits[-1].rich_message)) == 8
+
+    await tap(dp, bot, "sn_next", message_id=card)  # a new stage is unread again, and the colour returns
+    badge, _, *stages, _ = rich_buttons(session.edits[-1].rich_message)
+    assert badge["text"] == "🆕 ⏰ Pickup time set by Ada" and "callback_data" in badge
+    assert stages[3]["text"] == "🆕 ⏰ Pickup time set by Ada" and "callback_data" in stages[3]
+    assert stages[2]["text"] == "✓ ✅ Accepted by Ada — waiting for pickup time"  # seen before, stays quiet
+
+    edits = len(session.edits)
+    await tap(dp, bot, "sn_toggle", 2, message_id=card)  # forged toggle value
+    assert len(session.edits) == edits and "expired" in session.sent_texts[-1]
+
+
+@pytest.mark.parametrize("acknowledge", ["card", "nudge"])
+async def test_rolling_nudge_edits_silently_and_keeps_one_live_notification(recording_bot, acknowledge):
+    bot, session = recording_bot
+    dp, card = await open_seen(recording_bot, "seen_nudge")
+    session.calls.clear()
+
+    await tap(dp, bot, "sn_next", message_id=card)
+    first_nudge = session.next_message_id
+    assert [(e.message_id, "Reminder 2 of 4" in e.text) for e in session.edits] == [(card, True)]
+    nudge = session.sends[-1]
+    assert nudge.reply_parameters.message_id == card and not nudge.disable_notification
+    assert preview(nudge.text).startswith("🔔 Reminder 2 of 4 — nobody has answered")  # lock-screen preview
+    assert Demo.unpack(nudge.reply_markup.inline_keyboard[0][0].callback_data) == Demo(action="sn_nudge_seen", value=card)
+
+    await tap(dp, bot, "sn_next", message_id=card)
+    second_nudge = session.next_message_id
+    assert (111, first_nudge) in session.deleted  # the older nudge is replaced, never stacked
+    assert preview(session.sends[-1].text).startswith("✅ Accepted by Ada — waiting for pickup time")
+    assert "Was: <i>🔔 New order — accept or decline</i>" in session.edits[-1].text
+    assert_balanced_html(session.edits[-1].text)
+
+    if acknowledge == "card":
+        await tap(dp, bot, "sn_seen", message_id=card)
+    else:
+        await tap(dp, bot, "sn_nudge_seen", card, message_id=second_nudge)
+    assert (111, second_nudge) in session.deleted
+    assert session.edits[-1].message_id == card and "You're up to date" in session.edits[-1].text
+    assert "Was:" not in session.edits[-1].text
+
+
+async def test_repost_sends_a_new_card_deletes_the_old_one_and_moves_the_state(recording_bot):
+    bot, session = recording_bot
+    dp, card = await open_seen(recording_bot, "seen_bump")
+    session.calls.clear()
+
+    await tap(dp, bot, "sn_next", message_id=card)
+    reposted = session.next_message_id
+    assert reposted != card and not session.edits
+    assert "Was: <i>🔔 New order — accept or decline</i>" in session.sends[-1].text
+    assert "1 update since you last looked" in session.sends[-1].text
+    assert preview(session.sends[-1].text).startswith("🆕 🔔 Reminder 2 of 4 — nobody has answered")
+    assert (111, card) in session.deleted
+    assert_balanced_html(session.sends[-1].text)
+
+    session.calls.clear()
+    await tap(dp, bot, "sn_seen", message_id=card)  # a tap that raced the delete
+    assert "expired" in session.sent_texts[-1] and not session.edits
+    await tap(dp, bot, "sn_seen", message_id=reposted)
+    assert session.edits[-1].message_id == reposted and "You're up to date" in session.edits[-1].text
+
+
+async def test_seen_demo_ends_restarts_and_expires_with_the_menu(recording_bot):
+    bot, session = recording_bot
+    dp, card = await open_seen(recording_bot, "seen_log")
+    for _ in range(4):
+        await tap(dp, bot, "sn_next", message_id=card)
+    labels = keyboard_labels(session.edits[-1].reply_markup)
+    assert "Restart" in labels and "Next update →" not in labels
+
+    edits = len(session.edits)
+    await tap(dp, bot, "sn_next", message_id=card)  # a queued tap for a button that is gone
+    assert len(session.edits) == edits and "expired" in session.sent_texts[-1]
+
+    await tap(dp, bot, "sn_reset", message_id=card)
+    assert "Reminder" not in session.edits[-1].text and "You're up to date" in session.edits[-1].text
+
+    await feed(dp, bot, message_update("/scratchpad"))
+    edits = len(session.edits)
+    await tap(dp, bot, "sn_next", message_id=card)
+    assert len(session.edits) == edits and "expired" in session.sent_texts[-1]
