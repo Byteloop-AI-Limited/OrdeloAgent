@@ -68,7 +68,7 @@ Not fixed by that plan unless a phase says so.
 - [ ] **Rename `wa_location*`** to channel-neutral names now that Telegram locations are built (R5: `receive_current_location`, with `receive_whatsapp_location` kept as an alias). Cosmetic; touches many files.
 - [ ] **Retire the location wire-source mapping.** Telegram locations are stored as `telegram_current` but sent to restaurant-agents as `whatsapp_current` (`wire_source()` in `ordelo_datamodels/wa_location_pymodels.py`), because its callback validates exactly two values. Done when restaurant-agents accepts `telegram_current` and the mapping is removed.
 - [ ] **Single-admin restaurants can never pause alerts** (D52 last-admin guard). STRK has one admin, so the owner's own `/off` on the restaurant bot is refused until a second admin phone is added to `restaurant_master.admins` (owner decision).
-- [x] **Bring the pause sweep onto its planned schedule after R5-R6 deployment.** Done by the owner on 23 Oct: `job_pause_sweep` runs every minute.
+- [ ] **Bring the pause sweep onto its planned schedule.** Live `job_pause_sweep` is active at `*/5 * * * *` (confirmed 23 Oct); `availability/job_pause_sweep.sql` targets `* * * * *`. Apply the whole job file when the owner wants one-minute messages, then verify `cron.job.schedule`, `command` and `active`. The five-minute schedule only delays reminder and back-on messages; `is_paused()` still changes availability on time.
 - [ ] **Pause taps and the inbox review.** `rp1:` / `ap1:` taps use `process_once` (so a redelivered tap cannot restart a break after `/on`); include them in the inbox review below.
 - [ ] **Delete `agent_app_handlers.initial_handle_of_rider_response`.** Superseded by `ordelo/dispatch_actions.respond_to_offer`
   (R4, shared by WhatsApp and Telegram); it has no production caller left. Delete with its tests after R4 has run live.
@@ -77,6 +77,22 @@ Not fixed by that plan unless a phase says so.
   today. A per-thread lock (in-process `asyncio.Lock` keyed by thread id, or `pg_advisory_lock`) would serialise them.
 - [ ] **`rider_master` holds Telegram ids with RLS off.** Part of the existing row-level-security review; `tuid`/`tcid` are
   now readable with the anon key.
+
+## Rider alert findings (23 Oct 2026)
+
+- [ ] **Overwatch rider alerts never reach Telegram.** Found on test order `STRK-TEST-231130`: the 🔴 "🚨 … collected but
+  has not delivered — 38 min past the pickup time" message reached WhatsApp but not Telegram. It is the `ops` audience:
+  `notify_ops_rider_alert` (`utils_common/waba_utils/wa_senders.py`) sends only through `WALogger.critical()` to the
+  numbers in `ordelo_config.overwatch_list`, with no Telegram sink. The restaurant-admin alert (`rest_admins` audience,
+  🛵 wording) goes to both channels through `restaurant_notifier.notify(RiderAlert(...))`, so the restaurant side is
+  not the gap. Done when the owner decides whether overwatch should also be told on Telegram and, if yes, a Telegram
+  sink sits beside `WALogger` (the rider bot's onboarding alert in `channels/telegram/rider/router.py` uses the same
+  WhatsApp-only logger) and the ops alert calls it, with tests.
+- [ ] **Restaurant admins get no "collected but not delivered" alert on either channel by default.**
+  `rider_alert_to_rest_admins_delivery_intervals` defaults to blank (inactive), so only the overwatch message above
+  fires for that phase. Done when the owner sets a value (for example `30`) live and checks the 🛵 message arrives on
+  WhatsApp and Telegram (runbook step 8b in `dispatch/job_rider_pickup_alerts.sql`), or records that it stays off.
+  Live `ordelo_config` values were not checked when this was logged.
 
 ## Telegram inbox review (due 15 November 2026)
 
