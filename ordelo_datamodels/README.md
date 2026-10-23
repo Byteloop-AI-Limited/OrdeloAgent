@@ -45,7 +45,7 @@ Every file starts with a fixed header: `LIVE CHECK`, `OBJECTS`, `REQUIRES`, `HOW
 4. After applying to live: `python scripts/datamodels/drift_check.py` (needs `ORDELO_LIVE_DB_URI` and a local `ORDELO_TEST_DB_URI`).
 5. `pytest tests/test_datamodels_standard.py`; SQL behaviour tests: `ORDELO_TEST_DB_URI=... pytest tests/sql`.
 
-**R5-R6 status (23 Oct 2026):** live. The migration's VERIFY returned `true / 7 / true / true / 4 / 0`; the app and both command menus are deployed; `drift_check.py` is successful; `job_pause_sweep` runs every minute; pauses, the `delivery_inflight` guard and the Telegram and WhatsApp delivery flows were checked live by the owner.
+**R5-R6 status (23 Oct 2026):** live. The migration's VERIFY returned `true / 7 / true / true / 4 / 0`; the app and both command menus are deployed; `drift_check.py` is successful; `job_pause_sweep` is active at `*/5 * * * *` on live (its owner file targets `* * * * *`; moving it is optional, see `docs/to-do.md`); pauses, the `delivery_inflight` guard and the Telegram and WhatsApp delivery flows were checked live by the owner.
 
 ## Files that are not hand-edited
 

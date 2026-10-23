@@ -1582,7 +1582,7 @@
    "called_by": {
     "job_pause_sweep": [
      {
-      "text": "'job_pause_sweep' * * * * * (applied 2026-10-23)",
+      "text": "'job_pause_sweep' */5 * * * * on live at 2026-10-23; target * * * * * in step 6",
       "via": "cron"
      }
     ]
@@ -1632,12 +1632,12 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "job_pause_sweep:\n  cron      'job_pause_sweep' * * * * * (applied 2026-10-23)",
+    "CALLED BY": "job_pause_sweep:\n  cron      'job_pause_sweep' */5 * * * * on live at 2026-10-23; target * * * * * in step 6",
     "GOTCHAS": "The 24-hour window on ANNOUNCE stops a backlog of stale \"you're back on\" messages after a long outage.\nORDELO_APP_URL is shared by test and local runs (see the restaurant plan's known limits): point it at the\n  instance that should send the messages.",
     "HOW IT FITS": "ADR 0013. The sweep never decides availability (is_paused() does, from the clock); it only:\n  1. CLOSE:   open rows whose ends_at passed -> ended_at = ends_at, end_reason = 'expired' (bookkeeping only).\n  2. REMIND:  open rows ending within PAUSE_REMIND_BEFORE_MINS, not yet reminded   -> payload \"ending_soon\".\n  3. ANNOUNCE: rows closed as 'expired' in the last 24 h whose announced_at is NULL  -> payload \"ended\".\n  4. POST {event_type: 'pause_sweep', ending_soon: [...], ended: [...]} to /pause-hooks/sweep; on 2xx set\n     reminded_at / announced_at for exactly the pause_ids handed to the app. A failed POST leaves them for the next\n     scheduled run. A later background send failure is logged but not retried; availability remains clock-derived.\n  Each item: {pause_id, audience, principal, scope, ends_at}. The app routes by audience: 'rider' ->\n  RiderMessenger.for_rider(principal) (ordelo/rider_messaging/: the rider's channel), 'rest_admin' -> the\n  restaurant bot, in the admin's own chats for that restaurant (t_admin_pause_chats(), telegram/t_admin_pauses.sql).\n  Python: watomation/routers/pause_hooks.py <- POST /pause-hooks/sweep (answers 200 at once and sends in the\n  background, like the order-alerts route: a send that fails after the 2xx is logged, not retried).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none (the pause lifecycle is in availability/pauses.sql)",
-    "LIVE CHECK": "job_pause_sweep() matches the live function on 2026-10-22. The pg_cron job is scheduled every minute\n(* * * * *; the owner applied this file 2026-10-23, after deploying /pause-hooks/sweep).",
+    "LIVE CHECK": "job_pause_sweep() matches the live function on 2026-10-22. The live pg_cron job is ACTIVE at */5 * * * *;\nthe runnable schedule below targets * * * * * (R5-R6 migration step 6, after deploying /pause-hooks/sweep).",
     "OBJECTS": "fn     job_pause_sweep() -> boolean\n    Close expired pauses, then POST the due \"ends soon\" and \"back on\" messages; mark them only on a 2xx reply.",
     "PYTHON MODEL": "none",
     "REQUIRES": "availability/pauses.sql\ncore/ordelo_config.sql",
@@ -9958,7 +9958,7 @@
   "job_pause_sweep": {
    "called_by": [
     {
-     "text": "'job_pause_sweep' * * * * * (applied 2026-10-23)",
+     "text": "'job_pause_sweep' */5 * * * * on live at 2026-10-23; target * * * * * in step 6",
      "via": "cron"
     }
    ],
