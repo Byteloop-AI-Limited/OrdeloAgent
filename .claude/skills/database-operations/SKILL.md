@@ -267,6 +267,17 @@ For manual per-table switches, reference SQL files in `.claude/skills/database-o
 | `rider_payout.py` | Rider payout report for date range |
 | `switch_elas_test_prod.py` | Switch ELAS/CHKS between test/prod |
 
+**Order profit check** (read-only): when asked for the profit, margin or revenue split on an order, run
+`scripts/order_profit.py`. It reads `delivery_option.breakdown` (`profit`, `commission`, `driver_payout`,
+`payment_processing_fee`, ...) for the vehicle type that completed the order (from `delivery_detail`), and lists the
+profit of every other vehicle option for comparison. `delivery_option` has one row per vehicle type, so always
+filter by the assigned vehicle; the stored `profit` is used as-is, not recalculated. Pass `--vehicle` to force a
+type (e.g. before a rider is assigned) and `--service` if RLS returns no rows.
+
+```bash
+source .venv/bin/activate && python .claude/skills/database-operations/scripts/order_profit.py --order ELAS-XSRQ-21
+```
+
 **Run rider payout:**
 ```bash
 PYTHONPATH=$(git rev-parse --show-toplevel) python3 \
