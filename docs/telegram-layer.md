@@ -300,6 +300,38 @@ API references: [rich buttons](https://docs.aiogram.dev/en/v3.31.0/api/types/ric
 - **Phases 7-8 are scheduling and live checks for the owner:** apply `restaurant_ready_adjust_notices.sql`, schedule `job_t_receipt_refresh()`, put the dummy rider in `overwatch_list`, deploy, then run the live script (`test_support/test_restaurant_notices.sql`). Out of scope: rider-nearby (G) and availability enquiry (J).
 - **Rider bot:** R1 (onboarding by verified phone) is live since 22 Oct. R2-R4 (thread per dispatch, the messenger in the agent, offers and the job conversation on Telegram) are live since 22 Oct (`migrations/rider_telegram_r2_r4.sql` applied, tested as a rider on both apps). The R5-R6 SQL VERIFY passes on live, including Telegram location storage, the WhatsApp-only shift question and paused-admin destinations. The owner confirms the app code is deployed and both command menus are republished; R5-R6 bot behavior was live-tested by the owner on 23 Oct. Restaurant admins still link by invite (no phone-verified flow).
 
+## Admin roster (P1 of the restaurant-admin onboarding plan)
+
+Admins now link by **sharing their phone** (contact share, `contact.user_id` must equal the sender), not by invite. `restaurant_master.admins` is the authority on who may link. Details: [plans/restaurant-admin-roster-onboarding-plan.md](../plans/restaurant-admin-roster-onboarding-plan.md).
+
+| Piece | Where |
+|---|---|
+| Roster table, view, RPCs (`t_admin_link`, `t_admin_profile`, `admin_set_channels`, `admin_unlink_telegram`, `admin_roster_status`) | `ordelo_datamodels/restaurant_admin/admin_roster.sql` |
+| Python wrappers | `ordelo/admin_roster.py`, `channels/telegram/admin_links.py` |
+| `/start` (profile, contact ask, legacy invite fallback), `/whoami` | `channels/telegram/rest_admin/router.py` |
+| `/channels` (WhatsApp / Telegram / Both; `ac1` callback) | `channels/telegram/rest_admin/channels.py` |
+| Ops alerts (not on roster, Telegram account taken, relinked) | `channels/telegram/ops_alerts.py` |
+| Sys-admin UI (one row per admin, channel control, unlink, copy bot link) | `restaurant-frontend/app/sys-admin/restaurants/page.tsx` and `.../[rest_ref]/admins/*` |
+
+P1 keeps WhatsApp working: the `t_*` destination functions fall back to claimed invites for phones with no admin record (TRANSITION branches, removed in P3). `WHATSAPP_FOLLOWS_CHANNELS` is `False`, so `/channels` shows a note that WhatsApp will follow once P2 lands. Apply `ordelo_datamodels/migrations/admin_roster_p1.sql` (owner only), then run `test_support/test_admin_onboarding.sql` and `test_restaurant_notices.sql` against STRK.
+
+## Order-card reminders and auto-accept
+
+Source: `ordelo_datamodels/telegram/t_order_alerts.sql` (`job_t_order_alerts`, every 5 seconds; config rows near the end).
+
+| Order kind | Status when created | Reminders? |
+|---|---|---|
+| Manually confirmed | `restaurant_unconfirmed` | Yes: offsets `0,15,30,45` seconds after the order, until someone decides it or the confirmation timeout fires |
+| Configured auto-accept (`restaurant_master.auto_accept`, `rest_confirmation_method='configured_auto'`) | already accepted, with a default pickup time | No. One "auto accepted" notice and card only |
+| Timeout auto-accept (`restaurant_timedout` / `auto_accept` set by `process_restaurant_confirmation`, cron 10 s) | `restaurant_unconfirmed` while it waits | Yes while it waits; stops once the timeout decides it |
+| Declined (`restaurant_decline` / `auto_decline`) | n/a | Pending reminders are cancelled; the card shows "declined" |
+
+How it works: the job seeds one `t_order_alerts` row per offset, only for orders from the last 15 minutes that are `restaurant_unconfirmed` and have at least one destination in `t_alert_destinations`. Any pending row is cancelled as soon as `t_order_card_row` no longer reports `restaurant_unconfirmed` (decided on Telegram or WhatsApp). After an outage only the latest due reminder is sent. Paused admins and admins whose channels exclude Telegram are skipped.
+
+Operator controls: `TGRAM_ORDER_ALERT_OFFSETS_SECS` (global) and `<REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS` (per restaurant) in `ordelo_config`; blank turns reminders off for that scope.
+
+Status: derived from the SQL; not yet confirmed live with an auto-accept restaurant (place a test order on one and check the card arrives once).
+
 ## Change log
 
 Add one line per change, newest first: date, what changed, files.
@@ -327,6 +359,8 @@ Add one line per change, newest first: date, what changed, files.
 - 2026-10-16: SQL moved out of `migrations/` into feature folders: `ordelo_datamodels/telegram/` (`create_t_inbox.sql`, `create_t_invites.sql`, `create_t_order_alerts.sql`) and `ordelo_datamodels/restaurant_admin/` (`restaurant_order_decision.sql`, `restaurant_ready_adjust_notices.sql`); `init_delivery` / `init_takeaway` no longer `RETURNING *`.
 - 2026-10-15: Phase 8a, plain restaurant notices on both channels: `restaurant_notifier` gains `AutoAccepted`, `RiderAlert`, `DeliveryCompleted`, `Feedback`; new `rest_admin/notices.py`; call sites in `delivery_hooks` (auto-accept notice now sent AFTER the update, for both channels), `takeaway_hooks`, `rider_agent` and `customer_hooks` switched to `restaurant_notifier.notify`; `wa_senders` gains `admin_auto_accept_notice`, `admin_delivery_completed`, `rider_alert_text` and loses the dead `admin_delivery_driver_nearby` / `admin_delivery_complete_notification` and `REST_MASTER`; tests now default the Telegram side to a no-op (`quiet_telegram_notices`).
 - 2026-10-15: Phase 7, kitchen receipts and actions: `restaurant_ready_adjust_notices.sql` (shared Ready / adjust RPCs, receipt and notice functions, `job_t_receipt_refresh`), `restaurant_actions.py`, `rest_admin/receipts/`, `restaurant_notifier` (`KitchenReceipt`, `TakeawayReceipt`), WhatsApp Ready / +10 / +20 handlers switched to `restaurant_actions` (texts unchanged), `FakeActionsDb`, `FakeReceiptStore`, SQL and live-script tests. Apply the migration, schedule `job_t_receipt_refresh()`, then deploy.
+- 2026-10-25: documented that order-card reminders run only for unconfirmed orders (not configured auto-accept); section "Order-card reminders and auto-accept".
+- 2026-10-24: Admin roster P1: `admin_roster.sql`, contact-share linking, `/channels`, retired invite Yes button, sys-admin roster UI, `admin_roster_p1.sql` migration (not yet applied), `test_admin_onboarding.sql`, SQL / Python / frontend tests.
 - 2026-10-15: Phase 5, Telegram taps: `OrderCards.tap`, `rest_admin/orders.py` (`build_orders_router`, one `OrderAction` handler), `CardStore.decide` / `set_pickup`, SQL `t_order_admin_phone` / `t_order_decide` / `t_order_set_pickup` appended to `restaurant_order_decision.sql` (re-run it), `FakeCardStore` decide/set_pickup, dispatcher-level tap tests, SQL tap tests. Authorised by the Telegram user id only (group-ready).
 - 2026-10-15: Phase 4, order cards (remind / refresh) + ledger: `create_t_order_alerts.sql` (`t_order_alerts`, `t_sent_messages`, card functions, `job_t_order_alerts`, `t_housekeeping`), `channels/telegram/rest_admin/order_cards/` (`model`, `store`, `io`, `OrderCards`), `OrderAction`, `TelegramBot.cards`, `POST /telegram/rest-admin/order-alerts`, `FakeCardStore`, model / cards / route / SQL tests. Run the migration, deploy, then schedule the two cron jobs.
 - 2026-10-15: Phase 3, shared decision functions + R1-a: `restaurant_order_decision.sql` (`'declined'` allowed on `delivery_summary.status`, `restaurant_admin_label`, `restaurant_order_decide`, `restaurant_order_set_pickup`), `utils_common/order_management/restaurant_decision.py`, WhatsApp accept/decline/pickup handlers switched to it (a losing tap is told who decided), delivery decline handler now terminal + payment cancel + customer notice (mirrors takeaway), `FakeDecisionDb`, SQL tests. Run the migration before deploying.

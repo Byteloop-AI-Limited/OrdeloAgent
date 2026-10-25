@@ -281,3 +281,7 @@ PYTHONPATH=$(git rev-parse --show-toplevel) python3 \
 - Supabase client + async pool: `config/pg_setting.py`
 - Raw SQL helpers: `utils_common/db_utils/sbase_pool_ops.py`
 - REST helper wrappers: `utils_common/db_utils/sbase_rest_ops.py`
+
+## Admin roster (replaces Telegram invites for restaurant admins)
+
+Source of truth for membership is `restaurant_master.admins`. Link state and channels live in `restaurant_admin` (view `admin_roster`). Inspect with `SELECT * FROM admin_roster WHERE rest_ref = 'STRK'`; change channels with `admin_set_channels(...)`, remove a Telegram link with `admin_unlink_telegram(...)` (or the sys-admin page). Do not create new `t_invites` for admins; existing claimed invites keep working until P3. Never apply `ordelo_datamodels/migrations/admin_roster_p1.sql` without the owner's approval.

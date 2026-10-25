@@ -83,3 +83,7 @@ Record the result per stage as: `boundary | action | observed | label | not veri
 Add a stage as a new `-- ===== STAGE n: TITLE =====` block (the offline test splits on that marker), keep every DELETE / UPDATE
 scoped to `STRK-TEST-%`, keep town `dummy` and the TEST3100 item, then add a test in `tests/sql/test_restaurant_notices_script_sql.py`
 and update the stage list there and in this page.
+
+## Admin onboarding harness (roster, P1)
+
+`ordelo_datamodels/test_support/test_admin_onboarding.sql` exercises the roster on fake phones `4477009009xx` and adds/removes only those from STRK `admins`. Stages: 0 reset, then link, profile, channel changes, unlink, destinations per channel, pause, transition check (read-only, old invite-only admins still routed), 12 manual live. Run `test_restaurant_notices.sql` afterwards as the WhatsApp regression pass. Channel matrix to eyeball on the real STRK admin: before linking, WhatsApp only; after linking, Telegram only (from P2); `/channels` Both, both.
