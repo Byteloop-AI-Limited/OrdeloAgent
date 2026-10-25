@@ -545,3 +545,30 @@ across workers but cannot recover work lost after that acknowledgement.
   For rider agent turns, `done` records that the turn was queued, not its result.
   The business RPCs retain their own atomic guards against separate button taps.
 - Keep `t_inbox` and its two RPCs. No database migration is required.
+
+## Amendment 5 - 24 October 2026 (proposed: restaurant-admin roster and phone-verified link)
+
+Decided in the admin-roster grilling session ([plan](../../plans/restaurant-admin-roster-onboarding-plan.md),
+decisions D1-D13; terms in `CONTEXT.md`: Admin roster, Admin record, Admin link, Admin channels). It supersedes the
+"Restaurant-admin identity" bullet of Amendment 1 and every description of `t_invites` as the way admins join.
+
+- **Admins prove their phone, like riders (D2).** The restaurant bot asks for Telegram's contact button and accepts a
+  contact only when `contact.user_id == from_user.id`. Private per-phone invites are retired (D7): the invite's phone was
+  never checked, so a mistyped or forwarded invite produced a linked admin who received nothing, or the wrong person. The
+  reason contact share was dropped on 15 Oct (admins reluctant to share a number) is outweighed now that the rider bot
+  runs the same flow live and operators want one link for everybody.
+- **Membership stays on `restaurant_master.admins` (D3).** It is the authority on who is an admin of which restaurant; a
+  person may be on several lists. A new table `restaurant_admin` (one row per phone, the admin record, D4) holds the
+  Telegram link and the admin's channels and confers no authority by itself. This keeps decision 5's spirit (the domain
+  row is not duplicated) while giving admins what riders have on `rider_master` (Amendment 3, D40).
+- **Unknown numbers are refused (D5)**, unlike riders (D41): an admin can accept and decline real orders, so only an
+  operator enrols one, by adding the phone in the sys-admin page. Ops is told about a refused number.
+- **Channels per admin (D6)** replace the "both channels, always" rule (D28) for restaurant admins: WhatsApp, Telegram or
+  both, never none; no record means WhatsApp only; linking sets Telegram only. Channels decide where messages go, never
+  what an admin may do: authorisation stays per Telegram user (D14) through `admin_for_tuid()` / `t_order_admin_phone()`.
+- **Link moves and refusals follow the rider rules (D8, D42).**
+- **One WhatsApp seam.** Every restaurant-facing WhatsApp send goes through the restaurant notifier, whose WhatsApp
+  adapter asks `admin_roster.whatsapp_phones()`; it falls back to `restaurant_master.admins` on any fault, so a roster
+  problem can duplicate a message but never silence WhatsApp.
+- **Sequence (D12):** P1 roster and link (Telegram reads admin records or claimed invites), P2 WhatsApp honours channels,
+  P3 cut-over removes the invite branches and functions. The `t_*` function names and signatures stay (D11).

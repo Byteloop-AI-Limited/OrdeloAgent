@@ -20,6 +20,16 @@ An order created while configured auto-accept is enabled. It stores
 `rest_confirmation_method='configured_auto'`, which keeps later notification
 policy deterministic even if restaurant configuration changes.
 
+## Order-card reminders
+
+The repeat sends of an order card (default offsets `0,15,30,45` seconds, `TGRAM_ORDER_ALERT_OFFSETS_SECS`,
+overridable per restaurant with `<REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS`) exist so an admin cannot miss an
+order that is waiting for an answer. They are scheduled only for orders whose
+`restaurant_confirmation_status` is `restaurant_unconfirmed`, and cancelled as soon as the order is decided on any channel.
+So a *configured auto-accept* order (created already accepted) never gets reminders, only a single "auto accepted"
+notice and card. A *timeout auto-accept* order is unconfirmed while it waits, so it does get reminders until it is
+decided or times out. Reminders are about unanswered orders, not about restaurants that decline.
+
 ## Delivery progress
 
 The answer to "is this delivery still in progress, and has the food been
@@ -253,7 +263,39 @@ actions and notifications alongside WhatsApp. It is deterministic and never
 runs a LangGraph agent. It is not a customer channel.
 _Avoid_: restaurant agent, restaurant chatbot
 
+### Admin roster
+
+The restaurant admins Ordelo knows: one entry per person per restaurant, keyed by the person's phone number. Membership
+comes only from each restaurant's own admin list, which is authoritative; a person may be on several restaurants' lists
+and is an admin only while on at least one. Being on the roster is what makes someone a restaurant admin; every
+channel's reach and every admin action is checked against it. Only an operator adds people to a restaurant's list.
+_Avoid_: admins list (that is one restaurant's part of it), admin phones, invite
+
+### Admin record
+
+One restaurant admin as a person, keyed by phone and shared by every restaurant they are on: their Telegram link,
+whether their phone is verified, their name and how they want to be reached. It confers no authority by itself; a record
+whose phone is on no restaurant's admin list belongs to nobody's roster and receives nothing.
+_Avoid_: admin account, admin login
+
+### Admin link
+
+The binding of one Telegram account to one admin record. It is created only by the person sharing their own phone
+number through the restaurant bot, and only when that number is on at least one restaurant's admin list; an unknown
+number is refused and ops is told. It covers every restaurant the person is on.
+_Avoid_: invite claim, admin invite
+
+### Admin channels
+
+Where Ordelo's messages reach one restaurant admin: WhatsApp, Telegram or both, never none. It belongs to the admin
+record, so it is the same for every restaurant they are on. An admin with no Telegram link is on WhatsApp only;
+linking Telegram moves them to Telegram only (WhatsApp stops), and an operator can change it later. It decides where messages go,
+not what the admin may do: a linked admin may act from Telegram whatever their channels are.
+_Avoid_: preferred channel, rider channel (riders have exactly one)
+
 ### Telegram invite
+
+Being retired: admin links replace it at a single cut-over, with no carry-over of claimed invites.
 
 A single-use, expiring link the operator sends privately so one restaurant
 admin can link their Telegram account to one restaurant (`t_invites`: phone
@@ -333,7 +375,7 @@ _Avoid_: delivery instructions message (the code's older name)
 
 ### Pause
 
-A period, with a mandatory end time, during which a person receives no jobs (rider) or no alerts (restaurant admin).
+A period, with a mandatory end time, during which a person receives no jobs (rider) or no alerts on any of their channels (restaurant admin).
 Whether someone is paused is worked out from the clock, so a pause ends by itself at its end time.
 _Avoid_: off shift, holiday, mute
 
