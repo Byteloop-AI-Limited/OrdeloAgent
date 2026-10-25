@@ -440,3 +440,7 @@ CUSTOMER_NOTIFIER_REST_REFS;
 INSERT INTO ordelo_config (config_key, config_value)
 VALUES ('WEB_STOREFRONT_URL', 'https://restaurant-test.ordelo.app')
 ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value;
+
+
+select * from restaurant_master; 
+select * from 

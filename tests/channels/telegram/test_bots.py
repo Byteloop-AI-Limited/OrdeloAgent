@@ -77,3 +77,12 @@ def test_default_registry_skips_an_unconfigured_rider_bot(monkeypatch):
 
 def test_default_registry_includes_a_configured_rider_bot():
     assert sorted(default_registry()) == ["rest_admin", "rider"]  # tests/conftest.py stubs tgram_rider_* keys
+
+
+def test_restaurant_menu_has_channels_and_the_new_start_text_and_no_rider_commands():
+    from channels.telegram.rest_admin.commands import REST_ADMIN_COMMANDS
+
+    names = [c.command for c in REST_ADMIN_COMMANDS]
+    assert names[:2] == ["start", "channels"] and {"off", "on", "help", "whoami"} <= set(names)
+    assert "shift" not in names and "job" not in names
+    assert "share your phone number" in next(c.description for c in REST_ADMIN_COMMANDS if c.command == "start").lower()

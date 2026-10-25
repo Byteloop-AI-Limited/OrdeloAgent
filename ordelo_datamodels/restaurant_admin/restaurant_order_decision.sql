@@ -16,6 +16,7 @@
 --               fn     t_order_set_pickup(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text, p_minutes integer) -> jsonb
 --                   Telegram pickup button: authorise, then restaurant_order_set_pickup() with pickup = order time + p_minutes.
 -- REQUIRES      telegram/t_invites.sql
+--               restaurant_admin/admin_roster.sql
 --               core/restaurant_master.sql
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
@@ -87,8 +88,8 @@
 
 -- ---------------------------------------------------------------------------------------------
 -- function restaurant_admin_label(p_phone text) -> text
---   Return the 'by X' label for an admin phone: the Telegram first name of its latest claimed invite, else '...' + last 4 digits.
---   Data: reads t_invites.
+--   Return the 'by X' label for an admin phone: the Telegram first name on its admin record (TRANSITION: else its latest claimed invite), else '...' + last 4 digits.
+--   Data: reads restaurant_admin, t_invites (TRANSITION).
 -- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 2. restaurant_admin_label(phone): the "by X" text (D19).
@@ -102,19 +103,32 @@ CREATE OR REPLACE FUNCTION public.restaurant_admin_label (p_phone text)
     SET search_path = public
     AS $$
     SELECT
-        COALESCE((
+        coalesce((
             SELECT
-                i.telegram_first_name
-            FROM public.t_invites i
+                ra.t_first_name
+            FROM
+                public.restaurant_admin ra
             WHERE
-                i.phone_number = p_phone
-                AND i.status = 'claimed'
-                AND i.telegram_first_name IS NOT NULL ORDER BY i.claimed_at DESC LIMIT 1), CASE WHEN coalesce(p_phone, '') = '' THEN
-        NULL
-    ELSE
-        '…' ||
-    RIGHT (p_phone, 4)
-    END)
+                ra.phone = public.admin_phone_digits (p_phone)
+                AND ra.t_first_name IS NOT NULL),
+            -- TRANSITION (P3 removes)
+            (
+                SELECT
+                    i.telegram_first_name
+                FROM
+                    public.t_invites i
+                WHERE
+                    i.phone_number = p_phone
+                    AND i.status = 'claimed'
+                    AND i.telegram_first_name IS NOT NULL
+                ORDER BY
+                    i.claimed_at DESC
+                LIMIT 1),
+            CASE WHEN coalesce(p_phone, '') = '' THEN
+                NULL
+            ELSE
+                '…' || RIGHT (p_phone, 4)
+            END)
 $$;
 
 -- Server-only objects: nobody but the service key may call them.
@@ -313,8 +327,8 @@ REVOKE ALL ON FUNCTION public.restaurant_order_set_pickup (text, text, timestamp
 
 -- ---------------------------------------------------------------------------------------------
 -- function t_order_admin_phone(p_bot_key text, p_tuid bigint, p_rest_ref text) -> text
---   Return the admin phone of a Telegram user for the order's restaurant (claimed invite whose phone is in admins), else NULL.
---   Data: reads restaurant_master, t_invites.
+--   Return the admin phone of a Telegram user for the order's restaurant (linked admin record whose phone is in admins; TRANSITION: or a claimed invite), else NULL.
+--   Data: calls admin_for_tuid(); reads admin_roster, restaurant_admin, t_invites (TRANSITION).
 -- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 5. Telegram authorisation (D14, D25, D27). The actor is the Telegram USER (tuid = from_user.id), never the
@@ -331,23 +345,30 @@ CREATE OR REPLACE FUNCTION public.t_order_admin_phone (p_bot_key text, p_tuid bi
     SET search_path = public
     AS $$
     SELECT
-        i.phone_number
-    FROM
-        public.t_invites i
-        JOIN public.restaurant_master rm ON rm.rest_ref = i.rest_ref
-    WHERE
-        i.bot_key = p_bot_key
-        AND i.telegram_user_id = p_tuid
-        AND i.rest_ref = p_rest_ref
-        AND i.status = 'claimed'
-        AND i.phone_number IN (
-            SELECT
-                regexp_replace(a, '\D', '', 'g')
-            FROM
-                unnest(rm.admins) AS a)
-    ORDER BY
-        i.claimed_at DESC NULLS LAST
-    LIMIT 1
+        coalesce(public.admin_for_tuid (p_tuid, p_rest_ref),
+            -- TRANSITION (P3 removes): invite-linked admins whose phone has no admin record
+            (
+                SELECT
+                    r.phone
+                FROM
+                    public.t_invites i
+                    JOIN public.admin_roster r ON r.rest_ref = i.rest_ref
+                        AND r.phone = public.admin_phone_digits (i.phone_number)
+                WHERE
+                    i.bot_key = p_bot_key
+                    AND i.telegram_user_id = p_tuid
+                    AND i.rest_ref = p_rest_ref
+                    AND i.status = 'claimed'
+                    AND NOT EXISTS (
+                        SELECT
+                            1
+                        FROM
+                            public.restaurant_admin ra
+                        WHERE
+                            ra.phone = r.phone)
+                ORDER BY
+                    i.claimed_at DESC NULLS LAST
+                LIMIT 1))
 $$;
 
 REVOKE ALL ON FUNCTION public.t_order_admin_phone (text, bigint, text) FROM PUBLIC, anon, authenticated;
@@ -468,7 +489,7 @@ COMMENT ON FUNCTION public.restaurant_order_decide (p_order_number text, p_order
 
 COMMENT ON FUNCTION public.restaurant_order_set_pickup (p_order_number text, p_order_type text, p_pickup_time timestamp with time zone, p_admin_phone text, p_channel text) IS 'Set the pickup time of an accepted order that has none yet and make it dispatchable / confirmed.';
 
-COMMENT ON FUNCTION public.t_order_admin_phone (p_bot_key text, p_tuid bigint, p_rest_ref text) IS 'Return the admin phone of a Telegram user for the order''s restaurant (claimed invite whose phone is in admins), else NULL.';
+COMMENT ON FUNCTION public.t_order_admin_phone (p_bot_key text, p_tuid bigint, p_rest_ref text) IS 'Return the admin phone of a Telegram user for the order''s restaurant (linked admin record whose phone is in admins; TRANSITION: or a claimed invite), else NULL.';
 
 COMMENT ON FUNCTION public.t_order_decide (p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text, p_decision text) IS 'Telegram Accept / Decline: authorise the tapping person, then restaurant_order_decide().';
 

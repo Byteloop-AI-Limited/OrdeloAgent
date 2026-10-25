@@ -504,7 +504,7 @@ Do it after R1b, so the test order never reaches a restaurant app. The plan has 
     
 select * from delivery_summary where order_number='WREN%%';
 select * from delivery_inflight;
-
+SELECT dispatch_complete_func(1268);
 select * from invite_code where rest_ref='BNAT' order by dtts desc;
 select * from t_invites limit 10;
 

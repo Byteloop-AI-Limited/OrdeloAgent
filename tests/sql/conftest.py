@@ -60,10 +60,12 @@ MIGRATION_FILES = [
     "t_inbox.sql",
     "t_sent_messages.sql",
     "t_invites.sql",
-    "restaurant_order_decision.sql",
     # pauses.sql (rider bot R1) comes before t_order_alerts.sql since R6: t_alert_destinations() (a SQL function, checked
     # when created) calls is_paused(). On live pauses.sql has been applied since 22 Oct.
     "pauses.sql",
+    # Admin roster (plans/restaurant-admin-roster-onboarding-plan.md): before every t_* function that reads it.
+    "admin_roster.sql",
+    "restaurant_order_decision.sql",
     "t_order_alerts.sql",
     "restaurant_ready_adjust_notices.sql",
     "t_housekeeping.sql",

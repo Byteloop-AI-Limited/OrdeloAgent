@@ -86,6 +86,16 @@ class RiderPause(CallbackData, prefix="rp1"):
     k: str
 
 
+class AdminChannels(CallbackData, prefix="ac1"):
+    """A channel choice under /channels on the restaurant bot: 't' Telegram only, 'w' WhatsApp only, 'b' both, e.g. 'ac1:t'.
+
+    Carries no authority: the handler finds the admin record by the tapping person's from_user.id (t_admin_profile) and
+    admin_set_channels() changes only that record.
+    """
+
+    c: Literal["t", "w", "b"]
+
+
 class AdminPause(CallbackData, prefix="ap1"):
     """An alert-pause length picked under /off on the restaurant bot, e.g. 'ap1:1d' (phase R6, D52).
 

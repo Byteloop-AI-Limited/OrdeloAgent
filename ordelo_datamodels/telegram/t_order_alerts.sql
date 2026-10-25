@@ -25,6 +25,7 @@
 --               takeaway/takeaway_summary.sql
 --               core/restaurant_master.sql
 --               telegram/t_invites.sql
+--               restaurant_admin/admin_roster.sql
 --               telegram/t_sent_messages.sql
 --               availability/pauses.sql
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
@@ -240,12 +241,12 @@ REVOKE ALL ON FUNCTION public.t_order_card_row (text, text) FROM PUBLIC, anon, a
 -- ---------------------------------------------------------------------------------------------
 -- function t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)
 --   Return where cards for a restaurant go: the linked admins' chats (the one place that says so).
---   Data: reads restaurant_master, t_invites.
+--   Data: reads admin_roster, restaurant_admin, t_invites (TRANSITION branch, P3 removes).
 -- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 4. t_order_card_destinations(bot_key, rest_ref): WHERE cards for this restaurant go. The ONE place that says so.
---    Today: one private chat per admin who (D14) has a claimed invite for the restaurant AND whose invite phone
---    is in restaurant_master.admins (digits compared). DISTINCT ON the chat so a person holding two invites
+--    Today: one private chat per admin on admin_roster who linked by sharing their phone (restaurant_admin), plus (TRANSITION,
+--    P3 removes) admins with a claimed invite for the restaurant whose invite phone is on the list and who have no record. DISTINCT ON the chat so a person holding two invites
 --    gets one card. Later (D27): UNION ALL linked group chats with tuid / phone NULL.
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_order_card_destinations (p_bot_key text, p_rest_ref text)
@@ -258,27 +259,53 @@ CREATE OR REPLACE FUNCTION public.t_order_card_destinations (p_bot_key text, p_r
     STABLE
     SET search_path = public
     AS $$
-    SELECT DISTINCT ON (i.telegram_chat_id)
-        i.telegram_chat_id,
-        i.telegram_user_id,
-        i.phone_number,
-        i.telegram_first_name
-    FROM
-        public.t_invites i
-        JOIN public.restaurant_master rm ON rm.rest_ref = i.rest_ref
-    WHERE
-        i.bot_key = p_bot_key
-        AND i.rest_ref = p_rest_ref
-        AND i.status = 'claimed'
-        AND i.telegram_chat_id IS NOT NULL
-        AND i.phone_number IN (
-            SELECT
-                regexp_replace(a, '\D', '', 'g')
-            FROM
-                unnest(rm.admins) AS a)
+    SELECT DISTINCT ON (x.tcid)
+        x.tcid,
+        x.tuid,
+        x.phone,
+        x.label
+    FROM (
+        SELECT
+            r.tcid,
+            r.tuid,
+            r.phone,
+            r.t_first_name AS label,
+            1 AS pri,
+            r.t_linked_at AS at
+        FROM
+            public.admin_roster r
+        WHERE
+            r.rest_ref = p_rest_ref
+            AND r.tcid IS NOT NULL
+        UNION ALL
+        -- TRANSITION (P3 removes): claimed invites of listed phones that have no admin record yet
+        SELECT
+            i.telegram_chat_id,
+            i.telegram_user_id,
+            r.phone,
+            i.telegram_first_name,
+            2,
+            i.claimed_at
+        FROM
+            public.t_invites i
+            JOIN public.admin_roster r ON r.rest_ref = i.rest_ref
+                AND r.phone = public.admin_phone_digits (i.phone_number)
+        WHERE
+            i.bot_key = p_bot_key
+            AND i.rest_ref = p_rest_ref
+            AND i.status = 'claimed'
+            AND i.telegram_chat_id IS NOT NULL
+            AND NOT EXISTS (
+                SELECT
+                    1
+                FROM
+                    public.restaurant_admin ra
+                WHERE
+                    ra.phone = r.phone)) x
     ORDER BY
-        i.telegram_chat_id,
-        i.claimed_at DESC NULLS LAST
+        x.tcid,
+        x.pri,
+        x.at DESC NULLS LAST
 $$;
 
 REVOKE ALL ON FUNCTION public.t_order_card_destinations (text, text) FROM PUBLIC, anon, authenticated;
@@ -287,8 +314,8 @@ REVOKE ALL ON FUNCTION public.t_order_card_destinations (text, text) FROM PUBLIC
 -- function t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)
 --   t_order_card_destinations() without the admins who paused their alerts for this restaurant (is_paused('rest_admin',
 --   phone, rest_ref), ADR 0013, phase R6): where NEW cards, receipts and notices go. Authorisation (who may see and tap)
---   stays t_order_card_destinations().
---   Data: calls is_paused(), t_order_card_destinations().
+--   stays t_order_card_destinations(). Admins whose record says channels without 'telegram' get nothing here (D6).
+--   Data: reads restaurant_admin; calls is_paused(), t_order_card_destinations().
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_alert_destinations (p_bot_key text, p_rest_ref text)
     RETURNS TABLE (
@@ -307,8 +334,11 @@ CREATE OR REPLACE FUNCTION public.t_alert_destinations (p_bot_key text, p_rest_r
         d.label
     FROM
         public.t_order_card_destinations (p_bot_key, p_rest_ref) d
+        LEFT JOIN public.restaurant_admin ra ON ra.phone = d.phone
     WHERE
         NOT public.is_paused ('rest_admin', d.phone, p_rest_ref)
+        AND (ra.phone IS NULL -- TRANSITION (P3 removes): invite-only admins keep Telegram as today
+            OR 'telegram' = ANY (ra.channels))
 $$;
 
 REVOKE ALL ON FUNCTION public.t_alert_destinations (text, text) FROM PUBLIC, anon, authenticated;
@@ -711,8 +741,8 @@ REVOKE ALL ON FUNCTION public.job_t_order_alerts () FROM PUBLIC, anon, authentic
 
 -- pg_cron job 'job_t_order_alerts': runs every 5 seconds, active on live.
 -- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
-SELECT
-    cron.schedule ('job_t_order_alerts', '5 seconds', 'SELECT public.job_t_order_alerts()');
+-- SELECT
+    -- cron.schedule ('job_t_order_alerts', '5 seconds', 'SELECT public.job_t_order_alerts()');
 
 -- ---------------------------------------------------------------------------------------------
 -- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio

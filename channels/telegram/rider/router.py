@@ -38,6 +38,7 @@ from .. import rider_links
 from ..callbacks import RiderSignup
 from ..inbox import process_once
 from ..keyboards import contact_request_kb, rider_choice_kb
+from ..ops_alerts import alert_ops, mask as _mask
 from ..replies import answer_quietly
 from .availability import build_availability_router
 from .commands import HELP_TEXT, INFLIGHT_HELP_TEXT, set_inflight_menu
@@ -81,21 +82,6 @@ def done_text(link: rider_links.RiderLink, name: str | None) -> str:
     if link.status == "active":
         return f"✅ All set, {escape(name)}: {where}."
     return f"✅ Thanks {escape(name)}! You're registered for {where}.\nOrdelo will activate your account and message you here."
-
-
-async def alert_ops(text: str) -> None:
-    """One line to the overwatch WhatsApp numbers (existing WALogger). Never raises: an alert must not break onboarding."""
-    try:
-        from config.params import get_wa_logger
-
-        wa_logger = await get_wa_logger()
-        await asyncio.wait_for(wa_logger.info(text), timeout=10)
-    except Exception:
-        logger.exception(f"telegram[rider]: ops alert failed: {text}")
-
-
-def _mask(phone: str | None) -> str:
-    return f"…{phone[-4:]}" if phone else "?"
 
 
 # ---- /start --------------------------------------------------------------------------------------------------------

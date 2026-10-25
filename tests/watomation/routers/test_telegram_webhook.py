@@ -107,25 +107,31 @@ def test_handler_timeout_still_200(env, monkeypatch):
     assert r.status_code == 200
 
 
-def test_retried_update_is_handled_once_and_recorded(env, inbox_db, invite_db):
+def linked_admin(admin_db):
+    """An admin linked as Telegram user 111, so a /channels tap (a protected, inbox-guarded handler) reaches the database."""
+    admin_db.add_admin("447700900111")
+    admin_db.record("447700900111", tuid=111, tcid=111, channels=["telegram"])
+
+
+def test_retried_update_is_handled_once_and_recorded(env, inbox_db, admin_db):
     """Telegram redelivers an update; the second POST is answered 200 but not handled again."""
     app, session = env
-    code = invite_db.add()
+    linked_admin(admin_db)
     c = TestClient(app)
     for _ in range(2):
-        r = c.post(URL, json=callback_update(f"inv:{code}:y", update_id=77), headers={HDR: SECRET})
+        r = c.post(URL, json=callback_update("ac1:b", update_id=77), headers={HDR: SECRET})
         assert r.status_code == 200 and r.json() == {"ok": True}
     assert len(session.edited_texts) == 1
     assert inbox_db.status_of(77) == "done"
     assert list(inbox_db.rows) == [("rest_admin", 77)]
 
 
-def test_failed_handler_is_recorded_failed_and_retry_is_not_rerun(env, inbox_db, invite_db):
+def test_failed_handler_is_recorded_failed_and_retry_is_not_rerun(env, inbox_db, admin_db):
     app, session = env
-    code = invite_db.add()
+    linked_admin(admin_db)
     calls = []
 
-    # make the Bot API edit blow up, so the protected invite handler raises
+    # make the Bot API edit blow up, so the protected channels handler raises
     async def failing_request(bot, method, timeout=None):
         calls.append(method)
         raise RuntimeError("telegram down")
@@ -133,6 +139,6 @@ def test_failed_handler_is_recorded_failed_and_retry_is_not_rerun(env, inbox_db,
     session.make_request = failing_request
     c = TestClient(app)
     for _ in range(2):
-        assert c.post(URL, json=callback_update(f"inv:{code}:y", update_id=78), headers={HDR: SECRET}).status_code == 200
+        assert c.post(URL, json=callback_update("ac1:b", update_id=78), headers={HDR: SECRET}).status_code == 200
     assert len([method for method in calls if isinstance(method, EditMessageText)]) == 1
     assert inbox_db.status_of(78) == "failed"
