@@ -23,7 +23,7 @@ from pathlib import Path
 ROOT = next(p for p in [Path.cwd(), *Path.cwd().parents] if (p / "channels" / "telegram").is_dir())
 
 BOT_KEY = "rest_admin"  # Change to "rider" to operate the rider bot.
-BOT_KEY = "rider"  # Change to "rider" to operate the rider bot.
+# BOT_KEY = "rider"  # Change to "rider" to operate the rider bot.
 
 sys.path.insert(0, str(ROOT))
 
@@ -54,22 +54,23 @@ if settings.bot_username and settings.bot_username != me.username:
 info = await bot.get_webhook_info()
 print(info.model_dump_json(indent=2, exclude_none=True))
 # Look at: url (empty = no webhook), pending_update_count, last_error_date/last_error_message.
-
+print(BOT_KEY)
 # %% 4. SET the webhook to OrdeloAgent  (the step you came here for)
 # Re-run this cell after adding handlers for new update types (e.g. callback_query for the invite buttons):
 # allowed_updates below is computed from the handlers, and Telegram only sends what is listed.
 assert settings.webhook_url.startswith("https://"), f"set tgram_{BOT_KEY}_webhook_base_url to a public https:// URL"
 dp = DISPATCHER_FACTORIES[BOT_KEY](settings)
 
-callback_url = 'https://rider-agent-test.ordelo.app'  # Replace with your actual callback URL
+callback_url = settings.webhook_url # Test
+# callback_url = settings.webhook_url.replace('-test', '') # Prod 
 
 await bot.set_webhook(
-    url=settings.webhook_url,
+    url=callback_url,
     secret_token=settings.webhook_secret.get_secret_value(),  # echoed back in X-Telegram-Bot-Api-Secret-Token
     allowed_updates=dp.resolve_used_update_types(),           # only the update types our handlers use
     drop_pending_updates=False,                               # keep anything queued while the webhook was down
 )
-print("webhook set ->", settings.webhook_url)
+print("webhook set ->", callback_url)
 
 # %% 5. Verify it took (and that Telegram can reach the app)
 info = await bot.get_webhook_info()
@@ -79,7 +80,8 @@ print("last error:         ", info.last_error_message, info.last_error_date)
 print("allowed_updates:    ", info.allowed_updates)
 assert info.url == settings.webhook_url, "Telegram has a different URL than the one set in step 4"
 
-# %% 6. Bot commands shown in the Telegram "/" menu (same as BotFather /setcommands)
+# %%
+# %% 6. Bot commands register shown in the Telegram "/" menu (same as BotFather /setcommands)
 await bot.set_my_commands(commands)
 print(await bot.get_my_commands())
 

@@ -114,7 +114,7 @@
    "file": "telegram/t_order_alerts.sql",
    "function": "job_t_order_alerts",
    "job": "job_t_order_alerts",
-   "line": 712,
+   "line": 742,
    "schedule": "5 seconds"
   },
   {
@@ -2662,8 +2662,8 @@
    },
    "cron": [],
    "folder": "core",
-   "header_lines": 70,
-   "lines": 132,
+   "header_lines": 71,
+   "lines": 133,
    "objects": [
     {
      "description": "Master record per restaurant; rest_ref (e.g. ELAS) is the key and the prefix of every order number.",
@@ -2694,7 +2694,7 @@
    "sections": {
     "CALLED BY": "restaurant_master:\n  sql       enquire_admin_availability(), init_delivery(), init_takeaway(), insert_delivery_detail()\n            job_rider_pickup_alerts(), job_terminate_stale_active_threads_new()\n            resolve_initial_restaurant_acceptance(), restaurant_confirmation_whook()\n            restaurant_updates_whook(), t_claim_invite(), t_invite_preview(), t_linked_restaurants()\n            t_order_admin_phone(), t_order_card_destinations(), takeaway_pickup_time_whook()\n            takeaway_restaurant_updates_whook()\n  python    config/tgram_setting.py (module-level SQL)\n  python    ordelo/wa_location.py: WaLocation._load_delivery_context()\n  python    utils_common/order_management/order_service.py: _resolve_restaurant_coordinates()\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    utils_common/web_ordering/availability.py: restaurant()\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/fapp_ordelo_agent.py: reset_restaurant_base_url_cache_endpoint()\n  python    watomation/routers/delivery_hooks.py: RestaurantMasterData(), restaurant_confirmation_flow()\n  python    watomation/routers/rest_admin_auth_session.py: mint_dashboard_session()\n  python    watomation/routers/takeaway_hooks.py: RestaurantMasterData(), _post_pickup_time_event(), pickup_time_updated_hook()\n  frontend  restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/route.ts\n  frontend  restaurant-frontend/app/api/sys-admin/restaurants/route.ts\n  frontend  restaurant-frontend/lib/restaurantHours.ts\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/operational_lookup_cache.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/ordelo_service/datamodels/restaurant_master_pymodel.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/order_management/takeaway_pymodels.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/waba_callback.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/watomation/routers/rider_event_hooks.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/web/app_factory.py\n  r-agents  restaurant-agents/tests/services/test_operational_diagnostics.py\n  r-agents  restaurant-agents/tests/services/test_operational_lookup_cache.py\n  r-agents  restaurant-agents/tests/test_waba_callback.py",
     "GOTCHAS": "service_hours_json is the opening-hours source for restaurant-agents; restaurant_start_time / restaurant_end_time are\n  older float hours (21.30 means 21:30), still set by the test/prod switch scripts in .claude/skills/database-operations.\nRead with the anon key by restaurant-frontend and RLS is off: see docs/to-do.md (security review).",
-    "HOW IT FITS": "Every order table points back here through rest_ref (the 4-letter code, e.g. ELAS) or rest_id.\n  init_delivery() / init_takeaway() copy name, address and coordinates into the order summary row, and\n  resolve_initial_restaurant_acceptance() reads auto_accept to decide whether a new order skips the admin prompt.\n  admins (text[] of phone numbers) is the WhatsApp admin list; Telegram admins are linked through t_invites.\n  The per-restaurant behaviour switches live in ordelo_config as '<REST_REF>_<KEY>' rows, not in this table.\n  restaurant-frontend reads it for the storefront and the admin dashboard; restaurant-agents reads it for menus,\n  service hours and agent routing.",
+    "HOW IT FITS": "Every order table points back here through rest_ref (the 4-letter code, e.g. ELAS) or rest_id.\n  init_delivery() / init_takeaway() copy name, address and coordinates into the order summary row, and\n  resolve_initial_restaurant_acceptance() reads auto_accept to decide whether a new order skips the admin prompt.\n  admins (text[] of phone numbers) is the authoritative admin list; each phone's Telegram link and channels live in\n  restaurant_admin / admin_roster (restaurant_admin/admin_roster.sql).\n  The per-restaurant behaviour switches live in ordelo_config as '<REST_REF>_<KEY>' rows, not in this table.\n  restaurant-frontend reads it for the storefront and the admin dashboard; restaurant-agents reads it for menus,\n  service hours and agent routing.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "Rows are created by the onboarding process (.claude/skills/ordelo-restaurant-onboarding) and edited by hand.\nNothing deletes them.",
     "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
@@ -4572,6 +4572,24 @@
    "cron": [],
    "folder": "migrations",
    "header_lines": 0,
+   "lines": 61,
+   "migration": {
+    "applied": "NOT YET (the owner applies it; update this line when done). Written for plans/restaurant-admin-roster-onboarding-plan.md, phase P1; the owner applies it.",
+    "current": [
+     "restaurant_admin/admin_roster.sql, restaurant_admin/restaurant_order_decision.sql,",
+     "telegram/t_order_alerts.sql, telegram/t_admin_pauses.sql"
+    ],
+    "purpose": "restaurant-admin roster and phone-verified Telegram link (P1). Adds restaurant_admin / admin_roster and the t_admin_* functions; the Telegram destination functions read the roster and keep reading claimed invites for admins who have no record yet (TRANSITION), so nothing changes for anyone until an admin links. WhatsApp is not touched in P1."
+   },
+   "objects": [],
+   "path": "migrations/admin_roster_p1.sql",
+   "role": "migration",
+   "title": "restaurant-admin roster and phone-verified Telegram link (P1). Adds restaurant_admin / admin_roster and the t_admin_* functions; the Telegram destination functions read the roster and keep reading claimed invites for admins who have no record yet (TRANSITION), so nothing changes for anyone until an admin links. WhatsApp is not touched in P1."
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
    "lines": 18,
    "migration": {
     "applied": "Applied: every object it creates exists live (checked 2026-10-16).",
@@ -6193,6 +6211,182 @@
   },
   {
    "called_by": {
+    "admin_for_tuid": [
+     {
+      "text": "t_order_admin_phone() (restaurant_admin/restaurant_order_decision.sql)",
+      "via": "sql"
+     }
+    ],
+    "admin_phone_digits": [
+     {
+      "text": "admin_roster, t_admin_link(), admin_roster_status(), admin_set_channels(), admin_unlink_telegram(), t_order_card_destinations(), t_order_admin_phone(), restaurant_admin_label()",
+      "via": "sql"
+     }
+    ],
+    "admin_recipients": [
+     {
+      "text": "ordelo/admin_roster.py: whatsapp_phones() (P2)",
+      "via": "python"
+     }
+    ],
+    "admin_roster": [
+     {
+      "text": "admin_recipients(), admin_for_tuid(), t_admin_link(), t_admin_profile(), t_order_card_destinations(), t_admin_restaurants()",
+      "via": "sql"
+     }
+    ],
+    "admin_roster_status": [
+     {
+      "text": "ordelo/admin_roster.py: status()",
+      "via": "python"
+     }
+    ],
+    "admin_set_channels": [
+     {
+      "text": "channels/telegram/admin_links.py: set_channels(); restaurant-frontend sys-admin admins route",
+      "via": "python"
+     }
+    ],
+    "admin_unlink_telegram": [
+     {
+      "text": "channels/telegram/admin_links.py: unlink()",
+      "via": "python"
+     }
+    ],
+    "t_admin_link": [
+     {
+      "text": "channels/telegram/admin_links.py: link()",
+      "via": "python"
+     }
+    ],
+    "t_admin_profile": [
+     {
+      "text": "channels/telegram/admin_links.py: profile()",
+      "via": "python"
+     }
+    ]
+   },
+   "cron": [],
+   "folder": "restaurant_admin",
+   "header_lines": 89,
+   "lines": 432,
+   "objects": [
+    {
+     "description": "Digits only; NULL unless 8-15 digits. The one phone rule of the roster.",
+     "kind": "function",
+     "name": "admin_phone_digits",
+     "signature": "admin_phone_digits(p_phone text) -> text"
+    },
+    {
+     "description": "The admin record: one row per phone (channels, Telegram link). Confers no authority (D3).",
+     "kind": "table",
+     "name": "restaurant_admin",
+     "signature": "restaurant_admin"
+    },
+    {
+     "description": "One row per (restaurant, phone) on a restaurant's admin list, with that phone's admin record.",
+     "kind": "view",
+     "name": "admin_roster",
+     "signature": "admin_roster"
+    },
+    {
+     "description": "Who gets a NEW message on this channel: on the list, channel chosen, not paused, (Telegram) linked.",
+     "kind": "function",
+     "name": "admin_recipients",
+     "signature": "admin_recipients(p_rest_ref text, p_channel text) -> TABLE(phone text, tcid bigint, tuid bigint, label text)"
+    },
+    {
+     "description": "The admin phone of this Telegram user for this restaurant, else NULL.",
+     "kind": "function",
+     "name": "admin_for_tuid",
+     "signature": "admin_for_tuid(p_tuid bigint, p_rest_ref text) -> text"
+    },
+    {
+     "description": "Link a Telegram account to an admin phone (the phone was shared by the sender, never typed).",
+     "kind": "function",
+     "name": "t_admin_link",
+     "signature": "t_admin_link(p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text) -> jsonb"
+    },
+    {
+     "description": "Who this Telegram account is as an admin (phone, channels, restaurants); read-only.",
+     "kind": "function",
+     "name": "t_admin_profile",
+     "signature": "t_admin_profile(p_tuid bigint) -> jsonb"
+    },
+    {
+     "description": "Change where an admin's messages go.",
+     "kind": "function",
+     "name": "admin_set_channels",
+     "signature": "admin_set_channels(p_phone text, p_channels text[], p_by text) -> jsonb"
+    },
+    {
+     "description": "Clear the Telegram link; the admin goes back to WhatsApp only.",
+     "kind": "function",
+     "name": "admin_unlink_telegram",
+     "signature": "admin_unlink_telegram(p_phone text, p_by text) -> jsonb"
+    },
+    {
+     "description": "One restaurant's admin list with link and channel state, for the sys-admin page.",
+     "kind": "function",
+     "name": "admin_roster_status",
+     "signature": "admin_roster_status(p_rest_ref text) -> jsonb"
+    }
+   ],
+   "path": "restaurant_admin/admin_roster.sql",
+   "path_line": "ordelo_datamodels/restaurant_admin/admin_roster.sql",
+   "requires": [
+    "core/restaurant_master.sql",
+    "availability/pauses.sql",
+    "telegram/t_invites.sql"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "admin_phone_digits:\n  sql       admin_roster, t_admin_link(), admin_roster_status(), admin_set_channels(), admin_unlink_telegram(),\n            t_order_card_destinations(), t_order_admin_phone(), restaurant_admin_label()\nadmin_roster:\n  sql       admin_recipients(), admin_for_tuid(), t_admin_link(), t_admin_profile(), t_order_card_destinations(),\n            t_admin_restaurants()\nadmin_recipients:\n  python    ordelo/admin_roster.py: whatsapp_phones() (P2)\nadmin_for_tuid:\n  sql       t_order_admin_phone() (restaurant_admin/restaurant_order_decision.sql)\nt_admin_link:\n  python    channels/telegram/admin_links.py: link()\nt_admin_profile:\n  python    channels/telegram/admin_links.py: profile()\nadmin_set_channels:\n  python    channels/telegram/admin_links.py: set_channels(); restaurant-frontend sys-admin admins route\nadmin_unlink_telegram:\n  python    channels/telegram/admin_links.py: unlink()\nadmin_roster_status:\n  python    ordelo/admin_roster.py: status()",
+    "GOTCHAS": "An admins[] entry that admin_phone_digits() rejects is NOT on the roster (and so gets no Telegram); the\n  migration's PRE-CHECK 1 lists them. WhatsApp keeps reading the raw list until P2.\nA phone shared on two restaurants has ONE record (D3): linking it links every restaurant it is on.\nUnlinking or removing a phone from every list is the off switch; there is no \"delete the record\" function.",
+    "HOW IT FITS": "restaurant_master.admins stays the authority on WHO is an admin of a restaurant (D3). restaurant_admin holds\n  what is true of the PERSON (phone): the Telegram account that proved the number and the channels they\n  want. A restaurant owner opens the restaurant bot, shares their own phone number with Telegram's button;\n  the router accepts it only when contact.user_id == from_user.id and calls t_admin_link(). A phone that is\n  on no restaurant's list is refused (not_on_roster), so a stranger who shares a number gets nothing.\n  Linking moves the admin to Telegram only (D6); admin_set_channels() can put WhatsApp back.\n  The t_* destination functions (telegram/t_order_alerts.sql, restaurant_admin/restaurant_order_decision.sql,\n  telegram/t_admin_pauses.sql) read admin_roster; while an admin has no record they keep reading claimed\n  invites (TRANSITION branches, removed in P3).",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
+    "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  t_admin_link:          linked          first link for this phone; channels := {telegram}\n                         relinked        another Telegram account proved this phone; link moved (previous_tuid /\n                                         previous_username returned for the ops alert)\n                         already_linked  same phone, same account; chat / username / first name refreshed\n                         not_on_roster   the phone is on no restaurant's admin list; nothing written\n                         tuid_taken      this Telegram account is linked to a DIFFERENT phone; refused\n                         bad_phone       not 8-15 digits, or ids missing\n  t_admin_profile:       ok | not_linked | not_on_roster\n  admin_set_channels:    ok | not_found | bad_channels | not_linked\n  admin_unlink_telegram: ok | not_found | not_linked",
+    "LIVE CHECK": "NOT YET APPLIED. Written for plans/restaurant-admin-roster-onboarding-plan.md (P1); the owner applies it with\nmigrations/admin_roster_p1.sql and runs test_support/test_admin_onboarding.sql.",
+    "OBJECTS": "fn     admin_phone_digits(p_phone text) -> text\n    Digits only; NULL unless 8-15 digits. The one phone rule of the roster.\ntable  restaurant_admin\n    The admin record: one row per phone (channels, Telegram link). Confers no authority (D3).\nview   admin_roster\n    One row per (restaurant, phone) on a restaurant's admin list, with that phone's admin record.\nfn     admin_recipients(p_rest_ref text, p_channel text) -> TABLE(phone text, tcid bigint, tuid bigint, label text)\n    Who gets a NEW message on this channel: on the list, channel chosen, not paused, (Telegram) linked.\nfn     admin_for_tuid(p_tuid bigint, p_rest_ref text) -> text\n    The admin phone of this Telegram user for this restaurant, else NULL.\nfn     t_admin_link(p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text) -> jsonb\n    Link a Telegram account to an admin phone (the phone was shared by the sender, never typed).\nfn     t_admin_profile(p_tuid bigint) -> jsonb\n    Who this Telegram account is as an admin (phone, channels, restaurants); read-only.\nfn     admin_set_channels(p_phone text, p_channels text[], p_by text) -> jsonb\n    Change where an admin's messages go.\nfn     admin_unlink_telegram(p_phone text, p_by text) -> jsonb\n    Clear the Telegram link; the admin goes back to WhatsApp only.\nfn     admin_roster_status(p_rest_ref text) -> jsonb\n    One restaurant's admin list with link and channel state, for the sys-admin page.",
+    "PYTHON MODEL": "channels/telegram/admin_links.py (AdminLink, AdminProfile outcome dataclasses)",
+    "REQUIRES": "core/restaurant_master.sql\navailability/pauses.sql\ntelegram/t_invites.sql",
+    "SECURITY": "Every function: REVOKE ALL FROM PUBLIC, anon, authenticated; called with client_ordelo_service only.\nrestaurant_admin has RLS on and no policies; admin_roster is security_invoker.",
+    "SEE ALSO": "telegram/t_invites.sql\ntelegram/t_order_alerts.sql\nrestaurant_admin/restaurant_order_decision.sql\ntelegram/t_admin_pauses.sql\ntest_support/test_admin_onboarding.sql\nplans/restaurant-admin-roster-onboarding-plan.md",
+    "SIDE EFFECTS": "Creates the table restaurant_admin (empty) and one ordelo_config row (ON CONFLICT DO NOTHING).",
+    "TESTS": "tests/sql/test_admin_roster_sql.py\ntests/sql/test_admin_roster_regression_sql.py\ntests/sql/test_admin_onboarding_script_sql.py"
+   },
+   "see_also": [
+    "telegram/t_invites.sql",
+    "telegram/t_order_alerts.sql",
+    "restaurant_admin/restaurant_order_decision.sql",
+    "telegram/t_admin_pauses.sql",
+    "test_support/test_admin_onboarding.sql",
+    "plans/restaurant-admin-roster-onboarding-plan.md"
+   ],
+   "tests": [
+    "tests/sql/test_admin_roster_sql.py",
+    "tests/sql/test_admin_roster_regression_sql.py",
+    "tests/sql/test_admin_onboarding_script_sql.py"
+   ],
+   "title": "Admin roster: who a restaurant's admins are, which channels each one hears on, and the phone-verified Telegram link."
+  },
+  {
+   "called_by": {
     "enquire_admin_availability": [
      {
       "text": "'enquire_admin_availability' 0 11 * * *",
@@ -6570,8 +6764,8 @@
    },
    "cron": [],
    "folder": "restaurant_admin",
-   "header_lines": 86,
-   "lines": 476,
+   "header_lines": 87,
+   "lines": 497,
    "objects": [
     {
      "description": "Return the 'by X' label for an admin phone: the Telegram first name of its latest claimed invite, else '...' + last 4 digits.",
@@ -6614,6 +6808,7 @@
    "path_line": "ordelo_datamodels/restaurant_admin/restaurant_order_decision.sql",
    "requires": [
     "telegram/t_invites.sql",
+    "restaurant_admin/admin_roster.sql",
     "core/restaurant_master.sql"
    ],
    "role": "definition",
@@ -6641,7 +6836,7 @@
     "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
     "OBJECTS": "fn     restaurant_admin_label(p_phone text) -> text\n    Return the 'by X' label for an admin phone: the Telegram first name of its latest claimed invite, else '...' + last 4 digits.\nfn     restaurant_order_decide(p_order_number text, p_order_type text, p_decision text, p_admin_phone text, p_channel text) -> jsonb\n    Accept or decline an undecided order once (first decision wins); a decline also makes the order terminal.\nfn     restaurant_order_set_pickup(p_order_number text, p_order_type text, p_pickup_time timestamp with time zone, p_admin_phone text, p_channel text) -> jsonb\n    Set the pickup time of an accepted order that has none yet and make it dispatchable / confirmed.\nfn     t_order_admin_phone(p_bot_key text, p_tuid bigint, p_rest_ref text) -> text\n    Return the admin phone of a Telegram user for the order's restaurant (claimed invite whose phone is in admins), else NULL.\nfn     t_order_decide(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text, p_decision text) -> jsonb\n    Telegram Accept / Decline: authorise the tapping person, then restaurant_order_decide().\nfn     t_order_set_pickup(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text, p_minutes integer) -> jsonb\n    Telegram pickup button: authorise, then restaurant_order_set_pickup() with pickup = order time + p_minutes.",
     "PYTHON MODEL": "none",
-    "REQUIRES": "telegram/t_invites.sql\ncore/restaurant_master.sql",
+    "REQUIRES": "telegram/t_invites.sql\nrestaurant_admin/admin_roster.sql\ncore/restaurant_master.sql",
     "SECURITY": "Every function is revoked from PUBLIC/anon/authenticated: only the service key (client_ordelo_service) can call them.\nThe shared functions trust p_admin_phone; the t_ wrappers authorise first (claimed invite + phone in restaurant_master.admins).",
     "SEE ALSO": "restaurant_admin/restaurant_ready_adjust_notices.sql\ntelegram/t_order_alerts.sql\ntelegram/t_invites.sql\ndocs/telegram-layer.md",
     "SIDE EFFECTS": "none when applied (functions only). Each decision UPDATE fires the restaurant trigger webhook.",
@@ -7599,8 +7794,8 @@
    },
    "cron": [],
    "folder": "telegram",
-   "header_lines": 57,
-   "lines": 245,
+   "header_lines": 60,
+   "lines": 253,
    "objects": [
     {
      "description": "Pause this Telegram user's alerts for every restaurant they are a linked admin of, one pause per restaurant.",
@@ -7621,6 +7816,12 @@
      "signature": "t_admin_pause_status(p_bot_key text, p_tuid bigint) -> jsonb"
     },
     {
+     "description": "The restaurants this Telegram user is an admin of, with their admin phone (roster), for /off, /on and the status.",
+     "kind": "function",
+     "name": "t_admin_restaurants",
+     "signature": "t_admin_restaurants(p_bot_key text, p_tuid bigint) -> TABLE(rest_ref text, rest_name text, phone text)"
+    },
+    {
      "description": "Read-only: the Telegram chats of one admin for one restaurant (where \"ends soon\" / \"back on\" go).",
      "kind": "function",
      "name": "t_admin_pause_chats",
@@ -7632,6 +7833,7 @@
    "requires": [
     "availability/pauses.sql",
     "telegram/t_invites.sql",
+    "restaurant_admin/admin_roster.sql",
     "telegram/t_order_alerts.sql",
     "restaurant_admin/restaurant_order_decision.sql",
     "core/restaurant_master.sql"
@@ -7655,13 +7857,13 @@
    "sections": {
     "CALLED BY": "t_admin_pause:\n  python    channels/telegram/admin_pauses.py: pause()\nt_admin_resume:\n  python    channels/telegram/admin_pauses.py: resume()\nt_admin_pause_status:\n  python    channels/telegram/admin_pauses.py: status()\nt_admin_pause_chats:\n  python    channels/telegram/admin_pauses.py: chats()",
     "GOTCHAS": "One /off pauses every restaurant the person is an admin of; a restaurant where they are the last unpaused\n  admin answers not_allowed and stays on, the others are paused.\nRestaurants are visited in rest_ref order, so two admins of the same two restaurants take the per-restaurant\n  advisory locks (pause_start) in the same order and cannot deadlock.",
-    "HOW IT FITS": "ADR 0013, D51, D52. The actor is the Telegram USER (tuid = from_user.id), as for every restaurant-bot action (D14):\n  the restaurants come from t_invites (claimed by this tuid) and the phone from t_order_admin_phone() (the invite\n  phone must still be in restaurant_master.admins), so a revoked invite or a removed admin can neither pause\n  nor resume. The pause itself is pauses.pause_start('rest_admin', phone, rest_ref, ...) per restaurant, which\n  applies the durations policy and the last-admin guard; this file only finds the restaurants and the phone.\n  Python: channels/telegram/admin_pauses.py (wrapper), channels/telegram/rest_admin/pauses.py (/off, /on taps),\n  watomation/routers/pause_hooks.py (the sweep messages to an admin, through t_admin_pause_chats()).\n  Effect: while paused, t_alert_destinations() (telegram/t_order_alerts.sql) leaves the admin out of NEW Telegram\n  order cards, kitchen receipts and notices for that restaurant. WhatsApp alerts are unchanged.",
+    "HOW IT FITS": "ADR 0013, D51, D52. The actor is the Telegram USER (tuid = from_user.id), as for every restaurant-bot action (D14):\n  the restaurants and the phone come from t_admin_restaurants() (admin_roster: the linked admin record whose phone is\n  still in restaurant_master.admins; TRANSITION: or a claimed invite, removed in P3), so a removed admin can neither\n  pause nor resume. The pause itself is pauses.pause_start('rest_admin', phone, rest_ref, ...) per restaurant, which\n  applies the durations policy and the last-admin guard; this file only finds the restaurants and the phone.\n  Python: channels/telegram/admin_pauses.py (wrapper), channels/telegram/rest_admin/pauses.py (/off, /on taps),\n  watomation/routers/pause_hooks.py (the sweep messages to an admin, through t_admin_pause_chats()).\n  Effect: while paused, t_alert_destinations() (telegram/t_order_alerts.sql) leaves the admin out of NEW Telegram\n  order cards, kitchen receipts and notices for that restaurant. WhatsApp alerts are unchanged.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  t_admin_pause:  not_linked | ok + restaurants:[{rest_ref, rest_name, result, ends_at}] where result is\n                  pause_start()'s: paused | extended | bad_duration | not_admin | not_allowed (last admin)\n  t_admin_resume: not_linked | ok + restaurants:[{rest_ref, rest_name, result}] (resumed | not_paused)\n  t_admin_pause_status: not_linked | ok + restaurants:[{rest_ref, rest_name, paused, ends_at}] + options:[keys]\n  t_admin_pause_chats: [{tcid, rest_name}] ('[]' when the admin has no linked chat for that restaurant)",
     "LIVE CHECK": "Live on 2026-10-22: all four t_admin_pause* functions were verified against the R6 definitions.",
-    "OBJECTS": "fn     t_admin_pause(p_bot_key text, p_tuid bigint, p_duration text) -> jsonb\n    Pause this Telegram user's alerts for every restaurant they are a linked admin of, one pause per restaurant.\nfn     t_admin_resume(p_bot_key text, p_tuid bigint) -> jsonb\n    End this Telegram user's alert pauses now, for every restaurant they are a linked admin of.\nfn     t_admin_pause_status(p_bot_key text, p_tuid bigint) -> jsonb\n    Read-only: per linked restaurant, paused or not and until when, plus the durations /off may offer.\nfn     t_admin_pause_chats(p_bot_key text, p_phone text, p_rest_ref text) -> jsonb\n    Read-only: the Telegram chats of one admin for one restaurant (where \"ends soon\" / \"back on\" go).",
+    "OBJECTS": "fn     t_admin_pause(p_bot_key text, p_tuid bigint, p_duration text) -> jsonb\n    Pause this Telegram user's alerts for every restaurant they are a linked admin of, one pause per restaurant.\nfn     t_admin_resume(p_bot_key text, p_tuid bigint) -> jsonb\n    End this Telegram user's alert pauses now, for every restaurant they are a linked admin of.\nfn     t_admin_pause_status(p_bot_key text, p_tuid bigint) -> jsonb\n    Read-only: per linked restaurant, paused or not and until when, plus the durations /off may offer.\nfn     t_admin_restaurants(p_bot_key text, p_tuid bigint) -> TABLE(rest_ref text, rest_name text, phone text)\n    The restaurants this Telegram user is an admin of, with their admin phone (roster), for /off, /on and the status.\nfn     t_admin_pause_chats(p_bot_key text, p_phone text, p_rest_ref text) -> jsonb\n    Read-only: the Telegram chats of one admin for one restaurant (where \"ends soon\" / \"back on\" go).",
     "PYTHON MODEL": "channels/telegram/admin_pauses.py (AdminPauseOutcome, RestaurantPause)",
-    "REQUIRES": "availability/pauses.sql\ntelegram/t_invites.sql\ntelegram/t_order_alerts.sql\nrestaurant_admin/restaurant_order_decision.sql\ncore/restaurant_master.sql",
+    "REQUIRES": "availability/pauses.sql\ntelegram/t_invites.sql\nrestaurant_admin/admin_roster.sql\ntelegram/t_order_alerts.sql\nrestaurant_admin/restaurant_order_decision.sql\ncore/restaurant_master.sql",
     "SECURITY": "Every function: REVOKE ALL FROM PUBLIC, anon, authenticated (service role only; client_ordelo_service).",
     "SEE ALSO": "availability/pauses.sql\navailability/job_pause_sweep.sql\ntelegram/t_order_alerts.sql\ndocs/adr/0013-pauses-have-a-mandatory-end-and-are-computed.md",
     "SIDE EFFECTS": "none when applied (functions only).",
@@ -7898,8 +8100,8 @@
    },
    "cron": [],
    "folder": "telegram",
-   "header_lines": 78,
-   "lines": 434,
+   "header_lines": 80,
+   "lines": 436,
    "objects": [
     {
      "description": "Generate a random URL-safe invite code (column default for t_invites.invite_code).",
@@ -7997,7 +8199,7 @@
     "tests/sql/test_restaurant_notices_script_sql.py",
     "tests/sql/test_restaurant_ready_adjust_notices_sql.py"
    ],
-   "title": "Telegram invite links that link a person's Telegram account to a restaurant (restaurant-admin bot; reusable for riders)."
+   "title": "Telegram invite links that link a person's Telegram account to a restaurant (restaurant-admin bot; reusable for riders). BEING RETIRED for restaurant admins (plans/restaurant-admin-roster-onboarding-plan.md): no new invites; admins link by sharing their phone (restaurant_admin/admin_roster.sql). Claimed invites keep working until a person links; dropped in P3."
   },
   {
    "called_by": {
@@ -8123,13 +8325,13 @@
      "file": "telegram/t_order_alerts.sql",
      "function": "job_t_order_alerts",
      "job": "job_t_order_alerts",
-     "line": 712,
+     "line": 742,
      "schedule": "5 seconds"
     }
    ],
    "folder": "telegram",
-   "header_lines": 109,
-   "lines": 747,
+   "header_lines": 110,
+   "lines": 777,
    "objects": [
     {
      "description": "Reminder schedule: one row per order and offset (seconds after the order) with due time and status.",
@@ -8193,6 +8395,7 @@
     "takeaway/takeaway_summary.sql",
     "core/restaurant_master.sql",
     "telegram/t_invites.sql",
+    "restaurant_admin/admin_roster.sql",
     "telegram/t_sent_messages.sql",
     "availability/pauses.sql"
    ],
@@ -8221,7 +8424,7 @@
     "LIVE CHECK": "R6 t_alert_destinations(), t_order_card_snapshot() and job_t_order_alerts() verified live on 2026-10-22.",
     "OBJECTS": "table  t_order_alerts\n    Reminder schedule: one row per order and offset (seconds after the order) with due time and status.\nfn     t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text\n    Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).\nfn     t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)\n    Return the order's current state from delivery_summary or takeaway_summary as one row.\nfn     t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)\n    Return where cards for a restaurant go: the linked admins' chats (the one place that says so).\nfn     t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)\n    t_order_card_destinations() without the admins who paused their alerts: where NEW cards, receipts and notices go.\nfn     t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Return everything needed to draw the card (order, items, status, destinations) in one read.\nfn     t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)\n    List orders whose sent copies show an old status or a revoked viewer (read-only).\nfn     t_order_cards_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Claim one order's stale copies for one refresh pass (state 'taken', SKIP LOCKED).\nfn     job_t_order_alerts() -> boolean\n    Every 5 seconds: seed, cancel, find due reminders and stale cards, POST them, and mark them on success.",
     "PYTHON MODEL": "none",
-    "REQUIRES": "delivery/delivery_summary.sql\ntakeaway/takeaway_summary.sql\ncore/restaurant_master.sql\ntelegram/t_invites.sql\ntelegram/t_sent_messages.sql\navailability/pauses.sql",
+    "REQUIRES": "delivery/delivery_summary.sql\ntakeaway/takeaway_summary.sql\ncore/restaurant_master.sql\ntelegram/t_invites.sql\nrestaurant_admin/admin_roster.sql\ntelegram/t_sent_messages.sql\navailability/pauses.sql",
     "SECURITY": "RLS ON with no policies; every function is revoked from PUBLIC/anon/authenticated: only the service key can call them.\nConcurrency: up to 3 gunicorn workers may remind / refresh the same order; copies are claimed in SQL (state 'taken',\n  FOR UPDATE SKIP LOCKED), a claim not finished in 30 s is offered again, and a newer copy only deletes OLDER ones (id <).",
     "SEE ALSO": "telegram/t_sent_messages.sql\ntelegram/t_housekeeping.sql\nrestaurant_admin/restaurant_order_decision.sql\nrestaurant_admin/restaurant_ready_adjust_notices.sql\ndocs/telegram-layer.md",
     "SIDE EFFECTS": "Applying the file inserts TGRAM_ORDER_ALERT_OFFSETS_SECS if missing. The cron job POSTs every 5 s when something is due.",
@@ -8610,6 +8813,16 @@
    "cron": [],
    "folder": "test_support",
    "header_lines": 0,
+   "lines": 126,
+   "objects": [],
+   "path": "test_support/test_admin_onboarding.sql",
+   "role": "script",
+   "title": "TEST HARNESS (not a migration): exercise the restaurant-admin roster, the phone-verified Telegram link, channels and pauses"
+  },
+  {
+   "cron": [],
+   "folder": "test_support",
+   "header_lines": 0,
    "lines": 108,
    "objects": [],
    "path": "test_support/test_create_t_order_alerts.sql",
@@ -8791,6 +9004,111 @@
   }
  ],
  "objects": {
+  "admin_for_tuid": {
+   "called_by": [
+    {
+     "text": "t_order_admin_phone() (restaurant_admin/restaurant_order_decision.sql)",
+     "via": "sql"
+    }
+   ],
+   "description": "The admin phone of this Telegram user for this restaurant, else NULL.",
+   "file": "restaurant_admin/admin_roster.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 202,
+   "role": "definition",
+   "signature": "admin_for_tuid(p_tuid bigint, p_rest_ref text) -> text"
+  },
+  "admin_phone_digits": {
+   "called_by": [
+    {
+     "text": "admin_roster, t_admin_link(), admin_roster_status(), admin_set_channels(), admin_unlink_telegram(), t_order_card_destinations(), t_order_admin_phone(), restaurant_admin_label()",
+     "via": "sql"
+    }
+   ],
+   "description": "Digits only; NULL unless 8-15 digits. The one phone rule of the roster.",
+   "file": "restaurant_admin/admin_roster.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 96,
+   "role": "definition",
+   "signature": "admin_phone_digits(p_phone text) -> text"
+  },
+  "admin_recipients": {
+   "called_by": [
+    {
+     "text": "ordelo/admin_roster.py: whatsapp_phones() (P2)",
+     "via": "python"
+    }
+   ],
+   "description": "Who gets a NEW message on this channel: on the list, channel chosen, not paused, (Telegram) linked.",
+   "file": "restaurant_admin/admin_roster.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 170,
+   "role": "definition",
+   "signature": "admin_recipients(p_rest_ref text, p_channel text) -> TABLE(phone text, tcid bigint, tuid bigint, label text)"
+  },
+  "admin_roster": {
+   "called_by": [
+    {
+     "text": "admin_recipients(), admin_for_tuid(), t_admin_link(), t_admin_profile(), t_order_card_destinations(), t_admin_restaurants()",
+     "via": "sql"
+    }
+   ],
+   "description": "One row per (restaurant, phone) on a restaurant's admin list, with that phone's admin record.",
+   "file": "restaurant_admin/admin_roster.sql",
+   "folder": "restaurant_admin",
+   "kind": "view",
+   "line": 139,
+   "role": "definition",
+   "signature": "admin_roster"
+  },
+  "admin_roster_status": {
+   "called_by": [
+    {
+     "text": "ordelo/admin_roster.py: status()",
+     "via": "python"
+    }
+   ],
+   "description": "One restaurant's admin list with link and channel state, for the sys-admin page.",
+   "file": "restaurant_admin/admin_roster.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 380,
+   "role": "definition",
+   "signature": "admin_roster_status(p_rest_ref text) -> jsonb"
+  },
+  "admin_set_channels": {
+   "called_by": [
+    {
+     "text": "channels/telegram/admin_links.py: set_channels(); restaurant-frontend sys-admin admins route",
+     "via": "python"
+    }
+   ],
+   "description": "Change where an admin's messages go.",
+   "file": "restaurant_admin/admin_roster.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 319,
+   "role": "definition",
+   "signature": "admin_set_channels(p_phone text, p_channels text[], p_by text) -> jsonb"
+  },
+  "admin_unlink_telegram": {
+   "called_by": [
+    {
+     "text": "channels/telegram/admin_links.py: unlink()",
+     "via": "python"
+    }
+   ],
+   "description": "Clear the Telegram link; the admin goes back to WhatsApp only.",
+   "file": "restaurant_admin/admin_roster.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 351,
+   "role": "definition",
+   "signature": "admin_unlink_telegram(p_phone text, p_by text) -> jsonb"
+  },
   "app_url": {
    "called_by": [
     {
@@ -10061,7 +10379,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 536,
+   "line": 566,
    "role": "definition",
    "signature": "job_t_order_alerts() -> boolean"
   },
@@ -10648,6 +10966,16 @@
    "role": "definition",
    "signature": "resolve_initial_restaurant_acceptance(p_rest_ref character varying, p_order_kind text, p_created_at timestamp with time zone) -> TABLE(auto_accept boolean, pickup_minutes integer, pickup_time timestamp with time zone)"
   },
+  "restaurant_admin": {
+   "called_by": [],
+   "description": "The admin record: one row per phone (channels, Telegram link). Confers no authority (D3).",
+   "file": "restaurant_admin/admin_roster.sql",
+   "folder": "restaurant_admin",
+   "kind": "table",
+   "line": 111,
+   "role": "definition",
+   "signature": "restaurant_admin"
+  },
   "restaurant_admin_label": {
    "called_by": [
     {
@@ -10679,7 +11007,7 @@
    "file": "restaurant_admin/restaurant_order_decision.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 98,
+   "line": 99,
    "role": "definition",
    "signature": "restaurant_admin_label(p_phone text) -> text"
   },
@@ -10797,7 +11125,7 @@
    "file": "core/restaurant_master.sql",
    "folder": "core",
    "kind": "table",
-   "line": 79,
+   "line": 80,
    "role": "definition",
    "signature": "restaurant_master"
   },
@@ -10839,7 +11167,7 @@
    "file": "restaurant_admin/restaurant_order_decision.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 140,
+   "line": 154,
    "role": "definition",
    "signature": "restaurant_order_decide(p_order_number text, p_order_type text, p_decision text, p_admin_phone text, p_channel text) -> jsonb"
   },
@@ -10877,7 +11205,7 @@
    "file": "restaurant_admin/restaurant_order_decision.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 240,
+   "line": 254,
    "role": "definition",
    "signature": "restaurant_order_set_pickup(p_order_number text, p_order_type text, p_pickup_time timestamp with time zone, p_admin_phone text, p_channel text) -> jsonb"
   },
@@ -11261,6 +11589,21 @@
    "role": "orphan",
    "signature": "sync_delivery_inflight() -> trigger"
   },
+  "t_admin_link": {
+   "called_by": [
+    {
+     "text": "channels/telegram/admin_links.py: link()",
+     "via": "python"
+    }
+   ],
+   "description": "Link a Telegram account to an admin phone (the phone was shared by the sender, never typed).",
+   "file": "restaurant_admin/admin_roster.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 224,
+   "role": "definition",
+   "signature": "t_admin_link(p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text) -> jsonb"
+  },
   "t_admin_pause": {
    "called_by": [
     {
@@ -11272,7 +11615,7 @@
    "file": "telegram/t_admin_pauses.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 64,
+   "line": 107,
    "role": "definition",
    "signature": "t_admin_pause(p_bot_key text, p_tuid bigint, p_duration text) -> jsonb"
   },
@@ -11287,7 +11630,7 @@
    "file": "telegram/t_admin_pauses.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 206,
+   "line": 214,
    "role": "definition",
    "signature": "t_admin_pause_chats(p_bot_key text, p_phone text, p_rest_ref text) -> jsonb"
   },
@@ -11302,9 +11645,34 @@
    "file": "telegram/t_admin_pauses.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 158,
+   "line": 177,
    "role": "definition",
    "signature": "t_admin_pause_status(p_bot_key text, p_tuid bigint) -> jsonb"
+  },
+  "t_admin_profile": {
+   "called_by": [
+    {
+     "text": "channels/telegram/admin_links.py: profile()",
+     "via": "python"
+    }
+   ],
+   "description": "Who this Telegram account is as an admin (phone, channels, restaurants); read-only.",
+   "file": "restaurant_admin/admin_roster.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 291,
+   "role": "definition",
+   "signature": "t_admin_profile(p_tuid bigint) -> jsonb"
+  },
+  "t_admin_restaurants": {
+   "called_by": [],
+   "description": "The restaurants this Telegram user is an admin of, with their admin phone (roster), for /off, /on and the status.",
+   "file": "telegram/t_admin_pauses.sql",
+   "folder": "telegram",
+   "kind": "function",
+   "line": 67,
+   "role": "definition",
+   "signature": "t_admin_restaurants(p_bot_key text, p_tuid bigint) -> TABLE(rest_ref text, rest_name text, phone text)"
   },
   "t_admin_resume": {
    "called_by": [
@@ -11317,7 +11685,7 @@
    "file": "telegram/t_admin_pauses.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 111,
+   "line": 142,
    "role": "definition",
    "signature": "t_admin_resume(p_bot_key text, p_tuid bigint) -> jsonb"
   },
@@ -11344,7 +11712,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 293,
+   "line": 320,
    "role": "definition",
    "signature": "t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)"
   },
@@ -11359,7 +11727,7 @@
    "file": "telegram/t_invites.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 298,
+   "line": 300,
    "role": "definition",
    "signature": "t_claim_invite(p_code text, p_bot_key text, p_user_id bigint, p_chat_id bigint, p_username text, p_first_name text) -> jsonb"
   },
@@ -11442,7 +11810,7 @@
    "file": "telegram/t_invites.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 234,
+   "line": 236,
    "role": "definition",
    "signature": "t_invite_preview(p_code text, p_bot_key text, p_user_id bigint) -> jsonb"
   },
@@ -11461,7 +11829,7 @@
    "file": "telegram/t_invites.sql",
    "folder": "telegram",
    "kind": "table",
-   "line": 113,
+   "line": 115,
    "role": "definition",
    "signature": "t_invites"
   },
@@ -11476,7 +11844,7 @@
    "file": "telegram/t_invites.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 164,
+   "line": 166,
    "role": "definition",
    "signature": "t_invites_normalize_phone() -> trigger"
   },
@@ -11491,7 +11859,7 @@
    "file": "telegram/t_invites.sql",
    "folder": "telegram",
    "kind": "view",
-   "line": 192,
+   "line": 194,
    "role": "definition",
    "signature": "t_invites_shareable"
   },
@@ -11506,7 +11874,7 @@
    "file": "telegram/t_invites.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 366,
+   "line": 368,
    "role": "definition",
    "signature": "t_linked_restaurants(p_bot_key text, p_user_id bigint) -> jsonb"
   },
@@ -11521,7 +11889,7 @@
    "file": "telegram/t_invites.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 92,
+   "line": 94,
    "role": "definition",
    "signature": "t_new_invite_code() -> text"
   },
@@ -11593,7 +11961,7 @@
    "file": "restaurant_admin/restaurant_order_decision.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 327,
+   "line": 341,
    "role": "definition",
    "signature": "t_order_admin_phone(p_bot_key text, p_tuid bigint, p_rest_ref text) -> text"
   },
@@ -11616,7 +11984,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "table",
-   "line": 118,
+   "line": 119,
    "role": "definition",
    "signature": "t_order_alerts"
   },
@@ -11643,7 +12011,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 251,
+   "line": 252,
    "role": "definition",
    "signature": "t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)"
   },
@@ -11689,7 +12057,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 193,
+   "line": 194,
    "role": "definition",
    "signature": "t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)"
   },
@@ -11719,7 +12087,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 328,
+   "line": 358,
    "role": "definition",
    "signature": "t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb"
   },
@@ -11742,7 +12110,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 151,
+   "line": 152,
    "role": "definition",
    "signature": "t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text"
   },
@@ -11761,7 +12129,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 392,
+   "line": 422,
    "role": "definition",
    "signature": "t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)"
   },
@@ -11776,7 +12144,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 450,
+   "line": 480,
    "role": "definition",
    "signature": "t_order_cards_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb"
   },
@@ -11799,7 +12167,7 @@
    "file": "restaurant_admin/restaurant_order_decision.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 364,
+   "line": 385,
    "role": "definition",
    "signature": "t_order_decide(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text, p_decision text) -> jsonb"
   },
@@ -11837,7 +12205,7 @@
    "file": "restaurant_admin/restaurant_order_decision.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 414,
+   "line": 435,
    "role": "definition",
    "signature": "t_order_set_pickup(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text, p_minutes integer) -> jsonb"
   },

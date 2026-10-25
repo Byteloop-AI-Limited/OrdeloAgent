@@ -14,7 +14,7 @@ from channels.telegram import callbacks
 from channels.telegram.bots import build_rest_admin_dispatcher
 from config.tgram_setting import TgramBotSettings
 
-from .conftest import callback_update, message_update
+from .conftest import callback_update, contact_update, message_update
 
 SETTINGS = TgramBotSettings.for_bot(
     "rest_admin",
@@ -32,8 +32,9 @@ def event(update_id: int) -> Update:
 
 def test_callback_families_have_an_explicit_inbox_policy():
     """A new callback family needs a conscious protected/unprotected decision."""
-    protected = {"OrderAction", "RiderSignup", "RiderOffer", "RiderJobAction", "RiderPause", "AdminPause"}
-    conditional = {"InviteDecision": {"y": True, "n": False}}
+    protected = {"OrderAction", "RiderSignup", "RiderOffer", "RiderJobAction", "RiderPause", "AdminPause", "AdminChannels"}
+    # InviteDecision is retired (TRANSITION, P3 removes): a tap writes nothing any more, so neither y nor n is protected.
+    conditional = {"InviteDecision": {"y": False, "n": False}}
     actual = {
         name for name, value in vars(callbacks).items()
         if inspect.isclass(value) and issubclass(value, CallbackData) and value.__module__ == callbacks.__name__
@@ -69,18 +70,29 @@ async def test_finish_only_closes_processing_rows(inbox_db):
     assert inbox_db.status_of(7) == "done"
 
 
-async def test_protected_invite_redelivery_runs_once_across_dispatchers(recording_bot, inbox_db, invite_db):
+async def test_protected_admin_link_redelivery_runs_once_across_dispatchers(recording_bot, inbox_db, admin_db, invite_db):
     bot, session = recording_bot
-    code = invite_db.add()
-    payload = callback_update(f"inv:{code}:y", update_id=41)
+    admin_db.add_admin("447700900111")
+    payload = contact_update("447700900111", update_id=41)
     await feed(bot, build_rest_admin_dispatcher(SETTINGS), payload)
     await feed(bot, build_rest_admin_dispatcher(SETTINGS), payload)
-    assert invite_db.rpc_names == ["t_claim_invite"]
+    assert admin_db.rpc_names == ["t_admin_link"]
     assert inbox_db.rpc_names == ["t_inbox_claim", "t_inbox_finish", "t_inbox_claim"]
-    assert inbox_db.rows[("rest_admin", 41)]["kind"] == "callback_query"
+    assert inbox_db.rows[("rest_admin", 41)]["kind"] == "message"
     assert inbox_db.rows[("rest_admin", 41)]["tuid"] == 111
     assert inbox_db.status_of(41) == "done"
-    assert len(session.edited_texts) == 1
+    assert len(session.sent_texts) == 1
+
+
+async def test_protected_channel_tap_redelivery_runs_once(recording_bot, inbox_db, admin_db):
+    bot, session = recording_bot
+    admin_db.add_admin("447700900111")
+    admin_db.record("447700900111", tuid=111, tcid=111, channels=["telegram"])
+    payload = callback_update("ac1:b", update_id=42)
+    await feed(bot, build_rest_admin_dispatcher(SETTINGS), payload)
+    await feed(bot, build_rest_admin_dispatcher(SETTINGS), payload)
+    assert admin_db.rpc_names.count("admin_set_channels") == 1
+    assert inbox_db.status_of(42) == "done"
 
 
 async def test_read_only_fallback_and_unmatched_updates_have_no_inbox_calls(recording_bot, inbox_db, invite_db):

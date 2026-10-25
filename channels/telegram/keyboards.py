@@ -7,7 +7,7 @@ queries, and work in private chats only.
 from aiogram.types import InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from .callbacks import AdminPause, InviteDecision, RiderJobAction, RiderOffer, RiderPause, RiderSignup
+from .callbacks import AdminChannels, AdminPause, InviteDecision, RiderJobAction, RiderOffer, RiderPause, RiderSignup
 
 
 def contact_request_kb() -> ReplyKeyboardMarkup:
@@ -23,6 +23,23 @@ def invite_confirm_kb(code: str) -> InlineKeyboardMarkup:
     b.button(text="✅ Yes, link this chat", callback_data=InviteDecision(code=code, action="y").pack())
     b.button(text="❌ No", callback_data=InviteDecision(code=code, action="n").pack())
     b.adjust(1, 1)
+    return b.as_markup()
+
+
+# Admin channel choices (D6): code -> (button label, channels array for admin_set_channels()).
+CHANNEL_CHOICES: dict[str, tuple[str, list[str]]] = {
+    "t": ("📲 Telegram only", ["telegram"]),
+    "w": ("💬 WhatsApp only", ["whatsapp"]),
+    "b": ("🔁 Both", ["telegram", "whatsapp"]),
+}
+
+
+def admin_channels_kb() -> InlineKeyboardMarkup:
+    """One button per channel choice under /channels on the restaurant bot (AdminChannels 'ac1:<c>')."""
+    b = InlineKeyboardBuilder()
+    for code, (label, _channels) in CHANNEL_CHOICES.items():
+        b.button(text=label, callback_data=AdminChannels(c=code).pack())
+    b.adjust(1)
     return b.as_markup()
 
 

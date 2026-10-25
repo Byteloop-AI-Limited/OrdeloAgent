@@ -12,7 +12,8 @@
 -- HOW IT FITS   Every order table points back here through rest_ref (the 4-letter code, e.g. ELAS) or rest_id.
 --                 init_delivery() / init_takeaway() copy name, address and coordinates into the order summary row, and
 --                 resolve_initial_restaurant_acceptance() reads auto_accept to decide whether a new order skips the admin prompt.
---                 admins (text[] of phone numbers) is the WhatsApp admin list; Telegram admins are linked through t_invites.
+--                 admins (text[] of phone numbers) is the authoritative admin list; each phone's Telegram link and channels live in
+--                 restaurant_admin / admin_roster (restaurant_admin/admin_roster.sql).
 --                 The per-restaurant behaviour switches live in ordelo_config as '<REST_REF>_<KEY>' rows, not in this table.
 --                 restaurant-frontend reads it for the storefront and the admin dashboard; restaurant-agents reads it for menus,
 --                 service hours and agent routing.
@@ -109,7 +110,7 @@ CREATE TABLE IF NOT EXISTS public.restaurant_master (
 -- ---------------------------------------------------------------------------------------------
 COMMENT ON TABLE public.restaurant_master IS 'Master record per restaurant; rest_ref (e.g. ELAS) is the key and the prefix of every order number.';
 
-COMMENT ON COLUMN public.restaurant_master.admins IS 'WhatsApp admin phone numbers (digits, no +); Telegram admins are linked in t_invites';
+COMMENT ON COLUMN public.restaurant_master.admins IS 'Authoritative admin phone numbers (digits, no +); the Telegram link and channels per phone live in restaurant_admin';
 
 COMMENT ON COLUMN public.restaurant_master.auto_accept IS 'true: new orders are accepted with the configured default pickup time, no admin prompt';
 

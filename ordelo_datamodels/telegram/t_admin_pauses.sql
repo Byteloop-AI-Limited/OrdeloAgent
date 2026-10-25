@@ -9,10 +9,13 @@
 --                   End this Telegram user's alert pauses now, for every restaurant they are a linked admin of.
 --               fn     t_admin_pause_status(p_bot_key text, p_tuid bigint) -> jsonb
 --                   Read-only: per linked restaurant, paused or not and until when, plus the durations /off may offer.
+--               fn     t_admin_restaurants(p_bot_key text, p_tuid bigint) -> TABLE(rest_ref text, rest_name text, phone text)
+--                   The restaurants this Telegram user is an admin of, with their admin phone (roster), for /off, /on and the status.
 --               fn     t_admin_pause_chats(p_bot_key text, p_phone text, p_rest_ref text) -> jsonb
 --                   Read-only: the Telegram chats of one admin for one restaurant (where "ends soon" / "back on" go).
 -- REQUIRES      availability/pauses.sql
 --               telegram/t_invites.sql
+--               restaurant_admin/admin_roster.sql
 --               telegram/t_order_alerts.sql
 --               restaurant_admin/restaurant_order_decision.sql
 --               core/restaurant_master.sql
@@ -20,9 +23,9 @@
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
 -- SIDE EFFECTS  none when applied (functions only).
 -- HOW IT FITS   ADR 0013, D51, D52. The actor is the Telegram USER (tuid = from_user.id), as for every restaurant-bot action (D14):
---                 the restaurants come from t_invites (claimed by this tuid) and the phone from t_order_admin_phone() (the invite
---                 phone must still be in restaurant_master.admins), so a revoked invite or a removed admin can neither pause
---                 nor resume. The pause itself is pauses.pause_start('rest_admin', phone, rest_ref, ...) per restaurant, which
+--                 the restaurants and the phone come from t_admin_restaurants() (admin_roster: the linked admin record whose phone is
+--                 still in restaurant_master.admins; TRANSITION: or a claimed invite, removed in P3), so a removed admin can neither
+--                 pause nor resume. The pause itself is pauses.pause_start('rest_admin', phone, rest_ref, ...) per restaurant, which
 --                 applies the durations policy and the last-admin guard; this file only finds the restaurants and the phone.
 --                 Python: channels/telegram/admin_pauses.py (wrapper), channels/telegram/rest_admin/pauses.py (/off, /on taps),
 --                 watomation/routers/pause_hooks.py (the sweep messages to an admin, through t_admin_pause_chats()).
@@ -57,6 +60,46 @@
 -- =============================================================================================
 
 -- ---------------------------------------------------------------------------------------------
+-- function t_admin_restaurants(p_bot_key text, p_tuid bigint) -> TABLE(rest_ref text, rest_name text, phone text)
+--   The restaurants this Telegram user is an admin of, with their admin phone (roster), for /off, /on and the status.
+--   Data: reads admin_roster; calls t_order_admin_phone(); reads t_invites, restaurant_master (TRANSITION).
+-- ---------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.t_admin_restaurants (p_bot_key text, p_tuid bigint)
+    RETURNS TABLE (
+        rest_ref text,
+        rest_name text,
+        phone text)
+    LANGUAGE sql
+    STABLE
+    SET search_path = public
+    AS $$
+    SELECT
+        r.rest_ref::text,
+        r.rest_name,
+        r.phone
+    FROM
+        public.admin_roster r
+    WHERE
+        r.tuid = p_tuid
+    UNION
+    -- TRANSITION (P3 removes): invite-linked admins with no admin record
+    SELECT
+        i.rest_ref::text,
+        rm.rest_name,
+        public.t_order_admin_phone (p_bot_key, p_tuid, i.rest_ref)
+    FROM
+        public.t_invites i
+        JOIN public.restaurant_master rm ON rm.rest_ref = i.rest_ref
+    WHERE
+        i.bot_key = p_bot_key
+        AND i.telegram_user_id = p_tuid
+        AND i.status = 'claimed'
+        AND public.t_order_admin_phone (p_bot_key, p_tuid, i.rest_ref) IS NOT NULL
+$$;
+
+REVOKE ALL ON FUNCTION public.t_admin_restaurants (text, bigint) FROM PUBLIC, anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------
 -- function t_admin_pause(p_bot_key text, p_tuid bigint, p_duration text) -> jsonb
 --   Pause this Telegram user's alerts for every restaurant they are a linked admin of, one pause per restaurant.
 --   Data: reads restaurant_master, t_invites; calls pause_start(), t_order_admin_phone().
@@ -74,21 +117,9 @@ BEGIN
     FOR r IN
     SELECT
         x.rest_ref,
-        rm.rest_name,
+        x.rest_name,
         x.phone
-    FROM (
-        SELECT DISTINCT
-            i.rest_ref,
-            public.t_order_admin_phone (p_bot_key, p_tuid, i.rest_ref) AS phone
-        FROM
-            public.t_invites i
-        WHERE
-            i.bot_key = p_bot_key
-            AND i.telegram_user_id = p_tuid
-            AND i.status = 'claimed') x
-    JOIN public.restaurant_master rm ON rm.rest_ref = x.rest_ref
-WHERE
-    x.phone IS NOT NULL
+    FROM public.t_admin_restaurants (p_bot_key, p_tuid) x
 ORDER BY
     x.rest_ref LOOP
         v_res := public.pause_start ('rest_admin', r.phone, r.rest_ref, p_duration, 'telegram', p_tuid::text);
@@ -121,21 +152,9 @@ BEGIN
     FOR r IN
     SELECT
         x.rest_ref,
-        rm.rest_name,
+        x.rest_name,
         x.phone
-    FROM (
-        SELECT DISTINCT
-            i.rest_ref,
-            public.t_order_admin_phone (p_bot_key, p_tuid, i.rest_ref) AS phone
-        FROM
-            public.t_invites i
-        WHERE
-            i.bot_key = p_bot_key
-            AND i.telegram_user_id = p_tuid
-            AND i.status = 'claimed') x
-    JOIN public.restaurant_master rm ON rm.rest_ref = x.rest_ref
-WHERE
-    x.phone IS NOT NULL
+    FROM public.t_admin_restaurants (p_bot_key, p_tuid) x
 ORDER BY
     x.rest_ref LOOP
         v_res := public.pause_end ('rest_admin', r.phone, r.rest_ref, 'resumed');
@@ -164,21 +183,10 @@ CREATE OR REPLACE FUNCTION public.t_admin_pause_status (p_bot_key text, p_tuid b
     WITH mine AS (
         SELECT
             x.rest_ref,
-            rm.rest_name,
+            x.rest_name,
             public.pause_current ('rest_admin', x.phone, x.rest_ref) AS cur
-        FROM (
-            SELECT DISTINCT
-                i.rest_ref,
-                public.t_order_admin_phone (p_bot_key, p_tuid, i.rest_ref) AS phone
-            FROM
-                public.t_invites i
-            WHERE
-                i.bot_key = p_bot_key
-                AND i.telegram_user_id = p_tuid
-                AND i.status = 'claimed') x
-        JOIN public.restaurant_master rm ON rm.rest_ref = x.rest_ref
-    WHERE
-        x.phone IS NOT NULL
+        FROM
+            public.t_admin_restaurants (p_bot_key, p_tuid) x
 )
 SELECT
     CASE WHEN NOT EXISTS (

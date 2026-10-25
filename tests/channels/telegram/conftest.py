@@ -530,11 +530,12 @@ def rider_db(monkeypatch):
 
 @pytest.fixture
 def ops_alerts(monkeypatch):
-    """Captures rider bot ops alerts instead of sending WhatsApp messages."""
+    """Captures rider and restaurant bot ops alerts instead of sending WhatsApp messages."""
     sent: list[str] = []
 
     async def fake_alert(text):
         sent.append(text)
 
     monkeypatch.setattr("channels.telegram.rider.router.alert_ops", fake_alert)
+    monkeypatch.setattr("channels.telegram.rest_admin.router.alert_ops", fake_alert)
     return sent

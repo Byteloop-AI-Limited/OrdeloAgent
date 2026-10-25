@@ -1,6 +1,8 @@
 -- =============================================================================================
 -- ordelo_datamodels/telegram/t_invites.sql
 -- Telegram invite links that link a person's Telegram account to a restaurant (restaurant-admin bot; reusable for riders).
+-- BEING RETIRED for restaurant admins (plans/restaurant-admin-roster-onboarding-plan.md): no new invites; admins link by sharing
+-- their phone (restaurant_admin/admin_roster.sql). Claimed invites keep working until a person links; dropped in P3.
 -- =============================================================================================
 -- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
 -- OBJECTS       fn     t_new_invite_code() -> text
