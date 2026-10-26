@@ -35,6 +35,13 @@ SET config_value = EXCLUDED.config_value,
     updated_at = CURRENT_TIMESTAMP;
 
 
+INSERT INTO public.ordelo_config (config_key, config_value, description)
+-- VALUES ('STRK_TGRAM_ORDER_ALERT_OFFSETS_SECS', '0,30,60', 'STRK override: seconds after a new order at which the Telegram order card is (re)sent.')
+VALUES ('STRK_TGRAM_ORDER_ALERT_OFFSETS_SECS', '0', 'STRK override: seconds after a new order at which the Telegram order card is (re)sent.')
+ON CONFLICT (config_key)
+DO UPDATE SET config_value = EXCLUDED.config_value;
+
+
 select * from ordelo_config where config_key like '%SFCS%' order by config_key;
 select * from ordelo_config where config_key like '%BNAT%' order by config_key;
 select * from ordelo_config where config_key like '%ELAS%' order by config_key;

@@ -23,7 +23,7 @@ policy deterministic even if restaurant configuration changes.
 ## Order-card reminders
 
 The repeat sends of an order card (default offsets `0,15,30,45` seconds, `TGRAM_ORDER_ALERT_OFFSETS_SECS`,
-overridable per restaurant with `<REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS`) exist so an admin cannot miss an
+overridable per restaurant with `<REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS`; a blank restaurant value falls back to the global one, use `0` for a single card) exist so an admin cannot miss an
 order that is waiting for an answer. They are scheduled only for orders whose
 `restaurant_confirmation_status` is `restaurant_unconfirmed`, and cancelled as soon as the order is decided on any channel.
 So a *configured auto-accept* order (created already accepted) never gets reminders, only a single "auto accepted"

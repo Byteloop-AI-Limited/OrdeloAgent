@@ -544,10 +544,10 @@ $$;
 REVOKE ALL ON FUNCTION public.t_order_cards_take (text, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
--- 10. Config rows (operator-editable; blank offsets = reminders off for that scope).
+-- 10. Config rows (operator-editable; a blank global value = reminders off; a blank per-restaurant value = use the global one).
 -- ---------------------------------------------------------------------------------------------
 INSERT INTO public.ordelo_config (config_key, config_value, description)
-    VALUES ('TGRAM_ORDER_ALERT_OFFSETS_SECS', '0,15,30,45', 'Seconds after a new restaurant order at which the Telegram order card is (re)sent to linked admins. A restaurant can override with <REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS. Blank = off.'),
+    VALUES ('TGRAM_ORDER_ALERT_OFFSETS_SECS', '0,15,30,45', 'Seconds after a new restaurant order at which the Telegram order card is (re)sent to linked admins. A restaurant can override with <REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS (blank there = use this global value; use 0 for a single card). Blank here = off.'),
     ('TGRAM_INBOX_RETENTION_DAYS', '7', 'Days t_inbox rows are kept by t_housekeeping().'),
     ('TGRAM_LEDGER_RETENTION_DAYS', '30', 'Days closed t_sent_messages rows and finished t_order_alerts rows are kept by t_housekeeping().')
 ON CONFLICT (config_key)

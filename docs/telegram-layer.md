@@ -328,7 +328,21 @@ Source: `ordelo_datamodels/telegram/t_order_alerts.sql` (`job_t_order_alerts`, e
 
 How it works: the job seeds one `t_order_alerts` row per offset, only for orders from the last 15 minutes that are `restaurant_unconfirmed` and have at least one destination in `t_alert_destinations`. Any pending row is cancelled as soon as `t_order_card_row` no longer reports `restaurant_unconfirmed` (decided on Telegram or WhatsApp). After an outage only the latest due reminder is sent. Paused admins and admins whose channels exclude Telegram are skipped.
 
-Operator controls: `TGRAM_ORDER_ALERT_OFFSETS_SECS` (global) and `<REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS` (per restaurant) in `ordelo_config`; blank turns reminders off for that scope.
+Operator controls (`ordelo_config`): `TGRAM_ORDER_ALERT_OFFSETS_SECS` is the global schedule (default `0,15,30,45`) and `<REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS` overrides it for one restaurant. `parse_alert_offsets()` returns NULL for an absent, blank or unparseable value and the job does `COALESCE(per-restaurant, global)`.
+
+| Value of `<REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS` | Result for that restaurant |
+|---|---|
+| absent, blank (`''`) or unparseable | **Falls back to the global schedule** (the original `0,15,30,45`). Blank does NOT switch reminders off |
+| `0` | **One card only** at order time, no repeats |
+| a list, e.g. `0,30,60` | Cards at exactly those seconds after the order (sorted, distinct; junk entries skipped) |
+
+Only a blank or unparseable **global** value turns reminders off, for every restaurant without its own override. There is no per-restaurant "off"; use `0`. Changes apply to new orders; orders already scheduled keep their reminders. Example (STRK):
+
+```sql
+INSERT INTO public.ordelo_config (config_key, config_value, description)
+VALUES ('STRK_TGRAM_ORDER_ALERT_OFFSETS_SECS', '0,30,60', 'STRK override: seconds after a new order at which the Telegram order card is (re)sent.')
+ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value;
+```
 
 Status: derived from the SQL; not yet confirmed live with an auto-accept restaurant (place a test order on one and check the card arrives once).
 
