@@ -83,6 +83,6 @@ def test_restaurant_menu_has_channels_and_the_new_start_text_and_no_rider_comman
     from channels.telegram.rest_admin.commands import REST_ADMIN_COMMANDS
 
     names = [c.command for c in REST_ADMIN_COMMANDS]
-    assert names[:2] == ["start", "channels"] and {"off", "on", "help", "whoami"} <= set(names)
+    assert names[:2] == ["start", "channels"] and {"manage", "off", "on", "help", "whoami"} <= set(names)
     assert "shift" not in names and "job" not in names
     assert "share your phone number" in next(c.description for c in REST_ADMIN_COMMANDS if c.command == "start").lower()

@@ -5,7 +5,7 @@
 
 The SQL under `ordelo_datamodels/` is organised by capability. Each file starts with a fixed header (live check, objects, how to run, side effects, how it fits, lifecycle, callers, Python model, security, tests, gotchas, see also). The file is the authority; this guide only indexes it.
 
-**118 SQL files · 207 objects** 132 functions · 57 tables · 12 triggers · 6 views · 17 cron jobs
+**118 SQL files · 207 objects** 132 functions · 57 tables · 12 triggers · 6 views · 16 cron jobs
 
 ## Capability map
 
@@ -441,7 +441,7 @@ Admin dashboard reads and platform helpers.
 | [`migrations/add_wa_location_request_callback_url.sql`](migrations/add_wa_location_request_callback_url.sql) | Applied: every object it creates exists live (checked 2026-10-16). | rider_location/wa_location.sql |
 | [`migrations/admin_orders_indexes.sql`](migrations/admin_orders_indexes.sql) | Applied: every object it creates exists live (checked 2026-10-16). | delivery/delivery_summary.sql, ordering/food_order_additions.sql, restaurant-agents (order_item), takeaway/takeaway_summary.sql |
 | [`migrations/admin_orders_views.sql`](migrations/admin_orders_views.sql) | Applied: every object it creates exists live (checked 2026-10-16). | admin_dashboard/v_admin_orders.sql |
-| [`migrations/admin_roster_p1.sql`](migrations/admin_roster_p1.sql) | NOT YET (the owner applies it; update this line when done). Written for plans/restaurant-admin-roster-onboarding-plan.md, phase P1; the owner applies it. | restaurant_admin/admin_roster.sql, restaurant_admin/restaurant_order_decision.sql,, telegram/t_order_alerts.sql, telegram/t_admin_pauses.sql |
+| [`migrations/admin_roster_p1.sql`](migrations/admin_roster_p1.sql) | 2026-10-25 (owner; t_order_alerts.sql was re-run once because the destinations were still the old bodies). Written for plans/restaurant-admin-roster-onboarding-plan.md, phase P1; the owner applies it. | restaurant_admin/admin_roster.sql, restaurant_admin/restaurant_order_decision.sql,, telegram/t_order_alerts.sql, telegram/t_admin_pauses.sql |
 | [`migrations/create_cust_rest_map.sql`](migrations/create_cust_rest_map.sql) | Applied: every object it creates exists live (checked 2026-10-16). | core/cust_rest_map.sql |
 | [`migrations/create_wa_location_tables.sql`](migrations/create_wa_location_tables.sql) | Tables applied; the trigger expire_wa_location_requests_on_inflight_delete and its function are not live. | rider_location/wa_location.sql |
 | [`migrations/ordelo_agg_r1.sql`](migrations/ordelo_agg_r1.sql) | Applied, except the pg_cron schedule for job_payment_init_reconciler (not in cron.job; docs/to-do.md). | notifications/notification_outbox.sql, notifications/order_customer_event.sql, notifications/order_notification_subscription.sql, ordering/create_food_order_with_items.sql, ordering/food_order_additions.sql, payment/job_payment_init_reconciler.sql, payment/payment_event.sql, payment/record_payment_authorised.sql, restaurant-agents (food_order) |
@@ -470,7 +470,6 @@ Schedule and state below come from the runnable SQL files; they are targets, not
 | `job_pause_sweep` | * * * * * | active | `job_pause_sweep` | [`availability/job_pause_sweep.sql`](availability/job_pause_sweep.sql) |
 | `job_process_owntracks` | 30 seconds | active | `job_process_owntracks` | [`rider_location/job_process_owntracks.sql`](rider_location/job_process_owntracks.sql) |
 | `job_rider_pickup_alert` | */5 * * * * | active | `job_rider_pickup_alerts` | [`dispatch/job_rider_pickup_alerts.sql`](dispatch/job_rider_pickup_alerts.sql) |
-| `job_t_order_alerts` | 5 seconds | active | `job_t_order_alerts` | [`telegram/t_order_alerts.sql`](telegram/t_order_alerts.sql) |
 | `job_t_receipt_refresh` | 5 seconds | active | `job_t_receipt_refresh` | [`restaurant_admin/restaurant_ready_adjust_notices.sql`](restaurant_admin/restaurant_ready_adjust_notices.sql) |
 | `job_terminate_stale_active_threads` | */3 * * * * | inactive | `job_terminate_stale_active_threads` | [`agent_threads/job_terminate_stale_active_threads.sql`](agent_threads/job_terminate_stale_active_threads.sql) |
 | `process_delivery` | 5 seconds | active | `process_delivery` | [`delivery/process_delivery.sql`](delivery/process_delivery.sql) |
@@ -481,6 +480,7 @@ Job-style functions with no pg_cron job on live (some are called from Python ins
 - job_close_thread() has no pg_cron job (agent_threads/job_close_thread.sql).
 - job_payment_init_reconciler() has no pg_cron job (payment/job_payment_init_reconciler.sql).
 - job_restaurant_confirmation_timeout() has no pg_cron job (restaurant_admin/job_restaurant_confirmation_timeout.sql).
+- job_t_order_alerts() has no pg_cron job (telegram/t_order_alerts.sql).
 - t_housekeeping() has no pg_cron job (telegram/t_housekeeping.sql).
 
 ## Orphan candidates

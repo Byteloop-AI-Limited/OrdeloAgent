@@ -110,15 +110,6 @@
   },
   {
    "active": true,
-   "command": "SELECT public.job_t_order_alerts()",
-   "file": "telegram/t_order_alerts.sql",
-   "function": "job_t_order_alerts",
-   "job": "job_t_order_alerts",
-   "line": 742,
-   "schedule": "5 seconds"
-  },
-  {
-   "active": true,
    "command": "SELECT public.job_t_receipt_refresh()",
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "function": "job_t_receipt_refresh",
@@ -158,6 +149,7 @@
   "job_close_thread() has no pg_cron job (agent_threads/job_close_thread.sql).",
   "job_payment_init_reconciler() has no pg_cron job (payment/job_payment_init_reconciler.sql).",
   "job_restaurant_confirmation_timeout() has no pg_cron job (restaurant_admin/job_restaurant_confirmation_timeout.sql).",
+  "job_t_order_alerts() has no pg_cron job (telegram/t_order_alerts.sql).",
   "t_housekeeping() has no pg_cron job (telegram/t_housekeeping.sql)."
  ],
  "duplicates": [],
@@ -961,7 +953,7 @@
    "called_by": {
     "auth_sessions": [
      {
-      "text": "watomation/routers/rest_admin_auth_session.py: mint_dashboard_session()",
+      "text": "watomation/routers/rest_admin_auth_session.py: mint_dashboard_session_for() (via mint_dashboard_session() for WhatsApp /login; directly from channels/telegram/rest_admin/manage.py for Telegram /manage)",
       "via": "python"
      },
      {
@@ -976,8 +968,8 @@
    },
    "cron": [],
    "folder": "admin_dashboard",
-   "header_lines": 28,
-   "lines": 87,
+   "header_lines": 29,
+   "lines": 88,
    "objects": [
     {
      "description": "One login session: role, principal and scope, phone, token/cookie hashes, expiries, binding and revocation.",
@@ -1006,9 +998,9 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "auth_sessions:\n  python    watomation/routers/rest_admin_auth_session.py: mint_dashboard_session()\n  python    watomation/routers/rider_auth_session.py: create_rider_dashboard_session()\n  python    watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session()",
+    "CALLED BY": "auth_sessions:\n  python    watomation/routers/rest_admin_auth_session.py: mint_dashboard_session_for() (via mint_dashboard_session()\n              for WhatsApp /login; directly from channels/telegram/rest_admin/manage.py for Telegram /manage)\n  python    watomation/routers/rider_auth_session.py: create_rider_dashboard_session()\n  python    watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session()",
     "GOTCHAS": "Only hashes are stored (sha256), never raw tokens.\nRLS is off with default grants: anon can read session rows (hashes, phone numbers): part of the security review.",
-    "HOW IT FITS": "OrdeloAgent issues a WhatsApp magic link (watomation/routers/rest_admin_auth_session.py, rider_auth_session.py,\n  sys_admin_auth_session.py): a row with token_hash and a 30-minute expires_at. Opening the link activates it: token_hash\n  is cleared, cookie_hash set, hard_expires_at = activated_at + 4 h. restaurant-frontend's dashboards send the cookie on\n  every request; last_seen_at is updated. Revoking a person's sessions = revoked_at on their rows.",
+    "HOW IT FITS": "OrdeloAgent issues a WhatsApp magic link, or for restaurant admins also a Telegram /manage one\n  (watomation/routers/rest_admin_auth_session.py, rider_auth_session.py, sys_admin_auth_session.py): a row with token_hash and a 30-minute expires_at. Opening the link activates it: token_hash\n  is cleared, cookie_hash set, hard_expires_at = activated_at + 4 h. restaurant-frontend's dashboards send the cookie on\n  every request; last_seen_at is updated. Revoking a person's sessions = revoked_at on their rows.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "created (link sent) -> activated (cookie issued) -> expired (expires_at / hard_expires_at) or revoked.",
     "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
@@ -4572,9 +4564,9 @@
    "cron": [],
    "folder": "migrations",
    "header_lines": 0,
-   "lines": 61,
+   "lines": 62,
    "migration": {
-    "applied": "NOT YET (the owner applies it; update this line when done). Written for plans/restaurant-admin-roster-onboarding-plan.md, phase P1; the owner applies it.",
+    "applied": "2026-10-25 (owner; t_order_alerts.sql was re-run once because the destinations were still the old bodies). Written for plans/restaurant-admin-roster-onboarding-plan.md, phase P1; the owner applies it.",
     "current": [
      "restaurant_admin/admin_roster.sql, restaurant_admin/restaurant_order_decision.sql,",
      "telegram/t_order_alerts.sql, telegram/t_admin_pauses.sql"
@@ -8318,17 +8310,7 @@
      }
     ]
    },
-   "cron": [
-    {
-     "active": true,
-     "command": "SELECT public.job_t_order_alerts()",
-     "file": "telegram/t_order_alerts.sql",
-     "function": "job_t_order_alerts",
-     "job": "job_t_order_alerts",
-     "line": 742,
-     "schedule": "5 seconds"
-    }
-   ],
+   "cron": [],
    "folder": "telegram",
    "header_lines": 110,
    "lines": 777,
@@ -9150,7 +9132,7 @@
   "auth_sessions": {
    "called_by": [
     {
-     "text": "watomation/routers/rest_admin_auth_session.py: mint_dashboard_session()",
+     "text": "watomation/routers/rest_admin_auth_session.py: mint_dashboard_session_for() (via mint_dashboard_session() for WhatsApp /login; directly from channels/telegram/rest_admin/manage.py for Telegram /manage)",
      "via": "python"
     },
     {
@@ -9166,7 +9148,7 @@
    "file": "admin_dashboard/auth_sessions.sql",
    "folder": "admin_dashboard",
    "kind": "table",
-   "line": 34,
+   "line": 35,
    "role": "definition",
    "signature": "auth_sessions"
   },

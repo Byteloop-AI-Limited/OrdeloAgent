@@ -6,7 +6,7 @@ sender's own), then t_admin_link() decides: linked | relinked (ops alert) | alre
 tuid_taken (ops alert) | bad_phone. Typed or forwarded numbers are never accepted. Linking moves the admin's alerts to Telegram
 only; /channels (channels.py) changes that. Invite links are retired (TRANSITION, removed in P3): an old "Link this chat?"
 button gets a "not used any more" answer and an old claimed invite is told to share its number once.
-Order buttons: orders.py. Alert pauses (/off, /on, phase R6 of
+Dashboard link (/manage): manage.py. Order buttons: orders.py. Alert pauses (/off, /on, phase R6 of
 plans/telegram-rider-bot-plan.md): pauses.py. The text fallback is a sub-router included LAST, because aiogram tries a
 router's own handlers before its included routers (a fallback registered here would swallow /off and /on).
 """
@@ -30,6 +30,7 @@ from ..ops_alerts import alert_ops, mask
 from ..replies import answer_quietly
 from .channels import build_channels_router
 from .commands import HELP_TEXT
+from .manage import build_manage_router
 from .order_cards.model import TROUBLE
 from .orders import build_orders_router
 from .pauses import build_pauses_router
@@ -211,6 +212,7 @@ def build_router() -> Router:
     router.include_router(build_orders_router())  # order-card buttons (callback queries; the text fallback is a message handler)
     router.include_router(build_pauses_router())  # R6: /off (+ length taps), /on
     router.include_router(build_channels_router())  # /channels + its 'ac1:' buttons
+    router.include_router(build_manage_router())  # /manage: one-time dashboard link (WhatsApp /login twin)
     last = Router(name="rest_admin_fallback")  # last: swallows any other text
     last.message.register(fallback, F.text)
     router.include_router(last)

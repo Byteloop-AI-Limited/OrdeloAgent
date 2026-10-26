@@ -1,4 +1,11 @@
-"""rest admin auth session.
+"""rest admin auth session: mints restaurant-admin dashboard magic links into `auth_sessions`.
+    . mint_dashboard_session(wa_number)            WhatsApp `/login` and POST /rest-admin/dashboard-session: finds the
+                                                   restaurant from restaurant_master.admins (first match), then mints
+    . mint_dashboard_session_for(phone, rest_ref)  mints for a restaurant the CALLER has already authorised; used by the
+                                                   Telegram restaurant bot `/manage` (channels/telegram/rest_admin/manage.py),
+                                                   which takes the phone and restaurants from t_admin_profile
+    . The link is single-use and is consumed by a GET on /rest-admin/activate/<token> (restaurant-frontend), so senders
+      must not let a link preview fetch it.
 
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
   . auth_sessions (table, ordelo_datamodels/admin_dashboard/auth_sessions.sql): inserts, named in code (passed to a query helper)
@@ -29,8 +36,17 @@ async def mint_dashboard_session(wa_number: str) -> str:
     )
     if not rows.data:
         raise ValueError("not_rest_admin")
-    rest_ref = _resolve_rest_ref(rows.data[0]["rest_ref"])
+    return await mint_dashboard_session_for(wa_number, rows.data[0]["rest_ref"])
 
+
+async def mint_dashboard_session_for(wa_number: str, rest_ref: str) -> str:
+    """Mint a 30-minute single-use dashboard link for `rest_ref`.
+
+    Does NOT check that `wa_number` is an admin of `rest_ref`: the caller must have authorised it (mint_dashboard_session
+    via restaurant_master.admins; the Telegram bot via t_admin_profile, which reads the same admins lists).
+    `wa_number` is the digits-only phone (auth_sessions.wa_number / principal_id).
+    """
+    rest_ref = _resolve_rest_ref(rest_ref)
     app_url = await get_dashboard_app_url_async("rest_admin")
 
     token = secrets.token_urlsafe(32)

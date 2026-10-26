@@ -9,13 +9,14 @@
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
 -- SIDE EFFECTS  none
--- HOW IT FITS   OrdeloAgent issues a WhatsApp magic link (watomation/routers/rest_admin_auth_session.py, rider_auth_session.py,
---                 sys_admin_auth_session.py): a row with token_hash and a 30-minute expires_at. Opening the link activates it: token_hash
+-- HOW IT FITS   OrdeloAgent issues a WhatsApp magic link, or for restaurant admins also a Telegram /manage one
+--                 (watomation/routers/rest_admin_auth_session.py, rider_auth_session.py, sys_admin_auth_session.py): a row with token_hash and a 30-minute expires_at. Opening the link activates it: token_hash
 --                 is cleared, cookie_hash set, hard_expires_at = activated_at + 4 h. restaurant-frontend's dashboards send the cookie on
 --                 every request; last_seen_at is updated. Revoking a person's sessions = revoked_at on their rows.
 -- LIFECYCLE     created (link sent) -> activated (cookie issued) -> expired (expires_at / hard_expires_at) or revoked.
 -- CALLED BY     auth_sessions:
---                 python    watomation/routers/rest_admin_auth_session.py: mint_dashboard_session()
+--                 python    watomation/routers/rest_admin_auth_session.py: mint_dashboard_session_for() (via mint_dashboard_session()
+--                             for WhatsApp /login; directly from channels/telegram/rest_admin/manage.py for Telegram /manage)
 --                 python    watomation/routers/rider_auth_session.py: create_rider_dashboard_session()
 --                 python    watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session()
 -- PYTHON MODEL  none
