@@ -36,3 +36,41 @@ SELECT public.admin_unlink_telegram('447448440754', 'test');
 SELECT public.admin_unlink_telegram('447929843965', 'test');
 SELECT phone, tuid, channels FROM public.restaurant_admin
 WHERE phone IN ('447448440754','447929843965'); 
+select * from public.restaurant_admin;
+
+
+-- 1. The full record. tcid must be set (it should equal your Telegram chat id).
+SELECT phone, tuid, tcid, channels, t_first_name FROM public.restaurant_admin WHERE phone = '447929843965';
+
+-- 2. Is the number on STRK's list, and is it paused?
+SELECT phone, channels, tcid FROM public.admin_roster WHERE rest_ref = 'STRK';
+SELECT public.is_paused('rest_admin', '447929843965', 'STRK') AS paused;
+
+-- 3. Where alerts would go. Cards use #3a; new notices use #3b.
+SELECT * FROM public.t_order_card_destinations('rest_admin', 'STRK');   -- 3a
+SELECT * FROM public.t_alert_destinations('rest_admin', 'STRK');       -- 3b
+
+-- 4. Are the migrated functions the live ones?
+SELECT proname, prosrc LIKE '%admin_roster%' AS uses_roster
+FROM pg_proc WHERE proname IN ('t_order_card_destinations','t_alert_destinations');
+
+-- 5. Did the test order produce a card, and was it sent?
+SELECT * FROM public.t_order_alerts ORDER BY 1 DESC LIMIT 3;
+SELECT * FROM public.t_sent_messages ORDER BY 1 DESC LIMIT 5;
+SELECT prosrc LIKE '%restaurant_admin%' FROM pg_proc WHERE proname = 't_alert_destinations';  -- true
+
+SELECT proname FROM pg_proc
+WHERE proname IN ('t_admin_restaurants','t_order_admin_phone','restaurant_admin_label','admin_for_tuid');
+-- expect 4 rows
+
+SELECT prosrc LIKE '%admin_for_tuid%' AS uses_roster FROM pg_proc WHERE proname = 't_order_admin_phone';
+-- expect true
+
+SELECT prosrc LIKE '%restaurant_admin%' AS uses_record FROM pg_proc WHERE proname = 't_alert_destinations';
+-- expect true
+
+SELECT * FROM public.t_order_card_destinations('rest_admin','STRK');
+SELECT * FROM public.t_alert_destinations('rest_admin','STRK');
+-- expect your linked number, with its tcid, in both
+
+select * from ordelo_config where config_key like 'STRK_TGRAM_ORDER_ALERT_OFFSETS_SECS%';
