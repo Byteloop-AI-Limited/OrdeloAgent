@@ -117,6 +117,10 @@ class FakeSupabaseQuery:
         self._filters[f"in:{column}"] = list(values)
         return self
 
+    def contains(self, column: str, value: Any) -> "FakeSupabaseQuery":
+        self._filters[f"cs:{column}"] = value
+        return self
+
     def is_(self, column: str, value: Any) -> "FakeSupabaseQuery":
         self._filters[f"is:{column}"] = value
         return self
