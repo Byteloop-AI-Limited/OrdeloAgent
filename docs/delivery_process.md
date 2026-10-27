@@ -313,7 +313,7 @@ FOR EACH STATEMENT
 
 ### Phase 4: Rider Assignment (`job_assign_dispatch`)
 
-Telegram rider offers repeat at the seconds in `RIDER_OFFER_ALERT_OFFSETS_SECS` (blank disables reminders). Any acceptance stops reminders for the order; rider availability stops that rider's reminders. A decline by another rider restarts the open offers’ reminder cycles. The last offset triggers one overwatch escalation per dispatch round. See [the plan](../plans/rider-dispatch-alerts-plan.md).
+Telegram rider offers repeat at the seconds in `RIDER_OFFER_ALERT_OFFSETS_SECS` (blank disables reminders). Any acceptance stops reminders for the order; rider availability stops that rider's reminders. A decline restarts nothing; cancellation before pickup re-offers the order and starts a complete new cycle. The last offset triggers one overwatch escalation per dispatch round. See [the plan](../plans/rider-dispatch-alerts-plan.md).
 
 #### 4a. Rider Acceptance
 

@@ -3,29 +3,25 @@
 -- Telegram rider offer reminders and the unanswered-order escalation.
 -- =============================================================================================
 -- LIVE CHECK    Applied to live 2026-10-27: migrations rider_offer_alerts.sql (r1) and rider_offer_alerts_r2.sql (r2), owner-confirmed;
---                 cron 'job_rider_offer_alerts' active every 5 seconds.
+--                 rider_offer_alerts_r3.sql (r3) applied 2026-10-27, owner-confirmed; cron 'job_rider_offer_alerts' active every 5 seconds.
 -- OBJECTS       fn     job_rider_offer_alerts() -> boolean
 -- REQUIRES      dispatch/rider_offer_alert.sql; core/ordelo_config.sql
 -- HOW TO RUN    Apply the migration first; this file maintains the definitions. Safe to re-run.
 -- SIDE EFFECTS  Seeds and updates checkpoints; may POST reminders and escalations.
 -- HOW IT FITS   Telegram only: delivery_dispatch.sql step 4 -> job_rider_offer_alerts -> rider-hooks/offer-alerts.
--- LIFECYCLE     pending -> sent, superseded or cancelled; a decline restarts open offers; one escalation per dispatch round.
+-- LIFECYCLE     pending -> sent, superseded or cancelled; a decline restarts nothing; one escalation per dispatch round.
 -- CALLED BY     cron job_rider_offer_alerts, every 5 seconds
 -- PYTHON MODEL  ordelo/offer_reminders.py: SupabaseOfferReminderStore
 -- SECURITY      RLS enabled; PUBLIC, anon and authenticated revoked; service role only.
 -- TESTS         tests/sql/test_rider_offer_alerts_sql.py; tests/ordelo/test_offer_reminders.py
--- GOTCHAS       Restart uses database now(), not app-local status_update_dtts; offsets apply to newly seeded cycles.
+-- GOTCHAS       cycle is always 0 for rows seeded since r3; older rows keep the r2 decline count.
 -- SEE ALSO      dispatch/delivery_dispatch.sql; plans/rider-dispatch-alerts-plan.md
 -- =============================================================================================
 
--- job_rider_offer_alerts() -> boolean (r2). Every 5 seconds (pg_cron 'job_rider_offer_alerts').
+-- job_rider_offer_alerts() -> boolean (r3). Every 5 seconds (pg_cron 'job_rider_offer_alerts').
 --   OFFSETS  parse_alert_offsets('RIDER_OFFER_ALERT_OFFSETS_SECS'), > 0 only; NULL = OFF (cancel all pending, seed nothing).
---   SEED     for every open Telegram offer (unassigned, < 15 min old, rider_offer_state() 'open'), with D = how many offers
---            of its order are 'declined' now and L = the offer's latest reminder cycle (NULL = never seeded):
---              L IS NULL -> FIRST cycle:   cycle D, due = offer time (dtts) + offset
---              D > L     -> RESTART cycle: the offer's pending rows 'superseded', then cycle D, due = now() + offset
---            ("now()" is the database clock when the job first sees the decline, within 5 s of it; status_update_dtts is
---            not used: Python writes it with the app server's local clock).
+--   SEED     reminders: for every open Telegram offer (unassigned, < 15 min old, rider_offer_state() 'open') that has NO
+--            reminder row yet: cycle 0, due = offer time (dtts) + offset. Never re-seeded: a decline does not restart anything.
 --            escalation: one per order AND round. Round start = delivery_summary.redispatch_dtts (cancel before pickup) or
 --            -infinity; due = the round's first Telegram offer + the LAST offset. Declines never move it.
 --   CANCEL   pending reminders whose offer is not 'open'; pending escalations whose order is no longer open.
@@ -33,6 +29,7 @@
 --            redispatched = (round_at > -infinity).
 --   POST     /rider-hooks/offer-alerts {reminders:[{dispatch_id,n,of}], escalations:[{order_number,after_secs,offered,declined,redispatched}]}
 --   MARK     only on 2xx: due losers 'superseded' first, then due rows 'sent'.
+
 CREATE OR REPLACE FUNCTION public.job_rider_offer_alerts ()
     RETURNS boolean
     LANGUAGE plpgsql
@@ -66,21 +63,13 @@ BEGIN
         RETURN TRUE;
     END IF;
     v_last := v_offsets[cardinality(v_offsets)];
-    -- ---- SEED reminders: first cycle for new offers; a new cycle when the order's decline count went up ------
+    -- ---- SEED reminders: once per offer, when it first becomes open (r3: a decline never restarts) ---------
     WITH o AS (
         SELECT
             d.dispatch_id,
             d.order_number::text AS order_number,
             d.rider_id::text AS rider_id,
             d.dtts::timestamptz AS offered_at,
-            (
-                SELECT
-                    count(*)::int
-                FROM
-                    public.delivery_dispatch x
-                WHERE
-                    x.order_number = d.order_number
-                    AND x.status = 'declined') AS declines,
             (
                 SELECT
                     max(a.cycle)
@@ -104,23 +93,7 @@ todo AS (
         o
     WHERE
         o.last_cycle IS NULL
-        OR o.declines > o.last_cycle
-),
-restarted AS (
-    UPDATE
-        public.rider_offer_alert a
-    SET
-        status = 'superseded',
-        swept_at = now()
-    FROM
-        todo t
-    WHERE
-        t.last_cycle IS NOT NULL
-        AND a.kind = 'reminder'
-        AND a.dispatch_id = t.dispatch_id
-        AND a.status = 'pending'
-    RETURNING
-        a.id)
+)
 INSERT INTO public.rider_offer_alert (kind, order_number, dispatch_id, rider_id, offset_secs, n, of_n, due_at, cycle)
 SELECT
     'reminder',
@@ -130,13 +103,8 @@ SELECT
     off.v,
     off.n::int,
     cardinality(v_offsets),
-    (
-        CASE WHEN t.last_cycle IS NULL THEN
-            t.offered_at
-        ELSE
-            now()
-        END) + off.v * interval '1 second',
-    t.declines
+    t.offered_at + off.v * interval '1 second',
+    0
 FROM
     todo t
     CROSS JOIN LATERAL unnest(v_offsets)
@@ -284,7 +252,8 @@ REVOKE ALL ON FUNCTION public.job_rider_offer_alerts () FROM PUBLIC, anon, authe
 
 GRANT EXECUTE ON FUNCTION public.job_rider_offer_alerts () TO service_role;
 
-COMMENT ON FUNCTION public.job_rider_offer_alerts () IS 'Every 5 seconds: seed (restarting an offer''s reminders after a decline), cancel, find due Telegram offer reminders and per-round overwatch escalations, POST them, and mark them on success.';
+COMMENT ON FUNCTION public.job_rider_offer_alerts () IS 'Every 5 seconds: seed (once per offer), cancel, find due Telegram offer reminders and per-round overwatch escalations, POST them, and mark them on success.';
+
 
 -- ===== STEP 3: CONFIG (operator-editable; blank = reminders off) =====
 INSERT INTO public.ordelo_config (config_key, config_value, description)
@@ -293,5 +262,5 @@ ON CONFLICT (config_key)
     DO NOTHING;
 
 
--- Active on live since r1; r2 does not require rescheduling.
+-- Active on live since r1; r3 does not require rescheduling.
 SELECT cron.schedule('job_rider_offer_alerts', '5 seconds', 'SELECT public.job_rider_offer_alerts()');
