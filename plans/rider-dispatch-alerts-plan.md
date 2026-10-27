@@ -1,6 +1,6 @@
 # Rider dispatch alerts: repeated Telegram job offers (plan)
 
-Status: **plan, ready to implement** (26 Oct 2026). Branch `feature/rider-dispatch-alerts`, written against commit `5c264e7`.
+Status: **implemented and live (r1, r2, r3 applied 27 Oct 2026; Telegram live-tested).** Written 26 Oct 2026. Branch `feature/rider-dispatch-alerts`, written against commit `5c264e7`.
 Owner decisions were taken in a grilling session on 26 Oct 2026 (section 1). The SQL is already written and checked on a
 scratch database: [`ordelo_datamodels/migrations/rider_offer_alerts.sql`](../ordelo_datamodels/migrations/rider_offer_alerts.sql).
 **Nothing has been applied to the shared database. The owner applies the migration himself.**
@@ -714,7 +714,7 @@ per-restaurant override of the offsets.
 
 ## 11. r2: fresh nudge on Decline, one overwatch alert per dispatch round (plan, 27 Oct 2026)
 
-Status: **plan, ready to implement**. r1 is live (applied 27 Oct; cron `job_rider_offer_alerts` active; first STRK tests
+Status: **implemented and applied (27 Oct 2026); superseded in part by section 12.** r1 is live (applied 27 Oct; cron `job_rider_offer_alerts` active; first STRK tests
 passed, commit `d91bf6b`). Migration ready and checked on a scratch Postgres:
 [`ordelo_datamodels/migrations/rider_offer_alerts_r2.sql`](../ordelo_datamodels/migrations/rider_offer_alerts_r2.sql).
 **Nothing has been applied. The owner applies it.**
