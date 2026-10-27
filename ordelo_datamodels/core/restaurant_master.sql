@@ -49,7 +49,7 @@
 --                 r-agents  restaurant-agents/tests/services/test_operational_lookup_cache.py
 --                 r-agents  restaurant-agents/tests/test_waba_callback.py
 -- PYTHON MODEL  ordelo_datamodels/restaurant_master_pymodel.py RestaurantMaster
--- SECURITY      restaurant_master: RLS OFF; Supabase default grants (anon and authenticated can read and write)
+-- SECURITY      Public reads retained; proposed dashboard cutover removes public writes to the admin roster.
 -- TESTS         tests/ordelo_datamodels/test_master_pymodels.py
 --               tests/regressions/test_p7_takeaway.py
 --               tests/sql/test_order_cards_sql.py
@@ -130,3 +130,8 @@ COMMENT ON COLUMN public.restaurant_master.auto_accept IS 'true: new orders are 
 -- WHERE table_schema = 'public'
 --   AND table_name = 'customer_master'
 -- ORDER BY ordinal_position;
+
+-- Dashboard authorization/configuration authority: public clients cannot edit allowlists or login origins.
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.restaurant_master FROM PUBLIC, anon, authenticated;
+
+GRANT ALL ON public.restaurant_master TO service_role;

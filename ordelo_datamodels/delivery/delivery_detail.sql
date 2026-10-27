@@ -40,7 +40,7 @@
 --                 python    utils_common/db_utils/sbase_realtime_ref.py: lifespan()
 --                 python    watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook()
 -- PYTHON MODEL  ordelo_datamodels/delivery_pymodels.py DeliveryDetail
--- SECURITY      delivery_detail: RLS OFF; Supabase default grants (anon and authenticated can read and write)
+-- SECURITY      Proposed server-only grants below; public reads verified open 2026-10-26.
 -- TESTS         tests/ordelo_datamodels/test_delivery_pymodels.py
 --               tests/sql/test_restaurant_notices_script_sql.py
 -- GOTCHAS       No foreign keys: the order_number links to delivery_summary by convention only.
@@ -77,3 +77,10 @@ CREATE TABLE IF NOT EXISTS public.delivery_detail (
 COMMENT ON TABLE public.delivery_detail IS 'Vehicle-type option of a delivery order (PK order_number + vehicle_type), with payout and distance.';
 
 COMMENT ON COLUMN public.delivery_detail.status IS 'unassigned | assigned | vehicle_type_timedout | completed';
+
+-- Private dashboard source: assignment details must not bypass the authenticated rider read.
+ALTER TABLE public.delivery_detail ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.delivery_detail FROM PUBLIC, anon, authenticated;
+
+GRANT ALL ON public.delivery_detail TO service_role;

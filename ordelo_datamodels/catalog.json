@@ -957,30 +957,56 @@
       "via": "python"
      },
      {
-      "text": "watomation/routers/rider_auth_session.py: create_rider_dashboard_session()",
+      "text": "ordelo/rider_dashboard.py: issue_link()",
       "via": "python"
      },
      {
-      "text": "watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session()",
+      "text": "watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session() Rider RPCs: ordelo/rider_dashboard.py issue_link(); restaurant-frontend/lib/rider-session.ts.",
       "via": "python"
      }
     ]
    },
    "cron": [],
    "folder": "admin_dashboard",
-   "header_lines": 29,
-   "lines": 88,
+   "header_lines": 38,
+   "lines": 271,
    "objects": [
     {
      "description": "One login session: role, principal and scope, phone, token/cookie hashes, expiries, binding and revocation.",
      "kind": "table",
      "name": "auth_sessions",
      "signature": "auth_sessions"
+    },
+    {
+     "description": "Atomically authorize the linked Telegram rider and mint a 30-minute credential.",
+     "kind": "function",
+     "name": "rider_dashboard_mint",
+     "signature": "rider_dashboard_mint(p_tuid bigint, p_token_hash text) -> jsonb"
+    },
+    {
+     "description": "Consume one rider token after explicit browser POST.",
+     "kind": "function",
+     "name": "rider_dashboard_activate",
+     "signature": "rider_dashboard_activate(p_token_hash text, p_cookie_hash text, p_ua_hash text) -> jsonb"
+    },
+    {
+     "description": "Read a complete valid rider session and its verified current linkage.",
+     "kind": "function",
+     "name": "rider_dashboard_session",
+     "signature": "rider_dashboard_session(p_cookie_hash text, p_ua_hash text) -> jsonb"
+    },
+    {
+     "description": "Validate and execute the idle heartbeat without extending the absolute expiry.",
+     "kind": "function",
+     "name": "rider_dashboard_touch",
+     "signature": "rider_dashboard_touch(p_cookie_hash text, p_ua_hash text) -> jsonb"
     }
    ],
    "path": "admin_dashboard/auth_sessions.sql",
    "path_line": "ordelo_datamodels/admin_dashboard/auth_sessions.sql",
-   "requires": [],
+   "requires": [
+    "core/rider_master.sql"
+   ],
    "role": "definition",
    "section_order": [
     "LIVE CHECK",
@@ -998,26 +1024,96 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "auth_sessions:\n  python    watomation/routers/rest_admin_auth_session.py: mint_dashboard_session_for() (via mint_dashboard_session()\n              for WhatsApp /login; directly from channels/telegram/rest_admin/manage.py for Telegram /manage)\n  python    watomation/routers/rider_auth_session.py: create_rider_dashboard_session()\n  python    watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session()",
-    "GOTCHAS": "Only hashes are stored (sha256), never raw tokens.\nRLS is off with default grants: anon can read session rows (hashes, phone numbers): part of the security review.",
-    "HOW IT FITS": "OrdeloAgent issues a WhatsApp magic link, or for restaurant admins also a Telegram /manage one\n  (watomation/routers/rest_admin_auth_session.py, rider_auth_session.py, sys_admin_auth_session.py): a row with token_hash and a 30-minute expires_at. Opening the link activates it: token_hash\n  is cleared, cookie_hash set, hard_expires_at = activated_at + 4 h. restaurant-frontend's dashboards send the cookie on\n  every request; last_seen_at is updated. Revoking a person's sessions = revoked_at on their rows.",
+    "CALLED BY": "auth_sessions:\n  python    watomation/routers/rest_admin_auth_session.py: mint_dashboard_session_for() (via mint_dashboard_session()\n              for WhatsApp /login; directly from channels/telegram/rest_admin/manage.py for Telegram /manage)\n  python    ordelo/rider_dashboard.py: issue_link()\n  python    watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session()\nRider RPCs: ordelo/rider_dashboard.py issue_link(); restaurant-frontend/lib/rider-session.ts.",
+    "GOTCHAS": "Only hashes are stored (sha256), never raw tokens.\nLive grants were open on 2026-10-26; do not deploy without the reviewed access cutover.",
+    "HOW IT FITS": "OrdeloAgent issues a WhatsApp magic link, or for restaurant admins also a Telegram /manage one\n  (watomation/routers/rest_admin_auth_session.py, ordelo/rider_dashboard.py, sys_admin_auth_session.py): a row with token_hash and a 30-minute expires_at. Opening the link activates it: token_hash\n  is cleared, cookie_hash set, hard_expires_at = activated_at + 4 h. restaurant-frontend's dashboards send the cookie on\n  every request; last_seen_at is updated. Revoking a person's sessions = revoked_at on their rows.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "created (link sent) -> activated (cookie issued) -> expired (expires_at / hard_expires_at) or revoked.",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
-    "OBJECTS": "table  auth_sessions\n    One login session: role, principal and scope, phone, token/cookie hashes, expiries, binding and revocation.",
-    "PYTHON MODEL": "none",
-    "REQUIRES": "none",
-    "SECURITY": "auth_sessions: RLS OFF; Supabase default grants (anon and authenticated can read and write)",
+    "LIVE CHECK": "Table columns verified read-only 2026-10-26. Rider RPCs and restricted grants below are proposed, not applied.",
+    "OBJECTS": "table  auth_sessions\n    One login session: role, principal and scope, phone, token/cookie hashes, expiries, binding and revocation.\nfn     rider_dashboard_mint(p_tuid bigint, p_token_hash text) -> jsonb\n    Atomically authorize the linked Telegram rider and mint a 30-minute credential.\nfn     rider_dashboard_activate(p_token_hash text, p_cookie_hash text, p_ua_hash text) -> jsonb\n    Consume one rider token after explicit browser POST.\nfn     rider_dashboard_session(p_cookie_hash text, p_ua_hash text) -> jsonb\n    Read a complete valid rider session and its verified current linkage.\nfn     rider_dashboard_touch(p_cookie_hash text, p_ua_hash text) -> jsonb\n    Validate and execute the idle heartbeat without extending the absolute expiry.",
+    "PYTHON MODEL": "ordelo/rider_dashboard.py DashboardLink",
+    "REQUIRES": "core/rider_master.sql",
+    "SECURITY": "Table and rider RPCs are service-role only; RLS enabled. Apply reviewed cutover before code deployment.",
     "SEE ALSO": "test_support/test_magic_link.sql\n_archive/dashboard_sessions.sql (the table this replaced; not live)",
     "SIDE EFFECTS": "none",
-    "TESTS": "none"
+    "TESTS": "tests/sql/test_rider_dashboard_sql.py"
    },
    "see_also": [
     "test_support/test_magic_link.sql",
     "_archive/dashboard_sessions.sql (the table this replaced; not live)"
    ],
-   "tests": [],
+   "tests": [
+    "tests/sql/test_rider_dashboard_sql.py"
+   ],
    "title": "Magic-link login sessions for every dashboard role (restaurant admin, rider, sys-admin)."
+  },
+  {
+   "called_by": {},
+   "cron": [],
+   "folder": "admin_dashboard",
+   "header_lines": 26,
+   "lines": 257,
+   "objects": [
+    {
+     "description": "One statement snapshot of rider jobs, aggregates and pagination; no customer details.",
+     "kind": "function",
+     "name": "get_rider_jobs",
+     "signature": "get_rider_jobs(p_cookie_hash text, p_ua_hash text, p_tab text, p_from date, p_to date, p_paid text, p_cursor_time timestamptz, p_cursor_id integer, p_limit integer) -> jsonb"
+    },
+    {
+     "description": "Read only the session rider's name/town/vehicle and masked bank account suffix.",
+     "kind": "function",
+     "name": "get_rider_profile",
+     "signature": "get_rider_profile(p_cookie_hash text, p_ua_hash text) -> jsonb"
+    }
+   ],
+   "path": "admin_dashboard/get_rider_jobs.sql",
+   "path_line": "ordelo_datamodels/admin_dashboard/get_rider_jobs.sql",
+   "requires": [
+    "admin_dashboard/auth_sessions.sql",
+    "dispatch/delivery_dispatch.sql",
+    "delivery/delivery_summary.sql",
+    "core/rider_registrations.sql",
+    "restaurant-agents: food_order"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "restaurant-frontend/lib/rider-jobs.ts; restaurant-frontend/app/rider/more/page.tsx",
+    "GOTCHAS": "Dispatch timestamps are UTC without timezone; London day bounds are converted explicitly.\nNo test/channel-specific financial rule; report the stored completed dispatch payout.",
+    "HOW IT FITS": "restaurant-frontend/lib/rider-jobs.ts calls the jobs RPC for SSR and GET /api/rider/jobs.",
+    "HOW TO RUN": "Owner applies after auth_sessions.sql; functions are idempotent. No live execution by agents.",
+    "LIFECYCLE": "Current assigned/pickedup amounts are expected; only completed dispatches count as earned.",
+    "LIVE CHECK": "New functions, not applied. UTC database timezone and recent dispatch offsets checked read-only 2026-10-26.",
+    "OBJECTS": "fn     get_rider_jobs(p_cookie_hash text, p_ua_hash text, p_tab text, p_from date, p_to date, p_paid text, p_cursor_time timestamptz, p_cursor_id integer, p_limit integer) -> jsonb\n    One statement snapshot of rider jobs, aggregates and pagination; no customer details.\nfn     get_rider_profile(p_cookie_hash text, p_ua_hash text) -> jsonb\n    Read only the session rider's name/town/vehicle and masked bank account suffix.",
+    "PYTHON MODEL": "none",
+    "REQUIRES": "admin_dashboard/auth_sessions.sql\ndispatch/delivery_dispatch.sql\ndelivery/delivery_summary.sql\ncore/rider_registrations.sql\nrestaurant-agents: food_order",
+    "SECURITY": "Service-role only; cookie and UA hashes authorize the principal, never a supplied rider ID.",
+    "SEE ALSO": "admin_dashboard/get_rider_payout_report.sql",
+    "SIDE EFFECTS": "none; read-only functions, no delivery or payout transition.",
+    "TESTS": "tests/sql/test_rider_dashboard_sql.py"
+   },
+   "see_also": [
+    "admin_dashboard/get_rider_payout_report.sql"
+   ],
+   "tests": [
+    "tests/sql/test_rider_dashboard_sql.py"
+   ],
+   "title": "Session-authorized rider jobs, full-filter earnings and a masked profile."
   },
   {
    "called_by": {
@@ -1031,7 +1127,7 @@
    "cron": [],
    "folder": "admin_dashboard",
    "header_lines": 28,
-   "lines": 182,
+   "lines": 187,
    "objects": [
     {
      "description": "Return one payable row per completed dispatch between p_start and p_end, excluding the given rider ids.",
@@ -1070,11 +1166,11 @@
     "HOW IT FITS": "Backs GET /sys-admin/rider-payout (watomation/routers/sys_admin_auth_session.py get_rider_payout), used by the\n  sys-admin \"Rider Payouts\" page in restaurant-frontend, which then calls POST /sys-admin/update-paid per dispatch\n  (delivery_dispatch.paid_status / paid_dtts). Reads delivery_dispatch, delivery_summary, rider_master and\n  rider_registrations (bank details). The detailed reasoning (why it replaced a Python-side join) is in the comment below.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
+    "LIVE CHECK": "Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).",
     "OBJECTS": "fn     get_rider_payout_report(p_start date, p_end date, p_exclude_riders text[]) -> TABLE(dispatch_id bigint, order_number text, rest_ref text, rider_id text, rider_name text, town text, vehicle_type text, bank_account_name text, sort_code text, bank_account text, rider_payout double precision, distance double precision, dtts timestamp without time zone, paid_status text, paid_dtts timestamp without time zone)\n    Return one payable row per completed dispatch between p_start and p_end, excluding the given rider ids.",
     "PYTHON MODEL": "none",
     "REQUIRES": "dispatch/delivery_dispatch.sql\ndelivery/delivery_summary.sql\ncore/rider_master.sql\ncore/rider_registrations.sql",
-    "SECURITY": "get_rider_payout_report(): executable by PUBLIC (default)",
+    "SECURITY": "get_rider_payout_report(): service-role only below (not applied)",
     "SEE ALSO": "dispatch/delivery_dispatch.sql (paid_status)\ncore/rider_registrations.sql",
     "SIDE EFFECTS": "none (read-only).",
     "TESTS": "none"
@@ -1132,7 +1228,7 @@
    "cron": [],
    "folder": "admin_dashboard",
    "header_lines": 53,
-   "lines": 190,
+   "lines": 195,
    "objects": [
     {
      "description": "Delivery and takeaway orders as one list for the admin dashboard, with money and London-local day columns.",
@@ -1185,15 +1281,15 @@
    ],
    "sections": {
     "CALLED BY": "v_admin_orders:\n  sql       v_admin_orders_daily\n  frontend  restaurant-frontend/app/api/rest-admin/orders/route.ts\n  frontend  restaurant-frontend/app/rest-admin/orders/_lib/server-fetcher.ts\nv_admin_order_items:\n  frontend  restaurant-frontend/app/api/rest-admin/orders/[order_number]/items/route.ts\nv_admin_orders_daily:\n  sql       v_admin_orders_monthly\n  frontend  restaurant-frontend/app/api/rest-admin/orders/summary/route.ts\n  frontend  restaurant-frontend/app/rest-admin/orders/_lib/server-fetcher.ts\nv_admin_orders_monthly:\n  nothing found (no code, trigger, cron job or other SQL refers to it)",
-    "GOTCHAS": "v_admin_orders_daily and v_admin_orders_monthly had no file in the repo before 16 Oct 2026; captured from live.\nThe views have default grants: anon can read every restaurant's orders unless the frontend filters (security review).",
+    "GOTCHAS": "v_admin_orders_daily and v_admin_orders_monthly had no file in the repo before 16 Oct 2026; captured from live.\nThe views have server-only grants below (not applied): anon can read every restaurant's orders unless the frontend filters (security review).",
     "HOW IT FITS": "restaurant-frontend's restaurant-admin pages read these views directly (app/api/... routes, lib/rest-admin-session.ts),\n  filtered by rest_ref:\n    v_admin_orders           delivery_summary + takeaway_summary as one list, with food_order money columns and\n                             London-local day columns (sort_time / sort_day_local) for paging and date filters\n    v_admin_order_items      order_item lines joined to their order\n    v_admin_orders_daily     per restaurant, day and type: count, gross, your_cut\n    v_admin_orders_monthly   the daily view rolled up by month\n  The keyset / day indexes live with the tables (delivery/delivery_summary.sql, takeaway/takeaway_summary.sql,\n  ordering/food_order_additions.sql idx_order_item_order_id).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
+    "LIVE CHECK": "Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).",
     "OBJECTS": "view   v_admin_orders\n    Delivery and takeaway orders as one list for the admin dashboard, with money and London-local day columns.\nview   v_admin_order_items\n    Order lines (order_item) with their order number and restaurant, for the dashboard order detail.\nview   v_admin_orders_daily\n    Per restaurant, local day and type: order count, gross and the restaurant's cut.\nview   v_admin_orders_monthly\n    v_admin_orders_daily rolled up by month.",
     "PYTHON MODEL": "none",
     "REQUIRES": "delivery/delivery_summary.sql\nrestaurant-agents: food_order\ntakeaway/takeaway_summary.sql\nrestaurant-agents: order_item",
-    "SECURITY": "v_admin_orders: default grants\nv_admin_order_items: default grants\nv_admin_orders_daily: default grants\nv_admin_orders_monthly: default grants",
+    "SECURITY": "v_admin_orders: server-only grants below (not applied)\nv_admin_order_items: server-only grants below (not applied)\nv_admin_orders_daily: server-only grants below (not applied)\nv_admin_orders_monthly: server-only grants below (not applied)",
     "SEE ALSO": "migrations/admin_orders_views.sql, migrations/admin_orders_indexes.sql (history)\nrestaurant-frontend lib/rest-admin-session.ts",
     "SIDE EFFECTS": "none",
     "TESTS": "none"
@@ -1437,6 +1533,82 @@
     "tests/ordelo_datamodels/test_stale_thread_job_sql.py"
    ],
    "title": "Every minute: per restaurant, find idle agent threads and ask restaurant-agents to terminate them."
+  },
+  {
+   "called_by": {},
+   "cron": [],
+   "folder": "agent_threads",
+   "header_lines": 25,
+   "lines": 40,
+   "objects": [
+    {
+     "description": "Server-only access to the restaurant-agent-owned conversation index.",
+     "kind": "alter",
+     "name": "thread",
+     "signature": "thread"
+    },
+    {
+     "description": "Server-only access to LangGraph checkpoint metadata.",
+     "kind": "alter",
+     "name": "checkpoints",
+     "signature": "checkpoints"
+    },
+    {
+     "description": "Server-only access to serialized LangGraph state.",
+     "kind": "alter",
+     "name": "checkpoint_blobs",
+     "signature": "checkpoint_blobs"
+    },
+    {
+     "description": "Server-only access to pending LangGraph writes.",
+     "kind": "alter",
+     "name": "checkpoint_writes",
+     "signature": "checkpoint_writes"
+    }
+   ],
+   "path": "agent_threads/rider_job_history_access.sql",
+   "path_line": "ordelo_datamodels/agent_threads/rider_job_history_access.sql",
+   "requires": [
+    "restaurant-agents: thread; LangGraph checkpoint installation: checkpoints, checkpoint_blobs, checkpoint_writes"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "scripts/datamodels/rider_dashboard_cutover.py (manual SQL generation only)",
+    "GOTCHAS": "These objects are owned externally. This file changes access only, never copies their definitions.",
+    "HOW IT FITS": "Securing the jobs view must not leave the same private details readable through graph storage.",
+    "HOW TO RUN": "Included by scripts/datamodels/rider_dashboard_cutover.py; owner applies during maintenance.",
+    "LIFECYCLE": "No rows are created, removed or repaired. Existing server/DB-pool graph access continues.",
+    "LIVE CHECK": "Anonymous reads verified open on all four tables read-only 2026-10-26; restrictions not applied.",
+    "OBJECTS": "alter  thread\n    Server-only access to the restaurant-agent-owned conversation index.\nalter  checkpoints\n    Server-only access to LangGraph checkpoint metadata.\nalter  checkpoint_blobs\n    Server-only access to serialized LangGraph state.\nalter  checkpoint_writes\n    Server-only access to pending LangGraph writes.",
+    "PYTHON MODEL": "none",
+    "REQUIRES": "restaurant-agents: thread; LangGraph checkpoint installation: checkpoints, checkpoint_blobs, checkpoint_writes",
+    "SECURITY": "RLS on; no PUBLIC/anon/authenticated grants; explicit server-role grants.",
+    "SEE ALSO": "agent_threads/rider_threads.sql",
+    "SIDE EFFECTS": "Revokes direct public access; does not change library DDL, histories or graph behavior.",
+    "TESTS": "tests/sql/test_rider_dashboard_sql.py"
+   },
+   "see_also": [
+    "agent_threads/rider_threads.sql"
+   ],
+   "tests": [
+    "tests/sql/test_rider_dashboard_sql.py"
+   ],
+   "title": "Restrict direct access to external thread and checkpoint history containing rider job details."
   },
   {
    "called_by": {
@@ -2438,7 +2610,7 @@
       "via": "python"
      },
      {
-      "text": "watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session()",
+      "text": "watomation/routers/sys_admin_auth_session.py: _ensure_sys_admin() (fresh authorization read)",
       "via": "python"
      },
      {
@@ -2492,7 +2664,7 @@
    "cron": [],
    "folder": "core",
    "header_lines": 67,
-   "lines": 135,
+   "lines": 140,
    "objects": [
     {
      "description": "Key/value runtime configuration. config_key is the primary key; per-restaurant keys are prefixed with the rest_ref.",
@@ -2527,7 +2699,7 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "ordelo_config:\n  sql       delivery_dispatch_whook_statement(), delivery_inflight_whook()\n            delivery_summary_timedout_whook(), enquire_admin_availability()\n            enquire_shift_availability(), fake_delivery_dispatch_whook(), get_available_riders()\n            init_delivery(), init_takeaway(), job_close_thread(), job_create_dispatch()\n            job_null_or_outdated_location(), job_payment_init_reconciler()\n            job_restaurant_confirmation_timeout(), job_rider_pickup_alerts(), job_t_order_alerts()\n            job_t_receipt_refresh(), job_terminate_stale_active_threads()\n            job_terminate_stale_active_threads_new(), notify_missed_dispatches(), ordelo_post()\n            parse_alert_offsets(), process_delivery(), process_restaurant_confirmation()\n            resolve_initial_restaurant_acceptance(), restaurant_confirmation_whook()\n            restaurant_updates_whook(), rider_location_event_update(), t_housekeeping()\n            t_invites_shareable, takeaway_pickup_time_whook(), takeaway_restaurant_updates_whook()\n  python    config/feature_flags.py: _read_flag(), _read_str()\n  python    config/params.py: get_dashboard_app_url_async(), get_overwatch_list(), get_restaurant_base_url_async()\n  python    utils_common/order_management/test_order_dispatch.py: read_overwatch_riders()\n  python    utils_common/web_ordering/monitoring.py: sweep()\n  python    watomation/routers/delivery_hooks.py: _get_delivery_pickup_default_minutes()\n  python    watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session()\n  python    watomation/routers/takeaway_hooks.py: _get_pickup_default_minutes()\n  frontend  restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/config/route.ts\n  frontend  restaurant-frontend/app/api/test-db-connection/route.ts\n  frontend  restaurant-frontend/app/test-config/page.tsx\n  frontend  restaurant-frontend/lib/config.ts\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/operational_diagnostics.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/operational_lookup_cache.py\n  r-agents  restaurant-agents/tests/services/test_operational_diagnostics.py\n  r-agents  restaurant-agents/tests/services/test_operational_lookup_cache.py\nparse_alert_offsets:\n  sql       job_rider_pickup_alerts() (dispatch/job_rider_pickup_alerts.sql)\n  sql       job_t_order_alerts() (telegram/t_order_alerts.sql)",
+    "CALLED BY": "ordelo_config:\n  sql       delivery_dispatch_whook_statement(), delivery_inflight_whook()\n            delivery_summary_timedout_whook(), enquire_admin_availability()\n            enquire_shift_availability(), fake_delivery_dispatch_whook(), get_available_riders()\n            init_delivery(), init_takeaway(), job_close_thread(), job_create_dispatch()\n            job_null_or_outdated_location(), job_payment_init_reconciler()\n            job_restaurant_confirmation_timeout(), job_rider_pickup_alerts(), job_t_order_alerts()\n            job_t_receipt_refresh(), job_terminate_stale_active_threads()\n            job_terminate_stale_active_threads_new(), notify_missed_dispatches(), ordelo_post()\n            parse_alert_offsets(), process_delivery(), process_restaurant_confirmation()\n            resolve_initial_restaurant_acceptance(), restaurant_confirmation_whook()\n            restaurant_updates_whook(), rider_location_event_update(), t_housekeeping()\n            t_invites_shareable, takeaway_pickup_time_whook(), takeaway_restaurant_updates_whook()\n  python    config/feature_flags.py: _read_flag(), _read_str()\n  python    config/params.py: get_dashboard_app_url_async(), get_overwatch_list(), get_restaurant_base_url_async()\n  python    utils_common/order_management/test_order_dispatch.py: read_overwatch_riders()\n  python    utils_common/web_ordering/monitoring.py: sweep()\n  python    watomation/routers/delivery_hooks.py: _get_delivery_pickup_default_minutes()\n  python    watomation/routers/sys_admin_auth_session.py: _ensure_sys_admin() (fresh authorization read)\n  python    watomation/routers/takeaway_hooks.py: _get_pickup_default_minutes()\n  frontend  restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/config/route.ts\n  frontend  restaurant-frontend/app/api/test-db-connection/route.ts\n  frontend  restaurant-frontend/app/test-config/page.tsx\n  frontend  restaurant-frontend/lib/config.ts\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/operational_diagnostics.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/operational_lookup_cache.py\n  r-agents  restaurant-agents/tests/services/test_operational_diagnostics.py\n  r-agents  restaurant-agents/tests/services/test_operational_lookup_cache.py\nparse_alert_offsets:\n  sql       job_rider_pickup_alerts() (dispatch/job_rider_pickup_alerts.sql)\n  sql       job_t_order_alerts() (telegram/t_order_alerts.sql)",
     "GOTCHAS": "The policy lets anyone read every key (USING true, TO public). Do not store secrets here.\nSwitching test/prod URLs is done by editing rows here: see docs/local-testing-runbook.md.",
     "HOW IT FITS": "Almost every function and job reads its settings here instead of hard-coding them:\n  ORDELO_APP_URL (base URL every trigger/job POSTs to), <REST>_APP_URL (restaurant-agents per restaurant),\n  <REST>_DELIVERY_TIMEOUT_TIME, <REST>_RESTAURANT_CONFIRMATION_TIMEOUT_TIME, DISPATCH_BATCH_SIZE_<VEHICLE>,\n  CONFIRMATION_CODE_SALT, overwatch_list, alert interval keys, TGRAM_* keys and many more.\n  A per-restaurant key '<REST_REF>_<KEY>' wins over the global '<KEY>' wherever the code checks both.\n  Python reads it through config/params.py and config/feature_flags.py; restaurant-frontend's lib/config.ts reads it\n  with a 60-second cache; restaurant-agents reads it through its operational lookup cache.\n  parse_alert_offsets() turns a comma-separated interval value into an int[] for the alert jobs.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
@@ -2536,7 +2708,7 @@
     "OBJECTS": "table  ordelo_config\n    Key/value runtime configuration. config_key is the primary key; per-restaurant keys are prefixed with the rest_ref.\nfn     parse_alert_offsets(p_config_key text) -> integer[]\n    Parse a config value like '-15, -5, x, 5' into a sorted distinct int[] ({-15,-5,5}).",
     "PYTHON MODEL": "none",
     "REQUIRES": "none",
-    "SECURITY": "ordelo_config: RLS OFF; Supabase default grants (anon and authenticated can read and write)\nparse_alert_offsets(): executable by PUBLIC (default)",
+    "SECURITY": "Public reads retained; proposed dashboard cutover removes public writes to URLs and authorization allowlists.\nparse_alert_offsets(): executable by PUBLIC (default)",
     "SEE ALSO": "docs/local-testing-runbook.md\ndispatch/job_rider_pickup_alerts.sql, telegram/t_order_alerts.sql (parse_alert_offsets users)",
     "SIDE EFFECTS": "none (DDL only; the policy below is re-created)",
     "TESTS": "tests/config/test_params.py\ntests/sql/test_order_cards_sql.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/utils_common/order_management/test_test_order_dispatch.py\ntests/watomation/routers/test_delivery_hooks.py\ntests/watomation/routers/test_takeaway_hooks.py"
@@ -2655,7 +2827,7 @@
    "cron": [],
    "folder": "core",
    "header_lines": 71,
-   "lines": 133,
+   "lines": 138,
    "objects": [
     {
      "description": "Master record per restaurant; rest_ref (e.g. ELAS) is the key and the prefix of every order number.",
@@ -2693,7 +2865,7 @@
     "OBJECTS": "table  restaurant_master\n    Master record per restaurant; rest_ref (e.g. ELAS) is the key and the prefix of every order number.",
     "PYTHON MODEL": "ordelo_datamodels/restaurant_master_pymodel.py RestaurantMaster",
     "REQUIRES": "none",
-    "SECURITY": "restaurant_master: RLS OFF; Supabase default grants (anon and authenticated can read and write)",
+    "SECURITY": "Public reads retained; proposed dashboard cutover removes public writes to the admin roster.",
     "SEE ALSO": "core/ordelo_config.sql (per-restaurant settings)\nrestaurant_admin/resolve_initial_restaurant_acceptance.sql (auto_accept)\ndocs/onboarding-web-only-restaurant.md",
     "SIDE EFFECTS": "none (DDL only)",
     "TESTS": "tests/ordelo_datamodels/test_master_pymodels.py\ntests/regressions/test_p7_takeaway.py\ntests/sql/test_order_cards_sql.py\ntests/sql/test_order_taps_sql.py\ntests/sql/test_order_test_script_sql.py\ntests/sql/test_restaurant_decision_sql.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/utils_common/order_management/test_order_service.py\ntests/utils_common/web_ordering/test_web_contract.py\ntests/watomation/routers/test_delivery_hooks.py\ntests/watomation/routers/test_takeaway_hooks.py"
@@ -2751,10 +2923,6 @@
       "via": "python"
      },
      {
-      "text": "watomation/routers/rider_auth_session.py: _resolve_rider_id()",
-      "via": "python"
-     },
-     {
       "text": "watomation/routers/sys_admin_auth_session.py: get_rider_payout()",
       "via": "python"
      },
@@ -2778,19 +2946,33 @@
    },
    "cron": [],
    "folder": "core",
-   "header_lines": 73,
-   "lines": 125,
+   "header_lines": 76,
+   "lines": 175,
    "objects": [
     {
      "description": "Riders that can be offered delivery jobs, keyed by rider_id (their phone number, digits only).",
      "kind": "table",
      "name": "rider_master",
      "signature": "rider_master"
+    },
+    {
+     "description": "Revoke dashboard credentials when the Telegram identity link changes.",
+     "kind": "function",
+     "name": "rider_dashboard_revoke_link",
+     "signature": "rider_dashboard_revoke_link() -> trigger"
+    },
+    {
+     "description": "Runs atomically after a link change.",
+     "kind": "trigger",
+     "name": "trigger_rider_dashboard_revoke_link",
+     "signature": "trigger_rider_dashboard_revoke_link on rider_master -> rider_dashboard_revoke_link()"
     }
    ],
    "path": "core/rider_master.sql",
    "path_line": "ordelo_datamodels/core/rider_master.sql",
-   "requires": [],
+   "requires": [
+    "admin_dashboard/auth_sessions.sql (table must exist before linkage changes)"
+   ],
    "role": "definition",
    "section_order": [
     "LIVE CHECK",
@@ -2808,16 +2990,16 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "rider_master:\n  sql       delivery_inflight_whook(), enquire_shift_availability(), fake_delivery_dispatch_whook()\n            get_available_riders(), get_rider_payout_report(), job_rider_pickup_alerts()\n            t_receipt_snapshot()\n            t_rider_link(), t_rider_set_profile(), t_rider_choices(), t_rider_profile()\n  python    utils_common/notify/restaurant_notifier.py (module-level SQL)\n  python    utils_common/waba_utils/wa_senders.py: notify_ops_rider_alert(), notify_rest_admins_rider_alert()\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/on_callback_wa_handler.py: handle_shift_availability()\n  python    watomation/on_message_wa_handler.py: process_wa_msg()\n  python    watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook(), shift_availability_enquiry_hook()\n  python    watomation/routers/rider_auth_session.py: _resolve_rider_id()\n  python    watomation/routers/sys_admin_auth_session.py: get_rider_payout()\n  python    ordelo/rider_messaging/factory.py: for_rider() (channel, tcid)\n  frontend  restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts\n  frontend  restaurant-frontend/app/rider/more/page.tsx\n  frontend  restaurant-frontend/app/sys-admin/riders-inshift/page.tsx",
+    "CALLED BY": "rider_master:\n  sql       delivery_inflight_whook(), enquire_shift_availability(), fake_delivery_dispatch_whook()\n            get_available_riders(), get_rider_payout_report(), job_rider_pickup_alerts()\n            t_receipt_snapshot()\n            t_rider_link(), t_rider_set_profile(), t_rider_choices(), t_rider_profile()\n  python    utils_common/notify/restaurant_notifier.py (module-level SQL)\n  python    utils_common/waba_utils/wa_senders.py: notify_ops_rider_alert(), notify_rest_admins_rider_alert()\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/on_callback_wa_handler.py: handle_shift_availability()\n  python    watomation/on_message_wa_handler.py: process_wa_msg()\n  python    watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook(), shift_availability_enquiry_hook()\n  python    watomation/routers/sys_admin_auth_session.py: get_rider_payout()\n  python    ordelo/rider_messaging/factory.py: for_rider() (channel, tcid)\n  frontend  restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts\n  frontend  restaurant-frontend/app/rider/more/page.tsx\n  frontend  restaurant-frontend/app/sys-admin/riders-inshift/page.tsx",
     "GOTCHAS": "rider_id is NOT NULL and UNIQUE only since migrations/rider_telegram_r1.sql (2026-10-22); older copies of this table\n  (other environments) may still have duplicates or NULLs: run that migration's pre-checks there first.\nRead with the anon key by restaurant-frontend and RLS is off, so tuid/tcid are readable by anon too: see\n  docs/to-do.md (security review). The Telegram columns are written only through the service-role t_rider_*\n  functions, but nothing stops a direct anon write while RLS is off.\nstatus has no CHECK: dispatch now requires exactly 'active' (case-sensitive). The migration pre-check prints\n  the live status values so no existing rider is cut off by spelling.",
     "HOW IT FITS": "get_available_riders() (dispatch/job_create_dispatch.sql) picks riders here: status = 'active', same town\n  (case-insensitive), same vehicle_type, is_in_shift = true, not paused (availability/pauses.sql is_paused()), not\n  already offered this order and not on another job (delivery_inflight); TEST3100 orders only go to riders in\n  ordelo_config overwatch_list. job_create_dispatch() then ranks by priority.\n  Daily shift cycle (WhatsApp riders): cron 'enquire_shift_availability' (11:00 UTC) -> enquire_shift_availability()\n  POSTs the status = 'active' riders -> /delivery-hooks/shift-availability-enquiry sets is_in_shift = false for\n  them and sends the shift question -> a 'yes' tap sets is_in_shift = true (watomation/on_callback_wa_handler.py).\n  Telegram riders (channel = 'telegram', from phase R5) leave the daily cycle and use /off with a mandatory end\n  time instead (availability/pauses.sql).\n  rider_id is the phone number and is what delivery_dispatch / delivery_inflight / thread.recipient store.\n  channel picks where messages WE start go ('whatsapp' | 'telegram'; RiderMessenger in ordelo/rider_messaging/).\n  tuid authorises (the Telegram person, from_user.id); tcid addresses (the chat). Both are written only by the\n  t_rider_* functions (telegram/t_rider_onboarding.sql) after the rider shared their OWN phone number.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.\nOn the existing live table the CREATE TABLE is a no-op: the R1 columns come from migrations/rider_telegram_r1.sql.",
     "LIFECYCLE": "Riders are added by (a) the web onboarding form (rider_registrations -> manual insert) or (b) the rider bot's\n  /start for an unknown phone: t_rider_link() inserts status = 'inactive', town/vehicle_type 'TBD', then\n  t_rider_set_profile() stores the chosen town and vehicle. An operator activates: status = 'active'.\nTelegram link: t_rider_link() sets tuid/tcid/t_*/phone_verified and channel = 'telegram' (and is_in_shift = true\n  once, for an existing rider); a later contact share by a different Telegram account MOVES the link (D42).\nis_in_shift: WhatsApp riders: reset to false every day by the shift enquiry, back to true on 'yes'.",
-    "LIVE CHECK": "Matches live: migrations/rider_telegram_r1.sql applied by the owner on 2026-10-22 (rider_id NOT NULL + UNIQUE,\n  channel, tuid, tcid, t_username, t_first_name, t_linked_at, phone_verified, rider_master_tuid_uidx), and the\n  Telegram onboarding was tested live the same day (existing and new riders).",
-    "OBJECTS": "table  rider_master\n    Riders that can be offered delivery jobs, keyed by rider_id (their phone number, digits only).",
+    "LIVE CHECK": "Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).\n  channel, tuid, tcid, t_username, t_first_name, t_linked_at, phone_verified, rider_master_tuid_uidx), and the\n  Telegram onboarding was tested live the same day (existing and new riders).",
+    "OBJECTS": "table  rider_master\n    Riders that can be offered delivery jobs, keyed by rider_id (their phone number, digits only).\nfn     rider_dashboard_revoke_link() -> trigger\n    Revoke dashboard credentials when the Telegram identity link changes.\ntrg    trigger_rider_dashboard_revoke_link on rider_master -> rider_dashboard_revoke_link()\n    Runs atomically after a link change.",
     "PYTHON MODEL": "none",
-    "REQUIRES": "none",
-    "SECURITY": "rider_master: RLS OFF; Supabase default grants (anon and authenticated can read and write)",
+    "REQUIRES": "admin_dashboard/auth_sessions.sql (table must exist before linkage changes)",
+    "SECURITY": "Server-only grants and RLS below are proposed; live anonymous grants verified open 2026-10-26.",
     "SEE ALSO": "dispatch/job_create_dispatch.sql (get_available_riders)\ndispatch/enquire_shift_availability.sql\ncore/rider_registrations.sql\ntelegram/t_rider_onboarding.sql\navailability/pauses.sql\nmigrations/rider_telegram_r1.sql",
     "SIDE EFFECTS": "none (DDL only)",
     "TESTS": "tests/regressions/test_p7_msg_handler.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/sql/test_rider_onboarding_sql.py\ntests/utils_common/test_restaurant_notifier.py\ntests/watomation/routers/test_delivery_hooks.py\ntests/watomation/test_on_message_wa_handler.py"
@@ -2861,7 +3043,7 @@
    "cron": [],
    "folder": "core",
    "header_lines": 28,
-   "lines": 67,
+   "lines": 74,
    "objects": [
     {
      "description": "Rider applications: identity, vehicle, documents, bank details and review flags.",
@@ -2895,11 +3077,11 @@
     "HOW IT FITS": "restaurant-frontend's rider onboarding pages write applications here; the sys-admin router\n  (watomation/routers/sys_admin_auth_session.py) lists them, and get_rider_payout_report() reads bank details\n  for payouts. An approved applicant is added to rider_master by an operator.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "inserted at sign-up, updated during review (phone_verified, manual_onboard, rider_status_active).",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
+    "LIVE CHECK": "Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).",
     "OBJECTS": "table  rider_registrations\n    Rider applications: identity, vehicle, documents, bank details and review flags.",
     "PYTHON MODEL": "none",
     "REQUIRES": "none",
-    "SECURITY": "rider_registrations: RLS OFF; Supabase default grants (anon and authenticated can read and write)",
+    "SECURITY": "Server-only grants and RLS below are proposed; live anonymous grants verified open 2026-10-26.",
     "SEE ALSO": "core/rider_master.sql\nadmin_dashboard/get_rider_payout_report.sql",
     "SIDE EFFECTS": "none (DDL only)",
     "TESTS": "none"
@@ -3004,7 +3186,7 @@
    "cron": [],
    "folder": "delivery",
    "header_lines": 50,
-   "lines": 80,
+   "lines": 87,
    "objects": [
     {
      "description": "Vehicle-type option of a delivery order (PK order_number + vehicle_type), with payout and distance.",
@@ -3042,7 +3224,7 @@
     "OBJECTS": "table  delivery_detail\n    Vehicle-type option of a delivery order (PK order_number + vehicle_type), with payout and distance.",
     "PYTHON MODEL": "ordelo_datamodels/delivery_pymodels.py DeliveryDetail",
     "REQUIRES": "none",
-    "SECURITY": "delivery_detail: RLS OFF; Supabase default grants (anon and authenticated can read and write)",
+    "SECURITY": "Proposed server-only grants below; public reads verified open 2026-10-26.",
     "SEE ALSO": "delivery/process_delivery.sql\ndispatch/job_create_dispatch.sql\ndispatch/job_assign_dispatch.sql",
     "SIDE EFFECTS": "none",
     "TESTS": "tests/ordelo_datamodels/test_delivery_pymodels.py\ntests/sql/test_restaurant_notices_script_sql.py"
@@ -3281,7 +3463,7 @@
    "cron": [],
    "folder": "delivery",
    "header_lines": 121,
-   "lines": 513,
+   "lines": 520,
    "objects": [
     {
      "description": "The delivery order as fulfilment sees it, one row per order_number (prefix = rest_ref).",
@@ -3351,11 +3533,11 @@
     "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.\n  Triggers on this table (defined below):\n    trigger_restaurant_updates      restaurant_confirmation_status set/changed -> restaurant-confirmation-request webhook\n    trigger_delivery_summary_timedout  status becomes 'timedout' -> delivery-timedout webhook\n    trigger_pickup_time_reschedule  pickup_time changes -> re-time rider_pickup_alert checkpoints\n  Admin dashboard indexes (idx_delivery_summary_admin_*) serve admin_dashboard/v_admin_orders.sql.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "status:  restaurant_unconfirmed -> unassigned -> assigned -> completed\n         restaurant_unconfirmed -> declined                      (restaurant declined; never dispatched)\n         unassigned -> timedout                                   (no rider for any vehicle type in time)\nrestaurant_confirmation_status:  restaurant_unconfirmed -> restaurant_accept | restaurant_decline | restaurant_timedout\n         | auto_accept (configured) ; restaurant_accept -> restaurant_pickuptime_adjusted (+10 / +20)\nKitchen columns: ready_at / ready_by / ready_dispatch_id set by the first Ready tap per dispatch; pickup_time_initial /\npickup_adjusted_by / pickup_adjusted_at set by +10 / +20 (restaurant_admin/restaurant_ready_adjust_notices.sql).",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
+    "LIVE CHECK": "Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).",
     "OBJECTS": "table  delivery_summary\n    The delivery order as fulfilment sees it, one row per order_number (prefix = rest_ref).\ntrg    trigger_restaurant_updates on delivery_summary -> restaurant_updates_whook()\n    AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the five statuses Python acts on.\ntrg    trigger_delivery_summary_timedout on delivery_summary -> delivery_summary_timedout_whook()\n    AFTER UPDATE when status changes to 'timedout'.\nfn     restaurant_updates_whook() -> trigger\n    Trigger function: POST the order, restaurant, food_order and items to /delivery-hooks/restaurant-confirmation-request.\nfn     delivery_summary_timedout_whook() -> trigger\n    Trigger function: POST the summary row to /delivery-hooks/delivery-timedout when the order times out (no rider found).\nfn     rider_pickup_alert_reschedule() -> trigger\n    Trigger function: when pickup_time moves, re-time every rider_pickup_alert checkpoint of the order and set it back to 'pending'.\ntrg    trigger_pickup_time_reschedule on delivery_summary -> rider_pickup_alert_reschedule()\n    AFTER UPDATE OF pickup_time when the value actually changes.",
     "PYTHON MODEL": "ordelo_datamodels/delivery_pymodels.py DeliverySummary",
     "REQUIRES": "none",
-    "SECURITY": "delivery_summary: RLS OFF; Supabase default grants (anon and authenticated can read and write)\nrestaurant_updates_whook(): executable by PUBLIC (default)\ndelivery_summary_timedout_whook(): executable by PUBLIC (default)\nrider_pickup_alert_reschedule(): executable by PUBLIC (default)",
+    "SECURITY": "Server-only grants and RLS below are proposed; live anonymous grants verified open 2026-10-26.\nrestaurant_updates_whook(): executable by PUBLIC (default)\ndelivery_summary_timedout_whook(): executable by PUBLIC (default)\nrider_pickup_alert_reschedule(): executable by PUBLIC (default)",
     "SEE ALSO": "delivery/init_delivery.sql\ndelivery/process_delivery.sql\nrestaurant_admin/restaurant_order_decision.sql\nrestaurant_admin/restaurant_ready_adjust_notices.sql\ndispatch/rider_pickup_alert.sql\ndocs/delivery_process.md",
     "SIDE EFFECTS": "Applying the file re-creates three triggers. Each trigger POSTs to OrdeloAgent (see below) when it fires.",
     "TESTS": "tests/ordelo/agents/test_rider_agent.py\ntests/ordelo/test_agent_app_handlers.py\ntests/ordelo_datamodels/test_delivery_pymodels.py\ntests/regressions/test_p5_regressions.py\ntests/sql/test_order_cards_sql.py\ntests/sql/test_order_taps_sql.py\ntests/sql/test_order_test_script_sql.py\ntests/sql/test_restaurant_decision_sql.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/test_sql_returning_star.py\ntests/utils_common/test_restaurant_notifier.py\ntests/utils_common/web_ordering/test_web_contract.py\ntests/watomation/routers/test_delivery_hooks.py\ntests/watomation/routers/test_location_hooks.py\ntests/watomation/test_customer_notification_contracts.py\ntests/watomation/test_on_callback_wa_handler.py\ntests/watomation/test_on_message_wa_handler.py"
@@ -3627,7 +3809,7 @@
    "cron": [],
    "folder": "dispatch",
    "header_lines": 104,
-   "lines": 285,
+   "lines": 292,
    "objects": [
     {
      "description": "Statement trigger function: POST every offer inserted by one statement to /delivery-hooks/delivery-dispatch.",
@@ -3687,11 +3869,11 @@
     "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.\n  The statement-level trigger below batches every offer inserted by one job_create_dispatch() run into one\n  POST /delivery-hooks/delivery-dispatch, which sends each rider a WhatsApp offer with Accept / Decline buttons.\n  The rider dashboard and sys-admin payouts (restaurant-frontend) read paid_status / paid_dtts.\n  Rider bot (plans/telegram-rider-bot-plan.md): channel is stamped from rider_master.channel when the offer row is\n  inserted and never changes (D44): the offer, Accept and the whole job conversation use it\n  (ordelo/rider_messaging/factory.for_dispatch). channel_msg_ref is the MsgRef of the offer message\n  (WhatsApp wamid or 'tg:<tcid>:<message_id>'), written by delivery_hooks after sending, so a closed Telegram offer\n  can be edited in place (D49). thread_id is the rider agent thread of an assigned dispatch\n  ('ORDELO-dispatch-<dispatch_id>'), written by rider_thread_open() (agent_threads/rider_threads.sql, D46).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "channel: set once at INSERT (trigger), never updated. channel_msg_ref: set once after the offer is sent.\nthread_id: set once when the dispatch is assigned and its rider thread opens; kept after completion (audit).\ndelivery_dispatch.status (one row per offer of an order to one rider):\n  unassigned (offer sent) -> accepted (rider tapped Accept) -> assigned (won the order) -> pickedup -> completed\n  unassigned -> declined (rider said no, or cancelled before pickup) | missed (another rider won) | timedout\npaid_status: unpaid -> paid (sys-admin marks payouts paid; paid_dtts set).",
-    "LIVE CHECK": "Matches live: the table, the statement trigger and its function (2026-10-16), plus channel, channel_msg_ref,\n  thread_id, delivery_dispatch_thread_id_idx and trigger_delivery_dispatch_stamp_channel (migrations/rider_telegram_r2_r4.sql,\n  applied by the owner on 2026-10-22; a rider job was tested live on Telegram and WhatsApp the same day).",
+    "LIVE CHECK": "Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).\n  thread_id, delivery_dispatch_thread_id_idx and trigger_delivery_dispatch_stamp_channel (migrations/rider_telegram_r2_r4.sql,\n  applied by the owner on 2026-10-22; a rider job was tested live on Telegram and WhatsApp the same day).",
     "OBJECTS": "fn     delivery_dispatch_whook_statement() -> trigger\n    Statement trigger function: POST every offer inserted by one statement to /delivery-hooks/delivery-dispatch.\nfn     delivery_dispatch_stamp_channel() -> trigger\n    Row trigger function: copy the rider's channel (rider_master.channel) onto each new offer (D44).\ntable  delivery_dispatch\n    Offer of one delivery order to one rider (dispatch_id), with payout, distance, status and payout-paid state.\ntrg    trigger_delivery_dispatch_stamp_channel on delivery_dispatch -> delivery_dispatch_stamp_channel()\n    BEFORE INSERT FOR EACH ROW: the offer keeps the channel it was made on until the job ends.\ntrg    trigger_delivery_dispatch_whook on delivery_dispatch -> delivery_dispatch_whook_statement()\n    AFTER INSERT ... FOR EACH STATEMENT with REFERENCING NEW TABLE new_rows: one webhook per batch of offers.",
     "PYTHON MODEL": "ordelo_datamodels/delivery_pymodels.py DeliveryDispatch",
     "REQUIRES": "core/rider_master.sql (channel column)",
-    "SECURITY": "delivery_dispatch_whook_statement(), delivery_dispatch_stamp_channel(): executable by PUBLIC (default; trigger functions)\ndelivery_dispatch: RLS OFF; Supabase default grants (anon and authenticated can read and write)",
+    "SECURITY": "Server-only grants and RLS below are proposed; live anonymous grants verified open 2026-10-26.\ndelivery_dispatch: RLS OFF; Supabase default grants (anon and authenticated can read and write)",
     "SEE ALSO": "dispatch/job_create_dispatch.sql\ndispatch/job_assign_dispatch.sql\ndispatch/dispatch_cancel_before_pickup.sql\nrestaurant_admin/restaurant_ready_adjust_notices.sql (Ready reads the dispatch status)\ndocs/dispatch_flow.md",
     "SIDE EFFECTS": "Applying the file re-creates the statement trigger. Each INSERT statement then POSTs once to /delivery-hooks/delivery-dispatch.",
     "TESTS": "tests/ordelo/agents/test_rider_agent.py\ntests/ordelo/test_agent_app_handlers.py\ntests/ordelo/test_delivery_progress.py\ntests/ordelo_datamodels/test_delivery_pymodels.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/sql/test_rider_threads_sql.py\ntests/sql/test_rider_telegram_r2_r4_migration_sql.py\ntests/ordelo/test_dispatch_actions.py\ntests/watomation/routers/test_delivery_hooks.py\ntests/watomation/routers/test_sys_admin_auth_session.py"
@@ -3776,7 +3958,7 @@
    "cron": [],
    "folder": "dispatch",
    "header_lines": 76,
-   "lines": 186,
+   "lines": 193,
    "objects": [
     {
      "description": "Row trigger function: start the rider agent for a newly assigned job and tell the riders who missed it.",
@@ -3826,7 +4008,7 @@
     "OBJECTS": "fn     delivery_inflight_whook() -> trigger\n    Row trigger function: start the rider agent for a newly assigned job and tell the riders who missed it.\ntrg    trigger_delivery_inflight_whook on delivery_inflight -> delivery_inflight_whook()\n    AFTER INSERT ON delivery_inflight FOR EACH ROW.\ntable  delivery_inflight\n    Live job: dispatch_id (PK), order, rider and customer. Exists from assignment until completion or cancellation.",
     "PYTHON MODEL": "none",
     "REQUIRES": "none",
-    "SECURITY": "delivery_inflight_whook(): executable by PUBLIC (default)\ndelivery_inflight: RLS OFF; Supabase default grants (anon and authenticated can read and write)",
+    "SECURITY": "Proposed server-only grants below; public reads verified open 2026-10-26.\ndelivery_inflight: RLS OFF; Supabase default grants (anon and authenticated can read and write)",
     "SEE ALSO": "dispatch/job_assign_dispatch.sql\ndispatch/notify_missed_dispatches.sql\nrider_location/wa_location.sql",
     "SIDE EFFECTS": "Applying the file re-creates the trigger; each INSERT POSTs to /delivery-hooks/delivery-inflight-graph-init.",
     "TESTS": "tests/ordelo/test_delivery_progress.py\ntests/ordelo/test_wa_location.py\ntests/regressions/test_p5_regressions.py\ntests/regressions/test_p7_msg_handler.py\ntests/sql/test_restaurant_notices_script_sql.py\ntests/sql/test_restaurant_ready_adjust_notices_sql.py\ntests/watomation/routers/test_delivery_hooks.py\ntests/watomation/test_on_callback_wa_handler.py\ntests/watomation/test_on_message_wa_handler.py"
@@ -4685,6 +4867,45 @@
    "cron": [],
    "folder": "migrations",
    "header_lines": 0,
+   "lines": 726,
+   "migration": {
+    "applied": "not yet (prepared 2026-10-26; owner applies manually; no SQL has been run).",
+    "current": [
+     "admin_dashboard/auth_sessions.sql, admin_dashboard/get_rider_jobs.sql",
+     "agent_threads/rider_job_history_access.sql, core/rider_master.sql, core/rider_registrations.sql",
+     "core/ordelo_config.sql, core/restaurant_master.sql, dispatch/delivery_dispatch.sql",
+     "delivery/delivery_summary.sql, delivery/delivery_detail.sql, dispatch/delivery_inflight.sql",
+     "ordering/food_order_additions.sql, admin_dashboard/v_admin_orders.sql",
+     "admin_dashboard/get_rider_payout_report.sql"
+    ],
+    "purpose": "Coordinated access-control and rider dashboard RPC cutover. Apply once during the maintenance window before deploying/re-enabling dashboard traffic. This file is the prepared one-time SQL bundle; the owner files above are the ongoing definitions after application. Review and rollout steps: docs/rider-dashboard-rollout.md"
+   },
+   "objects": [],
+   "path": "migrations/rider_dashboard_cutover.sql",
+   "role": "migration",
+   "title": "Coordinated access-control and rider dashboard RPC cutover. Apply once during the maintenance window before deploying/re-enabling dashboard traffic. This file is the prepared one-time SQL bundle; the owner files above are the ongoing definitions after application. Review and rollout steps: docs/rider-dashboard-rollout.md"
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
+   "lines": 586,
+   "migration": {
+    "applied": "not yet (prepared 2026-10-26; the owner applies it by hand, nothing has been run).",
+    "current": [
+     "dispatch/rider_offer_alert.sql, dispatch/job_rider_offer_alerts.sql"
+    ],
+    "purpose": "Telegram rider offer reminders. A job offer that a Telegram rider has not answered is sent again (fresh copy, previous copy deleted) at RIDER_OFFER_ALERT_OFFSETS_SECS seconds after the offer ('10,20,30,45,60,90,120'), until any rider of the order accepts, the order leaves 'unassigned', or the rider can no longer take it (declined, paused, off shift, inactive, on another job, no Telegram chat). Overwatch is told once per order when nobody has accepted by the last offset. Plan: plans/rider-dispatch-alerts-plan.md."
+   },
+   "objects": [],
+   "path": "migrations/rider_offer_alerts.sql",
+   "role": "migration",
+   "title": "Telegram rider offer reminders. A job offer that a Telegram rider has not answered is sent again (fresh copy, previous copy deleted) at RIDER_OFFER_ALERT_OFFSETS_SECS seconds after the offer ('10,20,30,45,60,90,120'), until any rider of the order accepts, the order leaves 'unassigned', or the rider can no longer take it (declined, paused, off shift, inactive, on another job, no Telegram chat). Overwatch is told once per order when nobody has accepted by the last offset. Plan: plans/rider-dispatch-alerts-plan.md."
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
    "lines": 148,
    "migration": {
     "applied": "Applied by the owner on 2026-10-22 (steps 0-6); onboarding tested live the same day. Next: rider_telegram_r2_r4.sql.",
@@ -5048,7 +5269,7 @@
    "cron": [],
    "folder": "ordering",
    "header_lines": 40,
-   "lines": 115,
+   "lines": 122,
    "objects": [
     {
      "description": "columns     origin_channel, storefront, idempotency_key, payment_mode constraints food_order_origin_channel_chk, food_order_storefront_chk, food_order_payment_mode_chk indexes     food_order_idempotency_key_uq",
@@ -5103,7 +5324,7 @@
     "HOW IT FITS": "food_order and order_item are created by restaurant-agents (services/order_management/food_order.sql there).\n  OrdeloAgent's web ordering needs extra columns, so they are added here with idempotent ALTERs instead of copying\n  the restaurant-agents DDL:\n    origin_channel  'whatsapp' | 'web'      where the order began; immutable (trigger below)\n    storefront      'direct' | 'ordelo'     which storefront sold it; immutable\n    payment_mode    'live' | 'test'         Stripe environment, set by create_food_order_with_items()\n    idempotency_key                          web create-order retries return the same order (unique when set)\n  idx_order_item_order_id serves the admin dashboard views (admin_dashboard/v_admin_orders.sql).",
     "HOW TO RUN": "Supabase SQL editor, whole file, AFTER restaurant-agents has created food_order and order_item.\nSafe to re-run: ADD COLUMN IF NOT EXISTS, DROP/ADD CONSTRAINT, CREATE INDEX IF NOT EXISTS, CREATE OR REPLACE.",
     "LIFECYCLE": "none",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
+    "LIVE CHECK": "Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).",
     "OBJECTS": "alter  food_order (table owned by restaurant-agents)\n    columns     origin_channel, storefront, idempotency_key, payment_mode\n    constraints food_order_origin_channel_chk, food_order_storefront_chk, food_order_payment_mode_chk\n    indexes     food_order_idempotency_key_uq\nalter  order_item (table owned by restaurant-agents)\n    indexes     idx_order_item_order_id\nfn     forbid_food_order_origin_change() -> trigger\n    Trigger function: RAISE if an UPDATE changes food_order.origin_channel or storefront.\ntrg    food_order_origin_immutable on food_order -> forbid_food_order_origin_change()\n    BEFORE UPDATE OF origin_channel, storefront on food_order: runs forbid_food_order_origin_change().",
     "PYTHON MODEL": "none",
     "REQUIRES": "restaurant-agents: food_order\nrestaurant-agents: order_item",
@@ -9136,11 +9357,11 @@
      "via": "python"
     },
     {
-     "text": "watomation/routers/rider_auth_session.py: create_rider_dashboard_session()",
+     "text": "ordelo/rider_dashboard.py: issue_link()",
      "via": "python"
     },
     {
-     "text": "watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session()",
+     "text": "watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session() Rider RPCs: ordelo/rider_dashboard.py issue_link(); restaurant-frontend/lib/rider-session.ts.",
      "via": "python"
     }
    ],
@@ -9148,7 +9369,7 @@
    "file": "admin_dashboard/auth_sessions.sql",
    "folder": "admin_dashboard",
    "kind": "table",
-   "line": 35,
+   "line": 44,
    "role": "definition",
    "signature": "auth_sessions"
   },
@@ -10025,6 +10246,16 @@
    "role": "definition",
    "signature": "get_latest_state_by_thread(p_thread_id text, p_state_key text) -> jsonb"
   },
+  "get_rider_jobs": {
+   "called_by": [],
+   "description": "One statement snapshot of rider jobs, aggregates and pagination; no customer details.",
+   "file": "admin_dashboard/get_rider_jobs.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 31,
+   "role": "definition",
+   "signature": "get_rider_jobs(p_cookie_hash text, p_ua_hash text, p_tab text, p_from date, p_to date, p_paid text, p_cursor_time timestamptz, p_cursor_id integer, p_limit integer) -> jsonb"
+  },
   "get_rider_payout_report": {
    "called_by": [
     {
@@ -10039,6 +10270,16 @@
    "line": 96,
    "role": "definition",
    "signature": "get_rider_payout_report(p_start date, p_end date, p_exclude_riders text[]) -> TABLE(dispatch_id bigint, order_number text, rest_ref text, rider_id text, rider_name text, town text, vehicle_type text, bank_account_name text, sort_code text, bank_account text, rider_payout double precision, distance double precision, dtts timestamp without time zone, paid_status text, paid_dtts timestamp without time zone)"
+  },
+  "get_rider_profile": {
+   "called_by": [],
+   "description": "Read only the session rider's name/town/vehicle and masked bank account suffix.",
+   "file": "admin_dashboard/get_rider_jobs.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 211,
+   "role": "definition",
+   "signature": "get_rider_profile(p_cookie_hash text, p_ua_hash text) -> jsonb"
   },
   "handle_delivery_dispatch_changes": {
    "called_by": [
@@ -10541,7 +10782,7 @@
      "via": "python"
     },
     {
-     "text": "watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session()",
+     "text": "watomation/routers/sys_admin_auth_session.py: _ensure_sys_admin() (fresh authorization read)",
      "via": "python"
     },
     {
@@ -11206,6 +11447,56 @@
    "role": "definition",
    "signature": "restaurant_updates_whook() -> trigger"
   },
+  "rider_dashboard_activate": {
+   "called_by": [],
+   "description": "Consume one rider token after explicit browser POST.",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 134,
+   "role": "definition",
+   "signature": "rider_dashboard_activate(p_token_hash text, p_cookie_hash text, p_ua_hash text) -> jsonb"
+  },
+  "rider_dashboard_mint": {
+   "called_by": [],
+   "description": "Atomically authorize the linked Telegram rider and mint a 30-minute credential.",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 101,
+   "role": "definition",
+   "signature": "rider_dashboard_mint(p_tuid bigint, p_token_hash text) -> jsonb"
+  },
+  "rider_dashboard_revoke_link": {
+   "called_by": [],
+   "description": "Revoke dashboard credentials when the Telegram identity link changes.",
+   "file": "core/rider_master.sql",
+   "folder": "core",
+   "kind": "function",
+   "line": 138,
+   "role": "definition",
+   "signature": "rider_dashboard_revoke_link() -> trigger"
+  },
+  "rider_dashboard_session": {
+   "called_by": [],
+   "description": "Read a complete valid rider session and its verified current linkage.",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 197,
+   "role": "definition",
+   "signature": "rider_dashboard_session(p_cookie_hash text, p_ua_hash text) -> jsonb"
+  },
+  "rider_dashboard_touch": {
+   "called_by": [],
+   "description": "Validate and execute the idle heartbeat without extending the absolute expiry.",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 226,
+   "role": "definition",
+   "signature": "rider_dashboard_touch(p_cookie_hash text, p_ua_hash text) -> jsonb"
+  },
   "rider_location": {
    "called_by": [
     {
@@ -11306,10 +11597,6 @@
      "via": "python"
     },
     {
-     "text": "watomation/routers/rider_auth_session.py: _resolve_rider_id()",
-     "via": "python"
-    },
-    {
      "text": "watomation/routers/sys_admin_auth_session.py: get_rider_payout()",
      "via": "python"
     },
@@ -11334,7 +11621,7 @@
    "file": "core/rider_master.sql",
    "folder": "core",
    "kind": "table",
-   "line": 82,
+   "line": 85,
    "role": "definition",
    "signature": "rider_master"
   },
@@ -12545,6 +12832,16 @@
    "role": "definition",
    "signature": "trigger_restaurant_updates on delivery_summary -> restaurant_updates_whook()"
   },
+  "trigger_rider_dashboard_revoke_link": {
+   "called_by": [],
+   "description": "Runs atomically after a link change.",
+   "file": "core/rider_master.sql",
+   "folder": "core",
+   "kind": "trigger",
+   "line": 160,
+   "role": "definition",
+   "signature": "trigger_rider_dashboard_revoke_link on rider_master -> rider_dashboard_revoke_link()"
+  },
   "trigger_rider_location_event_update": {
    "called_by": [],
    "description": "AFTER INSERT ON rider_location_event FOR EACH ROW.",
@@ -12822,5 +13119,5 @@
   }
  },
  "source": "ordelo_datamodels/**/*.sql (except _archive/); built by scripts/datamodels/build_guide.py",
- "stamp": "Checked against the live database on 2026-10-16"
+ "stamp": "Checked against the live database on 2026-10-26"
 }
