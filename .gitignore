@@ -183,3 +183,6 @@ elai_env_json.json
 ordelo_agent_env.json
 env_json.json
 restaurant_agents-env.json
+
+# Local Claude Code settings (per developer)
+.claude/settings.local.json
