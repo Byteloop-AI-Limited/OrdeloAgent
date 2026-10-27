@@ -56,7 +56,7 @@
 --                 python    watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook()
 --                 python    ordelo/rider_shift.py: inflight_order() gates rider /off, /on and command menus
 -- PYTHON MODEL  none
--- SECURITY      delivery_inflight_whook(): executable by PUBLIC (default)
+-- SECURITY      Proposed server-only grants below; public reads verified open 2026-10-26.
 --               delivery_inflight: RLS OFF; Supabase default grants (anon and authenticated can read and write)
 -- TESTS         tests/ordelo/test_delivery_progress.py
 --               tests/ordelo/test_wa_location.py
@@ -183,3 +183,10 @@ COMMENT ON FUNCTION public.delivery_inflight_whook () IS 'Row trigger function: 
 COMMENT ON TRIGGER trigger_delivery_inflight_whook ON public.delivery_inflight IS 'AFTER INSERT ON delivery_inflight FOR EACH ROW.';
 
 COMMENT ON TABLE public.delivery_inflight IS 'Live job: dispatch_id (PK), order, rider and customer. Exists from assignment until completion or cancellation.';
+
+-- Private dashboard source: assignment details must not bypass the authenticated rider read.
+ALTER TABLE public.delivery_inflight ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.delivery_inflight FROM PUBLIC, anon, authenticated;
+
+GRANT ALL ON public.delivery_inflight TO service_role;

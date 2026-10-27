@@ -2,7 +2,7 @@
 -- ordelo_datamodels/delivery/delivery_summary.sql
 -- One row per delivery order: restaurant, customer, confirmation state, delivery status, pickup time and kitchen state.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- LIVE CHECK    Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).
 -- OBJECTS       table  delivery_summary
 --                   The delivery order as fulfilment sees it, one row per order_number (prefix = rest_ref).
 --               trg    trigger_restaurant_updates on delivery_summary -> restaurant_updates_whook()
@@ -86,7 +86,7 @@
 --               rider_pickup_alert_reschedule:
 --                 trigger   trigger_pickup_time_reschedule on delivery_summary
 -- PYTHON MODEL  ordelo_datamodels/delivery_pymodels.py DeliverySummary
--- SECURITY      delivery_summary: RLS OFF; Supabase default grants (anon and authenticated can read and write)
+-- SECURITY      Server-only grants and RLS below are proposed; live anonymous grants verified open 2026-10-26.
 --               restaurant_updates_whook(): executable by PUBLIC (default)
 --               delivery_summary_timedout_whook(): executable by PUBLIC (default)
 --               rider_pickup_alert_reschedule(): executable by PUBLIC (default)
@@ -510,3 +510,10 @@ COMMENT ON COLUMN public.delivery_summary.ready_at IS 'First Ready tap for the c
 
 -- Set timeout for 30s
 -- ALTER DATABASE postgres SET statement_timeout = '300s';
+
+-- Private dashboard source: legitimate runtime callers use server credentials.
+ALTER TABLE public.delivery_summary ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.delivery_summary FROM PUBLIC, anon, authenticated;
+
+GRANT ALL ON public.delivery_summary TO service_role;

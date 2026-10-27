@@ -2,7 +2,7 @@
 -- ordelo_datamodels/admin_dashboard/get_rider_payout_report.sql
 -- Rider payout report: one row per completed dispatch in a date window, with rider identity and bank details.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- LIVE CHECK    Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).
 -- OBJECTS       fn     get_rider_payout_report(p_start date, p_end date, p_exclude_riders text[]) -> TABLE(dispatch_id bigint, order_number text, rest_ref text, rider_id text, rider_name text, town text, vehicle_type text, bank_account_name text, sort_code text, bank_account text, rider_payout double precision, distance double precision, dtts timestamp without time zone, paid_status text, paid_dtts timestamp without time zone)
 --                   Return one payable row per completed dispatch between p_start and p_end, excluding the given rider ids.
 -- REQUIRES      dispatch/delivery_dispatch.sql
@@ -20,7 +20,7 @@
 -- CALLED BY     get_rider_payout_report:
 --                 python    watomation/routers/sys_admin_auth_session.py: get_rider_payout()
 -- PYTHON MODEL  none
--- SECURITY      get_rider_payout_report(): executable by PUBLIC (default)
+-- SECURITY      get_rider_payout_report(): service-role only below (not applied)
 -- TESTS         none
 -- GOTCHAS       none
 -- SEE ALSO      dispatch/delivery_dispatch.sql (paid_status)
@@ -179,3 +179,8 @@ COMMENT ON FUNCTION public.get_rider_payout_report (p_start date, p_end date, p_
 -- SELECT DISTINCT rider_id, rider_name, town
 --   FROM get_rider_payout_report('2026-08-20','2026-09-20',ARRAY['447448440754'])
 --  WHERE bank_account IS NULL;
+
+-- Banking details are an authenticated operations read, never an anonymous RPC.
+REVOKE ALL ON FUNCTION public.get_rider_payout_report (date, date, text[]) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.get_rider_payout_report (date, date, text[]) TO service_role;

@@ -2,7 +2,7 @@
 -- ordelo_datamodels/dispatch/delivery_dispatch.sql
 -- One row per job offer sent to a rider, with the rider's answer, payout and payment state.
 -- =============================================================================================
--- LIVE CHECK    Matches live: the table, the statement trigger and its function (2026-10-16), plus channel, channel_msg_ref,
+-- LIVE CHECK    Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).
 --                 thread_id, delivery_dispatch_thread_id_idx and trigger_delivery_dispatch_stamp_channel (migrations/rider_telegram_r2_r4.sql,
 --                 applied by the owner on 2026-10-22; a rider job was tested live on Telegram and WhatsApp the same day).
 -- OBJECTS       fn     delivery_dispatch_whook_statement() -> trigger
@@ -81,7 +81,7 @@
 --                 frontend  restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts
 --                 frontend  restaurant-frontend/app/rider/jobs/_lib/server-fetcher.ts
 -- PYTHON MODEL  ordelo_datamodels/delivery_pymodels.py DeliveryDispatch
--- SECURITY      delivery_dispatch_whook_statement(), delivery_dispatch_stamp_channel(): executable by PUBLIC (default; trigger functions)
+-- SECURITY      Server-only grants and RLS below are proposed; live anonymous grants verified open 2026-10-26.
 --               delivery_dispatch: RLS OFF; Supabase default grants (anon and authenticated can read and write)
 -- TESTS         tests/ordelo/agents/test_rider_agent.py
 --               tests/ordelo/test_agent_app_handlers.py
@@ -200,7 +200,7 @@ CREATE TABLE IF NOT EXISTS public.delivery_dispatch (
     dtts timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     paid_status character varying(20) NOT NULL DEFAULT 'unpaid' ::character varying,
     paid_dtts timestamp without time zone,
-    channel text NOT NULL DEFAULT 'whatsapp'::text, -- the rider's channel when the offer was made; fixed for this dispatch (D44)
+    channel text NOT NULL DEFAULT 'whatsapp' ::text, -- the rider's channel when the offer was made; fixed for this dispatch (D44)
     channel_msg_ref text, -- MsgRef of the offer message: WhatsApp wamid or 'tg:<tcid>:<message_id>' (D49)
     thread_id text, -- rider agent thread of the assigned dispatch, 'ORDELO-dispatch-<dispatch_id>' (D46)
     CONSTRAINT delivery_dispatch_pkey PRIMARY KEY (dispatch_id),
@@ -282,3 +282,10 @@ COMMENT ON COLUMN public.delivery_dispatch.channel IS 'whatsapp | telegram: the 
 COMMENT ON COLUMN public.delivery_dispatch.channel_msg_ref IS 'MsgRef of the offer message (WhatsApp wamid or tg:<tcid>:<message_id>)';
 
 COMMENT ON COLUMN public.delivery_dispatch.thread_id IS 'Rider agent thread of the assigned dispatch (ORDELO-dispatch-<dispatch_id>)';
+
+-- Private dashboard source: legitimate runtime callers use server credentials.
+ALTER TABLE public.delivery_dispatch ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.delivery_dispatch FROM PUBLIC, anon, authenticated;
+
+GRANT ALL ON public.delivery_dispatch TO service_role;

@@ -38,7 +38,7 @@
 --                 python    utils_common/order_management/test_order_dispatch.py: read_overwatch_riders()
 --                 python    utils_common/web_ordering/monitoring.py: sweep()
 --                 python    watomation/routers/delivery_hooks.py: _get_delivery_pickup_default_minutes()
---                 python    watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session()
+--                 python    watomation/routers/sys_admin_auth_session.py: _ensure_sys_admin() (fresh authorization read)
 --                 python    watomation/routers/takeaway_hooks.py: _get_pickup_default_minutes()
 --                 frontend  restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/config/route.ts
 --                 frontend  restaurant-frontend/app/api/test-db-connection/route.ts
@@ -52,7 +52,7 @@
 --                 sql       job_rider_pickup_alerts() (dispatch/job_rider_pickup_alerts.sql)
 --                 sql       job_t_order_alerts() (telegram/t_order_alerts.sql)
 -- PYTHON MODEL  none
--- SECURITY      ordelo_config: RLS OFF; Supabase default grants (anon and authenticated can read and write)
+-- SECURITY      Public reads retained; proposed dashboard cutover removes public writes to URLs and authorization allowlists.
 --               parse_alert_offsets(): executable by PUBLIC (default)
 -- TESTS         tests/config/test_params.py
 --               tests/sql/test_order_cards_sql.py
@@ -132,3 +132,8 @@ COMMENT ON FUNCTION public.parse_alert_offsets (p_config_key text) IS 'Parse a c
 -- update restaurant_master
 -- set admins = '{}'::text[]
 -- where rest_ref='WREN';
+
+-- Dashboard authorization/configuration authority: public clients cannot edit allowlists or login origins.
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.ordelo_config FROM PUBLIC, anon, authenticated;
+
+GRANT ALL ON public.ordelo_config TO service_role;

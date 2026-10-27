@@ -2,7 +2,7 @@
 -- ordelo_datamodels/core/rider_registrations.sql
 -- Rider sign-up applications captured by the rider onboarding form (before a rider_master row exists).
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- LIVE CHECK    Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).
 -- OBJECTS       table  rider_registrations
 --                   Rider applications: identity, vehicle, documents, bank details and review flags.
 -- REQUIRES      none
@@ -18,7 +18,7 @@
 --                 python    watomation/routers/sys_admin_auth_session.py: get_rider_payout()
 --                 frontend  restaurant-frontend/app/rider/more/page.tsx
 -- PYTHON MODEL  none
--- SECURITY      rider_registrations: RLS OFF; Supabase default grants (anon and authenticated can read and write)
+-- SECURITY      Server-only grants and RLS below are proposed; live anonymous grants verified open 2026-10-26.
 -- TESTS         none
 -- GOTCHAS       Holds identity documents and bank details with RLS OFF and default anon grants: high priority in the
 --                 security review (docs/to-do.md).
@@ -64,3 +64,10 @@ COMMENT ON COLUMN public.rider_registrations.manual_onboard IS 'check if the rid
 -- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
 -- ---------------------------------------------------------------------------------------------
 COMMENT ON TABLE public.rider_registrations IS 'Rider applications: identity, vehicle, documents, bank details and review flags.';
+
+-- Private dashboard source: legitimate runtime callers use server credentials.
+ALTER TABLE public.rider_registrations ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.rider_registrations FROM PUBLIC, anon, authenticated;
+
+GRANT ALL ON public.rider_registrations TO service_role;
