@@ -362,3 +362,22 @@ def test_for_thread_uses_the_threads_channel(monkeypatch, recording_bot):
     tg_m = for_thread(RiderThread("ORDELO-dispatch-7", PHONE, dispatch_id=7, channel="telegram", tcid=111))
     wa_m = for_thread(RiderThread("ORDELO-legacy", PHONE), wa_client=MagicMock())
     assert isinstance(tg_m, TelegramRiderMessenger) and isinstance(wa_m, WhatsAppRiderMessenger)
+
+async def test_telegram_reminder_notice_and_delete(recording_bot):
+    from dataclasses import replace
+    from aiogram.methods import DeleteMessage
+    bot, session = recording_bot
+    messenger = TelegramRiderMessenger(bot, 123)
+    await messenger.offer_job(replace(OFFER, notice='⏰ Still open · reminder 1 of 7'))
+    sent = session.calls[-1]
+    assert isinstance(sent, SendMessage)
+    assert sent.text.startswith('<i>⏰ Still open · reminder 1 of 7</i>\n')
+    await messenger.delete(tg_ref(456, 1))
+    assert len(session.calls) == 1
+    await messenger.delete(tg_ref(123, 1))
+    assert isinstance(session.calls[-1], DeleteMessage)
+
+
+async def test_whatsapp_delete_is_noop(wa):
+    await WhatsAppRiderMessenger(wa, PHONE).delete('wamid.OLD')
+    wa.send_message.assert_not_awaited()

@@ -30,7 +30,8 @@
 --                 3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,
 --                            and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).
 --                 4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders
---                            (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).
+--                            (trigger -> /delivery-hooks/delivery-dispatch -> rider offer); unanswered Telegram offers are reminded
+--                            by job_rider_offer_alerts() (dispatch/job_rider_offer_alerts.sql).
 --                 5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first
 --                            acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row
 --                            (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).
@@ -46,7 +47,7 @@
 --                 (WhatsApp wamid or 'tg:<tcid>:<message_id>'), written by delivery_hooks after sending, so a closed Telegram offer
 --                 can be edited in place (D49). thread_id is the rider agent thread of an assigned dispatch
 --                 ('ORDELO-dispatch-<dispatch_id>'), written by rider_thread_open() (agent_threads/rider_threads.sql, D46).
--- LIFECYCLE     channel: set once at INSERT (trigger), never updated. channel_msg_ref: set once after the offer is sent.
+-- LIFECYCLE     channel: set once at INSERT. channel_msg_ref: set after the offer, moved on each Telegram reminder.
 --               thread_id: set once when the dispatch is assigned and its rider thread opens; kept after completion (audit).
 --               delivery_dispatch.status (one row per offer of an order to one rider):
 --                 unassigned (offer sent) -> accepted (rider tapped Accept) -> assigned (won the order) -> pickedup -> completed
@@ -61,6 +62,8 @@
 --                           complete_dispatch(), dispatch_accept_func(), dispatch_cancel_before_pickup()
 --                           dispatch_complete_func(), get_available_riders(), get_rider_payout_report()
 --                           job_create_dispatch(), job_rider_pickup_alerts(), notify_missed_dispatches()
+--                           rider_offer_state(), rider_offer_order_open(), rider_offer_reminder_snapshot(),
+--                           rider_offer_reminder_sent(), job_rider_offer_alerts()
 --                           notify_missed_dispatches_for_order(), overwatch_view(), restaurant_order_adjust_pickup()
 --                           restaurant_order_ready(), t_receipt_snapshot(), t_receipt_status()
 --                           test_reset_order_and_dispatch()

@@ -97,6 +97,10 @@ REVOKE ALL ON TABLE public.rider_offer_alert FROM PUBLIC, anon, authenticated;
 
 REVOKE ALL ON SEQUENCE public.rider_offer_alert_id_seq FROM PUBLIC, anon, authenticated;
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.rider_offer_alert TO service_role;
+
+GRANT USAGE, SELECT ON SEQUENCE public.rider_offer_alert_id_seq TO service_role;
+
 COMMENT ON TABLE public.rider_offer_alert IS 'Telegram rider offer reminders (one row per offer and offset) and the once-per-order overwatch escalation.';
 
 -- ===== STEP 2: FUNCTIONS =====
@@ -141,6 +145,8 @@ CREATE OR REPLACE FUNCTION public.rider_offer_order_open (p_order_number text)
 $$;
 
 REVOKE ALL ON FUNCTION public.rider_offer_order_open (text) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.rider_offer_order_open (text) TO service_role;
 
 COMMENT ON FUNCTION public.rider_offer_order_open (p_order_number text) IS 'True while a delivery order is still looking for a rider: summary unassigned, no offer accepted/assigned, nobody inflight.';
 
@@ -267,6 +273,8 @@ $$;
 
 REVOKE ALL ON FUNCTION public.rider_offer_state (integer) FROM PUBLIC, anon, authenticated;
 
+GRANT EXECUTE ON FUNCTION public.rider_offer_state (integer) TO service_role;
+
 COMMENT ON FUNCTION public.rider_offer_state (p_dispatch_id integer) IS 'Whether one Telegram offer may be reminded: {state open|quiet|closed, reason}. The one place the reminder stop rules live.';
 
 -- rider_offer_reminder_snapshot(dispatch_id) -> jsonb
@@ -306,6 +314,8 @@ END
 $$;
 
 REVOKE ALL ON FUNCTION public.rider_offer_reminder_snapshot (integer) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.rider_offer_reminder_snapshot (integer) TO service_role;
 
 COMMENT ON FUNCTION public.rider_offer_reminder_snapshot (p_dispatch_id integer) IS 'Everything needed to send one Telegram offer reminder (state, chat, current offer ref, offer facts) in one read.';
 
@@ -352,6 +362,8 @@ END
 $$;
 
 REVOKE ALL ON FUNCTION public.rider_offer_reminder_sent (integer, text, text) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.rider_offer_reminder_sent (integer, text, text) TO service_role;
 
 COMMENT ON FUNCTION public.rider_offer_reminder_sent (p_dispatch_id integer, p_new_ref text, p_expected_ref text) IS 'After a reminder copy is sent: move channel_msg_ref to it if nobody else did (swapped | stale | gone) and return the offer state.';
 
@@ -557,6 +569,8 @@ END
 $$;
 
 REVOKE ALL ON FUNCTION public.job_rider_offer_alerts () FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.job_rider_offer_alerts () TO service_role;
 
 COMMENT ON FUNCTION public.job_rider_offer_alerts () IS 'Every 5 seconds: seed, cancel, find due Telegram offer reminders and overwatch escalations, POST them, and mark them on success.';
 

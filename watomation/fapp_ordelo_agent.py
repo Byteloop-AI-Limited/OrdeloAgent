@@ -42,7 +42,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from config import waba_business_settings, pg_settings, client_ordelo
 from utils_common.notify.customer_notifier import run_sweeper
 from channels.telegram.bots import close_registry, default_registry
-from watomation.routers import pause_hooks, telegram_order_alerts, telegram_webhook, web_hooks
+from watomation.routers import pause_hooks, rider_offer_alerts, telegram_order_alerts, telegram_webhook, web_hooks
 from utils_common.web_ordering.common import WebError
 from ordelo.agents.rider_agent import builder
 from ordelo.agent_app_handlers import (
@@ -170,6 +170,7 @@ app.include_router(wa_location_hooks.router)
 app.include_router(web_hooks.router, prefix="/web")
 app.include_router(telegram_webhook.router)
 app.include_router(telegram_order_alerts.router)
+app.include_router(rider_offer_alerts.router)
 app.include_router(pause_hooks.router)  # POST /pause-hooks/sweep (job_pause_sweep, R5-R6)
 
 @app.exception_handler(WebError)

@@ -119,7 +119,7 @@ from ordelo.agents.agent_runner import (
 from ordelo.delivery_progress import DeliveryProgress, check_delivery_progress
 from ordelo import dispatch_actions
 from ordelo.agents import rider_threads
-from ordelo.rider_messaging import JobOffer, dispatch_channel, for_dispatch, for_thread
+from ordelo.rider_messaging import dispatch_channel, for_dispatch, for_thread, job_offer
 from ordelo.rider_messaging.factory import messenger_for_dispatch
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from utils_common.order_management.food_order_pymodel import FoodOrder
@@ -324,29 +324,11 @@ async def wa_send_delivery_dispatch_request_to_rider(
     if not await rider_dispatch_allowed(order_number, recipient):
         return
 
-    pickup_time = fmt_uk_time(delivery_summary["pickup_time"])
-
-    header_text = f"{delivery_summary['distance']} miles, £{delivery_summary['rider_payout']}, @{pickup_time}"
-    wa_text = f"""
-    Pickup time - *{pickup_time}*
-
-Pickup location - *{delivery_summary["rest_name"]}*
-{delivery_summary["rest_address"]}
-
-Drop off location - *{delivery_summary["customer_name"]}*
-{delivery_summary["customer_address"]}
-
-Order number - *{delivery_summary["order_number"]}*
-
-Vehicle type - *{delivery_summary["vehicle_type"]}*
-    """
     logger.info(f"Sending dispatch to rider {recipient} for order {order_number}")
     # The offer goes out on the dispatch's channel (stamped from the rider at INSERT, D44). On WhatsApp this is exactly
     # the old message with its JSON Accept / Decline payloads (ordelo/rider_messaging/whatsapp.py offer_job).
     messenger = await for_dispatch(dispatch_id, rider_id=recipient, wa_client=_async_wa_client)
-    ref = await messenger.offer_job(
-        JobOffer(dispatch_id=dispatch_id, order_number=order_number, header=header_text, text=wa_text)
-    )
+    ref = await messenger.offer_job(job_offer(delivery_summary, dispatch_id))
     try:
         await dispatch_actions.record_offer_ref(dispatch_id, ref)
     except Exception:

@@ -67,3 +67,7 @@ class RiderMessenger(Protocol):
         WhatsApp: today's text for 'taken' only, nothing otherwise. Telegram: edit the offer in place and remove its
         buttons, sending nothing new (D49)."""
         ...
+
+    async def delete(self, ref: MsgRef | None) -> None:
+        """Remove an older offer copy when supported by the channel."""
+        ...

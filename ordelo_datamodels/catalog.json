@@ -101,6 +101,15 @@
   },
   {
    "active": true,
+   "command": "SELECT public.job_rider_offer_alerts()",
+   "file": "dispatch/job_rider_offer_alerts.sql",
+   "function": "job_rider_offer_alerts",
+   "job": "job_rider_offer_alerts",
+   "line": 235,
+   "schedule": "5 seconds"
+  },
+  {
+   "active": true,
    "command": "select job_rider_pickup_alerts();",
    "file": "dispatch/job_rider_pickup_alerts.sql",
    "function": "job_rider_pickup_alerts",
@@ -3725,7 +3734,7 @@
    "called_by": {
     "delivery_dispatch": [
      {
-      "text": "assign_accepted_dispatch(), cleanup_delivery_order(), clear_dispatch() complete_dispatch(), dispatch_accept_func(), dispatch_cancel_before_pickup() dispatch_complete_func(), get_available_riders(), get_rider_payout_report() job_create_dispatch(), job_rider_pickup_alerts(), notify_missed_dispatches() notify_missed_dispatches_for_order(), overwatch_view(), restaurant_order_adjust_pickup() restaurant_order_ready(), t_receipt_snapshot(), t_receipt_status() test_reset_order_and_dispatch()",
+      "text": "assign_accepted_dispatch(), cleanup_delivery_order(), clear_dispatch() complete_dispatch(), dispatch_accept_func(), dispatch_cancel_before_pickup() dispatch_complete_func(), get_available_riders(), get_rider_payout_report() job_create_dispatch(), job_rider_pickup_alerts(), notify_missed_dispatches() rider_offer_state(), rider_offer_order_open(), rider_offer_reminder_snapshot(), rider_offer_reminder_sent(), job_rider_offer_alerts() notify_missed_dispatches_for_order(), overwatch_view(), restaurant_order_adjust_pickup() restaurant_order_ready(), t_receipt_snapshot(), t_receipt_status() test_reset_order_and_dispatch()",
       "via": "sql"
      },
      {
@@ -3808,8 +3817,8 @@
    },
    "cron": [],
    "folder": "dispatch",
-   "header_lines": 104,
-   "lines": 292,
+   "header_lines": 107,
+   "lines": 295,
    "objects": [
     {
      "description": "Statement trigger function: POST every offer inserted by one statement to /delivery-hooks/delivery-dispatch.",
@@ -3864,11 +3873,11 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "delivery_dispatch_whook_statement:\n  trigger   trigger_delivery_dispatch_whook on delivery_dispatch\ndelivery_dispatch_stamp_channel:\n  trigger   trigger_delivery_dispatch_stamp_channel on delivery_dispatch\ndelivery_dispatch:\n  sql       assign_accepted_dispatch(), cleanup_delivery_order(), clear_dispatch()\n            complete_dispatch(), dispatch_accept_func(), dispatch_cancel_before_pickup()\n            dispatch_complete_func(), get_available_riders(), get_rider_payout_report()\n            job_create_dispatch(), job_rider_pickup_alerts(), notify_missed_dispatches()\n            notify_missed_dispatches_for_order(), overwatch_view(), restaurant_order_adjust_pickup()\n            restaurant_order_ready(), t_receipt_snapshot(), t_receipt_status()\n            test_reset_order_and_dispatch()\n  python    ordelo/agent_app_handlers.py: _send_delivery_instructions(), initial_handle_of_rider_response(), process_dispatch_response_from_rider_sync()\n  python    ordelo/agents/agent_runner.py: is_food_already_picked_up()\n  python    ordelo/agents/rider_agent.py: capture_reason_for_cancel_before_pickup(), terminate_delivery_job(), verify_restaurant_confirmation_code()\n  python    ordelo/delivery_progress.py: check_delivery_progress()\n  python    ordelo/dispatch_actions.py: respond_to_offer(), close_open_offers()\n  python    ordelo/rider_messaging/factory.py: for_dispatch(), dispatch_channel()\n  sql       rider_thread_open(), rider_thread_touch(), rider_thread_active(), rider_thread_describe()\n  python    ordelo/wa_location.py: WaLocation._load_delivery_context()\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/routers/delivery_hooks.py: delivery_dispatch_hook(), notify_missed_dispatches_hook()\n  python    watomation/routers/sys_admin_auth_session.py: get_rider_payout(), update_paid_status()\n  frontend  restaurant-frontend/app/api/rider/jobs/route.ts\n  frontend  restaurant-frontend/app/api/rider/jobs/summary/route.ts\n  frontend  restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts\n  frontend  restaurant-frontend/app/rider/jobs/_lib/server-fetcher.ts",
+    "CALLED BY": "delivery_dispatch_whook_statement:\n  trigger   trigger_delivery_dispatch_whook on delivery_dispatch\ndelivery_dispatch_stamp_channel:\n  trigger   trigger_delivery_dispatch_stamp_channel on delivery_dispatch\ndelivery_dispatch:\n  sql       assign_accepted_dispatch(), cleanup_delivery_order(), clear_dispatch()\n            complete_dispatch(), dispatch_accept_func(), dispatch_cancel_before_pickup()\n            dispatch_complete_func(), get_available_riders(), get_rider_payout_report()\n            job_create_dispatch(), job_rider_pickup_alerts(), notify_missed_dispatches()\n            rider_offer_state(), rider_offer_order_open(), rider_offer_reminder_snapshot(),\n            rider_offer_reminder_sent(), job_rider_offer_alerts()\n            notify_missed_dispatches_for_order(), overwatch_view(), restaurant_order_adjust_pickup()\n            restaurant_order_ready(), t_receipt_snapshot(), t_receipt_status()\n            test_reset_order_and_dispatch()\n  python    ordelo/agent_app_handlers.py: _send_delivery_instructions(), initial_handle_of_rider_response(), process_dispatch_response_from_rider_sync()\n  python    ordelo/agents/agent_runner.py: is_food_already_picked_up()\n  python    ordelo/agents/rider_agent.py: capture_reason_for_cancel_before_pickup(), terminate_delivery_job(), verify_restaurant_confirmation_code()\n  python    ordelo/delivery_progress.py: check_delivery_progress()\n  python    ordelo/dispatch_actions.py: respond_to_offer(), close_open_offers()\n  python    ordelo/rider_messaging/factory.py: for_dispatch(), dispatch_channel()\n  sql       rider_thread_open(), rider_thread_touch(), rider_thread_active(), rider_thread_describe()\n  python    ordelo/wa_location.py: WaLocation._load_delivery_context()\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/routers/delivery_hooks.py: delivery_dispatch_hook(), notify_missed_dispatches_hook()\n  python    watomation/routers/sys_admin_auth_session.py: get_rider_payout(), update_paid_status()\n  frontend  restaurant-frontend/app/api/rider/jobs/route.ts\n  frontend  restaurant-frontend/app/api/rider/jobs/summary/route.ts\n  frontend  restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts\n  frontend  restaurant-frontend/app/rider/jobs/_lib/server-fetcher.ts",
     "GOTCHAS": "No foreign keys to delivery_summary or rider_master: the links are by order_number and rider_id only.\nrider_pickup_alert has ON DELETE CASCADE to dispatch_id: deleting a dispatch (cancel before pickup) removes its alert ledger.",
-    "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.\n  The statement-level trigger below batches every offer inserted by one job_create_dispatch() run into one\n  POST /delivery-hooks/delivery-dispatch, which sends each rider a WhatsApp offer with Accept / Decline buttons.\n  The rider dashboard and sys-admin payouts (restaurant-frontend) read paid_status / paid_dtts.\n  Rider bot (plans/telegram-rider-bot-plan.md): channel is stamped from rider_master.channel when the offer row is\n  inserted and never changes (D44): the offer, Accept and the whole job conversation use it\n  (ordelo/rider_messaging/factory.for_dispatch). channel_msg_ref is the MsgRef of the offer message\n  (WhatsApp wamid or 'tg:<tcid>:<message_id>'), written by delivery_hooks after sending, so a closed Telegram offer\n  can be edited in place (D49). thread_id is the rider agent thread of an assigned dispatch\n  ('ORDELO-dispatch-<dispatch_id>'), written by rider_thread_open() (agent_threads/rider_threads.sql, D46).",
+    "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> rider offer); unanswered Telegram offers are reminded\n             by job_rider_offer_alerts() (dispatch/job_rider_offer_alerts.sql).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.\n  The statement-level trigger below batches every offer inserted by one job_create_dispatch() run into one\n  POST /delivery-hooks/delivery-dispatch, which sends each rider a WhatsApp offer with Accept / Decline buttons.\n  The rider dashboard and sys-admin payouts (restaurant-frontend) read paid_status / paid_dtts.\n  Rider bot (plans/telegram-rider-bot-plan.md): channel is stamped from rider_master.channel when the offer row is\n  inserted and never changes (D44): the offer, Accept and the whole job conversation use it\n  (ordelo/rider_messaging/factory.for_dispatch). channel_msg_ref is the MsgRef of the offer message\n  (WhatsApp wamid or 'tg:<tcid>:<message_id>'), written by delivery_hooks after sending, so a closed Telegram offer\n  can be edited in place (D49). thread_id is the rider agent thread of an assigned dispatch\n  ('ORDELO-dispatch-<dispatch_id>'), written by rider_thread_open() (agent_threads/rider_threads.sql, D46).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "channel: set once at INSERT (trigger), never updated. channel_msg_ref: set once after the offer is sent.\nthread_id: set once when the dispatch is assigned and its rider thread opens; kept after completion (audit).\ndelivery_dispatch.status (one row per offer of an order to one rider):\n  unassigned (offer sent) -> accepted (rider tapped Accept) -> assigned (won the order) -> pickedup -> completed\n  unassigned -> declined (rider said no, or cancelled before pickup) | missed (another rider won) | timedout\npaid_status: unpaid -> paid (sys-admin marks payouts paid; paid_dtts set).",
+    "LIFECYCLE": "channel: set once at INSERT. channel_msg_ref: set after the offer, moved on each Telegram reminder.\nthread_id: set once when the dispatch is assigned and its rider thread opens; kept after completion (audit).\ndelivery_dispatch.status (one row per offer of an order to one rider):\n  unassigned (offer sent) -> accepted (rider tapped Accept) -> assigned (won the order) -> pickedup -> completed\n  unassigned -> declined (rider said no, or cancelled before pickup) | missed (another rider won) | timedout\npaid_status: unpaid -> paid (sys-admin marks payouts paid; paid_dtts set).",
     "LIVE CHECK": "Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).\n  thread_id, delivery_dispatch_thread_id_idx and trigger_delivery_dispatch_stamp_channel (migrations/rider_telegram_r2_r4.sql,\n  applied by the owner on 2026-10-22; a rider job was tested live on Telegram and WhatsApp the same day).",
     "OBJECTS": "fn     delivery_dispatch_whook_statement() -> trigger\n    Statement trigger function: POST every offer inserted by one statement to /delivery-hooks/delivery-dispatch.\nfn     delivery_dispatch_stamp_channel() -> trigger\n    Row trigger function: copy the rider's channel (rider_master.channel) onto each new offer (D44).\ntable  delivery_dispatch\n    Offer of one delivery order to one rider (dispatch_id), with payout, distance, status and payout-paid state.\ntrg    trigger_delivery_dispatch_stamp_channel on delivery_dispatch -> delivery_dispatch_stamp_channel()\n    BEFORE INSERT FOR EACH ROW: the offer keeps the channel it was made on until the job ends.\ntrg    trigger_delivery_dispatch_whook on delivery_dispatch -> delivery_dispatch_whook_statement()\n    AFTER INSERT ... FOR EACH STATEMENT with REFERENCING NEW TABLE new_rows: one webhook per batch of offers.",
     "PYTHON MODEL": "ordelo_datamodels/delivery_pymodels.py DeliveryDispatch",
@@ -4423,6 +4432,74 @@
    "title": "Every 5 seconds: offer open delivery options to available riders (insert delivery_dispatch rows), in batches."
   },
   {
+   "called_by": {},
+   "cron": [
+    {
+     "active": true,
+     "command": "SELECT public.job_rider_offer_alerts()",
+     "file": "dispatch/job_rider_offer_alerts.sql",
+     "function": "job_rider_offer_alerts",
+     "job": "job_rider_offer_alerts",
+     "line": 235,
+     "schedule": "5 seconds"
+    }
+   ],
+   "folder": "dispatch",
+   "header_lines": 18,
+   "lines": 236,
+   "objects": [
+    {
+     "description": "",
+     "kind": "function",
+     "name": "job_rider_offer_alerts",
+     "signature": "job_rider_offer_alerts() -> boolean"
+    }
+   ],
+   "path": "dispatch/job_rider_offer_alerts.sql",
+   "path_line": "ordelo_datamodels/dispatch/job_rider_offer_alerts.sql",
+   "requires": [
+    "dispatch/rider_offer_alert.sql; core/ordelo_config.sql"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "cron job_rider_offer_alerts, every 5 seconds",
+    "GOTCHAS": "One escalation per order even after re-dispatch; changes to offsets apply to new offers.",
+    "HOW IT FITS": "Telegram only: delivery_dispatch.sql step 4 -> job_rider_offer_alerts -> rider-hooks/offer-alerts.",
+    "HOW TO RUN": "Apply the migration first; this file maintains the definitions. Safe to re-run.",
+    "LIFECYCLE": "pending -> sent, superseded or cancelled; one escalation per order.",
+    "LIVE CHECK": "not yet applied to live; migration rider_offer_alerts.sql awaits owner execution.",
+    "OBJECTS": "fn     job_rider_offer_alerts() -> boolean",
+    "PYTHON MODEL": "ordelo/offer_reminders.py: SupabaseOfferReminderStore",
+    "REQUIRES": "dispatch/rider_offer_alert.sql; core/ordelo_config.sql",
+    "SECURITY": "RLS enabled; PUBLIC, anon and authenticated revoked; service role only.",
+    "SEE ALSO": "dispatch/delivery_dispatch.sql; plans/rider-dispatch-alerts-plan.md",
+    "SIDE EFFECTS": "Seeds and updates checkpoints; may POST reminders and escalations.",
+    "TESTS": "tests/sql/test_rider_offer_alerts_sql.py; tests/ordelo/test_offer_reminders.py"
+   },
+   "see_also": [
+    "dispatch/delivery_dispatch.sql; plans/rider-dispatch-alerts-plan.md"
+   ],
+   "tests": [
+    "tests/sql/test_rider_offer_alerts_sql.py; tests/ordelo/test_offer_reminders.py"
+   ],
+   "title": "Telegram rider offer reminders and the unanswered-order escalation."
+  },
+  {
    "called_by": {
     "job_rider_pickup_alerts": [
      {
@@ -4569,6 +4646,70 @@
    ],
    "tests": [],
    "title": "Tell the riders who accepted an order but lost it to another rider (called when the order is assigned)."
+  },
+  {
+   "called_by": {},
+   "cron": [],
+   "folder": "dispatch",
+   "header_lines": 19,
+   "lines": 330,
+   "objects": [
+    {
+     "description": "",
+     "kind": "table",
+     "name": "rider_offer_alert",
+     "signature": "rider_offer_alert"
+    },
+    {
+     "description": "",
+     "kind": "function",
+     "name": "rider_offer_order_open",
+     "signature": "rider_offer_order_open, rider_offer_state, rider_offer_reminder_snapshot, rider_offer_reminder_sent"
+    }
+   ],
+   "path": "dispatch/rider_offer_alert.sql",
+   "path_line": "ordelo_datamodels/dispatch/rider_offer_alert.sql",
+   "requires": [
+    "dispatch/delivery_dispatch.sql, availability/pauses.sql"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "job_rider_offer_alerts(); ordelo/offer_reminders.py snapshot(), reminder_sent(), order_open()",
+    "GOTCHAS": "Rider gate mirrors get_available_riders(); dtts uses cron session time zone; no foreign key; accepted_elsewhere is quiet.",
+    "HOW IT FITS": "Telegram only: delivery_dispatch.sql step 4 -> job_rider_offer_alerts -> rider-hooks/offer-alerts.",
+    "HOW TO RUN": "Apply the migration first; this file maintains the definitions. Safe to re-run.",
+    "LIFECYCLE": "pending -> sent, superseded or cancelled; one escalation per order.",
+    "LIVE CHECK": "not yet applied to live; migration rider_offer_alerts.sql awaits owner execution.",
+    "OBJECTS": "table  rider_offer_alert\nfn     rider_offer_order_open, rider_offer_state, rider_offer_reminder_snapshot, rider_offer_reminder_sent",
+    "PYTHON MODEL": "ordelo/offer_reminders.py: SupabaseOfferReminderStore",
+    "REQUIRES": "dispatch/delivery_dispatch.sql, availability/pauses.sql",
+    "SECURITY": "RLS enabled; PUBLIC, anon and authenticated revoked; service role only.",
+    "SEE ALSO": "dispatch/delivery_dispatch.sql; plans/rider-dispatch-alerts-plan.md",
+    "SIDE EFFECTS": "Stores checkpoints and message references.",
+    "TESTS": "tests/sql/test_rider_offer_alerts_sql.py; tests/ordelo/test_offer_reminders.py"
+   },
+   "see_also": [
+    "dispatch/delivery_dispatch.sql; plans/rider-dispatch-alerts-plan.md"
+   ],
+   "tests": [
+    "tests/sql/test_rider_offer_alerts_sql.py; tests/ordelo/test_offer_reminders.py"
+   ],
+   "title": "Telegram rider offer reminders and the unanswered-order escalation."
   },
   {
    "called_by": {
@@ -4869,7 +5010,7 @@
    "header_lines": 0,
    "lines": 726,
    "migration": {
-    "applied": "not yet (prepared 2026-10-26; owner applies manually; no SQL has been run).",
+    "applied": "2026-10-26 (owner-confirmed).",
     "current": [
      "admin_dashboard/auth_sessions.sql, admin_dashboard/get_rider_jobs.sql",
      "agent_threads/rider_job_history_access.sql, core/rider_master.sql, core/rider_registrations.sql",
@@ -4889,7 +5030,7 @@
    "cron": [],
    "folder": "migrations",
    "header_lines": 0,
-   "lines": 586,
+   "lines": 600,
    "migration": {
     "applied": "not yet (prepared 2026-10-26; the owner applies it by hand, nothing has been run).",
     "current": [
@@ -9169,7 +9310,7 @@
    "cron": [],
    "folder": "test_support",
    "header_lines": 0,
-   "lines": 388,
+   "lines": 412,
    "objects": [],
    "path": "test_support/test_restaurant_notices.sql",
    "role": "script",
@@ -9654,7 +9795,7 @@
   "delivery_dispatch": {
    "called_by": [
     {
-     "text": "assign_accepted_dispatch(), cleanup_delivery_order(), clear_dispatch() complete_dispatch(), dispatch_accept_func(), dispatch_cancel_before_pickup() dispatch_complete_func(), get_available_riders(), get_rider_payout_report() job_create_dispatch(), job_rider_pickup_alerts(), notify_missed_dispatches() notify_missed_dispatches_for_order(), overwatch_view(), restaurant_order_adjust_pickup() restaurant_order_ready(), t_receipt_snapshot(), t_receipt_status() test_reset_order_and_dispatch()",
+     "text": "assign_accepted_dispatch(), cleanup_delivery_order(), clear_dispatch() complete_dispatch(), dispatch_accept_func(), dispatch_cancel_before_pickup() dispatch_complete_func(), get_available_riders(), get_rider_payout_report() job_create_dispatch(), job_rider_pickup_alerts(), notify_missed_dispatches() rider_offer_state(), rider_offer_order_open(), rider_offer_reminder_snapshot(), rider_offer_reminder_sent(), job_rider_offer_alerts() notify_missed_dispatches_for_order(), overwatch_view(), restaurant_order_adjust_pickup() restaurant_order_ready(), t_receipt_snapshot(), t_receipt_status() test_reset_order_and_dispatch()",
      "via": "sql"
     },
     {
@@ -9726,7 +9867,7 @@
    "file": "dispatch/delivery_dispatch.sql",
    "folder": "dispatch",
    "kind": "table",
-   "line": 189,
+   "line": 192,
    "role": "definition",
    "signature": "delivery_dispatch"
   },
@@ -9741,7 +9882,7 @@
    "file": "dispatch/delivery_dispatch.sql",
    "folder": "dispatch",
    "kind": "function",
-   "line": 225,
+   "line": 228,
    "role": "definition",
    "signature": "delivery_dispatch_stamp_channel() -> trigger"
   },
@@ -9771,7 +9912,7 @@
    "file": "dispatch/delivery_dispatch.sql",
    "folder": "dispatch",
    "kind": "function",
-   "line": 113,
+   "line": 116,
    "role": "definition",
    "signature": "delivery_dispatch_whook_statement() -> trigger"
   },
@@ -10559,6 +10700,16 @@
    "line": 39,
    "role": "definition",
    "signature": "job_restaurant_confirmation_timeout(p_rest_ref character varying) -> TABLE(action text)"
+  },
+  "job_rider_offer_alerts": {
+   "called_by": [],
+   "description": "",
+   "file": "dispatch/job_rider_offer_alerts.sql",
+   "folder": "dispatch",
+   "kind": "function",
+   "line": 37,
+   "role": "definition",
+   "signature": "job_rider_offer_alerts() -> boolean"
   },
   "job_rider_pickup_alerts": {
    "called_by": [
@@ -11624,6 +11775,26 @@
    "line": 85,
    "role": "definition",
    "signature": "rider_master"
+  },
+  "rider_offer_alert": {
+   "called_by": [],
+   "description": "",
+   "file": "dispatch/rider_offer_alert.sql",
+   "folder": "dispatch",
+   "kind": "table",
+   "line": 25,
+   "role": "definition",
+   "signature": "rider_offer_alert"
+  },
+  "rider_offer_order_open": {
+   "called_by": [],
+   "description": "",
+   "file": "dispatch/rider_offer_alert.sql",
+   "folder": "dispatch",
+   "kind": "function",
+   "line": 75,
+   "role": "definition",
+   "signature": "rider_offer_order_open, rider_offer_state, rider_offer_reminder_snapshot, rider_offer_reminder_sent"
   },
   "rider_pickup_alert": {
    "called_by": [
@@ -12768,7 +12939,7 @@
    "file": "dispatch/delivery_dispatch.sql",
    "folder": "dispatch",
    "kind": "trigger",
-   "line": 246,
+   "line": 249,
    "role": "definition",
    "signature": "trigger_delivery_dispatch_stamp_channel on delivery_dispatch -> delivery_dispatch_stamp_channel()"
   },
@@ -12778,7 +12949,7 @@
    "file": "dispatch/delivery_dispatch.sql",
    "folder": "dispatch",
    "kind": "trigger",
-   "line": 257,
+   "line": 260,
    "role": "definition",
    "signature": "trigger_delivery_dispatch_whook on delivery_dispatch -> delivery_dispatch_whook_statement()"
   },

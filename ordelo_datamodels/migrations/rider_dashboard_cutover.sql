@@ -1,5 +1,5 @@
 -- MIGRATION (history; do not edit the statements below)
--- Applied to live: not yet (prepared 2026-10-26; owner applies manually; no SQL has been run).
+-- Applied to live: 2026-10-26 (owner-confirmed).
 -- Current definitions now live in: admin_dashboard/auth_sessions.sql, admin_dashboard/get_rider_jobs.sql
 --   agent_threads/rider_job_history_access.sql, core/rider_master.sql, core/rider_registrations.sql
 --   core/ordelo_config.sql, core/restaurant_master.sql, dispatch/delivery_dispatch.sql
