@@ -11,6 +11,7 @@ The rider agent, its tools and the rider hooks use it from phase R3 (plans/teleg
 
 from .factory import DispatchChannel, dispatch_channel, for_dispatch, for_rider, for_thread, messenger_for, use_messenger
 from .models import JOB_CARD_ACTIONS, ContactCard, JobOffer, LinkButton, MsgRef, Place, is_tg_ref, parse_tg_ref, tg_ref
+from .models import CANCEL_CONFIRM_TEXT, CANCEL_TAP_RE, CANCEL_YES_TITLE, CANCEL_NO_TITLE, cancel_tap_text
 from .port import RiderMessenger
 from .offers import job_offer
 
@@ -30,6 +31,7 @@ __all__ = [
     "JobOffer",
     "job_offer",
     "JOB_CARD_ACTIONS",
+    "CANCEL_CONFIRM_TEXT", "CANCEL_TAP_RE", "CANCEL_YES_TITLE", "CANCEL_NO_TITLE", "cancel_tap_text",
     "tg_ref",
     "parse_tg_ref",
     "is_tg_ref",

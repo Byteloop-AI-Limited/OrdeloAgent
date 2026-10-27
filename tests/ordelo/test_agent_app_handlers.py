@@ -134,7 +134,7 @@ async def test_initial_handle_assigned_decline_triggers_cancel_flow(monkeypatch,
     assert calls == [
         {
             "recipient": "RIDER01",
-            "system_msg": "call `tool cancel_delivery_before_pickup`",
+            "system_msg": "call `tool request_cancel_confirmation` with the rider request",
             "human_msg": "I need to cancel order ELAS-ABCD-1 before pickup.",
         }
     ]

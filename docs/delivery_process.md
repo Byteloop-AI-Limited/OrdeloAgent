@@ -857,3 +857,8 @@ flowchart TD
 ---
 
 *End of Delivery Process Documentation*
+
+
+### Rider exit guard
+
+Before pickup, a rider request to cancel or close requires a confirmation button tap. After pickup, the agent refuses and alerts overwatch on every request; the rider thread remains open. A simultaneous pickup and cancellation can race in the existing SQL function and requires database-level locking to guarantee this rule.

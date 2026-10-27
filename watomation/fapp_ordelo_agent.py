@@ -86,6 +86,7 @@ from watomation.on_message_wa_handler import (
 from watomation.on_callback_wa_handler import (
     dispatch_response,
     rider_request_location,
+    rider_cancel_confirm,
     handle_shift_availability,
     handle_admin_availability,
     admin_collection_ready,
@@ -95,6 +96,7 @@ from watomation.on_callback_wa_handler import (
     handle_pickup_time_selection,
     IS_DISPATCH_RESPONSE,
     IS_LOCATION_REQUEST,
+    IS_CANCEL_CONFIRM,
     IS_SHIFT_AVAILABILITY,
     IS_ADMIN_AVAILABILITY,
     IS_RESTAURANT_ORDER_ACCEPT_DECLINE,
@@ -232,6 +234,7 @@ wa.add_handlers(
     handlers.CallbackButtonHandler(
         callback=rider_request_location, filters=IS_LOCATION_REQUEST
     ),
+    handlers.CallbackButtonHandler(callback=rider_cancel_confirm, filters=IS_CANCEL_CONFIRM),
     handlers.CallbackButtonHandler(
         callback=handle_shift_availability, filters=IS_SHIFT_AVAILABILITY
     ),

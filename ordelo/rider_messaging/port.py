@@ -58,6 +58,10 @@ class RiderMessenger(Protocol):
         A tap reaches the rider agent as the rider's own words (models.JOB_CARD_ACTIONS)."""
         ...
 
+    async def confirm_cancel(self, dispatch_id: int, token: str, text: str) -> MsgRef:
+        """Send the cancellation confirmation buttons."""
+        ...
+
     async def offer_job(self, offer: JobOffer) -> MsgRef:
         """A job offer with Accept / Decline. Store the returned ref (delivery_dispatch.channel_msg_ref, R4)."""
         ...

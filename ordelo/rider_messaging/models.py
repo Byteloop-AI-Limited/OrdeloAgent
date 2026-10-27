@@ -9,6 +9,7 @@ Only the adapters look inside; a reference from the other channel is ignored (a 
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Literal, NewType
 
@@ -26,6 +27,16 @@ JOB_CARD_ACTIONS: dict[str, tuple[str, str]] = {
     "dr": ("Dropoff Location", "Send me the dropoff location"),
     "cc": ("Contact Customer", "I cannot reach customer, please send me customer contact."),
 }
+
+CANCEL_YES_TITLE = "Yes, cancel job"
+CANCEL_NO_TITLE = "No, keep it"
+CANCEL_CONFIRM_TEXT = "Do you want to cancel this job? It will be offered to other riders and you won't be offered it again."
+CANCEL_TAP_RE = re.compile(r"\[cancel-confirm:(?P<token>[0-9a-f]{8}):(?P<answer>yes|no)\]")
+
+
+def cancel_tap_text(token: str, answer: Literal["yes", "no"]) -> str:
+    return f"[cancel-confirm:{token}:{answer}]"
+
 
 CHANNEL_NAMES = {"whatsapp": "WhatsApp", "telegram": "Telegram"}
 

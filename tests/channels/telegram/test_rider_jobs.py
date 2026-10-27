@@ -137,7 +137,6 @@ def test_offer_and_job_card_callbacks_fit_64_bytes():
         (dispatch_actions.TAKEN, True, "❌ Taken by another rider · <b>ELAS-ABCD-1</b>"),
         (dispatch_actions.GONE, True, "This job is no longer available · <b>ELAS-ABCD-1</b>"),
         (dispatch_actions.ALREADY_ON_THIS_JOB, True, "✅ The job is yours · <b>ELAS-ABCD-1</b>"),
-        (dispatch_actions.CANCEL_OWN_JOB, False, "🚫 Order cancelled · <b>ELAS-ABCD-1</b>"),
     ],
 )
 async def test_offer_tap_applies_the_shared_rules_and_edits_the_offer(recording_bot, linked, offers, outcome, accept, edited):
@@ -316,3 +315,24 @@ async def test_unknown_command_from_a_linked_rider(recording_bot, linked, thread
     await feed(bot, message_update("/whatever"))
     assert await spawned() == []
     assert session.sent_texts == ["I don't know that command. Try /help."]
+
+
+async def test_cancel_button_is_authorized_and_routed_through_dispatcher(recording_bot, linked, threads, spawned):
+    from aiogram.methods import EditMessageReplyMarkup
+    from channels.telegram.callbacks import RiderCancelConfirm
+    bot, session = recording_bot
+    await feed(bot, callback_update(RiderCancelConfirm(d=7, t="12345678", a="y").pack()))
+    runs = await spawned()
+    assert runs == [("run_rider_agent_w_custom_msg", (PHONE,), {
+        "thread_id": "ORDELO-dispatch-7", "human_msg": "[cancel-confirm:12345678:yes]", "cancel_tap": True})]
+    assert session.answers == [(None, False)]
+    assert any(isinstance(call, EditMessageReplyMarkup) for call in session.calls)
+
+
+async def test_cancel_button_for_other_rider_is_rejected(recording_bot, rider_db, threads, spawned):
+    from channels.telegram.callbacks import RiderCancelConfirm
+    bot, session = recording_bot
+    rider_db.add("447700900999", tuid=111, tcid=111)
+    await feed(bot, callback_update(RiderCancelConfirm(d=7, t="12345678", a="y").pack()))
+    assert await spawned() == []
+    assert session.answers == [(jobs.NOT_YOURS, True)]

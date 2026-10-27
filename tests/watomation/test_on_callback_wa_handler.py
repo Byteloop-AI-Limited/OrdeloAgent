@@ -567,3 +567,23 @@ async def test_admin_takeaway_ready_second_tap_replies_already_ready(actions_db,
     assert first.replies == ["Customer notification request sent."]
     assert second.replies == ["Already marked ready by Ada"]
     assert published == ["ELAS-ABCD-1"]   # the customer is told once
+
+
+async def test_rider_cancel_confirmation_checks_actor_and_active_thread(monkeypatch, fake_async_wa):
+    from ordelo.agents import rider_threads
+    from unittest.mock import AsyncMock
+    thread = SimpleNamespace(rider_id="RIDER01", is_active=True, dispatch_status="assigned", thread_id="thread-10")
+    lookup = AsyncMock(return_value=thread)
+    run = AsyncMock()
+    monkeypatch.setattr(rider_threads, "for_dispatch", lookup)
+    monkeypatch.setattr(handler, "run_rider_agent_w_custom_msg", run)
+    payload = json.dumps({"dispatch_id": 10, "recipient": "RIDER01", "human_msg": "[cancel-confirm:12345678:yes]"})
+    await handler.rider_cancel_confirm(fake_async_wa, FakeMessage(sender="OTHER", data=payload))
+    assert fake_async_wa.sent[-1].kwargs["text"] == "This job is expired."
+    run.assert_not_awaited()
+    await handler.rider_cancel_confirm(fake_async_wa, FakeMessage(sender="RIDER01", data=payload))
+    run.assert_awaited_once_with(recipient="RIDER01", human_msg="[cancel-confirm:12345678:yes]", thread_id="thread-10", cancel_tap=True)
+    thread.dispatch_status = "completed"
+    await handler.rider_cancel_confirm(fake_async_wa, FakeMessage(sender="RIDER01", data=payload))
+    assert fake_async_wa.sent[-1].kwargs["text"] == "This job is expired."
+    assert run.await_count == 1

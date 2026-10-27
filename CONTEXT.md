@@ -384,3 +384,8 @@ _Avoid_: off shift, holiday, mute
 ### Last-admin guard
 
 A restaurant admin cannot pause alerts if no other admin of that restaurant would stay unpaused, so a restaurant always has someone receiving its new Telegram order alerts.
+
+
+**Cancel confirmation**: Before pickup, a rider must tap a channel button before cancellation; the callback carries a token and is marked as a trusted tap in the agent input.
+
+**Post-pickup refusal**: The agent refuses rider requests to cancel or close after pickup and alerts overwatch for each attempt. Database concurrency still needs a lock to guarantee this during simultaneous pickup and cancellation.

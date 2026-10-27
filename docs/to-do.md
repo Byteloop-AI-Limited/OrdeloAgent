@@ -108,3 +108,7 @@ Not fixed by that plan unless a phase says so.
 - Rider offer alerts: correct the `job_create_dispatch.sql` header, which implies open offers block later batches.
 - Add `rider_offer_alert` retention to `t_housekeeping()` when housekeeping is scheduled.
 - `respond_to_offer()` writes `status_update_dtts` with the app server’s naive local clock; consider using database `now()`.
+
+
+- WhatsApp and Telegram job cards have no Cancel button; riders request cancellation by typing or by declining an existing offer.
+- Protect `dispatch_cancel_before_pickup` against a concurrent pickup with a database-level atomic transition; the existing status check and update are separate.

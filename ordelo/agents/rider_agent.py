@@ -23,7 +23,8 @@ LangGraph agent implementation for rider delivery workflow
     . send_pickup_location - Sends restaurant location to rider
     . send_dropoff_location - Sends customer location to rider
     . send_delivery_instructions - Provides delivery instructions
-    . cancel_delivery_before_pickup - Cancels assigned job pre‑pickup
+    . request_cancel_confirmation - Guards exits and asks for a button confirmation
+    . cancel_delivery_before_pickup - Cancels assigned job pre‑pickup after confirmation
     . capture_reason_for_cancel_before_pickup - Stores cancel reason
     . verify_restaurant_confirmation_code - Validates restaurant code
     . verify_customer_confirmation_code - Validates customer code
@@ -46,6 +47,7 @@ Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamod
 # %%
 
 import asyncio
+import secrets
 from datetime import datetime, timezone
 from typing import Annotated, Any, Sequence
 from uuid import uuid4
@@ -88,6 +90,8 @@ from ordelo.agent_app_handlers import (
     post_rider_event_restaurant_cc,
 )
 from ordelo.agents import rider_threads
+from ordelo import job_exit
+from ordelo.rider_messaging import CANCEL_CONFIRM_TEXT, CANCEL_TAP_RE
 from ordelo.rider_messaging import ContactCard, LinkButton, Place, RiderMessenger
 from ordelo.wa_location import WaLocation
 from ordelo_datamodels.wa_location_pymodels import RestaurantConfirmationObservation
@@ -106,6 +110,8 @@ class AgentState(TypedDict):
     is_restaurant_confirmation_code_verified: bool
     is_customer_confirmation_code_verified: bool
     awaiting_cancel_reason: bool
+    cancel_confirm_token: str | None
+    cancel_confirmed: bool
     latest_wa_msg_id: str
     pickup_time: str
     wa_location_request_id: str
@@ -922,6 +928,43 @@ async def verify_restaurant_confirmation_code(
 # %%
 
 
+def _last_rider_words(state):
+    return next((str(m.content) for m in reversed(state.get("messages", [])) if isinstance(m, HumanMessage)), "")
+
+
+async def _exit_refusal(state, ctx, words):
+    await job_exit.refuse_after_pickup(messenger=ctx.messenger, order_number=state.get("order_number"),
+        dispatch_id=state.get("dispatch_id"), rider_name=state.get("rider_name"),
+        rider_phone=ctx.recipient, rider_words=words)
+
+
+async def _ask_cancel_confirmation(state, tool_call_id, ctx):
+    token = secrets.token_hex(4)
+    await ctx.messenger.confirm_cancel(state["dispatch_id"], token, CANCEL_CONFIRM_TEXT)
+    return Command(update={"cancel_confirm_token": token, "cancel_confirmed": False,
+        "messages": [ToolMessage("Confirmation buttons sent.", tool_call_id=tool_call_id),
+                     AIMessage("/dontRespond: cancel confirmation sent")]})
+
+
+async def request_cancel_confirmation(
+    rider_words: str,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    runtime: ToolRuntime[ContextSchema],
+) -> dict:
+    """Handle a rider's request to cancel or close their job."""
+    verdict = await job_exit.verdict_for(state.get("dispatch_id"))
+    if verdict is job_exit.Verdict.ASK_CONFIRM:
+        return await _ask_cancel_confirmation(state, tool_call_id, runtime.context)
+    if verdict is job_exit.Verdict.REFUSE:
+        await _exit_refusal(state, runtime.context, rider_words)
+        return Command(update={"cancel_confirm_token": None, "cancel_confirmed": False,
+            "messages": [ToolMessage("Refused after pickup; team alerted.", tool_call_id=tool_call_id),
+                         AIMessage("/dontRespond: cancel refused")]})
+    message = "There is no open job to cancel." if verdict is job_exit.Verdict.ALLOW_CLOSE else "I couldn't check the job right now; please try again in a minute."
+    return Command(update={"messages": [ToolMessage(message, tool_call_id=tool_call_id)]})
+
+
 async def cancel_delivery_before_pickup(
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
@@ -938,8 +981,17 @@ async def cancel_delivery_before_pickup(
         - Calls dispatch_cancel_before_pickup(p_dispatch_id) RPC to reopen dispatching.
         - Prompts the rider for a cancellation reason.
     """
+    verdict = await job_exit.verdict_for(state.get("dispatch_id"))
+    if verdict is job_exit.Verdict.REFUSE:
+        await _exit_refusal(state, runtime.context, _last_rider_words(state))
+        return Command(update={"cancel_confirmed": False, "cancel_confirm_token": None,
+            "messages": [ToolMessage("Refused after pickup; team alerted.", tool_call_id=tool_call_id),
+                         AIMessage("/dontRespond: cancel refused after pickup")]})
+    if verdict is job_exit.Verdict.UNKNOWN:
+        return Command(update={"cancel_confirmed": False, "messages": [ToolMessage("Could not check the job. Please try again shortly.", tool_call_id=tool_call_id)]})
+    if not state.get("cancel_confirmed"):
+        return Command(update={"messages": [ToolMessage("Not confirmed. Call request_cancel_confirmation; only a button tap can confirm.", tool_call_id=tool_call_id)]})
     rider_name = state.get("rider_name")
-
     dispatch_id = state.get("dispatch_id")
     order_number = state.get("order_number")
 
@@ -956,21 +1008,29 @@ async def cancel_delivery_before_pickup(
         )
 
     try:
-        # response = await sbase_call_function(
-        #     function_name="dispatch_cancel_before_pickup",
-        #     input_args={"p_dispatch_id": dispatch_id},
-        # )
-        client_ordelo.rpc(
+        res = await asyncio.to_thread(lambda: client_ordelo.rpc(
             "dispatch_cancel_before_pickup", {"p_dispatch_id": dispatch_id}
-        ).execute()
+        ).execute())
+        reply = res.data if isinstance(res.data, str) else ""
+        if not reply.startswith("cancelled dispatch "):
+            verdict = await job_exit.verdict_for(dispatch_id)
+            messages = [ToolMessage("The cancellation was not completed. Please try again or contact the team.", tool_call_id=tool_call_id)]
+            if verdict is job_exit.Verdict.REFUSE:
+                await _exit_refusal(state, runtime.context, _last_rider_words(state))
+                messages.append(AIMessage("/dontRespond: cancel refused after pickup"))
+            return Command(update={"cancel_confirmed": False, "messages": messages})
 
         from channels.telegram.rider.commands import sync_rider_menu
 
-        await sync_rider_menu(runtime.context.recipient)
+        try:
+            await sync_rider_menu(runtime.context.recipient)
+        except Exception:
+            logger.exception("Could not refresh rider menu after cancellation")
 
         return Command(
             update={
                 "awaiting_cancel_reason": True,
+                "cancel_confirmed": False,
                 "messages": [
                     # ToolMessage(
                     #     "Asked rider for cancel reason. When they reply, call "
@@ -989,7 +1049,7 @@ async def cancel_delivery_before_pickup(
         error_message = f"Failed to cancel job: {str(e)}"
         logger.error(error_message)
         return Command(
-            update={"messages": [ToolMessage(error_message, tool_call_id=tool_call_id)]}
+            update={"cancel_confirmed": False, "messages": [ToolMessage(error_message, tool_call_id=tool_call_id)]}
         )
 
 
@@ -1247,6 +1307,16 @@ async def terminate_delivery_job(
     dispatch_id = state.get("dispatch_id")
     awaiting_cancel_reason = bool(state.get("awaiting_cancel_reason"))
     reply_to_msg_id = state.get("reply_to_msg_id", None)
+    verdict = await job_exit.verdict_for(dispatch_id)
+    if verdict is job_exit.Verdict.ASK_CONFIRM:
+        return await _ask_cancel_confirmation(state, tool_call_id, ctx)
+    if verdict is job_exit.Verdict.REFUSE:
+        await _exit_refusal(state, ctx, _last_rider_words(state))
+        return Command(update={"cancel_confirm_token": None, "cancel_confirmed": False,
+            "messages": [ToolMessage("Refused after pickup; team alerted.", tool_call_id=tool_call_id),
+                         AIMessage("/dontRespond: close refused after pickup")]})
+    if verdict is job_exit.Verdict.UNKNOWN:
+        return Command(update={"messages": [ToolMessage("Could not check the job; not closed. Please try again shortly.", tool_call_id=tool_call_id)]})
 
     if awaiting_cancel_reason and reason_for_decline and dispatch_id is not None:
         try:
@@ -1295,6 +1365,7 @@ _rider_agent_tools = [
     send_dropoff_location,
     request_rider_current_location,
     send_customer_contact,
+    request_cancel_confirmation,
     cancel_delivery_before_pickup,
     capture_reason_for_cancel_before_pickup,
     verify_restaurant_confirmation_code,
@@ -1335,6 +1406,22 @@ def agent_node(state: AgentState) -> Command[Literal["toolNode", "respondNode", 
             ],
         )
         return Command(update={"messages": [ai_msg]}, goto="toolNode")
+
+    last = state["messages"][-1]
+    if isinstance(last, HumanMessage):
+        match = CANCEL_TAP_RE.fullmatch(str(last.content))
+        token = state.get("cancel_confirm_token")
+        if match and last.additional_kwargs.get("cancel_tap") is True:
+            if not token or not secrets.compare_digest(match.group("token"), token):
+                return Command(update={"messages": [AIMessage("That button has expired. Tell me again if you want to cancel.")]}, goto="respondNode")
+            if match.group("answer") == "no":
+                return Command(update={"cancel_confirm_token": None, "cancel_confirmed": False,
+                    "messages": [AIMessage("Okay, the job stays with you.")]}, goto="respondNode")
+            ai_msg = AIMessage(content="", tool_calls=[{"name": "cancel_delivery_before_pickup", "args": {}, "id": f"cancel_{uuid4().hex}"}])
+            return Command(update={"cancel_confirm_token": None, "cancel_confirmed": True, "messages": [ai_msg]}, goto="toolNode")
+        if token:
+            ai_msg = AIMessage(content="", tool_calls=[{"name": "request_cancel_confirmation", "args": {"rider_words": str(last.content)}, "id": f"confirm_{uuid4().hex}"}])
+            return Command(update={"messages": [ai_msg]}, goto="toolNode")
 
     if state.get("awaiting_cancel_reason") and isinstance(
         state["messages"][-1], ToolMessage
