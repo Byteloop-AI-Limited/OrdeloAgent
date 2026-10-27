@@ -71,6 +71,9 @@ MIGRATION_FILES = [
     "t_housekeeping.sql",
     # Rider bot phase R1 (plans/telegram-rider-bot-plan.md): rider_master is created in its target shape by minimal_schema.sql.
     "rider_master.sql",
+    "auth_sessions.sql",
+    "rider_registrations.sql",
+    "get_rider_jobs.sql",
     "t_rider_onboarding.sql",
     "job_pause_sweep.sql",
     # Rider bot phases R2-R4: thread per dispatch (the thread table itself comes from minimal_schema.sql).
@@ -135,12 +138,13 @@ def sql_env():
     with _connect() as conn:
         conn.execute("DROP SCHEMA IF EXISTS public CASCADE")
         conn.execute("CREATE SCHEMA public")
-        for role in ("anon", "authenticated"):
+        for role in ("anon", "authenticated", "service_role"):
             conn.execute(
                 f"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{role}') "
                 f"THEN CREATE ROLE {role} NOLOGIN; END IF; END $$"
             )
             conn.execute(f"GRANT USAGE ON SCHEMA public TO {role}")
+        conn.execute("ALTER ROLE service_role BYPASSRLS")
         conn.execute(_GEN_RANDOM_BYTES_STUB)
         conn.execute("DROP SCHEMA IF EXISTS cron CASCADE")
         conn.execute(_PG_CRON_STUB)
@@ -148,6 +152,8 @@ def sql_env():
         for name in MIGRATION_FILES:
             conn.execute(migration_sql(name))
         conn.execute(dispatch_channel_trigger_sql())
+        conn.execute("GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role")
+        conn.execute("GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role")
     return URI
 
 
