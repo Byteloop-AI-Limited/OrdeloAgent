@@ -1,5 +1,9 @@
 # Rider dashboard: implementation and owner rollout
 
+## Rollout status, 27 October 2026
+
+The owner confirmed the database cutover, rider `/my_jobs` registration and coordinated application releases are complete. The dashboard opens directly for riders. The sysadmin payout report issue was resolved in the coordinated backend/frontend release. The procedure below records the original rollout sequence for audit and future reference; it is not a list of remaining owner actions. The migration header records the owner-confirmed application date.
+
 The rider bot `/my_jobs` issues a single-use 30-minute credential to a phone-verified linked Telegram actor. Inactive, suspended, paused and off-shift riders retain financial reads. No graph or delivery action runs. The browser automatically exchanges the link on a same-origin POST and opens the dashboard, setting a secure HttpOnly `__Host-rdash` cookie (60-minute idle / four-hour hard cap, UA-bound). GET/HEAD alone do not consume it, but a link scanner that runs JavaScript can submit the POST. Relinking revokes pending and activated rider credentials atomically.
 
 `ordelo/rider_dashboard.py` is the typed issuance wrapper. Session operations live with `admin_dashboard/auth_sessions.sql`. `admin_dashboard/get_rider_jobs.sql` projects only the session rider's Current (`assigned`, `pickedup`) or Completed jobs, with full-filter totals from one statement snapshot. Only completed payouts are earned; current amounts are expected. Paid date means operations marked the payout paid, not bank-transfer confirmation. The profile projects an already-masked account suffix. Customer addresses, contacts, codes and coordinates never enter this read interface.
@@ -33,13 +37,13 @@ The replaced rider HTTP mint, separate summary endpoint and generic rider query 
 | Payout report/mark-paid HTTP | Authenticated sys-admin browser session via frontend proxy | Actual cookie and original UA forwarded; backend validates role, revocation, expiry, UA and current overwatch membership |
 | Thread/debug-state HTTP | Authenticated sys-admin only | Same credential dependency |
 
-## Coordinated manual rollout
+## Coordinated manual rollout record
 
-No production SQL, deployment or bot-menu publication is executed by the agent. Use a maintenance window for dashboard access and the backend/restaurant runtime releases. Prepare release artifacts for all three repositories before applying grants; do not leave public access available as a temporary alternate mode.
+The steps below describe the completed owner rollout sequence. No production SQL, deployment or bot-menu publication was executed by the agent. For a future clean reinstall, use a maintenance window and prepare release artifacts for all three repositories before applying grants; do not leave public access available as a temporary alternate mode.
 
 1. Verify `ordelo_config.RESTAURANT_MENU_APP_URL` is the exact HTTPS frontend origin. Both link issuance and frontend activation use this setting. Ensure the frontend `SUPABASE_SECRET_KEY`, both Python runtimes' existing service keys, and OrdeloAgent's correct WABA app secret are configured. OrdeloAgent now rejects unsigned/forged WhatsApp payloads instead of trusting their supplied sender; verify a real Meta-signed update after deployment. No other restaurant app's webhook setting is changed. Redact `/rider/activate/<token>` from infrastructure access logs and disable analytics on that path. Do not use browser keys for server private reads.
 2. Pause public dashboard traffic. Deploy the server-credential caller changes and prepared authenticated HTTP routes in the same maintenance window. Coordinate the restaurant-agent runtime update across its apps according to its constitution. The frontend and OrdeloAgent dashboard feature cannot be exposed until SQL is installed.
-3. The pending one-time SQL bundle is `ordelo_datamodels/migrations/rider_dashboard_cutover.sql`. Regenerate it from the current owner files with `python scripts/datamodels/rider_dashboard_cutover.py > ordelo_datamodels/migrations/rider_dashboard_cutover.sql`; this only reads local files and does not connect to a database. Review and apply this pending bundle against the already-onboarded current database during the maintenance window, before re-enabling runtime traffic. It includes the session owner and new jobs functions, but **only the new grant/revocation blocks** from existing table/view/report owners, so unrelated existing definitions are not reapplied. Once applied, update only its `Applied to live` metadata line to record the actual application date and evidence; never edit the SQL statements below the migration header.
+3. The one-time SQL bundle is `ordelo_datamodels/migrations/rider_dashboard_cutover.sql`. It was applied by the owner on 2026-10-26. Regeneration with `python scripts/datamodels/rider_dashboard_cutover.py > ordelo_datamodels/migrations/rider_dashboard_cutover.sql` only reads local files and does not connect to a database. The bundle includes the session owner and new jobs functions, but **only the new grant/revocation blocks** from existing table/view/report owners, so unrelated existing definitions are not reapplied. The applied statements remain frozen history below the migration header.
 4. The bundle ends with the following standalone credential invalidation statement. Run it once as part of that bundle; do not rerun it after riders start using the new feature. It deliberately makes all old links/cookies unusable; riders request `/my_jobs` again. No payment records change.
 
 ```sql
@@ -64,7 +68,7 @@ Backend: focused Telegram/HTTP tests, affected Telegram suite, datamodel standar
 
 `PgSetting.client` is now a server-role client in both Python runtimes. For an anonymous permission inspection, explicitly construct a client with `pg_settings.rest_key`; do not mistake the runtime client for an anonymous client. This does not change the anon-first rule for ad-hoc operations or authorize production writes.
 
-Offline/isolated passing results establish those contracts only. Live Telegram, database cutover, deployed logs and real browser sessions remain separate owner rollout evidence.
+Offline/isolated passing results establish those contracts only. The owner separately confirmed live Telegram registration, database cutover, coordinated releases and working rider access; the sysadmin payout report was subsequently confirmed working after its release fix. These confirmations are owner-reported rollout evidence, not independently re-probed service evidence by this guide update.
 
 ## Verification record, 26 October 2026
 

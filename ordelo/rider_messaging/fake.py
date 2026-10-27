@@ -49,6 +49,9 @@ class RecordingRiderMessenger:
     async def offer_closed(self, ref, order_number, reason) -> None:
         self._record("offer_closed", ref=ref, order_number=order_number, reason=reason)
 
+    async def delete(self, ref) -> None:
+        self._record("delete", ref=ref)
+
     @property
     def texts(self) -> list[str]:
         return [kw["text"] for m, kw in self.calls if m == "say"]

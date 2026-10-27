@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS public.delivery_summary (
     pickup_date    date         NOT NULL DEFAULT CURRENT_DATE,
     rest_confirmation_code integer NOT NULL DEFAULT 42,
     cust_confirmation_code integer NOT NULL DEFAULT 57,
+    rest_address text NOT NULL DEFAULT 'Test Kitchen',
+    customer_name text NOT NULL DEFAULT 'Test Customer',
     customer_address text NOT NULL DEFAULT '1 High Street, Testville',
     ready_at       timestamptz,
     ready_by       text,

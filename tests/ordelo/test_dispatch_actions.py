@@ -103,7 +103,7 @@ async def test_record_offer_ref(patch_supabase_client):
     await da.record_offer_ref(10, None)
     assert patch_supabase_client.calls == []
     await da.record_offer_ref(10, "tg:555:7")
-    assert _updates(patch_supabase_client) == [({"channel_msg_ref": "tg:555:7"}, {"eq:dispatch_id": 10})]
+    assert _updates(patch_supabase_client) == [({"channel_msg_ref": "tg:555:7"}, {"eq:dispatch_id": 10, "is:channel_msg_ref": "null"})]
 
 
 async def test_close_open_offers_edits_only_open_telegram_offers(patch_supabase_client):

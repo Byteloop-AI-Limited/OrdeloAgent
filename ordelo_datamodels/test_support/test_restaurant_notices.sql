@@ -8,7 +8,7 @@
 --
 -- WHAT IT TOUCHES (and only rows whose order number starts with STRK-TEST-)
 --   delete        rider_pickup_alert, order_notification_subscription, notification_outbox, order_customer_event,
---                 t_order_alerts, t_sent_messages (cards, receipts, notices of those orders), delivery_inflight,
+--                 rider_offer_alert, t_order_alerts, t_sent_messages (cards, receipts, notices of those orders), delivery_inflight,
 --                 delivery_dispatch, delivery_detail, delivery_summary, takeaway_summary, order_item, food_order,
 --                 debug_log (only if those tables exist)
 --   insert        food_order + order_item (through create_food_order_with_items, the function real orders use),
@@ -59,12 +59,13 @@
 SELECT (SELECT count(*) FROM public.t_order_card_destinations('rest_admin', 'STRK'))                 AS telegram_destinations,    -- >= 1
        (SELECT count(*) FROM pg_proc WHERE proname IN ('restaurant_order_ready', 't_receipt_snapshot', 'job_t_receipt_refresh',
                                                        'create_food_order_with_items'))              AS functions_present,        -- 4
+       (SELECT count(*) FROM pg_proc WHERE proname = 'job_rider_offer_alerts') AS offer_reminders_present, -- 1
        (SELECT rest_id FROM public.restaurant_master WHERE rest_ref = 'STRK')                        AS strk_rest_id,             -- NOT NULL
        (SELECT count(*) FROM public.rider_master WHERE town = 'dummy' AND is_in_shift AND status = 'active') AS dummy_riders_in_shift, -- >= 1
        (SELECT config_value FROM public.ordelo_config WHERE config_key = 'overwatch_list')           AS overwatch_list,           -- has your rider
        (SELECT config_value FROM public.ordelo_config WHERE config_key = 'ORDELO_APP_URL')           AS app_url;
 -- Cron (Supabase only):  SELECT jobname, schedule, active FROM cron.job WHERE jobname IN
---   ('job_t_order_alerts', 'job_t_receipt_refresh', 'job_rider_pickup_alerts') ORDER BY 1;     -- 3 rows, active
+--   ('job_t_order_alerts', 'job_t_receipt_refresh', 'job_rider_pickup_alerts', 'job_rider_offer_alerts') ORDER BY 1; -- 4 rows, active
 -- To schedule the receipt sweep (operator step, once):
 --   SELECT cron.schedule('job_t_receipt_refresh', '5 seconds', $$SELECT public.job_t_receipt_refresh()$$);
 
@@ -89,6 +90,7 @@ BEGIN
                                                      (SELECT id FROM public.order_customer_event WHERE order_number LIKE 'STRK-TEST-%')$q$),
         ('public.order_customer_event',          $q$DELETE FROM public.order_customer_event WHERE order_number LIKE 'STRK-TEST-%'$q$),
         ('public.order_notification_subscription', $q$DELETE FROM public.order_notification_subscription WHERE order_number LIKE 'STRK-TEST-%'$q$),
+        ('public.rider_offer_alert',             $q$DELETE FROM public.rider_offer_alert WHERE order_number LIKE 'STRK-TEST-%'$q$),
         ('public.t_order_alerts',                $q$DELETE FROM public.t_order_alerts WHERE order_number LIKE 'STRK-TEST-%'$q$),
         ('public.t_sent_messages',               $q$DELETE FROM public.t_sent_messages
                                                      WHERE (subject_type = 'order' AND subject_ref LIKE 'STRK-TEST-%')
@@ -206,6 +208,28 @@ SELECT s.order_number, s.customer_id,
    AND NOT EXISTS (SELECT 1 FROM public.delivery_detail d WHERE d.order_number = s.order_number);
 SELECT order_number, vehicle_type, town, status FROM public.delivery_detail WHERE order_number LIKE 'STRK-TEST-%';
 
+
+-- ===== STAGE 2c: RIDER OFFER REMINDERS (Telegram; watch, read only) =====
+-- Run after STAGE 2b while the offer is unanswered, and re-run it between steps. Telegram riders get the offer again at
+-- +10/+20/+30/+45/+60/+90/+120 s (ordelo_config RIDER_OFFER_ALERT_OFFSETS_SECS); each new copy replaces the previous one,
+-- so the chat shows ONE live copy and the phone buzzes each time. Try, one per fresh order (STAGE 0, 1, accept, 2b):
+--   a) ignore it ~35 s: reminder rows n=1..3 'sent'; the chat shows one copy "⏰ Still open · reminder 3 of 7"
+--   b) second rider taps Decline: that rider's pending rows 'cancelled'; the first rider keeps getting reminders
+--   c) a rider sends /off in @ByteloopRidersBot: their pending rows 'cancelled' by the next run (reminder_state 'paused')
+--   d) one rider taps Accept: every pending row of the order 'cancelled' within ~5 s; the other rider's copy becomes
+--      "Taken by another rider" after the assignment, the winner's "The job is yours"; then go on with STAGE 3
+--   e) ignore it 2 min: the escalation row 'sent' and overwatch WhatsApp gets
+--      "⚠️ STRK-TEST-…: no rider has accepted after 2 min (N offered on Telegram, M declined)", once
+-- WhatsApp riders: no rows at all (reminders are Telegram only).
+SELECT a.kind, a.dispatch_id, r.rider_name, a.n, a.of_n, a.offset_secs, a.due_at, a.status, a.swept_at
+  FROM public.rider_offer_alert a LEFT JOIN public.rider_master r ON r.rider_id = a.rider_id
+ WHERE a.order_number LIKE 'STRK-TEST-%'
+ ORDER BY a.kind DESC, a.dispatch_id, a.offset_secs;
+SELECT d.dispatch_id, r.rider_name, d.channel, d.status, d.channel_msg_ref,
+       public.rider_offer_state(d.dispatch_id) AS reminder_state
+  FROM public.delivery_dispatch d JOIN public.rider_master r ON r.rider_id = d.rider_id
+ WHERE d.order_number LIKE 'STRK-TEST-%'
+ ORDER BY d.dispatch_id;
 
 -- ===== STAGE 3: RIDER ACCEPTS (you tap as the rider; this only shows the state) =====
 -- Expect: the KITCHEN RECEIPT on WhatsApp AND Telegram (Telegram replies to the order card), shown with

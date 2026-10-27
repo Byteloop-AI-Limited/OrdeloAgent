@@ -9,6 +9,7 @@ Mapping (D45, D49, D50):
     mark            set_message_reaction 👍 / 👎 (Telegram's reaction set has no ✅ / ❌)
     job_card        send_message with Pickup / Dropoff / Contact inline buttons (RiderJobAction 'rj1:<dispatch_id>:pk|dr|cc')
     offer_job       send_message with Accept / Decline inline buttons (RiderOffer 'ro1:<dispatch_id>:a|d')
+    delete          delete_message (older repeated offer)
     offer_closed    edit the offer in place, buttons removed; NO new message (an edit does not buzz the phone)
 Bot API rules from the restaurant bot apply (plans/telegram-rest-admin-scaffold-plan.md rule 3): the shared session has a
 10 s timeout; callers decide whether a failed send matters.
@@ -101,6 +102,8 @@ class TelegramRiderMessenger:
 
     async def offer_job(self, offer: JobOffer) -> MsgRef:
         body = f"<b>{escape(offer.header, quote=False)}</b>\n{wa_to_html(offer.text.strip())}"
+        if offer.notice:
+            body = f"<i>{escape(offer.notice, quote=False)}</i>\n{body}"
         sent = await self.bot.send_message(self.tcid, body, reply_markup=rider_offer_kb(offer.dispatch_id))
         return tg_ref(self.tcid, sent.message_id)
 
@@ -116,3 +119,12 @@ class TelegramRiderMessenger:
             await self.bot.edit_message_text(text, chat_id=self.tcid, message_id=parsed[1], reply_markup=None)
         except TelegramBadRequest as e:  # already edited, or deleted by the rider: the buttons are gone either way
             logger.info(f"telegram[rider]: offer {ref} not edited: {e.message}")
+
+    async def delete(self, ref: MsgRef | None) -> None:
+        parsed = parse_tg_ref(ref)
+        if parsed is None or parsed[0] != self.tcid:
+            return
+        try:
+            await self.bot.delete_message(chat_id=self.tcid, message_id=parsed[1])
+        except TelegramBadRequest as e:
+            logger.info(f"telegram[rider]: {ref} not deleted: {e.message}")
