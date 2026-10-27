@@ -96,7 +96,10 @@ def main() -> int:
         print("pg_format not found: install pgFormatter or set PG_FORMAT", file=sys.stderr)
         return 2
     bad = []
-    for p in authoritative_files():
+    # Optional explicit owner paths avoid touching unrelated work in a shared worktree.
+    paths = [Path(p).resolve() for p in sys.argv[sys.argv.index("--files") + 1:]] if "--files" in sys.argv else authoritative_files()
+    for p in paths:
+        p.relative_to(ROOT)  # explicit paths must remain under the SQL owner root
         old = p.read_text(encoding="utf-8")
         new, refused = format_text(binary, old)
         rel = p.relative_to(ROOT).as_posix()
@@ -109,7 +112,7 @@ def main() -> int:
     if check and bad:
         print("not formatted:\n  " + "\n  ".join(bad))
         return 1
-    print(f"{'checked' if check else 'formatted'} {len(authoritative_files())} files" + (f", {len(bad)} changed" if not check else ""))
+    print(f"{'checked' if check else 'formatted'} {len(paths)} files" + (f", {len(bad)} changed" if not check else ""))
     return 0
 
 
