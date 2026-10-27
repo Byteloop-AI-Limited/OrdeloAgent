@@ -6,7 +6,10 @@ description: Query and operate on the Ordelo Supabase/Postgres database — sele
 # Database Operations
 
 Perform reads, writes, and environment switches against the Ordelo Supabase/Postgres database
-using `client_ordelo` (Supabase REST client, anon key) or a direct Python Supabase client when the config module fails.
+using an explicit anonymous Supabase client first. Since the rider dashboard access cutover,
+`client_ordelo` and `pg_settings.client` are **server-role runtime clients**, not anonymous clients.
+For ad-hoc operations construct the anonymous client with `create_client(pg_settings.rest_url, pg_settings.rest_key)`;
+the existing permission-error/service-role and write-approval rules below still apply unchanged.
 
 > ## 🛑 NEVER RUN A DELETE WITHOUT EXPLICIT APPROVAL 🛑
 > **Do not run any `DELETE` / `.delete()` / `TRUNCATE` / `DROP` / `ordelo_delete.py` statement, on any table, in any
@@ -21,7 +24,8 @@ using `client_ordelo` (Supabase REST client, anon key) or a direct Python Supaba
 
 ## Which client to use (anon first, service role only on error)
 
-1. **Start with `client_ordelo`** (anon key) for every query.
+1. **Start with an explicit anonymous client** (`create_client(pg_settings.rest_url, pg_settings.rest_key)`) for every query.
+   Never infer the runtime `client_ordelo` is anonymous; it now uses server credentials for private application data.
 2. **Switch to `client_ordelo_service`** (`from config import client_ordelo_service`, service-role key, bypasses RLS)
    only when the anon query **returns an error**: Postgres `42501` (permission denied / row-level security
    violation) or PostgREST `PGRST301`/`PGRST302`. Say in your reply that you fell back and why.
@@ -52,7 +56,9 @@ After activation, all imports work normally:
 ```sh
 REPO_ROOT=$(git rev-parse --show-toplevel)
 PYTHONPATH=$REPO_ROOT python3 - <<'PY'
-from config.pg_setting import client_ordelo as client  # anon first; see 'Which client to use'
+from config.pg_setting import pg_settings
+from supabase import create_client
+client = create_client(pg_settings.rest_url, pg_settings.rest_key)  # anon first; see 'Which client to use'
 resp = client.table("delivery_summary").select("*").eq("order_number", "ELAS-CEKT-22").execute()
 print(resp.data)
 PY
