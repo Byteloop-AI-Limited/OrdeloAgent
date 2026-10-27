@@ -1,33 +1,107 @@
 [
  {
-  "order_number": "ELAS-NVKO-27",
-  "rest_id": "447914844933",
-  "rest_name": "Elai - Salisbury",
-  "rest_lon": "-1.79717268758398",
-  "rest_lat": "51.0726635283769",
-  "rest_address": "Mill Stream Approach Castle St dummy SP1 3TA",
-  "town": "dummy",
-  "customer_id": "447448440754",
-  "customer_name": "10hith",
-  "customer_lon": "-1.7972295",
-  "customer_lat": "51.0725095",
-  "customer_address": "1  Salisbury SP1 3TA",
-  "restaurant_confirmation_status": "auto_accept",
-  "restaurant_update_dtts": "2026-10-15 17:34:34.607522+00",
-  "restaurant_admin": null,
-  "status": "timedout",
-  "rest_confirmation_code": 70,
-  "cust_confirmation_code": 47,
-  "rest_prep_time_minutes": null,
-  "rest_confirmation_method": null,
-  "restaurant_msg_id": null,
-  "rider_msg_id": null,
-  "customer_msg_id": null,
-  "pickup_time": "2026-10-15 22:34:03.842437+00",
-  "pickup_date": "2026-10-15",
-  "rest_ref": "ELAS",
-  "dt": "2026-10-15",
-  "dtts": "2026-10-15 17:34:03.842437+00",
-  "redispatch_dtts": null
+  "kind": "escalation",
+  "dispatch_id": null,
+  "offset_secs": 120,
+  "status": "cancelled",
+  "swept_at": "2026-10-27 00:49:53.011784+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1332,
+  "offset_secs": 10,
+  "status": "sent",
+  "swept_at": "2026-10-27 00:48:17.707508+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1332,
+  "offset_secs": 20,
+  "status": "sent",
+  "swept_at": "2026-10-27 00:48:27.740817+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1332,
+  "offset_secs": 30,
+  "status": "sent",
+  "swept_at": "2026-10-27 00:48:37.771583+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1332,
+  "offset_secs": 45,
+  "status": "sent",
+  "swept_at": "2026-10-27 00:48:52.817259+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1332,
+  "offset_secs": 60,
+  "status": "sent",
+  "swept_at": "2026-10-27 00:49:07.864181+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1332,
+  "offset_secs": 90,
+  "status": "sent",
+  "swept_at": "2026-10-27 00:49:37.960036+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1332,
+  "offset_secs": 120,
+  "status": "cancelled",
+  "swept_at": "2026-10-27 00:49:53.011784+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1333,
+  "offset_secs": 10,
+  "status": "sent",
+  "swept_at": "2026-10-27 00:48:17.707508+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1333,
+  "offset_secs": 20,
+  "status": "sent",
+  "swept_at": "2026-10-27 00:48:27.740817+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1333,
+  "offset_secs": 30,
+  "status": "sent",
+  "swept_at": "2026-10-27 00:48:37.771583+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1333,
+  "offset_secs": 45,
+  "status": "sent",
+  "swept_at": "2026-10-27 00:48:52.817259+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1333,
+  "offset_secs": 60,
+  "status": "sent",
+  "swept_at": "2026-10-27 00:49:07.864181+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1333,
+  "offset_secs": 90,
+  "status": "sent",
+  "swept_at": "2026-10-27 00:49:37.960036+00"
+ },
+ {
+  "kind": "reminder",
+  "dispatch_id": 1333,
+  "offset_secs": 120,
+  "status": "cancelled",
+  "swept_at": "2026-10-27 00:49:53.011784+00"
  }
 ]

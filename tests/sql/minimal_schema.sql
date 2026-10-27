@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS public.delivery_summary (
         CONSTRAINT delivery_summary_status_check
         CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed', 'declined')),
     pickup_time    timestamptz,
+    redispatch_dtts timestamptz,
     pickup_date    date         NOT NULL DEFAULT CURRENT_DATE,
     rest_confirmation_code integer NOT NULL DEFAULT 42,
     cust_confirmation_code integer NOT NULL DEFAULT 57,

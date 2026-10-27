@@ -91,3 +91,9 @@ async def test_disallowed_send_failure_and_delete_failure(monkeypatch, store):
     with use_messenger(messenger):
         assert await subject.remind(41, 1, 7, store=store) == 'closed:taken'
     assert messenger.calls[-1][0] == 'offer_closed'
+
+
+async def test_redispatch_escalation_text(store):
+    alert = AsyncMock()
+    assert await subject.escalate(ROW['order_number'], 120, 2, 1, True, store=store, alert=alert)
+    assert 'no rider has accepted 2 min after re-dispatch (2 offered on Telegram, 1 declined)' in alert.await_args.args[0]

@@ -354,7 +354,9 @@ Status: derived from the SQL; not yet confirmed live with an auto-accept restaur
 
 Add one line per change, newest first: date, what changed, files.
 
-- 2026-10-27: Telegram rider offers repeat at configured offsets until accepted or the rider is unavailable; each copy replaces its predecessor, and an unanswered order escalates once. SQL migration, deployment and live verification remain owner-run. See [plan](../plans/rider-dispatch-alerts-plan.md).
+- 2026-10-27: Rider reminder cycles restart after another offer is declined; overwatch escalation is once per dispatch round. r2 SQL and code are prepared; SQL application and live testing remain owner-run.
+
+- 2026-10-27: Telegram rider offers repeat at configured offsets until accepted or the rider is unavailable; each copy replaces its predecessor, and an unanswered order escalates once. r1 was applied and tested as recorded in the plan; r2 application and live verification remain owner-run. See [plan](../plans/rider-dispatch-alerts-plan.md).
 
 - 2026-10-26: Rider `/my_jobs` opens the dashboard through an automatic browser POST; a bare GET remains non-consuming, but JavaScript-capable link scanners can activate a link. The origin check uses `RESTAURANT_MENU_APP_URL`. See [rollout guide](rider-dashboard-rollout.md).
 - 2026-10-27: Owner confirmed the rider dashboard cutover, `/my_jobs` registration and coordinated releases are complete; riders open their jobs dashboard directly. The sysadmin payout report issue was resolved by deploying the backend permission/auth changes with frontend upstream error handling. See [rollout guide](rider-dashboard-rollout.md) and the frontend `ENV_SETUP.md`.

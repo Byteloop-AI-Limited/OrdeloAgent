@@ -62,6 +62,10 @@ def test_service_grants_and_migration_repeatable(db):
     end = migration.index('-- ===== STEP 4: VERIFY')
     db.execute(migration[start:end])
     db.execute(migration[start:end])
+    r2 = (ROOT / "ordelo_datamodels/migrations/rider_offer_alerts_r2.sql").read_text()
+    db.execute(r2[r2.index("-- ===== STEP 1: COLUMNS"):r2.index("-- ===== STEP 3: VERIFY")])
+    assert val(db, "SELECT to_regclass('public.rider_offer_alert_reminder_cycle_uidx') IS NOT NULL")
+    assert val(db, "SELECT to_regclass('public.rider_offer_alert_reminder_uidx') IS NULL")
     assert val(db, "SELECT has_function_privilege('service_role','public.rider_offer_reminder_snapshot(integer)','execute')")
     assert not val(db, "SELECT has_function_privilege('anon','public.rider_offer_reminder_snapshot(integer)','execute')")
     assert val(db, "SELECT has_table_privilege('service_role','public.rider_offer_alert','select,insert,update')")
@@ -93,3 +97,49 @@ def test_concurrent_swaps_choose_one(db):
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(swap, ['tg:101:2', 'tg:101:3']))
     assert sorted(results) == ['stale', 'swapped']
+
+
+def test_declines_restart_open_offers_and_do_not_move_escalation(db):
+    db.execute("INSERT INTO public.delivery_dispatch(order_number,rider_id,status,dtts) VALUES ('STRK-TEST-1','RIDER02','unassigned', now() - interval '25 seconds')")
+    db.execute('SELECT public.job_rider_offer_alerts()')
+    did = val(db, "SELECT dispatch_id FROM public.delivery_dispatch WHERE rider_id='RIDER01'")
+    due = val(db, "SELECT due_at FROM public.rider_offer_alert WHERE kind='escalation'")
+    db.execute("UPDATE public.delivery_dispatch SET status='declined' WHERE rider_id='RIDER02'")
+    db.execute('SELECT public.job_rider_offer_alerts()')
+    assert val(db, "SELECT count(*) FROM public.rider_offer_alert WHERE dispatch_id=%s AND cycle=0 AND status='superseded'", (did,)) == 6
+    assert val(db, "SELECT count(*) FROM public.rider_offer_alert WHERE dispatch_id=%s AND cycle=1 AND status='pending' AND due_at >= now()", (did,)) == 7
+    assert val(db, "SELECT count(*) FROM public.rider_offer_alert WHERE rider_id='RIDER02' AND status='pending'") == 0
+    assert val(db, "SELECT due_at FROM public.rider_offer_alert WHERE kind='escalation'") == due
+    db.execute("UPDATE public.rider_offer_alert SET due_at=now()-interval '1 second' WHERE dispatch_id=%s AND cycle=1 AND offset_secs=10", (did,))
+    db.execute('SELECT public.job_rider_offer_alerts()')
+    assert json.loads(val(db, 'SELECT body FROM public.http_calls ORDER BY id DESC LIMIT 1'))['reminders'][0]['n'] == 1
+    db.execute("INSERT INTO public.delivery_dispatch(order_number,rider_id,status) VALUES ('STRK-TEST-1','RIDER02','declined')")
+    db.execute('SELECT public.job_rider_offer_alerts()')
+    assert val(db, "SELECT count(*) FROM public.rider_offer_alert WHERE dispatch_id=%s AND cycle=2 AND status='pending'", (did,)) == 7
+    db.execute("DELETE FROM public.delivery_dispatch WHERE rider_id='RIDER02'")
+    db.execute('SELECT public.job_rider_offer_alerts()')
+    assert val(db, "SELECT max(cycle) FROM public.rider_offer_alert WHERE dispatch_id=%s", (did,)) == 2
+
+
+def test_accept_then_decline_restarts(db):
+    db.execute("INSERT INTO public.delivery_dispatch(order_number,rider_id,status) VALUES ('STRK-TEST-1','RIDER02','unassigned')")
+    db.execute('SELECT public.job_rider_offer_alerts()')
+    db.execute("UPDATE public.delivery_dispatch SET status='accepted' WHERE rider_id='RIDER02'")
+    db.execute('SELECT public.job_rider_offer_alerts()')
+    db.execute("UPDATE public.delivery_dispatch SET status='declined' WHERE rider_id='RIDER02'")
+    db.execute('SELECT public.job_rider_offer_alerts()')
+    assert val(db, "SELECT count(*) FROM public.rider_offer_alert WHERE rider_id='RIDER01' AND cycle=1 AND status='pending'") == 7
+
+
+def test_redispatch_escalation_is_per_round(db):
+    db.execute('SELECT public.job_rider_offer_alerts()')
+    db.execute("UPDATE public.delivery_summary SET status='assigned' WHERE order_number='STRK-TEST-1'")
+    db.execute('SELECT public.job_rider_offer_alerts()')
+    assert val(db, "SELECT status FROM public.rider_offer_alert WHERE kind='escalation'") == 'cancelled'
+    db.execute("DELETE FROM public.delivery_dispatch")
+    db.execute("UPDATE public.delivery_summary SET status='unassigned', redispatch_dtts=now()-interval '2 minutes 1 second' WHERE order_number='STRK-TEST-1'")
+    db.execute("INSERT INTO public.delivery_dispatch(order_number,rider_id,status,dtts) VALUES ('STRK-TEST-1','RIDER01','unassigned',now()-interval '2 minutes')")
+    db.execute('SELECT public.job_rider_offer_alerts()')
+    assert val(db, "SELECT count(*) FROM public.rider_offer_alert WHERE kind='escalation'") == 2
+    payload = json.loads(val(db, 'SELECT body FROM public.http_calls ORDER BY id DESC LIMIT 1'))
+    assert payload['escalations'] == [{'order_number': 'STRK-TEST-1', 'after_secs': 120, 'redispatched': True, 'offered': 1, 'declined': 0}]
