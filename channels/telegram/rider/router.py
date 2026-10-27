@@ -1,6 +1,6 @@
 """Rider bot router factory (@ByteloopRidersBot, bot_key 'rider'). R1: onboarding, /help, /whoami. R4: jobs (jobs.py:
 offers, job-card buttons, /job, text to the rider agent). R5: availability.py (/shift, /off, /on) and location.py (a shared
-location answering a location request).
+location answering a location request). dashboard.py provides /my_jobs (private read-only frontend access).
 
 Onboarding (plans/telegram-rider-bot-plan.md, D39-D42), one generic link for everybody, no per-phone invites:
 
@@ -26,6 +26,7 @@ import asyncio
 from html import escape as _html_escape
 
 from aiogram import F, Router
+from .dashboard import build_dashboard_router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove, Update
@@ -287,6 +288,7 @@ def build_router() -> Router:
     router.message.register(cmd_whoami, Command("whoami"))
     router.message.register(on_contact, F.contact)
     router.callback_query.register(on_signup_choice, RiderSignup.filter())
+    router.include_router(build_dashboard_router())  # /my_jobs: private dashboard access, available during a job
     router.include_router(build_jobs_router())  # R4: offers, job-card buttons, /job, plain text -> the rider agent
     router.include_router(build_availability_router())  # R5: /shift, /off (+ break-length taps), /on
     router.include_router(build_location_router())  # R5: a shared location -> WaLocation

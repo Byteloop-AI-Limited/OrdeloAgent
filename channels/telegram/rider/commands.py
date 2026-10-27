@@ -1,6 +1,7 @@
 """Rider bot command menu (published by notebooks/telegram/tgram_setup_bot.py with bot_key 'rider').
 
-R1: /start, /help, /whoami. R4: /job. R5: /shift, /off, /on. Keep this list and the routers in step.
+R1: /start, /help, /whoami. R4: /job. R5: /shift, /off, /on. /my_jobs opens the private read-only dashboard.
+Keep this list and the routers in step.
 The default menu includes all commands. A rider's private chat gets an inflight override without /off and /on;
 deleting that override restores the default. Menu visibility is not authorisation: handlers and pause RPCs check
 delivery_inflight (ADR 0011 two-bot section).
@@ -14,6 +15,7 @@ from loguru import logger
 RIDER_COMMANDS: list[BotCommand] = [
     BotCommand(command="start", description="Link your rider account (share your phone number)"),
     BotCommand(command="job", description="Your current job"),
+    BotCommand(command="my_jobs", description="View your jobs, earnings and payout status"),
     BotCommand(command="shift", description="Are you getting job offers right now?"),
     BotCommand(command="off", description="Take a break from job offers for a while"),
     BotCommand(command="on", description="Back on: get job offers again"),
