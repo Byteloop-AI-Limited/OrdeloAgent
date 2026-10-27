@@ -94,7 +94,8 @@ CREATE TABLE IF NOT EXISTS public.food_order (
     notes       text,
     small_order_fee float,
     payment_status text NOT NULL DEFAULT 'paid',
-    recipient   text NOT NULL DEFAULT '447700900001'
+    recipient   text NOT NULL DEFAULT '447700900001',
+    order_dtts timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.order_item (
     id           serial PRIMARY KEY,
@@ -136,6 +137,12 @@ CREATE TABLE IF NOT EXISTS public.delivery_dispatch (
     status      varchar(50) NOT NULL CHECK (status IN ('unassigned', 'timedout', 'declined', 'accepted', 'missed', 'assigned', 'pickedup', 'completed')),
     status_update_dtts timestamp,
     reason_for_decline text,
+    vehicle_type varchar(15) NOT NULL DEFAULT 'bike',
+    rider_payout double precision NOT NULL DEFAULT 3.25,
+    distance double precision NOT NULL DEFAULT 1.5,
+    dtts timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'UTC'),
+    paid_status text NOT NULL DEFAULT 'unpaid',
+    paid_dtts timestamp,
     -- R2-R4 target shape (ordelo_datamodels/dispatch/delivery_dispatch.sql)
     channel     text NOT NULL DEFAULT 'whatsapp' CHECK (channel IN ('whatsapp', 'telegram')),
     channel_msg_ref text,

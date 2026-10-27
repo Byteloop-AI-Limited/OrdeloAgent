@@ -85,7 +85,7 @@ def mig():
     admin.execute(f"CREATE DATABASE {DBNAME}")
     parsed = urlparse(URI)
     conn = psycopg.connect(urlunparse(parsed._replace(path=f"/{DBNAME}")), autocommit=True)
-    for role in ("anon", "authenticated"):  # roles are cluster-wide; create them if this test runs first
+    for role in ("anon", "authenticated", "service_role"):  # roles are cluster-wide; create them if this test runs first
         if not admin.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,)).fetchone():
             admin.execute(f"CREATE ROLE {role} NOLOGIN")
     conn.execute(PRE_R1)
@@ -103,6 +103,7 @@ def mig():
 def apply_r1(conn):
     conn.execute(block(R1, "STEP 1"))
     conn.execute(sql_path("rider_master.sql").read_text())
+    conn.execute(sql_path("auth_sessions.sql").read_text())  # current rider owner includes link-session revocation
     conn.execute(sql_path("pauses.sql").read_text())
     conn.execute(sql_path("t_rider_onboarding.sql").read_text())
     conn.execute((DATAMODELS / "ordering" / "order_has_test_item.sql").read_text())
