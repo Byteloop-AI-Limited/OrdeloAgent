@@ -198,6 +198,7 @@ async def run_rider_agent(
     ai_msg: str = None,
     system_msg: str = None,
     state_update_dict: dict = None,
+    *, cancel_tap: bool = False,
 ) -> str:
     """Run the rider graph on exactly this thread; the agent answers on the thread's dispatch channel (D44, D45)."""
     msgs: list[SystemMessage | AIMessage | HumanMessage] = []
@@ -206,7 +207,7 @@ async def run_rider_agent(
     if ai_msg:
         msgs.append(AIMessage(ai_msg))
     if human_msg:
-        msgs.append(HumanMessage(human_msg))
+        msgs.append(HumanMessage(human_msg, additional_kwargs={"cancel_tap": True} if cancel_tap else {}))
 
     pool: AsyncConnectionPool = await pg_settings.get_pool()
     checkpointer: AsyncPostgresSaver = AsyncPostgresSaver(pool)
@@ -227,6 +228,7 @@ async def run_rider_agent_w_custom_msg(
     *,
     dispatch_id: int | None = None,
     thread_id: str | None = None,
+    cancel_tap: bool = False,
 ):
     """Run the rider graph for a rider (or an exact dispatch / thread) and return the AI's response.
 
@@ -235,7 +237,7 @@ async def run_rider_agent_w_custom_msg(
     """
     logger.debug(
         f"run_rider_agent_w_custom_msg recipient={recipient} dispatch_id={dispatch_id} thread_id={thread_id} "
-        f"human_msg={human_msg!r}"
+        f"human_msg={'[cancel tap]' if cancel_tap else repr(human_msg)}"
     )
     thread = await resolve_rider_thread(recipient, dispatch_id=dispatch_id, thread_id=thread_id)
     if thread is None:
@@ -245,7 +247,7 @@ async def run_rider_agent_w_custom_msg(
         )
         return None
     return await run_rider_agent(
-        thread, human_msg=human_msg, ai_msg=ai_msg, system_msg=system_msg, state_update_dict=state_update_dict
+        thread, human_msg=human_msg, ai_msg=ai_msg, system_msg=system_msg, state_update_dict=state_update_dict, cancel_tap=cancel_tap
     )
 
 

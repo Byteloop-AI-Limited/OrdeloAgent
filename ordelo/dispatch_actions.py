@@ -99,6 +99,11 @@ async def respond_to_offer(rider_id: str, dispatch_id: int, order_number: str, a
                 logger.info(f"Rider {rider_id} already inflight for order {order_number}")
                 return outcome(ALREADY_ON_THIS_JOB, row["order_number"])
             logger.info(f"Rider {rider_id} declining inflight dispatch {dispatch_id} for order {order_number}; cancel flow")
+            from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
+            await run_rider_agent_w_custom_msg(recipient=rider_id, dispatch_id=dispatch_id,
+                system_msg="call `tool request_cancel_confirmation` with the rider request",
+                human_msg=f"I need to cancel order {order_number} before pickup.")
+            return outcome(CANCEL_OWN_JOB)
         else:
             logger.info(f"Order {order_number} already inflight with rider {row['rider_id']} (tapped by {rider_id})")
             return outcome(TAKEN)
@@ -119,7 +124,7 @@ async def respond_to_offer(rider_id: str, dispatch_id: int, order_number: str, a
             await run_rider_agent_w_custom_msg(
                 recipient=rider_id,
                 dispatch_id=dispatch_id,
-                system_msg="call `tool cancel_delivery_before_pickup`",
+                system_msg="call `tool request_cancel_confirmation` with the rider request",
                 human_msg=f"I need to cancel order {order_number} before pickup.",
             )
             return outcome(CANCEL_OWN_JOB)

@@ -32,7 +32,7 @@ from ordelo.rider_messaging.models import wrong_channel_text
 from ordelo.rider_messaging.telegram import TelegramRiderMessenger
 
 from .. import rider_links
-from ..callbacks import RiderJobAction, RiderOffer
+from ..callbacks import RiderCancelConfirm, RiderJobAction, RiderOffer
 from ..inbox import process_once
 from ..replies import answer_quietly
 
@@ -49,7 +49,7 @@ OFFER_EDIT = {
     dispatch_actions.GONE: "gone",
     dispatch_actions.TAKEN: "taken",
     dispatch_actions.ALREADY_ON_THIS_JOB: "assigned",
-    dispatch_actions.CANCEL_OWN_JOB: "cancelled",
+    # A decline of an assigned job now asks for confirmation; it has not cancelled yet.
 }
 
 _background: set[asyncio.Task] = set()
@@ -132,10 +132,10 @@ async def on_job_action(
     )
 
 
-async def _handle_job_action(query: CallbackQuery, callback_data: RiderJobAction, tgram_settings: TgramBotSettings):
+async def _job_actor(query, dispatch_id, tgram_settings):
     try:
         rider_id = await _rider_id(query.from_user.id)
-        thread = await rider_threads.for_dispatch(callback_data.d)
+        thread = await rider_threads.for_dispatch(dispatch_id)
     except Exception:
         logger.exception(f"telegram[{tgram_settings.bot_key}]: job action lookup failed")
         await answer_quietly(query, TROUBLE, show_alert=True)
@@ -149,6 +149,14 @@ async def _handle_job_action(query: CallbackQuery, callback_data: RiderJobAction
     if not thread.is_active or thread.dispatch_status == "completed":
         await answer_quietly(query, EXPIRED)
         return
+    return rider_id, thread
+
+
+async def _handle_job_action(query: CallbackQuery, callback_data: RiderJobAction, tgram_settings: TgramBotSettings):
+    actor = await _job_actor(query, callback_data.d, tgram_settings)
+    if actor is None:
+        return
+    rider_id, thread = actor
     await answer_quietly(query)
     from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
 
@@ -157,6 +165,29 @@ async def _handle_job_action(query: CallbackQuery, callback_data: RiderJobAction
                                      thread_id=thread.thread_id),
         f"job action {callback_data.a} for dispatch {callback_data.d}",
     )
+
+
+async def on_cancel_confirm(query: CallbackQuery, callback_data: RiderCancelConfirm, tgram_settings: TgramBotSettings, event_update: Update):
+    await process_once(tgram_settings.bot_key, event_update, query.from_user.id,
+        lambda: _handle_cancel_confirm(query, callback_data, tgram_settings))
+
+
+async def _handle_cancel_confirm(query, callback_data, tgram_settings):
+    from ordelo.rider_messaging import cancel_tap_text
+    actor = await _job_actor(query, callback_data.d, tgram_settings)
+    if actor is None:
+        return
+    rider_id, thread = actor
+    await answer_quietly(query)
+    try:
+        if isinstance(query.message, Message):
+            await query.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        logger.exception("telegram[rider]: could not remove cancel buttons")
+    from ordelo.agents.agent_runner import run_rider_agent_w_custom_msg
+    spawn(run_rider_agent_w_custom_msg(recipient=rider_id, thread_id=thread.thread_id,
+        human_msg=cancel_tap_text(callback_data.t, "yes" if callback_data.a == "y" else "no"), cancel_tap=True),
+        f"cancel confirmation for dispatch {callback_data.d}")
 
 
 # ---- /job ----------------------------------------------------------------------------------------------------------
@@ -246,6 +277,7 @@ def build_jobs_router() -> Router:
     router = Router(name="rider_jobs")
     router.callback_query.register(on_offer_tap, RiderOffer.filter())
     router.callback_query.register(on_job_action, RiderJobAction.filter())
+    router.callback_query.register(on_cancel_confirm, RiderCancelConfirm.filter())
     router.message.register(cmd_job, Command("job"))
     router.message.register(on_text, F.text & ~F.text.startswith("/"))
     return router

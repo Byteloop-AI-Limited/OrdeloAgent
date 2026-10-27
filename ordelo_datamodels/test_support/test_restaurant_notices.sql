@@ -69,7 +69,7 @@ SELECT (SELECT count(*) FROM public.t_order_card_destinations('rest_admin', 'STR
 -- To schedule the receipt sweep (operator step, once):
 --   SELECT cron.schedule('job_t_receipt_refresh', '5 seconds', $$SELECT public.job_t_receipt_refresh()$$);
 
-
+select * from delivery_inflight;
 -- ===== STAGE 0: RESET (wipes earlier STRK-TEST orders; links your chat to STRK if needed) =====
 -- Rider threads of the fake jobs are CLOSED first (never deleted), so the rider is not left in a finished fake job
 -- (rider_threads.sql; skipped until migrations/rider_telegram_r2_r4.sql added delivery_dispatch.thread_id).

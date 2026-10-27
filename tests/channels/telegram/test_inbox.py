@@ -32,7 +32,7 @@ def event(update_id: int) -> Update:
 
 def test_callback_families_have_an_explicit_inbox_policy():
     """A new callback family needs a conscious protected/unprotected decision."""
-    protected = {"OrderAction", "RiderSignup", "RiderOffer", "RiderJobAction", "RiderPause", "AdminPause", "AdminChannels"}
+    protected = {"OrderAction", "RiderSignup", "RiderOffer", "RiderJobAction", "RiderCancelConfirm", "RiderPause", "AdminPause", "AdminChannels"}
     # InviteDecision is retired (TRANSITION, P3 removes): a tap writes nothing any more, so neither y nor n is protected.
     conditional = {"InviteDecision": {"y": False, "n": False}}
     actual = {

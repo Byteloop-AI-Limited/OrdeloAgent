@@ -24,7 +24,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReactionTypeEmoji, ReplyParameters
 from loguru import logger
 
-from channels.telegram.keyboards import location_request_kb, rider_job_card_kb, rider_offer_kb
+from channels.telegram.keyboards import location_request_kb, rider_cancel_confirm_kb, rider_job_card_kb, rider_offer_kb
 
 from .formatting import wa_to_html
 from .models import ContactCard, JobOffer, LinkButton, MsgRef, OfferClosedReason, Place, parse_tg_ref, tg_ref
@@ -98,6 +98,10 @@ class TelegramRiderMessenger:
     async def job_card(self, header: str, text: str, dispatch_id: int) -> MsgRef:
         body = f"<b>{escape(header, quote=False)}</b>\n{wa_to_html(text.strip())}"
         sent = await self.bot.send_message(self.tcid, body, reply_markup=rider_job_card_kb(dispatch_id))
+        return tg_ref(self.tcid, sent.message_id)
+
+    async def confirm_cancel(self, dispatch_id: int, token: str, text: str) -> MsgRef:
+        sent = await self.bot.send_message(self.tcid, wa_to_html(text), reply_markup=rider_cancel_confirm_kb(dispatch_id, token))
         return tg_ref(self.tcid, sent.message_id)
 
     async def offer_job(self, offer: JobOffer) -> MsgRef:

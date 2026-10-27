@@ -366,11 +366,14 @@ def test_legacy_start_tracking_helper_is_not_exposed_to_the_rider_agent() -> Non
     assert rider_agent.send_start_live_tracking_link not in rider_agent._rider_agent_tools
 
 
-async def test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
-    patch_supabase_client.register_rpc("dispatch_cancel_before_pickup", FakeSupabaseResponse(data={"ok": True}))
+async def test_cancel_delivery_before_pickup_calls_rpc_and_sets_awaiting_reason(monkeypatch, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    async def verdict(_):
+        return rider_agent.job_exit.Verdict.ASK_CONFIRM
+    monkeypatch.setattr(rider_agent.job_exit, "verdict_for", verdict)
+    patch_supabase_client.register_rpc("dispatch_cancel_before_pickup", FakeSupabaseResponse(data="cancelled dispatch 10 for order ELAS-ABCD-1"))
 
     result = await rider_agent.cancel_delivery_before_pickup(
-        {"dispatch_id": 10, "order_number": "ELAS-ABCD-1", "rider_name": "Bas"},
+        {"dispatch_id": 10, "order_number": "ELAS-ABCD-1", "rider_name": "Bas", "cancel_confirmed": True},
         "tool-1",
         _runtime(client=patch_supabase_client, wa=fake_async_wa),
     )
@@ -634,3 +637,88 @@ async def test_verify_customer_confirmation_code_right_code_tells_the_restaurant
     assert result.update["is_customer_confirmation_code_verified"] is True
     assert seen == [DeliveryCompleted("ELAS-ABCD-1", "ELAS")]
     assert closed == ["ORDELO-dispatch-10"]
+
+
+def test_cancel_confirmation_requires_trusted_tap():
+    from ordelo.rider_messaging import cancel_tap_text
+    text = cancel_tap_text("12345678", "yes")
+    state = {"cancel_confirm_token": "12345678", "messages": [HumanMessage(text)]}
+    result = rider_agent.agent_node(state)
+    assert result.update["messages"][0].tool_calls[0]["name"] == "request_cancel_confirmation"
+    state["messages"] = [HumanMessage(text, additional_kwargs={"cancel_tap": True})]
+    result = rider_agent.agent_node(state)
+    assert result.update["cancel_confirmed"] is True
+    assert result.update["messages"][0].tool_calls[0]["name"] == "cancel_delivery_before_pickup"
+    state["messages"] = [HumanMessage(cancel_tap_text("12345678", "no"), additional_kwargs={"cancel_tap": True})]
+    result = rider_agent.agent_node(state)
+    assert result.update["cancel_confirm_token"] is None
+    assert "stays with you" in result.update["messages"][0].content
+    state["messages"] = [HumanMessage(cancel_tap_text("87654321", "yes"), additional_kwargs={"cancel_tap": True})]
+    assert "expired" in rider_agent.agent_node(state).update["messages"][0].content
+
+
+async def test_unconfirmed_cancel_never_calls_rpc(monkeypatch, patch_supabase_client, fake_async_wa):
+    async def verdict(_):
+        return rider_agent.job_exit.Verdict.ASK_CONFIRM
+    monkeypatch.setattr(rider_agent.job_exit, "verdict_for", verdict)
+    result = await rider_agent.cancel_delivery_before_pickup(
+        {"dispatch_id": 10, "order_number": "ORDER"}, "tool", _runtime(client=patch_supabase_client, wa=fake_async_wa))
+    assert "Not confirmed" in result.update["messages"][0].content
+    assert not patch_supabase_client.rpc_calls
+
+
+async def test_terminate_assigned_sends_confirmation_without_closing(monkeypatch, patch_supabase_client, fake_async_wa):
+    async def verdict(_):
+        return rider_agent.job_exit.Verdict.ASK_CONFIRM
+    monkeypatch.setattr(rider_agent.job_exit, "verdict_for", verdict)
+    async def no_close(_):
+        raise AssertionError("closed assigned job")
+    monkeypatch.setattr(rider_agent, "_close_own_thread", no_close)
+    result = await rider_agent.terminate_delivery_job({"dispatch_id": 10}, "tool", _runtime(client=patch_supabase_client, wa=fake_async_wa))
+    assert result.update["cancel_confirm_token"]
+    assert len(fake_async_wa.sent[-1].kwargs["buttons"]) == 2
+
+
+async def test_terminate_picked_up_refuses_without_closing(monkeypatch, patch_supabase_client, fake_async_wa):
+    async def verdict(_):
+        return rider_agent.job_exit.Verdict.REFUSE
+    async def refusal(state, ctx, words):
+        await ctx.messenger.say("refused")
+    async def no_close(_):
+        raise AssertionError("closed picked-up job")
+    monkeypatch.setattr(rider_agent.job_exit, "verdict_for", verdict)
+    monkeypatch.setattr(rider_agent, "_exit_refusal", refusal)
+    monkeypatch.setattr(rider_agent, "_close_own_thread", no_close)
+    await rider_agent.terminate_delivery_job({"dispatch_id": 10}, "tool", _runtime(client=patch_supabase_client, wa=fake_async_wa))
+    assert fake_async_wa.sent[-1].kwargs["text"] == "refused"
+
+
+async def test_cancel_rpc_refusal_does_not_claim_success(monkeypatch, patch_supabase_client, fake_async_wa):
+    responses = iter([rider_agent.job_exit.Verdict.ASK_CONFIRM, rider_agent.job_exit.Verdict.REFUSE])
+    async def verdict(_):
+        return next(responses)
+    calls = []
+    async def refusal(state, ctx, words):
+        calls.append(words)
+        await ctx.messenger.say("refused")
+    monkeypatch.setattr(rider_agent.job_exit, "verdict_for", verdict)
+    monkeypatch.setattr(rider_agent, "_exit_refusal", refusal)
+    patch_supabase_client.register_rpc("dispatch_cancel_before_pickup", FakeSupabaseResponse(data="cannot cancel; dispatch status is pickedup"))
+    result = await rider_agent.cancel_delivery_before_pickup(
+        {"dispatch_id": 10, "order_number": "ORDER", "cancel_confirmed": True, "messages": [HumanMessage("cancel")]},
+        "tool", _runtime(client=patch_supabase_client, wa=fake_async_wa))
+    assert not result.update.get("awaiting_cancel_reason")
+    assert result.update["cancel_confirmed"] is False
+    assert "not completed" in result.update["messages"][0].content
+    assert calls == ["cancel"]
+
+
+async def test_terminate_unknown_status_keeps_thread_open(monkeypatch, patch_supabase_client, fake_async_wa):
+    async def verdict(_):
+        return rider_agent.job_exit.Verdict.UNKNOWN
+    async def no_close(_):
+        raise AssertionError("closed job after failed status read")
+    monkeypatch.setattr(rider_agent.job_exit, "verdict_for", verdict)
+    monkeypatch.setattr(rider_agent, "_close_own_thread", no_close)
+    result = await rider_agent.terminate_delivery_job({"dispatch_id": 10}, "tool", _runtime(client=patch_supabase_client, wa=fake_async_wa))
+    assert "not closed" in result.update["messages"][0].content

@@ -261,7 +261,7 @@ async def initial_handle_of_rider_response(
 
             await run_rider_agent_w_custom_msg(
                 recipient=rider_id,
-                system_msg="call `tool cancel_delivery_before_pickup`",
+                system_msg="call `tool request_cancel_confirmation` with the rider request",
                 human_msg=f"I need to cancel order {order_number} before pickup.",
             )
             return
