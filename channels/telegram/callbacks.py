@@ -76,6 +76,13 @@ class RiderJobAction(CallbackData, prefix="rj1"):
     a: Literal["pk", "dr", "cc"]
 
 
+class RiderCancelConfirm(CallbackData, prefix="rc1"):
+    """Cancel confirmation; the handler checks the rider and dispatch."""
+    d: int
+    t: str
+    a: Literal["y", "n"]
+
+
 class RiderPause(CallbackData, prefix="rp1"):
     """A break length picked under /off on the rider bot, e.g. 'rp1:6h' (phase R5, ADR 0013).
 

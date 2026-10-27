@@ -69,7 +69,7 @@ SELECT (SELECT count(*) FROM public.t_order_card_destinations('rest_admin', 'STR
 -- To schedule the receipt sweep (operator step, once):
 --   SELECT cron.schedule('job_t_receipt_refresh', '5 seconds', $$SELECT public.job_t_receipt_refresh()$$);
 
-
+select * from delivery_inflight;
 -- ===== STAGE 0: RESET (wipes earlier STRK-TEST orders; links your chat to STRK if needed) =====
 -- Rider threads of the fake jobs are CLOSED first (never deleted), so the rider is not left in a finished fake job
 -- (rider_threads.sql; skipped until migrations/rider_telegram_r2_r4.sql added delivery_dispatch.thread_id).
@@ -220,10 +220,11 @@ SELECT order_number, vehicle_type, town, status FROM public.delivery_detail WHER
 --      "Taken by another rider" after the assignment, the winner's "The job is yours"; then go on with STAGE 3
 --   e) ignore it 2 min: the escalation row 'sent' and overwatch WhatsApp gets
 --      "⚠️ STRK-TEST-…: no rider has accepted after 2 min (N offered on Telegram, M declined)", once
---   f) Decline on one rider: the other rider's pending reminders are superseded and a new cycle starts from 1 of 7;
---      the escalation remains due at the original round deadline.
---   g) Accept, cancel before pickup, then rerun STAGE 2b: a new offer starts at 1 of 7 and a new escalation can say
---      "no rider has accepted 2 min after re-dispatch".
+--   f) With two Telegram riders, let both receive reminders 1 and 2, then have one decline. The other rider's rows
+--      retain the same cycle and due_at, with no new rows; remaining reminders follow the original schedule.
+--   g) Accept, then cancel before pickup through the rider agent; rerun STAGE 2b. New dispatch IDs have seven pending
+--      reminders each, cycle 0, due from the new offer time, and a new escalation with round_at = redispatch_dtts.
+--      Overwatch can say "no rider has accepted 2 min after re-dispatch".
 -- WhatsApp riders: no rows at all (reminders are Telegram only).
 SELECT a.kind, a.dispatch_id, r.rider_name, a.cycle, a.round_at, a.n, a.of_n, a.offset_secs, a.due_at, a.status, a.swept_at
   FROM public.rider_offer_alert a LEFT JOIN public.rider_master r ON r.rider_id = a.rider_id

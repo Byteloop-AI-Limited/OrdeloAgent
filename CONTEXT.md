@@ -362,7 +362,7 @@ _Avoid_: rider session, conversation per rider
 
 ### Offer
 
-**Offer reminder**: A repeat of an unanswered Telegram offer at configured offsets, replacing the previous copy. Stops when any rider accepts or this rider can no longer take it. A decline by another rider restarts the cycle; overwatch is told once per dispatch round. Avoid: nag, re-dispatch (a re-dispatch is a new offer).
+**Offer reminder**: A repeat of an unanswered Telegram offer at configured offsets, replacing the previous copy. Stops when any rider accepts or this rider can no longer take it. A decline restarts nothing; cancellation before pickup re-offers the order and starts a complete new cycle. Overwatch is told once per dispatch round. Avoid: nag, re-dispatch (a re-dispatch is a new offer).
 
 One delivery job proposed to one rider (one dispatch row) with Accept and Decline. When the job goes to someone else,
 expires or is cancelled, the offer is closed: on Telegram it is edited in place and loses its buttons.
@@ -384,3 +384,8 @@ _Avoid_: off shift, holiday, mute
 ### Last-admin guard
 
 A restaurant admin cannot pause alerts if no other admin of that restaurant would stay unpaused, so a restaurant always has someone receiving its new Telegram order alerts.
+
+
+**Cancel confirmation**: Before pickup, a rider must tap a channel button before cancellation; the callback carries a token and is marked as a trusted tap in the agent input.
+
+**Post-pickup refusal**: The agent refuses rider requests to cancel or close after pickup and alerts overwatch for each attempt. Database concurrency still needs a lock to guarantee this during simultaneous pickup and cancellation.

@@ -73,7 +73,7 @@ async def test_declining_your_own_assigned_job_runs_the_cancel_flow(patch_supaba
         assigned_rows=({"dispatch_id": 10},))
     out = await da.respond_to_offer(R, 10, ORDER, False)
     assert out.result == da.CANCEL_OWN_JOB and da.whatsapp_reply(out) is None
-    assert agent_runs == [{"recipient": R, "dispatch_id": 10, "system_msg": "call `tool cancel_delivery_before_pickup`",
+    assert agent_runs == [{"recipient": R, "dispatch_id": 10, "system_msg": "call `tool request_cancel_confirmation` with the rider request",
                            "human_msg": f"I need to cancel order {ORDER} before pickup."}]
 
 

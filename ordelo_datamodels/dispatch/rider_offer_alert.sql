@@ -2,14 +2,17 @@
 -- ordelo_datamodels/dispatch/rider_offer_alert.sql
 -- Telegram rider offer reminders and the unanswered-order escalation.
 -- =============================================================================================
--- LIVE CHECK    Applied to live 2026-10-27: migrations rider_offer_alerts.sql (r1) and rider_offer_alerts_r2.sql (r2), owner-confirmed.
+-- LIVE CHECK    Applied to live 2026-10-27: migrations rider_offer_alerts.sql (r1), rider_offer_alerts_r2.sql (r2) and rider_offer_alerts_r3.sql (r3), owner-confirmed.
 -- OBJECTS       table  rider_offer_alert
---               fn     rider_offer_order_open, rider_offer_state, rider_offer_reminder_snapshot, rider_offer_reminder_sent
+--               fn     rider_offer_order_open - whether an order is still looking for a rider
+--               fn     rider_offer_state - reminder eligibility and closure reason
+--               fn     rider_offer_reminder_snapshot - offer and current message reference
+--               fn     rider_offer_reminder_sent - atomically replace the message reference
 -- REQUIRES      dispatch/delivery_dispatch.sql, availability/pauses.sql
 -- HOW TO RUN    Apply the migration first; this file maintains the definitions. Safe to re-run.
 -- SIDE EFFECTS  Stores checkpoints and message references.
 -- HOW IT FITS   Telegram only: delivery_dispatch.sql step 4 -> job_rider_offer_alerts -> rider-hooks/offer-alerts.
--- LIFECYCLE     pending -> sent, superseded or cancelled; declines restart pending reminders; one escalation per dispatch round.
+-- LIFECYCLE     pending -> sent, superseded or cancelled; a decline restarts nothing; one escalation per dispatch round.
 -- CALLED BY     job_rider_offer_alerts(); ordelo/offer_reminders.py snapshot(), reminder_sent(), order_open()
 -- PYTHON MODEL  ordelo/offer_reminders.py: SupabaseOfferReminderStore
 -- SECURITY      RLS enabled; PUBLIC, anon and authenticated revoked; service role only.
@@ -35,7 +38,7 @@ CREATE TABLE IF NOT EXISTS public.rider_offer_alert (
     status text NOT NULL DEFAULT 'pending'::text,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     swept_at timestamp with time zone, -- when the job marked it sent / superseded / cancelled
-    cycle integer NOT NULL DEFAULT 0, -- reminder cycle: declined offers when seeded; escalation: 0
+    cycle integer NOT NULL DEFAULT 0, -- reminder: 0 since r3; older rows keep the r2 decline count; escalation: 0
     round_at timestamp with time zone NOT NULL DEFAULT '-infinity'::timestamptz, -- escalation round start; reminder: -infinity
     CONSTRAINT rider_offer_alert_pkey PRIMARY KEY (id),
     CONSTRAINT rider_offer_alert_kind_check CHECK ((kind = ANY (ARRAY['reminder'::text, 'escalation'::text]))),
@@ -65,7 +68,7 @@ GRANT USAGE, SELECT ON SEQUENCE public.rider_offer_alert_id_seq TO service_role;
 
 COMMENT ON TABLE public.rider_offer_alert IS 'Telegram rider offer reminders (one row per offer and offset) and the per-round overwatch escalation.';
 
-COMMENT ON COLUMN public.rider_offer_alert.cycle IS 'reminder: number of declined offers of the order when this reminder cycle started (a higher count restarts the cycle); escalation: 0';
+COMMENT ON COLUMN public.rider_offer_alert.cycle IS 'reminder: 0 for every row seeded since r3 (older rows carry the r2 decline count); the unique index (dispatch_id, cycle, offset_secs) still holds. escalation: 0';
 
 COMMENT ON COLUMN public.rider_offer_alert.round_at IS 'escalation: delivery_summary.redispatch_dtts of the dispatch round, -infinity for the first round; reminder: -infinity';
 

@@ -43,6 +43,9 @@ class RecordingRiderMessenger:
     async def job_card(self, header, text, dispatch_id) -> MsgRef:
         return self._record("job_card", header=header, text=text, dispatch_id=dispatch_id)
 
+    async def confirm_cancel(self, dispatch_id, token, text) -> MsgRef:
+        return self._record("confirm_cancel", dispatch_id=dispatch_id, token=token, text=text)
+
     async def offer_job(self, offer) -> MsgRef:
         return self._record("offer_job", offer=offer)
 

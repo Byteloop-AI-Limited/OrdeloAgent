@@ -354,6 +354,8 @@ Status: derived from the SQL; not yet confirmed live with an auto-accept restaur
 
 Add one line per change, newest first: date, what changed, files.
 
+- 2026-10-27: Rider exit requests use shared status guards and confirmation buttons on Telegram and WhatsApp. Post-pickup requests are refused and alert overwatch. Callback actor and active thread are checked; offline verification only. No SQL change; concurrent pickup/cancel remains a database race to resolve before relying on this as an absolute guarantee.
+
 - 2026-10-27: Rider reminder cycles restart after another offer is declined; overwatch escalation is once per dispatch round. r2 SQL and code are prepared; SQL application and live testing remain owner-run.
 
 - 2026-10-27: Telegram rider offers repeat at configured offsets until accepted or the rider is unavailable; each copy replaces its predecessor, and an unanswered order escalates once. r1 was applied and tested as recorded in the plan; r2 application and live verification remain owner-run. See [plan](../plans/rider-dispatch-alerts-plan.md).

@@ -122,6 +122,21 @@ async def rider_request_location(wa: WhatsApp, msg: Message):
 
 
 # %%
+IS_CANCEL_CONFIRM = filters.contains("/riderCancelConfirm", ignore_case=False)
+
+
+async def rider_cancel_confirm(wa: WhatsApp, msg: Message):
+    """A confirmation tap is valid only for the rider's own active dispatch."""
+    from ordelo.agents import rider_threads
+    data = json.loads(msg.data)
+    dispatch_id = int(data["dispatch_id"])
+    thread = await rider_threads.for_dispatch(dispatch_id)
+    if thread is None or thread.rider_id != msg.sender or not thread.is_active or thread.dispatch_status == "completed":
+        await wa.send_message(to=msg.sender, text="This job is expired.")
+        return
+    await run_rider_agent_w_custom_msg(recipient=msg.sender, human_msg=data["human_msg"], thread_id=thread.thread_id, cancel_tap=True)
+
+
 IS_SHIFT_AVAILABILITY = filters.contains("/shiftAvailability", ignore_case=False)
 
 

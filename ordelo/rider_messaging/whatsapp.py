@@ -108,6 +108,18 @@ class WhatsAppRiderMessenger:
             )
         )
 
+    async def confirm_cancel(self, dispatch_id: int, token: str, text: str) -> MsgRef:
+        from utils_common.waba_utils.wa_senders import CallbackButtonData
+        from .models import CANCEL_YES_TITLE, CANCEL_NO_TITLE, cancel_tap_text
+
+        def data(answer):
+            return CallbackButtonData(action="/riderCancelConfirm", recipient=self.phone, dispatch_id=dispatch_id,
+                                      human_msg=cancel_tap_text(token, answer), ai_msg="", response="").model_dump_json()
+        return _ref(await self.wa.send_message(to=self.phone, text=text, buttons=[
+            Button(title=CANCEL_YES_TITLE, callback_data=data("yes")),
+            Button(title=CANCEL_NO_TITLE, callback_data=data("no")),
+        ]))
+
     async def offer_job(self, offer: JobOffer) -> MsgRef:
         def payload(status: str) -> str:
             return json.dumps(

@@ -165,7 +165,7 @@ def snapshot(conn) -> dict:
             where n.nspname='public' and c.relkind in ('r','p') and a.attnum>0 and not a.attisdropped"""),
         "tables": q("""select c.relname name, c.relrowsecurity rls, c.relacl::text acl from pg_class c join pg_namespace n on n.oid=c.relnamespace
             where n.nspname='public' and c.relkind in ('r','p')"""),
-        "constraints": q("""select c.relname tbl, k.conname name, pg_get_constraintdef(k.oid) def from pg_constraint k
+        "constraints": q("""select c.relname tbl, k.conname name, k.contype::text type, pg_get_constraintdef(k.oid) def from pg_constraint k
             join pg_class c on c.oid=k.conrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='public'"""),
         "indexes": q("select tablename tbl, indexname name, indexdef def from pg_indexes where schemaname='public'"),
         "policies": q("select tablename tbl, policyname name, permissive, cmd, roles::text, qual, with_check from pg_policies where schemaname='public'"),

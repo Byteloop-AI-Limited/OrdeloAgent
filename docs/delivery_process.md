@@ -313,7 +313,7 @@ FOR EACH STATEMENT
 
 ### Phase 4: Rider Assignment (`job_assign_dispatch`)
 
-Telegram rider offers repeat at the seconds in `RIDER_OFFER_ALERT_OFFSETS_SECS` (blank disables reminders). Any acceptance stops reminders for the order; rider availability stops that rider's reminders. A decline by another rider restarts the open offers’ reminder cycles. The last offset triggers one overwatch escalation per dispatch round. See [the plan](../plans/rider-dispatch-alerts-plan.md).
+Telegram rider offers repeat at the seconds in `RIDER_OFFER_ALERT_OFFSETS_SECS` (blank disables reminders). Any acceptance stops reminders for the order; rider availability stops that rider's reminders. A decline restarts nothing; cancellation before pickup re-offers the order and starts a complete new cycle. The last offset triggers one overwatch escalation per dispatch round. See [the plan](../plans/rider-dispatch-alerts-plan.md).
 
 #### 4a. Rider Acceptance
 
@@ -857,3 +857,8 @@ flowchart TD
 ---
 
 *End of Delivery Process Documentation*
+
+
+### Rider exit guard
+
+Before pickup, a rider request to cancel or close requires a confirmation button tap. After pickup, the agent refuses and alerts overwatch on every request; the rider thread remains open. A simultaneous pickup and cancellation can race in the existing SQL function and requires database-level locking to guarantee this rule.

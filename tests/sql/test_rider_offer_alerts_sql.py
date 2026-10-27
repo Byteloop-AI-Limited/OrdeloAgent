@@ -55,7 +55,6 @@ def test_post_failure_keeps_pending_and_blank_cancels(db):
 
 
 def test_service_grants_and_migration_repeatable(db):
-    from pathlib import Path
     from .conftest import ROOT
     migration = (ROOT / 'ordelo_datamodels/migrations/rider_offer_alerts.sql').read_text()
     start = migration.index('-- ===== STEP 1: TABLE')
@@ -64,6 +63,8 @@ def test_service_grants_and_migration_repeatable(db):
     db.execute(migration[start:end])
     r2 = (ROOT / "ordelo_datamodels/migrations/rider_offer_alerts_r2.sql").read_text()
     db.execute(r2[r2.index("-- ===== STEP 1: COLUMNS"):r2.index("-- ===== STEP 3: VERIFY")])
+    r3 = (ROOT / "ordelo_datamodels/migrations/rider_offer_alerts_r3.sql").read_text()
+    db.execute(r3[r3.index("-- ===== STEP 1:"):r3.index("-- ===== STEP 3:")])
     assert val(db, "SELECT to_regclass('public.rider_offer_alert_reminder_cycle_uidx') IS NOT NULL")
     assert val(db, "SELECT to_regclass('public.rider_offer_alert_reminder_uidx') IS NULL")
     assert val(db, "SELECT has_function_privilege('service_role','public.rider_offer_reminder_snapshot(integer)','execute')")
@@ -99,36 +100,39 @@ def test_concurrent_swaps_choose_one(db):
     assert sorted(results) == ['stale', 'swapped']
 
 
-def test_declines_restart_open_offers_and_do_not_move_escalation(db):
+def test_plain_decline_does_not_restart_other_offers(db):
     db.execute("INSERT INTO public.delivery_dispatch(order_number,rider_id,status,dtts) VALUES ('STRK-TEST-1','RIDER02','unassigned', now() - interval '25 seconds')")
     db.execute('SELECT public.job_rider_offer_alerts()')
     did = val(db, "SELECT dispatch_id FROM public.delivery_dispatch WHERE rider_id='RIDER01'")
+    query = "SELECT id, cycle, due_at, status FROM public.rider_offer_alert WHERE dispatch_id=%s ORDER BY offset_secs"
+    before = db.execute(query, (did,)).fetchall()
+    assert [row[3] for row in before[:3]] == ['superseded', 'sent', 'pending']
     due = val(db, "SELECT due_at FROM public.rider_offer_alert WHERE kind='escalation'")
     db.execute("UPDATE public.delivery_dispatch SET status='declined' WHERE rider_id='RIDER02'")
     db.execute('SELECT public.job_rider_offer_alerts()')
-    assert val(db, "SELECT count(*) FROM public.rider_offer_alert WHERE dispatch_id=%s AND cycle=0 AND status='superseded'", (did,)) == 6
-    assert val(db, "SELECT count(*) FROM public.rider_offer_alert WHERE dispatch_id=%s AND cycle=1 AND status='pending' AND due_at >= now()", (did,)) == 7
+    assert db.execute(query, (did,)).fetchall() == before
     assert val(db, "SELECT count(*) FROM public.rider_offer_alert WHERE rider_id='RIDER02' AND status='pending'") == 0
     assert val(db, "SELECT due_at FROM public.rider_offer_alert WHERE kind='escalation'") == due
-    db.execute("UPDATE public.rider_offer_alert SET due_at=now()-interval '1 second' WHERE dispatch_id=%s AND cycle=1 AND offset_secs=10", (did,))
-    db.execute('SELECT public.job_rider_offer_alerts()')
-    assert json.loads(val(db, 'SELECT body FROM public.http_calls ORDER BY id DESC LIMIT 1'))['reminders'][0]['n'] == 1
-    db.execute("INSERT INTO public.delivery_dispatch(order_number,rider_id,status) VALUES ('STRK-TEST-1','RIDER02','declined')")
-    db.execute('SELECT public.job_rider_offer_alerts()')
-    assert val(db, "SELECT count(*) FROM public.rider_offer_alert WHERE dispatch_id=%s AND cycle=2 AND status='pending'", (did,)) == 7
-    db.execute("DELETE FROM public.delivery_dispatch WHERE rider_id='RIDER02'")
-    db.execute('SELECT public.job_rider_offer_alerts()')
-    assert val(db, "SELECT max(cycle) FROM public.rider_offer_alert WHERE dispatch_id=%s", (did,)) == 2
 
 
-def test_accept_then_decline_restarts(db):
-    db.execute("INSERT INTO public.delivery_dispatch(order_number,rider_id,status) VALUES ('STRK-TEST-1','RIDER02','unassigned')")
+def test_cancel_before_pickup_resets_with_new_offers(db):
+    db.execute("INSERT INTO public.delivery_dispatch(order_number,rider_id,status,dtts) VALUES ('STRK-TEST-1','RIDER02','unassigned',now())")
     db.execute('SELECT public.job_rider_offer_alerts()')
+    old = [row[0] for row in db.execute('SELECT dispatch_id FROM public.delivery_dispatch').fetchall()]
     db.execute("UPDATE public.delivery_dispatch SET status='accepted' WHERE rider_id='RIDER02'")
+    db.execute("UPDATE public.delivery_summary SET status='assigned' WHERE order_number='STRK-TEST-1'")
     db.execute('SELECT public.job_rider_offer_alerts()')
     db.execute("UPDATE public.delivery_dispatch SET status='declined' WHERE rider_id='RIDER02'")
+    db.execute("DELETE FROM public.delivery_dispatch WHERE rider_id='RIDER01'")
+    db.execute("UPDATE public.delivery_summary SET status='unassigned', redispatch_dtts=now() WHERE order_number='STRK-TEST-1'")
+    db.execute("INSERT INTO public.delivery_dispatch(order_number,rider_id,status,dtts) VALUES ('STRK-TEST-1','RIDER01','unassigned',now()),('STRK-TEST-1','RIDER02','unassigned',now())")
     db.execute('SELECT public.job_rider_offer_alerts()')
-    assert val(db, "SELECT count(*) FROM public.rider_offer_alert WHERE rider_id='RIDER01' AND cycle=1 AND status='pending'") == 7
+    new = [row[0] for row in db.execute("SELECT dispatch_id FROM public.delivery_dispatch WHERE status='unassigned'").fetchall()]
+    assert len(new) == 2 and not set(old) & set(new)
+    for did in new:
+        assert val(db, "SELECT count(*) FROM public.rider_offer_alert a JOIN public.delivery_dispatch d USING (dispatch_id) WHERE a.dispatch_id=%s AND a.kind='reminder' AND a.status='pending' AND a.cycle=0 AND a.due_at=d.dtts::timestamptz + a.offset_secs * interval '1 second'", (did,)) == 7
+    assert val(db, "SELECT count(*) FROM public.rider_offer_alert WHERE dispatch_id=ANY(%s) AND status='pending'", (old,)) == 0
+    assert val(db, "SELECT count(*) FROM public.rider_offer_alert a JOIN public.delivery_summary s USING (order_number) WHERE a.kind='escalation' AND a.round_at=s.redispatch_dtts") == 1
 
 
 def test_redispatch_escalation_is_per_round(db):

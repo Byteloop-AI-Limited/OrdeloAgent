@@ -381,3 +381,21 @@ async def test_telegram_reminder_notice_and_delete(recording_bot):
 async def test_whatsapp_delete_is_noop(wa):
     await WhatsAppRiderMessenger(wa, PHONE).delete('wamid.OLD')
     wa.send_message.assert_not_awaited()
+
+
+async def test_cancel_confirmation_adapters(wa, recording_bot):
+    from channels.telegram.callbacks import RiderCancelConfirm
+    wa_messenger = WhatsAppRiderMessenger(wa, PHONE)
+    await wa_messenger.confirm_cancel(84217, "12345678", "Confirm?")
+    buttons = wa.send_message.await_args.kwargs["buttons"]
+    assert [b.title for b in buttons] == ["Yes, cancel job", "No, keep it"]
+    assert all(len(b.title) <= 20 for b in buttons)
+    assert json.loads(buttons[0].callback_data)["action"] == "/riderCancelConfirm"
+    assert json.loads(buttons[0].callback_data)["human_msg"] == "[cancel-confirm:12345678:yes]"
+    bot, session = recording_bot
+    await TelegramRiderMessenger(bot, 111).confirm_cancel(84217, "12345678", "Confirm?")
+    message = next(c for c in session.calls if isinstance(c, SendMessage))
+    yes, no = message.reply_markup.inline_keyboard[0]
+    assert (yes.style, no.style) == ("danger", "success")
+    assert len(yes.callback_data.encode()) <= 64
+    assert RiderCancelConfirm.unpack(yes.callback_data).t == "12345678"

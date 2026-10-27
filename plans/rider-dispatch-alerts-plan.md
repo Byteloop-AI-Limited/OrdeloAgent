@@ -1,6 +1,6 @@
 # Rider dispatch alerts: repeated Telegram job offers (plan)
 
-Status: **plan, ready to implement** (26 Oct 2026). Branch `feature/rider-dispatch-alerts`, written against commit `5c264e7`.
+Status: **implemented and live (r1, r2, r3 applied 27 Oct 2026; Telegram live-tested).** Written 26 Oct 2026. Branch `feature/rider-dispatch-alerts`, written against commit `5c264e7`.
 Owner decisions were taken in a grilling session on 26 Oct 2026 (section 1). The SQL is already written and checked on a
 scratch database: [`ordelo_datamodels/migrations/rider_offer_alerts.sql`](../ordelo_datamodels/migrations/rider_offer_alerts.sql).
 **Nothing has been applied to the shared database. The owner applies the migration himself.**
@@ -714,10 +714,12 @@ per-restaurant override of the offsets.
 
 ## 11. r2: fresh nudge on Decline, one overwatch alert per dispatch round (plan, 27 Oct 2026)
 
-Status: **plan, ready to implement**. r1 is live (applied 27 Oct; cron `job_rider_offer_alerts` active; first STRK tests
+Status: **implemented and applied (27 Oct 2026); superseded in part by section 12.** r1 is live (applied 27 Oct; cron `job_rider_offer_alerts` active; first STRK tests
 passed, commit `d91bf6b`). Migration ready and checked on a scratch Postgres:
 [`ordelo_datamodels/migrations/rider_offer_alerts_r2.sql`](../ordelo_datamodels/migrations/rider_offer_alerts_r2.sql).
 **Nothing has been applied. The owner applies it.**
+
+> **Superseded in part by section 12 (r3, 27 Oct 2026):** a plain Decline no longer restarts other riders' reminders. The per-round overwatch alert in this section stays.
 
 ### 11.1 Why
 
@@ -938,3 +940,110 @@ needs the r2 owner file.
 - `docs/to-do.md`: remove the "one escalation per order even after a re-dispatch" item (fixed by r2). Keep the retention
   item. Add: `respond_to_offer()` writes `status_update_dtts` with the app server's local clock (naive `datetime.now()`);
   consider `now()` in SQL.
+
+
+---
+
+## 12. r3: a plain Decline does not restart reminders; accept-then-cancel resets everything (plan, 27 Oct 2026)
+
+Status: **implemented; r3 applied to live by the owner on 27 Oct 2026**. r1 and r2 are also live:
+[`ordelo_datamodels/migrations/rider_offer_alerts_r3.sql`](../ordelo_datamodels/migrations/rider_offer_alerts_r3.sql).
+Companion plan for the agent side: [`plans/rider-agent-exit-guards-plan.md`](rider-agent-exit-guards-plan.md).
+
+### 12.1 Why
+
+r2 restarts every other open offer's reminders from "1 of 7" whenever any offer of the order is declined
+(`D > L` in `job_rider_offer_alerts()`). A rider can decline just to stop his own pings, and that gives each other rider up
+to 7 more. With N riders offered, one rider can receive about 7 x (declines by others + 1) pings.
+
+### 12.2 Decisions (owner, 27 Oct 2026)
+
+| # | Decision |
+|---|---|
+| R3-1 | **Plain decline, nobody accepted: no restart.** Other riders keep the schedule they already have (7 reminders, then the once-per-round overwatch alert). |
+| R3-2 | **Accept, then decline before pickup: a complete reset** with a new set of messages. |
+| R3-3 | **Decline or abort after pickup does not exist.** The agent must refuse it (see the exit-guards plan). Nothing in the alerts changes for it. |
+| R3-4 | One overwatch alert per dispatch round stays (r2). |
+
+### 12.3 Why R3-2 needs no special code
+
+`dispatch_cancel_before_pickup()` (`ordelo_datamodels/dispatch/dispatch_cancel_before_pickup.sql`) deletes every other
+`delivery_dispatch` row of the order, deletes the `delivery_detail` rows, and sets `delivery_summary.status = 'unassigned'`
+with `redispatch_dtts = NOW()`. `job_create_dispatch()` then inserts brand-new offers with new `dispatch_id`s. To the alert
+job each of those is a never-seen offer (`last_cycle IS NULL`), so it gets the full schedule at offer time + each offset, and
+the escalation seeds a new round keyed on `redispatch_dtts`. The restart branch was never needed for this path.
+
+| Situation | What the other riders get after r3 |
+|---|---|
+| A rider declines the offer, nobody accepted | Nothing new. Their existing reminders carry on unchanged. |
+| A rider accepts, then cancels before pickup | Fresh offers (new dispatch ids) with reminders 1..7 from zero, and a new overwatch round. |
+| All riders decline | Their reminders run out; overwatch is told once at the last offset of the round; the delivery timeout moves on. |
+| Cancel after pickup | Refused by the agent. No re-dispatch, no alert change. |
+
+### 12.4 Changes, file by file
+
+1. **`ordelo_datamodels/migrations/rider_offer_alerts_r3.sql`** (written, unapplied). `CREATE OR REPLACE job_rider_offer_alerts()`:
+   - `todo` selects only offers with `last_cycle IS NULL`;
+   - the `restarted` CTE is gone;
+   - `due_at = offered_at + offset` for every seed; `cycle` is always `0`;
+   - the `declines` sub-select in CTE `o` is removed.
+   No table, index, grant or cron change. Pending rows that r2 restarted still fire. Verify returns `true / false`.
+2. **`ordelo_datamodels/dispatch/job_rider_offer_alerts.sql`** (owner file): replace the function body with the r3 body
+   (copy it from the migration, STEP 1); set the comment block to r3; header lines:
+   - `LIFECYCLE`: `pending -> sent, superseded or cancelled; a decline restarts nothing; one escalation per dispatch round.`
+   - `GOTCHAS`: drop "Restart uses database now()..."; add `cycle is always 0 for rows seeded since r3 (older rows keep the r2 decline count).`
+   - `LIVE CHECK`: `Applied to live <date>: ... r3` once the owner confirms.
+   - `COMMENT ON FUNCTION`: the r3 text from the migration.
+3. **`ordelo_datamodels/dispatch/rider_offer_alert.sql`**: replace the `COMMENT ON COLUMN ... cycle` text with the r3 text (migration STEP 2).
+4. **Python: none.** `ordelo/offer_reminders.py` and `watomation/routers/rider_offer_alerts.py` are unchanged. The overwatch text
+   still counts offered/declined correctly because it counts rows of the round.
+5. Run `python3 scripts/datamodels/build_guide.py` after the header edits (`catalog.json`, guide .md/.html), then `drift_check.py`.
+
+### 12.5 Tests
+
+All SQL tests need a throwaway local Postgres (`ORDELO_TEST_DB_URI`); the owner has not asked for tests to touch shared data.
+
+- `tests/sql/test_rider_offer_alerts_sql.py` (it loads the owner files):
+  - **replace** the decline-restart test with `test_plain_decline_does_not_restart_other_offers`: two riders offered, first sends
+    reminders 1 and 2, the second rider declines; run the job again; assert the first rider's ledger rows are unchanged (same
+    `cycle`, same `due_at`, no `superseded` rows added, no new rows).
+  - **replace** the accept-then-decline test with `test_cancel_before_pickup_resets_with_new_offers`: reproduce exactly what
+    `dispatch_cancel_before_pickup()` does (cancelled row -> `declined`, other dispatches deleted, `redispatch_dtts = now()`),
+    insert two new offers, run the job; assert each new dispatch has 7 pending reminder rows, `cycle = 0`, `due_at = dtts + offset`,
+    the old dispatches' rows are not due, and one new `escalation` row exists with `round_at = redispatch_dtts`. Check whether
+    `rider_offer_alert.dispatch_id` has a foreign key / cascade in `tests/sql/minimal_schema.sql` and fix the fixture if the old
+    rows linger.
+  - keep: first seed, pause/quiet, grant tests, per-round escalation test, off switch.
+  - **delete** the "decline count goes down" case from section 11.5 (moot).
+- **new** `tests/sql/test_rider_offer_alerts_r3_migration_sql.py`: on a database with r1 + r2 applied, apply r3 STEP 1 and STEP 2;
+  assert the verify query gives `true / false`; apply it twice (idempotent); assert grants are intact (`service_role` only);
+  assert rows that r2 created (`cycle > 0`) are untouched.
+- `tests/sql/test_rider_offer_alerts_r2_migration_sql.py`: keep as history, but it must not load the owner file's job body for its
+  restart assertions. If it does, switch it to the r2 migration's own STEP 2 text.
+- `tests/test_datamodels_standard.py` after `build_guide.py`.
+
+### 12.6 Live test on STRK (`test_restaurant_notices.sql` only)
+
+Update STAGE 2c steps f and g (no other SQL test files):
+- **f (plain decline):** two Telegram riders offered; let each get reminders 1 and 2; rider A declines. Read-only query shows rider B's
+  rows with the same `cycle` and `due_at` as before, no new rows, and B's remaining reminders arrive on the original schedule.
+- **g (accept then cancel):** rider A accepts, then cancels before pickup through the rider agent (this now goes through the
+  confirm buttons from the exit-guards plan). Re-run STAGE 2b. Read-only query shows new `dispatch_id`s for the other riders, 7 pending
+  reminders each with `cycle = 0` from the new offer time, and a second `escalation` row with `round_at` = the new `redispatch_dtts`.
+Update the STAGE 2c comment text ("a decline restarts ..." -> r3 wording).
+
+### 12.7 Rollout (the owner runs every SQL step)
+
+1. PR: owner SQL files, tests, `test_restaurant_notices.sql`, docs. Run `pytest`, `tests/sql`, `tests/test_datamodels_standard.py`, `ruff check .`.
+2. Owner: `migrations/rider_offer_alerts_r3.sql` STEP 0 (pre-check `true / true / true / 1`) -> STEP 1 -> STEP 2 -> STEP 3 `true / false`.
+   Don't schedule the cron job again. **No deploy needed.**
+3. `drift_check.py`. STRK live test 12.6.
+4. Update the migration header to `Applied to live: <date>` and the `LIVE CHECK` lines in both owner files.
+5. Rollback: re-apply STEP 1 of `rider_offer_alerts_r2.sql` (restart behaviour returns). Or set `RIDER_OFFER_ALERT_OFFSETS_SECS` blank to stop everything.
+
+### 12.8 Docs
+
+- `CONTEXT.md` **Offer reminder**: replace "a decline by another rider restarts the cycle" with "a decline restarts nothing; a cancel
+  before pickup re-offers the order and starts a complete new cycle; overwatch is told once per dispatch round".
+- `docs/delivery_process.md` phase 4: the same.
+- Section 11 stays as history with the superseded note at its top.

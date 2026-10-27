@@ -121,13 +121,16 @@ async def test_payment_and_reservation_templates_use_pywa_param_objects(fake_asy
     ]
 
 
-async def test_cancel_delivery_before_pickup_reads_rider_name_from_state_not_context(patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
-    patch_supabase_client.register_rpc("dispatch_cancel_before_pickup", FakeSupabaseResponse(data={"ok": True}))
+async def test_cancel_delivery_before_pickup_reads_rider_name_from_state_not_context(monkeypatch, patch_supabase_client, fake_async_wa: FakeAsyncWhatsApp) -> None:
+    async def verdict(_):
+        return rider_agent.job_exit.Verdict.ASK_CONFIRM
+    monkeypatch.setattr(rider_agent.job_exit, "verdict_for", verdict)
+    patch_supabase_client.register_rpc("dispatch_cancel_before_pickup", FakeSupabaseResponse(data="cancelled dispatch 10 for order ELAS-ABCD-1"))
     runtime = _runtime(client=patch_supabase_client, wa=fake_async_wa)
     assert not hasattr(runtime.context, "rider_name")
 
     result = await rider_agent.cancel_delivery_before_pickup(
-        {"dispatch_id": 10, "order_number": "ELAS-ABCD-1", "rider_name": "Bas"},
+        {"dispatch_id": 10, "order_number": "ELAS-ABCD-1", "rider_name": "Bas", "cancel_confirmed": True},
         "tool-1",
         runtime,
     )
@@ -159,7 +162,7 @@ async def test_dispatch_decline_for_same_inflight_dispatch_reaches_cancel_logic(
     assert calls == [{
         "recipient": "RIDER01",
         "dispatch_id": 10,
-        "system_msg": "call `tool cancel_delivery_before_pickup`",
+        "system_msg": "call `tool request_cancel_confirmation` with the rider request",
         "human_msg": "I need to cancel order ELAS-ABCD-1 before pickup.",
     }]
 
