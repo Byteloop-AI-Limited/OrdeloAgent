@@ -105,7 +105,7 @@
    "file": "dispatch/job_rider_offer_alerts.sql",
    "function": "job_rider_offer_alerts",
    "job": "job_rider_offer_alerts",
-   "line": 297,
+   "line": 266,
    "schedule": "5 seconds"
   },
   {
@@ -4440,13 +4440,13 @@
      "file": "dispatch/job_rider_offer_alerts.sql",
      "function": "job_rider_offer_alerts",
      "job": "job_rider_offer_alerts",
-     "line": 297,
+     "line": 266,
      "schedule": "5 seconds"
     }
    ],
    "folder": "dispatch",
    "header_lines": 19,
-   "lines": 298,
+   "lines": 267,
    "objects": [
     {
      "description": "",
@@ -4478,11 +4478,11 @@
    ],
    "sections": {
     "CALLED BY": "cron job_rider_offer_alerts, every 5 seconds",
-    "GOTCHAS": "Restart uses database now(), not app-local status_update_dtts; offsets apply to newly seeded cycles.",
+    "GOTCHAS": "cycle is always 0 for rows seeded since r3; older rows keep the r2 decline count.",
     "HOW IT FITS": "Telegram only: delivery_dispatch.sql step 4 -> job_rider_offer_alerts -> rider-hooks/offer-alerts.",
     "HOW TO RUN": "Apply the migration first; this file maintains the definitions. Safe to re-run.",
-    "LIFECYCLE": "pending -> sent, superseded or cancelled; a decline restarts open offers; one escalation per dispatch round.",
-    "LIVE CHECK": "Applied to live 2026-10-27: migrations rider_offer_alerts.sql (r1) and rider_offer_alerts_r2.sql (r2), owner-confirmed;\n  cron 'job_rider_offer_alerts' active every 5 seconds.",
+    "LIFECYCLE": "pending -> sent, superseded or cancelled; a decline restarts nothing; one escalation per dispatch round.",
+    "LIVE CHECK": "Applied to live 2026-10-27: migrations rider_offer_alerts.sql (r1) and rider_offer_alerts_r2.sql (r2), owner-confirmed;\n  rider_offer_alerts_r3.sql (r3) applied 2026-10-27, owner-confirmed; cron 'job_rider_offer_alerts' active every 5 seconds.",
     "OBJECTS": "fn     job_rider_offer_alerts() -> boolean",
     "PYTHON MODEL": "ordelo/offer_reminders.py: SupabaseOfferReminderStore",
     "REQUIRES": "dispatch/rider_offer_alert.sql; core/ordelo_config.sql",
@@ -4651,8 +4651,8 @@
    "called_by": {},
    "cron": [],
    "folder": "dispatch",
-   "header_lines": 19,
-   "lines": 336,
+   "header_lines": 22,
+   "lines": 339,
    "objects": [
     {
      "description": "",
@@ -4664,7 +4664,25 @@
      "description": "",
      "kind": "function",
      "name": "rider_offer_order_open",
-     "signature": "rider_offer_order_open, rider_offer_state, rider_offer_reminder_snapshot, rider_offer_reminder_sent"
+     "signature": "rider_offer_order_open - whether an order is still looking for a rider"
+    },
+    {
+     "description": "",
+     "kind": "function",
+     "name": "rider_offer_state",
+     "signature": "rider_offer_state - reminder eligibility and closure reason"
+    },
+    {
+     "description": "",
+     "kind": "function",
+     "name": "rider_offer_reminder_snapshot",
+     "signature": "rider_offer_reminder_snapshot - offer and current message reference"
+    },
+    {
+     "description": "",
+     "kind": "function",
+     "name": "rider_offer_reminder_sent",
+     "signature": "rider_offer_reminder_sent - atomically replace the message reference"
     }
    ],
    "path": "dispatch/rider_offer_alert.sql",
@@ -4693,9 +4711,9 @@
     "GOTCHAS": "Rider gate mirrors get_available_riders(); dtts uses cron session time zone; no foreign key; accepted_elsewhere is quiet.",
     "HOW IT FITS": "Telegram only: delivery_dispatch.sql step 4 -> job_rider_offer_alerts -> rider-hooks/offer-alerts.",
     "HOW TO RUN": "Apply the migration first; this file maintains the definitions. Safe to re-run.",
-    "LIFECYCLE": "pending -> sent, superseded or cancelled; declines restart pending reminders; one escalation per dispatch round.",
-    "LIVE CHECK": "Applied to live 2026-10-27: migrations rider_offer_alerts.sql (r1) and rider_offer_alerts_r2.sql (r2), owner-confirmed.",
-    "OBJECTS": "table  rider_offer_alert\nfn     rider_offer_order_open, rider_offer_state, rider_offer_reminder_snapshot, rider_offer_reminder_sent",
+    "LIFECYCLE": "pending -> sent, superseded or cancelled; a decline restarts nothing; one escalation per dispatch round.",
+    "LIVE CHECK": "Applied to live 2026-10-27: migrations rider_offer_alerts.sql (r1), rider_offer_alerts_r2.sql (r2) and rider_offer_alerts_r3.sql (r3), owner-confirmed.",
+    "OBJECTS": "table  rider_offer_alert\nfn     rider_offer_order_open - whether an order is still looking for a rider\nfn     rider_offer_state - reminder eligibility and closure reason\nfn     rider_offer_reminder_snapshot - offer and current message reference\nfn     rider_offer_reminder_sent - atomically replace the message reference",
     "PYTHON MODEL": "ordelo/offer_reminders.py: SupabaseOfferReminderStore",
     "REQUIRES": "dispatch/delivery_dispatch.sql, availability/pauses.sql",
     "SECURITY": "RLS enabled; PUBLIC, anon and authenticated revoked; service role only.",
@@ -5059,6 +5077,23 @@
    "path": "migrations/rider_offer_alerts_r2.sql",
    "role": "migration",
    "title": "rider offer reminders r2 (plans/rider-dispatch-alerts-plan.md, section 11). (1) Restart on Decline: when another offer of the same order is declined, every still-open Telegram offer of that order starts its reminders again from \"reminder 1 of 7\" (now +10 ... +120 s). Each later decline restarts again. (2) One overwatch escalation per dispatch ROUND (the first dispatch, and each re-offer after a cancel before pickup, delivery_summary.redispatch_dtts), instead of one per order. A decline does not move a round's escalation. No dispatch logic changes: job_create_dispatch, job_assign_dispatch, process_delivery and dispatch_cancel_before_pickup are not touched. Requires: migrations/rider_offer_alerts.sql applied (2026-10-27)."
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
+   "lines": 293,
+   "migration": {
+    "applied": "2026-10-27 (owner-confirmed)",
+    "current": [
+     "dispatch/job_rider_offer_alerts.sql (job); dispatch/rider_offer_alert.sql (column comments)"
+    ],
+    "purpose": "rider offer reminders r3 (plans/rider-dispatch-alerts-plan.md, section 12). A Decline with nobody having accepted NO LONGER restarts the other riders' reminders (r2 behaviour removed). Every offer is seeded ONCE, when it first becomes open: 7 reminders at offer time + each offset. Accept-then-decline before pickup is unchanged and still gives a complete reset: dispatch_cancel_before_pickup() deletes the order's other offers and job_create_dispatch() inserts brand-new offers (new dispatch_ids), which are first-time offers, so each gets the full schedule from zero, and a new overwatch round starts (redispatch_dtts). Kept from r2: one overwatch escalation per dispatch round. No dispatch logic changes: job_create_dispatch, job_assign_dispatch, process_delivery and dispatch_cancel_before_pickup are not touched. No table or index change. Requires: migrations/rider_offer_alerts.sql (r1) and migrations/rider_offer_alerts_r2.sql (r2) applied (2026-10-27)."
+   },
+   "objects": [],
+   "path": "migrations/rider_offer_alerts_r3.sql",
+   "role": "migration",
+   "title": "rider offer reminders r3 (plans/rider-dispatch-alerts-plan.md, section 12). A Decline with nobody having accepted NO LONGER restarts the other riders' reminders (r2 behaviour removed). Every offer is seeded ONCE, when it first becomes open: 7 reminders at offer time + each offset. Accept-then-decline before pickup is unchanged and still gives a complete reset: dispatch_cancel_before_pickup() deletes the order's other offers and job_create_dispatch() inserts brand-new offers (new dispatch_ids), which are first-time offers, so each gets the full schedule from zero, and a new overwatch round starts (redispatch_dtts). Kept from r2: one overwatch escalation per dispatch round. No dispatch logic changes: job_create_dispatch, job_assign_dispatch, process_delivery and dispatch_cancel_before_pickup are not touched. No table or index change. Requires: migrations/rider_offer_alerts.sql (r1) and migrations/rider_offer_alerts_r2.sql (r2) applied (2026-10-27)."
   },
   {
    "cron": [],
@@ -9327,7 +9362,7 @@
    "cron": [],
    "folder": "test_support",
    "header_lines": 0,
-   "lines": 417,
+   "lines": 418,
    "objects": [],
    "path": "test_support/test_restaurant_notices.sql",
    "role": "script",
@@ -10724,7 +10759,7 @@
    "file": "dispatch/job_rider_offer_alerts.sql",
    "folder": "dispatch",
    "kind": "function",
-   "line": 36,
+   "line": 33,
    "role": "definition",
    "signature": "job_rider_offer_alerts() -> boolean"
   },
@@ -11799,7 +11834,7 @@
    "file": "dispatch/rider_offer_alert.sql",
    "folder": "dispatch",
    "kind": "table",
-   "line": 25,
+   "line": 28,
    "role": "definition",
    "signature": "rider_offer_alert"
   },
@@ -11809,9 +11844,39 @@
    "file": "dispatch/rider_offer_alert.sql",
    "folder": "dispatch",
    "kind": "function",
-   "line": 81,
+   "line": 84,
    "role": "definition",
-   "signature": "rider_offer_order_open, rider_offer_state, rider_offer_reminder_snapshot, rider_offer_reminder_sent"
+   "signature": "rider_offer_order_open - whether an order is still looking for a rider"
+  },
+  "rider_offer_reminder_sent": {
+   "called_by": [],
+   "description": "",
+   "file": "dispatch/rider_offer_alert.sql",
+   "folder": "dispatch",
+   "kind": "function",
+   "line": 302,
+   "role": "definition",
+   "signature": "rider_offer_reminder_sent - atomically replace the message reference"
+  },
+  "rider_offer_reminder_snapshot": {
+   "called_by": [],
+   "description": "",
+   "file": "dispatch/rider_offer_alert.sql",
+   "folder": "dispatch",
+   "kind": "function",
+   "line": 258,
+   "role": "definition",
+   "signature": "rider_offer_reminder_snapshot - offer and current message reference"
+  },
+  "rider_offer_state": {
+   "called_by": [],
+   "description": "",
+   "file": "dispatch/rider_offer_alert.sql",
+   "folder": "dispatch",
+   "kind": "function",
+   "line": 135,
+   "role": "definition",
+   "signature": "rider_offer_state - reminder eligibility and closure reason"
   },
   "rider_pickup_alert": {
    "called_by": [

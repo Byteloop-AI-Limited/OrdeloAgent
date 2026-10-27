@@ -5,7 +5,7 @@
 
 The SQL under `ordelo_datamodels/` is organised by capability. Each file starts with a fixed header (live check, objects, how to run, side effects, how it fits, lifecycle, callers, Python model, security, tests, gotchas, see also). The file is the authority; this guide only indexes it.
 
-**125 SQL files · 218 objects** 141 functions · 58 tables · 13 triggers · 6 views · 17 cron jobs
+**126 SQL files · 221 objects** 144 functions · 58 tables · 13 triggers · 6 views · 17 cron jobs
 
 ## Capability map
 
@@ -16,7 +16,7 @@ The SQL under `ordelo_datamodels/` is organised by capability. Each file starts 
 | [`payment/`](payment/) | Payment | 3 | 3 | The payment inbox (payment_event), the at-most-once authorisation step and the alert-only reconciler for paid orders that never started fulfilment. |
 | [`notifications/`](notifications/) | Customer notifications | 3 | 3 | Who hears about an order (subscriptions), what happened (customer events) and one delivery record per event and subscription (outbox). |
 | [`delivery/`](delivery/) | Delivery orders | 6 | 12 | The delivery order as fulfilment sees it (delivery_summary), its priced vehicle options and the 5-second job that opens the next option or times the order out. |
-| [`dispatch/`](dispatch/) | Rider dispatch | 12 | 21 | Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep. |
+| [`dispatch/`](dispatch/) | Rider dispatch | 12 | 24 | Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep. |
 | [`takeaway/`](takeaway/) | Takeaway (collection) | 2 | 7 | The collection order (takeaway_summary), its creation and the triggers that tell admins and customers about it. |
 | [`restaurant_admin/`](restaurant_admin/) | Restaurant admin actions | 7 | 32 | Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout, receipts and notices. New Telegram receipts and notices exclude paused admins. |
 | [`telegram/`](telegram/) | Telegram layer | 7 | 33 | Admin and rider links, the protected update inbox, order cards, alert destinations, admin pause RPCs and the sent-message ledger. |
@@ -28,7 +28,7 @@ The SQL under `ordelo_datamodels/` is organised by capability. Each file starts 
 | [`byteloop_agent/`](byteloop_agent/) | Byteloop agent | 2 | 4 | Tables and vector search used by the separate Byteloop agent. |
 | [`test_support/`](test_support/) | Test support | 12 | 4 | Helpers and harness scripts for resetting and replaying orders. Not part of production flows. |
 | [`_orphans/`](_orphans/) | Orphan candidates | 10 | 25 | Live objects with no caller found in OrdeloAgent, restaurant-frontend or restaurant-agents. Captured exactly as live; keep or drop is an owner decision (docs/to-do.md). |
-| [`migrations/`](migrations/) | Migrations (history) | 19 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
+| [`migrations/`](migrations/) | Migrations (history) | 20 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
 
 ## Flows
 
@@ -225,6 +225,9 @@ Admin dashboard reads and platform helpers.
 | [`notify_missed_dispatches.sql`](dispatch/notify_missed_dispatches.sql) | `notify_missed_dispatches` | function | POST every accepted-but-lost dispatch (all orders) to /delivery-hooks/notify-missed-dispatches; returns true once posted. |
 | [`rider_offer_alert.sql`](dispatch/rider_offer_alert.sql) | `rider_offer_alert` | table |  |
 | [`rider_offer_alert.sql`](dispatch/rider_offer_alert.sql) | `rider_offer_order_open` | function |  |
+| [`rider_offer_alert.sql`](dispatch/rider_offer_alert.sql) | `rider_offer_state` | function |  |
+| [`rider_offer_alert.sql`](dispatch/rider_offer_alert.sql) | `rider_offer_reminder_snapshot` | function |  |
+| [`rider_offer_alert.sql`](dispatch/rider_offer_alert.sql) | `rider_offer_reminder_sent` | function |  |
 | [`rider_pickup_alert.sql`](dispatch/rider_pickup_alert.sql) | `rider_pickup_alert` | table | One checkpoint: (dispatch, phase awaiting_pickup\|picked_up, audience rider\|ops\|rest_admins, offset minutes) with due and sent times. |
 
 ### Takeaway (collection) (`takeaway/`)
@@ -465,6 +468,7 @@ Admin dashboard reads and platform helpers.
 | [`migrations/rider_dashboard_cutover.sql`](migrations/rider_dashboard_cutover.sql) | 2026-10-26 (owner-confirmed). | admin_dashboard/auth_sessions.sql, admin_dashboard/get_rider_jobs.sql, agent_threads/rider_job_history_access.sql, core/rider_master.sql, core/rider_registrations.sql, core/ordelo_config.sql, core/restaurant_master.sql, dispatch/delivery_dispatch.sql, delivery/delivery_summary.sql, delivery/delivery_detail.sql, dispatch/delivery_inflight.sql, ordering/food_order_additions.sql, admin_dashboard/v_admin_orders.sql, admin_dashboard/get_rider_payout_report.sql |
 | [`migrations/rider_offer_alerts.sql`](migrations/rider_offer_alerts.sql) | 2026-10-27 (owner-confirmed; cron job_rider_offer_alerts scheduled, every 5 seconds). | dispatch/rider_offer_alert.sql, dispatch/job_rider_offer_alerts.sql |
 | [`migrations/rider_offer_alerts_r2.sql`](migrations/rider_offer_alerts_r2.sql) | 2026-10-27 (owner-confirmed). | dispatch/rider_offer_alert.sql (table, indexes), dispatch/job_rider_offer_alerts.sql (job) |
+| [`migrations/rider_offer_alerts_r3.sql`](migrations/rider_offer_alerts_r3.sql) | 2026-10-27 (owner-confirmed) | dispatch/job_rider_offer_alerts.sql (job); dispatch/rider_offer_alert.sql (column comments) |
 | [`migrations/rider_telegram_r1.sql`](migrations/rider_telegram_r1.sql) | Applied by the owner on 2026-10-22 (steps 0-6); onboarding tested live the same day. Next: rider_telegram_r2_r4.sql. | core/rider_master.sql, telegram/t_rider_onboarding.sql, availability/pauses.sql, dispatch/job_create_dispatch.sql |
 | [`migrations/rider_telegram_r2_r4.sql`](migrations/rider_telegram_r2_r4.sql) | Applied by the owner on 2026-10-22 (steps 0-4, VERIFY 3/1/6/0); code deployed and a rider job tested live on Telegram and WhatsApp. | dispatch/delivery_dispatch.sql, agent_threads/rider_threads.sql |
 | [`migrations/rider_telegram_r5_r6.sql`](migrations/rider_telegram_r5_r6.sql) | Steps 1-3 verified on 2026-10-22 (VERIFY true / 7 / true / true / 4 / 0 after the owner applied restaurant_ready_adjust_notices.sql). Code and both command menus deployed per owner. Step 6 done: job_pause_sweep is scheduled (owner, 2026-10-23); live tests and drift_check passed. | rider_location/wa_location.sql, availability/pauses.sql, availability/rider_shift.sql,, dispatch/enquire_shift_availability.sql, telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql,, telegram/t_admin_pauses.sql, availability/job_pause_sweep.sql |
