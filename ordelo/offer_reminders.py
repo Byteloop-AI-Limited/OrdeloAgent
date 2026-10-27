@@ -3,7 +3,7 @@ Telegram rider offer reminders (plans/rider-dispatch-alerts-plan.md, D1-D8).
     . remind(dispatch_id, n, of) -> str  send a fresh copy of one unanswered Telegram offer with "⏰ Still open · reminder n of
       of", move delivery_dispatch.channel_msg_ref to it, delete the previous copy, and redraw the new copy if the job was
       decided meanwhile. Outcome (logs/tests): sent | skipped:<reason> | closed:<reason> | stale | failed
-    . escalate(order_number, after_secs, offered, declined) -> bool  one overwatch line when nobody accepted; once per order
+    . escalate(order_number, after_secs, offered, declined) -> bool  one overwatch line when nobody accepted; once per order and dispatch round
       is guaranteed by the SQL ledger; re-checks the order first
     . WHEN an offer may be reminded is decided ONLY by SQL rider_offer_state(); this module never repeats the rules.
     . Never sends on WhatsApp: if the factory falls back (no rider bot / no tcid) the reminder is skipped.
@@ -135,7 +135,7 @@ async def remind(dispatch_id: int, n: int, of: int, *, store: OfferReminderStore
     return "sent"
 
 
-async def escalate(order_number: str, after_secs: int, offered: int, declined: int, *,
+async def escalate(order_number: str, after_secs: int, offered: int, declined: int, redispatched: bool = False, *,
                    store: OfferReminderStore | None = None, alert: Callable[[str], Awaitable[None]] | None = None) -> bool:
     store = store or SupabaseOfferReminderStore()
     if not await store.order_open(order_number):                                  # accepted meanwhile: say nothing
@@ -143,5 +143,6 @@ async def escalate(order_number: str, after_secs: int, offered: int, declined: i
     if alert is None:
         from channels.telegram.ops_alerts import alert_ops as alert
     mins = f"{after_secs // 60} min" if after_secs % 60 == 0 else f"{after_secs} s"
-    await alert(f"⚠️ {order_number}: no rider has accepted after {mins} ({offered} offered on Telegram, {declined} declined)")
+    when = f"{mins} after re-dispatch" if redispatched else f"after {mins}"
+    await alert(f"⚠️ {order_number}: no rider has accepted {when} ({offered} offered on Telegram, {declined} declined)")
     return True

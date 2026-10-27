@@ -220,11 +220,15 @@ SELECT order_number, vehicle_type, town, status FROM public.delivery_detail WHER
 --      "Taken by another rider" after the assignment, the winner's "The job is yours"; then go on with STAGE 3
 --   e) ignore it 2 min: the escalation row 'sent' and overwatch WhatsApp gets
 --      "⚠️ STRK-TEST-…: no rider has accepted after 2 min (N offered on Telegram, M declined)", once
+--   f) Decline on one rider: the other rider's pending reminders are superseded and a new cycle starts from 1 of 7;
+--      the escalation remains due at the original round deadline.
+--   g) Accept, cancel before pickup, then rerun STAGE 2b: a new offer starts at 1 of 7 and a new escalation can say
+--      "no rider has accepted 2 min after re-dispatch".
 -- WhatsApp riders: no rows at all (reminders are Telegram only).
-SELECT a.kind, a.dispatch_id, r.rider_name, a.n, a.of_n, a.offset_secs, a.due_at, a.status, a.swept_at
+SELECT a.kind, a.dispatch_id, r.rider_name, a.cycle, a.round_at, a.n, a.of_n, a.offset_secs, a.due_at, a.status, a.swept_at
   FROM public.rider_offer_alert a LEFT JOIN public.rider_master r ON r.rider_id = a.rider_id
  WHERE a.order_number LIKE 'STRK-TEST-%'
- ORDER BY a.kind DESC, a.dispatch_id, a.offset_secs;
+ ORDER BY a.kind DESC, a.dispatch_id, a.cycle, a.offset_secs;
 SELECT d.dispatch_id, r.rider_name, d.channel, d.status, d.channel_msg_ref,
        public.rider_offer_state(d.dispatch_id) AS reminder_state
   FROM public.delivery_dispatch d JOIN public.rider_master r ON r.rider_id = d.rider_id
@@ -259,6 +263,7 @@ SELECT dispatch_id, phase, audience, offset_minutes, status, due_dtts, sent_dtts
 
 
 -- ===== STAGE 6: CANCEL + RE-DISPATCH (before pickup) =====
+-- The cancel deletes delivery_detail. STRK has no delivery_option rows: rerun STAGE 2b to release the order again.
 -- Uses the real function. Expect the old receipt copies to read "This rider is no longer on the job"; a new offer to your
 -- dummy riders; when one accepts, a NEW receipt (the old copy in each chat is deleted) and Ready offered again.
 SELECT public.dispatch_cancel_before_pickup(

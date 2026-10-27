@@ -2,7 +2,7 @@
 Rider offer reminder ingress (thin route; logic in ordelo/offer_reminders.py).
     . POST /rider-hooks/offer-alerts, called every ~5 s (only when something is due) by job_rider_offer_alerts()
       (ordelo_datamodels/dispatch/job_rider_offer_alerts.sql) through http_post
-    . Body: {"event_type", "timestamp", "reminders": [{dispatch_id, n, of}], "escalations": [{order_number, after_secs, offered, declined}]}
+    . Body: {"event_type", "timestamp", "reminders": [{dispatch_id, n, of}], "escalations": [{order_number, after_secs, offered, declined, redispatched}]}
     . 503 when the rider bot is not configured: non-2xx keeps the checkpoints pending, so nothing is lost
     . Answers 200 at once and does the Telegram work in background tasks
     . The database is re-checked before every send (rider_offer_reminder_snapshot), so a replayed or forged call cannot
@@ -34,6 +34,7 @@ class Escalation(BaseModel):
     after_secs: int = Field(ge=1)
     offered: int = Field(default=0, ge=0)
     declined: int = Field(default=0, ge=0)
+    redispatched: bool = False
 
 
 class OfferAlertsPayload(BaseModel):
@@ -55,5 +56,5 @@ async def offer_alerts(payload: OfferAlertsPayload, background_tasks: Background
     for r in payload.reminders:
         background_tasks.add_task(offer_reminders.remind, r.dispatch_id, r.n, r.of)
     for e in payload.escalations:
-        background_tasks.add_task(offer_reminders.escalate, e.order_number, e.after_secs, e.offered, e.declined)
+        background_tasks.add_task(offer_reminders.escalate, e.order_number, e.after_secs, e.offered, e.declined, e.redispatched)
     return {"status": "accepted", "reminders": len(payload.reminders), "escalations": len(payload.escalations)}

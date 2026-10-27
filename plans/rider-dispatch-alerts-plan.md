@@ -709,3 +709,232 @@ be unchanged. Record each step as `boundary | action | observed | label | not ve
 
 Staggered dispatch. WhatsApp rider reminders. Ledger retention (about 8 small rows per Telegram offer; see 9 (b)). A
 per-restaurant override of the offsets.
+
+---
+
+## 11. r2: fresh nudge on Decline, one overwatch alert per dispatch round (plan, 27 Oct 2026)
+
+Status: **plan, ready to implement**. r1 is live (applied 27 Oct; cron `job_rider_offer_alerts` active; first STRK tests
+passed, commit `d91bf6b`). Migration ready and checked on a scratch Postgres:
+[`ordelo_datamodels/migrations/rider_offer_alerts_r2.sql`](../ordelo_datamodels/migrations/rider_offer_alerts_r2.sql).
+**Nothing has been applied. The owner applies it.**
+
+### 11.1 Why
+
+STRK test, order `STRK-TEST-004731` (27 Oct, 00:47-00:50):
+- Two riders were offered in the same 5 s run (dispatches 1332 and 1333); reminders 10…90 were sent to both.
+- One rider tapped Accept between 00:49:37 and 00:49:53. That cancelled the 120 s reminders for both riders and the order's
+  escalation.
+- The same rider then told the agent he wanted to decline, which is a **cancel before pickup**.
+  `dispatch_cancel_before_pickup()` set his dispatch to `declined`, deleted the other offer and the `delivery_detail`, and
+  reset the summary to `unassigned` with `redispatch_dtts`.
+- Re-running STAGE 2b re-offered the order, and the rider got fresh reminders. That works because a re-offer creates new
+  offer rows, and reminders are per offer.
+
+Two gaps remain:
+1. A rider tapping **Decline** on an offer doesn't restart the other riders' reminders. Each keeps its own clock from its
+   own offer, so a rider whose reminders already ran out gets nothing more.
+2. The escalation is unique **per order**. After a cancel before pickup, the re-offered round never alerts overwatch,
+   because the first round's (cancelled) row blocks a new one.
+
+### 11.2 Decisions (owner, 27 Oct 2026, grilling)
+
+| # | Decision | Answer |
+|---|---|---|
+| R2-1 | Scope | Both: restart on Decline **and** one overwatch alert per dispatch round |
+| R2-2 | Restart shape | **Full restart from the decline.** The other open Telegram offers drop their remaining reminders and start again at decline +10/+20/+30/+45/+60/+90/+120 s. Each later decline restarts it again; the number of riders bounds it |
+| R2-3 | Wording | **Same line** as normal reminders ("⏰ Still open · reminder 1 of 7"), with no hint that someone declined |
+| R2-4 | Escalation vs decline | **Fixed.** Still due 120 s after the round's first Telegram offer; a decline doesn't move it |
+| R2-5 | Rounds | A round is the first dispatch, or a re-offer after a cancel before pickup (`delivery_summary.redispatch_dtts`). One escalation per round. Later rounds read "…no rider has accepted 2 min after re-dispatch" |
+| R2-6 | Which declines count | Any offer of the order turning `declined`: a Telegram or WhatsApp rider's Decline, and the accept-then-decline case. A cancel before pickup also counts, but it deletes the other offers anyway (new round) |
+| R2-7 | Dispatch logic | **Unchanged.** `job_create_dispatch`, `job_assign_dispatch`, `process_delivery` and `dispatch_cancel_before_pickup` aren't touched |
+
+### 11.3 Design
+
+**Ledger: two new columns** on `public.rider_offer_alert`, with the r1 unique keys replaced:
+
+| Column | Reminder rows | Escalation rows |
+|---|---|---|
+| `cycle int NOT NULL DEFAULT 0` | how many offers of the order were `declined` when this reminder cycle was seeded | 0 |
+| `round_at timestamptz NOT NULL DEFAULT '-infinity'` | `-infinity` (unused) | `delivery_summary.redispatch_dtts` of the round, `-infinity` for the first round |
+
+| r1 index (dropped) | r2 index (new) |
+|---|---|
+| `rider_offer_alert_reminder_uidx (dispatch_id, offset_secs) WHERE kind='reminder'` | `rider_offer_alert_reminder_cycle_uidx (dispatch_id, cycle, offset_secs) WHERE kind='reminder'` |
+| `rider_offer_alert_escalation_uidx (order_number) WHERE kind='escalation'` | `rider_offer_alert_escalation_round_uidx (order_number, round_at) WHERE kind='escalation'` |
+
+**Restart rule (inside `job_rider_offer_alerts()`, SEED step).** For every open Telegram offer, let **D** be the number
+of the order's offers in `declined` now, and **L** the offer's latest `cycle` (NULL if it was never seeded):
+
+| Case | Action |
+|---|---|
+| `L IS NULL` | First cycle: `cycle = D`, due = offer time (`dtts`) + offset. This is r1 behaviour |
+| `D > L` | Restart: the offer's pending rows become `superseded`, then insert `cycle = D`, due = **`now()`** + offset |
+| otherwise | nothing |
+
+- `now()` is the database clock when the job first sees the decline, within 5 s of it.
+  `delivery_dispatch.status_update_dtts` is deliberately **not** used: `dispatch_actions.respond_to_offer()` writes it
+  with the app server's local clock (`datetime.now().isoformat()`), which can be an hour off in summer time.
+- One data-modifying statement (`WITH o … todo … restarted AS (UPDATE …) INSERT …`), so the supersede and the new cycle
+  come from the same snapshot.
+- A decline count that goes **down** never restarts anything (`>`). That happens when a cancel before pickup deletes offers.
+- DUE and MARK rank by `cycle DESC, offset_secs DESC`. Only one cycle per offer is ever pending, so this is just a tie-breaker.
+
+**Escalation per round.** It's seeded per `(order_number, round_at)` with `round_at = COALESCE(s.redispatch_dtts,
+'-infinity')` from the order's Telegram offers made in that round (`d.dtts >= round_at`); due = the round's first offer + the
+last offset. The `offered` / `declined` counts in the payload cover that round only. The payload adds
+`redispatched = round_at > '-infinity'`. The CANCEL rule is unchanged (order no longer open).
+
+**Backfill (migration STEP 1).** Existing reminder rows get `cycle` = their order's **current** decline count, so applying
+r2 never restarts an offer by itself. Existing escalations keep `-infinity`. The step is safe to re-run.
+
+**Checked on a scratch Postgres 16** (repo `minimal_schema.sql` + `pauses.sql` + r1 migration, then r2 applied twice):
+- The backfill sets `cycle` and the next job run starts no extra cycles.
+- Two riders offered 25 s earlier both get `n=2`; rider B declines and the next run supersedes rider A's 6 pending
+  reminders and seeds cycle 1 (+10…+120 s from now). Rider B has nothing pending, and rider A's first reminder after that is
+  `n=1`.
+- A third offer declined restarts rider A again (cycle 2); old cycles are `sent` / `superseded` and only one cycle is pending.
+- Assignment cancels the round-1 escalation.
+- A cancel before pickup plus a new offer gives a new escalation row with `redispatched: true`, and the round-1 row stays
+  `cancelled`.
+
+### 11.4 Changes, file by file
+
+**SQL owner files** (must match the migration; `drift_check.py` after the owner applies it):
+
+`ordelo_datamodels/dispatch/rider_offer_alert.sql`:
+
+```diff
+     swept_at timestamp with time zone,
++    cycle integer NOT NULL DEFAULT 0, -- reminder: declined offers of the order when this cycle started (higher count = restart); escalation: 0
++    round_at timestamp with time zone NOT NULL DEFAULT '-infinity'::timestamptz, -- escalation: redispatch_dtts of the round (-infinity = first); reminder: -infinity
+     CONSTRAINT rider_offer_alert_pkey PRIMARY KEY (id),
+@@
+-CREATE UNIQUE INDEX IF NOT EXISTS rider_offer_alert_reminder_uidx ON public.rider_offer_alert USING btree (dispatch_id, offset_secs)
+-WHERE (kind = 'reminder'::text);
+-
+-CREATE UNIQUE INDEX IF NOT EXISTS rider_offer_alert_escalation_uidx ON public.rider_offer_alert USING btree (order_number)
+-WHERE (kind = 'escalation'::text);
++CREATE UNIQUE INDEX IF NOT EXISTS rider_offer_alert_reminder_cycle_uidx ON public.rider_offer_alert USING btree (dispatch_id, cycle, offset_secs)
++WHERE (kind = 'reminder'::text);
++
++CREATE UNIQUE INDEX IF NOT EXISTS rider_offer_alert_escalation_round_uidx ON public.rider_offer_alert USING btree (order_number, round_at)
++WHERE (kind = 'escalation'::text);
+```
+
+Also in that file:
+- add the two `COMMENT ON COLUMN` lines from migration STEP 1;
+- `LIFECYCLE`: "reminders: one cycle per offer at a time; a decline elsewhere in the order supersedes the pending cycle and
+  starts a new one. Escalations: one per order and dispatch round";
+- `LIVE CHECK`: point at both migrations.
+
+`ordelo_datamodels/dispatch/job_rider_offer_alerts.sql`: replace the function body with migration STEP 2 **verbatim**
+(including `REVOKE`, `GRANT … TO service_role` and the `COMMENT ON FUNCTION`). Update `HOW IT FITS` / `LIFECYCLE` /
+`GOTCHAS` with the restart rule and the `status_update_dtts` note. **Keep** its runnable `cron.schedule(...)` line as it is:
+the job is already scheduled, and re-running `cron.schedule` with the same name only updates it in place.
+
+Then run `python scripts/datamodels/format_sql.py` on both files, followed by `python scripts/datamodels/build_guide.py`.
+
+**Python: `ordelo/offer_reminders.py` `escalate()`.** The reminder path doesn't change.
+
+```diff
+-async def escalate(order_number: str, after_secs: int, offered: int, declined: int, *,
++async def escalate(order_number: str, after_secs: int, offered: int, declined: int, redispatched: bool = False, *,
+                    store: OfferReminderStore | None = None, alert: Callable[[str], Awaitable[None]] | None = None) -> bool:
+@@
+     mins = f"{after_secs // 60} min" if after_secs % 60 == 0 else f"{after_secs} s"
+-    await alert(f"⚠️ {order_number}: no rider has accepted after {mins} ({offered} offered on Telegram, {declined} declined)")
++    when = f"{mins} after re-dispatch" if redispatched else f"after {mins}"
++    await alert(f"⚠️ {order_number}: no rider has accepted {when} ({offered} offered on Telegram, {declined} declined)")
+     return True
+```
+
+Update the module docstring: "escalate … once per order **and dispatch round**".
+
+**Python: `watomation/routers/rider_offer_alerts.py`.**
+
+```diff
+ class Escalation(BaseModel):
+     model_config = ConfigDict(extra="ignore")
+     order_number: str = Field(min_length=1, max_length=100)
+     after_secs: int = Field(ge=1)
+     offered: int = Field(default=0, ge=0)
+     declined: int = Field(default=0, ge=0)
++    redispatched: bool = False
+@@
+-        background_tasks.add_task(offer_reminders.escalate, e.order_number, e.after_secs, e.offered, e.declined)
++        background_tasks.add_task(offer_reminders.escalate, e.order_number, e.after_secs, e.offered, e.declined, e.redispatched)
+```
+
+Also update the docstring body line to: `escalations: [{order_number, after_secs, offered, declined, redispatched}]`.
+
+Deploy order doesn't matter: the r1 code ignores `redispatched` (`extra="ignore"`) and the r2 code defaults it to `False`.
+
+### 11.5 Tests
+
+| File | Add |
+|---|---|
+| `tests/sql/minimal_schema.sql` | `redispatch_dtts timestamptz` on `delivery_summary` (live has it; the scratch run had to add it) |
+| `tests/sql/test_rider_offer_alerts_sql.py` | (a) Decline restart: two riders, the job runs, B declines, the job runs → A's pending rows `superseded`, 7 new rows `cycle=1` due now+offset, B has none pending; force A's cycle-1 offset 10 due → payload `n=1`. (b) A second decline → cycle 2, and only one cycle pending per offer. (c) Accept then decline (`accepted` → `declined`) restarts the others. (d) A decline count going down (offers deleted) never restarts. (e) Per-round escalation: round 1 cancelled by assignment; cancel before pickup (`redispatch_dtts`) plus a new offer → a second escalation row with `redispatched=true` and counts for that round only; a decline does not change `due_at`. (f) Payload carries `redispatched` |
+| `tests/sql/test_rider_offer_alerts_r2_migration_sql.py` (new; pattern `test_rider_telegram_r5_r6_migration_sql.py`) | Apply r1, create r1-era rows including an order with a decline, apply r2 STEP 1-3 **twice**. VERIFY gives `true/true/2/0/0`. Backfill: `cycle` = the decline count; the next job run seeds no new cycle; r1 index names gone |
+| `tests/sql/conftest.py` | Nothing new: the owner files stay in `MIGRATION_FILES` |
+| `tests/sql/test_rider_offer_alerts_sql.py::test_service_grants_and_migration_repeatable` (**must change**) | It re-applies r1 STEP 1-3 in the shared test database. That **recreates the r1 unique index** `rider_offer_alert_reminder_uidx` and **puts back the r1 job body**, so every later test would run r1 and a second cycle would hit the old unique key. After its two r1 applies, also apply r2 STEP 1-2 (slice `-- ===== STEP 1: COLUMNS` … `-- ===== STEP 3: VERIFY` from `rider_offer_alerts_r2.sql`), then assert the r2 index exists and the r1 one doesn't |
+| `tests/ordelo/test_offer_reminders.py` | `escalate(..., redispatched=True)` → "…no rider has accepted 2 min after re-dispatch (…)"; the default keeps the r1 text |
+| `tests/watomation/routers/test_rider_offer_alerts.py` | A payload with `redispatched: true` passes it to `escalate`; a payload without it defaults to False |
+
+### 11.6 Live test on STRK (`test_restaurant_notices.sql` only)
+
+**STAGE 2c**: add two steps after `e)`, and show `cycle` / `round_at` in its first query:
+
+```diff
+ --   e) ignore it 2 min: the escalation row 'sent' and overwatch WhatsApp gets
+ --      "⚠️ STRK-TEST-…: no rider has accepted after 2 min (N offered on Telegram, M declined)", once
++--   f) Decline on ONE rider while the other ignores it: within ~5 s the other rider's pending rows turn 'superseded' and a
++--      new cycle (cycle = number of declines) starts; their chat shows "reminder 1 of 7" again, then 2, 3 ... (one copy).
++--      Escalation unchanged: still due 120 s after the first offer.
++--   g) Accept on one rider, then tell the agent you want to cancel (cancel before pickup), then run STAGE 2b again: the
++--      other rider gets a NEW offer with reminders from 1 of 7, and after 2 min overwatch gets
++--      "…no rider has accepted 2 min after re-dispatch (…)": a second escalation row with round_at set.
+ -- WhatsApp riders: no rows at all (reminders are Telegram only).
+-SELECT a.kind, a.dispatch_id, r.rider_name, a.n, a.of_n, a.offset_secs, a.due_at, a.status, a.swept_at
++SELECT a.kind, a.dispatch_id, r.rider_name, a.cycle, a.round_at, a.n, a.of_n, a.offset_secs, a.due_at, a.status, a.swept_at
+   FROM public.rider_offer_alert a LEFT JOIN public.rider_master r ON r.rider_id = a.rider_id
+  WHERE a.order_number LIKE 'STRK-TEST-%'
+- ORDER BY a.kind DESC, a.dispatch_id, a.offset_secs;
++ ORDER BY a.kind DESC, a.dispatch_id, a.cycle, a.offset_secs;
+```
+
+**STAGE 6** comment (the harness has no `delivery_option` rows, so `process_delivery()` can't re-release a cancelled order):
+
+```diff
+ -- ===== STAGE 6: CANCEL + RE-DISPATCH (before pickup) =====
+ -- Uses the real function. Expect the old receipt copies to read "This rider is no longer on the job"; a new offer to your
+ -- dummy riders; when one accepts, a NEW receipt (the old copy in each chat is deleted) and Ready offered again.
++-- The cancel deletes the order's delivery_detail. In production process_delivery() recreates it from delivery_option;
++-- STRK has no delivery_option rows, so RE-RUN STAGE 2b after this stage (or after a rider cancels through the agent) to
++-- release the order again.
+```
+
+Update the stage table in `docs/live-order-test-harness.md` (STAGE 2c f/g, the STAGE 6 note). `tests/sql/test_restaurant_notices_script_sql.py`
+doesn't need a new stage name. Run it, because STAGE 2c's query now reads `cycle` / `round_at`, so the test database
+needs the r2 owner file.
+
+### 11.7 Rollout (the owner runs every SQL step)
+
+1. PR: owner SQL files, Python (11.4), tests (11.5), harness and docs (11.6). Run `pytest`, `tests/sql` on a local throwaway
+   Postgres, `tests/test_datamodels_standard.py` and `ruff check .`.
+2. Owner: `migrations/rider_offer_alerts_r2.sql` STEP 0 (pre-check; `cron_active` 1) → STEP 1 → STEP 2 → STEP 3 VERIFY
+   `true / true / 2 / 0 / 0`. **Don't schedule the cron job again**; it's already running and picks up the new body on its
+   next run.
+3. Deploy the code (order doesn't matter). Run `drift_check.py`.
+4. STRK: STAGE 0 → 1 → accept + pickup → 2b → 2c f; then a fresh order for 2c g (with STAGE 2b re-run after the cancel).
+5. Update the migration header to `Applied to live: <date>` and the `LIVE CHECK` lines in both owner files.
+
+### 11.8 Docs
+
+- `CONTEXT.md` **Offer reminder**: add "a decline by another rider restarts the cycle; overwatch is told once per dispatch
+  round".
+- `docs/delivery_process.md` phase 4 paragraph: the same two sentences.
+- `docs/to-do.md`: remove the "one escalation per order even after a re-dispatch" item (fixed by r2). Keep the retention
+  item. Add: `respond_to_offer()` writes `status_update_dtts` with the app server's local clock (naive `datetime.now()`);
+  consider `now()` in SQL.

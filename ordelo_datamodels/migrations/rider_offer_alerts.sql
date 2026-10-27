@@ -1,5 +1,5 @@
 -- MIGRATION (history; do not edit the statements below)
--- Applied to live: not yet (prepared 2026-10-26; the owner applies it by hand, nothing has been run).
+-- Applied to live: 2026-10-27 (owner-confirmed; cron job_rider_offer_alerts scheduled, every 5 seconds).
 -- Current definitions now live in: dispatch/rider_offer_alert.sql, dispatch/job_rider_offer_alerts.sql
 -- Purpose: Telegram rider offer reminders. A job offer that a Telegram rider has not answered is sent again (fresh copy,
 --          previous copy deleted) at RIDER_OFFER_ALERT_OFFSETS_SECS seconds after the offer ('10,20,30,45,60,90,120'),

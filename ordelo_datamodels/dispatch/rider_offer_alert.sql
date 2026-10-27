@@ -2,14 +2,14 @@
 -- ordelo_datamodels/dispatch/rider_offer_alert.sql
 -- Telegram rider offer reminders and the unanswered-order escalation.
 -- =============================================================================================
--- LIVE CHECK    not yet applied to live; migration rider_offer_alerts.sql awaits owner execution.
+-- LIVE CHECK    Applied to live 2026-10-27: migrations rider_offer_alerts.sql (r1) and rider_offer_alerts_r2.sql (r2), owner-confirmed.
 -- OBJECTS       table  rider_offer_alert
 --               fn     rider_offer_order_open, rider_offer_state, rider_offer_reminder_snapshot, rider_offer_reminder_sent
 -- REQUIRES      dispatch/delivery_dispatch.sql, availability/pauses.sql
 -- HOW TO RUN    Apply the migration first; this file maintains the definitions. Safe to re-run.
 -- SIDE EFFECTS  Stores checkpoints and message references.
 -- HOW IT FITS   Telegram only: delivery_dispatch.sql step 4 -> job_rider_offer_alerts -> rider-hooks/offer-alerts.
--- LIFECYCLE     pending -> sent, superseded or cancelled; one escalation per order.
+-- LIFECYCLE     pending -> sent, superseded or cancelled; declines restart pending reminders; one escalation per dispatch round.
 -- CALLED BY     job_rider_offer_alerts(); ordelo/offer_reminders.py snapshot(), reminder_sent(), order_open()
 -- PYTHON MODEL  ordelo/offer_reminders.py: SupabaseOfferReminderStore
 -- SECURITY      RLS enabled; PUBLIC, anon and authenticated revoked; service role only.
@@ -19,8 +19,8 @@
 -- =============================================================================================
 
 -- ===== STEP 1: TABLE =====
--- One row per checkpoint. kind 'reminder': one Telegram offer (dispatch) at one offset. kind 'escalation': one order, to
--- overwatch, once. No foreign key to delivery_dispatch on purpose: dispatch_cancel_before_pickup() and the STRK test reset
+-- One row per checkpoint. kind 'reminder': one Telegram offer, cycle and offset. kind 'escalation': one order and dispatch
+-- round, to overwatch once. No foreign key to delivery_dispatch on purpose: dispatch_cancel_before_pickup() and the STRK test reset
 -- DELETE dispatch rows; a reminder whose dispatch is gone is simply cancelled by the next run.
 CREATE TABLE IF NOT EXISTS public.rider_offer_alert (
     id bigserial NOT NULL,
@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS public.rider_offer_alert (
     status text NOT NULL DEFAULT 'pending'::text,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     swept_at timestamp with time zone, -- when the job marked it sent / superseded / cancelled
+    cycle integer NOT NULL DEFAULT 0, -- reminder cycle: declined offers when seeded; escalation: 0
+    round_at timestamp with time zone NOT NULL DEFAULT '-infinity'::timestamptz, -- escalation round start; reminder: -infinity
     CONSTRAINT rider_offer_alert_pkey PRIMARY KEY (id),
     CONSTRAINT rider_offer_alert_kind_check CHECK ((kind = ANY (ARRAY['reminder'::text, 'escalation'::text]))),
     CONSTRAINT rider_offer_alert_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'superseded'::text, 'cancelled'::text]))),
@@ -42,10 +44,10 @@ CREATE TABLE IF NOT EXISTS public.rider_offer_alert (
         OR (kind = 'escalation'::text AND dispatch_id IS NULL AND rider_id IS NULL)))
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS rider_offer_alert_reminder_uidx ON public.rider_offer_alert USING btree (dispatch_id, offset_secs)
+CREATE UNIQUE INDEX IF NOT EXISTS rider_offer_alert_reminder_cycle_uidx ON public.rider_offer_alert USING btree (dispatch_id, cycle, offset_secs)
 WHERE (kind = 'reminder'::text);
 
-CREATE UNIQUE INDEX IF NOT EXISTS rider_offer_alert_escalation_uidx ON public.rider_offer_alert USING btree (order_number)
+CREATE UNIQUE INDEX IF NOT EXISTS rider_offer_alert_escalation_round_uidx ON public.rider_offer_alert USING btree (order_number, round_at)
 WHERE (kind = 'escalation'::text);
 
 CREATE INDEX IF NOT EXISTS rider_offer_alert_due ON public.rider_offer_alert USING btree (due_at)
@@ -61,7 +63,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.rider_offer_alert TO servic
 
 GRANT USAGE, SELECT ON SEQUENCE public.rider_offer_alert_id_seq TO service_role;
 
-COMMENT ON TABLE public.rider_offer_alert IS 'Telegram rider offer reminders (one row per offer and offset) and the once-per-order overwatch escalation.';
+COMMENT ON TABLE public.rider_offer_alert IS 'Telegram rider offer reminders (one row per offer and offset) and the per-round overwatch escalation.';
+
+COMMENT ON COLUMN public.rider_offer_alert.cycle IS 'reminder: number of declined offers of the order when this reminder cycle started (a higher count restarts the cycle); escalation: 0';
+
+COMMENT ON COLUMN public.rider_offer_alert.round_at IS 'escalation: delivery_summary.redispatch_dtts of the dispatch round, -infinity for the first round; reminder: -infinity';
 
 -- ===== STEP 2: FUNCTIONS =====
 
