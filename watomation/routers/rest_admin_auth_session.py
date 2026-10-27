@@ -1,5 +1,5 @@
 """rest admin auth session: mints restaurant-admin dashboard magic links into `auth_sessions`.
-    . mint_dashboard_session(wa_number)            WhatsApp `/login` and POST /rest-admin/dashboard-session: finds the
+    . mint_dashboard_session(wa_number)            WhatsApp `/login`: finds the
                                                    restaurant from restaurant_master.admins (first match), then mints
     . mint_dashboard_session_for(phone, rest_ref)  mints for a restaurant the CALLER has already authorised; used by the
                                                    Telegram restaurant bot `/manage` (channels/telegram/rest_admin/manage.py),
@@ -17,8 +17,7 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter
 
 from config import client_ordelo, logger
 from config.params import get_dashboard_app_url_async, _resolve_rest_ref
@@ -68,23 +67,3 @@ async def mint_dashboard_session_for(wa_number: str, rest_ref: str) -> str:
 
     logger.info(f"[rest_admin.session.mint] wa_number={wa_number} rest_ref={rest_ref} expires={expires_at.isoformat()}")
     return f"{app_url}/rest-admin/activate/{token}"
-
-
-
-class CreateSessionRequest(BaseModel):
-    wa_number: str
-
-
-class CreateSessionResponse(BaseModel):
-    url: str
-    expires_at: datetime
-
-
-@router.post("/dashboard-session", response_model=CreateSessionResponse)
-async def create_dashboard_session(payload: CreateSessionRequest):
-    try:
-        url = await mint_dashboard_session(payload.wa_number)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="rest_admin_binding_mismatch")
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
-    return CreateSessionResponse(url=url, expires_at=expires_at)

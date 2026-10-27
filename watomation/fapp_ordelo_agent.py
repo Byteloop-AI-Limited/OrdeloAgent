@@ -29,7 +29,7 @@ import asyncio
 from contextlib import asynccontextmanager, suppress
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
@@ -52,7 +52,6 @@ from ordelo.agent_app_handlers import (
 from utils_common.waba_utils.wa_senders import enquire_shift_availability_non_template
 from watomation.routers import (
     rest_admin_auth_session,
-    rider_auth_session,
     sys_admin_auth_session,
     customer_hooks,
     delivery_hooks,
@@ -158,7 +157,6 @@ async def custom_404_handler(request: Request, exc: StarletteHTTPException):
 
 # %% Add routers
 app.include_router(rest_admin_auth_session.router)
-app.include_router(rider_auth_session.router)
 app.include_router(sys_admin_auth_session.router)
 app.include_router(customer_hooks.router, prefix="/customer-hooks")
 app.include_router(delivery_hooks.router, prefix="/delivery-hooks")
@@ -180,12 +178,16 @@ async def web_error_handler(request, exc):
     return JSONResponse(exc.body, status_code=exc.status, headers=web_hooks.PRIVATE)
 
 # %% DEFINE WA
+if not waba_business_settings.app_secret:
+    raise RuntimeError("WhatsApp app secret is required for authenticated dashboard login")
+
 wa: WhatsApp = WhatsApp(
     token=waba_business_settings.token,
     server=app,
     verify_token=waba_business_settings.verify_token,
     phone_id=waba_business_settings.phone_id,
-    validate_updates=False,
+    validate_updates=True,
+    app_secret=waba_business_settings.app_secret,
     continue_handling=False,
     business_private_key=waba_business_settings.private_key,
     business_private_key_password=waba_business_settings.private_key_password,
@@ -389,7 +391,7 @@ async def reset_restaurant_base_url_cache_endpoint(
 
 
 # %% get threads for id
-@app.get("/threads")
+@app.get("/threads", dependencies=[Depends(sys_admin_auth_session.require_sys_admin)])
 async def get_threads(recipient: Optional[str] = "447448440754"):
     threads = (
         client_ordelo.table("thread")
@@ -418,7 +420,7 @@ async def echo_request(request: Request):
 # %% Debug state
 
 
-@app.get("/debug-state")
+@app.get("/debug-state", dependencies=[Depends(sys_admin_auth_session.require_sys_admin)])
 async def debug_state_path(recipient: Optional[str] = "447448440754"):
     pool = await pg_settings.get_pool()
     checkpointer = AsyncPostgresSaver(pool)
@@ -427,7 +429,7 @@ async def debug_state_path(recipient: Optional[str] = "447448440754"):
     return debug_stack
 
 
-@app.get("/debug-state-by-thread")
+@app.get("/debug-state-by-thread", dependencies=[Depends(sys_admin_auth_session.require_sys_admin)])
 async def debug_state_by_thread_path(thread_id: str):
     pool = await pg_settings.get_pool()
     checkpointer = AsyncPostgresSaver(pool)
