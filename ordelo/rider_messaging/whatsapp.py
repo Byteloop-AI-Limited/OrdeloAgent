@@ -137,3 +137,7 @@ class WhatsAppRiderMessenger:
         # WhatsApp cannot edit the offer; today only 'taken' sends anything (notify_missed_dispatches_hook).
         if reason == "taken":
             await self.wa.send_message(to=self.phone, text=missed_offer_text(order_number))
+
+    async def delete(self, ref: MsgRef | None) -> None:
+        """WhatsApp cannot delete a sent offer."""
+        return None

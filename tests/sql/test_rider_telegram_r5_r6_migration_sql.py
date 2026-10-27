@@ -65,7 +65,7 @@ def mig():
     conn.execute(_PG_CRON_STUB)
     conn.execute((HERE / "minimal_schema.sql").read_text())
     for name in MIGRATION_FILES:
-        if name not in NEW_IN_R5_R6:
+        if name not in NEW_IN_R5_R6 | {"rider_offer_alert.sql", "job_rider_offer_alerts.sql"}:
             conn.execute(migration_sql(name))
     # The location tables as live has them: the feature file, then the CHECK put back to its two values.
     conn.execute(sql_path("wa_location.sql").read_text())

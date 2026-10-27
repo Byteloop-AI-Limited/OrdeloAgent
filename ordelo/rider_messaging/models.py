@@ -100,3 +100,4 @@ class JobOffer:
     header: str
     text: str
     footer: str = "♾️ Byteloop AI"
+    notice: str | None = None

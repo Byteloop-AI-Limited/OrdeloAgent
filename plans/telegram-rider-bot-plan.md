@@ -280,3 +280,6 @@ Follow-on rider inflight guard (SQL re-applied 22 Oct; app deployed and checked 
 | Bounded live R5-R6 object check | Read-only catalog snapshot | Seven new functions, `job_pause_sweep`, Telegram location source constraint, and WhatsApp-only shift filter present | live database catalog; definitions not compared |
 | Ruff on changed Python files | `ruff check` (39 files; local Mason executable) | 7 existing F401/F841 findings; all present in `HEAD` and no new findings | static |
 | Live Telegram / WhatsApp | stages of `test_rider_pauses_and_locations.sql` | **not run yet** | owner |
+
+
+Rider offer reminders: see [rider dispatch alerts plan](rider-dispatch-alerts-plan.md); Telegram offers repeat at configured offsets and stop when accepted or unavailable. The migration and live rollout remain owner-run.

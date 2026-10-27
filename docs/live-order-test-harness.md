@@ -45,10 +45,11 @@ script's STAGE 0-2b, then its STAGE 1-8: offer, Accept, job card, agent chat, co
 | 1 | New delivery order (notes, small-order fee, modification, TEST3100) | wait ~5 s | Telegram order card + reminders; WhatsApp confirmation prompt |
 | 2 | Shows state | tap **Accept**, then a pickup time | status `unassigned` |
 | 2b | Releases the order to riders (what `process_delivery()` does in production) | run it **after** 2 | dispatch offer on the dummy rider's WhatsApp |
+| 2c | Inspect reminder ledger and offer state (read only) | wait, decline, pause, or accept as described in the script | one live Telegram copy; steps f/g check decline restart and escalation per dispatch round |
 | 3 | Shows state | rider accepts (rider chat) | **Kitchen receipt** with Ready / +10 / +20 on WhatsApp and Telegram |
 | 4 | Shows state | Ready on one channel, +10 on the other, Ready again | rider nudged **once**; copies redrawn; second Ready says already ready |
 | 5 | Waits | wait | rider pickup alerts to the restaurant (Telegram replies to the receipt) |
-| 6 | Cancel + re-dispatch | rider/test | old receipt "no longer on the job"; new receipt after the next rider accepts |
+| 6 | Cancel + re-dispatch | rerun 2b to release the STRK order | old receipt "no longer on the job"; new receipt after the next rider accepts |
 | 7 | Picked up + complete | rider codes (or the two forcing statements) | "Delivered" notice; receipt becomes done |
 | 8 / 8b | Takeaway (`test_no_payment` / optional `pay_at_rest`) | accept + pickup, then Ready | takeaway receipt (8b: "Pay at restaurant" line); customer event once |
 | 9 | Delivery order older than the timeout, no rider job | wait for the sweep | auto-accept notice (after the update); card "Auto-accepted" |

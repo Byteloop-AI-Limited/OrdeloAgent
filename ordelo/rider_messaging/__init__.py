@@ -12,6 +12,7 @@ The rider agent, its tools and the rider hooks use it from phase R3 (plans/teleg
 from .factory import DispatchChannel, dispatch_channel, for_dispatch, for_rider, for_thread, messenger_for, use_messenger
 from .models import JOB_CARD_ACTIONS, ContactCard, JobOffer, LinkButton, MsgRef, Place, is_tg_ref, parse_tg_ref, tg_ref
 from .port import RiderMessenger
+from .offers import job_offer
 
 __all__ = [
     "RiderMessenger",
@@ -27,6 +28,7 @@ __all__ = [
     "ContactCard",
     "LinkButton",
     "JobOffer",
+    "job_offer",
     "JOB_CARD_ACTIONS",
     "tg_ref",
     "parse_tg_ref",

@@ -2,7 +2,7 @@
 -- ordelo_datamodels/ordering/food_order_additions.sql
 -- Columns, constraints, an index and a guard trigger that OrdeloAgent adds to restaurant-agents' food_order / order_item.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- LIVE CHECK    Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).
 -- OBJECTS       alter  food_order (table owned by restaurant-agents)
 --                   columns     origin_channel, storefront, idempotency_key, payment_mode
 --                   constraints food_order_origin_channel_chk, food_order_storefront_chk, food_order_payment_mode_chk
@@ -112,3 +112,10 @@ CREATE TRIGGER food_order_origin_immutable
 COMMENT ON FUNCTION public.forbid_food_order_origin_change () IS 'Trigger function: RAISE if an UPDATE changes food_order.origin_channel or storefront.';
 
 COMMENT ON TRIGGER food_order_origin_immutable ON public.food_order IS 'BEFORE UPDATE OF origin_channel, storefront on food_order: runs forbid_food_order_origin_change().';
+
+-- Private order source: server runtimes retain access; public clients use authorized projections.
+ALTER TABLE public.food_order ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.food_order FROM PUBLIC, anon, authenticated;
+
+GRANT ALL ON public.food_order TO service_role;

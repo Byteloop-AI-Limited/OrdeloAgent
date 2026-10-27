@@ -33,9 +33,12 @@ CREATE TABLE IF NOT EXISTS public.delivery_summary (
         CONSTRAINT delivery_summary_status_check
         CHECK (status IN ('restaurant_unconfirmed', 'unassigned', 'timedout', 'assigned', 'completed', 'declined')),
     pickup_time    timestamptz,
+    redispatch_dtts timestamptz,
     pickup_date    date         NOT NULL DEFAULT CURRENT_DATE,
     rest_confirmation_code integer NOT NULL DEFAULT 42,
     cust_confirmation_code integer NOT NULL DEFAULT 57,
+    rest_address text NOT NULL DEFAULT 'Test Kitchen',
+    customer_name text NOT NULL DEFAULT 'Test Customer',
     customer_address text NOT NULL DEFAULT '1 High Street, Testville',
     ready_at       timestamptz,
     ready_by       text,
@@ -94,7 +97,8 @@ CREATE TABLE IF NOT EXISTS public.food_order (
     notes       text,
     small_order_fee float,
     payment_status text NOT NULL DEFAULT 'paid',
-    recipient   text NOT NULL DEFAULT '447700900001'
+    recipient   text NOT NULL DEFAULT '447700900001',
+    order_dtts timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.order_item (
     id           serial PRIMARY KEY,
@@ -136,6 +140,12 @@ CREATE TABLE IF NOT EXISTS public.delivery_dispatch (
     status      varchar(50) NOT NULL CHECK (status IN ('unassigned', 'timedout', 'declined', 'accepted', 'missed', 'assigned', 'pickedup', 'completed')),
     status_update_dtts timestamp,
     reason_for_decline text,
+    vehicle_type varchar(15) NOT NULL DEFAULT 'bike',
+    rider_payout double precision NOT NULL DEFAULT 3.25,
+    distance double precision NOT NULL DEFAULT 1.5,
+    dtts timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'UTC'),
+    paid_status text NOT NULL DEFAULT 'unpaid',
+    paid_dtts timestamp,
     -- R2-R4 target shape (ordelo_datamodels/dispatch/delivery_dispatch.sql)
     channel     text NOT NULL DEFAULT 'whatsapp' CHECK (channel IN ('whatsapp', 'telegram')),
     channel_msg_ref text,

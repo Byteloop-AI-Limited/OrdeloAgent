@@ -104,3 +104,7 @@ Not fixed by that plan unless a phase says so.
   dedupe key or equivalent guard prevents repeated rider agent turns (text and job-card taps) and
   duplicate offer-decline cancellation. Done when the evidence and a keep-or-remove decision are
   recorded, with duplicate-delivery tests for every path before removing the RPCs or table.
+
+- Rider offer alerts: correct the `job_create_dispatch.sql` header, which implies open offers block later batches.
+- Add `rider_offer_alert` retention to `t_housekeeping()` when housekeeping is scheduled.
+- `respond_to_offer()` writes `status_update_dtts` with the app server’s naive local clock; consider using database `now()`.

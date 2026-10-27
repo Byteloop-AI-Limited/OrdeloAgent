@@ -2,12 +2,16 @@
 -- ordelo_datamodels/core/rider_master.sql
 -- One row per rider: phone (rider_id), vehicle, town, status, shift flag, channel and Telegram link.
 -- =============================================================================================
--- LIVE CHECK    Matches live: migrations/rider_telegram_r1.sql applied by the owner on 2026-10-22 (rider_id NOT NULL + UNIQUE,
+-- LIVE CHECK    Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).
 --                 channel, tuid, tcid, t_username, t_first_name, t_linked_at, phone_verified, rider_master_tuid_uidx), and the
 --                 Telegram onboarding was tested live the same day (existing and new riders).
 -- OBJECTS       table  rider_master
 --                   Riders that can be offered delivery jobs, keyed by rider_id (their phone number, digits only).
--- REQUIRES      none
+--               fn     rider_dashboard_revoke_link() -> trigger
+--                   Revoke dashboard credentials when the Telegram identity link changes.
+--               trg    trigger_rider_dashboard_revoke_link on rider_master -> rider_dashboard_revoke_link()
+--                   Runs atomically after a link change.
+-- REQUIRES      admin_dashboard/auth_sessions.sql (table must exist before linkage changes)
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
 --               On the existing live table the CREATE TABLE is a no-op: the R1 columns come from migrations/rider_telegram_r1.sql.
@@ -42,14 +46,13 @@
 --                 python    watomation/on_callback_wa_handler.py: handle_shift_availability()
 --                 python    watomation/on_message_wa_handler.py: process_wa_msg()
 --                 python    watomation/routers/delivery_hooks.py: delivery_inflight_graph_init_hook(), shift_availability_enquiry_hook()
---                 python    watomation/routers/rider_auth_session.py: _resolve_rider_id()
 --                 python    watomation/routers/sys_admin_auth_session.py: get_rider_payout()
 --                 python    ordelo/rider_messaging/factory.py: for_rider() (channel, tcid)
 --                 frontend  restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts
 --                 frontend  restaurant-frontend/app/rider/more/page.tsx
 --                 frontend  restaurant-frontend/app/sys-admin/riders-inshift/page.tsx
 -- PYTHON MODEL  none
--- SECURITY      rider_master: RLS OFF; Supabase default grants (anon and authenticated can read and write)
+-- SECURITY      Server-only grants and RLS below are proposed; live anonymous grants verified open 2026-10-26.
 -- TESTS         tests/regressions/test_p7_msg_handler.py
 --               tests/sql/test_restaurant_notices_script_sql.py
 --               tests/sql/test_restaurant_ready_adjust_notices_sql.py
@@ -90,7 +93,7 @@ CREATE TABLE IF NOT EXISTS public.rider_master (
     priority integer NOT NULL DEFAULT 1,
     dtts timestamp without time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     shift_response_dtts timestamp without time zone,
-    channel text NOT NULL DEFAULT 'whatsapp'::text, -- where messages we start go: 'whatsapp' | 'telegram'
+    channel text NOT NULL DEFAULT 'whatsapp' ::text, -- where messages we start go: 'whatsapp' | 'telegram'
     tuid bigint, -- Telegram user id (from_user.id): AUTHORISES; NULL = not linked
     tcid bigint, -- Telegram chat id: where the rider bot sends; NULL = not linked
     t_username text, -- @handle at the last link/refresh; display only, can change
@@ -122,3 +125,50 @@ COMMENT ON COLUMN public.rider_master.tuid IS 'Telegram user id (from_user.id); 
 COMMENT ON COLUMN public.rider_master.tcid IS 'Telegram chat id the rider bot sends to; NULL = not linked';
 
 COMMENT ON COLUMN public.rider_master.phone_verified IS 'true once a Telegram contact share proved this phone belongs to tuid';
+
+-- Private dashboard source: legitimate runtime callers use server credentials.
+ALTER TABLE public.rider_master ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.rider_master FROM PUBLIC, anon, authenticated;
+
+GRANT ALL ON public.rider_master TO service_role;
+
+-- Revoke rider dashboard access when a verified Telegram link moves or is removed.
+-- The rider row is already locked; sessions are locked second, matching mint/activation order.
+CREATE OR REPLACE FUNCTION public.rider_dashboard_revoke_link ()
+    RETURNS TRIGGER
+    LANGUAGE plpgsql
+    SET search_path = public, pg_temp
+    AS $$
+BEGIN
+    UPDATE
+        auth_sessions
+    SET
+        revoked = TRUE,
+        revoked_at = clock_timestamp(),
+        revoked_reason = 'rider_link_changed'
+    WHERE
+        ROLE = 'rider'
+        AND principal_id = OLD.rider_id
+        AND NOT revoked;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trigger_rider_dashboard_revoke_link ON public.rider_master;
+
+CREATE TRIGGER trigger_rider_dashboard_revoke_link
+    AFTER UPDATE OF tuid,
+    phone_verified,
+    t_linked_at ON public.rider_master
+    FOR EACH ROW
+    WHEN (OLD.tuid IS DISTINCT FROM NEW.tuid OR OLD.phone_verified IS DISTINCT FROM NEW.phone_verified OR OLD.t_linked_at IS DISTINCT FROM NEW.t_linked_at)
+    EXECUTE FUNCTION public.rider_dashboard_revoke_link ();
+
+REVOKE ALL ON FUNCTION public.rider_dashboard_revoke_link () FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.rider_dashboard_revoke_link () TO service_role;
+
+COMMENT ON FUNCTION public.rider_dashboard_revoke_link () IS 'Revoke pending and active rider dashboard sessions atomically on link change.';
+
+COMMENT ON TRIGGER trigger_rider_dashboard_revoke_link ON public.rider_master IS 'Invalidate dashboard credentials when verified rider linkage changes.';

@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS public.notification_outbox (
 
 TABLES = ["food_order", "order_item", "delivery_summary", "takeaway_summary", "delivery_detail", "delivery_dispatch",
           "delivery_inflight", "rider_pickup_alert", "order_customer_event", "order_notification_subscription",
-          "notification_outbox", "t_order_alerts", "t_sent_messages", "t_invites", "restaurant_master", "rider_master",
+          "notification_outbox", "rider_offer_alert", "t_order_alerts", "t_sent_messages", "t_invites", "restaurant_master", "rider_master",
           "ordelo_config"]
 
 
@@ -107,13 +107,13 @@ def counts(db) -> dict:
 
 
 def test_the_script_has_every_stage_the_plan_promises():
-    assert list(STAGES) == ["PREREQUISITES CHECK (read only)", "STAGE 0", "STAGE 1", "STAGE 2", "STAGE 2b", "STAGE 3", "STAGE 4", "STAGE 5",
+    assert list(STAGES) == ["PREREQUISITES CHECK (read only)", "STAGE 0", "STAGE 1", "STAGE 2", "STAGE 2b", "STAGE 2c", "STAGE 3", "STAGE 4", "STAGE 5",
                             "STAGE 6", "STAGE 7", "STAGE 8", "STAGE 8b", "STAGE 9", "STAGE 10"]
 
 
 def test_every_delete_and_update_is_scoped_to_strk_test_rows():
     deletes = re.findall(r"DELETE FROM .*?(?=\$q\$|;)", SCRIPT, flags=re.S)
-    assert len(deletes) == 14
+    assert len(deletes) == 15
     for d in deletes:
         assert "STRK-TEST-%" in d, d
     for u in re.findall(r"UPDATE public\.\w+.*?;", SCRIPT, flags=re.S):
@@ -129,7 +129,7 @@ def test_every_delete_and_update_is_scoped_to_strk_test_rows():
 
 def test_prerequisite_and_view_stages_run(db):
     link(db)
-    for name in ["PREREQUISITES CHECK (read only)", "STAGE 2", "STAGE 3", "STAGE 4", "STAGE 5"]:
+    for name in ["PREREQUISITES CHECK (read only)", "STAGE 2", "STAGE 2c", "STAGE 3", "STAGE 4", "STAGE 5"]:
         run(db, name)  # read-only selects: must not raise
     assert db.execute("SELECT count(*) FROM public.t_order_card_destinations(%s, 'STRK')", (BOT,)).fetchone()[0] == 1
 

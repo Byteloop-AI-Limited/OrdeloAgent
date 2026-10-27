@@ -146,11 +146,11 @@ async def respond_to_offer(rider_id: str, dispatch_id: int, order_number: str, a
 
 
 async def record_offer_ref(dispatch_id: int, ref: str | None) -> None:
-    """Store where the offer message is (delivery_dispatch.channel_msg_ref), so a closed offer can be edited (D49)."""
+    """Store the first offer ref only if empty; a reminder may already have replaced it."""
     if not ref:
         return
     await asyncio.to_thread(
-        lambda: client_ordelo.table("delivery_dispatch").update({"channel_msg_ref": ref}).eq("dispatch_id", dispatch_id).execute()
+        lambda: client_ordelo.table("delivery_dispatch").update({"channel_msg_ref": ref}).eq("dispatch_id", dispatch_id).is_("channel_msg_ref", "null").execute()
     )
 
 

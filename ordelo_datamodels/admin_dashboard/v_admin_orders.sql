@@ -2,7 +2,7 @@
 -- ordelo_datamodels/admin_dashboard/v_admin_orders.sql
 -- Order views for the restaurant admin dashboard: delivery + takeaway orders, their items, and daily / monthly totals.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- LIVE CHECK    Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).
 -- OBJECTS       view   v_admin_orders
 --                   Delivery and takeaway orders as one list for the admin dashboard, with money and London-local day columns.
 --               view   v_admin_order_items
@@ -41,13 +41,13 @@
 --               v_admin_orders_monthly:
 --                 nothing found (no code, trigger, cron job or other SQL refers to it)
 -- PYTHON MODEL  none
--- SECURITY      v_admin_orders: default grants
---               v_admin_order_items: default grants
---               v_admin_orders_daily: default grants
---               v_admin_orders_monthly: default grants
+-- SECURITY      v_admin_orders: server-only grants below (not applied)
+--               v_admin_order_items: server-only grants below (not applied)
+--               v_admin_orders_daily: server-only grants below (not applied)
+--               v_admin_orders_monthly: server-only grants below (not applied)
 -- TESTS         none
 -- GOTCHAS       v_admin_orders_daily and v_admin_orders_monthly had no file in the repo before 16 Oct 2026; captured from live.
---               The views have default grants: anon can read every restaurant's orders unless the frontend filters (security review).
+--               The views have server-only grants below (not applied): anon can read every restaurant's orders unless the frontend filters (security review).
 -- SEE ALSO      migrations/admin_orders_views.sql, migrations/admin_orders_indexes.sql (history)
 --               restaurant-frontend lib/rest-admin-session.ts
 -- =============================================================================================
@@ -187,3 +187,8 @@ COMMENT ON VIEW public.v_admin_order_items IS 'Order lines (order_item) with the
 COMMENT ON VIEW public.v_admin_orders_daily IS 'Per restaurant, local day and type: order count, gross and the restaurant''s cut.';
 
 COMMENT ON VIEW public.v_admin_orders_monthly IS 'v_admin_orders_daily rolled up by month.';
+
+-- Owner-rights views must not bypass the restricted source tables.
+REVOKE ALL ON public.v_admin_orders, public.v_admin_order_items, public.v_admin_orders_daily, public.v_admin_orders_monthly FROM PUBLIC, anon, authenticated;
+
+GRANT SELECT ON public.v_admin_orders, public.v_admin_order_items, public.v_admin_orders_daily, public.v_admin_orders_monthly TO service_role;

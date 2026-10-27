@@ -1,5 +1,6 @@
 """
 Manages PostgreSQL and Supabase settings for the OrdeloAgent application.
+    . Runtime REST clients and headers use server-only service credentials; browser/anon keys cannot access private rider/order data.
     . Defines the `PgSetting` class using `pydantic_settings` for loading database URIs, Supabase REST URLs, API keys, and vector store configurations from environment variables.
     . Initializes and provides access to a `supabase.Client` and `supabase.AsyncClient` for interacting with Supabase services.
     . Manages an `psycopg_pool.AsyncConnectionPool` for direct asynchronous PostgreSQL database connections. This pool is intended to be managed by the FastAPI application's lifespan events.
@@ -60,7 +61,7 @@ class PgSetting(BaseSettings):
         return {
             "apiKey": self.service_key,
             "Accept": "application/json",
-            "Authorization": f"Bearer {self.rest_key}",
+            "Authorization": f"Bearer {self.service_key}",
             "Content-Type": "application/json",
         }
 
@@ -68,6 +69,7 @@ class PgSetting(BaseSettings):
     def service_headers(self):
         return {
             "apiKey": self.service_key,
+            "Authorization": f"Bearer {self.service_key}",
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
@@ -84,7 +86,8 @@ class PgSetting(BaseSettings):
 
     @property
     def client(self) -> Client:
-        return create_client(self.rest_url, self.rest_key)
+        # Backend-only client. Private identity, sessions and dispatch data are not public Supabase objects.
+        return create_client(self.rest_url, self.service_key)
 
     async def get_pool(self) -> AsyncConnectionPool:
         # If pool doesn't exist, or if it exists but was closed
@@ -107,7 +110,7 @@ class PgSetting(BaseSettings):
 
     @property
     def async_client(self) -> AsyncClient:
-        return create_async_client(self.rest_url, self.rest_key)
+        return create_async_client(self.rest_url, self.service_key)
 
     # @property
     # def vector_store(self):
@@ -126,7 +129,7 @@ client_ordelo = pg_settings.client
 client_ordelo_service = create_client(pg_settings.rest_url, pg_settings.service_key)
 client_elas = create_client(
     pg_settings.rest_url,
-    pg_settings.rest_key,
+    pg_settings.service_key,
     options=ClientOptions(
         schema="elas",
     ),
