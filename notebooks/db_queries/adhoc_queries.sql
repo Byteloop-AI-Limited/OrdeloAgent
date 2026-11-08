@@ -43,7 +43,7 @@ select * from public.restaurant_admin;
 SELECT phone, tuid, tcid, channels, t_first_name FROM public.restaurant_admin WHERE phone = '447929843965';
 
 -- 2. Is the number on STRK's list, and is it paused?
-SELECT phone, channels, tcid FROM public.admin_roster WHERE rest_ref = 'STRK';
+SELECT phone, channels, tcid FROM public.admin_roster WHERE rest_ref = 'ELAS';
 SELECT public.is_paused('rest_admin', '447929843965', 'STRK') AS paused;
 
 -- 3. Where alerts would go. Cards use #3a; new notices use #3b.
@@ -73,4 +73,12 @@ SELECT * FROM public.t_order_card_destinations('rest_admin','STRK');
 SELECT * FROM public.t_alert_destinations('rest_admin','STRK');
 -- expect your linked number, with its tcid, in both
 
-select * from ordelo_config where config_key like 'STRK_TGRAM_ORDER_ALERT_OFFSETS_SECS%';
+
+SELECT dispatch_id, rider_id, status, channel, dtts, status_update_dtts
+  FROM delivery_dispatch WHERE order_number = 'STRK-TEST-004731' ORDER BY dispatch_id;
+SELECT status FROM delivery_summary WHERE order_number = 'STRK-TEST-004731';           -- expect unassigned
+SELECT vehicle_type, status FROM delivery_detail WHERE order_number = 'STRK-TEST-004731'; -- expect vehicle_type_timedout
+SELECT kind, dispatch_id, offset_secs, status, swept_at
+  FROM rider_offer_alert WHERE order_number = 'STRK-TEST-004731' ORDER BY kind, dispatch_id, offset_secs;
+  
+  select * from ordelo_config where config_key like 'STRK_TGRAM_ORDER_ALERT_OFFSETS_SECS%';

@@ -150,7 +150,18 @@ ul.log{padding-left:18px}ul.log li{margin:8px 0}
 
 <section class="panel" id="p-life" role="tabpanel">
   <div class="card">
-    <h2>Invite lifecycle (<code>t_invites.status</code>)</h2>
+    <h2>Onboarding an admin (roster)</h2>
+    <p class="lead">Invites are the legacy path (TRANSITION, removed in P3). Admins now link by sharing their phone; <code>restaurant_master.admins</code> is the only authority on who may link.</p>
+    <ol>
+      <li><strong>Operator:</strong> add the admin's phone to <code>restaurant_master.admins</code> in the sys-admin page.</li>
+      <li><strong>Operator:</strong> send the fixed link <code>t.me/&lt;bot&gt;?start=admin</code> (built from <code>ordelo_config.TGRAM_REST_ADMIN_BOT_USERNAME</code>; <code>OrdeloRestaurantBot</code> on live). Same link for every admin, not a secret.</li>
+      <li><strong>Admin:</strong> <code>/start</code> in a private chat, tap <strong>Share my phone number</strong> — accepted only when <code>contact.user_id == from_user.id</code>; typed or forwarded numbers are refused.</li>
+      <li><code>t_admin_link()</code> decides <code>linked | relinked | already_linked | not_on_roster | tuid_taken | bad_phone</code>. On <code>linked</code> channels become Telegram only (WhatsApp stops; <code>/channels</code> changes it).</li>
+    </ol>
+    <div class="note"><strong>Re-testing onboarding:</strong> <code>SELECT admin_unlink_telegram('&lt;phone&gt;', 'test-reset');</code> → <code>ok | not_found | not_linked</code>. It clears <code>tuid/tcid/t_username/t_first_name/t_linked_at</code> and sets channels back to <code>{whatsapp}</code>; the next <code>/start</code> + share runs the fresh-link path again. Same account without an unlink returns <code>already_linked</code> (channels not reset). Do not delete rows — the sys-admin "Unlink Telegram" button calls the same RPC. <code>SELECT admin_roster_status('&lt;rest_ref&gt;');</code> shows every roster phone's link state and channels.</div>
+  </div>
+  <div class="card">
+    <h2>Invite lifecycle (<code>t_invites.status</code>) — legacy</h2>
     <p class="lead">Click a state. There is no path back to <code>pending</code>: issue a new invite.</p>
     <div class="states" id="states" role="group" aria-label="Invite state"></div>
     <div class="detail" id="sdetail"></div>
@@ -270,6 +281,9 @@ const FILES = [
   {p:"utils_common/order_management/restaurant_actions.py", a:"DB access", w:"Shared Ready / adjust-pickup wrappers over the SQL rule, used by WhatsApp and Telegram. The rider or customer follow-up runs only on `ok`.", n:"`ready`, `adjust_pickup`, `WhatsAppActor`, `TelegramActor`, `ActionOutcome`"},
   {p:"ordelo_datamodels/restaurant_admin/restaurant_ready_adjust_notices.sql", a:"Database", w:"Phases 7-8: summary columns, shared Ready / adjust RPCs and `t_` wrappers, receipt and notice functions, `job_t_receipt_refresh()`.", n:"12 functions + 1 job; apply before deploying"},
   {p:"channels/telegram/invites.py", a:"DB access", w:"Thin async wrapper over the three invite RPCs. Docstring names the SQL file and each RPC.", n:"`preview_invite`, `claim_invite`, `linked_restaurants`, `InviteOutcome`, `LinkedRestaurant`"},
+  {p:"ordelo_datamodels/restaurant_admin/admin_roster.sql", a:"Database", w:"Roster: one row per admin phone, the admin_roster view over restaurant_master.admins, and the link / profile / channels / unlink / status RPCs, grants. The one place that defines the roster objects.", n:"`restaurant_admin`, `admin_roster`, `t_admin_link`, `t_admin_profile`, `admin_set_channels`, `admin_unlink_telegram`, `admin_roster_status`"},
+  {p:"ordelo/admin_roster.py · channels/telegram/admin_links.py", a:"DB access", w:"Channel-neutral roster helpers and the Telegram wrapper over t_admin_link / t_admin_profile (service role, asyncio.to_thread).", n:"`link`, `profile`, `AdminLink`, `AdminProfile`, `AdminRestaurant`"},
+  {p:"channels/telegram/rest_admin/channels.py · manage.py · ../ops_alerts.py", a:"Restaurant bot", w:"/channels (whatsapp / telegram / both, ac1), /manage (one-time dashboard link per restaurant), ops lines for not_on_roster / tuid_taken / relinked.", n:"`build_channels_router`, `build_manage_router`, `alert_ops`, `mask`"},
   {p:"channels/telegram/rest_admin/router.py", a:"Restaurant-admin bot", w:"Router factory: /start, /help, /whoami, the Yes/No callback, a text fallback. Deterministic, no LangGraph agent.", n:"`build_router()`, `cmd_start`, `on_invite_decision`, `cmd_help`, `cmd_whoami`, `fallback`"},
   {p:"channels/telegram/rest_admin/commands.py", a:"Restaurant-admin bot", w:"Command menu published by the setup notebook, and the help text.", n:"`REST_ADMIN_COMMANDS`, `HELP_TEXT`"},
   {p:"watomation/routers/telegram_webhook.py", a:"Webhook", w:"`POST /telegram/{bot_slug}/webhook`: secret check, validate, feed dispatcher, timing log, always 200.", n:"`telegram_webhook`, `HANDLER_TIMEOUT_SECS`"},
@@ -318,6 +332,11 @@ const XREF = [
   {o:"t_claim_invite(...)", k:"RPC", def:"telegram/t_invites.sql", py:"invites.claim_invite", h:"Yes button", t:"test_invites.py, test_rest_admin_router.py", d:"Atomic claim; first valid caller wins; fills TID/TCID, username, first name."},
   {o:"t_linked_restaurants(p_bot_key, p_user_id)", k:"RPC", def:"telegram/t_invites.sql", py:"invites.linked_restaurants", h:"/start, /whoami", t:"test_invites.py, test_rest_admin_router.py", d:"Restaurants this Telegram user is currently linked to."},
   {o:"ordelo_config.TGRAM_REST_ADMIN_BOT_USERNAME", k:"config row", def:"operator SQL (runbook)", py:"none (read by the view)", h:"n/a", t:"n/a", d:"Change this row when you change bots, and re-run the webhook notebook cell."},
+  {o:"restaurant_admin", k:"table", def:"restaurant_admin/admin_roster.sql", py:"none directly (through the RPCs)", h:"n/a", t:"tests/sql/test_admin_onboarding_script_sql.py", d:"One row per admin phone: tuid authorises, tcid addresses, channels pick destinations (never empty). Confers no authority — restaurant_master.admins does (D3/D4)."},
+  {o:"admin_roster", k:"view", def:"restaurant_admin/admin_roster.sql", py:"none (used inside the RPCs)", h:"n/a", t:"tests/sql", d:"One row per (restaurant, phone) on restaurant_master.admins, joined to that phone's admin record."},
+  {o:"t_admin_link(p_tuid, p_tcid, p_phone, p_username, p_first_name)", k:"RPC", def:"restaurant_admin/admin_roster.sql", py:"admin_links.link", h:"contact share (rest_admin router)", t:"router tests, tests/sql", d:"linked | relinked | already_linked | not_on_roster | tuid_taken | bad_phone; linked sets channels to {telegram}."},
+  {o:"t_admin_profile(p_tuid)", k:"RPC", def:"restaurant_admin/admin_roster.sql", py:"admin_links.profile", h:"/start, /whoami, /manage", t:"router tests, tests/sql", d:"Who this Telegram account is: the linked admin's restaurants and channels."},
+  {o:"admin_set_channels / admin_unlink_telegram / admin_roster_status", k:"RPC", def:"restaurant_admin/admin_roster.sql", py:"ordelo/admin_roster.py; sys-admin API", h:"/channels, sys-admin page, re-testing", t:"tests/sql", d:"Channels by hand; unlink clears tuid/tcid and returns channels to {whatsapp} (ok | not_found | not_linked) — the reset for re-running onboarding; per-restaurant roster status."},
   {o:"restaurant_master", k:"existing table", def:"existing migrations", py:"none (joined inside the RPCs)", h:"n/a", t:"n/a", d:"Source of `rest_ref` (foreign key) and `rest_name`. Its `admins` list is not read by the invite flow yet."},
   {o:"t_inbox", k:"table", def:"telegram/t_inbox.sql", py:"none directly (through the RPCs)", h:"n/a", t:"FakeInboxDb; tests/sql/test_t_inbox_sql.py", d:"One row per protected update the bot claimed: (bot_key, update_id) key, kind, sender tuid, status processing/done/failed. RLS on, no policies."},
   {o:"t_inbox_claim(p_bot_key, p_update_id, p_kind, p_tuid)", k:"RPC", def:"telegram/t_inbox.sql", py:"inbox.claim (process_once)", h:"protected handler", t:"test_inbox.py, test_telegram_webhook.py, tests/sql", d:"First caller wins: returns new or duplicate (+ current status)."},
@@ -364,6 +383,7 @@ const TODO = [
   "Rider bot R2-R4 live since 22 Oct. R5-R6 and the inflight guard were live-tested by the owner on 23 Oct; the pause-sweep cron is active every five minutes on live (the file's one-minute target is not applied)."
 ];
 const CHANGELOG = [
+  {d:"2026-11-06", t:"Documented the roster onboarding SOP (bot link, contact share, t_admin_link results) and the admin_unlink_telegram reset for re-testing, in the Admin roster section of the markdown and the Lifecycle tab here; invites marked legacy. Same SOP added to the database-operations skill. Docs only."},
   {d:"2026-10-27", t:"Owner confirmed rider dashboard cutover, /my_jobs registration and coordinated releases complete; dashboard opens directly. Sysadmin payout report issue resolved by backend permission/auth deployment and frontend upstream error handling. See docs/rider-dashboard-rollout.md and restaurant-frontend ENV_SETUP.md."},
   {d:"2026-10-26", t:"Rider /my_jobs now opens the dashboard through an automatic browser POST. A bare GET remains non-consuming, but JavaScript-capable scanners can activate a link. The origin check uses RESTAURANT_MENU_APP_URL. See docs/rider-dashboard-rollout.md."},
   {d:"2026-10-26", t:"Rider /my_jobs implemented: private verified-actor magic link, non-consuming GET and explicit POST exchange; Current/Completed read-only dashboard with completed-only earnings and recorded paid date. Service-only session/jobs RPCs, relink revocation, grant restrictions and authenticated payout/debug routes. Old rider HTTP mint/summary/proxy paths removed. At implementation time, offline/isolated checks were complete and owner rollout remained. Owner later confirmed cutover, coordinated release and menu publication complete; see the rollout status above and docs/rider-dashboard-rollout.md."},

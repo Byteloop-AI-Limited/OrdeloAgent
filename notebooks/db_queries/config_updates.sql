@@ -441,6 +441,7 @@ INSERT INTO ordelo_config (config_key, config_value)
 VALUES ('WEB_STOREFRONT_URL', 'https://restaurant-test.ordelo.app')
 ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value;
 
+-- Updating the alert inervals for rest admin tgram alerts
+update ordelo_config set config_value = '0,15,30,35' where config_key = 'STRK_TGRAM_ORDER_ALERT_OFFSETS_SECS';
 
-select * from restaurant_master; 
-select * from 
+select * from ordelo_config where config_key like 'STRK%';

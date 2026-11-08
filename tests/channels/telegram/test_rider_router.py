@@ -157,7 +157,7 @@ async def test_account_linked_to_another_rider_is_refused_and_alerts_ops(recordi
     rider_db.add("447700900999", tuid=111, tcid=111)
     rider_db.add(PHONE)
     await feed(bot, contact_update(PHONE))
-    assert session.sent_texts == ["This Telegram account is already linked to another rider. Please contact Ordelo."]
+    assert session.sent_texts == ["This Telegram account is already linked to another rider. Please contact Byteloop."]
     assert rider_db.riders[PHONE]["tuid"] is None
     assert len(ops_alerts) == 1 and "…0999" in ops_alerts[0] and "Refused" in ops_alerts[0]
 
@@ -185,7 +185,7 @@ async def test_unknown_phone_registers_then_asks_town_then_vehicle(recording_bot
 
     await feed(bot, callback_update(callback_datas(edit.reply_markup)[0], update_id=5))
     assert session.edited_texts[-1] == ("✅ Thanks Priya! You're registered for Salisbury (bike).\n"
-                                        "Ordelo will activate your account and message you here.")
+                                        "Byteloop will activate your account and message you here.")
     assert rider_db.riders[PHONE]["town"] == "Salisbury" and rider_db.riders[PHONE]["vehicle_type"] == "bike"
     assert rider_db.riders[PHONE]["status"] == "inactive"  # only an operator activates (D41)
 

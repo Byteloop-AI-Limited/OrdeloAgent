@@ -93,7 +93,7 @@ UPDATE public.rider_master SET status = 'inactive', is_in_shift = false WHERE ri
 -- SELECT rider_id, status, channel, tuid, tcid, is_in_shift FROM public.rider_master WHERE rider_id = '447448440754';
 -- In Telegram: open t.me/ByteloopRidersBot?start=join -> tap "Share my phone number" ->
 --   your phone is in rider_master -> "You're linked, <name>"         (row: tuid/tcid set, channel = 'telegram')
---   your phone is not             -> pick a town, then a vehicle -> "Thanks, Ordelo will activate your account"
+--   your phone is not             -> pick a town, then a vehicle -> "Thanks, Byteloop will activate your account"
 -- Send /whoami: it shows your Telegram ids and the rider row. Forwarding someone else's contact must be refused.
 -- Undo (puts you back exactly on WhatsApp; no delete):
 -- UPDATE public.rider_master SET tuid = NULL, tcid = NULL, t_username = NULL, t_first_name = NULL, t_linked_at = NULL,

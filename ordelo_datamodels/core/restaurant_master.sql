@@ -135,3 +135,5 @@ COMMENT ON COLUMN public.restaurant_master.auto_accept IS 'true: new orders are 
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.restaurant_master FROM PUBLIC, anon, authenticated;
 
 GRANT ALL ON public.restaurant_master TO service_role;
+
+select * from restaurant_master where rest_ref = 'STRK';

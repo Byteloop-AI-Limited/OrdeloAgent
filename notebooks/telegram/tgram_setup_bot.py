@@ -61,8 +61,8 @@ print(BOT_KEY)
 assert settings.webhook_url.startswith("https://"), f"set tgram_{BOT_KEY}_webhook_base_url to a public https:// URL"
 dp = DISPATCHER_FACTORIES[BOT_KEY](settings)
 
-callback_url = settings.webhook_url # Test
-# callback_url = settings.webhook_url.replace('-test', '') # Prod 
+# callback_url = settings.webhook_url # Test
+callback_url = settings.webhook_url.replace('-test', '') # Prod 
 
 await bot.set_webhook(
     url=callback_url,

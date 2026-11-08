@@ -208,10 +208,56 @@ dispatch = DeliveryDispatch.from_dispatch_id(432)
 | `t_inbox` | `bot_key, update_id` | `kind`, `tuid`, `status` (`processing`/`done`/`failed`), `error`, `received_at` — Telegram updates handled; service-role only; purged by `t_housekeeping()` (`ordelo_datamodels/telegram/t_housekeeping.sql`; not scheduled on live, see docs/to-do.md) | — |
 | `t_order_alerts` | `id` | `bot_key, order_number, order_type, rest_ref, offset_secs, n, of_n, due_at, status` (`pending`/`sent`/`superseded`/`cancelled`) — Telegram order-alert schedule written by `job_t_order_alerts()`; service-role only | — |
 | `t_sent_messages` | `id` (unique `bot_key, tcid, message_id`) | `tcid`, `tuid` (NULL = group), `subject_ref`, `order_type`, `card_status`, `state` (`live`/`taken`/`closed`), `taken_for`, `close_reason` — where each Telegram order-card copy lives; cleanup only; service-role only | — |
+| `restaurant_admin` | `phone` (digits only) | `channels` (`whatsapp`/`telegram`, never empty), `channels_set_by`, `tuid`, `tcid`, `t_username`, `t_first_name`, `t_linked_at` — one row per admin phone, created by `t_admin_link`; `tuid` authorises, `tcid` addresses; service-role only (see Restaurant-admin roster) | — |
 
-## Telegram Invites (`t_invites`)
+## Restaurant-admin roster (`restaurant_admin`)
 
-Day-to-day SOP for onboarding restaurant admins onto the Telegram restaurant-admin bot. Prerequisite: the
+Day-to-day SOP for onboarding restaurant admins onto the Telegram restaurant-admin bot (P1 of
+`plans/restaurant-admin-roster-onboarding-plan.md`; full detail in `docs/telegram-layer.md` under
+"Admin roster"). The invites below are the legacy path — do not create new ones.
+
+1. Add the admin's phone to `restaurant_master.admins` (sys-admin page; that list is the only
+   authority — `restaurant_admin` rows confer none).
+2. Send them the fixed bot link `t.me/<bot>?start=admin`, built from
+   `ordelo_config.TGRAM_REST_ADMIN_BOT_USERNAME` (`OrdeloRestaurantBot` on live). Same link for
+   every admin; not a secret.
+3. They `/start` in a private chat and tap "Share my phone number" (verified share:
+   `contact.user_id` must equal the sender). `t_admin_link` decides
+   `linked | relinked | already_linked | not_on_roster | tuid_taken | bad_phone`. On `linked`,
+   channels become `{telegram}` and WhatsApp alerts stop.
+
+Operator SQL (service role; all roster objects are service-role only):
+
+```sql
+-- Who is on a restaurant's roster, linked or not, and their channels:
+SELECT admin_roster_status('ELAS');
+
+-- Reset a number to re-run onboarding: clears tuid/tcid/t_username/t_first_name/t_linked_at
+-- and sets channels back to {whatsapp}. The sys-admin "Unlink Telegram" button calls this.
+SELECT admin_unlink_telegram('447700900123', 'test-reset');
+-- {result: ok | not_found | not_linked}  (not_found = no restaurant_admin row at all)
+
+-- Change an admin's channels by hand (whatsapp, telegram or both, never none):
+SELECT admin_set_channels('447700900123', ARRAY['telegram','whatsapp'], 'operator');
+-- {result: ok | not_found | bad_channels | not_linked}
+```
+
+Rules for agents:
+- Never insert or update `restaurant_admin` rows by hand: `t_admin_link` creates them,
+  `admin_unlink_telegram` clears the link, `admin_set_channels` changes channels. The row is the
+  audit of who linked.
+- Do not delete rows without explicit approval; unlink instead. The real off switch is removing
+  the phone from every `restaurant_master.admins` list.
+- Same phone + same Telegram account without an unlink returns `already_linked` (channels not
+  reset) — unlink first to re-test the fresh-link path.
+
+## Telegram Invites (`t_invites`) — legacy
+
+> Retired by the roster flow above (TRANSITION, removed in P3): the bot answers an old "Link this
+> chat?" tap with "Invite links aren't used any more." Claimed invites still count as linked admins
+> until P3. Do not create new invites; keep this only to inspect or revoke existing ones.
+
+Prerequisite: the
 migration `ordelo_datamodels/telegram/t_invites.sql` has been run and
 `ordelo_config.TGRAM_REST_ADMIN_BOT_USERNAME` is set (otherwise `invite_link` comes back NULL). The migration
 file's header explains how the table, view and functions fit together.

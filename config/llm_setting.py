@@ -34,6 +34,21 @@ class LLMSettings(BaseSettings):
             max_retries=2,
         )
 
+    @property
+    def llm_client_luna(self):
+        """
+        Returns a ChatOpenAI instance using the model and API key from settings,
+        with reasoning_effort="none", max_completion_tokens=512, timeout=15, max
+        """
+        return ChatOpenAI(
+            model="gpt-6-luna",
+            openai_api_key=self.openai_api_key,
+            use_responses_api=False,
+            reasoning_effort="none",
+            # max_completion_tokens=512,
+            timeout=15,
+            max_retries=2,
+        )
 
 llm_settings = LLMSettings(**agent_env)
 # %% Usage

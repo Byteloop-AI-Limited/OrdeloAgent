@@ -12,7 +12,7 @@ Onboarding (plans/telegram-rider-bot-plan.md, D39-D42), one generic link for eve
       else t_rider_link(): linked | already_linked | relinked (ops alert) | registered (ops alert) | tuid_taken (ops alert)
                            | bad_phone                                                                   D42
       registered / still 'TBD' -> town buttons -> vehicle buttons (t_rider_choices(), t_rider_set_profile())
-      -> "Thanks, Ordelo will activate your account" (status stays 'inactive' until an operator activates)    D41
+      -> "Thanks, Byteloop will activate your account" (status stays 'inactive' until an operator activates)    D41
 
 No state is kept in the process (gunicorn workers, concurrent updates: telegram_webhook.py): after the contact step
 every call is keyed by the tapping person's from_user.id, and the database decides. The phone never travels in
@@ -61,11 +61,11 @@ NOT_YOUR_CONTACT = (
     "Please use the <b>Share my phone number</b> button to share your OWN number. "
     "Forwarded or typed contacts can't be used."
 )
-BAD_PHONE = "That number doesn't look like a mobile number we can use. Please contact Ordelo."
-TUID_TAKEN = "This Telegram account is already linked to another rider. Please contact Ordelo."
+BAD_PHONE = "That number doesn't look like a mobile number we can use. Please contact Byteloop."
+TUID_TAKEN = "This Telegram account is already linked to another rider. Please contact Byteloop."
 ASK_TOWN = "Which town will you ride in?"
 ASK_VEHICLE = "What will you ride?"
-NO_CHOICES = "We can't finish sign-ups right now. Ordelo has been told and will contact you."
+NO_CHOICES = "We can't finish sign-ups right now. Byteloop has been told and will contact you."
 OPTION_GONE = "That option isn't available any more. Please pick again."
 NOT_LINKED = "Please send /start first to link your rider account."
 
@@ -75,14 +75,14 @@ def linked_text(link: rider_links.RiderLink | rider_links.RiderProfile, again: b
     head = f"✅ You're already linked, {name}." if again else f"✅ You're linked, {name}."
     if link.status == "active":
         return head + "\nYou'll get your rider messages here."
-    return head + "\nYour account is waiting for activation by Ordelo. We'll message you here."
+    return head + "\nYour account is waiting for activation by Byteloop. We'll message you here."
 
 
 def done_text(link: rider_links.RiderLink, name: str | None) -> str:
     where = f"{escape(link.town)} ({escape(link.vehicle_type)})"
     if link.status == "active":
         return f"✅ All set, {escape(name)}: {where}."
-    return f"✅ Thanks {escape(name)}! You're registered for {where}.\nOrdelo will activate your account and message you here."
+    return f"✅ Thanks {escape(name)}! You're registered for {where}.\nByteloop will activate your account and message you here."
 
 
 # ---- /start --------------------------------------------------------------------------------------------------------
@@ -217,7 +217,7 @@ async def _apply_choice(query: CallbackQuery, data: RiderSignup, tgram_settings:
         return
     if out.result == "locked":
         await _edit(query, f"Your town and vehicle are already set ({escape(out.town)}, {escape(out.vehicle_type)}). "
-                           "Contact Ordelo to change them.")
+                           "Contact Byteloop to change them.")
         return
     if out.result in ("bad_town", "bad_vehicle"):
         await _edit(query, OPTION_GONE)

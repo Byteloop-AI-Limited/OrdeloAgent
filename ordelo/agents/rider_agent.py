@@ -1377,6 +1377,7 @@ rider_agent_tools = [tool(service) for service in _rider_agent_tools]
 
 rider_agent = create_agent_w_sys_prompt_n_tools(
     llm=llm_settings.llm_client,
+    # llm=llm_settings.llm_client_luna,
     tools=rider_agent_tools,
     system_prompt=rider_agent_prompt,
     parallel_tool_calls=False,
@@ -1496,19 +1497,19 @@ builder.add_node("toolNode", ToolNode(rider_agent_tools))
 builder.add_edge(START, "riderAgent")
 builder.add_edge("toolNode", "riderAgent")
 
-
-# %%
-# from utils_common.lg_utils import display_graph
-# from langgraph.checkpoint.memory import MemorySaver
-
-# memory = MemorySaver()
-# graph = builder.compile()
-
-# display_graph(graph)
-
-# %%
-
 """
+
+# %%
+from utils_common.lg_utils import display_graph
+from langgraph.checkpoint.memory import MemorySaver
+
+memory = MemorySaver()
+graph = builder.compile()
+
+display_graph(graph)
+
+# %%
+
 from utils_common.lg_utils import agent_loop_test
 await agent_loop_test(builder, thread_id=1)
 

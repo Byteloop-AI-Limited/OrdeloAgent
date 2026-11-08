@@ -27,6 +27,27 @@ from pywa.types import Template as Temp
 from pywa.types.templates import QuickReplyButton, TemplateLanguage, BodyText
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 # waba_phone_setting, waba_business_setting
+from config import llm_settings
+
+# %% 
+%%timeit
+llm_settings.llm_client_luna.invoke("hi")
+# %%
+%%timeit
+llm_settings.llm_client.invoke("hi")
+
+# %%
+
+
+LLM_4o = ChatOpenAI(
+    model=llm_settings.l,
+    openai_api_key=llm_settings.openai_api_key,
+    # model="o3-mini-2025-01-31",
+    temperature=0,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2,
+)
 
 # %%
 # recipient = 447909510536

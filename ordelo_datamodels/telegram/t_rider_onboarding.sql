@@ -23,7 +23,7 @@
 --                 contact ONLY when contact.user_id == from_user.id (the number is the sender's own, as Telegram registered it)
 --                 -> t_rider_link(). Typed numbers are never accepted. Unknown phone -> a new rider_master row
 --                 (status 'inactive', town/vehicle 'TBD') -> the bot offers t_rider_choices() as buttons ->
---                 t_rider_set_profile() -> "Thanks, Ordelo will activate your account". An operator activates by setting
+--                 t_rider_set_profile() -> "Thanks, Byteloop will activate your account". An operator activates by setting
 --                 status = 'active'; until then get_available_riders() never offers the rider a job (D41).
 --                 The phone is never carried in callback data: after the contact step every call is keyed by tuid, which
 --                 Telegram supplies and the bot cannot be tricked into changing.

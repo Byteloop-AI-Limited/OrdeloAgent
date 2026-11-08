@@ -136,7 +136,7 @@ waba_business_settings.phone_id, waba_business_settings.account_id
 # _sync_wa_client.override_waba_callback_url(
 #     callback_url="https://rider-agent.ordelo.app/",
 # #   callback_url="https://rider-agent-test.ordelo.app/",
-#     verify_token="123456",
+#    verify_token="123456",
 #     waba_id=waba_business_settings.account_id,
 # )
 

@@ -39,13 +39,13 @@ from .commands import set_inflight_menu
 
 NOT_LINKED = "Please send /start first to link your rider account."
 TROUBLE = "Sorry, something went wrong on our side. Please try again in a minute."
-NOT_ACTIVE = "Your rider account is waiting for activation by Ordelo. We'll message you here when it's ready."
+NOT_ACTIVE = "Your rider account is waiting for activation by Byteloop. We'll message you here when it's ready."
 ASK_LENGTH = "Take a break from new job offers for how long?"
-OFF_DISABLED = "Breaks can't be set here right now. Please contact Ordelo."
+OFF_DISABLED = "Breaks can't be set here right now. Please contact Byteloop."
 OPTION_GONE = "That option isn't available any more. Send /off to pick again."
 BACK_ON = "✅ Break over: you're back on. New job offers will arrive here."
 ALREADY_ON = "✅ You're on. New job offers arrive here. Send /off to take a break."
-OTHER_CHANNEL = "Your job offers currently go to WhatsApp. Please contact Ordelo to move them here."
+OTHER_CHANNEL = "Your job offers currently go to WhatsApp. Please contact Byteloop to move them here."
 ON_JOB = "Please complete the current order before using /off or /on."
 
 

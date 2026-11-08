@@ -16,7 +16,7 @@ OrdeloAgent's existing FastAPI service also receives Telegram webhooks. One **bo
 
 `tgram_starter/` (the standalone starter kit) is kept unchanged for later reference. Nothing imports it.
 
-## 2. Request flow (a restaurant admin taps an invite link)
+## 2. Request flow (a restaurant admin links to the bot)
 
 ```
 Telegram ──POST /telegram/rest-admin/webhook──▶ Cloudflare tunnel / load balancer ──▶ FastAPI
@@ -26,9 +26,10 @@ Telegram ──POST /telegram/rest-admin/webhook──▶ Cloudflare tunnel / lo
     3. validate the Update, answer 200 at once, and run the handler (25 s timeout) in a BackgroundTask so a slow Telegram call cannot stall the bot's later updates; updates may now run concurrently
     4. dp.feed_update(bot, update)         aiogram Dispatcher for THIS bot only
          channels/telegram/rest_admin/router.py
-           /start <code>   → invites.preview_invite()  → RPC t_invite_preview   → "Link this chat to <b>name</b>?" [Yes][No]
-           tap Yes         → inbox.process_once() → invites.claim_invite() → RPC t_claim_invite
-           /start, /whoami → invites.linked_restaurants() → RPC t_linked_restaurants
+           /start          → admin_links.profile() → RPC t_admin_profile → "You're linked" or "Share my phone number"
+           contact share   → contact.user_id == from_user.id → inbox.process_once() → admin_links.link() → RPC t_admin_link
+           /whoami         → admin_links.profile() → RPC t_admin_profile
+           (legacy, TRANSITION: /start <code> and invite Yes → invites.* → t_invite_* RPCs; removed in P3)
     5. always return {"ok": true}          Telegram retries non-2xx, so failures are logged, not raised
 ```
 
@@ -223,6 +224,10 @@ When you add, rename or change an RPC, update **all three** in the same change.
 
 ## 7. Invite lifecycle and operations
 
+> **Legacy path (TRANSITION, removed in P3).** New admins onboard by sharing their phone — see
+> [Admin roster](#admin-roster-p1-of-the-restaurant-admin-onboarding-plan). Claimed invites are
+> still honoured until P3; do not create new ones.
+
 `pending → claimed` (person confirms before `expires_at`), `pending → expired` (computed when `expires_at` passes), `pending|claimed → revoked` (operator). There is no way back to `pending`; issue a new invite. A claim records `telegram_user_id`, `telegram_chat_id`, username and first name. `phone_verified` is reserved for a later flow and is never set today.
 
 Operators (and agents) create invites, read the link from `t_invites_shareable`, see who claimed what, and revoke, using the SQL in the footer of `telegram/t_invites.sql` and the **Telegram Invites** section of the [database-operations skill](../.claude/skills/database-operations/SKILL.md). Deleting rows needs explicit approval; revoke instead.
@@ -317,6 +322,53 @@ Admins now link by **sharing their phone** (contact share, `contact.user_id` mus
 | Ops alerts (not on roster, Telegram account taken, relinked) | `channels/telegram/ops_alerts.py` |
 | Sys-admin UI (one row per admin, channel control, unlink, copy bot link) | `restaurant-frontend/app/sys-admin/restaurants/page.tsx` and `.../[rest_ref]/admins/*` |
 
+### Onboarding a restaurant admin (operator SOP)
+
+A ready-to-run copy of this SOP lives in
+[`notebooks/db_queries/restaurant_queries/how-to-onboard-restaurant-admin.sql`](../notebooks/db_queries/restaurant_queries/how-to-onboard-restaurant-admin.sql).
+
+The link is the same for every admin and is not a secret: `t.me/OrdeloRestaurantBot?start=admin`
+(built from `ordelo_config.TGRAM_REST_ADMIN_BOT_USERNAME`; copy it from the sys-admin page so a bot
+change needs no doc change).
+
+1. **Operator:** add the admin's phone to `restaurant_master.admins` in the sys-admin page
+   (`restaurant-frontend/app/sys-admin/restaurants/[rest_ref]/admins`). `restaurant_master.admins`
+   is the only authority on who may link.
+2. **Operator:** send the admin the bot link.
+3. **Admin:** opens the bot in a private chat, `/start`, taps **Share my phone number**. The router
+   accepts the contact only when `contact.user_id == from_user.id` — a typed or forwarded number
+   is refused.
+4. `t_admin_link()` decides: `linked` | `relinked` (same phone, new Telegram account — the link
+   moves, ops is told) | `already_linked` | `not_on_roster` (refused, ops told) | `tuid_taken`
+   (that Telegram account is linked to another admin's phone — refused, ops told) | `bad_phone`.
+5. On `linked` the admin's channels are set to Telegram only — WhatsApp alerts stop (D6). They get
+   "You're linked" with their restaurants. Afterwards: `/channels` switches Telegram / WhatsApp /
+   both, `/whoami` shows the profile, `/manage` sends a one-time dashboard link per restaurant,
+   `/off` `/on` pauses them on all channels.
+
+### Re-testing onboarding (unlink and relink)
+
+`admin_unlink_telegram` clears the Telegram link and returns the admin to WhatsApp only; it is the
+reset for re-running the onboarding flow (the sys-admin page's "Unlink Telegram" calls the same RPC):
+
+```sql
+SELECT admin_unlink_telegram('447700900123', 'test-reset');
+-- {result: ok | not_found | not_linked}
+```
+
+It sets `tuid`, `tcid`, `t_username`, `t_first_name`, `t_linked_at` to NULL and `channels` to
+`{whatsapp}`. `not_found` means no `restaurant_admin` row exists for the phone at all. Afterwards
+`/start` → share the phone re-runs the full path and `t_admin_link` returns `linked` again
+(channels back to `{telegram}`). Do not delete the `restaurant_admin` row — unlink is enough, and
+deleting needs explicit approval.
+
+- Same phone + same Telegram account without an unlink returns `already_linked` (channels are not
+  reset) — unlink first if you want the fresh-link path.
+- To test `not_on_roster`, use a phone that is on no restaurant's `admins` list.
+- To test `tuid_taken`, share a second rostered phone from an already-linked Telegram account.
+- `admin_roster_status('<rest_ref>')` shows every roster phone's link state and channels; the
+  sys-admin page reads the same data.
+
 P1 keeps WhatsApp working: the `t_*` destination functions fall back to claimed invites for phones with no admin record (TRANSITION branches, removed in P3). `WHATSAPP_FOLLOWS_CHANNELS` is `False`, so `/channels` shows a note that WhatsApp will follow once P2 lands. Apply `ordelo_datamodels/migrations/admin_roster_p1.sql` (owner only), then run `test_support/test_admin_onboarding.sql` and `test_restaurant_notices.sql` against STRK.
 
 ## Order-card reminders and auto-accept
@@ -353,6 +405,8 @@ Status: derived from the SQL; not yet confirmed live with an auto-accept restaur
 ## Change log
 
 Add one line per change, newest first: date, what changed, files.
+
+- 2026-11-06: Documented the roster onboarding SOP (bot link, contact share, `t_admin_link` results) and the `admin_unlink_telegram` reset for re-testing, under "Admin roster"; marked section 7 invites as the legacy path. Same SOP added to the database-operations skill. Docs only.
 
 - 2026-10-27: Rider exit requests use shared status guards and confirmation buttons on Telegram and WhatsApp. Post-pickup requests are refused and alert overwatch. Callback actor and active thread are checked; offline verification only. No SQL change; concurrent pickup/cancel remains a database race to resolve before relying on this as an absolute guarantee.
 
