@@ -1,3 +1,4 @@
+select rider_id, channel,* from rider_master order by channel;
 select * from public.pauses;
 update public.pauses set ends_at = now() + interval '1 minute' where ends_at > now();
 
@@ -5,7 +6,7 @@ select * from public.restaurant_admin;
 select * from public.admin_roster;
 select * from rider_master where rider_id in ('447448440754', '447446933210') order by is_in_shift desc, shift_response_dtts desc, status asc;
 
-
+select * from rider_master;
   SELECT rider_id, rider_name, status, is_in_shift, town, vehicle_type, priority,
           public.is_paused('rider', rider_id, NULL) AS paused,
           rider_id IN (SELECT btrim(x) FROM ordelo_config oc,

@@ -107,7 +107,7 @@ select * from delivery_summary order by dtts desc limit 10;
 select * from delivery_dispatch 
 inner join rider_master on rider_master.rider_id = delivery_dispatch.rider_id
 where order_number='ELAS-ZXUV-21';
-select * from food_order where order_number='SFCS-UFIF-23';
+select * from food_order where order_number='SFCS-BKOW-22';
 select * from takeaway_summary order by dtts desc;
 select * from delivery_summary where order_number='ELAS-ZXUV-21'; -- rest_ref, rest_confirmation_code, cust_confirmation_code, status, dtts as order_created_time, customer_id, customer_name, restaurant_confirmation_status, restaurant_update_dtts, pickup_time as scheduled_pickup_time
 select * from delivery_detail order by dtts desc; -- vehicle_type, rider_id, rider_payout, distance, status_update_dtts (order_pickup time);

@@ -12,6 +12,7 @@ RESTAURANTS = {
     "SFCS": {"town": "salisbury", "phone": "01722433714"},
     "BNAT": {"town": "orpington", "phone": "01689637476"},
     "CRMS": {"town": "orpington", "phone": "01689838792"},
+    "CRDO": {"town": "orpington", "phone": "01689332664"},
 }
 MAX_ORDER_LINES = 20
 LATE_PAYMENT_MINUTES = 35
