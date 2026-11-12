@@ -1,0 +1,36 @@
+1
+00:00:00,000 --> 00:00:04,900
+Welcome to Byteloop Riders. Deliver for local restaurants and run every job from Telegram. No new app to download.
+
+2
+00:00:05,000 --> 00:00:15,900
+To join, open our link and tap Share my phone number. Pick your town and vehicle, and once we activate your account, job offers start coming in.
+
+3
+00:00:16,000 --> 00:00:22,367
+First, give the bot its own alert sound, so you can tell a job apart from everything else on your phone.
+
+4
+00:00:22,467 --> 00:00:31,367
+Every offer shows the distance and your pay. This one's 0.7 miles for £7. Miss it, and it pings you again until the job is taken.
+
+5
+00:00:31,467 --> 00:00:39,367
+Accept, and the job is yours. Our AI assistant sends your pickup time and delivery instructions, and guides you step by step.
+
+6
+00:00:39,467 --> 00:00:42,567
+At the restaurant, type in the two-digit code they give you. A thumbs-up means you're good to go.
+
+7
+00:00:42,667 --> 00:00:46,333
+At the door, ask the customer for their two-digit code. Thumbs-up, and the delivery's complete.
+
+8
+00:00:46,433 --> 00:00:57,333
+Telegram is your control centre. Check your current job, past jobs, earnings and payout status, and switch job alerts off when you're off shift.
+
+9
+00:00:57,433 --> 00:01:02,333
+Byteloop Riders. Scan to join, and start riding this week.
+

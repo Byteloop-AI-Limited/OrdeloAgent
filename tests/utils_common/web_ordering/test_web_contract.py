@@ -33,6 +33,7 @@ def test_registry_towns_and_phones():
         assert entry["phone"]
     assert RESTAURANTS["CRMS"] == {"town": "orpington", "phone": "01689838792"}
     assert RESTAURANTS["BNAT"] == {"town": "orpington", "phone": "01689637476"}
+    assert RESTAURANTS["CRDO"] == {"town": "orpington", "phone": "01689332664"}
 
 
 @pytest.mark.parametrize("rest_refs", [("BNAT", "CRMS"), ("CRMS", "BNAT")])
