@@ -31,7 +31,7 @@ Delivery webhook handlers for Ordelo delivery system
     . RestaurantMasterData - Pydantic model for restaurant_master table fields
     . RestaurantConfirmationPayload - Pydantic model for restaurant confirmation webhook with trigger_reason
     . get_payload - Helper to parse webhook payloads
-    . cancel_payment - Cancels payment for an order via payment microservice
+    . cancel_payment - Cancels payment for an order via payment microservice (skipped, returning "skipped_test_order", for test-mode TEST3100 orders)
     . wa_send_delivery_dispatch_request_to_rider - Sends the job offer on the dispatch's channel (RiderMessenger.offer_job;
       WhatsApp byte-identical) and stores its MsgRef on delivery_dispatch.channel_msg_ref (R4, D44/D49)
     . post_rider_event_inflight - Posts delivery summary to webhook (accepts DeliverySummary param)
@@ -269,6 +269,22 @@ async def cancel_payment(order_number):
         return None
 
     order_id = food_order.order_id
+
+    # TEST3100 orders are paid with the test-payment simulator, so no PaymentIntent
+    # exists and the payment service answers 500. Skip the call and report the
+    # payment as released so the no-rider / decline flows can be tested end to end.
+    # Live-mode orders are never skipped; if the classification is unavailable the
+    # normal cancellation runs.
+    try:
+        skip_cancel = food_order.uses_test_payment and await order_has_test_item(order_number)
+    except Exception:
+        skip_cancel = False
+    if skip_cancel:
+        logger.info(f"Skipping payment cancellation for TEST3100 order {order_number}")
+        if is_web_customer_key(getattr(food_order, "recipient", "")):
+            await customer_notifier.publish(order_number, CustomerOrderEvent("payment_released", "payment_released", "web-payment-released", {"payment_cancelled": True}))
+        return "skipped_test_order"
+
     payment_uri = food_order.payment_uri
     cancel_payload = {
         "action": "delivery",
@@ -832,21 +848,28 @@ async def delivery_timedout(
         from utils_common.web_ordering.lifecycle import queue_release
         await queue_release(delivery_summary["order_number"], "no_rider_found")
 
-    # 2. Configured auto-accept orders intentionally suppress the noisy
-    # no-rider message. Timeout auto-accepts retain their existing message.
-    if delivery_summary.get("rest_confirmation_method") != "configured_auto":
-        rest_ref = delivery_summary["order_number"].split("-")[0]
-        rest_admins = RestaurantMaster.get_admins_for(rest_ref)
+    # 2. Restaurant admins are deliberately NOT told "no rider found" for now: only
+    # overwatch is. To bring the admin notice back (WhatsApp + Telegram, skipped for
+    # configured auto-accept orders), restore this block; NoRiderFound and
+    # wa_senders.admin_no_rider_notice are kept for that.
+    #
+    # if delivery_summary.get("rest_confirmation_method") != "configured_auto":
+    #     rest_ref = delivery_summary["order_number"].split("-")[0]
+    #     rest_admins = RestaurantMaster.get_admins_for(rest_ref)
+    #     await restaurant_notifier.notify(
+    #         NoRiderFound(delivery_summary["order_number"], rest_admins or [], rest_ref)
+    #     )
 
-        for admin_phone in rest_admins:
-            await _async_wa_client.send_message(
-                to=admin_phone,
-                text="No Rider Found for order number: " + delivery_summary["order_number"],
-            )
-    else:
-        logger.info(
-            "Skipping no-rider admin notification for configured auto-accept order %s",
-            delivery_summary["order_number"],
+    # 3. Overwatch is told for every order (including configured auto-accept).
+    try:
+        await notify_overwatch(
+            f"No rider found for order {delivery_summary['order_number']}. "
+            f"Order cancelled; payment {'released' if payment_cancelled else 'release queued'}."
+        )
+    except Exception:
+        logger.exception(
+            "Overwatch no-rider notice failed",
+            extra={"order_number": delivery_summary.get("order_number")},
         )
 
     if "test" not in delivery_summary["order_number"].lower():  # skip test orders

@@ -435,11 +435,14 @@ async def test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook(
     monkeypatch.setattr(delivery_hooks, "cancel_payment", _fake_cancel)
     monkeypatch.setattr(delivery_hooks.RestaurantMaster, "get_admins_for", classmethod(lambda cls, rest_ref: ["ADMIN01", "ADMIN02"]))
     bg = _FakeBackgroundTasks()
+    notices = _capture_rest_admin_alerts(monkeypatch)
+    overwatch = _capture_overwatch(monkeypatch)
 
     result = await delivery_hooks.delivery_timedout(bg, payload={"delivery_summary": [_summary_row(order_number="ELAS-ABCD-1")]})
 
     assert result == {"status": "success"}
-    assert [sent.kwargs["to"] for sent in patch_async_wa_client.sent[-2:]] == ["ADMIN01", "ADMIN02"]
+    assert notices == []  # restaurant admins are not told; overwatch is
+    assert len(overwatch) == 1 and "ELAS-ABCD-1" in overwatch[0] and "released" in overwatch[0]
     assert bg.tasks[0]["func"] == delivery_hooks.post_delivery_timedout
     assert bg.tasks[0]["kwargs"]["payment_cancelled"] is True
     # D49: Telegram offers still open (never answered, or accepted but never assigned) become "Offer expired".
@@ -455,12 +458,14 @@ async def test_delivery_timedout_forwards_unconfirmed_cancellation(monkeypatch, 
     monkeypatch.setattr(delivery_hooks, "cancel_payment", _fake_cancel)
     monkeypatch.setattr(delivery_hooks.RestaurantMaster, "get_admins_for", classmethod(lambda cls, rest_ref: []))
     bg = _FakeBackgroundTasks()
+    overwatch = _capture_overwatch(monkeypatch)
 
     await delivery_hooks.delivery_timedout(
         bg, payload={"delivery_summary": [_summary_row(order_number="ELAS-ABCD-1")]}
     )
 
     assert bg.tasks[0]["kwargs"]["payment_cancelled"] is False
+    assert "release queued" in overwatch[0]
 
 
 async def test_delivery_timedout_skips_no_rider_admin_message_for_configured_auto_accept(
@@ -476,6 +481,7 @@ async def test_delivery_timedout_skips_no_rider_admin_message_for_configured_aut
         classmethod(lambda cls, rest_ref: (_ for _ in ()).throw(AssertionError("must not load admins"))),
     )
     bg = _FakeBackgroundTasks()
+    overwatch = _capture_overwatch(monkeypatch)
 
     result = await delivery_hooks.delivery_timedout(
         bg,
@@ -488,6 +494,7 @@ async def test_delivery_timedout_skips_no_rider_admin_message_for_configured_aut
 
     assert result == {"status": "success"}
     assert patch_async_wa_client.sent == []
+    assert len(overwatch) == 1  # overwatch is told for configured auto-accept orders too
     assert bg.tasks[0]["func"] == delivery_hooks.post_delivery_timedout
 
 
@@ -1012,6 +1019,16 @@ def _capture_escalations(monkeypatch) -> list:
 
     monkeypatch.setattr(delivery_hooks, "notify_ops_rider_alert", _fake_escalate)
     return calls
+
+
+def _capture_overwatch(monkeypatch) -> list:
+    sent = []
+
+    async def _fake_overwatch(log_msg: str):
+        sent.append(log_msg)
+
+    monkeypatch.setattr(delivery_hooks, "notify_overwatch", _fake_overwatch)
+    return sent
 
 
 def _capture_rest_admin_alerts(monkeypatch) -> list:

@@ -97,7 +97,9 @@ def derive(food, summary, dispatch, events, release=None, at=None):
     elif summary.get("pickup_time") or summary.get(
         "restaurant_confirmation_status"
     ) in ("restaurant_accept", "auto_accept", "restaurant_pickuptime_adjusted"):
-        status = "preparing"
+        # Delivery: accepted, rider not yet assigned (the rider-assigned branch above
+        # wins once one is). Collection has no rider search, so it stays "preparing".
+        status = "looking_for_rider" if food["action"] == "delivery" else "preparing"
     elif authorised:
         status = "waiting_for_restaurant"
     elif (at or utcnow()) > food["order_dtts"] + timedelta(minutes=35):

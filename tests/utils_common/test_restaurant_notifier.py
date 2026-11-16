@@ -10,7 +10,7 @@ from utils_common.notify import restaurant_notifier
 from datetime import datetime, timezone
 
 from utils_common.notify.restaurant_notifier import (
-    AutoAccepted, AutoDeclined, DeliveryCompleted, Feedback, KitchenReceipt, RiderAlert, TakeawayReceipt, notify, use_adapters,
+    AutoAccepted, AutoDeclined, DeliveryCompleted, Feedback, KitchenReceipt, NoRiderFound, RiderAlert, TakeawayReceipt, notify, use_adapters,
 )
 from utils_common.waba_utils import wa_senders
 
@@ -113,17 +113,29 @@ def test_use_adapters_restores_the_real_ones():
 AUTO = AutoAccepted("ELAS-ABCD-1", "delivery", ["A1", "A2"], "11:30 AM", 30, "ELAS")
 ALERT = RiderAlert("awaiting_pickup", "ELAS-ABCD-1", "2026-05-09T12:30:00+00:00", "RIDER01", "Ada", "ELAS", ["A1"])
 DECLINED = AutoDeclined("ELAS-ABCD-1", "delivery", ["A1", "A2"], "ELAS")
+NO_RIDER = NoRiderFound("ELAS-ABCD-1", ["A1", "A2"], "ELAS")
 DONE = DeliveryCompleted("ELAS-ABCD-1", "ELAS")
 FEEDBACK = Feedback(["A1", "A2"], "FDB-1", "Elai", "ELAS", "4474", "Bas", None, "Great <b>food</b> & service",
                     datetime(2026, 5, 9, 12, 0, tzinfo=timezone.utc))
 
 
-@pytest.mark.parametrize("notice", [AUTO, DECLINED, ALERT, DONE, FEEDBACK])
+@pytest.mark.parametrize("notice", [AUTO, DECLINED, NO_RIDER, ALERT, DONE, FEEDBACK])
 async def test_plain_notices_reach_both_channels(notice):
     wa, tg = Recorder(), Recorder()
     with use_adapters(whatsapp=wa, telegram=tg):
         await notify(notice)
     assert wa.sent == [notice] and tg.sent == [notice]
+
+
+async def test_whatsapp_adapter_no_rider_found_calls_the_sender(monkeypatch):
+    calls = []
+
+    async def fake(*a):
+        calls.append(a)
+
+    monkeypatch.setattr(wa_senders, "admin_no_rider_notice", fake)
+    await restaurant_notifier._WhatsAppAdapter().send(NO_RIDER)
+    assert calls == [(["A1", "A2"], "ELAS-ABCD-1")]
 
 
 async def test_whatsapp_adapter_auto_accepted_is_todays_text(monkeypatch):

@@ -12,6 +12,7 @@ respx raises on any request that has no registered route, so an unexpected host 
 from __future__ import annotations
 
 import json
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -92,12 +93,42 @@ async def test_delivery_capture_on_a_harness_order_fails_softly_at_the_test_serv
 
 
 @respx.mock
-async def test_delivery_cancel_on_a_harness_order_fails_softly_at_the_test_service(serve):
+async def test_delivery_cancel_on_a_test3100_order_makes_no_payment_call(serve, monkeypatch):
     order = harness_order()
     serve(order)
+    monkeypatch.setattr(delivery_hooks, "order_has_test_item", AsyncMock(return_value=True))
+    assert await delivery_hooks.cancel_payment(order.order_number) == "skipped_test_order"
+    assert len(respx.calls) == 0
+
+
+@respx.mock
+async def test_delivery_cancel_on_a_test_mode_order_without_test3100_still_calls_the_test_service(serve, monkeypatch):
+    order = harness_order()
+    serve(order)
+    monkeypatch.setattr(delivery_hooks, "order_has_test_item", AsyncMock(return_value=False))
     route = respx.post(order.payment_uri).mock(return_value=httpx.Response(404, json={"error": "no such thread"}))
     assert await delivery_hooks.cancel_payment(order.order_number) is None
     assert len(route.calls) == 1 and json.loads(route.calls[0].request.content)["payment_mode"] == "cancel"
+
+
+@respx.mock
+async def test_delivery_cancel_on_a_live_order_is_never_skipped(serve, monkeypatch):
+    order = harness_order(mode="live")
+    serve(order)
+    monkeypatch.setattr(delivery_hooks, "order_has_test_item", AsyncMock(return_value=True))
+    route = respx.post(order.payment_uri).mock(return_value=httpx.Response(200, text="ok"))
+    assert await delivery_hooks.cancel_payment(order.order_number) == "ok"
+    assert len(route.calls) == 1
+
+
+@respx.mock
+async def test_delivery_cancel_falls_back_to_the_real_call_when_classification_is_unavailable(serve, monkeypatch):
+    order = harness_order()
+    serve(order)
+    monkeypatch.setattr(delivery_hooks, "order_has_test_item", AsyncMock(side_effect=ValueError("down")))
+    route = respx.post(order.payment_uri).mock(return_value=httpx.Response(404, json={}))
+    assert await delivery_hooks.cancel_payment(order.order_number) is None
+    assert len(route.calls) == 1
 
 
 @respx.mock
