@@ -34,14 +34,32 @@ Run order for the owner: `00` -> `01` -> `02` (pause first) -> `core/menus.sql` 
 - restaurant-menu-manager `internal/storage/repository.go`: `"crdo": "crdo_menu"`. `go test ./...` compiles (no test files).
 - restaurant-frontend `config/restaurants.ts`: `crdo` entry. `tsc` and lint clean. `npm test` fails identically on the baseline (Node v26, jsdom `localStorage`), so it proves nothing either way.
 
-## Open items and gates
+## TODO: open items and gates (updated 2026-11-12)
 
-1. **Storefront theme not done:** no official brand site found; colours and logo/hero are needed from the owner. Without `config/storefronts/crdo.json` the restaurant uses the default Ordelo theme.
-2. **Deploy order:** apply `core/menus.sql` and `01`/`02` BEFORE the backend deploy. The nightly price audit LEFT JOINs `{ref}_menu` for every registry ref in one `try`; a missing `crdo_menu` would stop the audit for all restaurants.
-3. **Payment:** `payment-service` falls back to ELAS for an unknown ref. CRDO needs its Stripe account, payout and return URLs in the deployed config before any test order.
-4. Delivery quotes from CRDO's coordinates and Orpington rider coverage; admin alerts reach all 3 admins; restaurant cache reset after any admin change.
-5. Test window: exact `TEST3100` orders (ordelo-local-automatic-orders skill), then re-pause, then `04_go_live.sql`.
-6. Menu images are Deliveroo CDN URLs (about 200 KB each, `unoptimized` images): confirm reuse is acceptable, or host copies under `ordelo-restaurants/crdo/` later.
+Status: SQL applied, menu manager, backend and frontend deployed. Storefront is live and themed. CRDO is **paused**
+(`ordering_paused` confirmed on the production eligibility endpoint for delivery and collection). Not ready for checkout.
+
+### Done
+- [x] SQL applied: `crdo_menu` (146 rows), `restaurant_master` row, `CRDO_*` keys with the pause set to `true`
+- [x] Deploy order respected: SQL before the backend deploy (price audit safe)
+- [x] Menu manager, OrdeloAgent (registry `CRDO`) and frontend deployed
+- [x] Storefront theme (`config/storefronts/crdo.json`, registered in `index.ts`); production storefront loads themed
+- [x] Pause verified at the deployed endpoint
+
+### Open (in gate order)
+- [ ] **Payment (blocker):** `payment-service` falls back to ELAS for an unknown ref. Add CRDO's Stripe account, payout and return URLs to the deployed config. No test order before this.
+- [ ] **Delivery pricing and riders:** confirm the quote from CRDO's coordinates and Orpington rider coverage (including overwatch riders for test orders). Cannot be tested while paused.
+- [ ] **Test window:** unpause with `03_prod_test_enable.sql` (`UPDATE ... 'false'`, not a delete); place collection and delivery orders with exact `TEST3100`; check `payment_mode='test'`, admin accept/decline/timeout, order page and price audit; then re-pause.
+- [ ] **Admin alerts:** confirm all 3 admins get CRDO alerts on Telegram; reset the restaurant cache (`/internal/cache/reset?rest_ref=CRDO`) after any admin change.
+- [ ] **Go live:** run `04_go_live.sql` as the final step, only after every gate above passes and the owner approves.
+- [ ] **Logo:** upload `logo-full.png` (200x75, a larger file would look better) to `s3://ordelo-restaurants/crdo/`, then add it (and optionally a hero) to `crdo.json` and `restaurants.ts`.
+- [ ] **Menu images:** Deliveroo CDN URLs (about 200 KB each, `unoptimized`). Decide whether reuse is acceptable or host copies under `ordelo-restaurants/crdo/`.
+
+### Housekeeping (separate from CRDO)
+- [ ] PR #79 pulled three unrelated `Claude outputs/` files into `dev`; remove them.
+- [ ] STRK is missing from the backend `RESTAURANTS` registry.
+- [ ] `STRK_WEB_MAX_DISCOUNT_PERCENT=0` against its 5% offer makes the price audit flag its discounted orders.
+- [ ] Add the reciprocal reference to `onboard-storefront` in the OrdeloAgent `ordelo-restaurant-onboarding` skill.
 
 ## Found during research (not changed)
 

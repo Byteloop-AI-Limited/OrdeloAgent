@@ -11,10 +11,11 @@ record these as follow-ups; the organisation work documents them but does not ch
 
 - [ ] **URGENT: lock down `fly_config` and rotate the Fly tokens.** `fly_config` holds the Fly API tokens that can stop and
   start production machines (2 rows with tokens on 16 Oct 2026). Live has RLS **off** and default grants, so the
-  public anon key can read them through PostgREST. The lock-down in `platform/fly_config.sql` was never applied (it is
-  kept commented there). Run `ALTER TABLE public.fly_config ENABLE ROW LEVEL SECURITY;` and
-  `REVOKE ALL ON TABLE public.fly_config FROM anon, authenticated;`, then rotate both tokens, then uncomment the two
-  statements in the file.
+  public anon key can read them through PostgREST. Since 16 Nov 2026 the lock-down (`ALTER TABLE public.fly_config ENABLE
+  ROW LEVEL SECURITY;` and `REVOKE ALL ON TABLE public.fly_config FROM anon, authenticated;`) is active in
+  `platform/fly_config.sql`, together with `fly_idle_suspend()`, but the file has not been applied to live yet. Done when
+  the file is applied, both tokens are rotated, and the LIVE CHECK line in the file is updated. Apply this before
+  scheduling `job_fly_idle_suspend` (docs/fly.io-deploy-guide.md §10g).
 
 - [ ] **Schedule `job_payment_init_reconciler`.** `migrations/ordelo_agg_r1.sql` says to run it every 2 minutes, but
   `cron.job` has no such job, so payment-init reconciliation is not running. Done when the job is scheduled (or the

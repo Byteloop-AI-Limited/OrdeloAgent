@@ -382,7 +382,7 @@ fly deploy --ha=false --image <previous-ref>   # redeploy a known-good image
 ```
 
 ### Scheduled stop/start (cost saving)
-To stop the Machine overnight and start it in the morning from an external scheduler, see **§10 — Scheduled shutdown to save costs**.
+To stop the Machine overnight and start it in the morning from an external scheduler, see **§10 — Scheduled shutdown to save costs**. To suspend it automatically after an hour with no work (the current approach), see **§10g — Idle suspend**.
 
 ---
 
@@ -402,6 +402,8 @@ This app is always-on (`auto_stop_machines = "off"`), so it bills compute 24/7 e
 
 The **timing** (what fires at, say, 01:00 and 07:00) lives **outside Postgres** — a scheduler you own (an external cron, a Supabase-side timer, GitHub Actions, …). Postgres just provides the button it presses: a `fly_config` table holding the credentials and a `fly_post(app_name, action)` function that calls Fly's Machines REST API.
 
+> **Current approach (Nov 2026):** instead of a fixed night window, a `pg_cron` job runs `fly_idle_suspend()` every 10 minutes and suspends each agent Machine that has had no work for an hour. It asks the agent itself how long it has been idle. See **§10g**. Sections 10a–10f still apply: the idle job uses the same token, table and `fly_post` function.
+
 ### `stop` vs `suspend`
 
 Default to **`stop`** — simplest, no eligibility rules. It cold-boots on the next `start` (the ephemeral rootfs is reset; our state is external in Supabase, so that's fine). `suspend` resumes warmer (preserves memory) but has restrictions (no swap, no GPU, ≤ 2 GB RAM, no Machine schedule) and resume isn't guaranteed. Both stop compute billing. `fly_post` accepts either.
@@ -416,7 +418,11 @@ fly machine list -a sfcs-agent    # note the Machine ID (FLY_MACHINE_ID)
 
 ### 10b. `fly_config` table
 
-`ordelo_datamodels/platform/fly_config.sql` — one row per app, keyed by `app_name`, storing the token, machine id, and region. Because the token can stop/start prod, the table is **locked out of the public API**: RLS is enabled with no policies (deny-all) and grants are revoked from `anon`/`authenticated`. Only `fly_post` (SECURITY DEFINER) reads it.
+`ordelo_datamodels/platform/fly_config.sql` — one row per app, keyed by `app_name`, storing the token, machine id, and region. Because the token can stop/start prod, the table is **locked out of the public API**: RLS is enabled with no policies (deny-all) and grants are revoked from `anon`/`authenticated`. Only the SECURITY DEFINER functions `fly_post` and `fly_idle_suspend` read it.
+
+> **Live status:** the lock-down statements are active in `fly_config.sql` as of 16 Nov 2026 but are applied to live only when that file is run. Until then the anon key can read the tokens (see `docs/to-do.md`); rotate both tokens after applying.
+
+The table also has two columns written by `fly_idle_suspend()` (§10g): `last_idle_check` (jsonb outcome) and `last_idle_check_at`.
 
 Seed the row (values from 10a):
 ```sql
@@ -473,6 +479,76 @@ From SQL, check the returned `status` is `200`. If `fly_post` errors on the HTTP
 ```sql
 SELECT extnamespace::regnamespace FROM pg_extension WHERE extname = 'http';  -- expect: extensions
 ```
+
+### 10g. Idle suspend (`fly_idle_suspend`, recommended)
+
+Rather than stopping at fixed times, suspend a Machine once the agent running on it has been idle for an hour. Defined in `ordelo_datamodels/platform/fly_config.sql`; it calls `fly_post` (§10c) for the actual suspend.
+
+**What the agent reports.** Every restaurant-agents app (`sfcs-agent`, `bnat-agent`, …) exposes `GET /internal/activity` (restaurant-agents repo, `docs/webhook_endpoints.md`, "Activity Endpoint"):
+
+```json
+{ "active_requests": 0, "active_jobs": 0, "active_agent_runs": 0,
+  "idle_seconds": 320.4, "draining": false,
+  "safe_to_stop": true, "idle_threshold_seconds": 60.0 }
+```
+
+`idle_seconds` is the time since the last tracked request, background job or agent run finished. Calls to `/healthz` and `/internal/activity` are not tracked, so polling does not reset it.
+
+**What `fly_idle_suspend(p_min_idle_seconds = 3600, p_dry_run = false)` does,** for each row in `fly_config`:
+
+1. `GET https://api.machines.dev/v1/apps/<app>/machines/<machine_id>`. If `state` is not `started`, skip the app. This step matters: calling the agent while it is suspended would wake it (`auto_start_machines = true`).
+2. `GET https://<app_name>.fly.dev/internal/activity`.
+3. If `active_requests`, `active_jobs` and `active_agent_runs` are all 0, `draining` is false and `idle_seconds >= p_min_idle_seconds`, call `fly_post(app, 'suspend')`.
+4. Store the outcome in `fly_config.last_idle_check` / `last_idle_check_at`, write a `RAISE LOG` line, and add it to the returned jsonb.
+
+Each app is checked in its own exception block, so one failing app never stops the others; HTTP calls time out after 10 s. Outcome `result` values:
+
+| result | meaning |
+|---|---|
+| `skipped_not_started` | Machine already suspended or stopped; agent not called |
+| `busy` | a counter is above 0 or the agent is draining |
+| `not_idle_long_enough` | `idle_seconds` below the threshold |
+| `would_suspend` | idle long enough, dry run |
+| `suspended` | `fly_post` returned 200 |
+| `suspend_error` | `fly_post` returned another status |
+| `fly_state_error` | the state GET failed (bad token, or a stale `machine_id` after a redeploy) |
+| `activity_error` | `/internal/activity` did not return 200 |
+| `error` | anything else (timeout, bad JSON); `message` holds the error |
+
+**Waking up.** `auto_start_machines = true` stays on, so the next WhatsApp webhook (or any request) resumes the Machine. Resume is normally a second or two; Fly may fall back to a cold boot if it cannot resume, which takes longer but loses nothing because state lives in Supabase and Meta retries failed webhooks. The agent's idle clock starts again from 0 when the process starts or resumes, so a woken Machine needs a full idle hour before it is suspended again.
+
+**Why `suspend` here.** Both agent Machines are `shared-cpu-1x`, 1 GB, no swap, so they meet Fly's suspend limits (≤ 2 GB RAM, no swap, no GPU). If a Machine is ever resized beyond that, switch the call in `fly_idle_suspend` to `stop`.
+
+**Roll-out:**
+
+```sql
+-- 1. Apply ordelo_datamodels/platform/fly_post.sql and fly_config.sql (whole files), and revoke fly_post from anon:
+REVOKE EXECUTE ON FUNCTION fly_post(text, text) FROM public, anon, authenticated;
+-- 2. Rotate both Fly tokens and update the rows (§10a, §10b).
+-- 3. Dry run: every check, no suspend.
+SELECT fly_idle_suspend(p_dry_run := true);
+-- 4. Schedule every 10 minutes (re-running updates the job in place).
+SELECT cron.schedule('job_fly_idle_suspend', '*/10 * * * *', 'SELECT fly_idle_suspend();');
+```
+
+**Monitor and control:**
+
+```sql
+-- Last outcome per app
+SELECT app_name, last_idle_check_at, last_idle_check ->> 'result' AS result,
+       last_idle_check -> 'activity' ->> 'idle_seconds' AS idle_seconds
+FROM fly_config ORDER BY app_name;
+-- Pause / remove the job
+SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'job_fly_idle_suspend';
+SELECT cron.unschedule('job_fly_idle_suspend');
+```
+
+```bash
+fly machine status <machine-id> -a sfcs-agent   # suspended after a 'suspended' outcome
+curl https://sfcs-agent.fly.dev/internal/activity   # only when you want it awake: this request wakes a suspended Machine
+```
+
+**Adding a new agent app.** Insert its `fly_config` row (§10b) with its own app-scoped token and current machine id. The job picks it up on the next run. After any redeploy that replaces the Machine, update `machine_id`, otherwise the app reports `fly_state_error` and is never suspended.
 
 ---
 

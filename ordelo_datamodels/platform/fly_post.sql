@@ -14,7 +14,7 @@
 --                 Run by hand or from a cron job; none is scheduled on 16 Oct 2026.
 -- LIFECYCLE     none
 -- CALLED BY     fly_post:
---                 nothing found (no code, trigger, cron job or other SQL refers to it)
+--                 sql       fly_idle_suspend() (platform/fly_config.sql)
 -- PYTHON MODEL  none
 -- SECURITY      fly_post(): executable by PUBLIC (default); SECURITY DEFINER
 -- TESTS         none
