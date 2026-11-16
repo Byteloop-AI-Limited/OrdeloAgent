@@ -3,7 +3,7 @@ R3: web-origin isolation and customer tracking safeguards.
 
 Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . Processes takeaway restaurant confirmation workflow events via DB trigger webhooks
-    . Handles restaurant_unconfirmed, restaurant_accept, restaurant_decline, restaurant_timedout
+    . Handles restaurant_unconfirmed, restaurant_accept, restaurant_decline, restaurant_timedout, auto_decline
     . Returns pickup_time trigger webhooks quickly and runs print/notification work in background
     . Guards timeout auto-accept updates so stale timeout work cannot overwrite selected pickup times
     . Preserves pickup-finalized operations and sends restaurant-admin receipts
@@ -17,7 +17,7 @@ Takeaway webhook handlers for restaurant confirmation and pickup time events.
     . init_takeaway_summary - Background task to initialize takeaway_summary via RPC
     . _handle_restaurant_unconfirmed - Sends order confirmation request to restaurant admins
     . _handle_restaurant_accept - Sends pickup time selection to restaurant admins
-    . _handle_restaurant_decline - Handles restaurant decline with payment cancellation
+    . _handle_restaurant_decline - Handles restaurant decline (admin or timeout 'auto_decline') with payment cancellation; the timeout case then tells admins and ops
     . _handle_restaurant_timedout - Auto-accepts order and sets default pickup time
     . restaurant_confirmation_flow - Webhook endpoint for restaurant confirmation events
     . _post_pickup_time_event - POSTs pickup-time-updated event to restaurant webhook service
@@ -59,7 +59,8 @@ from config import (
 from utils_common.order_management.food_order_pymodel import FoodOrder
 from utils_common.order_management.order_db_ops_new import OrderItem
 from utils_common.notify import restaurant_notifier
-from utils_common.notify.restaurant_notifier import AutoAccepted, TakeawayReceipt
+from utils_common.notify.restaurant_notifier import AutoAccepted, AutoDeclined, TakeawayReceipt
+from channels.telegram.ops_alerts import alert_ops
 from utils_common.waba_utils.wa_senders import (
     send_restaurant_order_confirmation,
     send_restaurant_pickup_time,
@@ -225,7 +226,11 @@ async def _handle_restaurant_accept(
 async def _handle_restaurant_decline(
     takeaway_summary: TakeawaySummaryData,
     food_order: FoodOrder,
+    restaurant_admins: Optional[List[str]] = None,
+    timed_out: bool = False,
 ) -> dict:
+    """Terminal decline: payment cancelled, customer told. timed_out=True is the 'auto_decline' trigger (policy action
+    'decline'): AFTER the customer work the admins (WhatsApp + Telegram) and ops are told nobody answered in time."""
     await asyncio.to_thread(
         lambda: (
             client_ordelo.table("takeaway_summary")
@@ -265,9 +270,14 @@ async def _handle_restaurant_decline(
     else:
         await _async_wa_client.send_message(to=takeaway_summary.customer_id, text=customer_text)
 
+    if timed_out:
+        rest_ref = takeaway_summary.rest_ref or food_order.order_number.split("-")[0]
+        await restaurant_notifier.notify(AutoDeclined(food_order.order_number, "takeaway", restaurant_admins or [], rest_ref))
+        await alert_ops(f"Order {food_order.order_number} auto-declined: {takeaway_summary.rest_name} did not answer in time.")
+
     return {
         "status": "success",
-        "action": "declined",
+        "action": "auto_declined" if timed_out else "declined",
         "order_number": food_order.order_number,
     }
 
@@ -387,17 +397,19 @@ async def restaurant_confirmation_flow(
                 food_order,
                 order_items,
             )
-        elif trigger_reason == "restaurant_decline":
+        elif trigger_reason in ("restaurant_decline", "auto_decline"):
             background_tasks.add_task(
                 _handle_restaurant_decline,
                 takeaway_summary,
                 food_order,
+                restaurant_master.admins or [],
+                trigger_reason == "auto_decline",
             )
         elif trigger_reason == "restaurant_timedout":
             background_tasks.add_task(
                 _handle_restaurant_timedout,
                 takeaway_summary,
-                restaurant_master.admins,
+                restaurant_master.admins or [],
             )
         else:
             return {

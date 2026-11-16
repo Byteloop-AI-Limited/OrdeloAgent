@@ -357,10 +357,13 @@ END $$;
 SELECT order_number, town, status, pickup_time FROM public.takeaway_summary WHERE order_number LIKE 'STRK-TEST-%';
 
 
--- ===== STAGE 9: TIMEOUT (auto-accept notice) =====
--- A delivery order whose clock started an hour ago, with NO delivery_detail (so nothing is dispatched). Expect the next
--- timeout sweep to auto-accept it: the auto-accept notice on WhatsApp AND Telegram (replying to the order card), sent
--- after the update, and the card turning to "Auto-accepted".
+-- ===== STAGE 9: TIMEOUT (nobody answered: auto-accept notice, or auto-decline when STRK_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION = 'decline') =====
+-- A delivery order whose clock started an hour ago, with NO delivery_detail (so nothing is dispatched), never answered.
+-- The next timeout sweep (every 10 s) decides by the restaurant's action key (restaurant_confirmation_policy):
+--   no key / 'accept' : auto-accept notice on WhatsApp AND Telegram (reply to the order card); card "Auto-accepted"
+--   'decline'         : status 'declined' + 'auto_decline'; customer told, payment cancelled (test_no_payment: nothing to cancel),
+--                       admins get the auto-declined notice, ops get one line, card "Auto-declined (no answer in time)"
+-- Check which one applies first: SELECT * FROM public.restaurant_confirmation_policy('STRK');
 DO $$
 DECLARE
     v_no text := 'STRK-TEST-' || to_char(now() AT TIME ZONE 'UTC', 'HH24MISS');
@@ -392,6 +395,45 @@ BEGIN
         '40b The Walnuts High Street Orpington BR6 0TW', 'dummy',
         '447448440754', 'Test Customer', 0.1008, 51.3764, '1 Test Street Orpington BR6 0TW',
         'restaurant_unconfirmed', 'restaurant_unconfirmed', 47, 70, now() - interval '1 hour');
+END $$;
+SELECT order_number, restaurant_confirmation_status, status, pickup_time FROM public.delivery_summary WHERE order_number LIKE 'STRK-TEST-%';
+
+
+
+-- ===== STAGE 9b: ACCEPTED BUT NO PICKUP TIME (always auto-accepted, whatever the action key says) =====
+-- An admin accepted but never chose a pickup time. The sweep marks it 'restaurant_timedout' and auto-accepts it with the
+-- default pickup time, even for a restaurant whose silence means decline: someone DID answer. Expect the auto-accept notice.
+DO $$
+DECLARE
+    v_no text := 'STRK-TEST-' || to_char(now() AT TIME ZONE 'UTC', 'HH24MISS');
+    v_id text := substr(v_no, strpos(v_no, '-') + 1);
+    v_rest_id text;
+    v_rest_name text;
+BEGIN
+    SELECT rest_id, rest_name INTO v_rest_id, v_rest_name FROM public.restaurant_master WHERE rest_ref = 'STRK';
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'STAGE 9b: no restaurant_master row for rest_ref STRK (see PREREQUISITES)';
+    ELSIF v_rest_id IS NULL THEN
+        RAISE EXCEPTION 'STAGE 9b: restaurant_master.rest_id is NULL for STRK. Give it one (once, see PREREQUISITES): UPDATE public.restaurant_master SET rest_id = ''STRK01'' WHERE rest_ref = ''STRK'' AND rest_id IS NULL;';
+    END IF;
+    PERFORM public.create_food_order_with_items(
+        jsonb_build_object('order_id', v_id, 'order_number', v_no, 'recipient', '447448440754',
+                           'notes', 'Accepted-without-pickup timeout test (STRK test order)', 'thread_id', 'STRK-TEST-THREAD',
+                           'action', 'delivery', 'total_price', 21.50, 'payment_status', 'test_no_payment',
+                           'origin_channel', 'whatsapp', 'storefront', 'direct'),
+        jsonb_build_array(
+            jsonb_build_object('product_name', 'TEST3100', 'sku', 'TEST3100', 'quantity', 1, 'price', 1.00),
+            jsonb_build_object('product_name', 'Fries',    'sku', 'STRK-FRY', 'quantity', 1, 'price', 3.50)));
+    UPDATE public.food_order SET final_order_value = 4.50, rest_cost = 3.00, service_charge = 0, delivery_fee = 0 WHERE order_number = v_no;
+    INSERT INTO public.delivery_summary (
+        order_number, rest_id, rest_name, rest_lon, rest_lat, rest_address, town,
+        customer_id, customer_name, customer_lon, customer_lat, customer_address,
+        restaurant_confirmation_status, status, rest_confirmation_code, cust_confirmation_code, dtts)
+    VALUES (
+        v_no, v_rest_id, v_rest_name, 0.100950805301294, 51.3766272547284,
+        '40b The Walnuts High Street Orpington BR6 0TW', 'dummy',
+        '447448440754', 'Test Customer', 0.1008, 51.3764, '1 Test Street Orpington BR6 0TW',
+        'restaurant_accept', 'restaurant_unconfirmed', 47, 70, now() - interval '1 hour');
 END $$;
 SELECT order_number, restaurant_confirmation_status, status, pickup_time FROM public.delivery_summary WHERE order_number LIKE 'STRK-TEST-%';
 

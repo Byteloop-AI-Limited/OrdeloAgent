@@ -12,6 +12,7 @@ WhatsApp messaging utilities for order management and address confirmation flows
   Functions/Classes:
     . CallbackButtonData - Pydantic model for WhatsApp button callback data
     . admin_auto_accept_notice - Tells admins an order was auto-accepted after the confirmation timeout
+    . admin_auto_decline_notice - Tells admins an order was auto-declined because nobody answered in time
     . admin_delivery_completed - Tells a restaurant's admins a delivery is completed
     . send_restaurant_feedback_notification - One customer-feedback message to one admin
     . admin_order_reciept - Sends order receipts to admins with delivery details, plus pickup-time adjust buttons (+10/+20 mins)
@@ -167,6 +168,17 @@ async def admin_auto_accept_notice(
             await _async_wa_client.send_message(to=admin, text=text)
         except Exception as e:
             logger.error(f"Auto-accept notice for {order_number} failed for admin {admin}: {e}")
+
+
+async def admin_auto_decline_notice(admins: List[str], order_number: str) -> None:
+    """Tell each admin an order was auto-declined because nobody answered in time (restaurants whose
+    {REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION is 'decline'). One admin at a time: a bad contact never costs the others."""
+    text = f"Order {order_number} was declined automatically because nobody answered in time. The customer has been told."
+    for admin in admins:
+        try:
+            await _async_wa_client.send_message(to=admin, text=text)
+        except Exception as e:
+            logger.error(f"Auto-decline notice for {order_number} failed for admin {admin}: {e}")
 
 
 async def admin_delivery_completed(order_number: str, rest_ref: str) -> None:

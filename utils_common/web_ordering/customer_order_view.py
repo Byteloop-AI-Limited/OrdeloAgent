@@ -4,6 +4,7 @@ Never infer capture/release from food_order.requires_capture, which remains
 unchanged after existing payment-service operations. Redact before returning.
 
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . restaurant_confirmation_policy (function, ordelo_datamodels/restaurant_admin/restaurant_confirmation_policy.sql): calls (SQL)
   . delivery_dispatch (table, ordelo_datamodels/dispatch/delivery_dispatch.sql): reads (SQL)
   . delivery_summary (table, ordelo_datamodels/delivery/delivery_summary.sql): named in code (passed to a query helper)
   . food_order (table, restaurant-agents): reads (SQL)
@@ -226,6 +227,25 @@ async def get_view(order_number, detail_level="full"):
             "updated": summary.get("restaurant_confirmation_status")
             == "restaurant_pickuptime_adjusted",
         }
+    if (
+        status == "waiting_for_restaurant"
+        and summary.get("restaurant_confirmation_status") == "restaurant_unconfirmed"
+        and summary.get("dtts")
+    ):
+        # Only a restaurant whose silence means "decline" gets a countdown: for the others the clock ends in an
+        # acceptance, which is not worth counting down to. deadline_at is ABSOLUTE and constant (the view ETag
+        # covers the whole view, so it must never be "now" or seconds left); the browser counts down to it.
+        policy = await one(
+            "SELECT timeout_minutes, timeout_action FROM public.restaurant_confirmation_policy(%s)",
+            (rest_ref,),
+        )
+        if policy and policy["timeout_action"] == "decline":
+            view["confirmation"] = {
+                "deadline_at": iso(
+                    summary["dtts"] + timedelta(minutes=float(policy["timeout_minutes"]))
+                ),
+                "on_timeout": "decline",
+            }
     if detail_level == "full":
         request = (
             await one(

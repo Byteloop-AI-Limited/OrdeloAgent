@@ -51,7 +51,7 @@ Delivery webhook handlers for Ordelo delivery system
     . restaurant_confirmation_flow - Handles restaurant confirmation workflow (unconfirmed, accept, decline, timedout)
     . _handle_restaurant_unconfirmed - Sends order confirmation request to restaurant
     . _handle_restaurant_accept - Sends pickup time selection to restaurant
-    . _handle_restaurant_decline - Terminal decline (status 'declined'): cancels the payment and tells the customer (mirrors takeaway)
+    . _handle_restaurant_decline - Terminal decline (status 'declined'): cancels the payment and tells the customer (mirrors takeaway); also the timeout decline ('auto_decline'), which then tells the admins and ops
     . _handle_restaurant_timedout - Logs restaurant confirmation timeout event
     . _handle_restaurant_pickuptime_adjusted - Notifies the inflight rider when an admin adjusts the pickup time (skipped after pickup)
     . close_threads - Closes inactive threads and sends goodbye messages (a rider dispatch thread: exactly that thread, on
@@ -84,7 +84,8 @@ Called by database (SQL triggers / pg_cron jobs POST to these routes):
 
 from utils_common.order_management.customer_keys import is_web_customer_key
 from utils_common.notify import customer_notifier, restaurant_notifier
-from utils_common.notify.restaurant_notifier import AutoAccepted, KitchenReceipt, RiderAlert
+from utils_common.notify.restaurant_notifier import AutoAccepted, AutoDeclined, KitchenReceipt, RiderAlert
+from channels.telegram.ops_alerts import alert_ops
 from utils_common.notify.customer_notifier import CustomerOrderEvent
 
 # %%
@@ -1426,9 +1427,15 @@ async def _handle_restaurant_accept(
 async def _handle_restaurant_decline(
     delivery_summary: DeliverySummaryData,
     food_order: FoodOrder,
+    restaurant_admins: Optional[List[str]] = None,
+    timed_out: bool = False,
 ) -> dict:
     """
-    Handle restaurant_decline trigger (R1-a): the order is terminal, the payment is cancelled, the customer is told.
+    Handle restaurant_decline / auto_decline triggers (R1-a): the order is terminal, the payment is cancelled, the customer is told.
+
+    timed_out=True is the 'auto_decline' trigger (restaurant_admin/process_restaurant_confirmation.sql, policy action
+    'decline'): the customer work is identical; AFTER it the restaurant's admins (WhatsApp + Telegram) and ops are told
+    that nobody answered, so a failed notice can never stop the refund.
 
     Mirrors takeaway_hooks._handle_restaurant_decline. The decision function
     (restaurant_order_decide, restaurant_admin/restaurant_order_decision.sql) already set
@@ -1439,6 +1446,8 @@ async def _handle_restaurant_decline(
     Args:
         delivery_summary: Delivery summary data
         food_order: Food order data
+        restaurant_admins: Admin phones to tell when timed_out (may be empty)
+        timed_out: True for the 'auto_decline' trigger
 
     Returns:
         dict: Status response with order_number
@@ -1449,7 +1458,7 @@ async def _handle_restaurant_decline(
             client_ordelo.table("delivery_summary")
             .update({"status": "declined"})
             .eq("order_number", order_number)
-            .eq("restaurant_confirmation_status", "restaurant_decline")
+            .eq("restaurant_confirmation_status", "auto_decline" if timed_out else "restaurant_decline")
             .eq("status", "restaurant_unconfirmed")
             .execute()
         )
@@ -1490,9 +1499,14 @@ async def _handle_restaurant_decline(
 
     logger.info(f"Restaurant declined order {order_number}: status declined, customer notified")
 
+    if timed_out:
+        rest_ref = delivery_summary.rest_ref or order_number.split("-")[0]
+        await restaurant_notifier.notify(AutoDeclined(order_number, "delivery", restaurant_admins or [], rest_ref))
+        await alert_ops(f"Order {order_number} auto-declined: {delivery_summary.rest_name} did not answer in time.")
+
     return {
         "status": "success",
-        "action": "declined",
+        "action": "auto_declined" if timed_out else "declined",
         "order_number": order_number,
     }
 
@@ -1637,15 +1651,15 @@ async def restaurant_confirmation_flow(
 ):
     """
     Webhook triggered for restaurant confirmation workflow events.
-    Handles: restaurant_unconfirmed (new order), restaurant_accept, restaurant_decline, restaurant_timedout.
+    Handles: restaurant_unconfirmed (new order), restaurant_accept, restaurant_decline, restaurant_timedout, auto_decline.
 
     Triggered by:
     - Database trigger on delivery_summary INSERT with restaurant_confirmation_status='restaurant_unconfirmed'
-    - Database trigger on delivery_summary UPDATE to restaurant_confirmation_status='restaurant_accept', 'restaurant_decline', or 'restaurant_timedout'
+    - Database trigger on delivery_summary UPDATE to restaurant_confirmation_status='restaurant_accept', 'restaurant_decline', 'restaurant_timedout' or 'auto_decline'
 
     Payload structure:
     {
-        "trigger_reason": "restaurant_unconfirmed" | "restaurant_accept" | "restaurant_decline" | "restaurant_timedout",
+        "trigger_reason": "restaurant_unconfirmed" | "restaurant_accept" | "restaurant_decline" | "restaurant_timedout" | "auto_decline",
         "delivery_summary": DeliverySummaryData model data,
         "restaurant_master": RestaurantMasterData model data,
         "food_order": FoodOrder model data,
@@ -1674,8 +1688,9 @@ async def restaurant_confirmation_flow(
             f"rest_name={delivery_summary.rest_name}, total_price={food_order.total_price}"
         )
 
-        # Validate admin contacts exist
-        if not restaurant_master.admins or len(restaurant_master.admins) == 0:
+        # Admin contacts are needed to ask (unconfirmed) and to act on an admin's answer (accept). A decline (by an
+        # admin or by the timeout) and a timeout need none: the customer's refund must run even with no admins.
+        if trigger_reason in ("restaurant_unconfirmed", "restaurant_accept") and not restaurant_master.admins:
             logger.error(
                 f"No admin contacts found for restaurant {delivery_summary.rest_id}"
             )
@@ -1702,13 +1717,17 @@ async def restaurant_confirmation_flow(
                 food_order,
                 order_items,
             )
-        elif trigger_reason == "restaurant_decline":
+        elif trigger_reason in ("restaurant_decline", "auto_decline"):
             background_tasks.add_task(
-                _handle_restaurant_decline, delivery_summary, food_order
+                _handle_restaurant_decline,
+                delivery_summary,
+                food_order,
+                restaurant_master.admins or [],
+                trigger_reason == "auto_decline",
             )
         elif trigger_reason == "restaurant_timedout":
             background_tasks.add_task(
-                _handle_restaurant_timedout, delivery_summary, restaurant_master.admins
+                _handle_restaurant_timedout, delivery_summary, restaurant_master.admins or []
             )
         elif trigger_reason == "restaurant_pickuptime_adjusted":
             background_tasks.add_task(

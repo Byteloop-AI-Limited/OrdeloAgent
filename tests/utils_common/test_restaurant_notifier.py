@@ -10,7 +10,7 @@ from utils_common.notify import restaurant_notifier
 from datetime import datetime, timezone
 
 from utils_common.notify.restaurant_notifier import (
-    AutoAccepted, DeliveryCompleted, Feedback, KitchenReceipt, RiderAlert, TakeawayReceipt, notify, use_adapters,
+    AutoAccepted, AutoDeclined, DeliveryCompleted, Feedback, KitchenReceipt, RiderAlert, TakeawayReceipt, notify, use_adapters,
 )
 from utils_common.waba_utils import wa_senders
 
@@ -112,12 +112,13 @@ def test_use_adapters_restores_the_real_ones():
 
 AUTO = AutoAccepted("ELAS-ABCD-1", "delivery", ["A1", "A2"], "11:30 AM", 30, "ELAS")
 ALERT = RiderAlert("awaiting_pickup", "ELAS-ABCD-1", "2026-05-09T12:30:00+00:00", "RIDER01", "Ada", "ELAS", ["A1"])
+DECLINED = AutoDeclined("ELAS-ABCD-1", "delivery", ["A1", "A2"], "ELAS")
 DONE = DeliveryCompleted("ELAS-ABCD-1", "ELAS")
 FEEDBACK = Feedback(["A1", "A2"], "FDB-1", "Elai", "ELAS", "4474", "Bas", None, "Great <b>food</b> & service",
                     datetime(2026, 5, 9, 12, 0, tzinfo=timezone.utc))
 
 
-@pytest.mark.parametrize("notice", [AUTO, ALERT, DONE, FEEDBACK])
+@pytest.mark.parametrize("notice", [AUTO, DECLINED, ALERT, DONE, FEEDBACK])
 async def test_plain_notices_reach_both_channels(notice):
     wa, tg = Recorder(), Recorder()
     with use_adapters(whatsapp=wa, telegram=tg):
@@ -134,6 +135,25 @@ async def test_whatsapp_adapter_auto_accepted_is_todays_text(monkeypatch):
     monkeypatch.setattr(wa_senders, "admin_auto_accept_notice", fake)
     await restaurant_notifier._WhatsAppAdapter().send(AUTO)
     assert calls == [(["A1", "A2"], "ELAS-ABCD-1", "11:30 AM", 30)]
+
+
+async def test_whatsapp_adapter_auto_declined_calls_the_decline_notice(monkeypatch):
+    calls = []
+
+    async def fake(*a):
+        calls.append(a)
+
+    monkeypatch.setattr(wa_senders, "admin_auto_decline_notice", fake)
+    await restaurant_notifier._WhatsAppAdapter().send(DECLINED)
+    assert calls == [(["A1", "A2"], "ELAS-ABCD-1")]
+
+
+async def test_telegram_auto_declined_replies_to_the_card():
+    adapter, spy = restaurant_notifier._TelegramAdapter(), SpyNotices()
+    adapter._notices = spy
+    await adapter.send(DECLINED)
+    assert spy.calls[0] == ("ELAS", "⏱ <b>ELAS-ABCD-1</b> auto-declined (no answer in time). The customer has been told.",
+                            {"notice": "auto_declined", "order": OrderRef("ELAS-ABCD-1", "delivery"), "reply_to": "card"})
 
 
 async def test_whatsapp_adapter_rider_alert_makes_exactly_todays_call(monkeypatch):

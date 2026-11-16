@@ -24,6 +24,7 @@ record these as follow-ups; the organisation work documents them but does not ch
   `tgram_ledger_retention_days`) never runs. Done when the job runs nightly and `telegram/t_housekeeping.sql` shows it.
 - [ ] **Create the `t_invites` phone-normalise trigger.** The function `t_invites_normalize_phone()` is live but the
   trigger that calls it is not, so `t_invites.phone_number` is stored as typed. Done when the trigger exists live.
+- [ ] **`job_restaurant_confirmation_timeout` is superseded by `process_restaurant_confirmation()` + `restaurant_confirmation_policy()`** (confirmation timeout action, ADR 0014). If the orphan is still on live after the rollout, drop it rather than reviving it.
 - [ ] **Decide on `job_restaurant_confirmation_timeout`.** It is documented (`docs/delivery_process.md`, `.specify/design/`)
   but not scheduled; the 10-second `process_restaurant_confirmation` job appears to have replaced it. Done when it is
   either scheduled or moved to `_orphans/` and the docs say which job handles timeouts.

@@ -84,7 +84,7 @@ remain enabled.
 | `restaurant_decline` | Restaurant declined the order |
 | `restaurant_timedout` | No response within timeout period |
 | `auto_accept` | System auto-accepted after timeout |
-| `auto_decline` | System auto-declined (internal use) |
+| `auto_decline` | Nobody answered in time and the restaurant's `{REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION` is `decline`: set together with `status='declined'` by `process_restaurant_confirmation()` |
 | `restaurant_pickuptime_adjusted` | Admin adjusted pickup time on an already-inflight delivery; triggers rider notification via agent |
 
 ### delivery_detail Status Values
@@ -146,7 +146,7 @@ This phase ensures restaurants confirm orders and provide estimated prep time be
 **Trigger:** `trigger_restaurant_updates`
 ```sql
 AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON delivery_summary
-WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'restaurant_pickuptime_adjusted'))
+WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'auto_decline', 'restaurant_pickuptime_adjusted'))
 ```
 
 **Function:** `restaurant_updates_whook()`
@@ -156,7 +156,7 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 **Payload:**
 ```json
 {
-  "trigger_reason": "restaurant_unconfirmed|restaurant_accept|restaurant_decline|restaurant_timedout|restaurant_pickuptime_adjusted",
+  "trigger_reason": "restaurant_unconfirmed|restaurant_accept|restaurant_decline|restaurant_timedout|auto_decline|restaurant_pickuptime_adjusted",
   "delivery_summary": { ... },
   "restaurant_master": { ... },
   "food_order": { ... },
@@ -176,7 +176,8 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 |----------------|---------|--------|
 | `restaurant_unconfirmed` | `_handle_restaurant_unconfirmed()` | Sends Accept/Decline buttons to restaurant admins |
 | `restaurant_accept` | `_handle_restaurant_accept()` | Sends pickup time selection (5/15/25 min) |
-| `restaurant_decline` | `_handle_restaurant_decline()` | Updates status to `unassigned` |
+| `restaurant_decline` | `_handle_restaurant_decline()` | Terminal: status `declined`, payment cancelled, customer told |
+| `auto_decline` | `_handle_restaurant_decline(timed_out=True)` | Same, then tells the admins (`AutoDeclined`) and ops; runs even with no admins |
 | `restaurant_timedout` | `_handle_restaurant_timedout()` | Auto-accepts with default prep time |
 | `restaurant_pickuptime_adjusted` | `_handle_restaurant_pickuptime_adjusted()` | Notifies the inflight rider of the updated pickup time via the rider agent |
 
@@ -206,13 +207,17 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 **Logic:**
 - Finds orders with `restaurant_confirmation_status` IN (`restaurant_unconfirmed`, `restaurant_accept`) AND `pickup_time` IS NULL
 - Checks if time since `dtts` (order creation) strictly exceeds the configured timeout in minutes
-- Updates `restaurant_confirmation_status` to `restaurant_timedout`
-- Triggers webhook for auto-acceptance handling
+- Reads `restaurant_confirmation_policy(rest_ref)` (minutes and action) and applies it in one UPDATE:
+  - never answered (`restaurant_unconfirmed`) and action `decline` → `auto_decline` + `status='declined'`
+  - everything else (action `accept`, or an admin accepted but chose no pickup time) → `restaurant_timedout`, auto-accepted by the webhook handler
+- Sets `restaurant_update_dtts = NOW()`; the webhook fires on the status change
 
 **Configuration:**
 - `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` (restaurant-specific)
 - `RESTAURANT_CONFIRMATION_TIMEOUT_TIME` (global key; hardcoded fallback: 5 minutes)
-- STRK override: 2 minutes; applies to delivery and collection orders with no pickup time, including `restaurant_accept`
+- `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION`: `decline` or (default) accept; per restaurant only
+- Web-only restaurants (STRK, CRDO, CRMS, BNAT): 3 minutes and `decline`. Applies to delivery and collection orders with no pickup time; an accepted order without a pickup time is always auto-accepted
+- Not the same as `restaurant_master.auto_accept` (configured auto-accept never asks the restaurant, so never reaches this job): see `docs/pickup_time_logic.md` "Three confirmation modes"
 
 ---
 
@@ -241,6 +246,8 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 1. `{rest_ref}_DELIVERY_TIMEOUT_TIME` — restaurant-specific timeout (minutes)
 2. `DELIVERY_TIMEOUT_TIME` — global fallback (minutes)
 3. Hardcoded default: 10 minutes
+
+The clock for the search starts when the order became dispatchable: `COALESCE(redispatch_dtts, restaurant_update_dtts, dtts)`, so a restaurant that takes minutes to accept does not eat the riders' window.
 
 STRK sets this to 5 minutes. It is not the timeout of an individual rider offer,
 and it does not start when the last vehicle type times out.
@@ -689,7 +696,7 @@ any prompt unless `LEGACY_OWNTRACKS_PROMPTS_ENABLED` is explicitly true.
    │       └── Pickup time selected → status = 'unassigned'
    ├── Decline → restaurant_confirmation_status = 'restaurant_decline'
    │   └── status = 'unassigned' (proceeds without confirmation)
-   └── Timeout → restaurant_confirmation_status = 'restaurant_timedout'
+   └── Timeout → 'restaurant_timedout' (auto-accept), or 'auto_decline' + status 'declined' when the action is decline
        └── status = 'unassigned', auto-accept with default prep time
 
 3. process_delivery()
@@ -738,6 +745,7 @@ any prompt unless `LEGACY_OWNTRACKS_PROMPTS_ENABLED` is explicitly true.
 | `CONFIRMATION_CODE_SALT` | - | Salt for generating confirmation codes |
 | `RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | 5 | Minutes since order creation before an unanswered confirmation with no pickup time times out (hardcoded fallback if the key is absent) |
 | `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | - | Restaurant-specific timeout override |
+| `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION` | accept | `decline` = an unanswered order is auto-declined instead of auto-accepted (per restaurant only) |
 | `DELIVERY_TIMEOUT_TIME` | 10 | Minutes since order creation or redispatch before an unassigned delivery times out, after all vehicle types are exhausted (hardcoded fallback if the key is absent) |
 | `{rest_ref}_DELIVERY_TIMEOUT_TIME` | - | Restaurant-specific delivery timeout |
 | `DEFAULT_COLLECTION_PICKUP_TIME` | 30 | Minutes after order creation used as collection pickup time on configured auto-accept or confirmation timeout (30 is the Python timeout-handler fallback; configured auto-accept requires a valid key) |
@@ -767,7 +775,8 @@ flowchart TD
         F -->|WhatsApp| H[Pickup Time Selection]
         H -->|Selected| I[status=unassigned]
         G --> I
-        J[process_restaurant_confirmation] -->|timeout| K[restaurant_timedout]
+        J[process_restaurant_confirmation] -->|timeout, action accept| K[restaurant_timedout]
+        J -->|timeout, action decline| K2[auto_decline + declined]
         K --> I
     end
 

@@ -28,7 +28,15 @@ SET config_value = EXCLUDED.config_value,
     updated_at = CURRENT_TIMESTAMP;
 
 INSERT INTO ordelo_config (config_key, config_value, description)
-VALUES ('STRK_RESTAURANT_CONFIRMATION_TIMEOUT_TIME', '2', 'Minutes since order creation before unanswered delivery or collection confirmation (including accepted orders without a pickup time) is marked restaurant_timedout; checked every 10 seconds') ON CONFLICT (config_key) DO
+VALUES ('STRK_RESTAURANT_CONFIRMATION_TIMEOUT_TIME', '3', 'Minutes since order creation before unanswered delivery or collection confirmation (including accepted orders without a pickup time) is marked restaurant_timedout; checked every 10 seconds') ON CONFLICT (config_key) DO
+UPDATE
+SET config_value = EXCLUDED.config_value,
+    description = EXCLUDED.description,
+    updated_at = CURRENT_TIMESTAMP;
+
+
+INSERT INTO ordelo_config (config_key, config_value, description)
+VALUES ('STRK_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION', 'decline', 'What silence means when the confirmation times out: decline = order declined (auto_decline, customer told, payment cancelled); anything else or no row = auto-accepted (restaurant_timedout). Per restaurant only') ON CONFLICT (config_key) DO
 UPDATE
 SET config_value = EXCLUDED.config_value,
     description = EXCLUDED.description,
@@ -52,6 +60,7 @@ update ordelo_config
 set config_key = 'Z_ELAS_PICKUP_DEFAULT_TIME'
 where config_key = 'ELAS_PICKUP_DEFAULT_TIME';
 
+SELECT rest_ref, auto_accept FROM public.restaurant_master WHERE rest_ref = 'STRK';
 
 SELECT
     rm.rest_ref,

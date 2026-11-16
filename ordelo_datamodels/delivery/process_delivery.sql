@@ -2,7 +2,8 @@
 -- ordelo_datamodels/delivery/process_delivery.sql
 -- Every 5 seconds: add delivery_detail rows (vehicle-type options) for dispatchable orders and time out orders with no rider.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- LIVE CHECK    last compared with the live catalogue 2026-10-16; the rider-clock change (2026-11-16) is not yet applied to live
+--               (migrations/restaurant_confirmation_timeout_action.sql; the owner applies it).
 -- OBJECTS       fn     process_delivery() -> TABLE(action text)
 --                   Advance every unassigned delivery: open the next vehicle-type option or time the order out; returns what it changed.
 -- REQUIRES      none
@@ -30,6 +31,8 @@
 -- LIFECYCLE     For each delivery_summary in 'unassigned': if no delivery_detail is open, insert one for the next vehicle type by
 --               delivery_option.rank (starting with rank 1). When every ranked vehicle type is 'vehicle_type_timedout' and the order is
 --               older than <REST>_DELIVERY_TIMEOUT_TIME (else DELIVERY_TIMEOUT_TIME, else 10 minutes), set the summary to 'timedout'.
+--               "Older" is measured from COALESCE(redispatch_dtts, restaurant_update_dtts, dtts): the moment the order became dispatchable,
+--               not creation, so a slow restaurant answer does not shorten the riders' window.
 -- CALLED BY     process_delivery:
 --                 cron      'process_delivery' 5 seconds
 --                 sql       handle_restaurant_confirmation() (_orphans/restaurant_admin.sql)
@@ -37,6 +40,7 @@
 -- SECURITY      process_delivery(): executable by PUBLIC (default)
 -- TESTS         none
 -- GOTCHAS       The cron job is called 'process_delivery' (older docs call it 'manage_delivery_detail').
+--               Before 2026-11-16 the timeout clock started at dtts (creation); see migrations/restaurant_confirmation_timeout_action.sql.
 --               Comments in older versions: 'SET http.timeout TO 15s' had to be set at database level to avoid failures.
 -- SEE ALSO      delivery/delivery_detail.sql
 --               delivery/delivery_option.sql
@@ -99,11 +103,11 @@ update_summary AS (
     WHERE
         ds.order_number = t.order_number
         AND ds.status = 'unassigned'
-        -- Timeout is measured from redispatch_dtts when present (set by
-        -- dispatch_cancel_before_pickup on a pre-pickup decline), otherwise
-        -- from dtts (order creation). NULL redispatch_dtts preserves the
-        -- original behavior for orders that have never been re-dispatched.
-        AND (EXTRACT(EPOCH FROM (NOW() - COALESCE(ds.redispatch_dtts, ds.dtts))) / 60) > COALESCE((
+        -- The rider-search clock starts when the order became dispatchable: redispatch_dtts when present (set by
+        -- dispatch_cancel_before_pickup on a pre-pickup decline), else restaurant_update_dtts (the restaurant's pickup-time
+        -- choice, or the confirmation timeout; set at creation for configured auto-accept), else dtts (order creation).
+        -- The time the restaurant took to answer is therefore not taken from the riders' window.
+        AND (EXTRACT(EPOCH FROM (NOW() - COALESCE(ds.redispatch_dtts, ds.restaurant_update_dtts, ds.dtts))) / 60) > COALESCE((
             SELECT
                 config_value::int
             FROM ordelo_config

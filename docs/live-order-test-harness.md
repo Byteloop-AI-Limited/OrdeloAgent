@@ -52,7 +52,8 @@ script's STAGE 0-2b, then its STAGE 1-8: offer, Accept, job card, agent chat, co
 | 6 | Cancel + re-dispatch | rerun 2b to release the STRK order | old receipt "no longer on the job"; new receipt after the next rider accepts |
 | 7 | Picked up + complete | rider codes (or the two forcing statements) | "Delivered" notice; receipt becomes done |
 | 8 / 8b | Takeaway (`test_no_payment` / optional `pay_at_rest`) | accept + pickup, then Ready | takeaway receipt (8b: "Pay at restaurant" line); customer event once |
-| 9 | Delivery order older than the timeout, no rider job | wait for the sweep | auto-accept notice (after the update); card "Auto-accepted" |
+| 9 | Delivery order older than the timeout, no rider job, never answered | wait for the sweep (10 s) | `SELECT * FROM restaurant_confirmation_policy('STRK')` first: `accept` → auto-accept notice, card "Auto-accepted"; `decline` → status `declined`, auto-declined notice to admins, card "Auto-declined (no answer in time)" |
+| 9b | Same, but already accepted by an admin with no pickup time | wait for the sweep | always auto-accepted (notice, card "Auto-accepted"), whatever the action key says |
 | 10 | Restaurant feedback | run the `curl` in the script | feedback notice, no reply target |
 
 The script's bottom section (**WATCH IT**) has ready-made queries for Ready bookkeeping, every Telegram copy

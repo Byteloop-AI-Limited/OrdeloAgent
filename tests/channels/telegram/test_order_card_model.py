@@ -10,6 +10,7 @@ from channels.telegram.rest_admin.order_cards.model import (
     Accepted,
     Actor,
     AutoAccepted,
+    AutoDeclined,
     Card,
     Declined,
     Facts,
@@ -44,6 +45,7 @@ def card(status="awaiting", **kw):
         ("awaiting", Accepted(ADA), "accepted"),
         ("awaiting", Declined(ADA), "declined"),
         ("awaiting", AutoAccepted(T0), "auto_accepted"),
+        ("awaiting", AutoDeclined(), "auto_declined"),
         ("accepted", AutoAccepted(T0), "auto_accepted"),
         ("accepted", PickupChosen(T0, ADA), "pickup_set"),
         ("awaiting", Vanished(), "gone"),
@@ -60,6 +62,9 @@ def test_legal_transitions(start, event, expected):
     [
         ("declined", Accepted(ADA)),
         ("declined", AutoAccepted(T0)),
+        ("accepted", AutoDeclined()),
+        ("auto_declined", Accepted(ADA)),
+        ("auto_declined", AutoAccepted(T0)),
         ("accepted", Declined(ADA)),
         ("accepted", Accepted(BOB)),
         ("awaiting", PickupChosen(T0, ADA)),
@@ -89,6 +94,7 @@ def test_apply_does_not_mutate():
         (Snapshot("pickup_set", FACTS, ADA, T0 + timedelta(minutes=15)), "pickup_set"),
         (Snapshot("declined", FACTS, ADA), "declined"),
         (Snapshot("auto_accepted", FACTS, None, T0 + timedelta(minutes=30)), "auto_accepted"),
+        (Snapshot("auto_declined", FACTS), "auto_declined"),
     ],
 )
 def test_from_snapshot(snap, status):
@@ -159,7 +165,9 @@ def test_pickup_set_and_declined_and_auto():
     assert d.view(BOB_V).text.startswith("❌ Declined by Ada")
     a = card("auto_accepted", pickup_at=T0 + timedelta(minutes=30))
     assert a.view(BOB_V).text.startswith("⏱ Auto-accepted (no answer in time) · pickup 12:30 PM")
-    for c in (p, d, a):
+    ad = card("auto_declined")
+    assert ad.view(BOB_V).text.startswith("⏱ Auto-declined (no answer in time)")
+    for c in (p, d, a, ad):
         assert c.view(ADA_V).terminal and c.view(ADA_V).keyboard is None
 
 
@@ -203,7 +211,7 @@ def test_callback_fits_for_long_order_number():
 
 
 def test_terminal_set_matches_views():
-    assert TERMINAL == {"pickup_set", "declined", "auto_accepted", "gone"}
+    assert TERMINAL == {"pickup_set", "declined", "auto_accepted", "auto_declined", "gone"}
 
 
 @pytest.mark.parametrize(
@@ -214,6 +222,7 @@ def test_terminal_set_matches_views():
         (TapOutcome("ok", "pk", pickup_at=T0 + timedelta(minutes=15)), ("Pickup 12:15 PM", False)),
         (TapOutcome("already_decided", "acc", "accepted", ADA), ("Already accepted by Ada", False)),
         (TapOutcome("already_decided", "acc", "declined", ADA), ("Already declined by Ada", False)),
+        (TapOutcome("already_decided", "acc", "auto_declined"), ("Already auto-declined", False)),
         (TapOutcome("already_decided", "acc", "auto_accepted"), ("Already auto-accepted", False)),
         (TapOutcome("already_set", "pk", pickup_at=T0 + timedelta(minutes=5)), ("Pickup already set to 12:05 PM", False)),
         (TapOutcome("not_accepted", "pk"), ("This order is not accepted yet.", False)),

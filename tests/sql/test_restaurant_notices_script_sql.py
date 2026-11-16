@@ -108,7 +108,7 @@ def counts(db) -> dict:
 
 def test_the_script_has_every_stage_the_plan_promises():
     assert list(STAGES) == ["PREREQUISITES CHECK (read only)", "STAGE 0", "STAGE 1", "STAGE 2", "STAGE 2b", "STAGE 2c", "STAGE 3", "STAGE 4", "STAGE 5",
-                            "STAGE 6", "STAGE 7", "STAGE 8", "STAGE 8b", "STAGE 9", "STAGE 10"]
+                            "STAGE 6", "STAGE 7", "STAGE 8", "STAGE 8b", "STAGE 9", "STAGE 9b", "STAGE 10"]
 
 
 def test_every_delete_and_update_is_scoped_to_strk_test_rows():
@@ -233,7 +233,7 @@ def test_stage2b_releases_to_riders_only_after_accept_and_pickup(db):
     assert db.execute("SELECT town, vehicle_type, status FROM public.delivery_detail").fetchall() == [("dummy", "bike", "unassigned")]
 
 
-@pytest.mark.parametrize("stage", ["STAGE 1", "STAGE 8", "STAGE 8b", "STAGE 9"])
+@pytest.mark.parametrize("stage", ["STAGE 1", "STAGE 8", "STAGE 8b", "STAGE 9", "STAGE 9b"])
 def test_stages_refuse_when_the_strk_restaurant_row_is_missing(db, stage):
     db.execute("DELETE FROM public.restaurant_master WHERE rest_ref = 'STRK'")
     run(db, "STAGE 0")

@@ -141,7 +141,7 @@
    "file": "delivery/process_delivery.sql",
    "function": "process_delivery",
    "job": "process_delivery",
-   "line": 173,
+   "line": 177,
    "schedule": "5 seconds"
   },
   {
@@ -150,7 +150,7 @@
    "file": "restaurant_admin/process_restaurant_confirmation.sql",
    "function": "process_restaurant_confirmation",
    "job": "process_restaurant_confirmation",
-   "line": 117,
+   "line": 131,
    "schedule": "10 seconds"
   }
  ],
@@ -3471,8 +3471,8 @@
    },
    "cron": [],
    "folder": "delivery",
-   "header_lines": 121,
-   "lines": 520,
+   "header_lines": 123,
+   "lines": 522,
    "objects": [
     {
      "description": "The delivery order as fulfilment sees it, one row per order_number (prefix = rest_ref).",
@@ -3481,7 +3481,7 @@
      "signature": "delivery_summary"
     },
     {
-     "description": "AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the five statuses Python acts on.",
+     "description": "AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the six statuses Python acts on.",
      "kind": "trigger",
      "name": "trigger_restaurant_updates",
      "signature": "trigger_restaurant_updates on delivery_summary -> restaurant_updates_whook()"
@@ -3539,11 +3539,11 @@
    "sections": {
     "CALLED BY": "delivery_summary:\n  sql       assign_accepted_dispatch(), cleanup_delivery_order(), delivery_dispatch_whook_statement()\n            delivery_inflight_whook(), dispatch_cancel_before_pickup(), dispatch_complete_func()\n            get_rider_payout_report(), handle_restaurant_confirmation(), init_delivery()\n            job_payment_init_reconciler(), job_restaurant_confirmation_timeout()\n            job_rider_pickup_alerts(), job_t_order_alerts(), overwatch_view(), process_delivery()\n            process_restaurant_confirmation(), restaurant_order_adjust_pickup()\n            restaurant_order_decide(), restaurant_order_ready(), restaurant_order_set_pickup()\n            t_order_adjust_pickup(), t_order_card_row(), t_order_decide(), t_order_ready()\n            t_order_set_pickup(), t_receipt_snapshot(), t_receipt_status()\n            test_reset_order_and_dispatch(), v_admin_orders\n  python    ordelo/agent_app_handlers.py: _send_delivery_instructions()\n  python    ordelo/agents/agent_runner.py (module-level SQL)\n  python    ordelo/agents/rider_agent.py: notify_pickup_reminder(), send_customer_contact(), send_dropoff_location(), send_pickup_location(), verify_customer_confirmation_code(), verify_restaurant_confirmation_code()\n  python    ordelo/wa_location.py: WaLocation._load_delivery_context(), WaLocation.route_fulfilled_request()\n  python    tgram_starter/order_card/state.py (module-level SQL)\n  python    utils_common/notify/restaurant_notifier.py (module-level SQL)\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    utils_common/order_management/restaurant_decision.py (module-level SQL)\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/on_callback_wa_handler.py: admin_adjust_pickup_time(), dispatch_response()\n  python    watomation/on_message_wa_handler.py: test_delivery()\n  python    watomation/routers/delivery_hooks.py: DeliverySummaryData(), _handle_restaurant_decline(), _handle_restaurant_timedout(), check_rider_allocation_status(), delivery_inflight_graph_init_hook(), delivery_timedout(), post_rider_event_inflight(), restaurant_confirmation_flow()\n  python    watomation/routers/location_hooks.py: notify_rider_location_event()\n  python    watomation/routers/sys_admin_auth_session.py: get_rider_payout()\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/watomation/routers/rider_event_hooks.py\n  r-agents  restaurant-agents/tests/legacy_contract/watomation/routers/test_rider_event_hooks.py\n  r-agents  restaurant-agents/tests/watomation/test_specialist_lifecycle_updates.py\nrestaurant_updates_whook:\n  trigger   trigger_restaurant_updates on delivery_summary\ndelivery_summary_timedout_whook:\n  trigger   trigger_delivery_summary_timedout on delivery_summary\nrider_pickup_alert_reschedule:\n  trigger   trigger_pickup_time_reschedule on delivery_summary",
     "GOTCHAS": "Every webhook trigger swallows errors (RAISE WARNING) so an unreachable app never blocks the UPDATE: a missing\n  prompt is diagnosed through debug_log (ENABLE_TRIGGER_DEBUG_LOG) and the Postgres log.\ninit_delivery() lists the RETURNING columns explicitly: never use RETURNING * there (tests/test_sql_returning_star.py).\nrest_confirmation_code + cust_confirmation_code always add up to the CONFIRMATION_CODE_SALT number (init_delivery).",
-    "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.\n  Triggers on this table (defined below):\n    trigger_restaurant_updates      restaurant_confirmation_status set/changed -> restaurant-confirmation-request webhook\n    trigger_delivery_summary_timedout  status becomes 'timedout' -> delivery-timedout webhook\n    trigger_pickup_time_reschedule  pickup_time changes -> re-time rider_pickup_alert checkpoints\n  Admin dashboard indexes (idx_delivery_summary_admin_*) serve admin_dashboard/v_admin_orders.sql.",
+    "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'. Restaurants whose {REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION is\n             'decline' get 'auto_decline' + status 'declined' instead for orders nobody answered (terminal).\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.\n  Triggers on this table (defined below):\n    trigger_restaurant_updates      restaurant_confirmation_status set/changed -> restaurant-confirmation-request webhook\n    trigger_delivery_summary_timedout  status becomes 'timedout' -> delivery-timedout webhook\n    trigger_pickup_time_reschedule  pickup_time changes -> re-time rider_pickup_alert checkpoints\n  Admin dashboard indexes (idx_delivery_summary_admin_*) serve admin_dashboard/v_admin_orders.sql.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "status:  restaurant_unconfirmed -> unassigned -> assigned -> completed\n         restaurant_unconfirmed -> declined                      (restaurant declined; never dispatched)\n         unassigned -> timedout                                   (no rider for any vehicle type in time)\nrestaurant_confirmation_status:  restaurant_unconfirmed -> restaurant_accept | restaurant_decline | restaurant_timedout\n         | auto_accept (configured) ; restaurant_accept -> restaurant_pickuptime_adjusted (+10 / +20)\nKitchen columns: ready_at / ready_by / ready_dispatch_id set by the first Ready tap per dispatch; pickup_time_initial /\npickup_adjusted_by / pickup_adjusted_at set by +10 / +20 (restaurant_admin/restaurant_ready_adjust_notices.sql).",
+    "LIFECYCLE": "status:  restaurant_unconfirmed -> unassigned -> assigned -> completed\n         restaurant_unconfirmed -> declined                      (restaurant declined; never dispatched)\n         unassigned -> timedout                                   (no rider for any vehicle type in time)\n         restaurant_unconfirmed -> declined                      (also on auto_decline: nobody answered, restaurant declines on silence)\nrestaurant_confirmation_status:  restaurant_unconfirmed -> restaurant_accept | restaurant_decline | restaurant_timedout\n         | auto_decline (timeout, decline-on-silence restaurants) | auto_accept (configured) ; restaurant_accept -> restaurant_pickuptime_adjusted (+10 / +20)\nKitchen columns: ready_at / ready_by / ready_dispatch_id set by the first Ready tap per dispatch; pickup_time_initial /\npickup_adjusted_by / pickup_adjusted_at set by +10 / +20 (restaurant_admin/restaurant_ready_adjust_notices.sql).",
     "LIVE CHECK": "Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).",
-    "OBJECTS": "table  delivery_summary\n    The delivery order as fulfilment sees it, one row per order_number (prefix = rest_ref).\ntrg    trigger_restaurant_updates on delivery_summary -> restaurant_updates_whook()\n    AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the five statuses Python acts on.\ntrg    trigger_delivery_summary_timedout on delivery_summary -> delivery_summary_timedout_whook()\n    AFTER UPDATE when status changes to 'timedout'.\nfn     restaurant_updates_whook() -> trigger\n    Trigger function: POST the order, restaurant, food_order and items to /delivery-hooks/restaurant-confirmation-request.\nfn     delivery_summary_timedout_whook() -> trigger\n    Trigger function: POST the summary row to /delivery-hooks/delivery-timedout when the order times out (no rider found).\nfn     rider_pickup_alert_reschedule() -> trigger\n    Trigger function: when pickup_time moves, re-time every rider_pickup_alert checkpoint of the order and set it back to 'pending'.\ntrg    trigger_pickup_time_reschedule on delivery_summary -> rider_pickup_alert_reschedule()\n    AFTER UPDATE OF pickup_time when the value actually changes.",
+    "OBJECTS": "table  delivery_summary\n    The delivery order as fulfilment sees it, one row per order_number (prefix = rest_ref).\ntrg    trigger_restaurant_updates on delivery_summary -> restaurant_updates_whook()\n    AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the six statuses Python acts on.\ntrg    trigger_delivery_summary_timedout on delivery_summary -> delivery_summary_timedout_whook()\n    AFTER UPDATE when status changes to 'timedout'.\nfn     restaurant_updates_whook() -> trigger\n    Trigger function: POST the order, restaurant, food_order and items to /delivery-hooks/restaurant-confirmation-request.\nfn     delivery_summary_timedout_whook() -> trigger\n    Trigger function: POST the summary row to /delivery-hooks/delivery-timedout when the order times out (no rider found).\nfn     rider_pickup_alert_reschedule() -> trigger\n    Trigger function: when pickup_time moves, re-time every rider_pickup_alert checkpoint of the order and set it back to 'pending'.\ntrg    trigger_pickup_time_reschedule on delivery_summary -> rider_pickup_alert_reschedule()\n    AFTER UPDATE OF pickup_time when the value actually changes.",
     "PYTHON MODEL": "ordelo_datamodels/delivery_pymodels.py DeliverySummary",
     "REQUIRES": "none",
     "SECURITY": "Server-only grants and RLS below are proposed; live anonymous grants verified open 2026-10-26.\nrestaurant_updates_whook(): executable by PUBLIC (default)\ndelivery_summary_timedout_whook(): executable by PUBLIC (default)\nrider_pickup_alert_reschedule(): executable by PUBLIC (default)",
@@ -3672,13 +3672,13 @@
      "file": "delivery/process_delivery.sql",
      "function": "process_delivery",
      "job": "process_delivery",
-     "line": 173,
+     "line": 177,
      "schedule": "5 seconds"
     }
    ],
    "folder": "delivery",
-   "header_lines": 45,
-   "lines": 190,
+   "header_lines": 49,
+   "lines": 194,
    "objects": [
     {
      "description": "Advance every unassigned delivery: open the next vehicle-type option or time the order out; returns what it changed.",
@@ -3708,11 +3708,11 @@
    ],
    "sections": {
     "CALLED BY": "process_delivery:\n  cron      'process_delivery' 5 seconds\n  sql       handle_restaurant_confirmation() (_orphans/restaurant_admin.sql)",
-    "GOTCHAS": "The cron job is called 'process_delivery' (older docs call it 'manage_delivery_detail').\nComments in older versions: 'SET http.timeout TO 15s' had to be set at database level to avoid failures.",
+    "GOTCHAS": "The cron job is called 'process_delivery' (older docs call it 'manage_delivery_detail').\nBefore 2026-11-16 the timeout clock started at dtts (creation); see migrations/restaurant_confirmation_timeout_action.sql.\nComments in older versions: 'SET http.timeout TO 15s' had to be set at database level to avoid failures.",
     "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> WhatsApp offer to each rider).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "For each delivery_summary in 'unassigned': if no delivery_detail is open, insert one for the next vehicle type by\ndelivery_option.rank (starting with rank 1). When every ranked vehicle type is 'vehicle_type_timedout' and the order is\nolder than <REST>_DELIVERY_TIMEOUT_TIME (else DELIVERY_TIMEOUT_TIME, else 10 minutes), set the summary to 'timedout'.",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
+    "LIFECYCLE": "For each delivery_summary in 'unassigned': if no delivery_detail is open, insert one for the next vehicle type by\ndelivery_option.rank (starting with rank 1). When every ranked vehicle type is 'vehicle_type_timedout' and the order is\nolder than <REST>_DELIVERY_TIMEOUT_TIME (else DELIVERY_TIMEOUT_TIME, else 10 minutes), set the summary to 'timedout'.\n\"Older\" is measured from COALESCE(redispatch_dtts, restaurant_update_dtts, dtts): the moment the order became dispatchable,\nnot creation, so a slow restaurant answer does not shorten the riders' window.",
+    "LIVE CHECK": "last compared with the live catalogue 2026-10-16; the rider-clock change (2026-11-16) is not yet applied to live\n(migrations/restaurant_confirmation_timeout_action.sql; the owner applies it).",
     "OBJECTS": "fn     process_delivery() -> TABLE(action text)\n    Advance every unassigned delivery: open the next vehicle-type option or time the order out; returns what it changed.",
     "PYTHON MODEL": "none",
     "REQUIRES": "none",
@@ -5021,6 +5021,24 @@
    "path": "migrations/ordelo_agg_r3.sql",
    "role": "migration",
    "title": "Web ordering R3: web checkout/access tables, cut-off columns, thread close changes."
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
+   "lines": 589,
+   "migration": {
+    "applied": "NOT YET (prepared 2026-11-16; the owner applies it himself)",
+    "current": [
+     "restaurant_admin/restaurant_confirmation_policy.sql, restaurant_admin/process_restaurant_confirmation.sql,",
+     "delivery/delivery_summary.sql, takeaway/takeaway_summary.sql, delivery/process_delivery.sql, telegram/t_order_alerts.sql"
+    ],
+    "purpose": "restaurant confirmation timeout action (plans/restaurant-confirmation-timeout-action-plan.md). {REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION = 'decline' makes a never-answered order 'auto_decline' + status 'declined' instead of being auto-accepted. One shared policy function; the rider-search clock now starts when the order became dispatchable (affects every restaurant). No table, index or constraint change ('auto_decline' is already allowed). Nothing changes for a restaurant with no action key, except the rider-search clock. Requires: nothing else. Apply BEFORE deploying the code that calls restaurant_confirmation_policy()."
+   },
+   "objects": [],
+   "path": "migrations/restaurant_confirmation_timeout_action.sql",
+   "role": "migration",
+   "title": "restaurant confirmation timeout action (plans/restaurant-confirmation-timeout-action-plan.md). {REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION = 'decline' makes a never-answered order 'auto_decline' + status 'declined' instead of being auto-accepted. One shared policy function; the rider-search clock now starts when the order became dispatchable (affects every restaurant). No table, index or constraint change ('auto_decline' is already allowed). Nothing changes for a restaurant with no action key, except the rider-search clock. Requires: nothing else. Apply BEFORE deploying the code that calls restaurant_confirmation_policy()."
   },
   {
    "cron": [],
@@ -6964,16 +6982,16 @@
      "file": "restaurant_admin/process_restaurant_confirmation.sql",
      "function": "process_restaurant_confirmation",
      "job": "process_restaurant_confirmation",
-     "line": 117,
+     "line": 131,
      "schedule": "10 seconds"
     }
    ],
    "folder": "restaurant_admin",
-   "header_lines": 36,
-   "lines": 140,
+   "header_lines": 45,
+   "lines": 154,
    "objects": [
     {
-     "description": "Mark overdue unanswered restaurant confirmations 'restaurant_timedout' for delivery and takeaway; returns the orders it changed.",
+     "description": "Mark overdue unanswered restaurant confirmations for delivery and takeaway: 'restaurant_timedout', or 'auto_decline' + status 'declined' where the restaurant declines on silence; returns the orders it changed.",
      "kind": "function",
      "name": "process_restaurant_confirmation",
      "signature": "process_restaurant_confirmation() -> TABLE(action text)"
@@ -6981,7 +6999,9 @@
    ],
    "path": "restaurant_admin/process_restaurant_confirmation.sql",
    "path_line": "ordelo_datamodels/restaurant_admin/process_restaurant_confirmation.sql",
-   "requires": [],
+   "requires": [
+    "restaurant_admin/restaurant_confirmation_policy.sql"
+   ],
    "role": "definition",
    "section_order": [
     "LIVE CHECK",
@@ -7001,24 +7021,27 @@
    "sections": {
     "CALLED BY": "process_restaurant_confirmation:\n  cron      'process_restaurant_confirmation' 10 seconds",
     "GOTCHAS": "Older notes say every 5 seconds; the live schedule is every 10 seconds.\nA decision tap and this timeout can race: restaurant_order_decide() only changes an undecided row, so whichever\n  UPDATE commits first wins and the other changes nothing.",
-    "HOW IT FITS": "Restaurant confirmation, delivery and takeaway alike:\n  new order -> init_delivery() / init_takeaway() -> resolve_initial_restaurant_acceptance():\n      auto_accept restaurants: order starts accepted with a default pickup time (no prompt)\n      otherwise: 'restaurant_unconfirmed' -> trigger -> admins prompted (WhatsApp buttons; Telegram order cards)\n  admin taps Accept / Decline -> restaurant_order_decide(); picks a pickup time -> restaurant_order_set_pickup()\n      (Telegram taps go through t_order_decide() / t_order_set_pickup(), which authorise the person first)\n  no answer -> process_restaurant_confirmation() (cron 10 s) -> 'restaurant_timedout' -> trigger -> Python sets a default\n      pickup time and makes the order dispatchable (delivery_hooks._handle_restaurant_timedout)\n  morning check -> enquire_admin_availability() (cron 11:00 UTC) asks admins whether the restaurant is open today.",
+    "HOW IT FITS": "Restaurant confirmation, delivery and takeaway alike:\n  new order -> init_delivery() / init_takeaway() -> resolve_initial_restaurant_acceptance():\n      auto_accept restaurants: order starts accepted with a default pickup time (no prompt)\n      otherwise: 'restaurant_unconfirmed' -> trigger -> admins prompted (WhatsApp buttons; Telegram order cards)\n  admin taps Accept / Decline -> restaurant_order_decide(); picks a pickup time -> restaurant_order_set_pickup()\n      (Telegram taps go through t_order_decide() / t_order_set_pickup(), which authorise the person first)\n  no answer -> process_restaurant_confirmation() (cron 10 s), which asks restaurant_confirmation_policy() what silence means:\n      'accept'  -> 'restaurant_timedout' -> trigger -> Python sets a default pickup time and makes the order dispatchable\n                   (delivery_hooks._handle_restaurant_timedout)\n      'decline' -> a never-answered order becomes 'auto_decline' + status 'declined' -> trigger -> Python tells the customer,\n                   releases the payment and notifies admins and overwatch (_handle_restaurant_decline, timed_out=True)\n      an order an admin ACCEPTED without choosing a pickup time is always 'restaurant_timedout' (auto-accepted)\n  morning check -> enquire_admin_availability() (cron 11:00 UTC) asks admins whether the restaurant is open today.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "An order times out when restaurant_confirmation_status is 'restaurant_unconfirmed' or 'restaurant_accept', pickup_time\nis still NULL, and it is older than <REST>_RESTAURANT_CONFIRMATION_TIMEOUT_TIME (else RESTAURANT_CONFIRMATION_TIMEOUT_TIME,\nelse 5) minutes. Python then sets the default pickup time (+30 min) and moves the order on.",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
-    "OBJECTS": "fn     process_restaurant_confirmation() -> TABLE(action text)\n    Mark overdue unanswered restaurant confirmations 'restaurant_timedout' for delivery and takeaway; returns the orders it changed.",
+    "LIFECYCLE": "An order times out when restaurant_confirmation_status is 'restaurant_unconfirmed' or 'restaurant_accept', pickup_time\nis still NULL, and it is older than the policy's timeout_minutes (<REST>_RESTAURANT_CONFIRMATION_TIMEOUT_TIME, else\nRESTAURANT_CONFIRMATION_TIMEOUT_TIME, else 5). 'restaurant_unconfirmed' + timeout_action 'decline' -> 'auto_decline' and\nstatus 'declined' (terminal). Otherwise 'restaurant_timedout'; Python then sets the default pickup time and moves the order on.",
+    "LIVE CHECK": "last compared with the live catalogue 2026-10-16; the auto_decline change (2026-11-16) is not yet applied to live\n(migrations/restaurant_confirmation_timeout_action.sql; the owner applies it).",
+    "OBJECTS": "fn     process_restaurant_confirmation() -> TABLE(action text)\n    Mark overdue unanswered restaurant confirmations for delivery and takeaway: 'restaurant_timedout', or 'auto_decline' + status 'declined'\n    where the restaurant declines on silence; returns the orders it changed.",
     "PYTHON MODEL": "none",
-    "REQUIRES": "none",
+    "REQUIRES": "restaurant_admin/restaurant_confirmation_policy.sql",
     "SECURITY": "process_restaurant_confirmation(): executable by PUBLIC (default)",
-    "SEE ALSO": "restaurant_admin/restaurant_order_decision.sql\ndelivery/delivery_summary.sql (trigger_restaurant_updates)\ndocs/pickup_time_logic.md",
-    "SIDE EFFECTS": "Each run sets restaurant_confirmation_status = 'restaurant_timedout' on overdue orders, which fires the restaurant\ntrigger (POST .../restaurant-confirmation-request, trigger_reason 'restaurant_timedout').",
-    "TESTS": "none"
+    "SEE ALSO": "restaurant_admin/restaurant_confirmation_policy.sql\nrestaurant_admin/restaurant_order_decision.sql\ndelivery/delivery_summary.sql (trigger_restaurant_updates)\ndocs/pickup_time_logic.md",
+    "SIDE EFFECTS": "Each run sets restaurant_confirmation_status to 'restaurant_timedout' (or 'auto_decline', with status 'declined') on overdue\norders, which fires the restaurant trigger (POST .../restaurant-confirmation-request, trigger_reason 'restaurant_timedout'\nor 'auto_decline').",
+    "TESTS": "tests/sql/test_restaurant_confirmation_timeout_sql.py"
    },
    "see_also": [
+    "restaurant_admin/restaurant_confirmation_policy.sql",
     "restaurant_admin/restaurant_order_decision.sql",
     "delivery/delivery_summary.sql (trigger_restaurant_updates)",
     "docs/pickup_time_logic.md"
    ],
-   "tests": [],
+   "tests": [
+    "tests/sql/test_restaurant_confirmation_timeout_sql.py"
+   ],
    "title": "Every 10 seconds: time out restaurant confirmations nobody answered (delivery and takeaway)."
   },
   {
@@ -7089,6 +7112,76 @@
     "tests/ordelo_datamodels/test_auto_accept_sql.py"
    ],
    "title": "Decide at order creation whether the restaurant auto-accepts, and with which pickup time."
+  },
+  {
+   "called_by": {
+    "restaurant_confirmation_policy": [
+     {
+      "text": "process_restaurant_confirmation() (restaurant_admin/process_restaurant_confirmation.sql)",
+      "via": "sql"
+     },
+     {
+      "text": "utils_common/web_ordering/customer_order_view.py: get_view()",
+      "via": "python"
+     }
+    ]
+   },
+   "cron": [],
+   "folder": "restaurant_admin",
+   "header_lines": 31,
+   "lines": 82,
+   "objects": [
+    {
+     "description": "Return (timeout_minutes, timeout_action) for one restaurant; timeout_action is 'accept' or 'decline'.",
+     "kind": "function",
+     "name": "restaurant_confirmation_policy",
+     "signature": "restaurant_confirmation_policy(p_rest_ref text, OUT timeout_minutes numeric, OUT timeout_action text) -> record"
+    }
+   ],
+   "path": "restaurant_admin/restaurant_confirmation_policy.sql",
+   "path_line": "ordelo_datamodels/restaurant_admin/restaurant_confirmation_policy.sql",
+   "requires": [
+    "core/ordelo_config.sql"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "restaurant_confirmation_policy:\n  sql       process_restaurant_confirmation() (restaurant_admin/process_restaurant_confirmation.sql)\n  python    utils_common/web_ordering/customer_order_view.py: get_view()",
+    "GOTCHAS": "There is deliberately NO global action key: a global 'decline' would silently flip every WhatsApp restaurant.\nA non-numeric timeout value raises (same as the job did before this function existed).",
+    "HOW IT FITS": "Restaurant confirmation (see docs/pickup_time_logic.md, \"Three confirmation modes\"):\n  auto_accept (restaurant_master) decides whether anyone is ASKED.\n  This function decides what SILENCE means for restaurants that are asked:\n    timeout_action 'accept'  -> process_restaurant_confirmation() marks 'restaurant_timedout'; Python auto-accepts\n    timeout_action 'decline' -> a never-answered order becomes 'auto_decline' + status 'declined'\n  Two callers read it so the deadline the customer sees is the deadline that is enforced:\n    process_restaurant_confirmation() (cron, every 10 s) and the web order view (customer countdown).",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
+    "LIFECYCLE": "none (stateless; reads configuration)",
+    "LIVE CHECK": "not yet applied to live (prepared 2026-11-16; the owner applies it, see migrations/restaurant_confirmation_timeout_action.sql).",
+    "OBJECTS": "fn     restaurant_confirmation_policy(p_rest_ref text, OUT timeout_minutes numeric, OUT timeout_action text) -> record\n    Return (timeout_minutes, timeout_action) for one restaurant; timeout_action is 'accept' or 'decline'.",
+    "PYTHON MODEL": "none",
+    "REQUIRES": "core/ordelo_config.sql",
+    "SECURITY": "restaurant_confirmation_policy(): executable by PUBLIC (default), like the other config readers (parse_alert_offsets).\nIt returns two settings only, no secrets.",
+    "SEE ALSO": "restaurant_admin/process_restaurant_confirmation.sql\ndocs/pickup_time_logic.md",
+    "SIDE EFFECTS": "none (reads ordelo_config)",
+    "TESTS": "tests/sql/test_restaurant_confirmation_timeout_sql.py"
+   },
+   "see_also": [
+    "restaurant_admin/process_restaurant_confirmation.sql",
+    "docs/pickup_time_logic.md"
+   ],
+   "tests": [
+    "tests/sql/test_restaurant_confirmation_timeout_sql.py"
+   ],
+   "title": "What silence means for one restaurant: how long admins have to answer a new order, and what happens if nobody does."
   },
   {
    "called_by": {
@@ -8117,7 +8210,7 @@
      "signature": "takeaway_restaurant_updates_whook() -> trigger"
     },
     {
-     "description": "AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout).",
+     "description": "AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout, auto_decline).",
      "kind": "trigger",
      "name": "trigger_takeaway_restaurant_updates",
      "signature": "trigger_takeaway_restaurant_updates on takeaway_summary -> takeaway_restaurant_updates_whook()"
@@ -8165,9 +8258,9 @@
     "GOTCHAS": "Nothing sets status 'completed' for takeaway yet (restaurant_admin/restaurant_ready_adjust_notices.sql NOT YET DONE).\nWebhook triggers swallow errors (RAISE WARNING); check debug_log when a prompt is missing.",
     "HOW IT FITS": "Takeaway (collection) order journey (takeaway_summary.status):\n  1 create   /takeaway-hooks/init-takeaway-order -> init_takeaway(): 'restaurant_unconfirmed', or 'pickup_confirmed' with a\n             pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_takeaway_restaurant_updates -> POST /takeaway-hooks/restaurant-confirmation-request -> admins asked.\n             restaurant_order_decide() / restaurant_order_set_pickup() record the decision and pickup time\n             ('pickup_confirmed'); process_restaurant_confirmation() (cron 10 s) times out unanswered orders.\n  3 notify   pickup_time first set (or set at insert) -> trigger_takeaway_pickup_time_set / _insert ->\n             POST /takeaway-hooks/pickup-time-updated -> customer told when to collect.\n  4 ready    restaurant_order_ready() (WhatsApp or Telegram Ready) sets ready_at / ready_by; customer told.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "status: restaurant_unconfirmed -> pickup_confirmed -> completed ; restaurant_unconfirmed -> declined\nrestaurant_confirmation_status: restaurant_unconfirmed -> restaurant_accept | restaurant_decline | restaurant_timedout | auto_accept",
+    "LIFECYCLE": "status: restaurant_unconfirmed -> pickup_confirmed -> completed ; restaurant_unconfirmed -> declined\nrestaurant_confirmation_status: restaurant_unconfirmed -> restaurant_accept | restaurant_decline | restaurant_timedout | auto_decline | auto_accept",
     "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
-    "OBJECTS": "table  takeaway_summary\n    The takeaway order as the restaurant sees it: customer, restaurant decision, pickup time and Ready state.\nfn     takeaway_restaurant_updates_whook() -> trigger\n    Trigger function: POST the order, restaurant, food_order and items to /takeaway-hooks/restaurant-confirmation-request (errors logged, never raised).\ntrg    trigger_takeaway_restaurant_updates on takeaway_summary -> takeaway_restaurant_updates_whook()\n    AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout).\nfn     takeaway_pickup_time_whook() -> trigger\n    Trigger function: POST the order to /takeaway-hooks/pickup-time-updated so the customer is told when to collect.\ntrg    trigger_takeaway_pickup_time_set on takeaway_summary -> takeaway_pickup_time_whook()\n    AFTER UPDATE OF pickup_time when it goes from NULL to a value.\ntrg    trigger_takeaway_pickup_time_insert on takeaway_summary -> takeaway_pickup_time_whook()\n    AFTER INSERT when the row already has a pickup_time (configured auto-accept).",
+    "OBJECTS": "table  takeaway_summary\n    The takeaway order as the restaurant sees it: customer, restaurant decision, pickup time and Ready state.\nfn     takeaway_restaurant_updates_whook() -> trigger\n    Trigger function: POST the order, restaurant, food_order and items to /takeaway-hooks/restaurant-confirmation-request (errors logged, never raised).\ntrg    trigger_takeaway_restaurant_updates on takeaway_summary -> takeaway_restaurant_updates_whook()\n    AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout, auto_decline).\nfn     takeaway_pickup_time_whook() -> trigger\n    Trigger function: POST the order to /takeaway-hooks/pickup-time-updated so the customer is told when to collect.\ntrg    trigger_takeaway_pickup_time_set on takeaway_summary -> takeaway_pickup_time_whook()\n    AFTER UPDATE OF pickup_time when it goes from NULL to a value.\ntrg    trigger_takeaway_pickup_time_insert on takeaway_summary -> takeaway_pickup_time_whook()\n    AFTER INSERT when the row already has a pickup_time (configured auto-accept).",
     "PYTHON MODEL": "none",
     "REQUIRES": "none",
     "SECURITY": "takeaway_summary: RLS OFF; Supabase default grants (anon and authenticated can read and write)\ntakeaway_restaurant_updates_whook(): executable by PUBLIC (default)\ntakeaway_pickup_time_whook(): executable by PUBLIC (default)",
@@ -8748,7 +8841,7 @@
    "cron": [],
    "folder": "telegram",
    "header_lines": 110,
-   "lines": 777,
+   "lines": 779,
    "objects": [
     {
      "description": "Reminder schedule: one row per order and offset (seconds after the order) with due time and status.",
@@ -8757,7 +8850,7 @@
      "signature": "t_order_alerts"
     },
     {
-     "description": "Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).",
+     "description": "Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, auto_declined, gone).",
      "kind": "function",
      "name": "t_order_card_status",
      "signature": "t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text"
@@ -8835,11 +8928,11 @@
    "sections": {
     "CALLED BY": "t_order_alerts:\n  sql       job_t_order_alerts(), t_housekeeping()\n  python    channels/telegram/rest_admin/order_cards/__init__.py (module-level SQL)\n  python    watomation/routers/telegram_order_alerts.py (module-level SQL)\nt_order_card_status:\n  sql       t_order_card_sent() (telegram/t_sent_messages.sql)\n  sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)\n  sql       t_order_cards_stale() (telegram/t_order_alerts.sql)\nt_order_card_row:\n  sql       job_t_order_alerts() (telegram/t_order_alerts.sql)\n  sql       t_order_card_sent() (telegram/t_sent_messages.sql)\n  sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)\n  sql       t_order_cards_stale() (telegram/t_order_alerts.sql)\nt_order_card_destinations:\n  sql       t_alert_destinations() (telegram/t_order_alerts.sql)\n  sql       t_order_cards_stale() (telegram/t_order_alerts.sql)\n  sql       t_receipts_stale() (restaurant_admin/restaurant_ready_adjust_notices.sql)\n  sql       t_admin_pause_chats() (telegram/t_admin_pauses.sql)\nt_alert_destinations:\n  sql       job_t_order_alerts() (telegram/t_order_alerts.sql)\n  sql       t_notice_targets() (restaurant_admin/restaurant_ready_adjust_notices.sql)\n  sql       t_order_card_snapshot() (telegram/t_order_alerts.sql)\n  sql       t_receipt_snapshot() (restaurant_admin/restaurant_ready_adjust_notices.sql)\nt_order_card_snapshot:\n  python    channels/telegram/rest_admin/order_cards/store.py: CardStore.snapshot()\nt_order_cards_stale:\n  sql       job_t_order_alerts() (telegram/t_order_alerts.sql)\n  sql       t_order_cards_take() (telegram/t_order_alerts.sql)\nt_order_cards_take:\n  python    channels/telegram/rest_admin/order_cards/store.py: CardStore.take_for_refresh()\njob_t_order_alerts:\n  cron      'job_t_order_alerts' 5 seconds\n  python    watomation/routers/telegram_order_alerts.py (module-level SQL)",
     "GOTCHAS": "Destinations are looked up by the summary's rest_ref (the order-number prefix): a restaurant whose orders use an alias\n  prefix (config/params.py _REST_REF_ALIAS_MAP) gets no cards until the alias is resolved here.\nGroup chats (D27) would be a UNION ALL branch in t_order_card_destinations().\nA per-restaurant <REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS wins over the global offsets.",
-    "HOW IT FITS": "Telegram order cards (D12, D14, D22, D24, D26): linked admins get the order card at configured offsets after the order\n  arrives; each new copy replaces the previous one in that chat; every copy follows the order until it is final.\n  The database is authoritative and is checked before every send; the ledger (t_sent_messages) only remembers what to tidy.\n    pg_cron every 5 s -> job_t_order_alerts()\n       SEED    delivery_summary + takeaway_summary rows still 'restaurant_unconfirmed' (< 15 min old) with at least one\n               destination -> one t_order_alerts checkpoint per offset (TGRAM_ORDER_ALERT_OFFSETS_SECS, '0,15,30,45')\n       CANCEL  pending checkpoints of orders no longer unconfirmed\n       DUE     pending checkpoints with due_at <= now(); one winner per order (the largest offset)\n       STALE   up to 50 orders with copies that show an old status or a revoked viewer\n       POST    ORDELO_APP_URL/telegram/rest-admin/order-alerts {reminders, refreshes}\n       MARK    only on a 2xx answer: superseded first, then winners 'sent'\n    -> watomation/routers/telegram_order_alerts.py (background tasks)\n       OrderCards.remind() -> snapshot -> send per destination -> t_order_card_sent -> delete old copies\n       OrderCards.refresh() -> snapshot -> t_order_cards_take -> edit/delete -> t_order_card_mark\n  Python: channels/telegram/rest_admin/order_cards/store.py CardStore.snapshot() / card_sent() / take_for_refresh() / mark().\n  Pauses (R6, ADR 0013): NEW copies go to t_alert_destinations() (linked admins minus paused ones); whether a\n  chat may SEE and TAP a card stays t_order_card_destinations(), so a paused admin's existing copies keep\n  being refreshed and their buttons keep working.\n  Card status keys MUST match channels/telegram/rest_admin/order_cards/model.py (Status):\n    awaiting | accepted | pickup_set | declined | auto_accepted | gone\n  Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).",
+    "HOW IT FITS": "Telegram order cards (D12, D14, D22, D24, D26): linked admins get the order card at configured offsets after the order\n  arrives; each new copy replaces the previous one in that chat; every copy follows the order until it is final.\n  The database is authoritative and is checked before every send; the ledger (t_sent_messages) only remembers what to tidy.\n    pg_cron every 5 s -> job_t_order_alerts()\n       SEED    delivery_summary + takeaway_summary rows still 'restaurant_unconfirmed' (< 15 min old) with at least one\n               destination -> one t_order_alerts checkpoint per offset (TGRAM_ORDER_ALERT_OFFSETS_SECS, '0,15,30,45')\n       CANCEL  pending checkpoints of orders no longer unconfirmed\n       DUE     pending checkpoints with due_at <= now(); one winner per order (the largest offset)\n       STALE   up to 50 orders with copies that show an old status or a revoked viewer\n       POST    ORDELO_APP_URL/telegram/rest-admin/order-alerts {reminders, refreshes}\n       MARK    only on a 2xx answer: superseded first, then winners 'sent'\n    -> watomation/routers/telegram_order_alerts.py (background tasks)\n       OrderCards.remind() -> snapshot -> send per destination -> t_order_card_sent -> delete old copies\n       OrderCards.refresh() -> snapshot -> t_order_cards_take -> edit/delete -> t_order_card_mark\n  Python: channels/telegram/rest_admin/order_cards/store.py CardStore.snapshot() / card_sent() / take_for_refresh() / mark().\n  Pauses (R6, ADR 0013): NEW copies go to t_alert_destinations() (linked admins minus paused ones); whether a\n  chat may SEE and TAP a card stays t_order_card_destinations(), so a paused admin's existing copies keep\n  being refreshed and their buttons keep working.\n  Card status keys MUST match channels/telegram/rest_admin/order_cards/model.py (Status):\n    awaiting | accepted | pickup_set | declined | auto_accepted | auto_declined | gone\n  Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "t_order_alerts.status: pending -> sent | superseded | cancelled (order decided before the reminder was due).",
     "LIVE CHECK": "R6 t_alert_destinations(), t_order_card_snapshot() and job_t_order_alerts() verified live on 2026-10-22.",
-    "OBJECTS": "table  t_order_alerts\n    Reminder schedule: one row per order and offset (seconds after the order) with due time and status.\nfn     t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text\n    Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).\nfn     t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)\n    Return the order's current state from delivery_summary or takeaway_summary as one row.\nfn     t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)\n    Return where cards for a restaurant go: the linked admins' chats (the one place that says so).\nfn     t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)\n    t_order_card_destinations() without the admins who paused their alerts: where NEW cards, receipts and notices go.\nfn     t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Return everything needed to draw the card (order, items, status, destinations) in one read.\nfn     t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)\n    List orders whose sent copies show an old status or a revoked viewer (read-only).\nfn     t_order_cards_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Claim one order's stale copies for one refresh pass (state 'taken', SKIP LOCKED).\nfn     job_t_order_alerts() -> boolean\n    Every 5 seconds: seed, cancel, find due reminders and stale cards, POST them, and mark them on success.",
+    "OBJECTS": "table  t_order_alerts\n    Reminder schedule: one row per order and offset (seconds after the order) with due time and status.\nfn     t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text\n    Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, auto_declined, gone).\nfn     t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)\n    Return the order's current state from delivery_summary or takeaway_summary as one row.\nfn     t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)\n    Return where cards for a restaurant go: the linked admins' chats (the one place that says so).\nfn     t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)\n    t_order_card_destinations() without the admins who paused their alerts: where NEW cards, receipts and notices go.\nfn     t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Return everything needed to draw the card (order, items, status, destinations) in one read.\nfn     t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)\n    List orders whose sent copies show an old status or a revoked viewer (read-only).\nfn     t_order_cards_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Claim one order's stale copies for one refresh pass (state 'taken', SKIP LOCKED).\nfn     job_t_order_alerts() -> boolean\n    Every 5 seconds: seed, cancel, find due reminders and stale cards, POST them, and mark them on success.",
     "PYTHON MODEL": "none",
     "REQUIRES": "delivery/delivery_summary.sql\ntakeaway/takeaway_summary.sql\ncore/restaurant_master.sql\ntelegram/t_invites.sql\nrestaurant_admin/admin_roster.sql\ntelegram/t_sent_messages.sql\navailability/pauses.sql",
     "SECURITY": "RLS ON with no policies; every function is revoked from PUBLIC/anon/authenticated: only the service key can call them.\nConcurrency: up to 3 gunicorn workers may remind / refresh the same order; copies are claimed in SQL (state 'taken',\n  FOR UPDATE SKIP LOCKED), a claim not finished in 30 s is offered again, and a newer copy only deletes OLDER ones (id <).",
@@ -9383,7 +9476,7 @@
    "cron": [],
    "folder": "test_support",
    "header_lines": 0,
-   "lines": 418,
+   "lines": 460,
    "objects": [],
    "path": "test_support/test_restaurant_notices.sql",
    "role": "script",
@@ -10168,7 +10261,7 @@
    "file": "delivery/delivery_summary.sql",
    "folder": "delivery",
    "kind": "table",
-   "line": 129,
+   "line": 131,
    "role": "definition",
    "signature": "delivery_summary"
   },
@@ -10183,7 +10276,7 @@
    "file": "delivery/delivery_summary.sql",
    "folder": "delivery",
    "kind": "function",
-   "line": 383,
+   "line": 385,
    "role": "definition",
    "signature": "delivery_summary_timedout_whook() -> trigger"
   },
@@ -10841,7 +10934,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 566,
+   "line": 568,
    "role": "definition",
    "signature": "job_t_order_alerts() -> boolean"
   },
@@ -11360,7 +11453,7 @@
    "file": "delivery/process_delivery.sql",
    "folder": "delivery",
    "kind": "function",
-   "line": 53,
+   "line": 57,
    "role": "definition",
    "signature": "process_delivery() -> TABLE(action text)"
   },
@@ -11371,11 +11464,11 @@
      "via": "cron"
     }
    ],
-   "description": "Mark overdue unanswered restaurant confirmations 'restaurant_timedout' for delivery and takeaway; returns the orders it changed.",
+   "description": "Mark overdue unanswered restaurant confirmations for delivery and takeaway: 'restaurant_timedout', or 'auto_decline' + status 'declined' where the restaurant declines on silence; returns the orders it changed.",
    "file": "restaurant_admin/process_restaurant_confirmation.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 43,
+   "line": 53,
    "role": "definition",
    "signature": "process_restaurant_confirmation() -> TABLE(action text)"
   },
@@ -11472,6 +11565,25 @@
    "line": 99,
    "role": "definition",
    "signature": "restaurant_admin_label(p_phone text) -> text"
+  },
+  "restaurant_confirmation_policy": {
+   "called_by": [
+    {
+     "text": "process_restaurant_confirmation() (restaurant_admin/process_restaurant_confirmation.sql)",
+     "via": "sql"
+    },
+    {
+     "text": "utils_common/web_ordering/customer_order_view.py: get_view()",
+     "via": "python"
+    }
+   ],
+   "description": "Return (timeout_minutes, timeout_action) for one restaurant; timeout_action is 'accept' or 'decline'.",
+   "file": "restaurant_admin/restaurant_confirmation_policy.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 42,
+   "role": "definition",
+   "signature": "restaurant_confirmation_policy(p_rest_ref text, OUT timeout_minutes numeric, OUT timeout_action text) -> record"
   },
   "restaurant_confirmation_whook": {
    "called_by": [
@@ -11682,7 +11794,7 @@
    "file": "delivery/delivery_summary.sql",
    "folder": "delivery",
    "kind": "function",
-   "line": 228,
+   "line": 230,
    "role": "definition",
    "signature": "restaurant_updates_whook() -> trigger"
   },
@@ -11940,7 +12052,7 @@
    "file": "delivery/delivery_summary.sql",
    "folder": "delivery",
    "kind": "function",
-   "line": 450,
+   "line": 452,
    "role": "definition",
    "signature": "rider_pickup_alert_reschedule() -> trigger"
   },
@@ -12270,7 +12382,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 320,
+   "line": 322,
    "role": "definition",
    "signature": "t_alert_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)"
   },
@@ -12569,7 +12681,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 252,
+   "line": 254,
    "role": "definition",
    "signature": "t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)"
   },
@@ -12615,7 +12727,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 194,
+   "line": 196,
    "role": "definition",
    "signature": "t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)"
   },
@@ -12645,7 +12757,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 358,
+   "line": 360,
    "role": "definition",
    "signature": "t_order_card_snapshot(p_bot_key text, p_order_number text, p_order_type text) -> jsonb"
   },
@@ -12664,7 +12776,7 @@
      "via": "sql"
     }
    ],
-   "description": "Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).",
+   "description": "Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, auto_declined, gone).",
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
@@ -12687,7 +12799,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 422,
+   "line": 424,
    "role": "definition",
    "signature": "t_order_cards_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, authorised boolean, viewer_phone text)"
   },
@@ -12702,7 +12814,7 @@
    "file": "telegram/t_order_alerts.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 480,
+   "line": 482,
    "role": "definition",
    "signature": "t_order_cards_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb"
   },
@@ -13087,7 +13199,7 @@
    "file": "delivery/delivery_summary.sql",
    "folder": "delivery",
    "kind": "trigger",
-   "line": 213,
+   "line": 215,
    "role": "definition",
    "signature": "trigger_delivery_summary_timedout on delivery_summary -> delivery_summary_timedout_whook()"
   },
@@ -13107,17 +13219,17 @@
    "file": "delivery/delivery_summary.sql",
    "folder": "delivery",
    "kind": "trigger",
-   "line": 475,
+   "line": 477,
    "role": "definition",
    "signature": "trigger_pickup_time_reschedule on delivery_summary -> rider_pickup_alert_reschedule()"
   },
   "trigger_restaurant_updates": {
    "called_by": [],
-   "description": "AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the five statuses Python acts on.",
+   "description": "AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the six statuses Python acts on.",
    "file": "delivery/delivery_summary.sql",
    "folder": "delivery",
    "kind": "trigger",
-   "line": 201,
+   "line": 203,
    "role": "definition",
    "signature": "trigger_restaurant_updates on delivery_summary -> restaurant_updates_whook()"
   },
@@ -13163,7 +13275,7 @@
   },
   "trigger_takeaway_restaurant_updates": {
    "called_by": [],
-   "description": "AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout).",
+   "description": "AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout, auto_decline).",
    "file": "takeaway/takeaway_summary.sql",
    "folder": "takeaway",
    "kind": "trigger",

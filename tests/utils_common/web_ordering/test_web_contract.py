@@ -295,6 +295,48 @@ async def test_status_only_view_redacts_before_return(monkeypatch):
     assert not {"delivery", "items", "charges", "notes"} & view.keys()
 
 
+def _confirmation_view_fakes(monkeypatch, summary, policy):
+    async def one(sql, params=()):
+        if "FROM food_order" in sql:
+            return FOOD | {"order_number": "ELAS-ABCD-1", "order_id": "ABCD-1", "total_price": 10, "origin_channel": "web"}
+        if "FROM restaurant_master" in sql:
+            return {"rest_name": "Elai"}
+        if "FROM delivery_summary" in sql:
+            return summary
+        if "restaurant_confirmation_policy" in sql:
+            return policy
+        return None
+
+    event = {"id": 1, "event_type": "payment_authorised", "occurred_at": NOW, "data": {}}
+    monkeypatch.setattr(customer_order_view, "one", one)
+    monkeypatch.setattr(customer_order_view, "query", AsyncMock(return_value=[event]))
+
+
+@pytest.mark.parametrize("detail", ["full", "status_only"])
+async def test_view_has_absolute_confirmation_deadline_for_decline_policy(monkeypatch, detail):
+    placed = NOW + timedelta(minutes=1)
+    summary = {"dtts": placed, "restaurant_confirmation_status": "restaurant_unconfirmed", "customer_address": "x"}
+    _confirmation_view_fakes(monkeypatch, summary, {"timeout_minutes": 3, "timeout_action": "decline"})
+    view = await customer_order_view.get_view("ELAS-ABCD-1", detail)
+    assert view["display_status"] == "waiting_for_restaurant"
+    assert view["confirmation"] == {"deadline_at": customer_order_view.iso(placed + timedelta(minutes=3)), "on_timeout": "decline"}
+    # The ETag covers the whole view, so the deadline must not move between two reads.
+    again = await customer_order_view.get_view("ELAS-ABCD-1", detail)
+    assert again["confirmation"] == view["confirmation"]
+
+
+async def test_view_has_no_countdown_when_silence_means_accept(monkeypatch):
+    summary = {"dtts": NOW, "restaurant_confirmation_status": "restaurant_unconfirmed", "customer_address": "x"}
+    _confirmation_view_fakes(monkeypatch, summary, {"timeout_minutes": 5, "timeout_action": "accept"})
+    assert "confirmation" not in await customer_order_view.get_view("ELAS-ABCD-1", "full")
+
+
+async def test_view_has_no_countdown_once_the_restaurant_answered(monkeypatch):
+    summary = {"dtts": NOW, "restaurant_confirmation_status": "restaurant_accept", "customer_address": "x"}
+    _confirmation_view_fakes(monkeypatch, summary, {"timeout_minutes": 3, "timeout_action": "decline"})
+    assert "confirmation" not in await customer_order_view.get_view("ELAS-ABCD-1", "full")
+
+
 async def test_release_recovery_does_not_repeat_confirmed_cancellation(monkeypatch):
     from watomation.routers import delivery_hooks
 
