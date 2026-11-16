@@ -44,7 +44,7 @@ delete from ordelo_config where config_key='ELAS_MENU_APP_URL';
 update ordelo_config set config_value = 10
  where config_key = 'DISPATCH_BATCH_SIZE_ELECTRIC_BIKE';
 
-
+select * from delivery_dispatch order by dtts desc limit 10;
 update ordelo_config
 set config_value = 10
 where config_key = 'DISPATCH_BATCH_SIZE_SCOOTER';

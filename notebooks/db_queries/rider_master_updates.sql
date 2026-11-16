@@ -44,7 +44,7 @@ INSERT INTO rider_master (rider_id, rider_name, vehicle_type, town, status, is_i
 VALUES
   ('447495654065', 'Majid',          'scooter', 'Orpington', 'active', FALSE, 1),
   ('447554466043', 'Dhruva',         'scooter', 'Orpington', 'active', FALSE, 1),
-  ('447578401831', 'Rakesh',         'car',     'Orpington', 'active', FALSE, 1),
+  ('447578401831', 'Rakesh',         'car',    'Orpington', 'active', FALSE, 1),
   ('447747200220', 'Amar',           'scooter', 'Orpington', 'active', FALSE, 1),
   ('447765522420', 'Rehan',          'scooter', 'Orpington', 'active', FALSE, 1),
   ('447768519536', 'Leonardo',       'scooter', 'Orpington', 'active', FALSE, 1),

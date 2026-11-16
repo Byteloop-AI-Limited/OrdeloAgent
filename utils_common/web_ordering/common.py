@@ -13,6 +13,7 @@ RESTAURANTS = {
     "BNAT": {"town": "orpington", "phone": "01689637476"},
     "CRMS": {"town": "orpington", "phone": "01689838792"},
     "CRDO": {"town": "orpington", "phone": "01689332664"},
+    "STRK": {"town": "orpington", "phone": "01689637100"},
 }
 MAX_ORDER_LINES = 20
 LATE_PAYMENT_MINUTES = 35

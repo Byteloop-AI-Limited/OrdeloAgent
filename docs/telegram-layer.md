@@ -383,6 +383,12 @@ Source: `ordelo_datamodels/telegram/t_order_alerts.sql` (`job_t_order_alerts`, e
 | Declined (`restaurant_decline` / `auto_decline`) | n/a | Pending reminders are cancelled; the card shows "declined" |
 
 How it works: the job seeds one `t_order_alerts` row per offset, only for orders from the last 15 minutes that are `restaurant_unconfirmed` and have at least one destination in `t_alert_destinations`. Any pending row is cancelled as soon as `t_order_card_row` no longer reports `restaurant_unconfirmed` (decided on Telegram or WhatsApp). After an outage only the latest due reminder is sent. Paused admins and admins whose channels exclude Telegram are skipped.
+The offsets are due times relative to the order's `dtts`, not intervals between
+cards; the job sweeps every 5 seconds, so sends can be later than their due
+times. STRK's `0,15,30,45,60,75,85` schedules up to seven cards in the first
+85 seconds. An admin's decision cancels remaining reminders immediately; if
+still undecided after the 2-minute restaurant confirmation timeout, that
+timeout also cancels them. Neither event is extended by the card offsets.
 
 Operator controls (`ordelo_config`): `TGRAM_ORDER_ALERT_OFFSETS_SECS` is the global schedule (default `0,15,30,45`) and `<REF>_TGRAM_ORDER_ALERT_OFFSETS_SECS` overrides it for one restaurant. `parse_alert_offsets()` returns NULL for an absent, blank or unparseable value and the job does `COALESCE(per-restaurant, global)`.
 
@@ -405,6 +411,8 @@ Status: derived from the SQL; not yet confirmed live with an auto-accept restaur
 ## Change log
 
 Add one line per change, newest first: date, what changed, files.
+
+- 2026-11-16: Clarified STRK's Telegram order-card offset schedule and its relationship to restaurant confirmation timeout; updated the STRK config update script's descriptions without changing live data.
 
 - 2026-11-06: Documented the roster onboarding SOP (bot link, contact share, `t_admin_link` results) and the `admin_unlink_telegram` reset for re-testing, under "Admin roster"; marked section 7 invites as the legacy path. Same SOP added to the database-operations skill. Docs only.
 

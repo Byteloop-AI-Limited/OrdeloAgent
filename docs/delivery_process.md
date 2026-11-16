@@ -199,19 +199,20 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 
 **Function:** `process_restaurant_confirmation()`
 
-**Schedule:** Every 5 seconds via pg_cron
+**Schedule:** Every 10 seconds via pg_cron
 
 **Purpose:** Times out orders where restaurant hasn't selected pickup time
 
 **Logic:**
 - Finds orders with `restaurant_confirmation_status` IN (`restaurant_unconfirmed`, `restaurant_accept`) AND `pickup_time` IS NULL
-- Checks if time since `dtts` exceeds configured timeout
+- Checks if time since `dtts` (order creation) strictly exceeds the configured timeout in minutes
 - Updates `restaurant_confirmation_status` to `restaurant_timedout`
 - Triggers webhook for auto-acceptance handling
 
 **Configuration:**
 - `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` (restaurant-specific)
-- `RESTAURANT_CONFIRMATION_TIMEOUT_TIME` (global default: 5 minutes)
+- `RESTAURANT_CONFIRMATION_TIMEOUT_TIME` (global key; hardcoded fallback: 5 minutes)
+- STRK override: 2 minutes; applies to delivery and collection orders with no pickup time, including `restaurant_accept`
 
 ---
 
@@ -223,7 +224,7 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 
 **Function:** `process_delivery()`
 
-**Schedule:** Every 5 seconds via pg_cron (job: `manage_delivery_detail`)
+**Schedule:** Every 5 seconds via pg_cron (job: `process_delivery`)
 
 **Purpose:**
 - Creates `delivery_detail` records for each vehicle type based on `delivery_option`
@@ -234,12 +235,15 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 1. For each `unassigned` order in `delivery_summary`
 2. Determine next vehicle type by rank from `delivery_option`
 3. Insert `delivery_detail` if none exists for that vehicle type
-4. If all vehicle types timed out and grace period elapsed → mark `delivery_summary.status = 'timedout'`
+4. If all vehicle types timed out and the elapsed time since order creation (`dtts`), or since `redispatch_dtts` after a pre-pickup cancellation, strictly exceeds the configured timeout → mark `delivery_summary.status = 'timedout'`
 
 **Configuration (timeout resolution order):**
 1. `{rest_ref}_DELIVERY_TIMEOUT_TIME` — restaurant-specific timeout (minutes)
 2. `DELIVERY_TIMEOUT_TIME` — global fallback (minutes)
 3. Hardcoded default: 10 minutes
+
+STRK sets this to 5 minutes. It is not the timeout of an individual rider offer,
+and it does not start when the last vehicle type times out.
 
 #### 3b. Dispatch Creation
 
@@ -732,14 +736,14 @@ any prompt unless `LEGACY_OWNTRACKS_PROMPTS_ENABLED` is explicitly true.
 |-----|---------|-------------|
 | `ORDELO_APP_URL` | `https://rider-agent.ordelo.app` | Base URL for webhook calls |
 | `CONFIRMATION_CODE_SALT` | - | Salt for generating confirmation codes |
-| `RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | 5 | Minutes before restaurant confirmation times out |
+| `RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | 5 | Minutes since order creation before an unanswered confirmation with no pickup time times out (hardcoded fallback if the key is absent) |
 | `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | - | Restaurant-specific timeout override |
-| `DELIVERY_TIMEOUT_TIME` | 5 | Minutes before delivery times out (all vehicles exhausted) |
+| `DELIVERY_TIMEOUT_TIME` | 10 | Minutes since order creation or redispatch before an unassigned delivery times out, after all vehicle types are exhausted (hardcoded fallback if the key is absent) |
 | `{rest_ref}_DELIVERY_TIMEOUT_TIME` | - | Restaurant-specific delivery timeout |
-| `PICKUP_DEFAULT_TIME` | 30 | Minutes after order time used as pickup time when restaurant confirmation times out (takeaway only) |
-| `{rest_ref}_PICKUP_DEFAULT_TIME` | - | Restaurant-specific override for `PICKUP_DEFAULT_TIME` |
-| `DELIVERY_PICKUP_DEFAULT_TIME` | 30 | Minutes after order time used as pickup time when restaurant confirmation times out (delivery orders) |
-| `{rest_ref}_DELIVERY_PICKUP_DEFAULT_TIME` | - | Restaurant-specific override for `DELIVERY_PICKUP_DEFAULT_TIME` |
+| `DEFAULT_COLLECTION_PICKUP_TIME` | 30 | Minutes after order creation used as collection pickup time on configured auto-accept or confirmation timeout (30 is the Python timeout-handler fallback; configured auto-accept requires a valid key) |
+| `{rest_ref}_DEFAULT_COLLECTION_PICKUP_TIME` | - | Restaurant-specific collection pickup default |
+| `DEFAULT_DELIVERY_PICKUP_TIME` | 30 | Minutes after order creation used as delivery pickup time on configured auto-accept or confirmation timeout (30 is the Python timeout-handler fallback; configured auto-accept requires a valid key) |
+| `{rest_ref}_DEFAULT_DELIVERY_PICKUP_TIME` | - | Restaurant-specific delivery pickup default |
 | `DISPATCH_BATCH_SIZE_{VEHICLE_TYPE}` | 1 | Number of riders to dispatch per batch |
 | `LOCATION_ENABLE_TIME_INTERVAL` | 1 | Minutes before location is considered outdated |
 | `THREAD_INACTIVE_TIME_INTERVAL` | 5 | Minutes of inactivity before thread closure |

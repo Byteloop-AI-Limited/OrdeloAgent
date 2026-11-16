@@ -1,0 +1,44 @@
+[
+ {
+  "config_key": "STRK_DEFAULT_COLLECTION_PICKUP_TIME",
+  "config_value": "30",
+  "description": "Strikers collection pickup default",
+  "created_at": "2026-10-12 11:18:06.848797+00",
+  "updated_at": "2026-10-12 11:18:06.848797+00"
+ },
+ {
+  "config_key": "STRK_DEFAULT_DELIVERY_PICKUP_TIME",
+  "config_value": "30",
+  "description": "Strikers delivery pickup default",
+  "created_at": "2026-10-12 11:18:06.848797+00",
+  "updated_at": "2026-10-12 11:18:06.848797+00"
+ },
+ {
+  "config_key": "STRK_DELIVERY_TIMEOUT_TIME",
+  "config_value": "5",
+  "description": "Strikers rider dispatch timeout",
+  "created_at": "2026-10-12 11:18:06.848797+00",
+  "updated_at": "2026-10-12 11:18:06.848797+00"
+ },
+ {
+  "config_key": "STRK_RESTAURANT_CONFIRMATION_TIMEOUT_TIME",
+  "config_value": "2",
+  "description": "Timeout in minutes for restaurant confirmation",
+  "created_at": "2026-10-12 11:18:06.848797+00",
+  "updated_at": "2026-11-16 20:56:51.329563+00"
+ },
+ {
+  "config_key": "STRK_TGRAM_ORDER_ALERT_OFFSETS_SECS",
+  "config_value": "0,15,30,45,60,75,85",
+  "description": "STRK override: seconds after a new order at which the Telegram order card is (re)sent.",
+  "created_at": "2026-10-25 23:53:14.047944+00",
+  "updated_at": "2026-10-25 23:53:14.047944+00"
+ },
+ {
+  "config_key": "STRK_WEB_MAX_DISCOUNT_PERCENT",
+  "config_value": "0",
+  "description": "Strikers maximum web discount",
+  "created_at": "2026-10-12 11:18:06.848797+00",
+  "updated_at": "2026-10-12 11:18:06.848797+00"
+ }
+]
