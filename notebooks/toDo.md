@@ -1,5 +1,10 @@
 ## ordelo-agg
 
+### Go live
+Update the telegram msg to say - Do not prepare just yet, wait for the kitchen receipt (this is for telegram)
+If the restaurant accepted, but the pickup time was not set, then do not wait the ful length.
+
+
 ## Test the deploye of these apps on fly.io
 ## INFO:     2a00:23c8:47bd:b201:9528:5ae4:7210:5f25:0 - "GET /location-hooks/live-location-map/SFCS-CORT-21 HTTP/1.1" 404 Not Found - Called when asked about location, this will be part of the redesign
 

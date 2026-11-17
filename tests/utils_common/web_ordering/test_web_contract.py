@@ -83,6 +83,22 @@ def test_overnight_cutoff_and_weekend_next_open():
     )[1].startswith("2026-10-09T23:00")
 
 
+def test_cutoff_does_not_apply_at_a_midnight_seam():
+    """Open all night (Mon 10:00-24:00 then Tue 00:00-24:00) is continuous: no cutoff at 23:52."""
+    hours = {"mon": [["10:00", "24:00"]], "tue": [["00:00", "24:00"]]}
+    at = datetime(2026, 11, 16, 23, 52, tzinfo=availability.UK)  # a Monday
+    accepting, next_open = availability.opening(hours, at, 15)
+    assert accepting
+    # The next real closure is Tue 24:00, so the cutoff bites at 23:45 Tuesday.
+    assert availability.opening(hours, datetime(2026, 11, 17, 23, 44, tzinfo=availability.UK), 15)[0]
+    assert not availability.opening(hours, datetime(2026, 11, 17, 23, 46, tzinfo=availability.UK), 15)[0]
+
+
+def test_overnight_close_running_into_next_day_opening_is_continuous():
+    hours = {"fri": [["18:00", "25:00"]], "sat": [["01:00", "23:00"]]}
+    assert availability.opening(hours, datetime(2026, 10, 3, 0, 50, tzinfo=availability.UK), 15)[0]
+
+
 @pytest.mark.parametrize("token", ["", "short", "a" * 42, "a" * 44, "!" * 43])
 def test_malformed_access_rejected(token):
     with pytest.raises(WebError) as caught:
@@ -293,6 +309,48 @@ async def test_status_only_view_redacts_before_return(monkeypatch):
     monkeypatch.setattr(customer_order_view, "query", AsyncMock(return_value=[]))
     view = await customer_order_view.get_view("ELAS-ABCD-1", "status_only")
     assert not {"delivery", "items", "charges", "notes"} & view.keys()
+
+
+def _confirmation_view_fakes(monkeypatch, summary, policy):
+    async def one(sql, params=()):
+        if "FROM food_order" in sql:
+            return FOOD | {"order_number": "ELAS-ABCD-1", "order_id": "ABCD-1", "total_price": 10, "origin_channel": "web"}
+        if "FROM restaurant_master" in sql:
+            return {"rest_name": "Elai"}
+        if "FROM delivery_summary" in sql:
+            return summary
+        if "restaurant_confirmation_policy" in sql:
+            return policy
+        return None
+
+    event = {"id": 1, "event_type": "payment_authorised", "occurred_at": NOW, "data": {}}
+    monkeypatch.setattr(customer_order_view, "one", one)
+    monkeypatch.setattr(customer_order_view, "query", AsyncMock(return_value=[event]))
+
+
+@pytest.mark.parametrize("detail", ["full", "status_only"])
+async def test_view_has_absolute_confirmation_deadline_for_decline_policy(monkeypatch, detail):
+    placed = NOW + timedelta(minutes=1)
+    summary = {"dtts": placed, "restaurant_confirmation_status": "restaurant_unconfirmed", "customer_address": "x"}
+    _confirmation_view_fakes(monkeypatch, summary, {"timeout_minutes": 3, "timeout_action": "decline"})
+    view = await customer_order_view.get_view("ELAS-ABCD-1", detail)
+    assert view["display_status"] == "waiting_for_restaurant"
+    assert view["confirmation"] == {"deadline_at": customer_order_view.iso(placed + timedelta(minutes=3)), "on_timeout": "decline"}
+    # The ETag covers the whole view, so the deadline must not move between two reads.
+    again = await customer_order_view.get_view("ELAS-ABCD-1", detail)
+    assert again["confirmation"] == view["confirmation"]
+
+
+async def test_view_has_no_countdown_when_silence_means_accept(monkeypatch):
+    summary = {"dtts": NOW, "restaurant_confirmation_status": "restaurant_unconfirmed", "customer_address": "x"}
+    _confirmation_view_fakes(monkeypatch, summary, {"timeout_minutes": 5, "timeout_action": "accept"})
+    assert "confirmation" not in await customer_order_view.get_view("ELAS-ABCD-1", "full")
+
+
+async def test_view_has_no_countdown_once_the_restaurant_answered(monkeypatch):
+    summary = {"dtts": NOW, "restaurant_confirmation_status": "restaurant_accept", "customer_address": "x"}
+    _confirmation_view_fakes(monkeypatch, summary, {"timeout_minutes": 3, "timeout_action": "decline"})
+    assert "confirmation" not in await customer_order_view.get_view("ELAS-ABCD-1", "full")
 
 
 async def test_release_recovery_does_not_repeat_confirmed_cancellation(monkeypatch):

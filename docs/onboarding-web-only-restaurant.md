@@ -51,7 +51,8 @@ Per-restaurant keys read by code:
 | `{REF}_WEB_MAX_DISCOUNT_PERCENT` | `monitoring` price audit | 0 % |
 | `{REF}_DEFAULT_DELIVERY_PICKUP_TIME` / `_COLLECTION_` | `resolve_initial_restaurant_acceptance`, hooks | global `DEFAULT_*_PICKUP_TIME` |
 | `{REF}_DELIVERY_TIMEOUT_TIME` | `process_delivery` | global `DELIVERY_TIMEOUT_TIME`, else 10 |
-| `{REF}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | `process_restaurant_confirmation` | global default |
+| `{REF}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME` | `restaurant_confirmation_policy` (used by `process_restaurant_confirmation`) | global default, else 5 |
+| `{REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION` | `restaurant_confirmation_policy` | `accept`. Web-only restaurants set `decline` (silence declines the order and the customer sees a countdown); link a Telegram admin first or every order is auto-declined |
 | `{REF}_APP_URL` | restaurant-app webhooks, stale-thread job | **leave out for web-only** (skipped safely) |
 
 Payment selection is per order: only an exact `TEST3100` item selects Stripe test for new orders. Its presence also restricts delivery offers to eligible overwatch riders. There is no global test-payment setting. See [test-orders.md](test-orders.md).

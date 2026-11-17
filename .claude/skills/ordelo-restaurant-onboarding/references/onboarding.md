@@ -104,6 +104,8 @@ Adapt these supported CRMS keys after checking their current readers:
 {REF}_DEFAULT_COLLECTION_PICKUP_TIME
 {REF}_DELIVERY_TIMEOUT_TIME
 {REF}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME
+{REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION   (decline for web-only: silence declines the order; default accept)
+{REF}_TGRAM_ORDER_ALERT_OFFSETS_SECS   (keep the last offset below the timeout)
 {REF}_WEB_MAX_DISCOUNT_PERCENT
 {REF}_WEB_ORDERING_PAUSED = true
 ```

@@ -5,7 +5,7 @@
 
 The SQL under `ordelo_datamodels/` is organised by capability. Each file starts with a fixed header (live check, objects, how to run, side effects, how it fits, lifecycle, callers, Python model, security, tests, gotchas, see also). The file is the authority; this guide only indexes it.
 
-**126 SQL files · 222 objects** 145 functions · 58 tables · 13 triggers · 6 views · 17 cron jobs
+**128 SQL files · 223 objects** 146 functions · 58 tables · 13 triggers · 6 views · 17 cron jobs
 
 ## Capability map
 
@@ -18,7 +18,7 @@ The SQL under `ordelo_datamodels/` is organised by capability. Each file starts 
 | [`delivery/`](delivery/) | Delivery orders | 6 | 12 | The delivery order as fulfilment sees it (delivery_summary), its priced vehicle options and the 5-second job that opens the next option or times the order out. |
 | [`dispatch/`](dispatch/) | Rider dispatch | 12 | 24 | Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep. |
 | [`takeaway/`](takeaway/) | Takeaway (collection) | 2 | 7 | The collection order (takeaway_summary), its creation and the triggers that tell admins and customers about it. |
-| [`restaurant_admin/`](restaurant_admin/) | Restaurant admin actions | 7 | 32 | Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout, receipts and notices. New Telegram receipts and notices exclude paused admins. |
+| [`restaurant_admin/`](restaurant_admin/) | Restaurant admin actions | 8 | 33 | Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout, receipts and notices. New Telegram receipts and notices exclude paused admins. |
 | [`telegram/`](telegram/) | Telegram layer | 7 | 33 | Admin and rider links, the protected update inbox, order cards, alert destinations, admin pause RPCs and the sent-message ledger. |
 | [`rider_location/`](rider_location/) | Rider location | 6 | 9 | OwnTracks GPS fixes and region events from a pgmq queue, plus correlated on-demand WhatsApp and Telegram location replies. |
 | [`availability/`](availability/) | Rider shifts and availability pauses | 3 | 9 | WhatsApp rider shifts and mandatory-end pauses for riders and restaurant admins. is_paused() computes availability from the clock; job_pause_sweep() only closes expired rows and asks the app to send ends-soon and back-on messages (ADR 0013). |
@@ -28,7 +28,7 @@ The SQL under `ordelo_datamodels/` is organised by capability. Each file starts 
 | [`byteloop_agent/`](byteloop_agent/) | Byteloop agent | 2 | 4 | Tables and vector search used by the separate Byteloop agent. |
 | [`test_support/`](test_support/) | Test support | 12 | 4 | Helpers and harness scripts for resetting and replaying orders. Not part of production flows. |
 | [`_orphans/`](_orphans/) | Orphan candidates | 10 | 25 | Live objects with no caller found in OrdeloAgent, restaurant-frontend or restaurant-agents. Captured exactly as live; keep or drop is an owner decision (docs/to-do.md). |
-| [`migrations/`](migrations/) | Migrations (history) | 20 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
+| [`migrations/`](migrations/) | Migrations (history) | 21 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
 
 ## Flows
 
@@ -192,7 +192,7 @@ Admin dashboard reads and platform helpers.
 | [`delivery_option.sql`](delivery/delivery_option.sql) | `delivery_option` | table | Price breakdown for one vehicle type of an order: rank, customer charge, restaurant cost, driver payout, commission. |
 | [`delivery_pricing_detail.sql`](delivery/delivery_pricing_detail.sql) | `delivery_pricing_detail` | table | Pricing header for an order: distance, minimum order value and the customer-facing message. |
 | [`delivery_summary.sql`](delivery/delivery_summary.sql) | `delivery_summary` | table | The delivery order as fulfilment sees it, one row per order_number (prefix = rest_ref). |
-| [`delivery_summary.sql`](delivery/delivery_summary.sql) | `trigger_restaurant_updates` | trigger | AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the five statuses Python acts on. |
+| [`delivery_summary.sql`](delivery/delivery_summary.sql) | `trigger_restaurant_updates` | trigger | AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the six statuses Python acts on. |
 | [`delivery_summary.sql`](delivery/delivery_summary.sql) | `trigger_delivery_summary_timedout` | trigger | AFTER UPDATE when status changes to 'timedout'. |
 | [`delivery_summary.sql`](delivery/delivery_summary.sql) | `restaurant_updates_whook` | function | Trigger function: POST the order, restaurant, food_order and items to /delivery-hooks/restaurant-confirmation-request. |
 | [`delivery_summary.sql`](delivery/delivery_summary.sql) | `delivery_summary_timedout_whook` | function | Trigger function: POST the summary row to /delivery-hooks/delivery-timedout when the order times out (no rider found). |
@@ -237,7 +237,7 @@ Admin dashboard reads and platform helpers.
 | [`init_takeaway.sql`](takeaway/init_takeaway.sql) | `init_takeaway` | function | Create the takeaway_summary row for an order and return it. |
 | [`takeaway_summary.sql`](takeaway/takeaway_summary.sql) | `takeaway_summary` | table | The takeaway order as the restaurant sees it: customer, restaurant decision, pickup time and Ready state. |
 | [`takeaway_summary.sql`](takeaway/takeaway_summary.sql) | `takeaway_restaurant_updates_whook` | function | Trigger function: POST the order, restaurant, food_order and items to /takeaway-hooks/restaurant-confirmation-request (errors logged, never raised). |
-| [`takeaway_summary.sql`](takeaway/takeaway_summary.sql) | `trigger_takeaway_restaurant_updates` | trigger | AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout). |
+| [`takeaway_summary.sql`](takeaway/takeaway_summary.sql) | `trigger_takeaway_restaurant_updates` | trigger | AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout, auto_decline). |
 | [`takeaway_summary.sql`](takeaway/takeaway_summary.sql) | `takeaway_pickup_time_whook` | function | Trigger function: POST the order to /takeaway-hooks/pickup-time-updated so the customer is told when to collect. |
 | [`takeaway_summary.sql`](takeaway/takeaway_summary.sql) | `trigger_takeaway_pickup_time_set` | trigger | AFTER UPDATE OF pickup_time when it goes from NULL to a value. |
 | [`takeaway_summary.sql`](takeaway/takeaway_summary.sql) | `trigger_takeaway_pickup_time_insert` | trigger | AFTER INSERT when the row already has a pickup_time (configured auto-accept). |
@@ -258,8 +258,9 @@ Admin dashboard reads and platform helpers.
 | [`admin_roster.sql`](restaurant_admin/admin_roster.sql) | `admin_roster_status` | function | One restaurant's admin list with link and channel state, for the sys-admin page. |
 | [`enquire_admin_availability.sql`](restaurant_admin/enquire_admin_availability.sql) | `enquire_admin_availability` | function | POST the admins of the given restaurants (all when NULL) to the admin-availability webhook; returns true on success. |
 | [`job_restaurant_confirmation_timeout.sql`](restaurant_admin/job_restaurant_confirmation_timeout.sql) | `job_restaurant_confirmation_timeout` | function | Time out unconfirmed delivery orders (optionally one restaurant) with a 25-minute default prep time; returns what changed. |
-| [`process_restaurant_confirmation.sql`](restaurant_admin/process_restaurant_confirmation.sql) | `process_restaurant_confirmation` | function | Mark overdue unanswered restaurant confirmations 'restaurant_timedout' for delivery and takeaway; returns the orders it changed. |
+| [`process_restaurant_confirmation.sql`](restaurant_admin/process_restaurant_confirmation.sql) | `process_restaurant_confirmation` | function | Mark overdue unanswered restaurant confirmations for delivery and takeaway: 'restaurant_timedout', or 'auto_decline' + status 'declined' where the restaurant declines on silence; returns the orders it changed. |
 | [`resolve_initial_restaurant_acceptance.sql`](restaurant_admin/resolve_initial_restaurant_acceptance.sql) | `resolve_initial_restaurant_acceptance` | function | Return (auto_accept, pickup_minutes, pickup_time) for a new order of kind 'delivery' or 'collection'. |
+| [`restaurant_confirmation_policy.sql`](restaurant_admin/restaurant_confirmation_policy.sql) | `restaurant_confirmation_policy` | function | Return (timeout_minutes, timeout_action) for one restaurant; timeout_action is 'accept' or 'decline'. |
 | [`restaurant_order_decision.sql`](restaurant_admin/restaurant_order_decision.sql) | `restaurant_admin_label` | function | Return the 'by X' label for an admin phone: the Telegram first name of its latest claimed invite, else '...' + last 4 digits. |
 | [`restaurant_order_decision.sql`](restaurant_admin/restaurant_order_decision.sql) | `restaurant_order_decide` | function | Accept or decline an undecided order once (first decision wins); a decline also makes the order terminal. |
 | [`restaurant_order_decision.sql`](restaurant_admin/restaurant_order_decision.sql) | `restaurant_order_set_pickup` | function | Set the pickup time of an accepted order that has none yet and make it dispatchable / confirmed. |
@@ -300,7 +301,7 @@ Admin dashboard reads and platform helpers.
 | [`t_invites.sql`](telegram/t_invites.sql) | `t_claim_invite` | function | Claim an invite atomically for a Telegram user; the first valid caller wins. |
 | [`t_invites.sql`](telegram/t_invites.sql) | `t_linked_restaurants` | function | List the restaurants a Telegram user is linked to through claimed invites. |
 | [`t_order_alerts.sql`](telegram/t_order_alerts.sql) | `t_order_alerts` | table | Reminder schedule: one row per order and offset (seconds after the order) with due time and status. |
-| [`t_order_alerts.sql`](telegram/t_order_alerts.sql) | `t_order_card_status` | function | Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone). |
+| [`t_order_alerts.sql`](telegram/t_order_alerts.sql) | `t_order_card_status` | function | Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, auto_declined, gone). |
 | [`t_order_alerts.sql`](telegram/t_order_alerts.sql) | `t_order_card_row` | function | Return the order's current state from delivery_summary or takeaway_summary as one row. |
 | [`t_order_alerts.sql`](telegram/t_order_alerts.sql) | `t_order_card_destinations` | function | Return where cards for a restaurant go: the linked admins' chats (the one place that says so). |
 | [`t_order_alerts.sql`](telegram/t_order_alerts.sql) | `t_alert_destinations` | function | t_order_card_destinations() without the admins who paused their alerts: where NEW cards, receipts and notices go. |
@@ -467,6 +468,7 @@ Admin dashboard reads and platform helpers.
 | [`migrations/ordelo_agg_r1.sql`](migrations/ordelo_agg_r1.sql) | Applied, except the pg_cron schedule for job_payment_init_reconciler (not in cron.job; docs/to-do.md). | notifications/notification_outbox.sql, notifications/order_customer_event.sql, notifications/order_notification_subscription.sql, ordering/create_food_order_with_items.sql, ordering/food_order_additions.sql, payment/job_payment_init_reconciler.sql, payment/payment_event.sql, payment/record_payment_authorised.sql, restaurant-agents (food_order) |
 | [`migrations/ordelo_agg_r1_test_payment.sql`](migrations/ordelo_agg_r1_test_payment.sql) | Applied: every object it creates exists live (checked 2026-10-16). | ordering/create_food_order_with_items.sql, ordering/food_order_additions.sql, restaurant-agents (food_order) |
 | [`migrations/ordelo_agg_r3.sql`](migrations/ordelo_agg_r3.sql) | Applied: every object it creates exists live (checked 2026-10-16). | agent_threads/job_close_thread.sql, core/restaurant_master.sql, ordering/create_food_order_with_items.sql, ordering/order_access_grant.sql, ordering/web_monitor_run.sql, ordering/web_order_request.sql, ordering/web_payment_release.sql, ordering/web_rate_limit.sql, ordering/web_session_meta.sql |
+| [`migrations/restaurant_confirmation_timeout_action.sql`](migrations/restaurant_confirmation_timeout_action.sql) | NOT YET (prepared 2026-11-16; the owner applies it himself) | restaurant_admin/restaurant_confirmation_policy.sql, restaurant_admin/process_restaurant_confirmation.sql,, delivery/delivery_summary.sql, takeaway/takeaway_summary.sql, delivery/process_delivery.sql, telegram/t_order_alerts.sql |
 | [`migrations/rider_dashboard_cutover.sql`](migrations/rider_dashboard_cutover.sql) | 2026-10-26 (owner-confirmed). | admin_dashboard/auth_sessions.sql, admin_dashboard/get_rider_jobs.sql, agent_threads/rider_job_history_access.sql, core/rider_master.sql, core/rider_registrations.sql, core/ordelo_config.sql, core/restaurant_master.sql, dispatch/delivery_dispatch.sql, delivery/delivery_summary.sql, delivery/delivery_detail.sql, dispatch/delivery_inflight.sql, ordering/food_order_additions.sql, admin_dashboard/v_admin_orders.sql, admin_dashboard/get_rider_payout_report.sql |
 | [`migrations/rider_offer_alerts.sql`](migrations/rider_offer_alerts.sql) | 2026-10-27 (owner-confirmed; cron job_rider_offer_alerts scheduled, every 5 seconds). | dispatch/rider_offer_alert.sql, dispatch/job_rider_offer_alerts.sql |
 | [`migrations/rider_offer_alerts_r2.sql`](migrations/rider_offer_alerts_r2.sql) | 2026-10-27 (owner-confirmed). | dispatch/rider_offer_alert.sql (table, indexes), dispatch/job_rider_offer_alerts.sql (job) |

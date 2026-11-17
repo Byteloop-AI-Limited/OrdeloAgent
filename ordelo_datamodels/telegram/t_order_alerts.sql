@@ -6,7 +6,7 @@
 -- OBJECTS       table  t_order_alerts
 --                   Reminder schedule: one row per order and offset (seconds after the order) with due time and status.
 --               fn     t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text
---                   Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).
+--                   Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, auto_declined, gone).
 --               fn     t_order_card_row(p_order_number text, p_order_type text) -> TABLE(order_number text, order_type text, rest_ref text, rest_name text, dtts timestamp with time zone, rcs text, pickup_time timestamp with time zone, admin_phone text)
 --                   Return the order's current state from delivery_summary or takeaway_summary as one row.
 --               fn     t_order_card_destinations(p_bot_key text, p_rest_ref text) -> TABLE(tcid bigint, tuid bigint, phone text, label text)
@@ -50,7 +50,7 @@
 --                 chat may SEE and TAP a card stays t_order_card_destinations(), so a paused admin's existing copies keep
 --                 being refreshed and their buttons keep working.
 --                 Card status keys MUST match channels/telegram/rest_admin/order_cards/model.py (Status):
---                   awaiting | accepted | pickup_set | declined | auto_accepted | gone
+--                   awaiting | accepted | pickup_set | declined | auto_accepted | auto_declined | gone
 --                 Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).
 -- LIFECYCLE     t_order_alerts.status: pending -> sent | superseded | cancelled (order decided before the reminder was due).
 -- CALLED BY     t_order_alerts:
@@ -142,7 +142,7 @@ ALTER TABLE public.t_order_alerts ENABLE ROW LEVEL SECURITY;
 
 -- ---------------------------------------------------------------------------------------------
 -- function t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text
---   Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).
+--   Map an order's state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, auto_declined, gone).
 -- ---------------------------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------------------------
 -- 2. t_order_card_status(restaurant_confirmation_status, pickup_time): the card status key.
@@ -159,8 +159,10 @@ CREATE OR REPLACE FUNCTION public.t_order_card_status (p_rcs text, p_pickup time
             NULL
         WHEN p_rcs = 'restaurant_unconfirmed' THEN
             'awaiting'
-        WHEN p_rcs IN ('restaurant_decline', 'auto_decline') THEN
+        WHEN p_rcs = 'restaurant_decline' THEN
             'declined'
+        WHEN p_rcs = 'auto_decline' THEN
+            'auto_declined'
         WHEN p_rcs IN ('restaurant_accept', 'restaurant_pickuptime_adjusted') THEN
             CASE WHEN p_pickup IS NULL THEN
                 'accepted'
@@ -750,7 +752,7 @@ REVOKE ALL ON FUNCTION public.job_t_order_alerts () FROM PUBLIC, anon, authentic
 -- ---------------------------------------------------------------------------------------------
 COMMENT ON TABLE public.t_order_alerts IS 'Reminder schedule: one row per order and offset (seconds after the order) with due time and status.';
 
-COMMENT ON FUNCTION public.t_order_card_status (p_rcs text, p_pickup timestamp with time zone) IS 'Map an order''s state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, gone).';
+COMMENT ON FUNCTION public.t_order_card_status (p_rcs text, p_pickup timestamp with time zone) IS 'Map an order''s state to the card status key (awaiting, accepted, pickup_set, declined, auto_accepted, auto_declined, gone).';
 
 COMMENT ON FUNCTION public.t_order_card_row (p_order_number text, p_order_type text) IS 'Return the order''s current state from delivery_summary or takeaway_summary as one row.';
 

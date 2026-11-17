@@ -6,7 +6,7 @@
 -- OBJECTS       table  delivery_summary
 --                   The delivery order as fulfilment sees it, one row per order_number (prefix = rest_ref).
 --               trg    trigger_restaurant_updates on delivery_summary -> restaurant_updates_whook()
---                   AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the five statuses Python acts on.
+--                   AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the six statuses Python acts on.
 --               trg    trigger_delivery_summary_timedout on delivery_summary -> delivery_summary_timedout_whook()
 --                   AFTER UPDATE when status changes to 'timedout'.
 --               fn     restaurant_updates_whook() -> trigger
@@ -28,7 +28,8 @@
 --                            (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /
 --                            decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.
 --                            process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then
---                            sets a default pickup time and 'unassigned'.
+--                            sets a default pickup time and 'unassigned'. Restaurants whose {REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION is
+--                            'decline' get 'auto_decline' + status 'declined' instead for orders nobody answered (terminal).
 --                 3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,
 --                            and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).
 --                 4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders
@@ -47,8 +48,9 @@
 -- LIFECYCLE     status:  restaurant_unconfirmed -> unassigned -> assigned -> completed
 --                        restaurant_unconfirmed -> declined                      (restaurant declined; never dispatched)
 --                        unassigned -> timedout                                   (no rider for any vehicle type in time)
+--                        restaurant_unconfirmed -> declined                      (also on auto_decline: nobody answered, restaurant declines on silence)
 --               restaurant_confirmation_status:  restaurant_unconfirmed -> restaurant_accept | restaurant_decline | restaurant_timedout
---                        | auto_accept (configured) ; restaurant_accept -> restaurant_pickuptime_adjusted (+10 / +20)
+--                        | auto_decline (timeout, decline-on-silence restaurants) | auto_accept (configured) ; restaurant_accept -> restaurant_pickuptime_adjusted (+10 / +20)
 --               Kitchen columns: ready_at / ready_by / ready_dispatch_id set by the first Ready tap per dispatch; pickup_time_initial /
 --               pickup_adjusted_by / pickup_adjusted_at set by +10 / +20 (restaurant_admin/restaurant_ready_adjust_notices.sql).
 -- CALLED BY     delivery_summary:
@@ -166,8 +168,8 @@ CREATE TABLE IF NOT EXISTS public.delivery_summary (
     dtts timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     -- "Current dispatch window started at" — populated only by
     -- dispatch_cancel_before_pickup on a successful pre-pickup decline.
-    -- process_delivery uses COALESCE(redispatch_dtts, dtts) for the timeout
-    -- base, so NULL means "no decline yet, use dtts".
+    -- process_delivery uses COALESCE(redispatch_dtts, restaurant_update_dtts, dtts) for the rider-search timeout
+    -- base, so NULL means "no decline yet, use the restaurant's decision time, else dtts".
     redispatch_dtts timestamp with time zone,
     ready_at timestamp with time zone, -- used by restaurant_admin/restaurant_ready_adjust_notices.sql
     ready_by text, -- admin phone (digits); label via restaurant_admin_label()
@@ -194,14 +196,14 @@ CREATE INDEX IF NOT EXISTS idx_delivery_summary_admin_keyset ON public.delivery_
 
 -- ---------------------------------------------------------------------------------------------
 -- trigger trigger_restaurant_updates on delivery_summary -> restaurant_updates_whook()
---   AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the five statuses Python acts on.
+--   AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the six statuses Python acts on.
 -- ---------------------------------------------------------------------------------------------
 DROP TRIGGER IF EXISTS trigger_restaurant_updates ON public.delivery_summary;
 
 CREATE TRIGGER trigger_restaurant_updates
     AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON delivery_summary
     FOR EACH ROW
-    WHEN (new.restaurant_confirmation_status::text = ANY (ARRAY['restaurant_unconfirmed'::character varying, 'restaurant_accept'::character varying, 'restaurant_decline'::character varying, 'restaurant_timedout'::character varying, 'restaurant_pickuptime_adjusted'::character varying]::text[]))
+    WHEN (new.restaurant_confirmation_status::text = ANY (ARRAY['restaurant_unconfirmed'::character varying, 'restaurant_accept'::character varying, 'restaurant_decline'::character varying, 'restaurant_timedout'::character varying, 'auto_decline'::character varying, 'restaurant_pickuptime_adjusted'::character varying]::text[]))
     EXECUTE FUNCTION restaurant_updates_whook ();
 
 -- ---------------------------------------------------------------------------------------------
@@ -264,8 +266,8 @@ BEGIN
         INSERT INTO debug_log (trigger_name, order_number, message)
             VALUES ('restaurant_confirmation_whook', NEW.order_number, 'Trigger fired, trigger_reason: ' || trigger_reason || ', TG_OP: ' || TG_OP);
         END IF;
-        -- Process for restaurant_unconfirmed, restaurant_accept, restaurant_decline, or restaurant_timedout
-        IF NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'restaurant_pickuptime_adjusted') THEN
+        -- Process for restaurant_unconfirmed, restaurant_accept, restaurant_decline, restaurant_timedout, or auto_decline
+        IF NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'auto_decline', 'restaurant_pickuptime_adjusted') THEN
             IF p_log_to_table THEN
                 INSERT INTO debug_log (trigger_name, order_number, message)
                     VALUES ('restaurant_confirmation_whook', NEW.order_number, 'restaurant_confirmation_status check passed - ' || NEW.restaurant_confirmation_status);
@@ -484,7 +486,7 @@ CREATE TRIGGER trigger_pickup_time_reschedule
 -- ---------------------------------------------------------------------------------------------
 COMMENT ON TABLE public.delivery_summary IS 'The delivery order as fulfilment sees it, one row per order_number (prefix = rest_ref).';
 
-COMMENT ON TRIGGER trigger_restaurant_updates ON public.delivery_summary IS 'AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the five statuses Python acts on.';
+COMMENT ON TRIGGER trigger_restaurant_updates ON public.delivery_summary IS 'AFTER INSERT OR UPDATE OF restaurant_confirmation_status, for the six statuses Python acts on.';
 
 COMMENT ON TRIGGER trigger_delivery_summary_timedout ON public.delivery_summary IS 'AFTER UPDATE when status changes to ''timedout''.';
 

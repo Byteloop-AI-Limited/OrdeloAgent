@@ -6,13 +6,17 @@ Restaurant-facing notices on every channel (D28, D29): one call, WhatsApp AND Te
     . Telegram adapter: channels/telegram/rest_admin (Receipts.send), built lazily from config.rest_admin_bot
       (the same Bot the FastAPI lifespan registry uses); hooks and agent tools have no `request.app`
     . Notices handled in this file: KitchenReceipt (rider accepted a delivery), TakeawayReceipt (pickup confirmed),
-      AutoAccepted (confirmation timeout), RiderAlert (late pickup / slow delivery), DeliveryCompleted, Feedback
+      AutoAccepted (confirmation timeout), AutoDeclined (timeout, decline policy), NoRiderFound (no rider in time), RiderAlert (late pickup / slow delivery), DeliveryCompleted, Feedback
     . Mapping, notice -> WhatsApp call -> Telegram call:
         KitchenReceipt  -> wa_senders.admin_order_reciept(delivery_summary, rider_master) -> Receipts.send(order, dispatch_id)
         TakeawayReceipt -> wa_senders.takeaway_admin_order_receipt(order_number, pickup_time, rest_name, admins,
                                                                     restaurant_msg_id, rest_ref) -> Receipts.send(order)
         AutoAccepted    -> wa_senders.admin_auto_accept_notice(admins, order_number, pickup_display, pickup_minutes)
                            -> Notices.send(..., reply_to="card")
+        AutoDeclined    -> wa_senders.admin_auto_decline_notice(admins, order_number)
+                           -> Notices.send(..., notice="auto_declined", reply_to="card")
+        NoRiderFound    -> wa_senders.admin_no_rider_notice(admins, order_number)
+                           -> Notices.send(..., notice="no_rider_found", reply_to="card")
         RiderAlert      -> wa_senders.notify_rest_admins_rider_alert(phase=, order_number=, pickup_time=, rider_id=,
                                                                       rider_name=, rest_ref=, rest_admins=)
                            -> Notices.send(..., reply_to="receipt"), wording from wa_senders.rider_alert_text
@@ -21,14 +25,14 @@ Restaurant-facing notices on every channel (D28, D29): one call, WhatsApp AND Te
         Feedback        -> wa_senders.send_restaurant_feedback_notification(admin=, ...) once per admin
                            -> Notices.send(..., no reply target)
     . Callers: watomation/routers/delivery_hooks.py (delivery_inflight_graph_init_hook step 3 -> KitchenReceipt;
-      _handle_restaurant_timedout -> AutoAccepted; _process_rider_pickup_alerts -> RiderAlert),
+      _handle_restaurant_timedout -> AutoAccepted; _handle_restaurant_decline(timed_out=True) -> AutoDeclined; delivery_timedout -> NoRiderFound; _process_rider_pickup_alerts -> RiderAlert),
       watomation/routers/takeaway_hooks.py (pickup_time_updated_hook step 3 -> TakeawayReceipt;
       _handle_restaurant_timedout -> AutoAccepted), ordelo/agents/rider_agent.py (DeliveryCompleted),
       watomation/routers/customer_hooks.py (_notify_feedback_admins -> Feedback)
     . Tests inject fakes with `use_adapters(whatsapp=..., telegram=...)` (a context manager)
     . Sibling of customer_notifier.py. Overview: docs/telegram-layer.md
   Classes/Functions:
-    . KitchenReceipt, TakeawayReceipt, AutoAccepted, RiderAlert, DeliveryCompleted, Feedback
+    . KitchenReceipt, TakeawayReceipt, AutoAccepted, AutoDeclined, NoRiderFound, RiderAlert, DeliveryCompleted, Feedback
     . notify
     . use_adapters
 """
@@ -83,6 +87,25 @@ class AutoAccepted:
 
 
 @dataclass(frozen=True)
+class AutoDeclined:
+    """Nobody answered in time and the restaurant's timeout action is 'decline': the order was declined (delivery or takeaway)."""
+
+    order_number: str
+    order_type: Literal["delivery", "takeaway"]
+    admins: list[str]
+    rest_ref: str
+
+
+@dataclass(frozen=True)
+class NoRiderFound:
+    """No rider accepted the delivery in time (delivery_timedout). Not sent for configured auto-accept orders."""
+
+    order_number: str
+    admins: list[str]
+    rest_ref: str
+
+
+@dataclass(frozen=True)
 class RiderAlert:
     """A late-pickup / slow-delivery alert for the restaurant. The arguments are notify_rest_admins_rider_alert's."""
 
@@ -118,7 +141,7 @@ class Feedback:
     received_at: datetime
 
 
-Notice = KitchenReceipt | TakeawayReceipt | AutoAccepted | RiderAlert | DeliveryCompleted | Feedback
+Notice = KitchenReceipt | TakeawayReceipt | AutoAccepted | AutoDeclined | NoRiderFound | RiderAlert | DeliveryCompleted | Feedback
 
 
 class _Adapter(Protocol):
@@ -142,6 +165,10 @@ class _WhatsAppAdapter:
             await wa_senders.admin_auto_accept_notice(
                 notice.admins, notice.order_number, notice.pickup_display, notice.pickup_minutes
             )
+        elif isinstance(notice, AutoDeclined):
+            await wa_senders.admin_auto_decline_notice(notice.admins, notice.order_number)
+        elif isinstance(notice, NoRiderFound):
+            await wa_senders.admin_no_rider_notice(notice.admins, notice.order_number)
         elif isinstance(notice, RiderAlert):
             await wa_senders.notify_rest_admins_rider_alert(
                 phase=notice.phase,
@@ -250,6 +277,18 @@ class _TelegramAdapter:
             await self._notices_for_bot().send(
                 notice.rest_ref, text, notice="auto_accepted",
                 order=OrderRef(notice.order_number, notice.order_type), reply_to="card",
+            )
+        elif isinstance(notice, AutoDeclined):
+            text = f"⏱ <b>{escape(notice.order_number)}</b> auto-declined (no answer in time). The customer has been told."
+            await self._notices_for_bot().send(
+                notice.rest_ref, text, notice="auto_declined",
+                order=OrderRef(notice.order_number, notice.order_type), reply_to="card",
+            )
+        elif isinstance(notice, NoRiderFound):
+            text = f"🚫 No rider found for <b>{escape(notice.order_number)}</b>. The order was cancelled and the customer has been told."
+            await self._notices_for_bot().send(
+                notice.rest_ref, text, notice="no_rider_found",
+                order=OrderRef(notice.order_number, "delivery"), reply_to="card",
             )
         elif isinstance(notice, RiderAlert):
             if not notice.rest_ref:

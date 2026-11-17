@@ -158,5 +158,5 @@ def describe(state: str, decided_by: str | None) -> str:
     if state in ("restaurant_timedout", "auto_accept"):
         return "auto-accepted (no answer in time)"
     if state == "auto_decline":
-        return "auto-declined"
+        return "auto-declined (no answer in time)"
     return "decided"

@@ -81,7 +81,7 @@ def ledger(db):
         ("restaurant_accept", "2026-01-01 12:00+00", "pickup_set"),
         ("restaurant_pickuptime_adjusted", "2026-01-01 12:00+00", "pickup_set"),
         ("restaurant_decline", None, "declined"),
-        ("auto_decline", None, "declined"),
+        ("auto_decline", None, "auto_declined"),
         ("auto_accept", "2026-01-01 12:00+00", "auto_accepted"),
         ("restaurant_timedout", "2026-01-01 12:00+00", "auto_accepted"),
         ("restaurant_timedout", None, "awaiting"),

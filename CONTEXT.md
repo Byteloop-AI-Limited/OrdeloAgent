@@ -10,9 +10,22 @@ and bypass manual restaurant confirmation.
 
 ## Timeout auto-accept
 
-The existing fallback for an otherwise manually confirmed order that reaches the
-restaurant-confirmation timeout. It shares `restaurant_confirmation_status` of
-`auto_accept` but is not a configured auto-accept order.
+The default outcome when a manually confirmed order reaches the restaurant-confirmation timeout
+(`{REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION` absent or not `decline`): `restaurant_timedout`, then
+auto-accepted with the default pickup time. It is not a configured auto-accept order, which never asks the
+restaurant at all. An order an admin accepted but gave no pickup time is always timeout auto-accepted.
+
+## Timeout action
+
+`{REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION`: what silence means for one restaurant, `accept` (default) or
+`decline`. Read only through `restaurant_confirmation_policy(rest_ref)`, together with the timeout minutes.
+
+## Timeout auto-decline
+
+The outcome for a never-answered order when the timeout action is `decline`: `restaurant_confirmation_status =
+'auto_decline'` and `status = 'declined'`, set together by `process_restaurant_confirmation()`. The customer is
+told and the payment cancelled as for an admin decline; admins and ops are told that nobody answered. The web
+order page shows a countdown to the deadline for these restaurants.
 
 ## Configured-auto order
 

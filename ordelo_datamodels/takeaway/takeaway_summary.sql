@@ -8,7 +8,7 @@
 --               fn     takeaway_restaurant_updates_whook() -> trigger
 --                   Trigger function: POST the order, restaurant, food_order and items to /takeaway-hooks/restaurant-confirmation-request (errors logged, never raised).
 --               trg    trigger_takeaway_restaurant_updates on takeaway_summary -> takeaway_restaurant_updates_whook()
---                   AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout).
+--                   AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout, auto_decline).
 --               fn     takeaway_pickup_time_whook() -> trigger
 --                   Trigger function: POST the order to /takeaway-hooks/pickup-time-updated so the customer is told when to collect.
 --               trg    trigger_takeaway_pickup_time_set on takeaway_summary -> takeaway_pickup_time_whook()
@@ -29,7 +29,7 @@
 --                            POST /takeaway-hooks/pickup-time-updated -> customer told when to collect.
 --                 4 ready    restaurant_order_ready() (WhatsApp or Telegram Ready) sets ready_at / ready_by; customer told.
 -- LIFECYCLE     status: restaurant_unconfirmed -> pickup_confirmed -> completed ; restaurant_unconfirmed -> declined
---               restaurant_confirmation_status: restaurant_unconfirmed -> restaurant_accept | restaurant_decline | restaurant_timedout | auto_accept
+--               restaurant_confirmation_status: restaurant_unconfirmed -> restaurant_accept | restaurant_decline | restaurant_timedout | auto_decline | auto_accept
 -- CALLED BY     takeaway_summary:
 --                 sql       init_takeaway(), job_payment_init_reconciler(), job_t_order_alerts()
 --                           process_restaurant_confirmation(), restaurant_order_decide(), restaurant_order_ready()
@@ -148,7 +148,7 @@ BEGIN
             VALUES ('takeaway_confirmation_whook', NEW.order_number, 'Trigger fired, trigger_reason: ' || trigger_reason || ', TG_OP: ' || TG_OP);
         END IF;
 
-        IF NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout') THEN
+        IF NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept', 'restaurant_decline', 'restaurant_timedout', 'auto_decline') THEN
             SELECT
                 json_build_object('order_number', NEW.order_number, 'rest_id', NEW.rest_id, 'rest_name', NEW.rest_name, 'rest_address', NEW.rest_address, 'town', NEW.town, 'customer_id', NEW.customer_id, 'customer_name', NEW.customer_name, 'restaurant_confirmation_status', NEW.restaurant_confirmation_status, 'restaurant_update_dtts', NEW.restaurant_update_dtts, 'restaurant_admin', NEW.restaurant_admin, 'status', NEW.status, 'rest_confirmation_code', NEW.rest_confirmation_code, 'rest_prep_time_minutes', NEW.rest_prep_time_minutes, 'rest_confirmation_method', NEW.rest_confirmation_method, 'restaurant_msg_id', NEW.restaurant_msg_id, 'customer_msg_id', NEW.customer_msg_id, 'pickup_time', NEW.pickup_time, 'pickup_date', NEW.pickup_date, 'rest_ref', NEW.rest_ref, 'dt', NEW.dt, 'dtts', NEW.dtts) INTO takeaway_summary_json;
 
@@ -238,14 +238,14 @@ LANGUAGE plpgsql;
 
 -- ---------------------------------------------------------------------------------------------
 -- trigger trigger_takeaway_restaurant_updates on takeaway_summary -> takeaway_restaurant_updates_whook()
---   AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout).
+--   AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout, auto_decline).
 -- ---------------------------------------------------------------------------------------------
 DROP TRIGGER IF EXISTS trigger_takeaway_restaurant_updates ON public.takeaway_summary;
 
 CREATE TRIGGER trigger_takeaway_restaurant_updates
     AFTER INSERT OR UPDATE OF restaurant_confirmation_status ON takeaway_summary
     FOR EACH ROW
-    WHEN (new.restaurant_confirmation_status::text = ANY (ARRAY['restaurant_unconfirmed'::character varying, 'restaurant_accept'::character varying, 'restaurant_decline'::character varying, 'restaurant_timedout'::character varying]::text[]))
+    WHEN (new.restaurant_confirmation_status::text = ANY (ARRAY['restaurant_unconfirmed'::character varying, 'restaurant_accept'::character varying, 'restaurant_decline'::character varying, 'restaurant_timedout'::character varying, 'auto_decline'::character varying]::text[]))
     EXECUTE FUNCTION takeaway_restaurant_updates_whook ();
 
 -- ---------------------------------------------------------------------------------------------
@@ -376,7 +376,7 @@ COMMENT ON TABLE public.takeaway_summary IS 'The takeaway order as the restauran
 
 COMMENT ON FUNCTION public.takeaway_restaurant_updates_whook () IS 'Trigger function: POST the order, restaurant, food_order and items to /takeaway-hooks/restaurant-confirmation-request (errors logged, never raised).';
 
-COMMENT ON TRIGGER trigger_takeaway_restaurant_updates ON public.takeaway_summary IS 'AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout).';
+COMMENT ON TRIGGER trigger_takeaway_restaurant_updates ON public.takeaway_summary IS 'AFTER INSERT OR UPDATE OF restaurant_confirmation_status (unconfirmed, accept, decline, timedout, auto_decline).';
 
 COMMENT ON FUNCTION public.takeaway_pickup_time_whook () IS 'Trigger function: POST the order to /takeaway-hooks/pickup-time-updated so the customer is told when to collect.';
 

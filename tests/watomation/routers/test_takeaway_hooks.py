@@ -407,3 +407,32 @@ async def test_handle_restaurant_timedout_hands_an_exact_auto_accepted_notice_to
     n = seen[0]
     assert (n.order_number, n.order_type, n.admins, n.rest_ref) == ("ELAS-ABCD-1", "takeaway", ["ADMIN01", "ADMIN02"], "ELAS")
     assert n.pickup_minutes > 0 and n.pickup_display
+
+
+async def test_handle_restaurant_decline_by_timeout_tells_admins_and_ops(monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp) -> None:
+    monkeypatch.setattr(takeaway_hooks, "client_ordelo", patch_supabase_client)
+    patch_supabase_client.register(table="takeaway_summary", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
+    notices, ops = [], []
+
+    async def fake_notify(notice):
+        notices.append(notice)
+
+    async def fake_ops(text):
+        ops.append(text)
+
+    async def fake_cancel(order_number):
+        return "cancelled"
+
+    monkeypatch.setattr(restaurant_notifier, "notify", fake_notify)
+    monkeypatch.setattr(takeaway_hooks, "alert_ops", fake_ops)
+    monkeypatch.setattr(takeaway_hooks, "cancel_payment", fake_cancel)
+    summary = takeaway_hooks.TakeawaySummaryData(**_takeaway_summary_row(restaurant_confirmation_status="auto_decline"))
+    food_order = SimpleNamespace(order_number="ELAS-ABCD-1", payment_status="requires_payment")
+
+    result = await takeaway_hooks._handle_restaurant_decline(summary, food_order, ["ADMIN01"], True)
+
+    assert result["action"] == "auto_declined"
+    assert notices == [restaurant_notifier.AutoDeclined("ELAS-ABCD-1", "takeaway", ["ADMIN01"], "ELAS")]
+    assert "ELAS-ABCD-1" in ops[0]
+    assert patch_supabase_client.calls[-1].payload["status"] == "declined"
+

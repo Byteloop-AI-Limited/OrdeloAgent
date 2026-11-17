@@ -4,6 +4,23 @@ Runtime flow for `pickup_time` in `delivery_summary` and `takeaway_summary`.
 
 ---
 
+## Three confirmation modes (read this first)
+
+| | Configured auto-accept | Manual, silence = accept (default) | Manual, silence = decline |
+|---|---|---|---|
+| Set by | `restaurant_master.auto_accept = true` | nothing (default) | `{REST_REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION = decline` |
+| Is the restaurant asked? | No. Accepted at creation (`auto_accept`, `rest_confirmation_method='configured_auto'`) | Yes: Accept / Decline card, repeated per `{REF}_TGRAM_ORDER_ALERT_OFFSETS_SECS` | Yes, same card and reminders |
+| If nobody answers | n/a (never waits) | After `..._TIMEOUT_TIME` minutes: `restaurant_timedout`, then auto-accepted with the default pickup time | After `..._TIMEOUT_TIME` minutes: `auto_decline`, status `declined`, customer told, payment cancelled, admins and ops told |
+| Admin accepted but gave no pickup time | n/a | `restaurant_timedout`, auto-accepted | Same: always auto-accepted (somebody answered) |
+| Extra effect | Also suppresses admin prompts, reminders and delivery's "No Rider Found" message | none | Customer sees a countdown on the order page |
+
+The timeout flow is decided in one place, `public.restaurant_confirmation_policy(rest_ref)`
+(`ordelo_datamodels/restaurant_admin/restaurant_confirmation_policy.sql`), which returns the
+minutes and the action; `process_restaurant_confirmation()` (every 10 s) applies it atomically
+and Python only does the side effects. Configured auto-accept never reaches it.
+
+---
+
 ## Configured Restaurant Auto-Accept
 
 `restaurant_master.auto_accept` defaults to `false`. When enabled, the shared
@@ -21,6 +38,10 @@ The initializer inserts the pickup time and marks the order with
 takeaway starts `pickup_confirmed`. This skips the restaurant confirmation
 webhooks and cron timeout flow. Invalid/missing global configuration fails the
 auto-accept initialization instead of inventing a pickup time.
+The duration is measured from the order's creation timestamp (`dtts`), not
+from when dispatch begins. For STRK, both configured defaults are 30 minutes.
+They also apply when a manual confirmation times out (see below); they do not
+override a pickup time explicitly selected by an admin.
 
 Configured auto-accept suppresses delivery's "No Rider Found" admin message.
 It retains payment/print work, restaurant webhooks, overwatch,
@@ -57,19 +78,28 @@ receipt.
 
 ### 3) Timeout path if no pickup time selected
 
-- `ordelo_datamodels/restaurant_admin/process_restaurant_confirmation.sql` runs every 5s.
-- If `restaurant_confirmation_status` is `restaurant_unconfirmed` or `restaurant_accept` and `pickup_time IS NULL` past timeout, it sets `restaurant_confirmation_status` to `restaurant_timedout`.
-- Timeout uses config:
-  - `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME`
-  - fallback `RESTAURANT_CONFIRMATION_TIMEOUT_TIME`
-  - fallback default `5` minutes.
+- `ordelo_datamodels/restaurant_admin/process_restaurant_confirmation.sql` is scheduled every 10 seconds.
+- If `restaurant_confirmation_status` is `restaurant_unconfirmed` or `restaurant_accept` and `pickup_time IS NULL` past timeout, the job sets it to `restaurant_timedout` (auto-accepted below), EXCEPT a never-answered order (`restaurant_unconfirmed`) of a restaurant whose action is `decline`: that becomes `auto_decline` with `status='declined'` in the same UPDATE (see "Timeout auto-decline" below).
+- `restaurant_confirmation_policy(rest_ref)` reads the config:
+  - minutes: `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME`, then `RESTAURANT_CONFIRMATION_TIMEOUT_TIME`, then `5`
+  - action: `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION` = `decline`; anything else or no row = `accept` (there is no global action key)
+- The comparison is strictly greater than elapsed minutes since `dtts`; the next 10-second run after that threshold applies it.
+- Web-only restaurants (STRK, CRDO, CRMS, BNAT) run with 3 minutes and `decline`
+  (`notebooks/db_queries/restaurant_queries/confirmation_timeout_action_rollout.sql`).
+
+### 3b) Timeout auto-decline
+
+- Trigger reason `auto_decline` calls `_handle_restaurant_decline(..., timed_out=True)` in `delivery_hooks.py` / `takeaway_hooks.py`: the same customer work as an admin decline (payment cancelled, customer told), then `AutoDeclined` to the admins (WhatsApp and Telegram) and one `alert_ops` line. It runs even for a restaurant with no admins.
+- The Telegram order card shows "Auto-declined (no answer in time)" with no buttons.
+- The customer's order page shows a countdown to `view.confirmation.deadline_at` while a decline-on-silence restaurant has not answered.
+- A delivery's rider-search clock (`process_delivery`) starts at `COALESCE(redispatch_dtts, restaurant_update_dtts, dtts)`, so riders get the full window after the restaurant accepts or times out.
 
 ### 4) Auto-accept on timeout
 
 - `watomation/routers/delivery_hooks.py` in `_handle_restaurant_timedout()` sets:
   - `pickup_time = dtts + N minutes` where N comes from `ordelo_config` (Europe/London timezone handling):
-    1. `{rest_ref}_DELIVERY_PICKUP_DEFAULT_TIME` (restaurant-specific override)
-    2. `DELIVERY_PICKUP_DEFAULT_TIME` (global default)
+    1. `{rest_ref}_DEFAULT_DELIVERY_PICKUP_TIME` (restaurant-specific override)
+    2. `DEFAULT_DELIVERY_PICKUP_TIME` (global default)
     3. hardcoded fallback `30` minutes
   - `restaurant_confirmation_status = 'auto_accept'`
   - `status = 'unassigned'`
@@ -160,8 +190,8 @@ Three triggers exist on `takeaway_summary` in `ordelo_datamodels/takeaway/takeaw
 
 - `watomation/routers/takeaway_hooks.py` in `_handle_restaurant_timedout()` sets:
   - `pickup_time = dtts + N minutes` where N comes from `ordelo_config` (Europe/London timezone handling):
-    1. `{rest_ref}_PICKUP_DEFAULT_TIME` (restaurant-specific override)
-    2. `PICKUP_DEFAULT_TIME` (global default)
+    1. `{rest_ref}_DEFAULT_COLLECTION_PICKUP_TIME` (restaurant-specific override)
+    2. `DEFAULT_COLLECTION_PICKUP_TIME` (global default)
     3. Hardcoded fallback: `30`
   - `restaurant_confirmation_status = 'auto_accept'`
   - `status = 'pickup_confirmed'`

@@ -66,6 +66,9 @@ MIGRATION_FILES = [
     # Admin roster (plans/restaurant-admin-roster-onboarding-plan.md): before every t_* function that reads it.
     "admin_roster.sql",
     "restaurant_order_decision.sql",
+    # Confirmation timeout policy (plans/restaurant-confirmation-timeout-action-plan.md): the policy function before the job that calls it.
+    "restaurant_confirmation_policy.sql",
+    "process_restaurant_confirmation.sql",
     "t_order_alerts.sql",
     "restaurant_ready_adjust_notices.sql",
     "t_housekeeping.sql",

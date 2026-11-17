@@ -22,8 +22,8 @@ from utils_common.tz_utils import fmt_uk_time, parse_db_iso
 from ...callbacks import OrderAction
 
 OrderType = Literal["delivery", "takeaway"]
-Status = Literal["awaiting", "accepted", "pickup_set", "declined", "auto_accepted", "gone"]
-TERMINAL: frozenset[str] = frozenset({"pickup_set", "declined", "auto_accepted", "gone"})
+Status = Literal["awaiting", "accepted", "pickup_set", "declined", "auto_accepted", "auto_declined", "gone"]
+TERMINAL: frozenset[str] = frozenset({"pickup_set", "declined", "auto_accepted", "auto_declined", "gone"})
 PICKUP_MINUTES: tuple[int, ...] = (5, 15, 25)  # parity with wa_senders.send_restaurant_pickup_time
 
 TROUBLE = "Sorry, something went wrong on our side. Please try again in a minute."  # imported by rest_admin/router.py
@@ -83,11 +83,16 @@ class AutoAccepted:
 
 
 @dataclass(frozen=True)
+class AutoDeclined:
+    """Nobody answered in time and the restaurant's timeout action is 'decline' (no decider, no pickup)."""
+
+
+@dataclass(frozen=True)
 class Vanished:
     pass
 
 
-Event = Reminded | Accepted | Declined | PickupChosen | AutoAccepted | Vanished
+Event = Reminded | Accepted | Declined | PickupChosen | AutoAccepted | AutoDeclined | Vanished
 
 
 @dataclass(frozen=True)
@@ -162,7 +167,7 @@ _STATE_TO_STATUS = {
     "restaurant_accept": "accepted",
     "restaurant_pickuptime_adjusted": "pickup_set",
     "restaurant_decline": "declined",
-    "auto_decline": "declined",
+    "auto_decline": "auto_declined",
     "auto_accept": "auto_accepted",
     "restaurant_timedout": "auto_accepted",
 }
@@ -219,6 +224,8 @@ class Card:
             return replace(self, status="declined", decided_by=event.by)
         if isinstance(event, AutoAccepted) and s in ("awaiting", "accepted"):
             return replace(self, status="auto_accepted", pickup_at=event.at)
+        if isinstance(event, AutoDeclined) and s == "awaiting":
+            return replace(self, status="auto_declined")
         if isinstance(event, PickupChosen) and s == "accepted":
             return replace(
                 self, status="pickup_set", pickup_at=event.at, decided_by=event.by or self.decided_by
@@ -240,6 +247,8 @@ class Card:
             return card.apply(Declined(by))
         if snap.status == "auto_accepted" and at:
             return card.apply(AutoAccepted(at))
+        if snap.status == "auto_declined":
+            return card.apply(AutoDeclined())
         if snap.status != "awaiting":
             # a status without the data that status needs: show the safest known state
             logger.error(f"order card {snap.facts.order_number}: incomplete snapshot for {snap.status}")
@@ -287,6 +296,8 @@ class Card:
                 return "❌ You declined this order" if me else f"❌ Declined by {who}"
             case "auto_accepted":
                 return f"⏱ Auto-accepted (no answer in time){pk}"
+            case "auto_declined":
+                return "⏱ Auto-declined (no answer in time)"
             case _:
                 return GONE_TEXT
 
@@ -342,8 +353,9 @@ def toast(outcome: TapOutcome) -> tuple[str, bool]:
         word = {
             "declined": "declined",
             "auto_accepted": "auto-accepted",
+            "auto_declined": "auto-declined",
         }.get(outcome.status or "", "accepted")
-        return (f"Already {word}" if word == "auto-accepted" else f"Already {word} by {who}"), False
+        return (f"Already {word}" if word.startswith("auto-") else f"Already {word} by {who}"), False
     if r == "already_set":
         at = f" to {fmt_uk_time(outcome.pickup_at)}" if outcome.pickup_at else ""
         return f"Pickup already set{at}", False

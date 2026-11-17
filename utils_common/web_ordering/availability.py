@@ -46,7 +46,8 @@ def opening(schedule, at=None, cutoff=15):
     """Return (accepting, next_open_iso) for a London weekly service schedule.
 
     Include yesterday's overnight span and the next seven days. Intervals use
-    minute offsets from local midnight; cutoff removes the end of each window.
+    minute offsets from local midnight; touching windows are merged, and the cutoff
+    removes the end of each continuous window.
     Malformed intervals raise ValueError; no future window returns None.
     """
     local = (at or utcnow()).astimezone(UK)
@@ -61,6 +62,16 @@ def opening(schedule, at=None, cutoff=15):
             intervals.append(
                 (base + timedelta(minutes=begin), base + timedelta(minutes=finish))
             )
+    # Back-to-back windows (Mon 00:00-24:00 then Tue 00:00-24:00, or a 25:00 close that runs
+    # into the next day's 00:00 opening) are one continuous service. Merge them so the order
+    # cutoff applies only before a real closure, not at every midnight seam.
+    merged = []
+    for start, end in sorted(intervals):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    intervals = merged
     accepting = any(
         start <= local < end - timedelta(minutes=cutoff) for start, end in intervals
     )

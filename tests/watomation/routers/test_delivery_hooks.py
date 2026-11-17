@@ -43,6 +43,10 @@ Key Functions:
   - test_process_rider_pickup_alerts_sends_to_the_rider_on_the_live_inflight_row
   - test_handle_restaurant_decline_is_terminal_cancels_payment_and_tells_whatsapp_customer
   - test_handle_restaurant_decline_pay_at_rest_skips_payment_cancel
+  - test_handle_restaurant_decline_by_timeout_tells_admins_and_ops_after_the_customer
+  - test_handle_restaurant_decline_by_an_admin_sends_no_timeout_notice
+  - test_restaurant_confirmation_flow_routes_auto_decline_even_with_no_admins
+  - test_restaurant_confirmation_flow_admin_decline_is_not_flagged_as_timeout
   - test_handle_restaurant_decline_web_customer_gets_event_not_a_whatsapp_message
   - test_handle_restaurant_decline_web_customer_queues_release_when_cancel_fails
   - test_handle_restaurant_decline_survives_payment_cancel_exception
@@ -64,7 +68,7 @@ from ordelo.rider_messaging import DispatchChannel, use_messenger
 from ordelo.rider_messaging.fake import RecordingRiderMessenger
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
 from utils_common.notify import restaurant_notifier
-from utils_common.notify.restaurant_notifier import AutoAccepted, KitchenReceipt, RiderAlert
+from utils_common.notify.restaurant_notifier import AutoAccepted, AutoDeclined, KitchenReceipt, RiderAlert
 from watomation.routers import delivery_hooks
 from ordelo.delivery_progress import DeliveryProgress
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
@@ -431,11 +435,14 @@ async def test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook(
     monkeypatch.setattr(delivery_hooks, "cancel_payment", _fake_cancel)
     monkeypatch.setattr(delivery_hooks.RestaurantMaster, "get_admins_for", classmethod(lambda cls, rest_ref: ["ADMIN01", "ADMIN02"]))
     bg = _FakeBackgroundTasks()
+    notices = _capture_rest_admin_alerts(monkeypatch)
+    overwatch = _capture_overwatch(monkeypatch)
 
     result = await delivery_hooks.delivery_timedout(bg, payload={"delivery_summary": [_summary_row(order_number="ELAS-ABCD-1")]})
 
     assert result == {"status": "success"}
-    assert [sent.kwargs["to"] for sent in patch_async_wa_client.sent[-2:]] == ["ADMIN01", "ADMIN02"]
+    assert notices == []  # restaurant admins are not told; overwatch is
+    assert len(overwatch) == 1 and "ELAS-ABCD-1" in overwatch[0] and "released" in overwatch[0]
     assert bg.tasks[0]["func"] == delivery_hooks.post_delivery_timedout
     assert bg.tasks[0]["kwargs"]["payment_cancelled"] is True
     # D49: Telegram offers still open (never answered, or accepted but never assigned) become "Offer expired".
@@ -451,12 +458,14 @@ async def test_delivery_timedout_forwards_unconfirmed_cancellation(monkeypatch, 
     monkeypatch.setattr(delivery_hooks, "cancel_payment", _fake_cancel)
     monkeypatch.setattr(delivery_hooks.RestaurantMaster, "get_admins_for", classmethod(lambda cls, rest_ref: []))
     bg = _FakeBackgroundTasks()
+    overwatch = _capture_overwatch(monkeypatch)
 
     await delivery_hooks.delivery_timedout(
         bg, payload={"delivery_summary": [_summary_row(order_number="ELAS-ABCD-1")]}
     )
 
     assert bg.tasks[0]["kwargs"]["payment_cancelled"] is False
+    assert "release queued" in overwatch[0]
 
 
 async def test_delivery_timedout_skips_no_rider_admin_message_for_configured_auto_accept(
@@ -472,6 +481,7 @@ async def test_delivery_timedout_skips_no_rider_admin_message_for_configured_aut
         classmethod(lambda cls, rest_ref: (_ for _ in ()).throw(AssertionError("must not load admins"))),
     )
     bg = _FakeBackgroundTasks()
+    overwatch = _capture_overwatch(monkeypatch)
 
     result = await delivery_hooks.delivery_timedout(
         bg,
@@ -484,6 +494,7 @@ async def test_delivery_timedout_skips_no_rider_admin_message_for_configured_aut
 
     assert result == {"status": "success"}
     assert patch_async_wa_client.sent == []
+    assert len(overwatch) == 1  # overwatch is told for configured auto-accept orders too
     assert bg.tasks[0]["func"] == delivery_hooks.post_delivery_timedout
 
 
@@ -1010,6 +1021,16 @@ def _capture_escalations(monkeypatch) -> list:
     return calls
 
 
+def _capture_overwatch(monkeypatch) -> list:
+    sent = []
+
+    async def _fake_overwatch(log_msg: str):
+        sent.append(log_msg)
+
+    monkeypatch.setattr(delivery_hooks, "notify_overwatch", _fake_overwatch)
+    return sent
+
+
 def _capture_rest_admin_alerts(monkeypatch) -> list:
     """The RiderAlert notices handed to restaurant_notifier.notify (the WhatsApp text itself is tested in test_restaurant_notifier)."""
     calls = []
@@ -1281,6 +1302,66 @@ async def test_handle_restaurant_decline_is_terminal_cancels_payment_and_tells_w
     assert sent["to"] == "447400000000"
     assert "ELAS-ABCD-1" in sent["text"] and "Elai" in sent["text"] and "payment has been cancelled" in sent["text"]
     assert decline_fakes.events == [] and decline_fakes.released == []
+
+
+async def test_handle_restaurant_decline_by_timeout_tells_admins_and_ops_after_the_customer(decline_fakes, monkeypatch) -> None:
+    order = []
+    notices, ops = [], []
+
+    async def fake_notify(notice):
+        order.append("admins")
+        notices.append(notice)
+
+    async def fake_ops(text):
+        order.append("ops")
+        ops.append(text)
+
+    monkeypatch.setattr(delivery_hooks.restaurant_notifier, "notify", fake_notify)
+    monkeypatch.setattr(delivery_hooks, "alert_ops", fake_ops)
+    original_cancel = delivery_hooks.cancel_payment
+
+    async def cancel_marks(order_number):
+        order.append("refund")
+        return await original_cancel(order_number)
+
+    monkeypatch.setattr(delivery_hooks, "cancel_payment", cancel_marks)
+    summary, food_order = _decline_models()
+
+    result = await delivery_hooks._handle_restaurant_decline(summary, food_order, ["ADMIN01"], True)
+
+    assert result == {"status": "success", "action": "auto_declined", "order_number": "ELAS-ABCD-1"}
+    update = next(c for c in decline_fakes.db.calls if c.table == "delivery_summary")
+    assert update.filters["eq:restaurant_confirmation_status"] == "auto_decline"
+    assert order == ["refund", "admins", "ops"]  # a failed notice can never stop the refund
+    assert notices == [AutoDeclined("ELAS-ABCD-1", "delivery", ["ADMIN01"], "ELAS")]
+    assert "ELAS-ABCD-1" in ops[0]
+
+
+async def test_handle_restaurant_decline_by_an_admin_sends_no_timeout_notice(decline_fakes, monkeypatch) -> None:
+    notices = []
+
+    async def fake_notify(notice):
+        notices.append(notice)
+
+    monkeypatch.setattr(delivery_hooks.restaurant_notifier, "notify", fake_notify)
+    summary, food_order = _decline_models()
+    await delivery_hooks._handle_restaurant_decline(summary, food_order, ["ADMIN01"])
+    assert notices == []
+
+
+async def test_restaurant_confirmation_flow_routes_auto_decline_even_with_no_admins() -> None:
+    bg = _FakeBackgroundTasks()
+    result = await delivery_hooks.restaurant_confirmation_flow(bg, payload=_restaurant_payload("auto_decline", admins=[]))
+    assert result["status"] == "accepted"
+    task = bg.tasks[0]
+    assert task["func"] == delivery_hooks._handle_restaurant_decline
+    assert task["args"][2:] == ([], True)  # refund must run with no admins; flagged as a timeout decline
+
+
+async def test_restaurant_confirmation_flow_admin_decline_is_not_flagged_as_timeout() -> None:
+    bg = _FakeBackgroundTasks()
+    await delivery_hooks.restaurant_confirmation_flow(bg, payload=_restaurant_payload("restaurant_decline"))
+    assert bg.tasks[0]["args"][2:] == (["ADMIN01"], False)
 
 
 async def test_handle_restaurant_decline_pay_at_rest_skips_payment_cancel(decline_fakes) -> None:

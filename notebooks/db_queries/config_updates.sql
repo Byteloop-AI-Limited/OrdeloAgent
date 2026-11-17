@@ -11,7 +11,6 @@ select * from ordelo_config where config_key like '%BNAT%';
 
 -- Reset cache
 SELECT * FROM ordelo_post('ORDELO_APP_URL', '/internal/cache/reset');
-SELECT * FROM ordelo_post('SFCS_APP_URL', '/internal/cache/reset');
 
 -- Test Setup
 UPDATE ordelo_config SET config_value = 'true', updated_at = now() WHERE config_key = 'ENABLE_SIMULATE_PAYMENT';
@@ -25,6 +24,10 @@ update ordelo_config set config_value = 'https://rest-agent-test.ordelo.app' whe
 update ordelo_config set config_value = 'https://wren-agg-test.ordelo.app' where config_key = 'WREN_APP_URL';
 --
 -- Revert to production setup;
+
+
+-- Reset cache
+SELECT * FROM ordelo_post('ORDELO_APP_URL', '/internal/cache/reset');
 
 UPDATE ordelo_config SET config_value = 'false', updated_at = now() WHERE config_key = 'ENABLE_SIMULATE_PAYMENT';
 
@@ -44,7 +47,7 @@ delete from ordelo_config where config_key='ELAS_MENU_APP_URL';
 update ordelo_config set config_value = 10
  where config_key = 'DISPATCH_BATCH_SIZE_ELECTRIC_BIKE';
 
-
+select * from delivery_dispatch order by dtts desc limit 10;
 update ordelo_config
 set config_value = 10
 where config_key = 'DISPATCH_BATCH_SIZE_SCOOTER';
