@@ -83,6 +83,22 @@ def test_overnight_cutoff_and_weekend_next_open():
     )[1].startswith("2026-10-09T23:00")
 
 
+def test_cutoff_does_not_apply_at_a_midnight_seam():
+    """Open all night (Mon 10:00-24:00 then Tue 00:00-24:00) is continuous: no cutoff at 23:52."""
+    hours = {"mon": [["10:00", "24:00"]], "tue": [["00:00", "24:00"]]}
+    at = datetime(2026, 11, 16, 23, 52, tzinfo=availability.UK)  # a Monday
+    accepting, next_open = availability.opening(hours, at, 15)
+    assert accepting
+    # The next real closure is Tue 24:00, so the cutoff bites at 23:45 Tuesday.
+    assert availability.opening(hours, datetime(2026, 11, 17, 23, 44, tzinfo=availability.UK), 15)[0]
+    assert not availability.opening(hours, datetime(2026, 11, 17, 23, 46, tzinfo=availability.UK), 15)[0]
+
+
+def test_overnight_close_running_into_next_day_opening_is_continuous():
+    hours = {"fri": [["18:00", "25:00"]], "sat": [["01:00", "23:00"]]}
+    assert availability.opening(hours, datetime(2026, 10, 3, 0, 50, tzinfo=availability.UK), 15)[0]
+
+
 @pytest.mark.parametrize("token", ["", "short", "a" * 42, "a" * 44, "!" * 43])
 def test_malformed_access_rejected(token):
     with pytest.raises(WebError) as caught:
