@@ -130,23 +130,23 @@ async def test_plain_notices_reach_both_channels(notice):
 async def test_whatsapp_adapter_no_rider_found_calls_the_sender(monkeypatch):
     calls = []
 
-    async def fake(*a):
-        calls.append(a)
+    async def fake(*a, **kw):
+        calls.append((a, kw))
 
     monkeypatch.setattr(wa_senders, "admin_no_rider_notice", fake)
     await restaurant_notifier._WhatsAppAdapter().send(NO_RIDER)
-    assert calls == [(["A1", "A2"], "ELAS-ABCD-1")]
+    assert calls == [((["A1", "A2"], "ELAS-ABCD-1"), {"restaurant_msg_id": None})]
 
 
-async def test_whatsapp_adapter_auto_accepted_is_todays_text(monkeypatch):
+async def test_whatsapp_adapter_auto_accepted_passes_order_type(monkeypatch):
     calls = []
 
-    async def fake(*a):
-        calls.append(a)
+    async def fake(*a, **kw):
+        calls.append((a, kw))
 
     monkeypatch.setattr(wa_senders, "admin_auto_accept_notice", fake)
     await restaurant_notifier._WhatsAppAdapter().send(AUTO)
-    assert calls == [(["A1", "A2"], "ELAS-ABCD-1", "11:30 AM", 30)]
+    assert calls == [((["A1", "A2"], "ELAS-ABCD-1", "11:30 AM", 30), {"order_type": "delivery"})]
 
 
 async def test_whatsapp_adapter_auto_declined_calls_the_decline_notice(monkeypatch):
@@ -222,7 +222,7 @@ async def test_telegram_adapter_maps_plain_notices():
     await adapter.send(DONE)
     await adapter.send(FEEDBACK)
     card, receipt = OrderRef("ELAS-ABCD-1", "delivery"), OrderRef("ELAS-ABCD-1", "delivery")
-    assert spy.calls[0] == ("ELAS", "⏱ <b>ELAS-ABCD-1</b> auto-accepted (no answer in time). Pickup 11:30 AM (30 min after order).",
+    assert spy.calls[0] == ("ELAS", "⏱ <b>ELAS-ABCD-1</b> auto-accepted (no answer in time). Pickup 11:30 AM (30 min after order).\n<b>⏳ Don&#x27;t start cooking yet — we&#x27;re finding a rider.</b>\nStart when the kitchen receipt arrives.",
                             {"notice": "auto_accepted", "order": card, "reply_to": "card"})
     assert spy.calls[1] == ("ELAS", "✅ Delivered — <b>ELAS-ABCD-1</b>", {"notice": "delivered", "order": receipt, "reply_to": "receipt"})
     assert receipts == [receipt]            # the receipt copies are redrawn as done
@@ -237,6 +237,27 @@ async def test_telegram_takeaway_auto_accept_replies_to_the_takeaway_card():
     adapter._notices = spy
     await adapter.send(AutoAccepted("ELAS-TK-1", "takeaway", ["A1"], "1:00 PM", 20, "ELAS"))
     assert spy.calls[0][2]["order"] == OrderRef("ELAS-TK-1", "takeaway")
+    assert "start cooking" not in spy.calls[0][1]
+
+
+async def test_no_rider_notice_escapes_order_and_replies_to_card_without_whatsapp_admins():
+    adapter, spy = restaurant_notifier._TelegramAdapter(), SpyNotices()
+    adapter._notices = spy
+    await adapter.send(NoRiderFound("ELAS-<B>&-1", [], "ELAS"))
+    assert spy.calls == [("ELAS", "<b>❌ No rider found for ELAS-&lt;B&gt;&amp;-1.</b>\n"
+                         "The order is cancelled — please don&#x27;t prepare it.",
+                         {"notice": "no_rider_found", "order": OrderRef("ELAS-<B>&-1", "delivery"), "reply_to": "card"})]
+
+
+async def test_whatsapp_no_rider_adapter_preserves_reply_target(monkeypatch):
+    calls = []
+
+    async def fake(*args, **kw):
+        calls.append((args, kw))
+
+    monkeypatch.setattr(wa_senders, "admin_no_rider_notice", fake)
+    await restaurant_notifier._WhatsAppAdapter().send(NoRiderFound("ELAS-1", ["A1"], "ELAS", "wamid.card"))
+    assert calls == [((["A1"], "ELAS-1"), {"restaurant_msg_id": "wamid.card"})]
 
 
 def test_rider_alert_html_is_the_whatsapp_wording_with_html_bold():

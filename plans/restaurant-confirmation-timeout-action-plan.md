@@ -1,5 +1,7 @@
 # Restaurant confirmation timeout: auto-decline, longer window, more alerts, customer countdown (plan)
 
+**Follow-up reversal (17 Nov 2026):** [Kitchen start signal](kitchen-start-signal-plan.md) restores the no-rider notice to restaurant admins on both channels for every delivery, including configured auto-accept; overwatch remains notified. ADR 0015 records the decision.
+
 Status: **implemented and committed on `feature/restaurant-default-timeout` (16 Nov 2026); the owner has applied the migration; tests written but not yet run in CI/locally. Follow-ups after the STRK manual test: TEST3100 test orders skip the payment cancel; the cancelled order page says the payment was never collected; the delivery stepper is Looking for a rider → Rider assigned → Preparing; "No rider found" now goes to overwatch only (the restaurant-admin notice is commented out). 17 Nov: an order an admin accepted but gave no pickup time is auto-accepted 15 seconds after the accept (fixed constant `c_pickup_grace`, no config key; `migrations/restaurant_accept_pickup_grace.sql`, owner applies).** Written 16 Nov 2026 after a grilling session with the owner (section 1).
 Repos and branches (already checked out):
 

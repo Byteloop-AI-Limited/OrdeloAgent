@@ -87,7 +87,7 @@ async def test_send_posts_a_receipt_to_every_destination_as_a_reply_to_the_card(
     by_chat = {s.chat_id: s for s in all_sends(session)}
     assert by_chat[111].reply_parameters.message_id == 77 and by_chat[111].reply_parameters.allow_sending_without_reply
     assert by_chat[222].reply_parameters is None
-    assert text_of(by_chat[111]).startswith("🧾 Kitchen receipt · 🚚 Delivery")
+    assert text_of(by_chat[111]).startswith("🍳 Please start preparing now\nRider found · ready for pickup at 1:00 PM")
     assert len(store.live()) == 2 and all(r["status"] == "open@13:00" for r in store.live())
 
 
@@ -99,6 +99,7 @@ async def test_a_new_riders_receipt_replaces_the_old_one_in_each_chat(env):
     await receipts.send(DELIVERY, 11)
     assert sorted(session.deleted) == sorted((tcid, mid) for tcid, mid in first.items())
     assert len(store.live()) == 2 and all(r["dispatch_id"] == 11 for r in store.live())
+    assert all(text_of(s).startswith("🍳 Please start preparing now") for s in all_sends(session)[-2:])
 
 
 async def test_send_for_a_vanished_order_sends_nothing(env):
@@ -142,6 +143,8 @@ async def test_ready_tap_notifies_the_rider_answers_and_redraws_every_copy(env, 
     assert nudges == [("rider", "RIDER01", "Elai")]
     ada, bob = edits_for(session, 111)[-1], edits_for(session, 222)[-1]
     assert "✅ Marked ready by You" in text_of(ada) and "✅ Marked ready by Ada" in text_of(bob)
+    assert text_of(ada).startswith("🧾 Kitchen receipt · 🚚 Delivery")
+    assert "Please start preparing now" not in text_of(ada)
     assert [d.split(":")[3] for d in button_data_of(ada)] == ["st", "adj", "adj"]  # badge, then +10 / +20 (no Ready)
     assert {r["status"] for r in store.live()} == {"ready@13:00"}
     assert inbox_db.rpc_names == ["t_inbox_claim", "t_inbox_finish"]
@@ -161,6 +164,7 @@ async def test_plus_ten_moves_the_pickup_and_is_not_cumulative(env):
     await receipts.send(DELIVERY, 10)
     await tap(f"ord:{ORDER}:d:adj:10", 111)
     assert session.answers[-1] == ("Pickup 1:10 PM", False)
+    assert "Rider found · ready for pickup at 1:10 PM" in text_of(edits_for(session, 111)[-1])
     assert db.orders[("delivery", ORDER)]["pickup"] == "2026-10-15T12:10:00+00:00"
     await tap(f"ord:{ORDER}:d:adj:10", 111)                                   # same button again: nothing changes
     assert session.answers[-1] == ("Pickup already 1:10 PM", False)
@@ -395,7 +399,7 @@ async def test_telegram_rejecting_the_rich_form_sends_the_html_receipt_instead(e
     session.fail = lambda m: TelegramBadRequest(method=m, message="rich messages are not supported") if refuses_rich(m) else None
     await receipts.send(DELIVERY, 10)
     html = [c for c in session.calls if isinstance(c, SendMessage) and c.chat_id == 111]
-    assert len(html) == 1 and html[0].text.startswith("🧾 KITCHEN RECEIPT · 🚚 Delivery") and html[0].parse_mode == "HTML"
+    assert len(html) == 1 and html[0].text.startswith("<b>🍳 Please start preparing now</b>") and html[0].parse_mode == "HTML"
     assert [b.callback_data.split(":")[3] for b in html[0].reply_markup.inline_keyboard[0]] == ["rdy"]
     assert len(store.live()) == 2  # one ledger row per chat, exactly as before
     await tap(f"ord:{ORDER}:d:rdy:0", 111)  # the HTML-form copy keeps working: rich edit rejected, HTML edit used

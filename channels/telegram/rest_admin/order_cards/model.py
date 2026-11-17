@@ -6,6 +6,7 @@ text, button or toast is built. See plans/archive/telegram-rest-admin-scaffold-p
 
 `Status` keys are the SQL `t_order_card_status()` keys (ordelo_datamodels/telegram/t_order_alerts.sql). Change both
 together.
+Delivery cards with a pickup time carry kitchen_instructions.hold; the threaded receipt is the start signal.
 """
 
 from dataclasses import dataclass, replace
@@ -17,6 +18,7 @@ from aiogram.types import InlineKeyboardMarkup, InputRichMessage
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from loguru import logger
 
+from utils_common.order_management import kitchen_instructions
 from utils_common.tz_utils import fmt_uk_time, parse_db_iso
 
 from ...callbacks import OrderAction
@@ -330,12 +332,19 @@ class Card:
             return None
         return kb.as_markup()
 
+    def _hold(self) -> str | None:
+        """A delivery with a pickup time waits for the kitchen receipt before cooking."""
+        if self.status not in ("pickup_set", "auto_accepted"):
+            return None
+        h = kitchen_instructions.hold(self.facts.order_type)
+        return f"<b>{escape(h.headline)}</b>\n{escape(h.detail)}" if h else None
+
     def view(self, viewer: Viewer) -> View:
         if not viewer.authorised:
             return View(NO_ACCESS, None, True)
         if self.status == "gone":
             return View(GONE_TEXT, None, True)
-        text = f"{self._status_line(viewer)}\n{self._body()}"
+        text = "\n".join(p for p in (self._status_line(viewer), self._hold(), self._body()) if p)
         return View(text, self._keyboard(viewer), self.status in TERMINAL)
 
 

@@ -12,4 +12,4 @@ Instead one function, `restaurant_confirmation_policy(rest_ref)` (`restaurant_ad
 
 An order an admin accepted but gave no pickup time is never declined; it is timed out (default pickup time) 15 seconds after the accept. That grace is a constant in `process_restaurant_confirmation()`, not a config key: the owner decided on 17 Nov 2026 that it does not vary by restaurant, so do not add a key for it.
 
-Configured auto-accept (`restaurant_master.auto_accept`) is a different thing: nobody is asked, so it never reaches the timeout and also suppresses prompts, reminders and the "No Rider Found" message. `docs/pickup_time_logic.md` has the three modes side by side.
+Configured auto-accept (`restaurant_master.auto_accept`) is a different thing: nobody is asked, so it never reaches the timeout and suppresses prompts and reminders. The earlier no-rider suppression is reversed by [ADR 0015](0015-the-kitchen-receipt-is-the-start-signal.md): every delivery now gets the hold and no-rider cancellation notice. `docs/pickup_time_logic.md` has the three modes side by side.

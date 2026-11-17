@@ -9493,7 +9493,7 @@
    "cron": [],
    "folder": "test_support",
    "header_lines": 0,
-   "lines": 460,
+   "lines": 464,
    "objects": [],
    "path": "test_support/test_restaurant_notices.sql",
    "role": "script",

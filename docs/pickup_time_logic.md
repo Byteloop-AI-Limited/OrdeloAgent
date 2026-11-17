@@ -12,7 +12,7 @@ Runtime flow for `pickup_time` in `delivery_summary` and `takeaway_summary`.
 | Is the restaurant asked? | No. Accepted at creation (`auto_accept`, `rest_confirmation_method='configured_auto'`) | Yes: Accept / Decline card, repeated per `{REF}_TGRAM_ORDER_ALERT_OFFSETS_SECS` | Yes, same card and reminders |
 | If nobody answers | n/a (never waits) | After `..._TIMEOUT_TIME` minutes: `restaurant_timedout`, then auto-accepted with the default pickup time | After `..._TIMEOUT_TIME` minutes: `auto_decline`, status `declined`, customer told, payment cancelled, admins and ops told |
 | Admin accepted but gave no pickup time | n/a | `restaurant_timedout`, auto-accepted 15 s after the accept (at most the usual timeout) | Same: always auto-accepted (somebody answered), 15 s after the accept |
-| Extra effect | Also suppresses admin prompts, reminders and delivery's "No Rider Found" message | none | Customer sees a countdown on the order page |
+| Extra effect | Suppresses admin prompts and reminders; deliveries still get the hold and no-rider notice (ADR 0015) | none | Customer sees a countdown on the order page |
 
 The timeout flow is decided in one place, `public.restaurant_confirmation_policy(rest_ref)`
 (`ordelo_datamodels/restaurant_admin/restaurant_confirmation_policy.sql`), which returns the
@@ -43,7 +43,7 @@ from when dispatch begins. For STRK, both configured defaults are 30 minutes.
 They also apply when a manual confirmation times out (see below); they do not
 override a pickup time explicitly selected by an admin.
 
-Configured auto-accept suppresses delivery's "No Rider Found" admin message.
+Configured auto-accept deliveries get the same hold and no-rider cancellation notice as every delivery (ADR 0015).
 It retains payment/print work, restaurant webhooks, overwatch,
 customer/rider messages, delivery operational receipts, and the takeaway admin
 receipt.

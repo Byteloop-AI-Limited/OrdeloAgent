@@ -8,7 +8,7 @@ Delivery webhook handlers for Ordelo delivery system
     . Implements function chaining pattern for complex workflows
     . Handles missed dispatch notifications and rider communications
     . Restricts TEST3100 dispatch and missed-notice audiences to current overwatch riders
-    . Suppresses no-rider admin messages for configured auto-accept orders
+    . Tells restaurant admins and overwatch when no rider is found, including configured auto-accept
     . Provides FastAPI endpoints for delivery operations
     . Uses PostgreSQL CTEs for conditional database operations
     . Follows webhook pattern where database triggers call FastAPI endpoints
@@ -84,7 +84,7 @@ Called by database (SQL triggers / pg_cron jobs POST to these routes):
 
 from utils_common.order_management.customer_keys import is_web_customer_key
 from utils_common.notify import customer_notifier, restaurant_notifier
-from utils_common.notify.restaurant_notifier import AutoAccepted, AutoDeclined, KitchenReceipt, RiderAlert
+from utils_common.notify.restaurant_notifier import AutoAccepted, AutoDeclined, KitchenReceipt, NoRiderFound, RiderAlert
 from channels.telegram.ops_alerts import alert_ops
 from utils_common.notify.customer_notifier import CustomerOrderEvent
 
@@ -848,17 +848,17 @@ async def delivery_timedout(
         from utils_common.web_ordering.lifecycle import queue_release
         await queue_release(delivery_summary["order_number"], "no_rider_found")
 
-    # 2. Restaurant admins are deliberately NOT told "no rider found" for now: only
-    # overwatch is. To bring the admin notice back (WhatsApp + Telegram, skipped for
-    # configured auto-accept orders), restore this block; NoRiderFound and
-    # wa_senders.admin_no_rider_notice are kept for that.
-    #
-    # if delivery_summary.get("rest_confirmation_method") != "configured_auto":
-    #     rest_ref = delivery_summary["order_number"].split("-")[0]
-    #     rest_admins = RestaurantMaster.get_admins_for(rest_ref)
-    #     await restaurant_notifier.notify(
-    #         NoRiderFound(delivery_summary["order_number"], rest_admins or [], rest_ref)
-    #     )
+    # 2. Every delivery's kitchen was told to hold for the receipt; tell it that none is coming.
+    # Telegram resolves linked chats by rest_ref even if the WhatsApp admin lookup fails.
+    rest_ref = delivery_summary["order_number"].split("-")[0]
+    try:
+        rest_admins = await asyncio.to_thread(RestaurantMaster.get_admins_for, rest_ref)
+    except Exception:
+        logger.exception("No-rider admin lookup failed", extra={"order_number": delivery_summary.get("order_number")})
+        rest_admins = []
+    await restaurant_notifier.notify(NoRiderFound(
+        delivery_summary["order_number"], rest_admins or [], rest_ref, delivery_summary.get("restaurant_msg_id")
+    ))
 
     # 3. Overwatch is told for every order (including configured auto-accept).
     try:

@@ -343,7 +343,17 @@ vanished) and always rebuilt from the order in the database, so it can never sho
 the database is not in. Each admin's chat holds at most one live copy; the `t_sent_messages`
 ledger only remembers where copies are so they can be edited or deleted.
 The buttons are authorised per tap by Telegram user id (never chat id), so the same card works in a private chat or a group.
+A delivery card with a pickup time carries the hold lines; the kitchen receipt is the start signal.
 _Avoid_: notification, alert message
+
+### Kitchen instruction
+
+What the kitchen is told about an accepted order: **hold** (delivery, from the pickup time until a rider accepts),
+**start** (the kitchen receipt), or **drop** (no rider found: the order is cancelled and must not be prepared).
+Takeaway is never held. The plain wording and UK pickup time live in
+`utils_common/order_management/kitchen_instructions.py`; each channel adds its own markup.
+The delivery order card stays terminal; a receipt threaded beneath it supersedes the hold (ADR 0015).
+_Avoid_: prep notice, cooking alert
 
 ### Telegram identity
 

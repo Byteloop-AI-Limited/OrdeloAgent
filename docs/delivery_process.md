@@ -137,6 +137,8 @@ remain enabled.
 
 ### Phase 2: Restaurant Confirmation
 
+Delivery kitchens hold after pickup time is set: “Don't start cooking yet — we're finding a rider. Start when the kitchen receipt arrives.” This includes configured auto-accept; takeaway never holds.
+
 This phase ensures restaurants confirm orders and provide estimated prep time before riders are dispatched.
 
 #### 2a. Confirmation Request Trigger
@@ -223,6 +225,8 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 
 ### Phase 3: Dispatch Creation (`process_delivery` + `job_create_dispatch`)
 
+The delivery kitchen continues to hold while rider offers are outstanding; an offer does not authorise cooking.
+
 #### 3a. Delivery Detail Management
 
 **File:** `ordelo_datamodels/delivery/process_delivery.sql`
@@ -235,7 +239,7 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 - Creates `delivery_detail` records for each vehicle type based on `delivery_option`
 - Manages vehicle type iteration when current type times out
 - Marks orders as `timedout` when all vehicle types exhausted
-- On `timedout`, `delivery_timedout()` cancels the order, releases the payment (skipped for test-mode TEST3100 orders), tells the customer and sends **overwatch only** a "No rider found" message; restaurant admins are not told (the admin notice is commented out in the handler)
+- On `timedout`, `delivery_timedout()` cancels the order, releases the payment (skipped for test-mode TEST3100 orders), tells the customer and tells **restaurant admins on WhatsApp and Telegram plus overwatch**. Every delivery, including configured auto-accept, gets “No rider found … The order is cancelled — please don't prepare it.” The admin notice replies to the card where its message ID is available.
 
 **Logic:**
 1. For each `unassigned` order in `delivery_summary`
@@ -324,6 +328,8 @@ FOR EACH STATEMENT
 ---
 
 ### Phase 4: Rider Assignment (`job_assign_dispatch`)
+
+When a rider is assigned, the kitchen receipt is the start signal on both channels: “🍳 Please start preparing now / Rider found · ready for pickup at …”. The terminal order card stays unchanged (ADR 0015).
 
 Telegram rider offers repeat at the seconds in `RIDER_OFFER_ALERT_OFFSETS_SECS` (blank disables reminders). Any acceptance stops reminders for the order; rider availability stops that rider's reminders. A decline restarts nothing; cancellation before pickup re-offers the order and starts a complete new cycle. The last offset triggers one overwatch escalation per dispatch round. See [the plan](../plans/rider-dispatch-alerts-plan.md).
 

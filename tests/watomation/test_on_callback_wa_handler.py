@@ -300,7 +300,8 @@ async def test_handle_pickup_time_selection_success_and_already_updated(decision
     msg = FakeMessage(sender=ADMIN, data=data)
 
     await handler.handle_pickup_time_selection(FakeAsyncWhatsApp(), msg)
-    assert msg.replies[-1] == {"text": "Pickup time updated"}
+    assert msg.replies[-1] == {"text": "Pickup time set to *12:15 PM*.\n"
+                             "*⏳ Don't start cooking yet — we're finding a rider.*\nStart when the kitchen receipt arrives."}
     assert decision_db.calls[-1] == ("restaurant_order_set_pickup", {
         "p_order_number": ORDER, "p_order_type": "delivery", "p_pickup_time": pickup,
         "p_admin_phone": ADMIN, "p_channel": "whatsapp"})
@@ -318,6 +319,14 @@ async def test_handle_pickup_time_selection_takeaway_and_not_accepted(decision_d
 
     assert decision_db.calls[-1][1]["p_order_type"] == "takeaway"
     assert msg.replies[-1] == {"text": "Pickup time already updated"}
+
+
+async def test_takeaway_pickup_success_has_no_hold(decision_db) -> None:
+    decision_db.add(ORDER, kind="takeaway", rcs="restaurant_accept")
+    msg = FakeMessage(sender=ADMIN, data=json.dumps({"action": "/PickupTime", "order_number": ORDER,
+                      "pickup_time": "2026-10-15T12:15:00+01:00", "order_type": "takeaway"}))
+    await handler.handle_pickup_time_selection(FakeAsyncWhatsApp(), msg)
+    assert msg.replies[-1] == {"text": "Pickup time set to *12:15 PM*."}
 
 
 async def test_handle_pickup_time_selection_swallows_database_errors(monkeypatch) -> None:
