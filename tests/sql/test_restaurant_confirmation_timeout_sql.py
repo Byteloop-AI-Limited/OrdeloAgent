@@ -4,7 +4,8 @@ Files under test: ordelo_datamodels/restaurant_admin/restaurant_confirmation_pol
 restaurant_admin/process_restaurant_confirmation.sql (plans/restaurant-confirmation-timeout-action-plan.md).
 Covers: policy defaults and per-restaurant / global precedence, silence=decline (auto_decline + declined, delivery and
 takeaway), silence=accept unchanged, an accepted-without-pickup order always times out as 'restaurant_timedout',
-the timeout minutes, and that the restaurant-update trigger fires with 'auto_decline'. Skipped without ORDELO_TEST_DB_URI.
+the timeout minutes, the 15-second pickup grace after an accept (migrations/restaurant_accept_pickup_grace.sql), and that the
+restaurant-update trigger fires with 'auto_decline'. Skipped without ORDELO_TEST_DB_URI.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ pytestmark = pytest.mark.usefixtures("sql_env")
 
 @pytest.fixture(autouse=True)
 def clean(db):
-    db.execute("TRUNCATE public.delivery_summary, public.takeaway_summary, public.trigger_log")
+    db.execute("TRUNCATE public.delivery_summary, public.takeaway_summary, public.trigger_log CASCADE")  # wa_location FKs
     db.execute("DELETE FROM public.ordelo_config WHERE config_key LIKE '%RESTAURANT_CONFIRMATION_TIMEOUT%'")
 
 
@@ -28,11 +29,14 @@ def config(db, key, value):
         "ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value", (key, value))
 
 
-def old_order(db, kind="delivery", number="ZZZZ-1", minutes_old=10, rcs="restaurant_unconfirmed", pickup=False):
+def old_order(db, kind="delivery", number="ZZZZ-1", minutes_old=10, rcs="restaurant_unconfirmed", pickup=False,
+              accepted_secs_ago=None):
+    """accepted_secs_ago sets restaurant_update_dtts, the stamp restaurant_order_decide() writes on accept."""
     db.execute(
-        f"INSERT INTO public.{kind}_summary (order_number, dtts, restaurant_confirmation_status, pickup_time) "
-        "VALUES (%s, now() - make_interval(mins => %s), %s, %s)",
-        (number, minutes_old, rcs, "2026-11-16 12:30:00+00" if pickup else None))
+        f"INSERT INTO public.{kind}_summary (order_number, dtts, restaurant_confirmation_status, pickup_time, restaurant_update_dtts) "
+        "VALUES (%s, now() - %s::numeric * interval '1 minute', %s, %s, "
+        "now() - %s::numeric * interval '1 second')",
+        (number, minutes_old, rcs, "2026-11-16 12:30:00+00" if pickup else None, accepted_secs_ago))
     db.execute("TRUNCATE public.trigger_log")  # the INSERT trigger is not what these tests are about
     return number
 
@@ -108,6 +112,49 @@ def test_accepted_without_pickup_times_out_even_when_policy_is_decline(db, kind)
     n = old_order(db, kind, minutes_old=10, rcs="restaurant_accept")
     run_job(db)
     assert state(db, kind, n)[:2] == ("restaurant_timedout", "restaurant_unconfirmed")
+
+
+# ---- the 15-second pickup grace after an accept --------------------------------------------------
+
+
+@pytest.mark.parametrize("kind", ["delivery", "takeaway"])
+def test_accepted_without_pickup_times_out_15_seconds_after_the_accept(db, kind):
+    config(db, "ZZZZ_RESTAURANT_CONFIRMATION_TIMEOUT_TIME", "3")
+    n = old_order(db, kind, minutes_old=0.5, rcs="restaurant_accept", accepted_secs_ago=20)
+    run_job(db)
+    assert state(db, kind, n)[:2] == ("restaurant_timedout", "restaurant_unconfirmed")
+
+
+@pytest.mark.parametrize("kind", ["delivery", "takeaway"])
+def test_accepted_within_the_grace_is_left_alone(db, kind):
+    config(db, "ZZZZ_RESTAURANT_CONFIRMATION_TIMEOUT_TIME", "3")
+    n = old_order(db, kind, minutes_old=0.5, rcs="restaurant_accept", accepted_secs_ago=5)
+    assert run_job(db) == []
+    assert state(db, kind, n)[0] == "restaurant_accept"
+
+
+@pytest.mark.parametrize("kind", ["delivery", "takeaway"])
+def test_grace_does_not_apply_to_unanswered_orders(db, kind):
+    config(db, "ZZZZ_RESTAURANT_CONFIRMATION_TIMEOUT_TIME", "3")
+    config(db, "ZZZZ_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION", "decline")
+    n = old_order(db, kind, minutes_old=0.5, accepted_secs_ago=20)  # unconfirmed, even with a stamp
+    assert run_job(db) == []
+    assert state(db, kind, n)[0] == "restaurant_unconfirmed"
+
+
+@pytest.mark.parametrize("kind", ["delivery", "takeaway"])
+def test_accepted_with_pickup_time_ignores_the_grace(db, kind):
+    n = old_order(db, kind, minutes_old=0.5, rcs="restaurant_accept", pickup=True, accepted_secs_ago=60)
+    assert run_job(db) == []
+    assert state(db, kind, n)[0] == "restaurant_accept"
+
+
+@pytest.mark.parametrize("kind", ["delivery", "takeaway"])
+def test_accepted_without_a_stamp_falls_back_to_the_usual_timeout(db, kind):
+    config(db, "ZZZZ_RESTAURANT_CONFIRMATION_TIMEOUT_TIME", "3")
+    n = old_order(db, kind, minutes_old=0.5, rcs="restaurant_accept")
+    assert run_job(db) == []
+    assert state(db, kind, n)[0] == "restaurant_accept"
 
 
 def test_order_with_pickup_time_is_left_alone(db):

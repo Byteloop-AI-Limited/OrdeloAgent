@@ -49,7 +49,7 @@ The whole order uses the selected service, including its other items and normal 
 | Collection checkout | `generate_takeaway_manual_payment_url` | Manual authorisation, wire action `collection` |
 | Delivery capture | `delivery_hooks.capture_payment` | `payment_mode='capture'`, at rider assignment |
 | Collection capture | `takeaway_hooks.capture_takeaway_payment` | `payment_mode='capture'`, at the finalized pickup-time boundary |
-| Cancellation/release | `delivery_hooks.cancel_payment`, also used by collection | `payment_mode='cancel'`; the payload does not need the marker because the order's stored environment selects the service |
+| Cancellation/release | `delivery_hooks.cancel_payment`, also used by collection | `payment_mode='cancel'`; the payload does not need the marker because the order's stored environment selects the service. **Skipped** (returns `skipped_test_order`, no payment-service call) when the order is test-mode **and** contains a TEST3100 item, because simulated payments have no PaymentIntent to cancel; a web customer still gets a `payment_released` event |
 | Pay-at-restaurant print job | `generate_automatic_payment_url(..., is_print_only=True)` | `printonlyjob=true`; a receipt operation, not a Stripe payment |
 
 All these requests use the same selected `/payment-url` endpoint. A test checkout therefore continues through Wren for capture/cancellation; a live checkout continues through payment. The frontend displays the backend's reported mode and hosted Checkout URL; it does not choose an API base.

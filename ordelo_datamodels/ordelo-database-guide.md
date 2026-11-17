@@ -5,7 +5,7 @@
 
 The SQL under `ordelo_datamodels/` is organised by capability. Each file starts with a fixed header (live check, objects, how to run, side effects, how it fits, lifecycle, callers, Python model, security, tests, gotchas, see also). The file is the authority; this guide only indexes it.
 
-**128 SQL files · 223 objects** 146 functions · 58 tables · 13 triggers · 6 views · 17 cron jobs
+**129 SQL files · 223 objects** 146 functions · 58 tables · 13 triggers · 6 views · 17 cron jobs
 
 ## Capability map
 
@@ -28,7 +28,7 @@ The SQL under `ordelo_datamodels/` is organised by capability. Each file starts 
 | [`byteloop_agent/`](byteloop_agent/) | Byteloop agent | 2 | 4 | Tables and vector search used by the separate Byteloop agent. |
 | [`test_support/`](test_support/) | Test support | 12 | 4 | Helpers and harness scripts for resetting and replaying orders. Not part of production flows. |
 | [`_orphans/`](_orphans/) | Orphan candidates | 10 | 25 | Live objects with no caller found in OrdeloAgent, restaurant-frontend or restaurant-agents. Captured exactly as live; keep or drop is an owner decision (docs/to-do.md). |
-| [`migrations/`](migrations/) | Migrations (history) | 21 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
+| [`migrations/`](migrations/) | Migrations (history) | 22 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
 
 ## Flows
 
@@ -468,7 +468,8 @@ Admin dashboard reads and platform helpers.
 | [`migrations/ordelo_agg_r1.sql`](migrations/ordelo_agg_r1.sql) | Applied, except the pg_cron schedule for job_payment_init_reconciler (not in cron.job; docs/to-do.md). | notifications/notification_outbox.sql, notifications/order_customer_event.sql, notifications/order_notification_subscription.sql, ordering/create_food_order_with_items.sql, ordering/food_order_additions.sql, payment/job_payment_init_reconciler.sql, payment/payment_event.sql, payment/record_payment_authorised.sql, restaurant-agents (food_order) |
 | [`migrations/ordelo_agg_r1_test_payment.sql`](migrations/ordelo_agg_r1_test_payment.sql) | Applied: every object it creates exists live (checked 2026-10-16). | ordering/create_food_order_with_items.sql, ordering/food_order_additions.sql, restaurant-agents (food_order) |
 | [`migrations/ordelo_agg_r3.sql`](migrations/ordelo_agg_r3.sql) | Applied: every object it creates exists live (checked 2026-10-16). | agent_threads/job_close_thread.sql, core/restaurant_master.sql, ordering/create_food_order_with_items.sql, ordering/order_access_grant.sql, ordering/web_monitor_run.sql, ordering/web_order_request.sql, ordering/web_payment_release.sql, ordering/web_rate_limit.sql, ordering/web_session_meta.sql |
-| [`migrations/restaurant_confirmation_timeout_action.sql`](migrations/restaurant_confirmation_timeout_action.sql) | NOT YET (prepared 2026-11-16; the owner applies it himself) | restaurant_admin/restaurant_confirmation_policy.sql, restaurant_admin/process_restaurant_confirmation.sql,, delivery/delivery_summary.sql, takeaway/takeaway_summary.sql, delivery/process_delivery.sql, telegram/t_order_alerts.sql |
+| [`migrations/restaurant_accept_pickup_grace.sql`](migrations/restaurant_accept_pickup_grace.sql) | NOT YET (prepared 2026-11-17; the owner applies it himself) | restaurant_admin/process_restaurant_confirmation.sql |
+| [`migrations/restaurant_confirmation_timeout_action.sql`](migrations/restaurant_confirmation_timeout_action.sql) | 2026-11-16 (owner-confirmed) | restaurant_admin/restaurant_confirmation_policy.sql, restaurant_admin/process_restaurant_confirmation.sql,, delivery/delivery_summary.sql, takeaway/takeaway_summary.sql, delivery/process_delivery.sql, telegram/t_order_alerts.sql |
 | [`migrations/rider_dashboard_cutover.sql`](migrations/rider_dashboard_cutover.sql) | 2026-10-26 (owner-confirmed). | admin_dashboard/auth_sessions.sql, admin_dashboard/get_rider_jobs.sql, agent_threads/rider_job_history_access.sql, core/rider_master.sql, core/rider_registrations.sql, core/ordelo_config.sql, core/restaurant_master.sql, dispatch/delivery_dispatch.sql, delivery/delivery_summary.sql, delivery/delivery_detail.sql, dispatch/delivery_inflight.sql, ordering/food_order_additions.sql, admin_dashboard/v_admin_orders.sql, admin_dashboard/get_rider_payout_report.sql |
 | [`migrations/rider_offer_alerts.sql`](migrations/rider_offer_alerts.sql) | 2026-10-27 (owner-confirmed; cron job_rider_offer_alerts scheduled, every 5 seconds). | dispatch/rider_offer_alert.sql, dispatch/job_rider_offer_alerts.sql |
 | [`migrations/rider_offer_alerts_r2.sql`](migrations/rider_offer_alerts_r2.sql) | 2026-10-27 (owner-confirmed). | dispatch/rider_offer_alert.sql (table, indexes), dispatch/job_rider_offer_alerts.sql (job) |

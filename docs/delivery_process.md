@@ -206,7 +206,7 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 
 **Logic:**
 - Finds orders with `restaurant_confirmation_status` IN (`restaurant_unconfirmed`, `restaurant_accept`) AND `pickup_time` IS NULL
-- Checks if time since `dtts` (order creation) strictly exceeds the configured timeout in minutes
+- Checks if time since `dtts` (order creation) strictly exceeds the configured timeout in minutes, or, for `restaurant_accept`, if the accept (`restaurant_update_dtts`) is more than 15 seconds old (fixed grace `c_pickup_grace`; not a config key)
 - Reads `restaurant_confirmation_policy(rest_ref)` (minutes and action) and applies it in one UPDATE:
   - never answered (`restaurant_unconfirmed`) and action `decline` → `auto_decline` + `status='declined'`
   - everything else (action `accept`, or an admin accepted but chose no pickup time) → `restaurant_timedout`, auto-accepted by the webhook handler
@@ -235,6 +235,7 @@ WHEN (NEW.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaura
 - Creates `delivery_detail` records for each vehicle type based on `delivery_option`
 - Manages vehicle type iteration when current type times out
 - Marks orders as `timedout` when all vehicle types exhausted
+- On `timedout`, `delivery_timedout()` cancels the order, releases the payment (skipped for test-mode TEST3100 orders), tells the customer and sends **overwatch only** a "No rider found" message; restaurant admins are not told (the admin notice is commented out in the handler)
 
 **Logic:**
 1. For each `unassigned` order in `delivery_summary`

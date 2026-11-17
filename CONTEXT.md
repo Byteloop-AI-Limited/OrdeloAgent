@@ -13,7 +13,8 @@ and bypass manual restaurant confirmation.
 The default outcome when a manually confirmed order reaches the restaurant-confirmation timeout
 (`{REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION` absent or not `decline`): `restaurant_timedout`, then
 auto-accepted with the default pickup time. It is not a configured auto-accept order, which never asks the
-restaurant at all. An order an admin accepted but gave no pickup time is always timeout auto-accepted.
+restaurant at all. An order an admin accepted but gave no pickup time is always timeout auto-accepted, 15 seconds after the accept
+(a fixed grace in `process_restaurant_confirmation()`, not a config key), never later than the usual timeout.
 
 ## Timeout action
 

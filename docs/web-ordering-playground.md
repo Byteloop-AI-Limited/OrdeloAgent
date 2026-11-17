@@ -280,8 +280,9 @@ Source: [web_hooks.py](../watomation/routers/web_hooks.py). Frontend behavior is
 | New unpaid order, age ≤ 35 minutes | `confirming_payment` | `pending` |
 | Still unpaid after 35 minutes | `payment_not_completed` | `not_completed` |
 | Authorization, no acceptance yet | `waiting_for_restaurant` | `authorised` |
-| Pickup time or accepted/auto-accepted restaurant | `preparing` | `authorised` or `captured` when event confirms it |
-| Assigned rider | `rider_assigned` | Independent payment evidence |
+| Accepted/auto-accepted delivery order, pickup time set, no rider yet | `looking_for_rider` | `authorised` |
+| Accepted/auto-accepted collection order, or pickup time set with a rider assigned | `preparing` | `authorised` or `captured` when event confirms it |
+| Assigned rider (wins over the two rows above) | `rider_assigned` | Independent payment evidence |
 | Picked-up dispatch / food_collected event | `on_its_way` | Independent payment evidence |
 | Collection readiness | `ready_for_collection` | Independent payment evidence |
 | Completion / delivered or collected event | `delivered` / `collected` | Independent payment evidence |

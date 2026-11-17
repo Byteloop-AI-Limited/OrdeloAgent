@@ -64,7 +64,9 @@ The script's bottom section (**WATCH IT**) has ready-made queries for Ready book
 WhatsApp must look and behave exactly as before. Repeat the stages tapping **only on WhatsApp** and check:
 
 1. **Stage 1:** the confirmation prompt text and Accept / Decline buttons are unchanged.
-2. **Stage 2:** Accept, then a pickup-time button works; a second admin tapping afterwards is told who decided.
+2. **Stage 2:** Accept, then a pickup-time button works **within 15 seconds**; a second admin tapping afterwards is told who decided.
+   Leave it longer than ~25 s and the default pickup time is applied instead ("auto-accepted due to confirmation timeout"), and a
+   late pickup tap is answered as already set. That is the 15-second pickup grace, also worth checking once on purpose.
 3. **Stage 3:** the WhatsApp kitchen receipt text matches an older order's (compare with a screenshot): restaurant code, pickup, rider, items, notes, +10 / +20 / Ready buttons.
 4. **Stage 4:** Ready on WhatsApp nudges the rider once and a repeat answers "Already marked ready by …"; +10 / +20 move the pickup and the rider is told; the Telegram copies follow within ~5 s.
 5. **Stages 5, 7, 9, 10 and 8:** each WhatsApp notice arrives with its usual wording (rider alerts, "Delivery completed for …", "Order … auto-accepted due to confirmation timeout. Pickup time set to …", the feedback message, the takeaway receipt).

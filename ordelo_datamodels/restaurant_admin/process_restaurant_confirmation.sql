@@ -2,8 +2,8 @@
 -- ordelo_datamodels/restaurant_admin/process_restaurant_confirmation.sql
 -- Every 10 seconds: time out restaurant confirmations nobody answered (delivery and takeaway).
 -- =============================================================================================
--- LIVE CHECK    last compared with the live catalogue 2026-10-16; the auto_decline change (2026-11-16) is not yet applied to live
---               (migrations/restaurant_confirmation_timeout_action.sql; the owner applies it).
+-- LIVE CHECK    last compared with the live catalogue 2026-10-16; the auto_decline change (2026-11-16, applied by the owner) and the
+--               15-second pickup grace (2026-11-17, migrations/restaurant_accept_pickup_grace.sql; the owner applies it) are not re-checked.
 -- OBJECTS       fn     process_restaurant_confirmation() -> TABLE(action text)
 --                   Mark overdue unanswered restaurant confirmations for delivery and takeaway: 'restaurant_timedout', or 'auto_decline' + status 'declined'
 --                   where the restaurant declines on silence; returns the orders it changed.
@@ -24,18 +24,22 @@
 --                                  (delivery_hooks._handle_restaurant_timedout)
 --                     'decline' -> a never-answered order becomes 'auto_decline' + status 'declined' -> trigger -> Python tells the customer,
 --                                  releases the payment and notifies admins and overwatch (_handle_restaurant_decline, timed_out=True)
---                     an order an admin ACCEPTED without choosing a pickup time is always 'restaurant_timedout' (auto-accepted)
+--                     an order an admin ACCEPTED without choosing a pickup time is always 'restaurant_timedout' (auto-accepted),
+--                     15 seconds after the accept (c_pickup_grace), never later than the usual timeout
 --                 morning check -> enquire_admin_availability() (cron 11:00 UTC) asks admins whether the restaurant is open today.
 -- LIFECYCLE     An order times out when restaurant_confirmation_status is 'restaurant_unconfirmed' or 'restaurant_accept', pickup_time
---               is still NULL, and it is older than the policy's timeout_minutes (<REST>_RESTAURANT_CONFIRMATION_TIMEOUT_TIME, else
---               RESTAURANT_CONFIRMATION_TIMEOUT_TIME, else 5). 'restaurant_unconfirmed' + timeout_action 'decline' -> 'auto_decline' and
---               status 'declined' (terminal). Otherwise 'restaurant_timedout'; Python then sets the default pickup time and moves the order on.
+--               is still NULL, and either it is older than the policy's timeout_minutes (<REST>_RESTAURANT_CONFIRMATION_TIMEOUT_TIME, else
+--               RESTAURANT_CONFIRMATION_TIMEOUT_TIME, else 5), or it is 'restaurant_accept' and the accept (restaurant_update_dtts, stamped by
+--               restaurant_order_decide()) is more than 15 seconds old (c_pickup_grace, fixed in code by owner decision, not a config key).
+--               'restaurant_unconfirmed' + timeout_action 'decline' -> 'auto_decline' and status 'declined' (terminal). Otherwise
+--               'restaurant_timedout'; Python then sets the default pickup time and moves the order on.
 -- CALLED BY     process_restaurant_confirmation:
 --                 cron      'process_restaurant_confirmation' 10 seconds
 -- PYTHON MODEL  none
 -- SECURITY      process_restaurant_confirmation(): executable by PUBLIC (default)
 -- TESTS         tests/sql/test_restaurant_confirmation_timeout_sql.py
--- GOTCHAS       Older notes say every 5 seconds; the live schedule is every 10 seconds.
+-- GOTCHAS       Older notes say every 5 seconds; the live schedule is every 10 seconds, so the 15-second pickup grace takes effect
+--                 15 to 25 seconds after the accept.
 --               A decision tap and this timeout can race: restaurant_order_decide() only changes an undecided row, so whichever
 --                 UPDATE commits first wins and the other changes nothing.
 -- SEE ALSO      restaurant_admin/restaurant_confirmation_policy.sql
@@ -48,6 +52,7 @@
 -- function process_restaurant_confirmation() -> TABLE(action text)
 --   Mark overdue unanswered restaurant confirmations for delivery and takeaway ('restaurant_timedout', or 'auto_decline' + status 'declined'
 --   where the restaurant declines on silence); returns the orders it changed.
+--   An order an admin accepted but gave no pickup time is timed out 15 seconds after the accept (c_pickup_grace).
 --   Data: calls restaurant_confirmation_policy() (reads ordelo_config); writes delivery_summary, takeaway_summary.
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION process_restaurant_confirmation ()
@@ -55,6 +60,10 @@ CREATE OR REPLACE FUNCTION process_restaurant_confirmation ()
         action text)
     LANGUAGE plpgsql
     AS $$
+DECLARE
+    -- An admin who accepted has this long to choose a pickup time before the default is applied.
+    -- Fixed on purpose (owner, 17 Nov 2026): the same for every restaurant, not a config key.
+    c_pickup_grace CONSTANT interval := interval '15 seconds';
 BEGIN
     RETURN QUERY WITH delivery_timedout_confirmations AS (
         -- Delivery orders whose restaurant has not completed confirmation in time
@@ -79,7 +88,13 @@ BEGIN
     WHERE
         ds.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept')
         AND ds.pickup_time IS NULL
-        AND (EXTRACT(EPOCH FROM (NOW() - ds.dtts)) / 60) > (public.restaurant_confirmation_policy (ds.rest_ref::text)).timeout_minutes
+        AND (
+            -- The usual timeout, measured from the order (unanswered, or accepted without an accept stamp).
+            (EXTRACT(EPOCH FROM (NOW() - ds.dtts)) / 60) > (public.restaurant_confirmation_policy (ds.rest_ref::text)).timeout_minutes
+            -- Accepted but no pickup time: only the grace period, measured from the accept.
+            OR (ds.restaurant_confirmation_status = 'restaurant_accept'
+                AND ds.restaurant_update_dtts IS NOT NULL
+                AND NOW() - ds.restaurant_update_dtts > c_pickup_grace))
     RETURNING
         ds.order_number,
         ds.rest_ref,
@@ -109,7 +124,13 @@ takeaway_timedout_confirmations AS (
     WHERE
         ts.restaurant_confirmation_status IN ('restaurant_unconfirmed', 'restaurant_accept')
         AND ts.pickup_time IS NULL
-        AND (EXTRACT(EPOCH FROM (NOW() - ts.dtts)) / 60) > (public.restaurant_confirmation_policy (ts.rest_ref::text)).timeout_minutes
+        AND (
+            -- The usual timeout, measured from the order (unanswered, or accepted without an accept stamp).
+            (EXTRACT(EPOCH FROM (NOW() - ts.dtts)) / 60) > (public.restaurant_confirmation_policy (ts.rest_ref::text)).timeout_minutes
+            -- Accepted but no pickup time: only the grace period, measured from the accept.
+            OR (ts.restaurant_confirmation_status = 'restaurant_accept'
+                AND ts.restaurant_update_dtts IS NOT NULL
+                AND NOW() - ts.restaurant_update_dtts > c_pickup_grace))
     RETURNING
         ts.order_number,
         ts.rest_ref,

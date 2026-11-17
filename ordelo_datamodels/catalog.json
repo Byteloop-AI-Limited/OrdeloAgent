@@ -150,7 +150,7 @@
    "file": "restaurant_admin/process_restaurant_confirmation.sql",
    "function": "process_restaurant_confirmation",
    "job": "process_restaurant_confirmation",
-   "line": 131,
+   "line": 152,
    "schedule": "10 seconds"
   }
  ],
@@ -5026,9 +5026,26 @@
    "cron": [],
    "folder": "migrations",
    "header_lines": 0,
+   "lines": 127,
+   "migration": {
+    "applied": "NOT YET (prepared 2026-11-17; the owner applies it himself)",
+    "current": [
+     "restaurant_admin/process_restaurant_confirmation.sql"
+    ],
+    "purpose": "15-second pickup grace. An order an admin ACCEPTED but gave no pickup time is timed out ('restaurant_timedout', then Python applies the default pickup time) 15 seconds after the accept, instead of waiting for the full confirmation timeout (3 minutes at STRK). Measured from restaurant_update_dtts, which restaurant_order_decide() stamps on accept (WhatsApp and Telegram alike). Never later than the usual timeout. Fixed in code (c_pickup_grace), not a config key, by owner decision. Unanswered orders, auto-decline and the customer countdown are unchanged. With the cron every 10 seconds the grace takes effect 15 to 25 seconds after the accept. No table, index, constraint, trigger, grant or cron change: one CREATE OR REPLACE FUNCTION. Requires: migrations/restaurant_confirmation_timeout_action.sql already applied (uses restaurant_confirmation_policy())."
+   },
+   "objects": [],
+   "path": "migrations/restaurant_accept_pickup_grace.sql",
+   "role": "migration",
+   "title": "15-second pickup grace. An order an admin ACCEPTED but gave no pickup time is timed out ('restaurant_timedout', then Python applies the default pickup time) 15 seconds after the accept, instead of waiting for the full confirmation timeout (3 minutes at STRK). Measured from restaurant_update_dtts, which restaurant_order_decide() stamps on accept (WhatsApp and Telegram alike). Never later than the usual timeout. Fixed in code (c_pickup_grace), not a config key, by owner decision. Unanswered orders, auto-decline and the customer countdown are unchanged. With the cron every 10 seconds the grace takes effect 15 to 25 seconds after the accept. No table, index, constraint, trigger, grant or cron change: one CREATE OR REPLACE FUNCTION. Requires: migrations/restaurant_confirmation_timeout_action.sql already applied (uses restaurant_confirmation_policy())."
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
    "lines": 589,
    "migration": {
-    "applied": "NOT YET (prepared 2026-11-16; the owner applies it himself)",
+    "applied": "2026-11-16 (owner-confirmed)",
     "current": [
      "restaurant_admin/restaurant_confirmation_policy.sql, restaurant_admin/process_restaurant_confirmation.sql,",
      "delivery/delivery_summary.sql, takeaway/takeaway_summary.sql, delivery/process_delivery.sql, telegram/t_order_alerts.sql"
@@ -6982,13 +6999,13 @@
      "file": "restaurant_admin/process_restaurant_confirmation.sql",
      "function": "process_restaurant_confirmation",
      "job": "process_restaurant_confirmation",
-     "line": 131,
+     "line": 152,
      "schedule": "10 seconds"
     }
    ],
    "folder": "restaurant_admin",
-   "header_lines": 45,
-   "lines": 154,
+   "header_lines": 49,
+   "lines": 175,
    "objects": [
     {
      "description": "Mark overdue unanswered restaurant confirmations for delivery and takeaway: 'restaurant_timedout', or 'auto_decline' + status 'declined' where the restaurant declines on silence; returns the orders it changed.",
@@ -7020,11 +7037,11 @@
    ],
    "sections": {
     "CALLED BY": "process_restaurant_confirmation:\n  cron      'process_restaurant_confirmation' 10 seconds",
-    "GOTCHAS": "Older notes say every 5 seconds; the live schedule is every 10 seconds.\nA decision tap and this timeout can race: restaurant_order_decide() only changes an undecided row, so whichever\n  UPDATE commits first wins and the other changes nothing.",
-    "HOW IT FITS": "Restaurant confirmation, delivery and takeaway alike:\n  new order -> init_delivery() / init_takeaway() -> resolve_initial_restaurant_acceptance():\n      auto_accept restaurants: order starts accepted with a default pickup time (no prompt)\n      otherwise: 'restaurant_unconfirmed' -> trigger -> admins prompted (WhatsApp buttons; Telegram order cards)\n  admin taps Accept / Decline -> restaurant_order_decide(); picks a pickup time -> restaurant_order_set_pickup()\n      (Telegram taps go through t_order_decide() / t_order_set_pickup(), which authorise the person first)\n  no answer -> process_restaurant_confirmation() (cron 10 s), which asks restaurant_confirmation_policy() what silence means:\n      'accept'  -> 'restaurant_timedout' -> trigger -> Python sets a default pickup time and makes the order dispatchable\n                   (delivery_hooks._handle_restaurant_timedout)\n      'decline' -> a never-answered order becomes 'auto_decline' + status 'declined' -> trigger -> Python tells the customer,\n                   releases the payment and notifies admins and overwatch (_handle_restaurant_decline, timed_out=True)\n      an order an admin ACCEPTED without choosing a pickup time is always 'restaurant_timedout' (auto-accepted)\n  morning check -> enquire_admin_availability() (cron 11:00 UTC) asks admins whether the restaurant is open today.",
+    "GOTCHAS": "Older notes say every 5 seconds; the live schedule is every 10 seconds, so the 15-second pickup grace takes effect\n  15 to 25 seconds after the accept.\nA decision tap and this timeout can race: restaurant_order_decide() only changes an undecided row, so whichever\n  UPDATE commits first wins and the other changes nothing.",
+    "HOW IT FITS": "Restaurant confirmation, delivery and takeaway alike:\n  new order -> init_delivery() / init_takeaway() -> resolve_initial_restaurant_acceptance():\n      auto_accept restaurants: order starts accepted with a default pickup time (no prompt)\n      otherwise: 'restaurant_unconfirmed' -> trigger -> admins prompted (WhatsApp buttons; Telegram order cards)\n  admin taps Accept / Decline -> restaurant_order_decide(); picks a pickup time -> restaurant_order_set_pickup()\n      (Telegram taps go through t_order_decide() / t_order_set_pickup(), which authorise the person first)\n  no answer -> process_restaurant_confirmation() (cron 10 s), which asks restaurant_confirmation_policy() what silence means:\n      'accept'  -> 'restaurant_timedout' -> trigger -> Python sets a default pickup time and makes the order dispatchable\n                   (delivery_hooks._handle_restaurant_timedout)\n      'decline' -> a never-answered order becomes 'auto_decline' + status 'declined' -> trigger -> Python tells the customer,\n                   releases the payment and notifies admins and overwatch (_handle_restaurant_decline, timed_out=True)\n      an order an admin ACCEPTED without choosing a pickup time is always 'restaurant_timedout' (auto-accepted),\n      15 seconds after the accept (c_pickup_grace), never later than the usual timeout\n  morning check -> enquire_admin_availability() (cron 11:00 UTC) asks admins whether the restaurant is open today.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "An order times out when restaurant_confirmation_status is 'restaurant_unconfirmed' or 'restaurant_accept', pickup_time\nis still NULL, and it is older than the policy's timeout_minutes (<REST>_RESTAURANT_CONFIRMATION_TIMEOUT_TIME, else\nRESTAURANT_CONFIRMATION_TIMEOUT_TIME, else 5). 'restaurant_unconfirmed' + timeout_action 'decline' -> 'auto_decline' and\nstatus 'declined' (terminal). Otherwise 'restaurant_timedout'; Python then sets the default pickup time and moves the order on.",
-    "LIVE CHECK": "last compared with the live catalogue 2026-10-16; the auto_decline change (2026-11-16) is not yet applied to live\n(migrations/restaurant_confirmation_timeout_action.sql; the owner applies it).",
+    "LIFECYCLE": "An order times out when restaurant_confirmation_status is 'restaurant_unconfirmed' or 'restaurant_accept', pickup_time\nis still NULL, and either it is older than the policy's timeout_minutes (<REST>_RESTAURANT_CONFIRMATION_TIMEOUT_TIME, else\nRESTAURANT_CONFIRMATION_TIMEOUT_TIME, else 5), or it is 'restaurant_accept' and the accept (restaurant_update_dtts, stamped by\nrestaurant_order_decide()) is more than 15 seconds old (c_pickup_grace, fixed in code by owner decision, not a config key).\n'restaurant_unconfirmed' + timeout_action 'decline' -> 'auto_decline' and status 'declined' (terminal). Otherwise\n'restaurant_timedout'; Python then sets the default pickup time and moves the order on.",
+    "LIVE CHECK": "last compared with the live catalogue 2026-10-16; the auto_decline change (2026-11-16, applied by the owner) and the\n15-second pickup grace (2026-11-17, migrations/restaurant_accept_pickup_grace.sql; the owner applies it) are not re-checked.",
     "OBJECTS": "fn     process_restaurant_confirmation() -> TABLE(action text)\n    Mark overdue unanswered restaurant confirmations for delivery and takeaway: 'restaurant_timedout', or 'auto_decline' + status 'declined'\n    where the restaurant declines on silence; returns the orders it changed.",
     "PYTHON MODEL": "none",
     "REQUIRES": "restaurant_admin/restaurant_confirmation_policy.sql",
@@ -11468,7 +11485,7 @@
    "file": "restaurant_admin/process_restaurant_confirmation.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 53,
+   "line": 58,
    "role": "definition",
    "signature": "process_restaurant_confirmation() -> TABLE(action text)"
   },

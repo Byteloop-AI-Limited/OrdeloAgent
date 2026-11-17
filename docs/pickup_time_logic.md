@@ -11,7 +11,7 @@ Runtime flow for `pickup_time` in `delivery_summary` and `takeaway_summary`.
 | Set by | `restaurant_master.auto_accept = true` | nothing (default) | `{REST_REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION = decline` |
 | Is the restaurant asked? | No. Accepted at creation (`auto_accept`, `rest_confirmation_method='configured_auto'`) | Yes: Accept / Decline card, repeated per `{REF}_TGRAM_ORDER_ALERT_OFFSETS_SECS` | Yes, same card and reminders |
 | If nobody answers | n/a (never waits) | After `..._TIMEOUT_TIME` minutes: `restaurant_timedout`, then auto-accepted with the default pickup time | After `..._TIMEOUT_TIME` minutes: `auto_decline`, status `declined`, customer told, payment cancelled, admins and ops told |
-| Admin accepted but gave no pickup time | n/a | `restaurant_timedout`, auto-accepted | Same: always auto-accepted (somebody answered) |
+| Admin accepted but gave no pickup time | n/a | `restaurant_timedout`, auto-accepted 15 s after the accept (at most the usual timeout) | Same: always auto-accepted (somebody answered), 15 s after the accept |
 | Extra effect | Also suppresses admin prompts, reminders and delivery's "No Rider Found" message | none | Customer sees a countdown on the order page |
 
 The timeout flow is decided in one place, `public.restaurant_confirmation_policy(rest_ref)`
@@ -84,6 +84,12 @@ receipt.
   - minutes: `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_TIME`, then `RESTAURANT_CONFIRMATION_TIMEOUT_TIME`, then `5`
   - action: `{rest_ref}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION` = `decline`; anything else or no row = `accept` (there is no global action key)
 - The comparison is strictly greater than elapsed minutes since `dtts`; the next 10-second run after that threshold applies it.
+- **Accepted, no pickup time: 15-second grace.** An order in `restaurant_accept` with no pickup time is also timed out once the accept
+  (`restaurant_update_dtts`, stamped by `restaurant_order_decide()` on WhatsApp and Telegram) is more than 15 seconds old. The
+  admin has their attention, so they do not wait out the rest of the confirmation timeout. The 15 seconds is the constant
+  `c_pickup_grace` in `process_restaurant_confirmation()`, fixed by owner decision (17 Nov 2026), not a config key. With the
+  10-second cron it takes effect 15-25 s after the accept, and never later than the usual timeout. A pickup tap after that is
+  answered `already_set` (the default pickup time stands).
 - Web-only restaurants (STRK, CRDO, CRMS, BNAT) run with 3 minutes and `decline`
   (`notebooks/db_queries/restaurant_queries/confirmation_timeout_action_rollout.sql`).
 
@@ -185,6 +191,7 @@ Three triggers exist on `takeaway_summary` in `ordelo_datamodels/takeaway/takeaw
 
 - Same `process_restaurant_confirmation.sql` function handles both delivery and takeaway timeouts.
 - Takeaway section updates `takeaway_summary` where `pickup_time IS NULL` past timeout.
+- The same 15-second grace after an accept applies (see A.3).
 
 ### 4) Auto-accept on timeout
 
