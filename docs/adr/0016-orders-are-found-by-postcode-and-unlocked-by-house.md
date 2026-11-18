@@ -27,3 +27,7 @@ Database objects and tests:
 | order_access_grant.detail_level | order_access; customer_order_view; lifecycle.sweep | test_order_lookup.py; test_web_contract.py |
 
 Owner applies SQL before deploying backend; frontend follows backend. Live migrations and drift verification remain owner-controlled.
+
+## Reading this decision in the current workflow
+
+A lookup lists recent matching web orders with status-only access. A delivery house match can issue recovered access, including items, charges and address. Full access can also include the customer delivery confirmation code. Collection orders without a lookup postcode remain outside discovery.

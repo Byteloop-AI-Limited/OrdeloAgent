@@ -41,3 +41,7 @@ for a web order.
   matching) need another basis (plan Q14, Q15).
 - Moving to a surrogate customer id or nullable thread later remains possible
   (plan §4, R5).
+
+## Reading this decision in the current workflow
+
+The synthetic key identifies customer-side order data. Web delivery still records the delivery address. An order access grant carries view permissions independently of the key, including recovery under [ADR 0016](0016-orders-are-found-by-postcode-and-unlocked-by-house.md).

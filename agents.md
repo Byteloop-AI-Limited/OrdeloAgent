@@ -182,6 +182,16 @@ Trace cross-project issues through these folders as needed, reading each project
 - **Timeout behavior:** these endpoints respond success immediately and perform WhatsApp fan-out using FastAPI `BackgroundTasks` to avoid database-trigger HTTP timeouts.
 
 
+## Runtime boundaries
+
+The [glossary](GLOSSARY.md) owns business vocabulary. The [database capability index](ordelo_datamodels/README.md) identifies table and workflow owners.
+
+- A database trigger reacts to a row change. A scheduled job selects work on a timer. A database RPC exposes an operation such as deciding an order or assigning a rider. The assignment job writes the winning dispatch and creates the inflight row. Its insert trigger calls the delivery webhook. [Assignment job](ordelo_datamodels/dispatch/job_assign_dispatch.sql) · [Inflight trigger](ordelo_datamodels/dispatch/delivery_inflight.sql)
+- The delivery webhook schedules payment capture, the kitchen receipt and rider graph initialization as in-process background tasks. The rider messaging adapter handles transport. LangGraph checkpoints persist graph state under the rider thread ID. [Delivery hook](watomation/routers/delivery_hooks.py) · [Graph runner](ordelo/agents/agent_runner.py) · [Rider messaging interface](ordelo/rider_messaging/port.py)
+- The customer outbox claims an outbound callback before making the request. The Telegram inbox claims selected inbound updates before running their handlers. Both track processing outcomes. [Customer notifier](utils_common/notify/customer_notifier.py) · [Telegram inbox](channels/telegram/inbox.py)
+- Restaurant onboarding covers ordering configuration and can include WhatsApp Embedded Signup. Rider registration stores applications. Dashboard access and rider payout reports are separate operations capabilities. [Web-only onboarding](docs/onboarding-web-only-restaurant.md) · [Embedded Signup](watomation/routers/twilio_webhook.py) · [Rider registration](ordelo_datamodels/core/rider_registrations.sql) · [Dashboard sessions](ordelo_datamodels/admin_dashboard/auth_sessions.sql) · [Rider payout report](ordelo_datamodels/admin_dashboard/get_rider_payout_report.sql)
+- Menu configuration and delivery pricing sit alongside ordering. Byteloop is the general chat agent. Platform jobs handle deployment and infrastructure operations. [Menus](ordelo_datamodels/core/menus.sql) · [Delivery pricing](ordelo_datamodels/delivery/delivery_pricing_detail.sql) · [Byteloop agent](ordelo/agents/byteloop_agent.py) · [Platform SQL](ordelo_datamodels/platform/)
+
 ## WhatsApp Handlers and Commands
 
 - `process_wa_msg` — main message path for riders; runs the rider graph only if an active delivery/thread exists.
@@ -203,7 +213,7 @@ Trace cross-project issues through these folders as needed, reading each project
   - Status progression includes `assigned` → `pickedup` → `completed`.
   - `reason_for_decline` (nullable) records explicit decline/cancel reasons per `dispatch_id`.
 - LangGraph state checkpointing:
-  - Postgres checkpointer (configured per‑message): `AsyncPostgresSaver` compiled into the rider graph. Thread context is mapped via `ThreadHandler` using the rider's WhatsApp number.
+  - Postgres checkpointer (configured per‑message): `AsyncPostgresSaver` compiled into the rider graph. Current rider graph threads are opened and resolved per dispatch by [rider_threads.py](ordelo/agents/rider_threads.py). The wrapper also locates legacy active threads.
 
 > **📖 For detailed delivery workflow documentation including all triggers, webhooks, and status transitions, see [`docs/delivery_process.md`](docs/delivery_process.md)**
 
@@ -332,7 +342,7 @@ INSTALL_DEV=1 source run_setup.sh
 - Rider zone event → restaurant webhook: `watomation/routers/location_hooks.py:229`
 - Dispatch webhook entry: `watomation/routers/delivery_hooks.py` (see route definitions)
 - WhatsApp message entrypoint: `watomation/on_message_wa_handler.py:40`
-- Active thread lookup/creation: `utils_common/thread_management/thread_handler.py`
+- Rider thread lookup and lifecycle: [rider_threads.py](ordelo/agents/rider_threads.py)
 - Supabase REST call helpers: `utils_common/db_utils/sbase_rest_ops.py`
 
 ## Pyrun Notes
@@ -362,7 +372,7 @@ Note: Ensure AWS secrets are loaded so `ordelo_agent_env` can populate settings.
 ## Notable Details and Caveats
 
 - **SQL execution preference (2026-10-02):** Write SQL intended for manual execution as standalone statements without explicit `BEGIN`, `END`, or `COMMIT` transaction wrappers. Avoid `DO ... BEGIN ... END` blocks for routine configuration switches; prefer ordinary SQL statements. The user reported that the R3 configuration update persisted in the Supabase web SQL editor but did not persist when run as a transaction block in the VS Code PostgreSQL extension. This is an observed workflow issue, not a confirmed PostgreSQL defect. Include `RETURNING` or a separate verification `SELECT` for changes. This does not require removing procedural syntax needed inside existing function definitions or changing application transaction handling.
-- State and threads: The system relies on a `thread` table keyed by WhatsApp number; always ensure a thread exists before invoking the rider graph.
+- State and threads: Opening an assignment creates or resolves its rider thread. Use the [rider thread wrapper](ordelo/agents/rider_threads.py) to resolve active threads and retain historical checkpoints. See [ADR 0012](docs/adr/0012-rider-threads-follow-dispatch-assignments.md).
 - Tool responses: Tool functions generally both send WA messages and return `Command` state updates; the agent node decides whether to call tools or respond.
 - **/dontRespond convention:** If a tool already sends a WhatsApp message (via `wa_client.send_message` / `send_location` / templates), the tool’s returned `Command` must include a `ToolMessage(...)` followed by an `AIMessage("/dontRespond: ...")`. This suppresses `respond_node` from echoing a second, near‑duplicate text to the rider.
 - Edge side effects: Some helper modules in `utils_common/waba_es` run example calls on import; avoid importing them in production flows unless needed.

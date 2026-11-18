@@ -24,3 +24,7 @@ status used by timeout fallback.
   invalid/missing global key fails the auto-accept order initialization.
 - Auto-accepted takeaways need an INSERT pickup trigger to retain payment/print
   and restaurant webhook processing.
+
+## Reading this decision in the current workflow
+
+The creation-time acceptance basis controls initial prompts and reminders. Configured-auto deliveries still receive the kitchen hold and the no-rider cancellation notice under [ADR 0015](0015-the-kitchen-receipt-is-the-start-signal.md). Silence for orders awaiting a response is governed by [ADR 0014](0014-restaurant-silence-policy-is-decided-in-sql.md).

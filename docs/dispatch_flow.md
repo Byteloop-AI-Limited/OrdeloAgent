@@ -1,5 +1,7 @@
 # Ordelo Dispatch Flow
 
+An offer acceptance records a rider’s willingness. The [assignment job](../ordelo_datamodels/dispatch/job_assign_dispatch.sql) selects one rider and creates the inflight delivery. The assignment starts the rider thread and schedules the kitchen receipt. See [dispatch terms](../GLOSSARY.md#dispatch-and-availability).
+
 **Version:** 1.1
 **Last Updated:** 2026-02-14
 

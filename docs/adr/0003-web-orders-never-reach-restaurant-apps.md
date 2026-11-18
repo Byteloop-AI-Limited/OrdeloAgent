@@ -34,3 +34,7 @@ synthetic key.
 - If a restaurant app ever needs to know about web orders (for example a
   kitchen ticket), that is a new, separate event, not the customer
   conversation's `payment-complete`.
+
+## Reading this decision in the current workflow
+
+This boundary covers customer-facing restaurant-app callbacks. Web orders still use the restaurant-admin order and kitchen workflows. The web order page can show WhatsApp-origin orders under [ADR 0009](0009-order-page-covers-whatsapp-orders.md).

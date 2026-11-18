@@ -1,5 +1,7 @@
 # Ordelo Payment and Order Flow
 
+Use the [canonical glossary](../GLOSSARY.md) for authorization, capture, release and refund. Payment-service printing and the staff kitchen receipt can both follow an assignment. Staff use the kitchen receipt as their preparation instruction.
+
 > Current test-order policy: new orders use Stripe test only with an exact `TEST3100` item. Test delivery offers go only to eligible overwatch riders. See [test-orders.md](test-orders.md) for the fixed payment environment and deployment cutover.
 
 **Version:** 1.0

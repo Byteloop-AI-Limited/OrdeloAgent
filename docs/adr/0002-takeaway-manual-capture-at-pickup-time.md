@@ -34,3 +34,7 @@ failures require reconciliation and are not retried.
   background operations remain ordered and continue after capture failure.
 - No new `food_order.payment_status` is introduced.
 - The payment-service and takeaway SQL contracts are unchanged.
+
+## Reading this decision in the current workflow
+
+The collection capture trigger is the first scheduled pickup time. The printed receipt from the payment service and the kitchen receipt sent to restaurant admins have distinct audiences. Pay-at-restaurant uses the print-only payment-service path.

@@ -337,7 +337,7 @@ The HTML is offline and contains the same guide content as this Markdown file pl
 
 ## Find and recover an order (ADR 0016)
 
-Table additions: web_order_request.lookup_postcode stores the canonical locked delivery postcode or optional collection postcode; order_access_grant.detail_level is full / recovered / status_only. Only full includes the handover code.
+Table additions: web_order_request.lookup_postcode stores the canonical locked delivery postcode or optional collection postcode; order_access_grant.detail_level is full / recovered / status_only. Only full can include the customer delivery confirmation code. See the [canonical access vocabulary](../GLOSSARY.md#identity-access-and-tracking).
 
 Authenticated POST /web/orders/find accepts postcode and rest_ref plus X-Ordelo-Visitor-Hash; returns up to ten matching web orders within seven days with status-only grants (one hour). POST /web/orders/{order_number}/unlock accepts postcode and house with the same visitor header; atomically proves a delivery house key and issues recovered access until 30 days after order placement. All mismatches return not_found. Both responses are private/no-store. No house, token or full postcode is logged.
 

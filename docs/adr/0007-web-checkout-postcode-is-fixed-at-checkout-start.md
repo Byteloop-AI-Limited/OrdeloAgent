@@ -11,3 +11,7 @@ Delivery eligibility, the minimum order value and the estimated delivery fee are
 The minimum order value is recalculated at order creation (`web_checkout.create()`, `below_minimum`) from the locked postcode's centroid; see [ADR 0008](0008-web-checkout-address-never-blocks-checkout.md). Both `postcode_mismatch` and `checkout_restart_required` send the customer back to the postcode step.
 
 Sources: [web_checkout.py](../../utils_common/web_ordering/web_checkout.py), [web contract tests](../../tests/utils_common/web_ordering/test_web_contract.py); in restaurant-frontend: `app/api/web/checkout-sessions/route.ts`, `app/api/web/address/route.ts`, `components/ordelo/CheckoutFlow.tsx`, `lib/web/cookies.ts`.
+
+## Reading this decision in the current workflow
+
+The approved delivery postcode remains fixed. [ADR 0008](0008-web-checkout-address-never-blocks-checkout.md) revises address verification within that boundary.

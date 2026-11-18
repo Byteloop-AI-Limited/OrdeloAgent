@@ -4,13 +4,15 @@ status: accepted
 
 # The kitchen receipt is the start signal
 
-Decision: 17 November 2026. A delivery kitchen waits until a rider accepts. Setting a pickup time is restaurant
+Decision: 17 November 2026. A delivery kitchen waits for the kitchen receipt, which is scheduled when a rider is assigned. Setting a pickup time is restaurant
 acceptance, not permission to cook. Takeaway has no rider dependency and is never held.
 
 Delivery cards in `pickup_set` / `auto_accepted`, WhatsApp pickup replies and auto-accept notices say:
 
 > ⏳ Don't start cooking yet — we're finding a rider.
 > Start when the kitchen receipt arrives.
+
+A rider can accept an offer before the assignment job selects them. The [inflight handler](../../watomation/routers/delivery_hooks.py#L610) schedules the kitchen receipt for the selected rider. The receipt is the start instruction for restaurant staff. The payment receipt and the payment-service print workflow have separate roles.
 
 The kitchen receipt begins **🍳 Please start preparing now**, followed by **Rider found · ready for pickup at …**
 (delivery) or **Ready for collection at …** (takeaway). The current pickup time follows +10 / +20 adjustments.

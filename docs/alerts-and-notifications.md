@@ -1,5 +1,7 @@
 # Alerts and notifications — who hears what, how and when
 
+The inflight handler schedules the kitchen receipt after assignment. Staff act on the receipt when it arrives. See the [kitchen terms](../GLOSSARY.md#restaurant-decisions-and-kitchen).
+
 Source review: 7 October 2026. Scope: active Ordelo order/customer/rider/admin/operations communication and the restaurant-frontend customer order status page. The neighboring restaurant-agents receivers were inspected to explain WhatsApp customer delivery; they are not changed. Code/DDL inspection is not a live WhatsApp, cron, provider, database or deployment audit.
 
 Companion: [interactive guide](alerts-and-notifications.html). Canonical vocabulary: [Ordelo glossary](../GLOSSARY.md), [frontend glossary](../../restaurant-frontend/GLOSSARY.md). Context: [web ordering guide](../docs/web-ordering-playground.md), [existing domain context](../CONTEXT.md).

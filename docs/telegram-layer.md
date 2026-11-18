@@ -412,6 +412,7 @@ Status: derived from the SQL; not yet confirmed live with an auto-accept restaur
 
 ## Change log
 
+- 2026-11-18. Aligned vocabulary with the [canonical glossary](../GLOSSARY.md). A delivery assignment schedules the kitchen receipt, and the receipt tells staff when to start. Rider conversations follow dispatch assignments.
 - 2026-11-17: Kitchen start signal (ADR 0015): shared `kitchen_instructions` wording for delivery hold, receipt start and no-rider cancellation on Telegram and WhatsApp. Delivery pickup-set/auto-accepted cards stay terminal with hold lines; open receipts lead with a size-2 start heading and current pickup time, reverting after Ready. Takeaway never holds. No-rider admin notices restored for every delivery, including configured auto-accept; overwatch/customer/payment paths retained. Offline verification; phone notification preview and live harness checks remain pending. No SQL definitions or configuration changed.
 
 Add one line per change, newest first: date, what changed, files.

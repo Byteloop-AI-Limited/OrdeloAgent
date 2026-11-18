@@ -16,3 +16,7 @@ Orders paid before release have no link; one can be minted by hand (see `claude/
 Rejected: putting the link in the LLM context (the model could alter or leak it), a capped number of grants per order, storing the raw token to re-send later, and a separate WhatsApp-only tracking page.
 
 Sources: [order_access.py](../../utils_common/web_ordering/order_access.py), [web_hooks.py](../../watomation/routers/web_hooks.py), [customer_order_view.py](../../utils_common/web_ordering/customer_order_view.py), [return_urls.py](../../utils_common/payment_ms/return_urls.py), [plan](../../plans/order-tracking-page-for-whatsapp.md).
+
+## Reading this decision in the current workflow
+
+WhatsApp-origin orders use the private receipt link under this decision. Restaurant-and-postcode discovery in [ADR 0016](0016-orders-are-found-by-postcode-and-unlocked-by-house.md) applies to web-origin orders. The status above records rollout at the time of the decision.

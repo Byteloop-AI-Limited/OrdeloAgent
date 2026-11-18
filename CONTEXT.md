@@ -143,84 +143,58 @@ sent is the scheduler's bookkeeping, not something the agent needs to believe.
 ## Web ordering
 
 Terms introduced by the web ordering plan (`plans/ordelo-agg-plan-cc.md`).
-Payment terms such as authorisation, capture and pickup-time boundary are in
-`docs/glossary.md`.
+Business terms are defined in the [canonical glossary](GLOSSARY.md). The [payment implementation reference](docs/glossary.md) maps them to service fields.
 
 ### Storefront
 
-Who sells an order and on whose terms (branding, offers, commission):
-**Ordelo** (the aggregator) or **direct** (a restaurant's own customers).
-Fixed when the order is created.
-_Avoid_: brand, site, shop
+Ordelo and direct storefronts use different branding, offers and commission. The choice is fixed at order creation.
 
 ### Origin channel
 
-How an order was placed: **WhatsApp** or **web**. Fixed for the order's life;
-following the order somewhere else later never changes it.
-_Avoid_: channel (on its own), source
+The order retains its original channel when an order page link is opened or a subscription changes.
 
 ### Web order
 
-An order whose origin channel is web. Always paid online with manual capture,
-and never sent to a restaurant app.
-_Avoid_: online order, site order
+Web orders use manual capture. See [ADR 0003](docs/adr/0003-web-orders-never-reach-restaurant-apps.md) for customer-facing callback routing.
 
 ### Order page link (WhatsApp)
 
-The private `/o/<token>` URL that opens the order page for a paid WhatsApp
-order. Minted by OrdeloAgent when the restaurant app builds the payment
-receipt, sent once as the receipt's last line, and never stored raw.
-_Avoid_: tracking link (on its own), magic link
+OrdeloAgent issues a private `/o/<token>` link when the restaurant app builds the payment receipt. The receipt carries the Order Tracking button. The raw token is omitted from storage.
 
 ### Restaurant app
 
-A restaurant-agents WhatsApp app that serves one restaurant's own customers.
-It only ever hears about WhatsApp orders.
-_Avoid_: customer agent, restaurant agent
+The customer-facing WhatsApp service lives in the sibling restaurant-agents repository.
 
 ### Customer key
 
-The identifier for the customer on an order: the WhatsApp number for a
-WhatsApp order, a web customer key for a web order.
-_Avoid_: recipient, phone (it is not always one)
+WhatsApp orders use the WhatsApp number. Checkout starts with a draft web key and order creation mints a separate key whose record preserves the delivery address.
 
 ### Web customer key
 
-A synthetic customer key (a "W-id") that cannot be used to contact a person.
-The checkout has a draft key; creating an order mints a distinct per-order key
-whose customer row preserves the delivery address.
-_Avoid_: guest id, web user, account
+See [the synthetic key decision](docs/adr/0005-web-orders-use-synthetic-keys-and-no-contact.md).
 
 ### Web thread
 
 The record that ties one web checkout attempt to its order and payment. It
 lives alongside conversations but is not one: no agent ever runs on it.
-_Avoid_: web session, checkout session (Stripe's term), conversation
 
 ### Customer contact
 
-A way to reach the person who placed an order. A WhatsApp order has one, its
-WhatsApp number; a web order has none.
-_Avoid_: contact details
+Web checkout does not collect a customer messaging destination. Delivery address data is stored separately from messaging contact.
 
 ### Capture point
 
-The moment an authorised payment is charged: when a rider accepts the delivery
-job, or at the pickup-time boundary for collection. Never at checkout for a web
-order.
-_Avoid_: payment time
+Delivery capture is scheduled by the assignment webhook. Collection capture follows the first scheduled pickup time.
 
 ### Payment release
 
-Cancelling an authorisation before capture, so the customer is never charged.
-_Avoid_: refund (a refund returns money after capture)
+See [the payment flow](docs/payment_and_order_flow.md) for release handling.
 
 ### Payment-complete event
 
 Stripe's notice that a customer has authorised payment for an order. Ordelo
 receives it straight from Stripe, unsigned, and applies it at most once per
 order.
-_Avoid_: payment forward, payment webhook (the payment service has its own)
 
 ### Post-payment redirect
 
@@ -228,21 +202,18 @@ Where Stripe sends the customer's browser after paying or cancelling. Fixed per
 restaurant, not per order.
 The frontend has a payment-return view, but the provider's configured redirect
 is a separate contract; the existence of that view does not prove it is used.
-_Avoid_: treating browser navigation as payment confirmation
 
 ### Customer event
 
 A change in an order that the customer cares about, such as "rider assigned" or
 "ready for collection". Recorded once per order and event key, however many places it is
 later presented or communicated to. Different pickup times can have different keys.
-_Avoid_: notification, status update
 
 ### Notification subscription
 
 A standing instruction to send one order's customer events to one destination
 at one detail level. An order's origin channel and its subscriptions are
 independent of each other.
-_Avoid_: opt-in (that is the consent), channel
 
 ### Customer notifier
 
@@ -250,32 +221,24 @@ The main boundary that records customer events and routes subscription updates.
 Web subscribers read the order page; WhatsApp subscribers invoke their restaurant
 app. It is not the owner of every operational message. The current WhatsApp
 collection-decline handler remains a direct-send exception.
-_Avoid_: messenger, hook caller
 
 ### Detail level
 
-How much of an order a viewer or subscriber may see: **full** (address, items,
-charges, customer confirmation code) or **status only**.
-_Avoid_: access level, permission
+The order view projects `full`, `recovered` or `status_only` under [ADR 0016](docs/adr/0016-orders-are-found-by-postcode-and-unlocked-by-house.md).
 
 ### Order access grant
 
-The secret that lets one browser see one order in full. The order number on its
-own grants nothing.
-_Avoid_: order token, login
+The browser presents an order-bound token. The grant determines the detail level. See [order access](utils_common/web_ordering/order_access.py).
 
 ### Hand-off code
 
-A one-time code that links a WhatsApp sender to a web order so they can follow
-it on WhatsApp.
-_Avoid_: OTP, verification code
+See the [canonical glossary](GLOSSARY.md#acceptance-identity-and-checkout) for the intended hand-off. Check current route support before describing it as an active workflow.
 
 ### Restaurant-admin bot
 
 The Telegram bot (`bot_key` `rest_admin`) restaurant admins use for order
 actions and notifications alongside WhatsApp. It is deterministic and never
 runs a LangGraph agent. It is not a customer channel.
-_Avoid_: restaurant agent, restaurant chatbot
 
 ### Admin roster
 
@@ -283,21 +246,18 @@ The restaurant admins Ordelo knows: one entry per person per restaurant, keyed b
 comes only from each restaurant's own admin list, which is authoritative; a person may be on several restaurants' lists
 and is an admin only while on at least one. Being on the roster is what makes someone a restaurant admin; every
 channel's reach and every admin action is checked against it. Only an operator adds people to a restaurant's list.
-_Avoid_: admins list (that is one restaurant's part of it), admin phones, invite
 
 ### Admin record
 
 One restaurant admin as a person, keyed by phone and shared by every restaurant they are on: their Telegram link,
 whether their phone is verified, their name and how they want to be reached. It confers no authority by itself; a record
 whose phone is on no restaurant's admin list belongs to nobody's roster and receives nothing.
-_Avoid_: admin account, admin login
 
 ### Admin link
 
 The binding of one Telegram account to one admin record. It is created only by the person sharing their own phone
 number through the restaurant bot, and only when that number is on at least one restaurant's admin list; an unknown
 number is refused and ops is told. It covers every restaurant the person is on.
-_Avoid_: invite claim, admin invite
 
 ### Admin channels
 
@@ -305,7 +265,6 @@ Where Ordelo's messages reach one restaurant admin: WhatsApp, Telegram or both, 
 record, so it is the same for every restaurant they are on. An admin with no Telegram link is on WhatsApp only;
 linking Telegram moves them to Telegram only (WhatsApp stops), and an operator can change it later. It decides where messages go,
 not what the admin may do: a linked admin may act from Telegram whatever their channels are.
-_Avoid_: preferred channel, rider channel (riders have exactly one)
 
 ### Telegram invite
 
@@ -315,7 +274,6 @@ A single-use, expiring link the operator sends privately so one restaurant
 admin can link their Telegram account to one restaurant (`t_invites`: phone
 number, restaurant, generated code). The person confirms in the bot; the first
 confirmation wins. `phone_verified` is reserved for a later contact-share flow.
-_Avoid_: invite token, signup link
 
 ### Restaurant decision
 
@@ -324,7 +282,6 @@ recorded by one database function per step (`restaurant_order_decide`,
 `restaurant_order_set_pickup`) that every channel uses. The first decision wins; a later
 tap is told who decided. A decline is terminal: the delivery order's status becomes
 `declined` in the same update, so it can never be dispatched.
-_Avoid_: confirmation update, order status update
 
 ### Telegram inbox
 
@@ -332,7 +289,6 @@ The `t_inbox` table: one row per selected consequential Telegram update the bot 
 claimed, keyed by `(bot_key, update_id)`. Protected handlers claim before doing their
 work; a retry of that update is skipped (at-most-once). Read-only, fallback and
 unmatched updates have no inbox row. `tuid` is the sender's Telegram user id.
-_Avoid_: message queue, all-update log
 
 ### Order card
 
@@ -344,24 +300,18 @@ the database is not in. Each admin's chat holds at most one live copy; the `t_se
 ledger only remembers where copies are so they can be edited or deleted.
 The buttons are authorised per tap by Telegram user id (never chat id), so the same card works in a private chat or a group.
 A delivery card with a pickup time carries the hold lines; the kitchen receipt is the start signal.
-_Avoid_: notification, alert message
 
 ### Kitchen instruction
 
-What the kitchen is told about an accepted order: **hold** (delivery, from the pickup time until a rider accepts),
+What the kitchen is told about an accepted order: **hold** (delivery, from the pickup time until the kitchen receipt arrives following assignment),
 **start** (the kitchen receipt), or **drop** (no rider found: the order is cancelled and must not be prepared).
 Takeaway is never held. The plain wording and UK pickup time live in
 `utils_common/order_management/kitchen_instructions.py`; each channel adds its own markup.
 The delivery order card stays terminal; a receipt threaded beneath it supersedes the hold (ADR 0015).
-_Avoid_: prep notice, cooking alert
 
 ### Telegram identity
 
-The link from a Telegram account (user id and chat id) to a restaurant, created
-when an invite is claimed. It only authenticates: it can be revoked at any time
-by setting the invite's status, and a chat id or button payload alone
-authorizes nothing.
-_Avoid_: Telegram login, Telegram user
+A Telegram user ID identifies the actor and a chat ID addresses messages. Admin authority is checked against the roster. Invite-based identity is the legacy path.
 
 ## Riders on Telegram
 
@@ -370,19 +320,15 @@ _Avoid_: Telegram login, Telegram user
 The binding of one Telegram account to one rider, stored on the rider row (Telegram user id authorises, chat id
 addresses). It is created only by the rider sharing their own phone number through the bot, never from typed text, and
 moves to a new account when that account proves the same number.
-_Avoid_: rider invite, rider login
 
 ### Rider channel
 
 Where the messages Ordelo starts reach a rider: WhatsApp or Telegram, one at a time. A dispatch keeps the channel it
 was offered on until the job ends, so a job conversation never moves between apps.
-_Avoid_: preferred channel, both channels (that is the restaurant rule)
 
 ### Rider thread
 
-The agent conversation for one assigned dispatch, from acceptance to completion or cancellation. A rider has at most
-one open rider thread; an open rider thread means a delivery that is not finished.
-_Avoid_: rider session, conversation per rider
+[ADR 0012](docs/adr/0012-rider-threads-follow-dispatch-assignments.md) describes dispatch-based IDs, legacy lookups, and the lifetime of cancellation aftercare.
 
 ### Offer
 
@@ -390,20 +336,16 @@ _Avoid_: rider session, conversation per rider
 
 One delivery job proposed to one rider (one dispatch row) with Accept and Decline. When the job goes to someone else,
 expires or is cancelled, the offer is closed: on Telegram it is edited in place and loses its buttons.
-_Avoid_: dispatch request, job notification
 
 ### Job card
 
 The message a rider gets once a job is theirs: pickup time, restaurant, earning, distance, and three buttons (Pickup
 Location, Dropoff Location, Contact Customer). A button tap reaches the rider agent as the rider's own words, so both apps
 behave the same.
-_Avoid_: delivery instructions message (the code's older name)
 
 ### Pause
 
-A period, with a mandatory end time, during which a person receives no jobs (rider) or no alerts on any of their channels (restaurant admin).
-Whether someone is paused is worked out from the clock, so a pause ends by itself at its end time.
-_Avoid_: off shift, holiday, mute
+[ADR 0013](docs/adr/0013-pauses-have-a-mandatory-end-and-are-computed.md) describes clock-based expiry and the routing changes for admin alerts.
 
 ### Last-admin guard
 
@@ -416,4 +358,4 @@ A restaurant admin cannot pause alerts if no other admin of that restaurant woul
 
 ## Order recovery (ADR 0016)
 
-**Order lookup / find** searches recent web orders by lookup postcode + restaurant without an order number. **Lookup postcode** is web_order_request.lookup_postcode: the locked delivery postcode or optional collection postcode, never customer_master. **House key** is web_house_key(): lowercase alphanumeric house number or name, excluding flat alone. **Unlock** proves this for one found delivery order and issues a recovered grant. **Detail level** is full (original grants; code allowed), recovered (house proof; no code), or status_only (find; no private order details). See docs/adr/0016-orders-are-found-by-postcode-and-unlocked-by-house.md.
+The lookup query reads `web_order_request.lookup_postcode`. Unlock uses `web_house_key()`, which normalizes the saved house number or name and excludes a flat on its own. See the [glossary](GLOSSARY.md#identity-access-and-tracking) and [ADR 0016](docs/adr/0016-orders-are-found-by-postcode-and-unlocked-by-house.md).

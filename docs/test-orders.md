@@ -1,5 +1,7 @@
 # TEST3100 test orders
 
+A test order’s payment mode and a rider’s eligibility for its offers are distinct decisions. See the [canonical glossary](../GLOSSARY.md#visibility-and-money) and [ADR 0010](adr/0010-test-payments-selected-by-order-items.md).
+
 End-to-end walk-through with fake STRK orders on WhatsApp and Telegram: [live-order-test-harness.md](live-order-test-harness.md).
 
 Implemented in source on 9 October 2026. The owner has run the routing migration. Its revised version removes the unnecessary historical checks and global payment-mode protection artifacts. Service restart/deployment status is separate from database installation.

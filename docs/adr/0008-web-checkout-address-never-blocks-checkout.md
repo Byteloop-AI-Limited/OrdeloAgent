@@ -21,3 +21,7 @@ The checkout snapshot on `web_session_meta.address` and `web_order_request.addre
 Rejected: Google Places Autocomplete (extra cost and UI for little gain), a paid PAF address picker (possible later), and strict validation with a manual-review queue.
 
 Sources: [availability.py](../../utils_common/web_ordering/availability.py), [web_checkout.py](../../utils_common/web_ordering/web_checkout.py), [web contract tests](../../tests/utils_common/web_ordering/test_web_contract.py); in restaurant-frontend: `app/api/web/address/route.ts`, `components/ordelo/CheckoutFlow.tsx`.
+
+## Reading this decision in the current workflow
+
+The address verification relaxation covers geocoding and map precision. Checkout still validates request data and delivery eligibility against the postcode fixed under [ADR 0007](0007-web-checkout-postcode-is-fixed-at-checkout-start.md).

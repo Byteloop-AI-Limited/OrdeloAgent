@@ -1,5 +1,9 @@
 # ADR 0011: Telegram operations messaging stays in OrdeloAgent, behind an operations-messaging port
 
+## Current implementation
+
+The current tree contains rider messaging adapters and selective Telegram inbox claims described by Amendments 3 and 4. The [roster and recipient SQL](../../ordelo_datamodels/restaurant_admin/admin_roster.sql) and [admin linking wrapper](../../channels/telegram/admin_links.py) provide local evidence for Amendment 5. Treat rollout and any remaining proposed clauses according to their own evidence.
+
 ## Status
 
 Proposed (2026-10-14). Sequencing updated 2026-10-15: restaurant admins first;
