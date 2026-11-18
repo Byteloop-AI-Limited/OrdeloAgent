@@ -98,6 +98,8 @@ CREATE TABLE IF NOT EXISTS public.food_order (
     small_order_fee float,
     payment_status text NOT NULL DEFAULT 'paid',
     recipient   text NOT NULL DEFAULT '447700900001',
+    origin_channel text NOT NULL DEFAULT 'whatsapp',
+    action text NOT NULL DEFAULT 'delivery',
     order_dtts timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.order_item (

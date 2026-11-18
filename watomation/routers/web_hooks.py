@@ -4,6 +4,8 @@ Browser requests arrive through Next.js. Secrets and customer IDs never enter
 browser bodies. Each order status/token operation checks its grant separately.
 
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
+  . web_order_lookup (fn, ordelo_datamodels/ordering/web_order_lookup.sql): reads via order_lookup
+  . web_order_unlock (fn, ordelo_datamodels/ordering/web_order_lookup.sql): writes via order_lookup
   . web_rate_limit (table, ordelo_datamodels/ordering/web_rate_limit.sql): writes (SQL)
 (end of database objects)
 """
@@ -20,6 +22,7 @@ from aws_setting import agent_env
 from utils_common.web_ordering import (
     availability,
     order_access,
+    order_lookup,
     web_checkout,
     customer_order_view,
 )
@@ -73,10 +76,7 @@ class Session(BaseModel):
 
 @router.post("/checkout-sessions", status_code=201)
 async def start(body: Session, request: Request):
-    # Next derives this opaque hash from the network peer and its server secret.
-    identity = request.headers.get("X-Ordelo-Visitor-Hash", "")
-    if not re.fullmatch(r"[a-f0-9]{64}", identity):
-        raise WebError("invalid_request", 400)
+    identity = visitor_hash(request)
     rows = await query(
         """INSERT INTO web_rate_limit(identity_hash,window_start) VALUES (%s,date_trunc('hour',now()))
         ON CONFLICT(identity_hash,window_start) DO UPDATE SET attempts=web_rate_limit.attempts+1 RETURNING attempts""",
@@ -136,6 +136,37 @@ async def create(
     return JSONResponse(
         await web_checkout.create(body, idempotency_key), 201, headers=PRIVATE
     )
+
+
+def visitor_hash(request: Request) -> str:
+    """Validate the opaque network identity supplied by Next."""
+    identity = request.headers.get("X-Ordelo-Visitor-Hash", "")
+    if not re.fullmatch(r"[a-f0-9]{64}", identity):
+        raise WebError("invalid_request", 400)
+    return identity
+
+
+class OrderFind(BaseModel):
+    postcode: str = Field(max_length=20)
+    rest_ref: str = Field(max_length=20)
+
+
+class OrderUnlock(BaseModel):
+    postcode: str = Field(max_length=20)
+    house: str = Field(max_length=200)
+
+
+@router.post("/orders/find")
+async def find_orders(body: OrderFind, request: Request):
+    return JSONResponse(await order_lookup.find(body.postcode, body.rest_ref, visitor_hash(request)), headers=PRIVATE)
+
+
+@router.post("/orders/{order_number}/unlock", status_code=201)
+async def unlock_order(order_number: str, body: OrderUnlock, request: Request):
+    identity = visitor_hash(request)
+    if not re.fullmatch(r"[A-Z0-9]+-[A-Z]{4}-\d+", order_number):
+        raise WebError("not_found", 404)
+    return JSONResponse(await order_lookup.unlock(order_number, body.postcode, body.house, identity), 201, headers=PRIVATE)
 
 
 @router.get("/orders/{order_number}")

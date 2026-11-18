@@ -118,15 +118,20 @@ def derive(food, summary, dispatch, events, release=None, at=None):
     return status, state, captured, None
 
 
+DETAIL_LEVELS = ("full", "recovered", "status_only")
+
+
 async def get_view(order_number, detail_level="full"):
     """Assemble a read-only customer DTO for a registered web or WhatsApp order.
 
     Combine FoodOrder, summary, latest relevant dispatch, events and release job.
-    Full grants add address/items/charges and the delivery code at appropriate
-    stages; other detail levels omit those fields. Expose only the rider's first
+    Full and recovered grants add address/items/charges; only full carries the
+    handover code at appropriate stages. Expose only the rider's first
     name. Raise not_found for absent orders or unknown registry refs.
     Authorization belongs to the caller; separate reads are not one DB snapshot.
     """
+    if detail_level not in DETAIL_LEVELS:
+        raise ValueError("Unknown order detail level")
     food = await one(
         "SELECT * FROM food_order WHERE order_number=%s AND origin_channel IN ('web','whatsapp')",
         (order_number,),
@@ -248,7 +253,7 @@ async def get_view(order_number, detail_level="full"):
                 ),
                 "on_timeout": "decline",
             }
-    if detail_level == "full":
+    if detail_level in ("full", "recovered"):
         request = (
             await one(
                 "SELECT address FROM web_order_request WHERE order_number=%s",
@@ -265,7 +270,8 @@ async def get_view(order_number, detail_level="full"):
                 "instructions": snapshot.get("instructions"),
             }
             if (
-                status in ("rider_assigned", "on_its_way")
+                detail_level == "full"
+                and status in ("rider_assigned", "on_its_way")
                 and summary.get("cust_confirmation_code") is not None
             ):
                 view["delivery"]["customer_code"] = str(

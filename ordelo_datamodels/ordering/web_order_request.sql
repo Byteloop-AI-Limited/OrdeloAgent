@@ -2,8 +2,9 @@
 -- ordelo_datamodels/ordering/web_order_request.sql
 -- Idempotency record for web create-order: request fingerprint, fixed address copy and cached quote.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- LIVE CHECK    Base captured 2026-10-16; lookup changes prepared 2026-11-17, pending owner application.
 -- OBJECTS       table  web_order_request
+--                   lookup_postcode: locked delivery or optional collection lookup postcode.
 --                   One row per web create-order idempotency key: the same key and body return the same order, a different body is rejected.
 -- REQUIRES      restaurant-agents: food_order
 --               restaurant-agents: thread
@@ -19,6 +20,7 @@
 --                 All six tables are server-only (RLS on, anon/authenticated revoked) and reached with client_ordelo_service.
 -- LIFECYCLE     see docs/web-ordering-playground.md (Tables section) for who writes and reads each column.
 -- CALLED BY     web_order_request:
+--                utils_common/web_ordering/order_lookup.py; ordering/web_order_lookup.sql.
 --                 python    ordelo/agents/rider_agent.py: _web_pin_warning()
 --                 python    utils_common/web_ordering/customer_order_view.py: get_view()
 --                 python    utils_common/web_ordering/web_checkout.py: create()
@@ -27,6 +29,7 @@
 -- TESTS         tests/ordelo/agents/test_rider_agent.py
 --               tests/utils_common/web_ordering/test_web_contract.py
 -- GOTCHAS       Captured from live on 2026-10-16; first created by migrations/ordelo_agg_r3.sql (history).
+--                lookup_postcode CHECK is NOT VALID for historical rows; canonical postcode only.
 -- SEE ALSO      docs/web-ordering-playground.md
 --               docs/web-ordering-architecture.html
 --               ordering/create_food_order_with_items.sql
@@ -59,3 +62,18 @@ REVOKE ALL ON TABLE public.web_order_request FROM anon, authenticated;
 -- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
 -- ---------------------------------------------------------------------------------------------
 COMMENT ON TABLE public.web_order_request IS 'One row per web create-order idempotency key: the same key and body return the same order, a different body is rejected.';
+
+ALTER TABLE public.web_order_request
+    ADD COLUMN IF NOT EXISTS lookup_postcode text;
+
+ALTER TABLE public.web_order_request
+    DROP CONSTRAINT IF EXISTS web_order_request_lookup_postcode_format;
+
+ALTER TABLE public.web_order_request
+    ADD CONSTRAINT web_order_request_lookup_postcode_format CHECK (lookup_postcode IS NULL OR lookup_postcode ~ '^[A-Z]{1,2}[0-9][A-Z0-9]? [0-9][A-Z]{2}$') NOT VALID;
+
+CREATE INDEX IF NOT EXISTS web_order_request_lookup_postcode_idx ON public.web_order_request (lookup_postcode, created_at DESC)
+WHERE
+    lookup_postcode IS NOT NULL;
+
+COMMENT ON COLUMN public.web_order_request.lookup_postcode IS 'Canonical postcode this web order can be found by (ADR 0016): the locked delivery postcode, or the optional collection postcode.';

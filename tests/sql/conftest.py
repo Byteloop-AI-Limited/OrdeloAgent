@@ -88,6 +88,9 @@ MIGRATION_FILES = [
     "enquire_shift_availability.sql",
     "t_admin_pauses.sql",
     "wa_location.sql",
+    "web_order_request.sql",
+    "order_access_grant.sql",
+    "web_order_lookup.sql",
 ]
 
 
