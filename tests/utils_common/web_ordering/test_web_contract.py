@@ -57,6 +57,11 @@ async def test_orpington_delivery_eligibility(monkeypatch, rest_refs):
     assert result["town_slug"] == "orpington"
     assert [row["rest_ref"] for row in result["restaurants"]] == list(rest_refs)
     assert all(row["status"] == "deliverable" for row in result["restaurants"])
+    # The empty-basket quote has no real fee, so eligibility publishes only the minimum.
+    assert all(
+        set(row) == {"rest_ref", "status", "min_order_value"}
+        for row in result["restaurants"]
+    )
 
 
 @pytest.mark.parametrize("minutes,expected", [(0, True), (59, True), (60, False)])
@@ -441,25 +446,26 @@ async def test_pricing_failure_distinguished_from_range(monkeypatch, body, error
     assert caught.value.body["error"] == error
 
 
-async def test_estimate_fee_uses_pricing_breakdown(monkeypatch):
-    monkeypatch.setattr(
-        availability,
-        "_call_pricing_service",
-        lambda payload: {
-            "delivery_options": [
-                {
-                    "vehicle_type": "car",
-                    "minimum_order_value": 15,
-                    "breakdown": {"delivery_fee": 1.49},
-                }
-            ]
-        },
+async def test_pricing_quotes_an_empty_basket_without_a_fee(monkeypatch):
+    payloads = []
+    car = {
+        "vehicle_type": "car",
+        "minimum_order_value": 12.0,
+        "breakdown": None,
+        "message": "Minimum order value for car is £12.00.",
+    }
+
+    def fake(payload):
+        payloads.append(payload)
+        return {"delivery_options": [car]}
+
+    monkeypatch.setattr(availability, "_call_pricing_service", fake)
+    option = await availability.pricing(
+        {"rest_ref": "STRK", "lat": 51, "lon": 0}, {"lat": 51, "lng": 0}
     )
-    assert (
-        await availability.pricing(
-            {"rest_ref": "ELAS", "lat": 51, "lon": 0}, {"lat": 51, "lng": 0}
-        )
-    )["delivery_fee"] == 1.49
+    assert option["minimum_order_value"] == 12.0
+    assert "delivery_fee" not in option
+    assert payloads[0]["total_food_value"] == 0.0
 
 
 def test_confirmed_release_survives_missing_event():

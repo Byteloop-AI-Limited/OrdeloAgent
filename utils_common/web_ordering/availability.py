@@ -251,17 +251,18 @@ async def locate(address, postcode, *, street_address=None):
     return {"centroid": centroid, "pin": centroid, "precision": "postcode"}
 
 
-async def pricing(row, location, total=0):
+async def pricing(row, location):
     """Return a validated car delivery option for server-resolved coordinates.
 
     Call the shared pricing service in a worker. Missing car options or negative minimums
-    indicate out_of_range; malformed/non-finite prices raise pricing_unavailable.
-    Normalize the nonnegative delivery fee from its breakdown or top-level value.
+    indicate out_of_range; a malformed/non-finite minimum raises pricing_unavailable.
+    Only minimum_order_value is used: the quote is for an empty basket, so the service
+    returns no fee breakdown. The charged fee is priced from the real basket at checkout.
     """
     body = await asyncio.to_thread(
         _call_pricing_service,
         {
-            "total_food_value": float(total),
+            "total_food_value": 0.0,
             "restaurant_latitude": row["lat"],
             "restaurant_longitude": row["lon"],
             "customer_latitude": location["lat"],
@@ -290,21 +291,11 @@ async def pricing(row, location, total=0):
         raise WebError("pricing_unavailable", 503)
     if minimum < 0:
         raise WebError("out_of_range")
-    breakdown = car.get("breakdown") or {}
-    fee = breakdown.get("delivery_fee", car.get("delivery_fee", 0))
-    if (
-        isinstance(fee, bool)
-        or not isinstance(fee, (int, float))
-        or not math.isfinite(fee)
-        or fee < 0
-    ):
-        raise WebError("pricing_unavailable", 503)
-    car = {**car, "delivery_fee": fee}
     return car
 
 
 async def eligibility(postcode, mode, rest_refs):
-    """Build per-restaurant availability and estimated delivery charges.
+    """Build per-restaurant availability and delivery minimum order values.
 
     Delivery geocodes the postcode once, then quotes each restaurant; collection
     skips geocoding/pricing. Convert per-restaurant WebErrors into public result
@@ -321,7 +312,6 @@ async def eligibility(postcode, mode, rest_refs):
             result.update(
                 status="deliverable",
                 min_order_value=option.get("minimum_order_value", 0),
-                estimated_delivery_fee=option.get("delivery_fee", 0),
             )
         except WebError as exc:
             status = (

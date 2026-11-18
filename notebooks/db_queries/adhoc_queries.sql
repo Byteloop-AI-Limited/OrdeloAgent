@@ -83,3 +83,9 @@ SELECT kind, dispatch_id, offset_secs, status, swept_at
   FROM rider_offer_alert WHERE order_number = 'STRK-TEST-004731' ORDER BY kind, dispatch_id, offset_secs;
   
   select * from ordelo_config where config_key like 'STRK_TGRAM_ORDER_ALERT_OFFSETS_SECS%';
+
+select * from ordelo_config where config_key like '%_WEB_ORDERING_PAUSED%'; 
+
+UPDATE public.ordelo_config SET config_value = 'false'
+   WHERE config_key = 'CRDO_WEB_ORDERING_PAUSED'
+   RETURNING config_key, config_value;
