@@ -1,5 +1,6 @@
 """Pure tests for the order card model (no fakes, no I/O)."""
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -212,6 +213,29 @@ def test_callback_fits_for_long_order_number():
 
 def test_terminal_set_matches_views():
     assert TERMINAL == {"pickup_set", "declined", "auto_accepted", "auto_declined", "gone"}
+
+
+@pytest.mark.parametrize("status", ["pickup_set", "auto_accepted"])
+@pytest.mark.parametrize("viewer", [ADA_V, BOB_V, Viewer(None, shared=True)])
+def test_delivery_hold_is_between_status_and_body_for_every_viewer(status, viewer):
+    v = Card(replace(FACTS, order_number="A<B>-1"), status=status, decided_by=ADA, pickup_at=T0).view(viewer)
+    assert v.text.splitlines()[1:4] == [
+        "<b>⏳ Don&#x27;t start cooking yet — we&#x27;re finding a rider.</b>",
+        "Start when the kitchen receipt arrives.",
+        "<b>A&lt;B&gt;-1</b> · £23.50 · 🚚 Delivery",
+    ]
+    assert v.terminal and v.keyboard is None
+
+
+@pytest.mark.parametrize("status", ["awaiting", "accepted", "declined", "auto_declined", "gone"])
+def test_other_card_states_do_not_hold(status):
+    assert "Start when the kitchen receipt arrives" not in card(status, decided_by=ADA).view(ADA_V).text
+
+
+@pytest.mark.parametrize("status", ["pickup_set", "auto_accepted"])
+def test_takeaway_card_never_holds(status):
+    v = Card(replace(FACTS, order_type="takeaway"), status=status, pickup_at=T0).view(ADA_V)
+    assert "start cooking" not in v.text and "kitchen receipt arrives" not in v.text
 
 
 @pytest.mark.parametrize(

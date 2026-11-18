@@ -1,7 +1,8 @@
 """
 Restaurant-facing notices on every channel (D28, D29): one call, WhatsApp AND Telegram, in parallel.
     . notify(notice) never raises; each channel fails alone (logged), so Telegram trouble can never stop WhatsApp
-    . WhatsApp adapter: calls the EXISTING wa_senders functions with the arguments they take today (text/buttons unchanged);
+    . Kitchen hold/start/drop wording comes from utils_common.order_management.kitchen_instructions on both channels
+    . WhatsApp adapter: calls wa_senders functions;
       senders are looked up as `wa_senders.<name>` at call time, so tests that patch them keep working
     . Telegram adapter: channels/telegram/rest_admin (Receipts.send), built lazily from config.rest_admin_bot
       (the same Bot the FastAPI lifespan registry uses); hooks and agent tools have no `request.app`
@@ -11,11 +12,11 @@ Restaurant-facing notices on every channel (D28, D29): one call, WhatsApp AND Te
         KitchenReceipt  -> wa_senders.admin_order_reciept(delivery_summary, rider_master) -> Receipts.send(order, dispatch_id)
         TakeawayReceipt -> wa_senders.takeaway_admin_order_receipt(order_number, pickup_time, rest_name, admins,
                                                                     restaurant_msg_id, rest_ref) -> Receipts.send(order)
-        AutoAccepted    -> wa_senders.admin_auto_accept_notice(admins, order_number, pickup_display, pickup_minutes)
+        AutoAccepted    -> wa_senders.admin_auto_accept_notice(admins, order_number, pickup_display, pickup_minutes, order_type=)
                            -> Notices.send(..., reply_to="card")
         AutoDeclined    -> wa_senders.admin_auto_decline_notice(admins, order_number)
                            -> Notices.send(..., notice="auto_declined", reply_to="card")
-        NoRiderFound    -> wa_senders.admin_no_rider_notice(admins, order_number)
+        NoRiderFound    -> wa_senders.admin_no_rider_notice(admins, order_number, restaurant_msg_id=)
                            -> Notices.send(..., notice="no_rider_found", reply_to="card")
         RiderAlert      -> wa_senders.notify_rest_admins_rider_alert(phase=, order_number=, pickup_time=, rider_id=,
                                                                       rider_name=, rest_ref=, rest_admins=)
@@ -47,6 +48,7 @@ from typing import Any, Literal, Protocol
 
 from config import logger
 from ordelo_datamodels.delivery_pymodels import DeliverySummary
+from utils_common.order_management import kitchen_instructions
 from utils_common.tz_utils import fmt_uk_time, parse_db_iso
 from utils_common.waba_utils import wa_senders
 
@@ -98,11 +100,12 @@ class AutoDeclined:
 
 @dataclass(frozen=True)
 class NoRiderFound:
-    """No rider accepted the delivery in time (delivery_timedout). Not sent for configured auto-accept orders."""
+    """No rider accepted in time (delivery_timedout). Sent for every delivery, including configured auto-accept."""
 
     order_number: str
     admins: list[str]
     rest_ref: str
+    restaurant_msg_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -163,12 +166,14 @@ class _WhatsAppAdapter:
             )
         elif isinstance(notice, AutoAccepted):
             await wa_senders.admin_auto_accept_notice(
-                notice.admins, notice.order_number, notice.pickup_display, notice.pickup_minutes
+                notice.admins, notice.order_number, notice.pickup_display, notice.pickup_minutes, order_type=notice.order_type
             )
         elif isinstance(notice, AutoDeclined):
             await wa_senders.admin_auto_decline_notice(notice.admins, notice.order_number)
         elif isinstance(notice, NoRiderFound):
-            await wa_senders.admin_no_rider_notice(notice.admins, notice.order_number)
+            await wa_senders.admin_no_rider_notice(
+                notice.admins, notice.order_number, restaurant_msg_id=notice.restaurant_msg_id
+            )
         elif isinstance(notice, RiderAlert):
             await wa_senders.notify_rest_admins_rider_alert(
                 phase=notice.phase,
@@ -274,6 +279,8 @@ class _TelegramAdapter:
                 f"⏱ <b>{escape(notice.order_number)}</b> auto-accepted (no answer in time). "
                 f"Pickup {escape(notice.pickup_display)} ({notice.pickup_minutes} min after order)."
             )
+            if (h := kitchen_instructions.hold(notice.order_type)) is not None:
+                text += f"\n<b>{escape(h.headline)}</b>\n{escape(h.detail)}"
             await self._notices_for_bot().send(
                 notice.rest_ref, text, notice="auto_accepted",
                 order=OrderRef(notice.order_number, notice.order_type), reply_to="card",
@@ -285,7 +292,8 @@ class _TelegramAdapter:
                 order=OrderRef(notice.order_number, notice.order_type), reply_to="card",
             )
         elif isinstance(notice, NoRiderFound):
-            text = f"🚫 No rider found for <b>{escape(notice.order_number)}</b>. The order was cancelled and the customer has been told."
+            d = kitchen_instructions.no_rider(notice.order_number)
+            text = f"<b>{escape(d.headline)}</b>\n{escape(d.detail)}"
             await self._notices_for_bot().send(
                 notice.rest_ref, text, notice="no_rider_found",
                 order=OrderRef(notice.order_number, "delivery"), reply_to="card",

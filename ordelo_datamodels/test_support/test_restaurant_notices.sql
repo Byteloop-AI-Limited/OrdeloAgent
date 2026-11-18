@@ -188,7 +188,8 @@ SELECT s.order_number, s.town, s.restaurant_confirmation_status, s.status, f.pay
 
 -- ===== STAGE 2: ACCEPT + PICKUP TIME (you tap; this only shows the state) =====
 -- Tap Accept and then a pickup time on Telegram or WhatsApp; status becomes 'unassigned'. Then run STAGE 2b, and expect
--- a dispatch offer on your dummy RIDER's WhatsApp.
+-- a dispatch offer on your dummy RIDER's WhatsApp. Delivery card + WhatsApp pickup reply: HOLD, do not cook until
+-- the kitchen receipt arrives (kitchen_instructions.hold); takeaway is never held.
 SELECT order_number, restaurant_confirmation_status, status, restaurant_admin, pickup_time, pickup_time_initial
   FROM public.delivery_summary WHERE order_number LIKE 'STRK-TEST-%';
 SELECT dispatch_id, rider_id, status, dtts FROM public.delivery_dispatch WHERE order_number LIKE 'STRK-TEST-%' ORDER BY dispatch_id;
@@ -237,8 +238,9 @@ SELECT d.dispatch_id, r.rider_name, d.channel, d.status, d.channel_msg_ref,
  ORDER BY d.dispatch_id;
 
 -- ===== STAGE 3: RIDER ACCEPTS (you tap as the rider; this only shows the state) =====
--- Expect: the KITCHEN RECEIPT on WhatsApp AND Telegram (Telegram replies to the order card), shown with
--- Ready / +10 / +20 buttons, and the rider's chat starting its delivery graph.
+-- Expect: the KITCHEN RECEIPT on WhatsApp AND Telegram, replying to the order card: first line
+-- "🍳 Please start preparing now", then "Rider found · ready for pickup at …". Ready / +10 / +20 buttons remain.
+-- Check the actual Telegram phone notification preview separately; the rider chat starts its delivery graph.
 SELECT i.dispatch_id, i.order_number, i.rider_id, d.status AS dispatch_status
   FROM public.delivery_inflight i JOIN public.delivery_dispatch d USING (dispatch_id) WHERE i.order_number LIKE 'STRK-TEST-%';
 SELECT id, tcid, message_id, kind, card_status, state, dispatch_id FROM public.t_sent_messages
@@ -246,6 +248,8 @@ SELECT id, tcid, message_id, kind, card_status, state, dispatch_id FROM public.t
 
 
 -- ===== STAGE 4: READY / ADJUST (you tap) =====
+-- While open, +10 redraws the start detail with the current pickup time; Ready removes the start headline from
+-- Telegram and restores "🧾 Kitchen receipt · 🚚 Delivery" (WhatsApp receipts are not edited).
 -- Tap Ready on Telegram, +10 on WhatsApp, then Ready again on WhatsApp. Expect the rider nudged ONCE ("food ready"), the
 -- Telegram copies redrawn within ~5 s ("Ready ... by <you>", pickup moved +10), the second Ready answered "Already marked
 -- ready by ...". Race test (two dummy riders / two admins): tap Ready on both channels at the same moment -> one nudge.

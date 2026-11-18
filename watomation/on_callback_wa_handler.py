@@ -25,6 +25,7 @@ WhatsApp callback button handler for delivery dispatch responses
     . restaurant_order_accept_decline_handler - Handles restaurant accept/decline responses
     . _update_restaurant_order_status - Background task for updating restaurant order status
     . handle_pickup_time_selection - Handles restaurant pickup-time selection callbacks
+    . _pickup_set_reply - Confirms the time and tells delivery kitchens to hold until the receipt
     . admin_collection_ready - Marks the food ready and nudges the rider agent once per dispatch (skipped after pickup)
     . _legacy_collection_ready - The pre-order_number path for old Ready buttons
     . admin_takeaway_ready - Marks a takeaway ready once and notifies the customer
@@ -55,7 +56,7 @@ from ordelo.delivery_progress import (
     check_delivery_progress,
 )
 from ordelo_datamodels.delivery_pymodels import DeliveryDispatch
-from utils_common.order_management import restaurant_actions, restaurant_decision
+from utils_common.order_management import kitchen_instructions, restaurant_actions, restaurant_decision
 from utils_common.order_management.restaurant_actions import WhatsAppActor
 from utils_common.waba_utils.wa_senders import CallbackButtonData
 from utils_common.tz_utils import fmt_uk_time
@@ -269,6 +270,14 @@ async def restaurant_order_accept_decline_handler(wa: WhatsApp, msg: Message):
 IS_PICKUP_TIME = filters.contains("/PickupTime", ignore_case=False)
 
 
+def _pickup_set_reply(order_type: str, pickup_time: str) -> str:
+    """Confirm the pickup time, plus the shared delivery-only hold instruction."""
+    text = f"Pickup time set to *{fmt_uk_time(pickup_time)}*."
+    if (h := kitchen_instructions.hold(order_type)) is not None:
+        text += f"\n*{h.headline}*\n{h.detail}"
+    return text
+
+
 async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
     callback_data: CallbackButtonData = CallbackButtonData(**json.loads(msg.data))
     # Callback data created in send_pickup_time_selection, in utils_common.waba_utils.wa_senders
@@ -287,7 +296,7 @@ async def handle_pickup_time_selection(wa: WhatsApp, msg: Message):
             order_number, order_type, pickup_time, recipient, "whatsapp"
         )
         if outcome.result == "ok":
-            await msg.reply(text="Pickup time updated")
+            await msg.reply(text=_pickup_set_reply(order_type, outcome.pickup_time or pickup_time))
             logger.info(
                 "Pickup time updated for %s order %s to %s",
                 order_type,

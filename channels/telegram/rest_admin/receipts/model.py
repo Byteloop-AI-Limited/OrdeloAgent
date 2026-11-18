@@ -12,6 +12,7 @@ tries the rich form first and falls back to the HTML form if Telegram rejects it
 Two decisions are made once and read by BOTH forms (plans/telegram-receipt-phases-plan.md): `Receipt.phase` ("kitchen" while the food
 is being made, "handed_over" once picked up / collected) and `Receipt.timeline(viewer)` (every step: done, latest, still to come).
 In the handed-over phase the order itself (pickup time, code, items, money, notes, customer) folds into a closed "Order details" block.
+While open, both forms lead with kitchen_instructions.start; Ready restores the receipt heading (ADR 0015).
   Classes/Functions:
     . ReceiptDestination, ReceiptFacts, Line, Step, ReceiptSnapshot
     . Receipt
@@ -30,6 +31,8 @@ from aiogram.types import (
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from loguru import logger
 
+from utils_common.order_management import kitchen_instructions
+from utils_common.order_management.kitchen_instructions import KitchenInstruction
 from utils_common.order_management.restaurant_actions import ActionOutcome
 from utils_common.tz_utils import fmt_uk_time, parse_db_iso
 
@@ -252,10 +255,18 @@ class Receipt:
         lines += [f"   ↳ {escape(m)}" for m in i.mods]
         return "\n".join(lines)
 
+    def _start(self) -> KitchenInstruction | None:
+        """The start signal leads only while open; it goes away after Ready."""
+        if self.kind != "open":
+            return None
+        return kitchen_instructions.start(self.facts.order_type, self.facts.pickup_at)
+
     def _title_lines(self, viewer: Viewer) -> list[str]:
         f = self.facts
         kind = "🚚 Delivery" if f.order_type == "delivery" else "🥡 Takeaway"
         lines = [f"🧾 KITCHEN RECEIPT · {kind}", f"<b>{escape(f.order_number)}</b>"]
+        if (go := self._start()) is not None:
+            lines = [f"<b>{escape(go.headline)}</b>", escape(go.detail), ""] + lines
         if status := self._status_line(viewer):
             lines.append(status)
         return lines
@@ -502,11 +513,18 @@ class Receipt:
     def _rich_head(self, viewer: Viewer) -> list:
         f = self.facts
         kind = "🚚 Delivery" if f.order_type == "delivery" else "🥡 Takeaway"
-        return [
-            InputRichBlockSectionHeading(text=f"🧾 Kitchen receipt · {kind}", size=3),
-            InputRichBlockParagraph(text=RichTextBold(text=f.order_number)),
-            InputRichBlockButtons(buttons=[self._badge(viewer)]),
-        ]
+        if (go := self._start()) is not None:
+            head = [
+                InputRichBlockSectionHeading(text=go.headline, size=2),
+                InputRichBlockParagraph(text=RichTextBold(text=go.detail)),
+                InputRichBlockParagraph(text=[RichTextBold(text=f.order_number), f" · 🧾 Kitchen receipt · {kind}"]),
+            ]
+        else:
+            head = [
+                InputRichBlockSectionHeading(text=f"🧾 Kitchen receipt · {kind}", size=3),
+                InputRichBlockParagraph(text=RichTextBold(text=f.order_number)),
+            ]
+        return head + [InputRichBlockButtons(buttons=[self._badge(viewer)])]
 
     def _rich_pickup(self, viewer: Viewer) -> InputRichBlockParagraph:
         f = self.facts

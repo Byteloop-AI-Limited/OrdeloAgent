@@ -1,5 +1,5 @@
 -- MIGRATION (history; do not edit the statements below)
--- Applied to live: NOT YET (prepared 2026-11-16; the owner applies it himself)
+-- Applied to live: 2026-11-16 (owner-confirmed)
 -- Current definitions now live in: restaurant_admin/restaurant_confirmation_policy.sql, restaurant_admin/process_restaurant_confirmation.sql,
 --          delivery/delivery_summary.sql, takeaway/takeaway_summary.sql, delivery/process_delivery.sql, telegram/t_order_alerts.sql
 -- Purpose: restaurant confirmation timeout action (plans/restaurant-confirmation-timeout-action-plan.md).

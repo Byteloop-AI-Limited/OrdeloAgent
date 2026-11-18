@@ -9,6 +9,7 @@ WhatsApp messaging utilities for order management and address confirmation flows
     . Uses FlowButton for complex user interactions and form submissions
     . Sends catalog products and sections
     . Sends payment and reservation links using template params and URL buttons
+    . Kitchen hold/start/drop wording is shared with Telegram via order_management.kitchen_instructions
   Functions/Classes:
     . CallbackButtonData - Pydantic model for WhatsApp button callback data
     . admin_auto_accept_notice - Tells admins an order was auto-accepted after the confirmation timeout
@@ -55,6 +56,7 @@ from pywa_async import WhatsApp
 from typing import Optional, List
 from datetime import datetime, timedelta, timezone
 from utils_common.tz_utils import UK_TZ, fmt_uk_time, parse_db_iso
+from utils_common.order_management import kitchen_instructions
 import asyncio
 from utils_common.order_management.delivery_pymodels import (
     DeliverySummary,
@@ -156,6 +158,8 @@ async def admin_auto_accept_notice(
     order_number: str,
     pickup_display: str,
     pickup_minutes: int,
+    *,
+    order_type: str = "delivery",
 ) -> None:
     """Tell each admin an order was auto-accepted after the confirmation timeout (delivery and takeaway).
 
@@ -164,6 +168,8 @@ async def admin_auto_accept_notice(
         f"Order {order_number} auto-accepted due to confirmation timeout. "
         f"Pickup time set to {pickup_display} ({pickup_minutes} mins from order time)."
     )
+    if (h := kitchen_instructions.hold(order_type)) is not None:
+        text += f"\n*{h.headline}*\n{h.detail}"
     for admin in admins:
         try:
             await _async_wa_client.send_message(to=admin, text=text)
@@ -182,11 +188,15 @@ async def admin_auto_decline_notice(admins: List[str], order_number: str) -> Non
             logger.error(f"Auto-decline notice for {order_number} failed for admin {admin}: {e}")
 
 
-async def admin_no_rider_notice(admins: List[str], order_number: str) -> None:
+async def admin_no_rider_notice(
+    admins: List[str], order_number: str, *, restaurant_msg_id: str | None = None,
+) -> None:
     """Tell each admin no rider was found for an order. One admin at a time: a bad contact never costs the others."""
+    d = kitchen_instructions.no_rider(order_number)
+    text = f"*{d.headline}*\n{d.detail}"
     for admin in admins:
         try:
-            await _async_wa_client.send_message(to=admin, text="No Rider Found for order number: " + order_number)
+            await _async_wa_client.send_message(to=admin, text=text, reply_to_message_id=restaurant_msg_id)
         except Exception as e:
             logger.error(f"No-rider notice for {order_number} failed for admin {admin}: {e}")
 
@@ -236,13 +246,14 @@ async def admin_order_reciept(
     order_number = delivery_summary.order_number
     order_id = "-".join(order_number.split("-")[1:])
 
-    food_order = FoodOrder.from_order_id(order_id)
-    rest_header, rest_text = build_wa_order_reciept_for_rest(food_order=food_order)
+    food_order = await asyncio.to_thread(FoodOrder.from_order_id, order_id)
+    rest_header, rest_text = await asyncio.to_thread(build_wa_order_reciept_for_rest, food_order=food_order)
 
     # Construct delivery instructions
     ordelo_base_url = await get_restaurant_base_url_async(rest_ref="ORDELO")
     rest_ref = delivery_summary.rest_ref
     pickup_time = fmt_uk_time(delivery_summary.pickup_time)
+    go = kitchen_instructions.start("delivery", delivery_summary.pickup_time)
 
     delivery_instructions = f"""
 Delivery Details:
@@ -270,7 +281,7 @@ Delivery Details:
     adjust20_label = f"{fmt_uk_time(_pickup_dt_20)} (+20 mins)"
 
     # get restaurant admins
-    _restaurant_master = RestaurantMaster.from_rest_ref(rest_ref)
+    _restaurant_master = await asyncio.to_thread(RestaurantMaster.from_rest_ref, rest_ref)
     rest_admins = _restaurant_master.get_admins()
     
     for admin in rest_admins:
@@ -292,8 +303,8 @@ Delivery Details:
         )
         await _async_wa_client.send_message(
             to=admin,
-            header=rest_header,
-            text=rest_text + "\n" + delivery_instructions,
+            header=go.headline,
+            text=f"*{go.detail}*\n{rest_header}\n" + rest_text + "\n" + delivery_instructions,
             reply_to_message_id=delivery_summary.restaurant_msg_id,
             buttons=[
                 Button(
@@ -329,10 +340,11 @@ async def takeaway_admin_order_receipt(
     order_id = "-".join(order_parts[1:]) if len(order_parts) > 1 else order_number
     resolved_rest_ref = rest_ref or order_parts[0]
 
-    food_order = FoodOrder.from_order_id(order_id)
-    rest_header, rest_text = build_wa_order_reciept_for_rest(food_order=food_order)
+    food_order = await asyncio.to_thread(FoodOrder.from_order_id, order_id)
+    rest_header, rest_text = await asyncio.to_thread(build_wa_order_reciept_for_rest, food_order=food_order)
 
     pickup_time_display = fmt_uk_time(pickup_time)
+    go = kitchen_instructions.start("takeaway", pickup_time)
     takeaway_instructions = f"""
 Takeaway Details:
   🍽️ Restaurant - *{rest_name}*
@@ -348,8 +360,8 @@ Takeaway Details:
         )
         await _async_wa_client.send_message(
             to=admin,
-            header=rest_header,
-            text=rest_text + "\n" + takeaway_instructions,
+            header=go.headline,
+            text=f"*{go.detail}*\n{rest_header}\n" + rest_text + "\n" + takeaway_instructions,
             reply_to_message_id=restaurant_msg_id,
             buttons=[
                 Button(

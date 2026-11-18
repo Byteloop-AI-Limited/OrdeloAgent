@@ -105,6 +105,9 @@ async def test_pickup_closes_both_copies_with_the_time(env):
     assert session.answers[-1] == ("Pickup 12:15 PM", False)
     assert edits_for(session, 111)[-1].text.startswith("✅ You accepted · pickup 12:15 PM")
     assert edits_for(session, 222)[-1].text.startswith("✅ Accepted by Ada · pickup 12:15 PM")
+    for chat in (111, 222):
+        assert "<b>⏳ Don&#x27;t start cooking yet — we&#x27;re finding a rider.</b>" in edits_for(session, chat)[-1].text
+        assert "Start when the kitchen receipt arrives." in edits_for(session, chat)[-1].text
     assert [r["state"] for r in store.ledger] == ["closed", "closed"]
 
 

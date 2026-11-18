@@ -43,17 +43,17 @@ script's STAGE 0-2b, then its STAGE 1-8: offer, Accept, job card, agent chat, co
 |---|---|---|---|
 | 0 | Reset; link your chat to STRK | | |
 | 1 | New delivery order (notes, small-order fee, modification, TEST3100) | wait ~5 s | Telegram order card + reminders; WhatsApp confirmation prompt |
-| 2 | Shows state | tap **Accept**, then a pickup time | status `unassigned` |
+| 2 | Shows state | tap **Accept**, then a pickup time | status `unassigned`; delivery card and WhatsApp pickup reply carry the hold until the kitchen receipt |
 | 2b | Releases the order to riders (what `process_delivery()` does in production) | run it **after** 2 | dispatch offer on the dummy rider's WhatsApp |
 | 2c | Inspect reminder ledger and offer state (read only) | wait, decline, pause, or accept as described in the script | one live Telegram copy; steps f/g check that a plain decline preserves the schedule and cancellation starts a new dispatch round |
-| 3 | Shows state | rider accepts (rider chat) | **Kitchen receipt** with Ready / +10 / +20 on WhatsApp and Telegram |
-| 4 | Shows state | Ready on one channel, +10 on the other, Ready again | rider nudged **once**; copies redrawn; second Ready says already ready |
+| 3 | Shows state | rider accepts (rider chat) | **🍳 Please start preparing now / Rider found · ready for pickup at …**, with Ready / +10 / +20 on both channels |
+| 4 | Shows state | Ready on one channel, +10 on the other, Ready again | rider nudged **once**; +10 moves the start detail while open; Ready restores the Telegram receipt heading; second Ready says already ready |
 | 5 | Waits | wait | rider pickup alerts to the restaurant (Telegram replies to the receipt) |
 | 6 | Cancel + re-dispatch | rerun 2b to release the STRK order | old receipt "no longer on the job"; new receipt after the next rider accepts |
 | 7 | Picked up + complete | rider codes (or the two forcing statements) | "Delivered" notice; receipt becomes done |
-| 8 / 8b | Takeaway (`test_no_payment` / optional `pay_at_rest`) | accept + pickup, then Ready | takeaway receipt (8b: "Pay at restaurant" line); customer event once |
+| 8 / 8b | Takeaway (`test_no_payment` / optional `pay_at_rest`) | accept + pickup, then Ready | no hold; “🍳 Please start preparing now / Ready for collection at …” (8b: "Pay at restaurant" line); customer event once |
 | 9 | Delivery order older than the timeout, no rider job, never answered | wait for the sweep (10 s) | `SELECT * FROM restaurant_confirmation_policy('STRK')` first: `accept` → auto-accept notice, card "Auto-accepted"; `decline` → status `declined`, auto-declined notice to admins, card "Auto-declined (no answer in time)" |
-| 9b | Same, but already accepted by an admin with no pickup time | wait for the sweep | always auto-accepted (notice, card "Auto-accepted"), whatever the action key says |
+| 9b | Same, but already accepted by an admin with no pickup time | wait for the sweep | always auto-accepted (notice and card include the delivery hold), whatever the action key says |
 | 10 | Restaurant feedback | run the `curl` in the script | feedback notice, no reply target |
 
 The script's bottom section (**WATCH IT**) has ready-made queries for Ready bookkeeping, every Telegram copy
@@ -61,14 +61,17 @@ The script's bottom section (**WATCH IT**) has ready-made queries for Ready book
 
 ## WhatsApp regression pass (do after the Telegram pass)
 
-WhatsApp must look and behave exactly as before. Repeat the stages tapping **only on WhatsApp** and check:
+Repeat the stages tapping **only on WhatsApp**. The kitchen instructions are intentionally changed (ADR 0015); the action and payment rules remain:
 
 1. **Stage 1:** the confirmation prompt text and Accept / Decline buttons are unchanged.
-2. **Stage 2:** Accept, then a pickup-time button works; a second admin tapping afterwards is told who decided.
-3. **Stage 3:** the WhatsApp kitchen receipt text matches an older order's (compare with a screenshot): restaurant code, pickup, rider, items, notes, +10 / +20 / Ready buttons.
+2. **Stage 2:** Accept, then a pickup-time button works **within 15 seconds**, replying “Pickup time set to *…*.” and the delivery hold; a second admin tapping afterwards is told who decided.
+   Leave it longer than ~25 s and the default pickup time is applied instead ("auto-accepted due to confirmation timeout"), and a
+   late pickup tap is answered as already set. That is the 15-second pickup grace, also worth checking once on purpose.
+3. **Stage 3:** the WhatsApp kitchen receipt header is “🍳 Please start preparing now”, its body starts “Rider found · ready for pickup at …”, then the order number and retained restaurant code, rider, items, notes and +10 / +20 / Ready buttons. Check the Telegram phone notification preview separately; a rich heading test does not prove its preview.
 4. **Stage 4:** Ready on WhatsApp nudges the rider once and a repeat answers "Already marked ready by …"; +10 / +20 move the pickup and the rider is told; the Telegram copies follow within ~5 s.
-5. **Stages 5, 7, 9, 10 and 8:** each WhatsApp notice arrives with its usual wording (rider alerts, "Delivery completed for …", "Order … auto-accepted due to confirmation timeout. Pickup time set to …", the feedback message, the takeaway receipt).
-6. **Race:** Ready on both channels at the same moment: one nudge, one winner.
+5. **Stages 5, 7, 9, 10 and 8:** rider alerts, completion and feedback wording stay unchanged. Delivery auto-accept appends the hold; takeaway auto-accept does not. Takeaway receipts say “Please start preparing now / Ready for collection at …” and never hold.
+6. **No rider:** on a fresh accepted delivery, run 2b and let offers expire: restaurant admins on both channels get “❌ No rider found for … / The order is cancelled — please don't prepare it.” as a reply to the card where its message ID is available; overwatch still gets one alert and payment/customer events remain unchanged. Repeat for configured auto-accept.
+7. **Race:** Ready on both channels at the same moment: one nudge, one winner.
 
 Record the result per stage as: `boundary | action | observed | label | not verified` (labels: offline, isolated database, live Telegram, live WhatsApp).
 

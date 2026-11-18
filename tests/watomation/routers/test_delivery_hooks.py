@@ -14,7 +14,7 @@ Key Functions:
   - test_notify_food_ready_for_pickup_skips_once_food_is_picked_up
   - test_notify_food_ready_for_pickup_skips_when_progress_unknown
   - test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook
-  - test_delivery_timedout_skips_no_rider_admin_message_for_configured_auto_accept
+  - test_delivery_timedout_tells_admins_for_configured_auto_accept_too
   - test_check_rider_allocation_status_returns_summary_status
   - test_shift_and_admin_availability_hooks_schedule_background_processing
   - test_restaurant_confirmation_flow_routes_and_validates_payload
@@ -441,7 +441,7 @@ async def test_delivery_timedout_notifies_admins_and_schedules_non_test_webhook(
     result = await delivery_hooks.delivery_timedout(bg, payload={"delivery_summary": [_summary_row(order_number="ELAS-ABCD-1")]})
 
     assert result == {"status": "success"}
-    assert notices == []  # restaurant admins are not told; overwatch is
+    assert notices == [delivery_hooks.NoRiderFound("ELAS-ABCD-1", ["ADMIN01", "ADMIN02"], "ELAS")]
     assert len(overwatch) == 1 and "ELAS-ABCD-1" in overwatch[0] and "released" in overwatch[0]
     assert bg.tasks[0]["func"] == delivery_hooks.post_delivery_timedout
     assert bg.tasks[0]["kwargs"]["payment_cancelled"] is True
@@ -468,7 +468,40 @@ async def test_delivery_timedout_forwards_unconfirmed_cancellation(monkeypatch, 
     assert "release queued" in overwatch[0]
 
 
-async def test_delivery_timedout_skips_no_rider_admin_message_for_configured_auto_accept(
+async def test_delivery_timedout_admin_lookup_failure_still_notifies_and_schedules(monkeypatch):
+    async def cancel(order_number):
+        return "cancelled"
+
+    def fail(rest_ref):
+        raise RuntimeError("admin lookup failed")
+
+    monkeypatch.setattr(delivery_hooks, "cancel_payment", cancel)
+    monkeypatch.setattr(delivery_hooks.RestaurantMaster, "get_admins_for", fail)
+    notices, overwatch = _capture_rest_admin_alerts(monkeypatch), _capture_overwatch(monkeypatch)
+    bg = _FakeBackgroundTasks()
+    result = await delivery_hooks.delivery_timedout(bg, payload={"delivery_summary": [
+        _summary_row(order_number="ELAS-ABCD-1", restaurant_msg_id="wamid.card")]})
+    assert result == {"status": "success"}
+    assert notices == [delivery_hooks.NoRiderFound("ELAS-ABCD-1", [], "ELAS", "wamid.card")]
+    assert len(overwatch) == 1
+    assert [t["func"] for t in bg.tasks] == [delivery_hooks.post_delivery_timedout, delivery_hooks.dispatch_actions.close_open_offers]
+
+
+async def test_delivery_timedout_test_order_still_tells_admins(monkeypatch):
+    async def cancel(order_number):
+        return "skipped_test_order"
+
+    monkeypatch.setattr(delivery_hooks, "cancel_payment", cancel)
+    monkeypatch.setattr(delivery_hooks.RestaurantMaster, "get_admins_for", lambda _: ["A1"])
+    notices = _capture_rest_admin_alerts(monkeypatch)
+    _capture_overwatch(monkeypatch)
+    bg = _FakeBackgroundTasks()
+    await delivery_hooks.delivery_timedout(bg, payload={"delivery_summary": [_summary_row(order_number="STRK-TEST-1")]})
+    assert notices == [delivery_hooks.NoRiderFound("STRK-TEST-1", ["A1"], "STRK")]
+    assert [t["func"] for t in bg.tasks] == [delivery_hooks.dispatch_actions.close_open_offers]
+
+
+async def test_delivery_timedout_tells_admins_for_configured_auto_accept_too(
     monkeypatch, patch_async_wa_client: FakeAsyncWhatsApp
 ) -> None:
     async def _fake_cancel(order_number):
@@ -478,7 +511,7 @@ async def test_delivery_timedout_skips_no_rider_admin_message_for_configured_aut
     monkeypatch.setattr(
         delivery_hooks.RestaurantMaster,
         "get_admins_for",
-        classmethod(lambda cls, rest_ref: (_ for _ in ()).throw(AssertionError("must not load admins"))),
+        classmethod(lambda cls, rest_ref: ["ADMIN01"]),
     )
     bg = _FakeBackgroundTasks()
     overwatch = _capture_overwatch(monkeypatch)
@@ -493,7 +526,7 @@ async def test_delivery_timedout_skips_no_rider_admin_message_for_configured_aut
     )
 
     assert result == {"status": "success"}
-    assert patch_async_wa_client.sent == []
+    assert patch_async_wa_client.sent[-1].kwargs["text"].startswith("*❌ No rider found")
     assert len(overwatch) == 1  # overwatch is told for configured auto-accept orders too
     assert bg.tasks[0]["func"] == delivery_hooks.post_delivery_timedout
 

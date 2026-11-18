@@ -50,13 +50,14 @@ ADA = {"label": "Ada", "phone": "447700900001"}
 
 def test_open_delivery_has_everything_the_kitchen_needs():
     t = view().text
-    assert t.splitlines()[0] == "🧾 KITCHEN RECEIPT · 🚚 Delivery"
+    assert t.splitlines()[:4] == ["<b>🍳 Please start preparing now</b>",
+                                "Rider found · ready for pickup at 1:00 PM", "", "🧾 KITCHEN RECEIPT · 🚚 Delivery"]
     for part in ("<b>ELAS-CEKT-22</b>", "🔑 Restaurant code: <b>47</b>", "⏰ Pickup: <b>1:00 PM</b>", "🛵 Rider: Sam — RIDER01",
                  "<b>Items</b>", "• 2 × Chicken Shawarma — £17.00", "   ↳ extra garlic sauce", "• 1 × Fries — £3.50",
                  "Small order fee: £1.00", "<b>Total: £21.50</b>", "📝 <b>Notes</b>", "<i>Please ring the bell twice</i>",
                  "🏠 Customer: 1 Test Street — 4474"):
         assert part in t, part
-    assert t.splitlines()[2].startswith("🔑")  # no status line in the head until something happened
+    assert t.splitlines()[5].startswith("🔑")  # no status line in the head until something happened
 
 
 def test_open_delivery_buttons_are_ready_then_plus_ten_and_twenty():
@@ -130,6 +131,33 @@ def test_huge_order_is_cut_with_a_marker_and_always_fits():
 
 def test_a_small_order_is_never_cut():
     assert "more items" not in view().text
+
+
+@pytest.mark.parametrize("order_type,detail", [
+    ("delivery", "Rider found · ready for pickup at 1:00 PM"),
+    ("takeaway", "Ready for collection at 1:00 PM"),
+])
+def test_open_receipt_leads_with_start_in_html_and_rich(order_type, detail):
+    v = view(order_type=order_type)
+    assert v.text.startswith(f"<b>🍳 Please start preparing now</b>\n{detail}\n")
+    head = rich_blocks(v)[0]
+    assert head["type"] == "heading" and head["text"] == "🍳 Please start preparing now" and head["size"] == 2
+    assert rich_text(v.rich).splitlines()[1] == detail
+
+
+@pytest.mark.parametrize("status", ["ready@13:00", "picked_up", "done", "rider_cancelled"])
+@pytest.mark.parametrize("order_type", ["delivery", "takeaway"])
+def test_after_open_the_old_receipt_heading_returns(status, order_type):
+    v = view(status, order_type=order_type)
+    assert "Please start preparing now" not in v.text + rich_text(v.rich)
+    assert v.text.startswith("🧾 KITCHEN RECEIPT")
+    assert rich_blocks(v)[0]["size"] == 3
+
+
+def test_start_detail_uses_current_adjusted_pickup_time():
+    v = view("open@13:10", pickup_at="2026-10-15T12:10:00Z", pickup_initial="2026-10-15T12:00:00Z")
+    assert v.text.splitlines()[1] == "Rider found · ready for pickup at 1:10 PM"
+    assert rich_text(v.rich).splitlines()[1] == v.text.splitlines()[1]
 
 
 def test_missing_values_show_a_dash_not_a_crash():
@@ -367,4 +395,4 @@ def test_a_failure_building_the_rich_form_leaves_the_html_form_working(monkeypat
 
     monkeypatch.setattr(Receipt, "_rich", boom)
     v = view()
-    assert v.rich is None and v.text.startswith("🧾 KITCHEN RECEIPT") and buttons(v)
+    assert v.rich is None and v.text.startswith("<b>🍳 Please start preparing now</b>") and buttons(v)
