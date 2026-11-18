@@ -413,3 +413,7 @@ A restaurant admin cannot pause alerts if no other admin of that restaurant woul
 **Cancel confirmation**: Before pickup, a rider must tap a channel button before cancellation; the callback carries a token and is marked as a trusted tap in the agent input.
 
 **Post-pickup refusal**: The agent refuses rider requests to cancel or close after pickup and alerts overwatch for each attempt. Database concurrency still needs a lock to guarantee this during simultaneous pickup and cancellation.
+
+## Order recovery (ADR 0016)
+
+**Order lookup / find** searches recent web orders by lookup postcode + restaurant without an order number. **Lookup postcode** is web_order_request.lookup_postcode: the locked delivery postcode or optional collection postcode, never customer_master. **House key** is web_house_key(): lowercase alphanumeric house number or name, excluding flat alone. **Unlock** proves this for one found delivery order and issues a recovered grant. **Detail level** is full (original grants; code allowed), recovered (house proof; no code), or status_only (find; no private order details). See docs/adr/0016-orders-are-found-by-postcode-and-unlocked-by-house.md.

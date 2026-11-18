@@ -5203,6 +5203,23 @@
    "title": "TEST3100 order routing (order_has_test_item, dispatch restriction) and removal of an earlier version."
   },
   {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
+   "lines": 16,
+   "migration": {
+    "applied": "pending owner application.",
+    "current": [
+     "ordering/web_order_request.sql"
+    ],
+    "purpose": "recover lookup postcodes from locked historical delivery snapshots."
+   },
+   "objects": [],
+   "path": "migrations/web_order_lookup_backfill.sql",
+   "role": "migration",
+   "title": "recover lookup postcodes from locked historical delivery snapshots."
+  },
+  {
    "called_by": {
     "notification_outbox": [
      {
@@ -5579,8 +5596,8 @@
    },
    "cron": [],
    "folder": "ordering",
-   "header_lines": 30,
-   "lines": 61,
+   "header_lines": 33,
+   "lines": 70,
    "objects": [
     {
      "description": "Hash-only secret for an order-tracking link; verified on every page view (utils_common/web_ordering/order_access.py).",
@@ -5611,12 +5628,12 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "order_access_grant:\n  python    utils_common/web_ordering/order_access.py: issue(), issue_for_whatsapp(), verify()",
-    "GOTCHAS": "kind 'wa_handoff' is allowed by the schema but current code only issues 'page_token'.\nCaptured from live on 2026-10-16; first created by migrations/ordelo_agg_r3.sql (history).",
+    "CALLED BY": "order_access_grant:\n utils_common/web_ordering/lifecycle.py: sweep() prunes expired status-only grants.\n utils_common/web_ordering/order_lookup.py; ordering/web_order_lookup.sql.\n  python    utils_common/web_ordering/order_access.py: issue(), issue_for_whatsapp(), verify()",
+    "GOTCHAS": "kind 'wa_handoff' is allowed by the schema but current code only issues 'page_token'.\n New CHECK is NOT VALID for historical rows. Levels: full/recovered/status_only.\nCaptured from live on 2026-10-16; first created by migrations/ordelo_agg_r3.sql (history).",
     "HOW IT FITS": "Web checkout (restaurant-frontend -> OrdeloAgent /web routes, utils_common/web_ordering/*):\n  start   -> thread (agent 'WEB') + web_session_meta (the editable checkout draft, 2 h)\n  create  -> web_order_request (idempotency: same key + body returns the same order) -> food_order\n  page    -> order_access_grant (hash of the secret in the order-tracking link)\n  payment -> payment_event; a cancelled/late payment is retried through web_payment_release\n  limits  -> web_rate_limit (hourly session-create counter); daily audit -> web_monitor_run\n  All six tables are server-only (RLS on, anon/authenticated revoked) and reached with client_ordelo_service.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "see docs/web-ordering-playground.md (Tables section) for who writes and reads each column.",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
+    "LIVE CHECK": "Base captured 2026-10-16; lookup changes prepared 2026-11-17, pending owner application.",
     "OBJECTS": "table  order_access_grant\n    Hash-only secret for an order-tracking link; verified on every page view (utils_common/web_ordering/order_access.py).",
     "PYTHON MODEL": "none",
     "REQUIRES": "restaurant-agents: food_order",
@@ -5772,6 +5789,76 @@
    "title": "One row per day: the daily web price/order audit claim, completion and flagged orders."
   },
   {
+   "called_by": {},
+   "cron": [],
+   "folder": "ordering",
+   "header_lines": 19,
+   "lines": 107,
+   "objects": [
+    {
+     "description": "",
+     "kind": "function",
+     "name": "web_house_key",
+     "signature": "web_house_key(text): normalise house number/name."
+    },
+    {
+     "description": "",
+     "kind": "function",
+     "name": "web_order_lookup",
+     "signature": "web_order_lookup(text,text,int,int): recent matching web orders."
+    },
+    {
+     "description": "",
+     "kind": "function",
+     "name": "web_order_unlock",
+     "signature": "web_order_unlock(text,text,text,bytea,int): check and issue recovered grant."
+    }
+   ],
+   "path": "ordering/web_order_lookup.sql",
+   "path_line": "ordelo_datamodels/ordering/web_order_lookup.sql",
+   "requires": [
+    "ordering/web_order_request.sql; ordering/order_access_grant.sql; external food_order."
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "utils_common/web_ordering/order_lookup.py: find(), unlock().",
+    "GOTCHAS": "Flat alone is not a house key; no handover code in recovered views.",
+    "HOW IT FITS": "Postcode find opens status only; house proof opens recovered details.",
+    "HOW TO RUN": "Owner applies in SQL editor after dependencies; idempotent.",
+    "LIFECYCLE": "Find covers seven days; recovered grants expire 30 days after order.",
+    "LIVE CHECK": "Pending owner application; prepared 2026-11-17.",
+    "OBJECTS": "fn web_house_key(text): normalise house number/name.\nfn web_order_lookup(text,text,int,int): recent matching web orders.\nfn web_order_unlock(text,text,text,bytea,int): check and issue recovered grant.",
+    "PYTHON MODEL": "none",
+    "REQUIRES": "ordering/web_order_request.sql; ordering/order_access_grant.sql; external food_order.",
+    "SECURITY": "Backend psycopg only; revoked from public browser roles.",
+    "SEE ALSO": "docs/adr/0016-orders-are-found-by-postcode-and-unlocked-by-house.md",
+    "SIDE EFFECTS": "Unlock inserts a hash-only order access grant.",
+    "TESTS": "tests/sql/test_web_order_lookup_sql.py"
+   },
+   "see_also": [
+    "docs/adr/0016-orders-are-found-by-postcode-and-unlocked-by-house.md"
+   ],
+   "tests": [
+    "tests/sql/test_web_order_lookup_sql.py"
+   ],
+   "title": "Find web orders by postcode and unlock by house."
+  },
+  {
    "called_by": {
     "web_order_request": [
      {
@@ -5790,11 +5877,11 @@
    },
    "cron": [],
    "folder": "ordering",
-   "header_lines": 33,
-   "lines": 62,
+   "header_lines": 36,
+   "lines": 80,
    "objects": [
     {
-     "description": "One row per web create-order idempotency key: the same key and body return the same order, a different body is rejected.",
+     "description": "lookup_postcode: locked delivery or optional collection lookup postcode. One row per web create-order idempotency key: the same key and body return the same order, a different body is rejected.",
      "kind": "table",
      "name": "web_order_request",
      "signature": "web_order_request"
@@ -5823,13 +5910,13 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "web_order_request:\n  python    ordelo/agents/rider_agent.py: _web_pin_warning()\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    utils_common/web_ordering/web_checkout.py: create()",
-    "GOTCHAS": "Captured from live on 2026-10-16; first created by migrations/ordelo_agg_r3.sql (history).",
+    "CALLED BY": "web_order_request:\n utils_common/web_ordering/order_lookup.py; ordering/web_order_lookup.sql.\n  python    ordelo/agents/rider_agent.py: _web_pin_warning()\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    utils_common/web_ordering/web_checkout.py: create()",
+    "GOTCHAS": "Captured from live on 2026-10-16; first created by migrations/ordelo_agg_r3.sql (history).\n lookup_postcode CHECK is NOT VALID for historical rows; canonical postcode only.",
     "HOW IT FITS": "Web checkout (restaurant-frontend -> OrdeloAgent /web routes, utils_common/web_ordering/*):\n  start   -> thread (agent 'WEB') + web_session_meta (the editable checkout draft, 2 h)\n  create  -> web_order_request (idempotency: same key + body returns the same order) -> food_order\n  page    -> order_access_grant (hash of the secret in the order-tracking link)\n  payment -> payment_event; a cancelled/late payment is retried through web_payment_release\n  limits  -> web_rate_limit (hourly session-create counter); daily audit -> web_monitor_run\n  All six tables are server-only (RLS on, anon/authenticated revoked) and reached with client_ordelo_service.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "see docs/web-ordering-playground.md (Tables section) for who writes and reads each column.",
-    "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
-    "OBJECTS": "table  web_order_request\n    One row per web create-order idempotency key: the same key and body return the same order, a different body is rejected.",
+    "LIVE CHECK": "Base captured 2026-10-16; lookup changes prepared 2026-11-17, pending owner application.",
+    "OBJECTS": "table  web_order_request\n    lookup_postcode: locked delivery or optional collection lookup postcode.\n    One row per web create-order idempotency key: the same key and body return the same order, a different body is rejected.",
     "PYTHON MODEL": "none",
     "REQUIRES": "restaurant-agents: food_order\nrestaurant-agents: thread",
     "SECURITY": "web_order_request: RLS ON; service role only (anon/authenticated revoked)",
@@ -11205,7 +11292,7 @@
    "file": "ordering/order_access_grant.sql",
    "folder": "ordering",
    "kind": "table",
-   "line": 36,
+   "line": 39,
    "role": "definition",
    "signature": "order_access_grant"
   },
@@ -13440,6 +13527,16 @@
    "role": "definition",
    "signature": "waba_es"
   },
+  "web_house_key": {
+   "called_by": [],
+   "description": "",
+   "file": "ordering/web_order_lookup.sql",
+   "folder": "ordering",
+   "kind": "function",
+   "line": 22,
+   "role": "definition",
+   "signature": "web_house_key(text): normalise house number/name."
+  },
   "web_monitor_run": {
    "called_by": [
     {
@@ -13454,6 +13551,16 @@
    "line": 35,
    "role": "definition",
    "signature": "web_monitor_run"
+  },
+  "web_order_lookup": {
+   "called_by": [],
+   "description": "",
+   "file": "ordering/web_order_lookup.sql",
+   "folder": "ordering",
+   "kind": "function",
+   "line": 32,
+   "role": "definition",
+   "signature": "web_order_lookup(text,text,int,int): recent matching web orders."
   },
   "web_order_request": {
    "called_by": [
@@ -13470,13 +13577,23 @@
      "via": "python"
     }
    ],
-   "description": "One row per web create-order idempotency key: the same key and body return the same order, a different body is rejected.",
+   "description": "lookup_postcode: locked delivery or optional collection lookup postcode. One row per web create-order idempotency key: the same key and body return the same order, a different body is rejected.",
    "file": "ordering/web_order_request.sql",
    "folder": "ordering",
    "kind": "table",
-   "line": 39,
+   "line": 42,
    "role": "definition",
    "signature": "web_order_request"
+  },
+  "web_order_unlock": {
+   "called_by": [],
+   "description": "",
+   "file": "ordering/web_order_lookup.sql",
+   "folder": "ordering",
+   "kind": "function",
+   "line": 64,
+   "role": "definition",
+   "signature": "web_order_unlock(text,text,text,bytea,int): check and issue recovered grant."
   },
   "web_payment_release": {
    "called_by": [

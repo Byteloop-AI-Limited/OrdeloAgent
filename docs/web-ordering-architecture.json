@@ -42,7 +42,7 @@
       "id": "web",
       "type": "backend",
       "label": "Ordelo /web/*",
-      "sublabel": "Session, address, order, access",
+      "sublabel": "Checkout, find/unlock, order access",
       "pos": [
         440,
         240
@@ -56,7 +56,7 @@
       "id": "postgres",
       "type": "database",
       "label": "Postgres",
-      "sublabel": "Orders, events, grants, requests",
+      "sublabel": "Orders, postcode and access grants",
       "pos": [
         40,
         240
@@ -127,7 +127,7 @@
       "id": "persist",
       "from": "web",
       "to": "postgres",
-      "label": "SQL transactions"
+      "label": "SQL: find / unlock / grant"
     },
     {
       "id": "pay",

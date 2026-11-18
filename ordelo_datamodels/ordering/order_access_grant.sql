@@ -2,7 +2,7 @@
 -- ordelo_datamodels/ordering/order_access_grant.sql
 -- Hashed secrets behind order-tracking links (page tokens), with detail level and expiry.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- LIVE CHECK    Base captured 2026-10-16; lookup changes prepared 2026-11-17, pending owner application.
 -- OBJECTS       table  order_access_grant
 --                   Hash-only secret for an order-tracking link; verified on every page view (utils_common/web_ordering/order_access.py).
 -- REQUIRES      restaurant-agents: food_order
@@ -18,11 +18,14 @@
 --                 All six tables are server-only (RLS on, anon/authenticated revoked) and reached with client_ordelo_service.
 -- LIFECYCLE     see docs/web-ordering-playground.md (Tables section) for who writes and reads each column.
 -- CALLED BY     order_access_grant:
+--                utils_common/web_ordering/lifecycle.py: sweep() prunes expired status-only grants.
+--                utils_common/web_ordering/order_lookup.py; ordering/web_order_lookup.sql.
 --                 python    utils_common/web_ordering/order_access.py: issue(), issue_for_whatsapp(), verify()
 -- PYTHON MODEL  none
 -- SECURITY      order_access_grant: RLS ON; service role only (anon/authenticated revoked)
 -- TESTS         none
 -- GOTCHAS       kind 'wa_handoff' is allowed by the schema but current code only issues 'page_token'.
+--                New CHECK is NOT VALID for historical rows. Levels: full/recovered/status_only.
 --               Captured from live on 2026-10-16; first created by migrations/ordelo_agg_r3.sql (history).
 -- SEE ALSO      docs/web-ordering-playground.md
 --               docs/web-ordering-architecture.html
@@ -58,3 +61,9 @@ REVOKE ALL ON TABLE public.order_access_grant FROM anon, authenticated;
 -- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
 -- ---------------------------------------------------------------------------------------------
 COMMENT ON TABLE public.order_access_grant IS 'Hash-only secret for an order-tracking link; verified on every page view (utils_common/web_ordering/order_access.py).';
+
+ALTER TABLE public.order_access_grant
+    DROP CONSTRAINT IF EXISTS order_access_grant_detail_level_check;
+
+ALTER TABLE public.order_access_grant
+    ADD CONSTRAINT order_access_grant_detail_level_check CHECK (detail_level IN ('full', 'recovered', 'status_only')) NOT VALID;

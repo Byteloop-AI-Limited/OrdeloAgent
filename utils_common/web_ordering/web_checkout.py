@@ -74,6 +74,7 @@ class OrderInput(BaseModel):
     rest_ref: str = Field(min_length=4, max_length=4)
     order_items: list[Item] = Field(min_length=1, max_length=MAX_ORDER_LINES)
     notes: str | None = Field(default=None, max_length=500)
+    lookup_postcode: str | None = Field(default=None, max_length=10)
     client_estimate: dict[str, float | None] = Field(default_factory=dict)
 
     @model_validator(mode="before")
@@ -279,6 +280,8 @@ def fingerprint(req, address_snapshot):
     is detected. Reject non-finite JSON values rather than hashing them.
     """
     data = req.model_dump(mode="json") | {"address": address_snapshot}
+    if data.get("lookup_postcode") is None:
+        data.pop("lookup_postcode", None)
     return hashlib.sha256(
         json.dumps(
             data, sort_keys=True, separators=(",", ":"), allow_nan=False
@@ -295,6 +298,8 @@ def fingerprint_matches(stored_hash, req, address_snapshot):
     if stored_hash == fingerprint(req, address_snapshot):
         return True
     data = req.model_dump(mode="json") | {"address": address_snapshot}
+    if data.get("lookup_postcode") is None:
+        data.pop("lookup_postcode", None)
     for old_value in (False, True):
         legacy = data | {"test_payment": old_value}
         candidate = hashlib.sha256(json.dumps(
@@ -321,6 +326,9 @@ async def create(req, key):
     Issue a fresh order-access token even when returning a cached quote.
     """
     co = await session(req.thread_id, req.cust_id)
+    lookup = co.get("postcode") if co["mode"] == "delivery" else normalise_postcode(req.lookup_postcode)
+    if co["mode"] == "collection" and req.lookup_postcode and not lookup:
+        raise WebError("invalid_postcode", 400)
     if co["rest_ref"] != req.rest_ref:
         raise WebError("invalid_request")
     # Recheck pause even when retrying. Reading/tracking does not use this switch.
@@ -440,8 +448,8 @@ async def create(req, key):
                     ),
                 )
                 await cur.execute(
-                    "INSERT INTO web_order_request(idempotency_key,thread_id,body_hash,order_number,address) VALUES (%s,%s,%s,%s,%s)",
-                    (key, req.thread_id, body_hash, order_number, Jsonb(addr)),
+                    "INSERT INTO web_order_request(idempotency_key,thread_id,body_hash,order_number,address,lookup_postcode) VALUES (%s,%s,%s,%s,%s,%s)",
+                    (key, req.thread_id, body_hash, order_number, Jsonb(addr), lookup),
                 )
                 attempt = {"order_number": order_number, "quote": None}
         # The order is now durable. Failed/ambiguous external calls never cause

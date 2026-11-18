@@ -1,6 +1,8 @@
 ## ordelo-agg
 
 ### Go live
+1. The door flat/house number/ should be mandatory in the checkout page
+
 Update the telegram msg to say - Do not prepare just yet, wait for the kitchen receipt (this is for telegram)
 If the restaurant accepted, but the pickup time was not set, then do not wait the ful length.
 

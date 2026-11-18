@@ -5,14 +5,14 @@
 
 The SQL under `ordelo_datamodels/` is organised by capability. Each file starts with a fixed header (live check, objects, how to run, side effects, how it fits, lifecycle, callers, Python model, security, tests, gotchas, see also). The file is the authority; this guide only indexes it.
 
-**129 SQL files · 223 objects** 146 functions · 58 tables · 13 triggers · 6 views · 17 cron jobs
+**131 SQL files · 226 objects** 149 functions · 58 tables · 13 triggers · 6 views · 17 cron jobs
 
 ## Capability map
 
 | Folder | Capability | Files | Objects | What it covers |
 |---|---|---:|---:|---|
 | [`core/`](core/) | Core master data | 9 | 18 | Restaurants, customers, riders, menus and the key/value runtime configuration (ordelo_config) that every other area reads. |
-| [`ordering/`](ordering/) | Ordering and web checkout | 9 | 12 | Creating an order and its items in one transaction, the columns OrdeloAgent adds to restaurant-agents' food_order, and the web checkout tables (session draft, idempotency, page tokens, rate limit, payment release, daily audit). |
+| [`ordering/`](ordering/) | Ordering and web checkout | 10 | 15 | Creating an order and its items in one transaction, the columns OrdeloAgent adds to restaurant-agents' food_order, and the web checkout tables (session draft, idempotency, page tokens, rate limit, payment release, daily audit). |
 | [`payment/`](payment/) | Payment | 3 | 3 | The payment inbox (payment_event), the at-most-once authorisation step and the alert-only reconciler for paid orders that never started fulfilment. |
 | [`notifications/`](notifications/) | Customer notifications | 3 | 3 | Who hears about an order (subscriptions), what happened (customer events) and one delivery record per event and subscription (outbox). |
 | [`delivery/`](delivery/) | Delivery orders | 6 | 12 | The delivery order as fulfilment sees it (delivery_summary), its priced vehicle options and the 5-second job that opens the next option or times the order out. |
@@ -28,7 +28,7 @@ The SQL under `ordelo_datamodels/` is organised by capability. Each file starts 
 | [`byteloop_agent/`](byteloop_agent/) | Byteloop agent | 2 | 4 | Tables and vector search used by the separate Byteloop agent. |
 | [`test_support/`](test_support/) | Test support | 12 | 4 | Helpers and harness scripts for resetting and replaying orders. Not part of production flows. |
 | [`_orphans/`](_orphans/) | Orphan candidates | 10 | 25 | Live objects with no caller found in OrdeloAgent, restaurant-frontend or restaurant-agents. Captured exactly as live; keep or drop is an owner decision (docs/to-do.md). |
-| [`migrations/`](migrations/) | Migrations (history) | 22 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
+| [`migrations/`](migrations/) | Migrations (history) | 23 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
 
 ## Flows
 
@@ -163,7 +163,10 @@ Admin dashboard reads and platform helpers.
 | [`order_access_grant.sql`](ordering/order_access_grant.sql) | `order_access_grant` | table | Hash-only secret for an order-tracking link; verified on every page view (utils_common/web_ordering/order_access.py). |
 | [`order_has_test_item.sql`](ordering/order_has_test_item.sql) | `order_has_test_item` | function | Return whether the order has a 'TEST3100' line; NULL means the order does not exist. |
 | [`web_monitor_run.sql`](ordering/web_monitor_run.sql) | `web_monitor_run` | table | Daily audit ledger: the first worker to claim run_day runs the audit; alert_orders lists what it flagged. |
-| [`web_order_request.sql`](ordering/web_order_request.sql) | `web_order_request` | table | One row per web create-order idempotency key: the same key and body return the same order, a different body is rejected. |
+| [`web_order_lookup.sql`](ordering/web_order_lookup.sql) | `web_house_key` | function |  |
+| [`web_order_lookup.sql`](ordering/web_order_lookup.sql) | `web_order_lookup` | function |  |
+| [`web_order_lookup.sql`](ordering/web_order_lookup.sql) | `web_order_unlock` | function |  |
+| [`web_order_request.sql`](ordering/web_order_request.sql) | `web_order_request` | table | lookup_postcode: locked delivery or optional collection lookup postcode. One row per web create-order idempotency key: the same key and body return the same order, a different body is rejected. |
 | [`web_payment_release.sql`](ordering/web_payment_release.sql) | `web_payment_release` | table | One row per order whose held payment must be released; attempts and next_attempt_at drive the retry loop. |
 | [`web_rate_limit.sql`](ordering/web_rate_limit.sql) | `web_rate_limit` | table | Rate-limit counter: attempts per (identity_hash, window_start); the router increments, lifecycle prunes old windows. |
 | [`web_session_meta.sql`](ordering/web_session_meta.sql) | `web_session_meta` | table | One row per web checkout session, keyed by its thread_id; holds the editable checkout draft until the order is created. |
@@ -478,6 +481,7 @@ Admin dashboard reads and platform helpers.
 | [`migrations/rider_telegram_r2_r4.sql`](migrations/rider_telegram_r2_r4.sql) | Applied by the owner on 2026-10-22 (steps 0-4, VERIFY 3/1/6/0); code deployed and a rider job tested live on Telegram and WhatsApp. | dispatch/delivery_dispatch.sql, agent_threads/rider_threads.sql |
 | [`migrations/rider_telegram_r5_r6.sql`](migrations/rider_telegram_r5_r6.sql) | Steps 1-3 verified on 2026-10-22 (VERIFY true / 7 / true / true / 4 / 0 after the owner applied restaurant_ready_adjust_notices.sql). Code and both command menus deployed per owner. Step 6 done: job_pause_sweep is scheduled (owner, 2026-10-23); live tests and drift_check passed. | rider_location/wa_location.sql, availability/pauses.sql, availability/rider_shift.sql,, dispatch/enquire_shift_availability.sql, telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql,, telegram/t_admin_pauses.sql, availability/job_pause_sweep.sql |
 | [`migrations/test3100_order_routing.sql`](migrations/test3100_order_routing.sql) | Applied: every object it creates exists live (checked 2026-10-16). | dispatch/job_create_dispatch.sql, ordering/create_food_order_with_items.sql, ordering/order_has_test_item.sql |
+| [`migrations/web_order_lookup_backfill.sql`](migrations/web_order_lookup_backfill.sql) | pending owner application. | ordering/web_order_request.sql |
 
 ## Cron jobs
 
