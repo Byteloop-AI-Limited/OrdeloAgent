@@ -160,7 +160,7 @@ All three former "Not verified yet" items are done:
 | D3 | Web customers opt into WhatsApp updates on a **new Ordelo-branded customer WABA number**. | This is separate from the Ordelo rider/admin number and from the per-restaurant numbers. |
 | D4 | `ordelo-agg-agent` is a **new app in restaurant-agents** (e.g. `apps/ordelo_agg`). | It reuses Thread, GraphAdapter and WABA-namespace isolation. Ordelo stays the order authority. |
 | D5 | **No OTP.** Stripe Checkout is the only gate. | — |
-| D6 | Order access uses a **secret link + HttpOnly cookie**, with **order number + phone** as a status-only fallback. | §16. **Fallback affected by D24:** no phone is collected, so the order-number + phone lookup has nothing to check (Q14). |
+| D6 | **Superseded by [ADR 0016](../docs/adr/0016-orders-are-found-by-postcode-and-unlocked-by-house.md) for recovery (also resolves Q14).** Order access uses a **secret link + HttpOnly cookie**, with **order number + phone** as a status-only fallback. | §16. **Fallback affected by D24:** no phone is collected, so the order-number + phone lookup has nothing to check (Q14). |
 | D7 | A **postcode gate on landing** (with a "collecting instead?" path to the town). | §8 |
 | D8 | **Prices, discounts, collection thresholds and vouchers stay exactly as today** (client-computed, `config/restaurants.ts`). `*_menu` prices are authoritative, but moving pricing to the server is **later** (R5). | Accepted risk, recorded in §3 and §11. |
 | D9 | Web checkout creates a **real `thread` row** (namespaced, recipient NULL) and links it to a later WhatsApp thread rather than re-keying it. | §4 |

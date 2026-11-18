@@ -25,6 +25,7 @@ def test_old_hash_recognises_same_input_but_rejects_changed_basket_and_address(o
     req=request()
     address={"postcode":"SP1 1AA"}
     data=req.model_dump(mode="json") | {"address":address,"test_payment":old_value}
+    data.pop("lookup_postcode", None)  # This field did not exist in the historical client.
     old_hash=hashlib.sha256(json.dumps(data,sort_keys=True,separators=(",",":"),allow_nan=False).encode()).hexdigest()
     assert checkout.fingerprint_matches(old_hash,req,address)
     changed=req.model_copy(deep=True)

@@ -1,4 +1,6 @@
-"""Hash-only, expiring guest order grants. An order number grants no access.
+"""Hash-only, expiring guest order grants (full, recovered, status_only).
+
+issue_status_only() batches one-hour grants; only full permits handover-code disclosure. An order number grants no access.
 
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
   . food_order (table, restaurant-agents): reads (SQL)
@@ -90,3 +92,20 @@ async def verify(token, order_number=None):
     if order_number and row["order_number"] != order_number:
         raise WebError("forbidden", 403)
     return row
+
+
+async def issue_status_only(order_numbers, ttl):
+    """Insert a batch of hash-only status grants, capped by each web order's expiry."""
+    tokens = {n: secrets.token_urlsafe(32) for n in order_numbers}
+    if not tokens:
+        return {}
+    rows = await query(
+        """INSERT INTO order_access_grant(order_number,kind,secret_hash,detail_level,expires_at)
+        SELECT f.order_number,'page_token',t.secret_hash,'status_only',
+               least(now()+%s, f.order_dtts+interval '30 days')
+        FROM unnest(%s::text[],%s::bytea[]) AS t(order_number,secret_hash)
+        JOIN food_order f ON f.order_number=t.order_number AND f.origin_channel='web'
+        RETURNING order_number""",
+        (ttl, list(tokens), [digest(t) for t in tokens.values()]),
+    )
+    return {r["order_number"]: tokens[r["order_number"]] for r in rows}

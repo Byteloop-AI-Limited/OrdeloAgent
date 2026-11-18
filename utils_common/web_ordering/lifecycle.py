@@ -10,6 +10,7 @@ Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamod
   . payment_event (table, ordelo_datamodels/payment/payment_event.sql): writes (SQL)
   . thread (table, restaurant-agents): writes (SQL)
   . web_payment_release (table, ordelo_datamodels/ordering/web_payment_release.sql): reads (SQL), writes (SQL)
+  . order_access_grant (table, ordelo_datamodels/ordering/order_access_grant.sql): writes (SQL)
   . web_rate_limit (table, ordelo_datamodels/ordering/web_rate_limit.sql): reads (SQL)
   . web_session_meta (table, ordelo_datamodels/ordering/web_session_meta.sql): reads (SQL)
 (end of database objects)
@@ -116,11 +117,12 @@ async def sweep():
 
     Claim due jobs with SKIP LOCKED and a one-minute next-attempt lease, then
     perform cancellation I/O outside the transaction. Interrupted claims become
-    due again. Does not delete orders, grants or session metadata.
+    due again. Prunes status-only grants expired for a day; retains orders and session metadata.
     """
     await query("""UPDATE thread SET is_active=false WHERE agent='WEB' AND is_active AND thread_id IN
         (SELECT thread_id FROM web_session_meta WHERE expires_at<now())""")
     await query("DELETE FROM web_rate_limit WHERE window_start<now()-interval '2 days'")
+    await query("DELETE FROM order_access_grant WHERE detail_level='status_only' AND expires_at<now()-interval '1 day'")
     # Claim before I/O; an interrupted attempt becomes eligible again after 1m.
     jobs = await query("""UPDATE web_payment_release SET attempts=attempts+1,next_attempt_at=now()+interval '1 minute',updated_at=now()
         WHERE order_number IN (SELECT order_number FROM web_payment_release WHERE completed_at IS NULL AND next_attempt_at<=now()

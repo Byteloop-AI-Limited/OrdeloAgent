@@ -325,7 +325,7 @@ def _confirmation_view_fakes(monkeypatch, summary, policy):
 
     event = {"id": 1, "event_type": "payment_authorised", "occurred_at": NOW, "data": {}}
     monkeypatch.setattr(customer_order_view, "one", one)
-    monkeypatch.setattr(customer_order_view, "query", AsyncMock(return_value=[event]))
+    monkeypatch.setattr(customer_order_view, "query", AsyncMock(side_effect=lambda sql, params=(): [] if "order_item" in sql else [event]))
 
 
 @pytest.mark.parametrize("detail", ["full", "status_only"])
@@ -1032,3 +1032,40 @@ async def test_web_view_still_has_no_whatsapp_support(monkeypatch):
     assert view["origin_channel"] == "web"
     assert view["support"]["whatsapp_available"] is False
     assert "whatsapp_url" not in view["support"]
+
+
+@pytest.mark.parametrize('detail,has_details,has_code', [('full', True, True), ('recovered', True, False), ('status_only', False, False)])
+async def test_lookup_detail_levels_are_redacted_server_side(monkeypatch, detail, has_details, has_code):
+    async def one(sql, params=()):
+        if 'FROM food_order' in sql:
+            return FOOD | {'payment_status': 'authorised', 'origin_channel': 'web', 'order_number': 'ELAS-ABCD-1', 'order_id': '1', 'total_price': 10}
+        if 'FROM restaurant_master' in sql:
+            return {'rest_name': 'Elai'}
+        if 'FROM delivery_summary' in sql:
+            return {'status': 'assigned', 'restaurant_confirmation_status': 'restaurant_accept', 'customer_address': 'private', 'cust_confirmation_code': 22}
+        if 'FROM delivery_dispatch' in sql:
+            return {'status': 'assigned', 'rider_id': 'R1'}
+        if 'FROM rider_master' in sql:
+            return {'rider_name': 'Alex Private'}
+        if 'FROM web_order_request' in sql:
+            return {'address': {'instructions': 'private'}}
+        return None
+
+    async def query(sql, params=()):
+        return [{'product_name': 'Meal', 'quantity': 1, 'price': 10}] if 'order_item' in sql else []
+
+    monkeypatch.setattr(customer_order_view, 'one', one)
+    monkeypatch.setattr(customer_order_view, 'query', query)
+    view = await customer_order_view.get_view('ELAS-ABCD-1', detail)
+    assert view['display_status'] == 'rider_assigned'
+    assert ('items' in view) is has_details
+    assert ('charges' in view) is has_details
+    assert ('delivery' in view) is has_details
+    assert ('customer_code' in view.get('delivery', {})) is has_code
+    if has_details:
+        assert view['delivery']['rider_first_name'] == 'Alex'
+
+
+async def test_unknown_detail_level_rejected():
+    with pytest.raises(ValueError):
+        await customer_order_view.get_view('ELAS-ABCD-1', 'other')
