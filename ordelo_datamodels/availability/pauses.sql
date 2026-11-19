@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS public.pauses (
     end_reason text, -- expired | resumed | operator
     reminded_at timestamp with time zone, -- "ends soon" message sent (cleared when the end time moves)
     announced_at timestamp with time zone, -- "you're back on" sent, or not needed (resumed by the person)
-    created_via text NOT NULL, -- telegram | whatsapp | operator
+    created_via text NOT NULL, -- telegram | whatsapp | operator | dashboard (restaurant dashboard, My alerts)
     created_by text, -- Telegram user id or operator name, for audit
     CONSTRAINT pauses_pkey PRIMARY KEY (pause_id),
     CONSTRAINT pauses_audience_check CHECK ((audience = ANY (ARRAY['rider'::text, 'rest_admin'::text]))),
@@ -118,8 +118,14 @@ CREATE TABLE IF NOT EXISTS public.pauses (
     CONSTRAINT pauses_ends_after_start CHECK ((ends_at > starts_at)),
     CONSTRAINT pauses_end_reason_check CHECK (((end_reason IS NULL) OR (end_reason = ANY (ARRAY['expired'::text, 'resumed'::text, 'operator'::text])))),
     CONSTRAINT pauses_closed_has_reason CHECK (((ended_at IS NULL) = (end_reason IS NULL))),
-    CONSTRAINT pauses_created_via_check CHECK ((created_via = ANY (ARRAY['telegram'::text, 'whatsapp'::text, 'operator'::text])))
+    CONSTRAINT pauses_created_via_check CHECK ((created_via = ANY (ARRAY['telegram'::text, 'whatsapp'::text, 'operator'::text, 'dashboard'::text])))
 );
+
+-- 'dashboard' added 19 Nov 2026 (restaurant dashboard My alerts, restaurant_admin/rest_admin_dashboard_alerts.sql). Re-runnable:
+-- the CHECK is replaced, never narrowed, so existing rows always satisfy it.
+ALTER TABLE public.pauses DROP CONSTRAINT IF EXISTS pauses_created_via_check;
+ALTER TABLE public.pauses ADD CONSTRAINT pauses_created_via_check
+    CHECK ((created_via = ANY (ARRAY['telegram'::text, 'whatsapp'::text, 'operator'::text, 'dashboard'::text])));
 
 -- At most one open pause per person, audience and scope (pause_start relies on it).
 CREATE UNIQUE INDEX IF NOT EXISTS pauses_one_open_uidx ON public.pauses USING btree (audience, principal, (coalesce(scope, ''::text)))

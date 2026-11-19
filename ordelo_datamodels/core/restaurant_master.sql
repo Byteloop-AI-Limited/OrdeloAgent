@@ -34,7 +34,8 @@
 --                 python    utils_common/web_ordering/customer_order_view.py: get_view()
 --                 python    watomation/fapp_ordelo_agent.py: reset_restaurant_base_url_cache_endpoint()
 --                 python    watomation/routers/delivery_hooks.py: RestaurantMasterData(), restaurant_confirmation_flow()
---                 python    watomation/routers/rest_admin_auth_session.py: mint_dashboard_session()
+--                 sql       admin_roster (restaurant_admin/admin_roster.sql): who may open a restaurant dashboard (portal_access,
+--                           rest_admin_dashboard_mint in admin_dashboard/auth_sessions.sql)
 --                 python    watomation/routers/takeaway_hooks.py: RestaurantMasterData(), _post_pickup_time_event(), pickup_time_updated_hook()
 --                 frontend  restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/route.ts
 --                 frontend  restaurant-frontend/app/api/sys-admin/restaurants/route.ts
