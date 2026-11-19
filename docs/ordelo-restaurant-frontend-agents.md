@@ -724,18 +724,17 @@ Meta webhook and Flow endpoints.
 #### cc35
 
 - Method/path: `POST /rest-admin/dashboard-session`
-- Direction: `wa-ordelo`; status: `live`; flow: WhatsApp → Ordelo
-- Does: Resolves rest_ref via restaurant_master.admins @> [wa_number], mints a 30-min token, stores ONLY its SHA-256 hash, and returns {app_url}/rest-admin/activate/{token}.
+- Direction: `wa-ordelo`; status: `dead`; flow: WhatsApp → Ordelo
+- Does: Removed: there is no HTTP mint endpoint (tests/watomation/routers/test_dashboard_access.py asserts 404). Links are minted in-process by ordelo/dashboard_links.py over the SQL mints rest_admin_dashboard_mint / rider_dashboard_mint / sys_admin_dashboard_mint, which check authority and store the token hash in one transaction. (Updated 19 Nov 2026, plans/telegram-portal-links-and-dashboard-plan.md.)
 - Request: `{ wa_number }`
 - Response: `{ url, expires_at }`
-- Gotcha: This is the real ORDELO↔portal coupling. The frontend never calls it — it only consumes the resulting magic link.
 - Sources: Ordelo:watomation/on_message_wa_handler.py:314 (Caller); Ordelo:watomation/routers/rest_admin_auth_session.py:60 (Implementation)
 
 #### cc36
 
 - Method/path: `POST /rider/dashboard-session`
-- Direction: `wa-ordelo`; status: `live`; flow: WhatsApp → Ordelo
-- Does: 400 rider_not_registered if absent from rider_master, 409 multiple_rider_records if duplicated.
+- Direction: `wa-ordelo`; status: `dead`; flow: WhatsApp → Ordelo
+- Does: Removed: there is no HTTP mint endpoint (tests/watomation/routers/test_dashboard_access.py asserts 404). Links are minted in-process by ordelo/dashboard_links.py over the SQL mints rest_admin_dashboard_mint / rider_dashboard_mint / sys_admin_dashboard_mint, which check authority and store the token hash in one transaction. (Updated 19 Nov 2026, plans/telegram-portal-links-and-dashboard-plan.md.)
 - Request: `{ wa_number }`
 - Response: `{ url, expires_at }`
 - Sources: Ordelo:watomation/fapp_ordelo_agent.py:134 (Caller); Ordelo:watomation/routers/rider_auth_session.py:48 (Implementation)
@@ -743,8 +742,8 @@ Meta webhook and Flow endpoints.
 #### cc37
 
 - Method/path: `POST /sys-admin/dashboard-session?wa_number=`
-- Direction: `wa-ordelo`; status: `live`; flow: WhatsApp → Ordelo
-- Does: 403 sys_admin_not_authorized unless the number is in ordelo_config.overwatch_list. Takes a query param deliberately so the coroutine can be called straight from the /sysadmin message handler.
+- Direction: `wa-ordelo`; status: `dead`; flow: WhatsApp → Ordelo
+- Does: Removed: there is no HTTP mint endpoint (tests/watomation/routers/test_dashboard_access.py asserts 404). Links are minted in-process by ordelo/dashboard_links.py over the SQL mints rest_admin_dashboard_mint / rider_dashboard_mint / sys_admin_dashboard_mint, which check authority and store the token hash in one transaction. (Updated 19 Nov 2026, plans/telegram-portal-links-and-dashboard-plan.md.)
 - Request: `query wa_number`
 - Response: `{ url, expires_at }`
 - Sources: Ordelo:watomation/on_message_wa_handler.py:342 (Caller); Ordelo:watomation/routers/sys_admin_auth_session.py:74 (Implementation)
@@ -857,23 +856,29 @@ The only portal that really talks to ORDELO — 4 of the 6 live calls.
 
 ### Portal `rest-admin` — Restaurant admin
 
-Never calls ORDELO at all. Reads Postgres directly through a tenant-scoped Proxy.
+Never calls ORDELO's HTTP API. Reads Postgres views through a tenant-scoped Proxy and writes settings through session-bound SQL RPCs.
 
-- Entry: Magic link minted by ORDELO from WhatsApp → /rest-admin/activate/[token] → __Host-radash cookie.
+- Entry: Portal link from ORDELO (Telegram /manage or WhatsApp /login, minted by ordelo/dashboard_links.py) → GET /rest-admin/activate/[token] shows a page that auto-POSTs (lib/dashboard-activation.ts; a link preview cannot use it) → __Host-radash cookie. Roster membership is re-checked on every request (admin_dashboard_touch). (Updated 19 Nov 2026, plans/telegram-portal-links-and-dashboard-plan.md.)
 - Session: Opaque cookie → auth_sessions row. 60-minute idle timeout, 4-hour hard cap, enforced in middleware.ts.
 - Pages: `app/rest-admin/page.tsx`, `app/rest-admin/orders/page.tsx`, `app/rest-admin/reports/page.tsx`, `app/rest-admin/actions/page.tsx`, `app/rest-admin/more/page.tsx`
 - Calls:
   - `GET /api/rest-admin/orders` → Supabase v_admin_orders (keyset paginated, 30s refresh)
   - `GET /api/rest-admin/orders/summary` → Supabase v_admin_orders_daily
   - `GET /api/rest-admin/orders/[order_number]/items` → Supabase v_admin_order_items
+  - `GET/PATCH /api/rest-admin/settings/acceptance` → Supabase RPC rest_admin_acceptance_get / _set (audited)
+  - `GET/POST /api/rest-admin/settings/hours` → Supabase RPC rest_admin_hours_* (closed dates; writes gated by REST_DASHBOARD_HOURS_EDITS)
+  - `GET/POST /api/rest-admin/settings/alerts` → Supabase RPC rest_admin_alerts_* (channels, pause)
+  - `GET/POST /api/rest-admin/settings/menu` → Supabase RPC rest_admin_menu_list / _set_hidden
+  - `GET /api/rest-admin/reports/operations` → Supabase RPC rest_admin_report_operations
+  - `GET /api/rest-admin/reports/sales` → Supabase v_admin_orders_daily / _monthly (JSON or CSV)
   - `POST /api/rest-admin/logout` → clears the session row
-- Gotcha: lib/rest-admin-session.ts:28-38 declares TENANT_SCOPED_TABLES and a JS Proxy (line 348) auto-injects .eq("rest_ref", session.rest_ref). Tenant isolation is enforced in JavaScript, not by RLS — the server client uses the secret key and bypasses RLS.
+- Gotcha: lib/rest-admin-session.ts:28-38 declares TENANT_SCOPED_TABLES and a JS Proxy (line 348) auto-injects .eq("rest_ref", session.rest_ref). Tenant isolation is enforced in JavaScript, not by RLS — the server client uses the secret key and bypasses RLS. Settings writes never use the Proxy: they pass the middleware-stamped session id to SQL, which re-derives phone and restaurant (rest_admin_session_actor).
 
 ### Portal `rider` — Rider
 
 Also never calls ORDELO. Same Supabase-direct pattern, scoped by rider_id.
 
-- Entry: Magic link from ORDELO → /rider/activate/[token] → __Host-rdash cookie. Minted by rider_auth_session.py:48.
+- Entry: Portal link from ORDELO (Telegram rider bot /portal or /my_jobs; ordelo/dashboard_links.py over rider_dashboard_mint) → GET /rider/activate/[token] page → automatic POST → __Host-rdash cookie. (Updated 19 Nov 2026, plans/telegram-portal-links-and-dashboard-plan.md.)
 - Session: auth_sessions row with role=rider, scope_ref=rider_id.
 - Pages: `app/rider/page.tsx`, `app/rider/jobs/page.tsx`, `app/rider/more/page.tsx`, `app/rider/expired/page.tsx`
 - Calls:
@@ -881,13 +886,13 @@ Also never calls ORDELO. Same Supabase-direct pattern, scoped by rider_id.
   - `GET /api/rider/jobs/summary` → Supabase delivery_dispatch earnings rollup
   - `GET rider_master / rider_registrations` → browser-side Supabase client (RLS-respecting)
   - `POST /api/rider/logout` → clears the session row
-- Gotcha: The rider PORTAL is read-only. Everything a rider actually does that changes state — accepting a dispatch, confirming codes, going on shift — happens over WhatsApp, not here.
+- Gotcha: The rider PORTAL is read-only. Everything a rider actually does that changes state — accepting a dispatch, confirming codes, going on shift — happens over Telegram or WhatsApp, not here.
 
 ### Portal `sys-admin` — System admin
 
 The only admin portal touching ORDELO — the remaining 2 of the 6 live calls.
 
-- Entry: Magic link from ORDELO → /sys-admin/activate/[token] → __Host-sdash cookie. Gated on ordelo_config.overwatch_list.
+- Entry: Portal link from ORDELO (restaurant bot /sysadmin or the System dashboard button under /manage, WhatsApp /sysadmin; ordelo/dashboard_links.py over sys_admin_dashboard_mint) → GET page → automatic POST → __Host-sdash cookie. Overwatch membership (is_overwatch) is re-checked on every request. (Updated 19 Nov 2026, plans/telegram-portal-links-and-dashboard-plan.md.)
 - Session: auth_sessions row with role=sys_admin.
 - Pages: `app/sys-admin/page.tsx`, `app/sys-admin/restaurants/page.tsx`, `app/sys-admin/rider-payouts/page.tsx`, `app/sys-admin/riders-inshift/page.tsx`
 - Calls:
@@ -895,7 +900,9 @@ The only admin portal touching ORDELO — the remaining 2 of the 6 live calls.
   - `POST /api/sys-admin/rider-payouts/mark-paid` → ORDELO POST /sys-admin/update-paid (Ordelo-facing)
   - `GET /api/sys-admin/rider-payouts/summary` → Supabase delivery_dispatch + rider_master
   - `GET/PATCH /api/sys-admin/restaurants/[rest_ref]` → Supabase restaurant_master
-  - `GET/PATCH /api/sys-admin/restaurants/[rest_ref]/config` → Supabase ordelo_config
+  - `GET/PATCH /api/sys-admin/restaurants/[rest_ref]/config` → Supabase ordelo_config (the two default pickup-time keys go through the audited restaurant_setting_change)
+  - `GET /api/sys-admin/restaurants/[rest_ref]/changes` → Supabase RPC restaurant_settings_changes
+  - `POST /api/sys-admin/restaurants/[rest_ref]/changes/[id]/revert` → Supabase RPC restaurant_setting_revert
 - Gotcha: The config PATCH writes the very ordelo_config row (ORDELO_APP_URL) that lib/config.ts reads to find ORDELO. Change it and the frontend repoints itself — after the 60s cache expires, per container.
 
 ## 5. Scenarios and step-by-step flows

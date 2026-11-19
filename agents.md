@@ -204,6 +204,10 @@ The [glossary](GLOSSARY.md) owns business vocabulary. The [database capability i
   - `/reset` → `reset_thread`: closes inflight dispatch if any, marks threads inactive, and notifies.
   - `/live` → `send_live_map_location`: sends the live map URL if inflight exists and location is present.
   - `/flow` → `test_flow`: example WA Flow (UI screen) button to demonstrate flows.
+- Dashboard commands (portal links; ADR 0017):
+  - `/login` → `handle_login_wa_msg`: one restaurant-dashboard link per restaurant this number admins.
+  - `/sysadmin` → `handle_sysadmin_wa_msg`: a system-dashboard link for overwatch numbers.
+  - Both call `ordelo/dashboard_links.py` `issue()`. The Telegram twins are the restaurant bot's `/manage` (plus the System dashboard button) and `/sysadmin`, and the rider bot's `/portal` / `/my_jobs` (see [telegram-layer.md](docs/telegram-layer.md)).
 
 
 ## Data and Persistence
@@ -382,6 +386,8 @@ When a change touches a Telegram bot, a dashboard magic link, or a frontend↔ba
 - WhatsApp message entrypoint: `watomation/on_message_wa_handler.py:40`
 - Rider thread lookup and lifecycle: [rider_threads.py](ordelo/agents/rider_threads.py)
 - Supabase REST call helpers: `utils_common/db_utils/sbase_rest_ops.py`
+- Dashboard / portal links (rider, restaurant, system) for Telegram and WhatsApp: [dashboard_links.py](ordelo/dashboard_links.py); SQL mints and sessions in [auth_sessions.sql](ordelo_datamodels/admin_dashboard/auth_sessions.sql)
+- Restaurant dashboard settings, closed dates, hidden items and reports (SQL owners): [restaurant_settings.sql](ordelo_datamodels/restaurant_admin/restaurant_settings.sql), [restaurant_service_hours.sql](ordelo_datamodels/restaurant_admin/restaurant_service_hours.sql), [rest_admin_dashboard_alerts.sql](ordelo_datamodels/restaurant_admin/rest_admin_dashboard_alerts.sql), [menu_item_visibility.sql](ordelo_datamodels/ordering/menu_item_visibility.sql), [order_intake_guard.sql](ordelo_datamodels/ordering/order_intake_guard.sql), [rest_admin_reports.sql](ordelo_datamodels/admin_dashboard/rest_admin_reports.sql)
 
 ## Pyrun Notes
 

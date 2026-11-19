@@ -46,10 +46,10 @@ script's STAGE 0-2b, then its STAGE 1-8: offer, Accept, job card, agent chat, co
 | 2 | Shows state | tap **Accept**, then a pickup time | status `unassigned`; delivery card and WhatsApp pickup reply carry the hold until the kitchen receipt |
 | 2b | Releases the order to riders (what `process_delivery()` does in production) | run it **after** 2 | dispatch offer on the dummy rider's WhatsApp |
 | 2c | Inspect reminder ledger and offer state (read only) | wait, decline, pause, or accept as described in the script | one live Telegram copy; steps f/g check that a plain decline preserves the schedule and cancellation starts a new dispatch round |
-| 3 | Shows state | rider accepts (rider chat) | **🍳 Please start preparing now / Rider found · ready for pickup at …**, with Ready / +10 / +20 on both channels |
+| 3 | Shows state | rider accepts the offer in the rider chat, then wait for assignment | **🍳 Please start preparing now / Rider found · ready for pickup at …**, with Ready / +10 / +20 on both channels after assignment |
 | 4 | Shows state | Ready on one channel, +10 on the other, Ready again | rider nudged **once**; +10 moves the start detail while open; Ready restores the Telegram receipt heading; second Ready says already ready |
 | 5 | Waits | wait | rider pickup alerts to the restaurant (Telegram replies to the receipt) |
-| 6 | Cancel + re-dispatch | rerun 2b to release the STRK order | old receipt "no longer on the job"; new receipt after the next rider accepts |
+| 6 | Cancel + re-dispatch | rerun 2b to release the STRK order | old receipt "no longer on the job"; new receipt after the next rider is assigned |
 | 7 | Picked up + complete | rider codes (or the two forcing statements) | "Delivered" notice; receipt becomes done |
 | 8 / 8b | Takeaway (`test_no_payment` / optional `pay_at_rest`) | accept + pickup, then Ready | no hold; “🍳 Please start preparing now / Ready for collection at …” (8b: "Pay at restaurant" line); customer event once |
 | 9 | Delivery order older than the timeout, no rider job, never answered | wait for the sweep (10 s) | `SELECT * FROM restaurant_confirmation_policy('STRK')` first: `accept` → auto-accept notice, card "Auto-accepted"; `decline` → status `declined`, auto-declined notice to admins, card "Auto-declined (no answer in time)" |
@@ -74,6 +74,14 @@ Repeat the stages tapping **only on WhatsApp**. The kitchen instructions are int
 7. **Race:** Ready on both channels at the same moment: one nudge, one winner.
 
 Record the result per stage as: `boundary | action | observed | label | not verified` (labels: offline, isolated database, live Telegram, live WhatsApp).
+
+## Rider exit guard
+
+Repeat with a Telegram rider and a WhatsApp rider.
+
+1. Before pickup, ask to close the job. The rider gets a confirmation prompt. Typing “yes” leaves the assignment active, as does tapping **No, keep it**.
+2. Ask again and tap **Yes, cancel job**. Verify that recording the reason closes the rider thread and that stage 2b starts a fresh dispatch round.
+3. On a new assignment, verify pickup with the restaurant code. Ask to cancel and then ask to close the job. Each request is refused and alerts overwatch once. The thread stays open and the dispatch stays `pickedup` until normal completion using the customer code.
 
 ## Troubleshooting (real failures seen)
 

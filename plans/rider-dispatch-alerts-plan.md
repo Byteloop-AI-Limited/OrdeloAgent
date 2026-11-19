@@ -948,7 +948,7 @@ needs the r2 owner file.
 
 Status: **implemented; r3 applied to live by the owner on 27 Oct 2026**. r1 and r2 are also live:
 [`ordelo_datamodels/migrations/rider_offer_alerts_r3.sql`](../ordelo_datamodels/migrations/rider_offer_alerts_r3.sql).
-Companion plan for the agent side: [`plans/rider-agent-exit-guards-plan.md`](rider-agent-exit-guards-plan.md).
+Agent-side behavior is documented in [Rider exit guard](../docs/delivery_process.md#rider-exit-guard), with Telegram and WhatsApp checks in the [live test harness](../docs/live-order-test-harness.md#rider-exit-guard).
 
 ### 12.1 Why
 
@@ -1028,7 +1028,7 @@ Update STAGE 2c steps f and g (no other SQL test files):
 - **f (plain decline):** two Telegram riders offered; let each get reminders 1 and 2; rider A declines. Read-only query shows rider B's
   rows with the same `cycle` and `due_at` as before, no new rows, and B's remaining reminders arrive on the original schedule.
 - **g (accept then cancel):** rider A accepts, then cancels before pickup through the rider agent (this now goes through the
-  confirm buttons from the exit-guards plan). Re-run STAGE 2b. Read-only query shows new `dispatch_id`s for the other riders, 7 pending
+  confirm buttons described in the live test harness). Re-run STAGE 2b. Read-only query shows new `dispatch_id`s for the other riders, 7 pending
   reminders each with `cycle = 0` from the new offer time, and a second `escalation` row with `round_at` = the new `redispatch_dtts`.
 Update the STAGE 2c comment text ("a decline restarts ..." -> r3 wording).
 
