@@ -404,6 +404,25 @@ _Avoid_: rider link, shift
 Temporary access to the operations dashboard for a restaurant.
 _Avoid_: checkout session
 
+**Portal link**:
+A single-use, 30-minute link that opens one portal (rider portal, restaurant dashboard or system dashboard) for the verified person who asked for it on Telegram or WhatsApp. Opening the page does not use it; the browser's automatic confirmation does.
+_Avoid_: magic link (in new text), login URL
+
+**System dashboard**:
+The operations portal for overwatch members (sys-admin). Access is re-checked against the overwatch list on every request.
+_Avoid_: admin panel
+
+**Closed date**:
+A London calendar date on which a restaurant's own hours replace its weekly hours: closed all day, closing early or special hours. A closed date refuses new orders on every channel.
+_Avoid_: holiday flag, pause
+
+**Hidden item**:
+A menu item a restaurant admin has taken off sale until an admin shows it again. Its stock status is unchanged.
+_Avoid_: out of stock, deleted item
+
+**Settings audit**:
+The record of every restaurant setting changed from the restaurant dashboard (who, when, old and new value), from which sys-admin can undo a change.
+
 **Rider payout**:
 Compensation owed to a rider for delivery work.
 _Avoid_: restaurant payout, customer delivery fee
