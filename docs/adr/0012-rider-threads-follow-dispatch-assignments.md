@@ -151,8 +151,7 @@ read-only exact debug, and historical lookup after dispatch cleanup.
 
 ## Amendment 1 - 22 October 2026 (thread id format; shared table untouched)
 
-Decided with the owner in the rider grilling session
-([rider plan](../../plans/telegram-rider-bot-plan.md), D46, D47).
+Decided with the owner on 22 October 2026 (D46, D47).
 
 - **Format.** New rider threads use `thread_id = ORDELO-dispatch-<dispatch_id>`, not
   `ordelo:rider:dispatch:<id>`. The `thread` table is shared with restaurant-agents

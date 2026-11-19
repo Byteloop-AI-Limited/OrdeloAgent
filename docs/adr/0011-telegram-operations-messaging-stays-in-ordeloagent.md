@@ -502,8 +502,7 @@ It supersedes "Ingress in step 1" above where they differ.
 
 ## Amendment 3 - 22 October 2026 (rider bot, phases R0-R6)
 
-Decided in the rider grilling session of
-[the rider plan](../../plans/telegram-rider-bot-plan.md) (decisions D39-D54).
+Decided in the rider design session on 22 October 2026 (decisions D39–D54). See the [Telegram guide](../telegram-layer.md) for the rollout record.
 It supersedes the rider parts of this ADR where they differ.
 
 - **Rider identity lives on the domain row (D40), not in the Telegram adapter.**

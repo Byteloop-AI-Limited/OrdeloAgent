@@ -1,6 +1,6 @@
 """
 Pause-sweep ingress for OrdeloAgent (thin route; texts and routing live in ordelo/pause_notices.py). Phase R5-R6 of
-plans/telegram-rider-bot-plan.md, ADR 0013.
+ADR 0013.
     . POST /pause-hooks/sweep, called every minute (only when there is something to say) by the PostgreSQL function
       job_pause_sweep() (ordelo_datamodels/availability/job_pause_sweep.sql) through http_post
     . Body: {"event_type": "pause_sweep", "ending_soon": [item], "ended": [item]},

@@ -42,7 +42,7 @@
 -- GOTCHAS       The capture trigger swallows every error (it must never block an order update); a missing milestone only
 --                 lowers the report's measured sample. Coverage before the apply date comes from restaurant_update_dtts and
 --                 only for orders never adjusted afterwards.
--- SEE ALSO      admin_dashboard/v_admin_orders.sql (the financial views), plans/telegram-portals-and-restaurant-dashboard.md
+-- SEE ALSO      admin_dashboard/v_admin_orders.sql (the financial views), plans/telegram-portal-links-and-dashboard-plan.md
 -- =============================================================================================
 
 CREATE TABLE IF NOT EXISTS public.order_milestone (

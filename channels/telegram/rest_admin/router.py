@@ -8,8 +8,8 @@ only; /channels (channels.py) changes that. Invite links are retired (TRANSITION
 button gets a "not used any more" answer and an old claimed invite is told to share its number once.
 Dashboard link (/manage): manage.py. Sys-admin link (/sysadmin + the System dashboard button, overwatch only): sysadmin.py;
 the per-chat command menu that advertises it: menu.py. An overwatch phone on no restaurant list links too (t_admin_link) and
-then has only the sys-admin option. Order buttons: orders.py. Alert pauses (/off, /on, phase R6 of
-plans/telegram-rider-bot-plan.md): pauses.py. The text fallback is a sub-router included LAST, because aiogram tries a
+then has only the sys-admin option. Order buttons: orders.py. Alert pauses (/off, /on, ADR 0013): pauses.py.
+The text fallback is a sub-router included LAST, because aiogram tries a
 router's own handlers before its included routers (a fallback registered here would swallow /off and /on).
 """
 

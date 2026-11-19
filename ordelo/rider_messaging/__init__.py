@@ -6,7 +6,7 @@
 
 Files: port.py (the interface), models.py (MsgRef, Place, ContactCard, LinkButton, JobOffer), whatsapp.py / telegram.py
 (adapters), formatting.py (WhatsApp-style text -> Telegram HTML), factory.py (which channel), fake.py (tests).
-The rider agent, its tools and the rider hooks use it from phase R3 (plans/telegram-rider-bot-plan.md).
+The rider agent, its tools and the rider hooks use it from phase R3 (docs/telegram-layer.md).
 """
 
 from .factory import DispatchChannel, dispatch_channel, for_dispatch, for_rider, for_thread, messenger_for, use_messenger

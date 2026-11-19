@@ -52,7 +52,7 @@ record these as follow-ups; the organisation work documents them but does not ch
 
 ## Rider bot findings (design session, 22 Oct 2026)
 
-Found while planning the Telegram rider bot ([`plans/telegram-rider-bot-plan.md`](../plans/telegram-rider-bot-plan.md)).
+Found while planning the Telegram rider bot ([ADR 0011, Amendment 3](adr/0011-telegram-operations-messaging-stays-in-ordeloagent.md#amendment-3---22-october-2026-rider-bot-phases-r0-r6)).
 Not fixed by that plan unless a phase says so.
 
 - [ ] **`job_close_thread` header does not match live.** `agent_threads/job_close_thread.sql` says it is "called from Python,

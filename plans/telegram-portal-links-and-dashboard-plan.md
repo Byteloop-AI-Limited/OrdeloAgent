@@ -1,13 +1,8 @@
 # Telegram portal links and the restaurant operations dashboard
 
-Implementation handoff · 18 November 2026 · **plan only, nothing built**. Both repos are on `docs/glossary-updaet`. OrdeloAgent
-baseline is `7cd530c`, restaurant-frontend baseline is `35b5065`. Links resolve from this file (`../` = OrdeloAgent,
-`../../restaurant-frontend/` = frontend, `../../restaurant-agents/` = restaurant-agents). Symbols marked *(new)* are proposals.
-Line numbers are from the baselines; re-check them before editing.
+Implementation handoff · 18–19 November 2026. The [implementation log](#implementation-log-19-nov-2026) records what shipped in source and the verification performed. [Rollout follow-ups](../docs/to-do.md#telegram-portal-links-and-restaurant-dashboard-added-19-nov-2026) track deployment and pending checks. [ADR 0017](../docs/adr/0017-portal-access-is-decided-per-request-in-sql.md) records the access model.
 
-> **Parallel draft.** [telegram-portals-and-restaurant-dashboard.md](./telegram-portals-and-restaurant-dashboard.md) covers the
-> same scope and was still being edited by another session while this was written. This plan keeps that draft's findings. Its
-> decisions follow the owner's answers given in *this* session (§0). Choose one file before implementing and delete the other.
+The design below was written against OrdeloAgent `7cd530c` and restaurant-frontend `35b5065`. Symbols marked *(new)* and line numbers refer to those baselines.
 
 ---
 
@@ -27,7 +22,7 @@ Line numbers are from the baselines; re-check them before editing.
 
 ### Revision 19 Nov 2026: later owner decisions adopted (they override O3, O8, O9 above where they differ)
 
-These decisions were confirmed on 19 Nov in the parallel plan. They are newer than the 18 Nov answers, so they win.
+The owner confirmed these decisions on 19 November.
 
 - **O3′**: overwatch members get **both** a `/sysadmin` command (scoped menu) **and** a "System dashboard" button under `/manage`. Restaurant links in `/manage` must still work if the sys-admin check fails.
 - **O8′ (closures = service hours)**: managers close early at a London local time, or mark a whole date as a holiday. These are stored as **date overrides inside `restaurant_master.service_hours_json`**, beside the weekly schedule. The all-day marker is exactly `[["00:00","00:01"]]`. A date override is resolved before the weekday rule, and clearing it restores the weekly rule. An early close keeps the earlier intervals, truncates the interval containing the chosen time, and drops later intervals. Every reader recognises the all-day marker before converting it: frontend `utils/openingHours.ts`, backend `availability.py`, restaurant-agents `schedule.py`. A closed date also suppresses overnight spill-over from the previous day. The separate `restaurant_closure` table in §10 is **replaced** by this, and §10 is rewritten accordingly.
@@ -38,14 +33,6 @@ These decisions were confirmed on 19 Nov in the parallel plan. They are newer th
   This needs forward-captured milestones (§12 is promoted into scope). The cheap financial view from §7 is kept as a second section of the page.
 - **O7′**: a hidden item stays hidden until an authorised admin of that restaurant explicitly restores it. The existing stock status still applies.
 - **Relink revocation (confirmed)**: when a phone moves to a different Telegram account, revoke every rest_admin and sys_admin session and unused link for that phone in the same transaction. A repeat contact share from the same account changes nothing.
-
-### Differences from the parallel draft
-
-- Draft: put a "System dashboard" button under `/manage`; its latest edit has both a button and a scoped menu. **Here**: `/sysadmin` command plus scoped menu only, and `/manage` stays restaurant-only (O2, O3).
-- Draft: keep `/my_jobs` only. **Here**: add `/portal` (O1).
-- Draft: no audit. **Here**: an audit table is written by every settings RPC, with a sys-admin view and undo (O6).
-- Draft: Reports start with operational metrics. **Here**: financial reports first, operational metrics in §12 (O9).
-- Same in both: GET-safe activation for the admin roles, re-checking authority on every request, explicit session binding for tenant writes, and treating the `MENU_API_URL` owner as unknown.
 
 ---
 
@@ -481,9 +468,9 @@ This replaces the "Notification preferences" stub with **My alerts**.
 
 ---
 
-## 12. Later (not in this build): operational reports
+## 12. Operational report design
 
-Kept from the parallel draft for when the owner asks. The metrics:
+The 19 November decisions brought these metrics into scope. See the implementation log for the as-built report.
 - median minutes to manual acceptance
 - actual pickup vs promised pickup
 
@@ -629,20 +616,9 @@ Deviations from this plan, as built:
 - Closures are stored as `service_hours_json.dates` (O8′). The separate closure table in §10 was not built.
 - `resolve_initial_restaurant_acceptance` was left unchanged on live; an agreement test enforces that it matches `restaurant_default_pickup_minutes`.
 
-## Comparison round 2 (19 Nov) with the parallel plan
+## Additional verification cases
 
-The parallel plan now carries the owner's 19 Nov decisions, and this build follows them:
-- `/manage` button plus `/sysadmin` with a scoped menu
-- operational Reports with both pickup benchmarks
-- closures stored as date overrides in `service_hours_json`
-- hidden items stay hidden until explicitly restored
-- relink revocation across scopes and channels
-
-This file adds what the parallel plan still lacks:
-- the pre-flight blockers it found (restaurant-agents `parse_week` crashes on a non-weekday key, so writes are gated; `order_item.sku` and `food_order.thread_id` are NOT NULL live; `elas_menu` has no `sku`)
-- the audit and sys-admin undo (O6)
-- the rider `/portal` alias
-- the sales section and CSV next to the operational report
-- the live verification loop and its results
-
-The parallel plan still has unique value in its fixture ideas for operational reports (redispatch, cancellation, repeated events, DST), which `test_rest_admin_reports_sql.py` covers only partly (DST and cancellation are not fixtures yet).
+- **Reports.** Check an accepted order cancelled before pickup, redispatch, repeated events, multiple pickup-time changes and missing original-promise evidence. Verify each metric's sample count and median across London midnight and daylight-saving changes. The 19 November review noted that cancellation and daylight-saving fixtures were still missing.
+- **Closed dates.** Check overnight spillover into a closed date at 23:59, 00:00 and 00:01 London time, then check the next opening. Confirm that a new closure still allows retrieval of an earlier successful idempotent order attempt and leaves payment and support available for existing orders.
+- **Hidden items.** Check a previously sent WhatsApp menu link, a cached menu and a stale cart. Verify visibility persists across catalogue refreshes and service reopening, and that restoration preserves the stock state. Trace any native WhatsApp catalogue publisher before claiming both-channel visibility.
+- **Rollback.** Disable settings writes and hide the portal entry point while retaining session revocation. Preserve reporting facts and keep enforcing saved closures and hidden items until an operator explicitly restores them.

@@ -699,7 +699,7 @@ be unchanged. Record each step as `boundary | action | observed | label | not ve
   _Avoid_: nag, re-dispatch (a re-dispatch is a new offer)." Also `GLOSSARY.md` if it lists offer terms.
 - `docs/delivery_process.md`, phase 4 "Rider assignment": one paragraph and the config key in the config table (near
   line 735).
-- `docs/telegram-layer.md` (rider bot part) and `plans/telegram-rider-bot-plan.md`: a short note that offers now repeat
+- `docs/telegram-layer.md` (rider bot part): a short note that offers now repeat
   (link here). The next free decision number there is **D55** if you record D1-D8 in that plan's numbering.
 - `docs/to-do.md`: (a) the `job_create_dispatch.sql` header mismatch (D10); (b) `rider_offer_alert` retention:
   `t_housekeeping()` is not scheduled on live, so add the table to it when housekeeping is scheduled; (c) an escalation

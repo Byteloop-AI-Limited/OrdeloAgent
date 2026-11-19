@@ -29,7 +29,7 @@
 -- GOTCHAS       A new order is refused (nothing written) with SQLSTATE P0C01 'order_refused: closed_date' or P0C02
 --                 'order_refused: hidden_items' (DETAIL = the guard's JSON) when order_intake_block() says so; callers map them.
 --               payment_mode is never chosen by the caller: any item named 'TEST3100' makes the order 'test' (Stripe test keys),
---                 otherwise 'live'. See plans/test3100-payment-routing-plan.md.
+--                 otherwise 'live'. See docs/adr/0010-test-payments-selected-by-order-items.md.
 --               Four frozen copies of this function live in migrations/ (ordelo_agg_r1, r1_test_payment, r3, test3100); they are history.
 --                 This file is the current definition.
 -- SEE ALSO      ordering/food_order_additions.sql

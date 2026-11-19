@@ -489,7 +489,7 @@ Admin dashboard reads and platform helpers.
 | [`test_restaurant_notices.sql`](test_support/test_restaurant_notices.sql) | | script | TEST HARNESS (not a migration): fake STRK orders to try the kitchen receipt, Ready / +10 / +20 and the restaurant |
 | [`test_rider_onboarding.sql`](test_support/test_rider_onboarding.sql) | | script | TEST HARNESS (not a migration): exercise the rider bot onboarding functions, the pauses and the R1 dispatch gate on the |
 | [`test_rider_pauses_and_locations.sql`](test_support/test_rider_pauses_and_locations.sql) | | script | TEST HARNESS (not a migration): Telegram breaks and locations for riders, alert pauses for restaurant admins (phases |
-| [`test_rider_telegram_jobs.sql`](test_support/test_rider_telegram_jobs.sql) | | script | TEST HARNESS (not a migration): a rider job on TELEGRAM end to end (phases R2-R4 of plans/telegram-rider-bot-plan.md): |
+| [`test_rider_telegram_jobs.sql`](test_support/test_rider_telegram_jobs.sql) | | script | TEST HARNESS (not a migration): a rider job on TELEGRAM end to end (phases R2-R4 of docs/telegram-layer.md): |
 
 ### Orphan candidates (`_orphans/`)
 

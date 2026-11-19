@@ -124,4 +124,4 @@ npm install --prefix /private/tmp/ordelo-test3100-sql --no-audit --no-fund --ign
 node tests/ordelo_datamodels/test_test3100_sql.mjs /private/tmp/ordelo-test3100-sql/node_modules/@electric-sql/pglite/dist/index.js
 ```
 
-Use the usual prepared Python shell for `python -m pytest -q`. Frontend checks are `npx tsc --noEmit`, `npm run lint`, `npm run build`, and `node scripts/test-test-orders.cjs`. See the [design plan](../plans/test3100-payment-routing-plan.md) and [ADR 0010](adr/0010-test-payments-selected-by-order-items.md) for decisions and scope.
+Use the usual prepared Python shell for `python -m pytest -q`. Frontend checks are `npx tsc --noEmit`, `npm run lint`, `npm run build`, and `node scripts/test-test-orders.cjs`. See the [ADR 0010](adr/0010-test-payments-selected-by-order-items.md) for decisions and scope.

@@ -41,7 +41,7 @@
 --                 The statement-level trigger below batches every offer inserted by one job_create_dispatch() run into one
 --                 POST /delivery-hooks/delivery-dispatch, which sends each rider a WhatsApp offer with Accept / Decline buttons.
 --                 The rider dashboard and sys-admin payouts (restaurant-frontend) read paid_status / paid_dtts.
---                 Rider bot (plans/telegram-rider-bot-plan.md): channel is stamped from rider_master.channel when the offer row is
+--                 Rider bot (docs/adr/0011-telegram-operations-messaging-stays-in-ordeloagent.md): channel is stamped from rider_master.channel when the offer row is
 --                 inserted and never changes (D44): the offer, Accept and the whole job conversation use it
 --                 (ordelo/rider_messaging/factory.for_dispatch). channel_msg_ref is the MsgRef of the offer message
 --                 (WhatsApp wamid or 'tg:<tcid>:<message_id>'), written by delivery_hooks after sending, so a closed Telegram offer

@@ -12,7 +12,7 @@ For delivery orders containing that same test item, restrict new dispatch offers
 
 The owner subsequently chose to retain the two-service architecture: `payment` handles live requests and `wrenPayment` handles test requests. Ordelo chooses the endpoint from the item-derived stored mode; the proposed single-service alternative is not adopted. Capture and cancellation use that same environment. The routing table and webhook distinction are documented in [test-orders.md](../test-orders.md).
 
-The owner confirmed the receipt behaviour and clarified on 9 October 2026 that there is no retrospective repair requirement. The owner ran the routing migration; its revised file removes the unnecessary readiness and global mode-protection artifacts. Service deployment is a separate step. The detailed rollout and validation are in [the implementation plan](../../plans/test3100-payment-routing-plan.md).
+The owner confirmed the receipt behaviour and clarified on 9 October 2026 that there is no retrospective repair requirement. The owner ran the routing migration; its revised file removes the unnecessary readiness and global mode-protection artifacts. Service deployment is a separate step. The detailed rollout and validation are in [the test-order guide](../test-orders.md#install-or-clean-up-the-migration).
 
 ## Reading this decision in the current workflow
 

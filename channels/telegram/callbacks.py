@@ -42,7 +42,7 @@ class OrderAction(CallbackData, prefix="ord"):
     m: int = 0
 
 
-# ---- rider bot (bot_key 'rider'; plans/telegram-rider-bot-plan.md) ------------------------------------------------------
+# ---- rider bot (bot_key 'rider'; ADR 0011, Amendment 3) ------------------------------------------------------
 
 
 class RiderSignup(CallbackData, prefix="rsu"):

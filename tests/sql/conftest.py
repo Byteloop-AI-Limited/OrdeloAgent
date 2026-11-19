@@ -72,7 +72,7 @@ MIGRATION_FILES = [
     "t_order_alerts.sql",
     "restaurant_ready_adjust_notices.sql",
     "t_housekeeping.sql",
-    # Rider bot phase R1 (plans/telegram-rider-bot-plan.md): rider_master is created in its target shape by minimal_schema.sql.
+    # Rider bot phase R1 (docs/telegram-layer.md): rider_master is created in its target shape by minimal_schema.sql.
     "rider_master.sql",
     "rider_offer_alert.sql",
     "job_rider_offer_alerts.sql",

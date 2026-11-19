@@ -1,6 +1,6 @@
 -- =============================================================================================
 -- TEST HARNESS (not a migration): Telegram breaks and locations for riders, alert pauses for restaurant admins (phases
--- R5-R6 of plans/telegram-rider-bot-plan.md): /shift, /off, /on, the "ends soon" / "back on" messages, a location shared
+-- R5-R6 of docs/telegram-layer.md): /shift, /off, /on, the "ends soon" / "back on" messages, a location shared
 -- in Telegram, the restaurant bot's /off and /on with the last-admin guard, and the WhatsApp side left as it was.
 -- =============================================================================================
 -- Run it ONE STAGE AT A TIME in the Supabase SQL editor; every stage can be repeated. Stages that say "you" are actions in
