@@ -142,7 +142,7 @@ async def test_a_verified_contact_links_and_moves_alerts_to_telegram_only(record
     admin_db.add_admin(ADA, "ELAS")
     bot, session = recording_bot
     await feed(bot, contact_update("+44 7700 900101"))
-    assert admin_db.rpc_args[-1] == ("t_admin_link", {"p_tuid": 111, "p_tcid": 111, "p_phone": "+44 7700 900101",
+    assert admin_db.rpc_args[-2] == ("t_admin_link", {"p_tuid": 111, "p_tcid": 111, "p_phone": "+44 7700 900101",
                                                      "p_username": "ada", "p_first_name": "Ada"})
     assert "You're linked" in session.sent_texts[0] and "<b>Telegram</b>" in session.sent_texts[0]
     assert admin_db.records[ADA]["channels"] == ["telegram"] and ops_alerts == []  # a plain link raises no ops alert

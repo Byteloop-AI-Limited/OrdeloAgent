@@ -55,15 +55,20 @@ async def test_proxy_credential_is_bound_to_activated_sysadmin_and_ua(app,monkey
 
 
 async def test_overwatch_removal_is_not_hidden_by_the_alerts_cache(monkeypatch):
-    state={'value':'447700900101'}
-    class Config:
-        def select(self,*args): return self
-        def eq(self,*args): return self
-        def limit(self,*args): return self
-        def execute(self): return SimpleNamespace(data=[{'config_value':state['value']}])
-    monkeypatch.setattr(sys,'client_ordelo_service',SimpleNamespace(table=lambda _:Config()))
-    assert await sys._ensure_sys_admin('447700900101')=='447700900101'
-    state['value']='447700900102'
+    """_ensure_sys_admin asks is_overwatch() (the one SQL rule) on every call; 503 when the store is unavailable."""
+    state={'allowed':True,'calls':[]}
+    def rpc(name,args):
+        state['calls'].append((name,args))
+        if state['allowed'] is None: raise RuntimeError('down')
+        return SimpleNamespace(execute=lambda:SimpleNamespace(data=state['allowed']))
+    monkeypatch.setattr(sys,'client_ordelo_service',SimpleNamespace(rpc=rpc))
+    assert await sys._ensure_sys_admin('+447700900101')=='447700900101'
+    assert state['calls'][-1]==('is_overwatch',{'p_phone':'447700900101'})
+    state['allowed']=False
     with pytest.raises(HTTPException) as error:
         await sys._ensure_sys_admin('447700900101')
     assert error.value.status_code==403
+    state['allowed']=None
+    with pytest.raises(HTTPException) as error:
+        await sys._ensure_sys_admin('447700900101')
+    assert error.value.status_code==503

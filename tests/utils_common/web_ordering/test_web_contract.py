@@ -1075,3 +1075,32 @@ async def test_lookup_detail_levels_are_redacted_server_side(monkeypatch, detail
 async def test_unknown_detail_level_rejected():
     with pytest.raises(ValueError):
         await customer_order_view.get_view('ELAS-ABCD-1', 'other')
+
+
+# ---- one-date overrides in service_hours_json["dates"] (restaurant_admin/restaurant_service_hours.sql rule) -------------
+_WEEK = {d: [["12:00", "22:00"]] for d in ("mon", "tue", "wed", "thu", "sun")}
+_WEEK.update({"fri": [["12:00", "25:00"]], "sat": [["12:00", "23:00"]]})
+
+
+def test_all_day_holiday_closes_the_date_and_blocks_the_overnight_spill():
+    hours = {**_WEEK, "dates": {"2026-12-05": [["00:00", "00:01"]]}}
+    at = lambda h, m, d=5: datetime(2026, 12, d, h, m, tzinfo=availability.UK)  # noqa: E731
+    assert availability.opening(hours, at(15, 0), 15)[0] is False
+    assert availability.opening(hours, at(0, 5), 15)[0] is False              # Friday's 25:00 does not spill in
+    assert availability.opening(_WEEK, at(0, 5), 15)[0] is True               # ...without the override it does
+    accepting, nxt = availability.opening(hours, at(15, 0), 15)
+    assert nxt.startswith("2026-12-06T12:00")                                  # next opening skips the closed date
+    assert availability.opening(hours, at(23, 0, 4), 15)[0] is True            # Friday itself is normal until midnight
+    assert availability.opening(hours, at(23, 50, 4), 15)[0] is False          # ...and its cutoff now falls at 23:45
+
+
+def test_early_close_and_special_hours():
+    hours = {**_WEEK, "dates": {"2026-12-03": [["12:00", "18:00"]], "2026-12-06": [["10:00", "26:00"]]}}
+    assert availability.opening(hours, datetime(2026, 12, 3, 17, 40, tzinfo=availability.UK), 15)[0] is True
+    assert availability.opening(hours, datetime(2026, 12, 3, 17, 50, tzinfo=availability.UK), 15)[0] is False
+    assert availability.opening(hours, datetime(2026, 12, 7, 1, 30, tzinfo=availability.UK), 15)[0] is True
+
+
+def test_dates_key_is_ignored_on_other_days():
+    hours = {**_WEEK, "dates": {"2027-01-01": []}}
+    assert availability.opening(hours, datetime(2026, 12, 3, 13, 0, tzinfo=availability.UK), 15)[0] is True

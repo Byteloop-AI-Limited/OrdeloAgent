@@ -91,6 +91,19 @@ MIGRATION_FILES = [
     "web_order_request.sql",
     "order_access_grant.sql",
     "web_order_lookup.sql",
+    # Restaurant-dashboard settings (plans/telegram-portal-links-and-dashboard-plan.md Phase 5): after auth_sessions.sql
+    # (rest_admin_session_actor). resolve_initial_restaurant_acceptance.sql is here for the agreement test.
+    "resolve_initial_restaurant_acceptance.sql",
+    "restaurant_settings.sql",
+    "rest_admin_dashboard_alerts.sql",
+    # Closures and hidden items (Phases 7-8): the reading rule + editor, the hidden-item table, then the order guard.
+    "restaurant_service_hours.sql",
+    "menu_item_visibility.sql",
+    "order_intake_guard.sql",
+    # Operational report: the progress-event table and the test-order rule it reads, then the report itself.
+    "order_customer_event.sql",
+    "order_has_test_item.sql",
+    "rest_admin_reports.sql",
 ]
 
 
