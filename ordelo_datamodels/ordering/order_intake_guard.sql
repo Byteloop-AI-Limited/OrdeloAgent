@@ -2,7 +2,7 @@
 -- ordelo_datamodels/ordering/order_intake_guard.sql
 -- The one new-order refusal rule: a date override closed the restaurant, or the basket has a hidden item.
 -- =============================================================================================
--- LIVE CHECK    New in plans/telegram-portal-links-and-dashboard-plan.md Phases 7-8; applied with migrations/order_intake_guard_p1.sql
+-- LIVE CHECK    Live since 19 Nov 2026 (applied with migrations/order_intake_guard_p1.sql; live body compared with this file). docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md
 --               (which also replaces create_food_order_with_items to call it).
 -- OBJECTS       fn     order_intake_block(p_rest_ref text, p_at timestamptz, p_items jsonb) -> jsonb
 --                   ok | closed_date | hidden_items (+ the hidden titles) for a new order; never raises.

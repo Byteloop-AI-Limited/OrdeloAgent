@@ -91,7 +91,7 @@ MIGRATION_FILES = [
     "web_order_request.sql",
     "order_access_grant.sql",
     "web_order_lookup.sql",
-    # Restaurant-dashboard settings (plans/telegram-portal-links-and-dashboard-plan.md Phase 5): after auth_sessions.sql
+    # Restaurant-dashboard settings (docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md): after auth_sessions.sql
     # (rest_admin_session_actor). resolve_initial_restaurant_acceptance.sql is here for the agreement test.
     "resolve_initial_restaurant_acceptance.sql",
     "restaurant_settings.sql",

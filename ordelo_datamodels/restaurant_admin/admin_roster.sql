@@ -3,8 +3,8 @@
 -- Admin roster: who a restaurant's admins are, which channels each one hears on, and the phone-verified Telegram link.
 -- =============================================================================================
 -- LIVE CHECK    P1 is live: every function body compared read-only with the live catalogue on 19 Nov 2026 (identical).
---               is_overwatch and the overwatch / revocation changes (plans/telegram-portal-links-and-dashboard-plan.md
---               Phase 1) are applied with migrations/telegram_portals_p1.sql.
+--               is_overwatch and the overwatch / revocation changes (docs/adr/0017-portal-access-is-decided-per-request-in-sql.md)
+--               are live since 19 Nov 2026 (migrations/telegram_portals_p1.sql).
 -- OBJECTS       fn     admin_phone_digits(p_phone text) -> text
 --                   Digits only; NULL unless 8-15 digits. The one phone rule of the roster.
 --               fn     is_overwatch(p_phone text) -> boolean
@@ -120,7 +120,7 @@ $$;
 --   The ONE overwatch membership rule: the phone (admin_phone_digits form) is an entry of ordelo_config.overwatch_list
 --   (comma-separated; '+', spaces and other non-digits ignored per entry). Read fresh on every call: this is authorisation,
 --   not the alerts cache in config/params.py get_overwatch_list(). A missing config row means nobody is overwatch.
---   Grants the sys-admin dashboard (plans/telegram-portal-links-and-dashboard-plan.md, M1); never a restaurant right.
+--   Grants the sys-admin dashboard (docs/adr/0017-portal-access-is-decided-per-request-in-sql.md); never a restaurant right.
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.is_overwatch (p_phone text)
     RETURNS boolean

@@ -2,7 +2,7 @@
 -- Applied to live: 2026-11-19 (agent, owner-authorised implementation run, during the owner's verification window)
 -- Current definitions now live in: restaurant_admin/restaurant_service_hours.sql, ordering/menu_item_visibility.sql,
 --   ordering/order_intake_guard.sql, ordering/create_food_order_with_items.sql
--- Purpose: plans/telegram-portal-links-and-dashboard-plan.md Phases 7-8: one-date service-hour overrides (closed dates,
+-- Purpose: docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md: one-date service-hour overrides (closed dates,
 --   early close) with the dashboard editor (writes gated by ordelo_config REST_DASHBOARD_HOURS_EDITS, absent = off),
 --   hidden menu items, and the new-order guard inside create_food_order_with_items (P0C01 closed_date, P0C02 hidden_items).
 -- Compatibility: with no "dates" key and no hidden rows the guard returns ok and create_food_order_with_items behaves

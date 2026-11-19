@@ -2,7 +2,7 @@
 -- Applied to live: 2026-11-19 (agent, during the owner's verification window; owner-authorised implementation run)
 -- Current definitions now live in: restaurant_admin/admin_roster.sql (is_overwatch, t_admin_link, t_admin_profile,
 --   admin_unlink_telegram); admin_dashboard/auth_sessions.sql (portal access, admin mints, admin sessions, revocation)
--- Purpose: plans/telegram-portal-links-and-dashboard-plan.md Phases 1-3 (database part).
+-- Purpose: portal links and dashboard sessions, docs/adr/0017-portal-access-is-decided-per-request-in-sql.md.
 --   . overwatch phones can link to the restaurant bot with no restaurant (t_admin_link / t_admin_profile 'ops_only')
 --   . relink to another Telegram account / unlink revokes the phone's rest_admin + sys_admin sessions and unused links
 --   . portal_access(), rest_admin_dashboard_mint(), sys_admin_dashboard_mint(): issuance with the authority check and the

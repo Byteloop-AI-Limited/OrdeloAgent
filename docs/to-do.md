@@ -117,7 +117,20 @@ Not fixed by that plan unless a phase says so.
 
 ## Telegram portal links and restaurant dashboard (added 19 Nov 2026)
 
-Built and verified on 19 Nov (offline, isolated SQL and live through the tunnel; see the implementation log in `plans/telegram-portal-links-and-dashboard-plan.md`). The SQL is applied live; the code is NOT deployed.
+Built and verified on 19 Nov (offline, isolated SQL and live through the tunnel). The decisions and verification evidence are in [ADR 0017](adr/0017-portal-access-is-decided-per-request-in-sql.md) (portal links) and [ADR 0018](adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md) (dashboard settings, closures, hidden items, reports). The live verification loop is in `agents.md`. The SQL is applied live; the code is NOT deployed.
+
+Failures that predate this work (seen 19 Nov; treat any other failure as new):
+- `tests/ordelo_datamodels/test_master_pymodels.py::test_restaurant_master_get_admins_fetches_live_column`
+- `tests/test_datamodels_standard.py::test_header_paths_exist[platform/fly_config.sql]`
+- `tests/utils_common/order_management/test_restaurant_decision.py::test_describe[auto_decline-None-auto-declined]`
+- `tests/sql/test_restaurant_notices_script_sql.py::test_stage0_*` (2)
+- restaurant-agents ruff F821 in `notebooks/update_callback_url.py`
+
+Rollback, if needed after deploy:
+1. Stop advertising first: clear the overwatch chats' scoped menus and remove `/sysadmin` from the router. The default menu never had it.
+2. Keep `REST_DASHBOARD_HOURS_EDITS` off.
+3. If a closed date or hidden item is active, clear the data (Remove / Show) rather than reverting the guard.
+4. The audit, milestone and hidden-item tables are additive; keep them.
 
 - [ ] **Deploy order.** restaurant-frontend first (GET-safe activation, settings pages; works with old links), then OrdeloAgent (`/sysadmin`, `/portal`, dashboard_links), then restaurant-agents (date-aware `service_hours`). After OrdeloAgent: republish both default bot menus (`notebooks/telegram/tgram_setup_bot.py`; the rider menu gains `/portal`).
 - [ ] **Scoped menu already set.** The live check set the `/sysadmin` scoped menu in the owner's private restaurant-bot chat. Until OrdeloAgent is deployed, production answers `/sysadmin` with the text fallback.

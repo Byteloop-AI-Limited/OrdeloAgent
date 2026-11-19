@@ -2,7 +2,7 @@
 Dashboard magic links for every portal (rider, restaurant admin, sys-admin), for a Telegram or WhatsApp actor.
     . The one module that knows how a dashboard link is made: token, sha256, the service-only mint RPC, the configured HTTPS
       origin and the per-portal activation path. Callers pass WHO is asking (Actor) and WHICH portal; they never see a
-      token, a hash, an RPC name or a URL rule (plans/telegram-portal-links-and-dashboard-plan.md, M2).
+      token, a hash, an RPC name or a URL rule (docs/adr/0017-portal-access-is-decided-per-request-in-sql.md).
     . Authority lives in SQL, in the same transaction as the insert. RPCs are DEFINED in
       ordelo_datamodels/admin_dashboard/auth_sessions.sql (keep this list and that file's header in sync):
         access(actor)              -> portal_access(p_tuid, p_phone)                   restaurants + sys_admin flag

@@ -3,7 +3,7 @@
 -- Restaurant-dashboard settings: the audited write path, the acceptance policy (auto-accept + default pickup minutes),
 -- the sys-admin change list and undo.
 -- =============================================================================================
--- LIVE CHECK    New in plans/telegram-portal-links-and-dashboard-plan.md Phase 5; applied with migrations/restaurant_settings_p1.sql.
+-- LIVE CHECK    Live since 19 Nov 2026 (applied with migrations/restaurant_settings_p1.sql; live body compared with this file). docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md
 -- OBJECTS       table  restaurant_settings_audit
 --                   One row per changed restaurant setting: who, when, via what, old -> new, and its undo.
 --               fn     restaurant_setting_value(p_rest_ref text, p_setting text, p_key text) -> jsonb
@@ -69,7 +69,7 @@
 --                 agree for every case. Change both together.
 --               A setting row change locks restaurant_master FOR UPDATE: changes to one restaurant are serialised.
 -- SEE ALSO      restaurant_admin/resolve_initial_restaurant_acceptance.sql, docs/adr/0001-configured-restaurant-auto-accept.md
---               plans/telegram-portal-links-and-dashboard-plan.md (M6, M7)
+--               docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md
 -- =============================================================================================
 
 -- ---------------------------------------------------------------------------------------------

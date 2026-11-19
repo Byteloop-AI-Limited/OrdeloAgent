@@ -2,9 +2,9 @@
 -- ordelo_datamodels/restaurant_admin/restaurant_service_hours.sql
 -- Service hours with one-date overrides (closed all day, early close, special hours) and the restaurant-dashboard editor.
 -- =============================================================================================
--- LIVE CHECK    New in plans/telegram-portal-links-and-dashboard-plan.md Phase 7 (owner decision O8', 19 Nov 2026);
---               applied with migrations/restaurant_service_hours_p1.sql. Dashboard writes stay OFF until the readers are
---               deployed: ordelo_config REST_DASHBOARD_HOURS_EDITS (see GOTCHAS).
+-- LIVE CHECK    Live since 19 Nov 2026 (applied with migrations/order_intake_guard_p1.sql; live body compared with this file).
+--               Dashboard writes stay OFF until the readers are deployed: ordelo_config REST_DASHBOARD_HOURS_EDITS (see
+--               GOTCHAS). Owner decision (closures as date overrides): docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md
 -- OBJECTS       fn     service_hours_day(p_hours jsonb, p_date date, p_use_dates boolean) -> jsonb
 --                   The interval list that applies on one London date: its override (marker = []) or the weekday's.
 --               fn     service_hours_open(p_hours jsonb, p_at timestamptz, p_use_dates boolean) -> boolean

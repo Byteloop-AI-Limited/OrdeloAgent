@@ -2,7 +2,7 @@
 -- ordelo_datamodels/restaurant_admin/rest_admin_dashboard_alerts.sql
 -- Restaurant dashboard "My alerts": the signed-in admin's own alert channels and their alert pause for this restaurant.
 -- =============================================================================================
--- LIVE CHECK    New in plans/telegram-portal-links-and-dashboard-plan.md Phase 6; applied with migrations/rest_admin_alerts_p1.sql.
+-- LIVE CHECK    Live since 19 Nov 2026 (applied with migrations/rest_admin_alerts_p1.sql; live body compared with this file). docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md.
 -- OBJECTS       fn     rest_admin_alerts_get(p_session_id uuid) -> jsonb
 --                   The signed-in admin's channels, Telegram link, current pause for this restaurant and the pause lengths.
 --               fn     rest_admin_alerts_set_channels(p_session_id uuid, p_channels text[]) -> jsonb

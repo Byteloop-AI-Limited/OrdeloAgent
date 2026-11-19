@@ -1,7 +1,7 @@
 -- MIGRATION (history; do not edit the statements below)
 -- Applied to live: 2026-11-19 (agent, owner-authorised implementation run, during the owner's verification window)
 -- Current definitions now live in: restaurant_admin/restaurant_settings.sql
--- Purpose: plans/telegram-portal-links-and-dashboard-plan.md Phase 5: audited restaurant-dashboard settings (acceptance
+-- Purpose: docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md: audited restaurant-dashboard settings (acceptance
 --          policy), sys-admin change list and undo. Additive only: a new table and new functions; no existing object changes.
 -- Requires: telegram_portals_p1.sql (rest_admin_session_actor).
 -- VERIFY:  SELECT restaurant_acceptance_state('STRK')->>'result';   -- ok

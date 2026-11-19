@@ -1,7 +1,7 @@
 -- MIGRATION (history; do not edit the statements below)
 -- Applied to live: 2026-11-19 (agent, owner-authorised implementation run, during the owner's verification window)
 -- Current definitions now live in: restaurant_admin/rest_admin_dashboard_alerts.sql; availability/pauses.sql (CHECK)
--- Purpose: plans/telegram-portal-links-and-dashboard-plan.md Phase 6: restaurant dashboard "My alerts" (channels, pause).
+-- Purpose: docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md: restaurant dashboard "My alerts" (channels, pause).
 --          pauses.created_via also accepts 'dashboard' (CHECK relaxed, never narrowed). Additive functions only.
 -- VERIFY:  SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'pauses_created_via_check';  -- has dashboard
 -- Then:    python scripts/datamodels/drift_check.py

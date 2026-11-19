@@ -725,7 +725,7 @@ Meta webhook and Flow endpoints.
 
 - Method/path: `POST /rest-admin/dashboard-session`
 - Direction: `wa-ordelo`; status: `dead`; flow: WhatsApp → Ordelo
-- Does: Removed: there is no HTTP mint endpoint (tests/watomation/routers/test_dashboard_access.py asserts 404). Links are minted in-process by ordelo/dashboard_links.py over the SQL mints rest_admin_dashboard_mint / rider_dashboard_mint / sys_admin_dashboard_mint, which check authority and store the token hash in one transaction. (Updated 19 Nov 2026, plans/telegram-portal-links-and-dashboard-plan.md.)
+- Does: Removed: there is no HTTP mint endpoint (tests/watomation/routers/test_dashboard_access.py asserts 404). Links are minted in-process by ordelo/dashboard_links.py over the SQL mints rest_admin_dashboard_mint / rider_dashboard_mint / sys_admin_dashboard_mint, which check authority and store the token hash in one transaction. (Updated 19 Nov 2026; docs/adr/0017-portal-access-is-decided-per-request-in-sql.md.)
 - Request: `{ wa_number }`
 - Response: `{ url, expires_at }`
 - Sources: Ordelo:watomation/on_message_wa_handler.py:314 (Caller); Ordelo:watomation/routers/rest_admin_auth_session.py:60 (Implementation)
@@ -734,7 +734,7 @@ Meta webhook and Flow endpoints.
 
 - Method/path: `POST /rider/dashboard-session`
 - Direction: `wa-ordelo`; status: `dead`; flow: WhatsApp → Ordelo
-- Does: Removed: there is no HTTP mint endpoint (tests/watomation/routers/test_dashboard_access.py asserts 404). Links are minted in-process by ordelo/dashboard_links.py over the SQL mints rest_admin_dashboard_mint / rider_dashboard_mint / sys_admin_dashboard_mint, which check authority and store the token hash in one transaction. (Updated 19 Nov 2026, plans/telegram-portal-links-and-dashboard-plan.md.)
+- Does: Removed: there is no HTTP mint endpoint (tests/watomation/routers/test_dashboard_access.py asserts 404). Links are minted in-process by ordelo/dashboard_links.py over the SQL mints rest_admin_dashboard_mint / rider_dashboard_mint / sys_admin_dashboard_mint, which check authority and store the token hash in one transaction. (Updated 19 Nov 2026; docs/adr/0017-portal-access-is-decided-per-request-in-sql.md.)
 - Request: `{ wa_number }`
 - Response: `{ url, expires_at }`
 - Sources: Ordelo:watomation/fapp_ordelo_agent.py:134 (Caller); Ordelo:watomation/routers/rider_auth_session.py:48 (Implementation)
@@ -743,7 +743,7 @@ Meta webhook and Flow endpoints.
 
 - Method/path: `POST /sys-admin/dashboard-session?wa_number=`
 - Direction: `wa-ordelo`; status: `dead`; flow: WhatsApp → Ordelo
-- Does: Removed: there is no HTTP mint endpoint (tests/watomation/routers/test_dashboard_access.py asserts 404). Links are minted in-process by ordelo/dashboard_links.py over the SQL mints rest_admin_dashboard_mint / rider_dashboard_mint / sys_admin_dashboard_mint, which check authority and store the token hash in one transaction. (Updated 19 Nov 2026, plans/telegram-portal-links-and-dashboard-plan.md.)
+- Does: Removed: there is no HTTP mint endpoint (tests/watomation/routers/test_dashboard_access.py asserts 404). Links are minted in-process by ordelo/dashboard_links.py over the SQL mints rest_admin_dashboard_mint / rider_dashboard_mint / sys_admin_dashboard_mint, which check authority and store the token hash in one transaction. (Updated 19 Nov 2026; docs/adr/0017-portal-access-is-decided-per-request-in-sql.md.)
 - Request: `query wa_number`
 - Response: `{ url, expires_at }`
 - Sources: Ordelo:watomation/on_message_wa_handler.py:342 (Caller); Ordelo:watomation/routers/sys_admin_auth_session.py:74 (Implementation)
@@ -858,7 +858,7 @@ The only portal that really talks to ORDELO — 4 of the 6 live calls.
 
 Never calls ORDELO's HTTP API. Reads Postgres views through a tenant-scoped Proxy and writes settings through session-bound SQL RPCs.
 
-- Entry: Portal link from ORDELO (Telegram /manage or WhatsApp /login, minted by ordelo/dashboard_links.py) → GET /rest-admin/activate/[token] shows a page that auto-POSTs (lib/dashboard-activation.ts; a link preview cannot use it) → __Host-radash cookie. Roster membership is re-checked on every request (admin_dashboard_touch). (Updated 19 Nov 2026, plans/telegram-portal-links-and-dashboard-plan.md.)
+- Entry: Portal link from ORDELO (Telegram /manage or WhatsApp /login, minted by ordelo/dashboard_links.py) → GET /rest-admin/activate/[token] shows a page that auto-POSTs (lib/dashboard-activation.ts; a link preview cannot use it) → __Host-radash cookie. Roster membership is re-checked on every request (admin_dashboard_touch). (Updated 19 Nov 2026; docs/adr/0017-portal-access-is-decided-per-request-in-sql.md.)
 - Session: Opaque cookie → auth_sessions row. 60-minute idle timeout, 4-hour hard cap, enforced in middleware.ts.
 - Pages: `app/rest-admin/page.tsx`, `app/rest-admin/orders/page.tsx`, `app/rest-admin/reports/page.tsx`, `app/rest-admin/actions/page.tsx`, `app/rest-admin/more/page.tsx`
 - Calls:
@@ -878,7 +878,7 @@ Never calls ORDELO's HTTP API. Reads Postgres views through a tenant-scoped Prox
 
 Also never calls ORDELO. Same Supabase-direct pattern, scoped by rider_id.
 
-- Entry: Portal link from ORDELO (Telegram rider bot /portal or /my_jobs; ordelo/dashboard_links.py over rider_dashboard_mint) → GET /rider/activate/[token] page → automatic POST → __Host-rdash cookie. (Updated 19 Nov 2026, plans/telegram-portal-links-and-dashboard-plan.md.)
+- Entry: Portal link from ORDELO (Telegram rider bot /portal or /my_jobs; ordelo/dashboard_links.py over rider_dashboard_mint) → GET /rider/activate/[token] page → automatic POST → __Host-rdash cookie. (Updated 19 Nov 2026; docs/adr/0017-portal-access-is-decided-per-request-in-sql.md.)
 - Session: auth_sessions row with role=rider, scope_ref=rider_id.
 - Pages: `app/rider/page.tsx`, `app/rider/jobs/page.tsx`, `app/rider/more/page.tsx`, `app/rider/expired/page.tsx`
 - Calls:
@@ -892,7 +892,7 @@ Also never calls ORDELO. Same Supabase-direct pattern, scoped by rider_id.
 
 The only admin portal touching ORDELO — the remaining 2 of the 6 live calls.
 
-- Entry: Portal link from ORDELO (restaurant bot /sysadmin or the System dashboard button under /manage, WhatsApp /sysadmin; ordelo/dashboard_links.py over sys_admin_dashboard_mint) → GET page → automatic POST → __Host-sdash cookie. Overwatch membership (is_overwatch) is re-checked on every request. (Updated 19 Nov 2026, plans/telegram-portal-links-and-dashboard-plan.md.)
+- Entry: Portal link from ORDELO (restaurant bot /sysadmin or the System dashboard button under /manage, WhatsApp /sysadmin; ordelo/dashboard_links.py over sys_admin_dashboard_mint) → GET page → automatic POST → __Host-sdash cookie. Overwatch membership (is_overwatch) is re-checked on every request. (Updated 19 Nov 2026; docs/adr/0017-portal-access-is-decided-per-request-in-sql.md.)
 - Session: auth_sessions row with role=sys_admin.
 - Pages: `app/sys-admin/page.tsx`, `app/sys-admin/restaurants/page.tsx`, `app/sys-admin/rider-payouts/page.tsx`, `app/sys-admin/riders-inshift/page.tsx`
 - Calls:

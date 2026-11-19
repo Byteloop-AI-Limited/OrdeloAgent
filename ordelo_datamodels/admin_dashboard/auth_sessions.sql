@@ -295,7 +295,7 @@ COMMENT ON FUNCTION public.rider_dashboard_touch (text, text) IS 'Authorize and 
 
 -- =============================================================================================
 -- Admin dashboards (rest_admin, sys_admin): portal access, issuance and sessions.
--- plans/telegram-portal-links-and-dashboard-plan.md M2/M5/M6. Every function: service-role only.
+-- docs/adr/0017-portal-access-is-decided-per-request-in-sql.md. Every function: service-role only.
 -- Actor = exactly one of p_tuid (Telegram from_user.id, linked by a verified contact share: restaurant_admin.tuid) or
 -- p_phone (WhatsApp wa_id, verified by Meta). Authority is re-derived on every call: restaurant rights from admin_roster
 -- (restaurant_master.admins), system rights from is_overwatch(). Nothing here trusts a caller-asserted rest_ref alone.

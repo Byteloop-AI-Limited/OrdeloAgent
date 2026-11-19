@@ -2,7 +2,7 @@
 -- ordelo_datamodels/ordering/menu_item_visibility.sql
 -- Hidden menu items: a restaurant admin hides an item until an admin explicitly shows it again.
 -- =============================================================================================
--- LIVE CHECK    New in plans/telegram-portal-links-and-dashboard-plan.md Phase 8; applied with migrations/menu_item_visibility_p1.sql.
+-- LIVE CHECK    Live since 19 Nov 2026 (applied with migrations/order_intake_guard_p1.sql; live body compared with this file). docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md
 -- OBJECTS       table  menu_item_hidden
 --                   One row per hidden item of a restaurant; no row = visible.
 --               fn     menu_item_key(p_title text) -> text

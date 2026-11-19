@@ -2,8 +2,8 @@
 -- ordelo_datamodels/admin_dashboard/rest_admin_reports.sql
 -- Restaurant dashboard operational report: how fast orders are accepted and how pickups compare with their promise.
 -- =============================================================================================
--- LIVE CHECK    New in plans/telegram-portal-links-and-dashboard-plan.md (O9', owner decision 19 Nov 2026); applied with
---               migrations/rest_admin_reports_p1.sql. order_milestone capture starts on the day it is applied (no backfill).
+-- LIVE CHECK    Live since 19 Nov 2026 (applied with migrations/rest_admin_reports_p1.sql; live body compared with this file).
+--               order_milestone capture starts on 19 Nov 2026 (no backfill). docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md
 -- OBJECTS       table  order_milestone
 --                   First-occurrence facts of an order that later updates would otherwise overwrite (restaurant decision).
 --               fn     order_milestone_capture() -> trigger
@@ -42,7 +42,7 @@
 -- GOTCHAS       The capture trigger swallows every error (it must never block an order update); a missing milestone only
 --                 lowers the report's measured sample. Coverage before the apply date comes from restaurant_update_dtts and
 --                 only for orders never adjusted afterwards.
--- SEE ALSO      admin_dashboard/v_admin_orders.sql (the financial views), plans/telegram-portal-links-and-dashboard-plan.md
+-- SEE ALSO      admin_dashboard/v_admin_orders.sql (the financial views), docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md
 -- =============================================================================================
 
 CREATE TABLE IF NOT EXISTS public.order_milestone (

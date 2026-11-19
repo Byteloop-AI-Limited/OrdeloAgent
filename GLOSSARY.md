@@ -37,7 +37,7 @@ A restaurant's customer-facing WhatsApp conversation service. It is distinct fro
 _Avoid_: restaurant admin, kitchen
 
 **Overwatch**:
-The operations audience responsible for monitoring fulfilment and investigating escalations.
+The operations audience responsible for monitoring fulfilment and investigating escalations. Membership also gives access to the system dashboard, never restaurant rights.
 _Avoid_: all admins, restaurant staff
 
 **Overwatch rider**:
@@ -300,6 +300,16 @@ _Avoid_: actual pickup time
 The rider's physical collection of the order from the restaurant.
 _Avoid_: customer collection, scheduled pickup time
 
+**Original pickup promise**:
+The first scheduled pickup time an order received. Reports compare rider pickup with it.
+_Avoid_: latest pickup promise
+
+**Latest pickup promise**:
+The scheduled pickup time in force when the rider collected the order, after any adjustment. It equals the original promise when the time never changed.
+
+**Manual acceptance time**:
+Minutes from an order's creation to a restaurant admin's first accept or decline. Configured and timeout auto-accepts are counted separately, not timed.
+
 **Ready for collection**:
 The order is prepared and available for the customer to collect.
 
@@ -358,7 +368,7 @@ The people authorized to act as restaurant admins for a restaurant.
 The person-level record of an admin's contact, links and messaging channels. Roster membership determines the restaurants they may act for.
 
 **Admin link**:
-The binding between a Telegram account and a restaurant admin's identity.
+The binding between a Telegram account and a restaurant admin's identity, proved by sharing the account's own phone number. An overwatch member who admins no restaurant may also link; they get only the system dashboard. Moving the link to another account ends that phone's dashboard sessions.
 
 **Admin channels**:
 The messaging destinations selected for an admin, which can include WhatsApp, Telegram or both.
