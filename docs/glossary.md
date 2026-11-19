@@ -1,15 +1,9 @@
-# Ordelo glossary
+# Payment and receipt implementation reference
 
-Canonical domain terms are in [GLOSSARY.md](../GLOSSARY.md). This older reference preserves payment/receipt implementation terminology; alerts and notification outcome meanings are documented in [alerts-and-notifications.md](alerts-and-notifications.md).
+See the [canonical Ordelo glossary](../GLOSSARY.md) for payment authorization, capture, the pickup-time boundary, reconciliation and receipt terminology.
 
-| Term | Meaning |
-|---|---|
-| Takeaway | Ordelo's internal `food_order.action` value for a collection order. |
-| Collection | Payment-service action and receipt status for takeaway payments. |
-| Authorization | Customer approves a manual-capture payment; the payment service stores the PaymentIntent and prints nothing. |
-| Capture | Charges an authorized PaymentIntent, transfers the restaurant payout, and prints the receipt. |
-| Product items | Food item lines shown in capture receipts. |
-| Fee items | Service, delivery, and small-order fee rows, excluded from every capture receipt. |
-| Pickup-time boundary | The first non-null takeaway `pickup_time`, which initiates online-payment capture. |
-| Safe retry | A retry after the explicit pre-capture PaymentIntent lookup failure only. |
-| Reconciliation | Manual investigation of a non-retryable or exhausted capture failure. |
+- The payment service uses `collection` as an action and receipt status for Ordelo takeaway orders.
+- In the online collection flow, authorization stores the payment intent. The later capture workflow charges the customer and also handles payout and printing. Printed capture receipts include product items and exclude service, delivery and small-order fees.
+- The collection capture flow retries an explicit pre-capture payment-intent lookup failure. Other failures go to reconciliation.
+
+See [the collection capture decision](adr/0002-takeaway-manual-capture-at-pickup-time.md) and [the payment and order flow](payment_and_order_flow.md).

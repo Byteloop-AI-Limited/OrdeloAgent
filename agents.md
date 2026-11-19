@@ -14,8 +14,12 @@ For local startup of OrdeloAgent and the sibling restaurant-frontend, Python she
 
 ## Related projects
 
-- `/Users/basavaraj/bloop/restaurant-frontend` — the Next.js restaurant frontend. Inspect this project for storefront, checkout, and frontend session-validation behavior.
-- `/Users/basavaraj/bloop/restaurant-agents` — the restaurant agents, which have their own WhatsApp ordering channel. Inspect this project for restaurant-side conversations, active threads, and the endpoints called by OrdeloAgent.
+These repositories are sibling checkouts under `/Users/basavaraj/bloop`.
+
+- [restaurant-frontend](../restaurant-frontend/) — the Next.js restaurant frontend for storefronts, checkout, order status, and frontend session validation.
+- [restaurant-agents](../restaurant-agents/) — the restaurant WhatsApp ordering agents. Inspect this repository for customer conversations, active threads, and endpoints called by OrdeloAgent.
+- [payment-service](../payment-service/) — the live payment service (`payment`).
+- [wren-payment-service](../wren-payment-service/) — the test payment service (`wrenPayment`). See the [test-order guide](docs/test-orders.md) for how OrdeloAgent selects the payment service.
 
 Trace cross-project issues through these folders as needed, reading each project's `AGENTS.md` before working there. WhatsApp ordering session validation runs from the frontend's `/api/verify-session` through OrdeloAgent's `/order-hooks/get-active-thread/{rest_ref}/{recipient}` to the restaurant agent's `/thread-hooks/get-active-thread/{rest_ref}/{recipient}`; OrdeloAgent resolves the restaurant service using `ordelo_config.<REST_REF>_APP_URL`.
 
@@ -182,6 +186,16 @@ Trace cross-project issues through these folders as needed, reading each project
 - **Timeout behavior:** these endpoints respond success immediately and perform WhatsApp fan-out using FastAPI `BackgroundTasks` to avoid database-trigger HTTP timeouts.
 
 
+## Runtime boundaries
+
+The [glossary](GLOSSARY.md) owns business vocabulary. The [database capability index](ordelo_datamodels/README.md) identifies table and workflow owners.
+
+- A database trigger reacts to a row change. A scheduled job selects work on a timer. A database RPC exposes an operation such as deciding an order or assigning a rider. The assignment job writes the winning dispatch and creates the inflight row. Its insert trigger calls the delivery webhook. [Assignment job](ordelo_datamodels/dispatch/job_assign_dispatch.sql) · [Inflight trigger](ordelo_datamodels/dispatch/delivery_inflight.sql)
+- The delivery webhook schedules payment capture, the kitchen receipt and rider graph initialization as in-process background tasks. The rider messaging adapter handles transport. LangGraph checkpoints persist graph state under the rider thread ID. [Delivery hook](watomation/routers/delivery_hooks.py) · [Graph runner](ordelo/agents/agent_runner.py) · [Rider messaging interface](ordelo/rider_messaging/port.py)
+- The customer outbox claims an outbound callback before making the request. The Telegram inbox claims selected inbound updates before running their handlers. Both track processing outcomes. [Customer notifier](utils_common/notify/customer_notifier.py) · [Telegram inbox](channels/telegram/inbox.py)
+- Restaurant onboarding covers ordering configuration and can include WhatsApp Embedded Signup. Rider registration stores applications. Dashboard access and rider payout reports are separate operations capabilities. [Web-only onboarding](docs/onboarding-web-only-restaurant.md) · [Embedded Signup](watomation/routers/twilio_webhook.py) · [Rider registration](ordelo_datamodels/core/rider_registrations.sql) · [Dashboard sessions](ordelo_datamodels/admin_dashboard/auth_sessions.sql) · [Rider payout report](ordelo_datamodels/admin_dashboard/get_rider_payout_report.sql)
+- Menu configuration and delivery pricing sit alongside ordering. Byteloop is the general chat agent. Platform jobs handle deployment and infrastructure operations. [Menus](ordelo_datamodels/core/menus.sql) · [Delivery pricing](ordelo_datamodels/delivery/delivery_pricing_detail.sql) · [Byteloop agent](ordelo/agents/byteloop_agent.py) · [Platform SQL](ordelo_datamodels/platform/)
+
 ## WhatsApp Handlers and Commands
 
 - `process_wa_msg` — main message path for riders; runs the rider graph only if an active delivery/thread exists.
@@ -190,6 +204,10 @@ Trace cross-project issues through these folders as needed, reading each project
   - `/reset` → `reset_thread`: closes inflight dispatch if any, marks threads inactive, and notifies.
   - `/live` → `send_live_map_location`: sends the live map URL if inflight exists and location is present.
   - `/flow` → `test_flow`: example WA Flow (UI screen) button to demonstrate flows.
+- Dashboard commands (portal links; ADR 0017):
+  - `/login` → `handle_login_wa_msg`: one restaurant-dashboard link per restaurant this number admins.
+  - `/sysadmin` → `handle_sysadmin_wa_msg`: a system-dashboard link for overwatch numbers.
+  - Both call `ordelo/dashboard_links.py` `issue()`. The Telegram twins are the restaurant bot's `/manage` (plus the System dashboard button) and `/sysadmin`, and the rider bot's `/portal` / `/my_jobs` (see [telegram-layer.md](docs/telegram-layer.md)).
 
 
 ## Data and Persistence
@@ -203,7 +221,7 @@ Trace cross-project issues through these folders as needed, reading each project
   - Status progression includes `assigned` → `pickedup` → `completed`.
   - `reason_for_decline` (nullable) records explicit decline/cancel reasons per `dispatch_id`.
 - LangGraph state checkpointing:
-  - Postgres checkpointer (configured per‑message): `AsyncPostgresSaver` compiled into the rider graph. Thread context is mapped via `ThreadHandler` using the rider's WhatsApp number.
+  - Postgres checkpointer (configured per‑message): `AsyncPostgresSaver` compiled into the rider graph. Current rider graph threads are opened and resolved per dispatch by [rider_threads.py](ordelo/agents/rider_threads.py). The wrapper also locates legacy active threads.
 
 > **📖 For detailed delivery workflow documentation including all triggers, webhooks, and status transitions, see [`docs/delivery_process.md`](docs/delivery_process.md)**
 
@@ -281,6 +299,40 @@ INSTALL_DEV=1 source run_setup.sh
 
 > **📖 For detailed cloud session setup instructions, see [`.claude/CLOUD_SESSION_SETUP.md`](.claude/CLOUD_SESSION_SETUP.md)**
 
+## Live verification loop (verify your own work end to end)
+
+When a change touches a Telegram bot, a dashboard magic link, or a frontend↔backend call, verify it live through the local services as well as offline. The full procedure is in the [Telegram Vertification Loop skill](.claude/skills/telegram-vertification-loop/SKILL.md). The facts an agent needs are:
+
+- **One database: the production Supabase.** There is no separate test database. The local services, deployed production and every bot share it. Isolated SQL tests use the throwaway Postgres from the `ordelo-sql-test-db` skill. Anything applied to Supabase is live for real restaurants.
+- **The owner runs the local services in the Rex session `RunServices`.** The Rex CLI is at `/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex`; read its `__internal skill` guide.
+  - List panes: `rex ls --json` and `rex block ls -s <session> --json`.
+  - Read logs: `rex capture -s <session> -b <block> --trim`.
+  - The pane running `uvicorn` is the OrdeloAgent backend (port 3100). The pane running `next dev` is restaurant-frontend (port 3000).
+  - Both reload on save, so **every file you save is immediately served to live traffic**. Keep each save importable, and apply new SQL to the database before saving code that calls it.
+  - Never stop or restart those processes unless the owner asks.
+- **Cloudflare Tunnel hostnames**:
+  - `https://rider-agent-test.ordelo.app` → `localhost:3100`
+  - `https://restaurant-test.ordelo.app` → `localhost:3000`
+
+  During a verification window the owner sets:
+  ```sql
+  UPDATE ordelo_config SET config_value = 'https://rider-agent-test.ordelo.app' WHERE config_key = 'ORDELO_APP_URL';
+  UPDATE ordelo_config SET config_value = 'https://restaurant-test.ordelo.app' WHERE config_key = 'RESTAURANT_MENU_APP_URL';
+  ```
+  Both bot webhooks (@OrdeloRestaurantBot and @ByteloopRidersBot, the **production** bots) also point at `rider-agent-test.ordelo.app/telegram/<bot>/webhook`. Then:
+  - Telegram commands reach the local backend.
+  - Magic links open the local frontend.
+  - The frontend calls the local backend.
+
+  Check this before relying on it: `getWebhookInfo` for each bot, and `SELECT` both config rows. Production values are `https://rider-agent.ordelo.app` and `https://restaurant.ordelo.app` ([runbook §7](docs/local-testing-runbook.md)). Agents do not switch these unless the owner asks.
+- **Telegram desktop is open in a split view.** Drive it with computer use (the `computer-use` skill), acting as the owner's Telegram account. Send a command or tap a button, then confirm the outcome three ways: the visible reply, the backend pane log, and the database row (read-only queries). Open magic links from the chat, and check that the page lands on the right portal and that a second tap of the same link is refused.
+- **Order of evidence**:
+  1. offline tests (`pytest`, frontend `vitest`/`lint`/`build`)
+  2. isolated SQL (`pytest tests/sql`)
+  3. live Telegram + browser
+  
+  Label each result. Record the pre-existing failures before you change anything. Test data written to real restaurants must be reverted afterwards; prefer the `STRK` test restaurant and `STRK-TEST-*` fake orders ([live-order-test-harness.md](docs/live-order-test-harness.md)).
+
 ## Running Locally
 
 - Prepare the Python shell before any Python command: activate `venv` (or `.venv`), set `PYTHONPATH="$PWD"`, and load `.env` with `envLoad`, as shown in the [local testing runbook](docs/local-testing-runbook.md).
@@ -332,8 +384,10 @@ INSTALL_DEV=1 source run_setup.sh
 - Rider zone event → restaurant webhook: `watomation/routers/location_hooks.py:229`
 - Dispatch webhook entry: `watomation/routers/delivery_hooks.py` (see route definitions)
 - WhatsApp message entrypoint: `watomation/on_message_wa_handler.py:40`
-- Active thread lookup/creation: `utils_common/thread_management/thread_handler.py`
+- Rider thread lookup and lifecycle: [rider_threads.py](ordelo/agents/rider_threads.py)
 - Supabase REST call helpers: `utils_common/db_utils/sbase_rest_ops.py`
+- Dashboard / portal links (rider, restaurant, system) for Telegram and WhatsApp: [dashboard_links.py](ordelo/dashboard_links.py); SQL mints and sessions in [auth_sessions.sql](ordelo_datamodels/admin_dashboard/auth_sessions.sql)
+- Restaurant dashboard settings, closed dates, hidden items and reports (SQL owners): [restaurant_settings.sql](ordelo_datamodels/restaurant_admin/restaurant_settings.sql), [restaurant_service_hours.sql](ordelo_datamodels/restaurant_admin/restaurant_service_hours.sql), [rest_admin_dashboard_alerts.sql](ordelo_datamodels/restaurant_admin/rest_admin_dashboard_alerts.sql), [menu_item_visibility.sql](ordelo_datamodels/ordering/menu_item_visibility.sql), [order_intake_guard.sql](ordelo_datamodels/ordering/order_intake_guard.sql), [rest_admin_reports.sql](ordelo_datamodels/admin_dashboard/rest_admin_reports.sql)
 
 ## Pyrun Notes
 
@@ -362,7 +416,7 @@ Note: Ensure AWS secrets are loaded so `ordelo_agent_env` can populate settings.
 ## Notable Details and Caveats
 
 - **SQL execution preference (2026-10-02):** Write SQL intended for manual execution as standalone statements without explicit `BEGIN`, `END`, or `COMMIT` transaction wrappers. Avoid `DO ... BEGIN ... END` blocks for routine configuration switches; prefer ordinary SQL statements. The user reported that the R3 configuration update persisted in the Supabase web SQL editor but did not persist when run as a transaction block in the VS Code PostgreSQL extension. This is an observed workflow issue, not a confirmed PostgreSQL defect. Include `RETURNING` or a separate verification `SELECT` for changes. This does not require removing procedural syntax needed inside existing function definitions or changing application transaction handling.
-- State and threads: The system relies on a `thread` table keyed by WhatsApp number; always ensure a thread exists before invoking the rider graph.
+- State and threads: Opening an assignment creates or resolves its rider thread. Use the [rider thread wrapper](ordelo/agents/rider_threads.py) to resolve active threads and retain historical checkpoints. See [ADR 0012](docs/adr/0012-rider-threads-follow-dispatch-assignments.md).
 - Tool responses: Tool functions generally both send WA messages and return `Command` state updates; the agent node decides whether to call tools or respond.
 - **/dontRespond convention:** If a tool already sends a WhatsApp message (via `wa_client.send_message` / `send_location` / templates), the tool’s returned `Command` must include a `ToolMessage(...)` followed by an `AIMessage("/dontRespond: ...")`. This suppresses `respond_node` from echoing a second, near‑duplicate text to the rider.
 - Edge side effects: Some helper modules in `utils_common/waba_es` run example calls on import; avoid importing them in production flows unless needed.

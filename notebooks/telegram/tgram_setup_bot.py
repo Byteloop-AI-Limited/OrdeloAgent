@@ -22,8 +22,8 @@ from pathlib import Path
 
 ROOT = next(p for p in [Path.cwd(), *Path.cwd().parents] if (p / "channels" / "telegram").is_dir())
 
-# BOT_KEY = "rest_admin"  # Change to "rider" to operate the rider bot.
-BOT_KEY = "rider"  # Change to "rider" to operate the rider bot.
+BOT_KEY = "rest_admin"  # Change to "rider" to operate the rider bot.
+# BOT_KEY = "rider"  # Change to "rider" to operate the rider bot.
 
 sys.path.insert(0, str(ROOT))
 
@@ -61,8 +61,8 @@ print(BOT_KEY)
 assert settings.webhook_url.startswith("https://"), f"set tgram_{BOT_KEY}_webhook_base_url to a public https:// URL"
 dp = DISPATCHER_FACTORIES[BOT_KEY](settings)
 
-# callback_url = settings.webhook_url # Test
-callback_url = settings.webhook_url.replace('-test', '') # Prod 
+callback_url = settings.webhook_url # Test
+# callback_url = settings.webhook_url.replace('-test', '') # Prod 
 
 await bot.set_webhook(
     url=callback_url,

@@ -7,3 +7,7 @@ Ordelo records customer events independently of their communication outcomes. A 
 A web-page outbox row marked `skipped` is a successful no-op transport choice, not a missing customer event. A restaurant-app row marked `sent` means its HTTP callback returned successfully, not that a customer read a WhatsApp message. Rider timing alerts and payment-cancellation recovery use separate ledgers and policies; this decision does not give them the same guarantees.
 
 Sources: [customer_notifier.py](../../utils_common/notify/customer_notifier.py), [accepted plan R1b implementation update](../../plans/ordelo-agg-plan-cc.md), [alerts and notifications guide](../alerts-and-notifications.md). The older generic retry wording in the plan is narrowed by its explicit R1b implementation update.
+
+## Reading this decision in the current workflow
+
+The at-most-once rule applies to attempted restaurant-app callbacks in this outbox. Recovery can process committed events with unattempted rows. An interrupted attempt can end failed. A successful callback acknowledges the HTTP request.

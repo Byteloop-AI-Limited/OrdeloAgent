@@ -2,10 +2,13 @@
 -- ordelo_datamodels/restaurant_admin/admin_roster.sql
 -- Admin roster: who a restaurant's admins are, which channels each one hears on, and the phone-verified Telegram link.
 -- =============================================================================================
--- LIVE CHECK    NOT YET APPLIED. Written for plans/restaurant-admin-roster-onboarding-plan.md (P1); the owner applies it with
---               migrations/admin_roster_p1.sql and runs test_support/test_admin_onboarding.sql.
+-- LIVE CHECK    P1 is live: every function body compared read-only with the live catalogue on 19 Nov 2026 (identical).
+--               is_overwatch and the overwatch / revocation changes (docs/adr/0017-portal-access-is-decided-per-request-in-sql.md)
+--               are live since 19 Nov 2026 (migrations/telegram_portals_p1.sql).
 -- OBJECTS       fn     admin_phone_digits(p_phone text) -> text
 --                   Digits only; NULL unless 8-15 digits. The one phone rule of the roster.
+--               fn     is_overwatch(p_phone text) -> boolean
+--                   The one overwatch membership rule (ordelo_config.overwatch_list); grants the sys-admin dashboard.
 --               table  restaurant_admin
 --                   The admin record: one row per phone (channels, Telegram link). Confers no authority (D3).
 --               view   admin_roster
@@ -27,6 +30,7 @@
 -- REQUIRES      core/restaurant_master.sql
 --               availability/pauses.sql
 --               telegram/t_invites.sql
+--               (runtime only: admin_dashboard/auth_sessions.sql for auth_sessions_revoke_phone(), called by plpgsql)
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
 -- SIDE EFFECTS  Creates the table restaurant_admin (empty) and one ordelo_config row (ON CONFLICT DO NOTHING).
@@ -44,13 +48,20 @@
 --                                        relinked        another Telegram account proved this phone; link moved (previous_tuid /
 --                                                        previous_username returned for the ops alert)
 --                                        already_linked  same phone, same account; chat / username / first name refreshed
---                                        not_on_roster   the phone is on no restaurant's admin list; nothing written
+--                                        not_on_roster   the phone is on no restaurant's admin list and not overwatch; nothing
+--                                                        written (an overwatch-only phone links with restaurants = [])
 --                                        tuid_taken      this Telegram account is linked to a DIFFERENT phone; refused
 --                                        bad_phone       not 8-15 digits, or ids missing
---                 t_admin_profile:       ok | not_linked | not_on_roster
+--                                        (every success also returns sys_admin; relinked revokes the phone's dashboard
+--                                        sessions and unused links)
+--                 t_admin_profile:       ok | ops_only | not_linked | not_on_roster   (+ sys_admin)
 --                 admin_set_channels:    ok | not_found | bad_channels | not_linked
 --                 admin_unlink_telegram: ok | not_found | not_linked
--- CALLED BY     admin_phone_digits:
+-- CALLED BY     is_overwatch:
+--                 sql       t_admin_link(), t_admin_profile(), portal_access(), sys_admin_dashboard_mint(),
+--                           admin_session_authorised() (admin_dashboard/auth_sessions.sql)
+--                 python    watomation/routers/sys_admin_auth_session.py: _ensure_sys_admin()
+--               admin_phone_digits:
 --                 sql       admin_roster, t_admin_link(), admin_roster_status(), admin_set_channels(), admin_unlink_telegram(),
 --                           t_order_card_destinations(), t_order_admin_phone(), restaurant_admin_label()
 --               admin_roster:
@@ -103,6 +114,31 @@ CREATE OR REPLACE FUNCTION public.admin_phone_digits (p_phone text)
             regexp_replace(p_phone, '\D', '', 'g')
         END
 $$;
+
+-- ---------------------------------------------------------------------------------------------
+-- function is_overwatch(p_phone text) -> boolean
+--   The ONE overwatch membership rule: the phone (admin_phone_digits form) is an entry of ordelo_config.overwatch_list
+--   (comma-separated; '+', spaces and other non-digits ignored per entry). Read fresh on every call: this is authorisation,
+--   not the alerts cache in config/params.py get_overwatch_list(). A missing config row means nobody is overwatch.
+--   Grants the sys-admin dashboard (docs/adr/0017-portal-access-is-decided-per-request-in-sql.md); never a restaurant right.
+-- ---------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.is_overwatch (p_phone text)
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE
+    SET search_path = public
+    AS $$
+    SELECT
+        public.admin_phone_digits (p_phone) IS NOT NULL
+        AND EXISTS (
+            SELECT 1
+            FROM public.ordelo_config c
+            CROSS JOIN LATERAL unnest(string_to_array(c.config_value, ',')) AS e (raw)
+            WHERE c.config_key = 'overwatch_list'
+              AND public.admin_phone_digits (e.raw) = public.admin_phone_digits (p_phone))
+$$;
+REVOKE ALL ON FUNCTION public.is_overwatch (text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_overwatch (text) TO service_role;
 
 -- ---------------------------------------------------------------------------------------------
 -- table restaurant_admin: the admin record (CONTEXT.md). One row per phone, shared by every restaurant the phone is on.
@@ -216,10 +252,14 @@ REVOKE ALL ON FUNCTION public.admin_for_tuid (bigint, text) FROM PUBLIC, anon, a
 --     linked          first link for this phone: record created/filled, channels := {telegram} (D6)
 --     relinked        another Telegram account proved this phone: link moved, channels kept; previous_tuid/username returned (D8)
 --     already_linked  same phone, same account: tcid / username / first name refreshed, channels kept
---     not_on_roster   the phone is on no restaurant's admin list: nothing written (D5)
+--     not_on_roster   the phone is on no restaurant's admin list AND not in overwatch_list: nothing written (D5)
 --     tuid_taken      this Telegram account is linked to a DIFFERENT phone: refused (D8)
 --     bad_phone       not 8-15 digits, or missing ids
---   Every linked/relinked/already_linked result carries phone, channels and restaurants:[{rest_ref, rest_name}].
+--   Every linked/relinked/already_linked result carries phone, channels, restaurants:[{rest_ref, rest_name}] and sys_admin.
+--   An overwatch phone links even with no restaurant (restaurants = [], sys_admin = true): it then gets only the sys-admin
+--   dashboard; admin_roster (a join on the lists) gives it no destinations, order rights or pauses.
+--   relinked also revokes every rest_admin / sys_admin dashboard session and unused link of the phone
+--   (auth_sessions_revoke_phone, admin_dashboard/auth_sessions.sql), in this transaction.
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_admin_link (p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text)
     RETURNS jsonb
@@ -237,7 +277,7 @@ BEGIN
     IF v_phone IS NULL OR p_tuid IS NULL OR p_tcid IS NULL THEN
         RETURN jsonb_build_object('result', 'bad_phone');
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM admin_roster r WHERE r.phone = v_phone) THEN
+    IF NOT EXISTS (SELECT 1 FROM admin_roster r WHERE r.phone = v_phone) AND NOT is_overwatch (v_phone) THEN
         RETURN jsonb_build_object('result', 'not_on_roster');
     END IF;
     SELECT phone INTO v_other FROM restaurant_admin WHERE tuid = p_tuid AND phone <> v_phone;
@@ -268,12 +308,14 @@ BEGIN
         WHERE phone = v_phone
         RETURNING * INTO v_row;
         v_result := 'relinked';
+        PERFORM auth_sessions_revoke_phone (v_phone, 'relinked');
     END IF;
     RETURN jsonb_build_object(
         'result', v_result, 'phone', v_row.phone, 'channels', to_jsonb(v_row.channels),
         'restaurants', (SELECT coalesce(jsonb_agg(jsonb_build_object('rest_ref', r.rest_ref, 'rest_name', r.rest_name)
                                                   ORDER BY r.rest_ref), '[]'::jsonb)
                           FROM admin_roster r WHERE r.phone = v_phone),
+        'sys_admin', is_overwatch (v_phone),
         'previous_tuid', v_prev_tuid, 'previous_username', v_prev_username);
 EXCEPTION
     WHEN unique_violation THEN
@@ -285,8 +327,10 @@ REVOKE ALL ON FUNCTION public.t_admin_link (bigint, bigint, text, text, text) FR
 
 -- ---------------------------------------------------------------------------------------------
 -- function t_admin_profile(p_tuid bigint) -> jsonb
---   {result: ok | not_linked | not_on_roster, phone, channels, t_first_name, restaurants:[{rest_ref, rest_name}]}
---   not_on_roster: linked record whose phone is on no list any more (removed by an operator): no authority, no messages.
+--   {result: ok | ops_only | not_linked | not_on_roster, phone, channels, t_first_name, restaurants:[{rest_ref, rest_name}],
+--    sys_admin}
+--   ok: admin of at least one restaurant. ops_only: on no list but in overwatch_list (sys-admin dashboard only).
+--   not_on_roster: linked record whose phone is on no list and not overwatch (removed by an operator): no authority.
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_admin_profile (p_tuid bigint)
     RETURNS jsonb
@@ -299,8 +343,11 @@ CREATE OR REPLACE FUNCTION public.t_admin_profile (p_tuid bigint)
             jsonb_build_object('result', 'not_linked')
         ELSE
             jsonb_build_object(
-                'result', CASE WHEN EXISTS (SELECT 1 FROM admin_roster r WHERE r.phone = ra.phone) THEN 'ok' ELSE 'not_on_roster' END,
+                'result', CASE WHEN EXISTS (SELECT 1 FROM admin_roster r WHERE r.phone = ra.phone) THEN 'ok'
+                               WHEN is_overwatch (ra.phone) THEN 'ops_only'
+                               ELSE 'not_on_roster' END,
                 'phone', ra.phone, 'channels', to_jsonb(ra.channels), 't_first_name', ra.t_first_name,
+                'sys_admin', is_overwatch (ra.phone),
                 'restaurants', (SELECT coalesce(jsonb_agg(jsonb_build_object('rest_ref', r.rest_ref, 'rest_name', r.rest_name)
                                                           ORDER BY r.rest_ref), '[]'::jsonb)
                                   FROM admin_roster r WHERE r.phone = ra.phone))
@@ -345,7 +392,8 @@ REVOKE ALL ON FUNCTION public.admin_set_channels (text, text[], text) FROM PUBLI
 
 -- ---------------------------------------------------------------------------------------------
 -- function admin_unlink_telegram(p_phone text, p_by text) -> jsonb
---   Clear the Telegram link and go back to WhatsApp only. {result: ok | not_found | not_linked}. The person can link
+--   Clear the Telegram link and go back to WhatsApp only; also revokes the phone's dashboard sessions and unused links.
+--   {result: ok | not_found | not_linked}. The person can link
 --   again by sharing their number. Removing a phone from every admins[] list stays the real off switch (D3).
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.admin_unlink_telegram (p_phone text, p_by text)
@@ -366,6 +414,7 @@ BEGIN
     SET tuid = NULL, tcid = NULL, t_username = NULL, t_first_name = NULL, t_linked_at = NULL,
         channels = ARRAY['whatsapp']::text[], channels_set_by = p_by, updated_at = now()
     WHERE phone = v_row.phone;
+    PERFORM auth_sessions_revoke_phone (v_row.phone, 'unlinked');
     RETURN jsonb_build_object('result', 'ok');
 END;
 $$;

@@ -882,3 +882,5 @@ flowchart TD
 ### Rider exit guard
 
 Before pickup, a rider request to cancel or close requires a confirmation button tap. After pickup, the agent refuses and alerts overwatch on every request; the rider thread remains open. A simultaneous pickup and cancellation can race in the existing SQL function and requires database-level locking to guarantee this rule.
+
+The agent verifies the tap and its confirmation token. A confirmed [pre-pickup cancellation](../GLOSSARY.md#dispatch-and-availability) reopens dispatch and keeps the rider thread available to record the cancellation reason, then closes it. If the agent cannot read the dispatch status, it asks the rider to retry. See [ADR 0012](adr/0012-rider-threads-follow-dispatch-assignments.md) for thread ownership and [job_exit.py](../ordelo/job_exit.py) for the guard.

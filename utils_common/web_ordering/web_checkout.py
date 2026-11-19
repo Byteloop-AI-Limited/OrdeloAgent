@@ -22,6 +22,7 @@ from decimal import Decimal
 from datetime import timedelta
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from loguru import logger
+import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from config.pg_setting import pg_settings
@@ -440,13 +441,22 @@ async def create(req, key):
                     "idempotency_key": key,
                     "notes": notes,
                 }
-                await cur.execute(
-                    "SELECT create_food_order_with_items(%s,%s)",
-                    (
-                        Jsonb(payload),
-                        Jsonb([i.model_dump(mode="json") for i in req.order_items]),
-                    ),
-                )
+                try:
+                    await cur.execute(
+                        "SELECT create_food_order_with_items(%s,%s)",
+                        (
+                            Jsonb(payload),
+                            Jsonb([i.model_dump(mode="json") for i in req.order_items]),
+                        ),
+                    )
+                except psycopg.Error as e:
+                    # order_intake_block (ordering/order_intake_guard.sql): a stale open screen gets an actionable refusal
+                    if e.sqlstate == "P0C01":
+                        raise WebError("restaurant_closed") from None
+                    if e.sqlstate == "P0C02":
+                        detail = json.loads(getattr(e.diag, "message_detail", None) or "{}")
+                        raise WebError("items_unavailable", 409, items=detail.get("hidden") or []) from None
+                    raise
                 await cur.execute(
                     "INSERT INTO web_order_request(idempotency_key,thread_id,body_hash,order_number,address,lookup_postcode) VALUES (%s,%s,%s,%s,%s,%s)",
                     (key, req.thread_id, body_hash, order_number, Jsonb(addr), lookup),

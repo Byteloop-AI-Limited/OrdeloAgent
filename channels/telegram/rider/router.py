@@ -2,7 +2,7 @@
 offers, job-card buttons, /job, text to the rider agent). R5: availability.py (/shift, /off, /on) and location.py (a shared
 location answering a location request). dashboard.py provides /my_jobs (private read-only frontend access).
 
-Onboarding (plans/telegram-rider-bot-plan.md, D39-D42), one generic link for everybody, no per-phone invites:
+Onboarding (ADR 0011, Amendment 3, D39-D42), one generic link for everybody, no per-phone invites:
 
     /start (any payload, e.g. t.me/ByteloopRidersBot?start=join)
       already linked, profile complete -> "Welcome back"            already linked, town/vehicle 'TBD' -> next choice

@@ -5,30 +5,30 @@
 
 The SQL under `ordelo_datamodels/` is organised by capability. Each file starts with a fixed header (live check, objects, how to run, side effects, how it fits, lifecycle, callers, Python model, security, tests, gotchas, see also). The file is the authority; this guide only indexes it.
 
-**131 SQL files · 226 objects** 149 functions · 58 tables · 13 triggers · 6 views · 17 cron jobs
+**142 SQL files · 270 objects** 190 functions · 61 tables · 13 triggers · 6 views · 17 cron jobs
 
 ## Capability map
 
 | Folder | Capability | Files | Objects | What it covers |
 |---|---|---:|---:|---|
 | [`core/`](core/) | Core master data | 9 | 18 | Restaurants, customers, riders, menus and the key/value runtime configuration (ordelo_config) that every other area reads. |
-| [`ordering/`](ordering/) | Ordering and web checkout | 10 | 15 | Creating an order and its items in one transaction, the columns OrdeloAgent adds to restaurant-agents' food_order, and the web checkout tables (session draft, idempotency, page tokens, rate limit, payment release, daily audit). |
+| [`ordering/`](ordering/) | Ordering and web checkout | 12 | 21 | Creating an order and its items in one transaction (refused on a closed date or for a hidden item by order_intake_block), the columns OrdeloAgent adds to restaurant-agents' food_order, hidden menu items, and the web checkout tables (session draft, idempotency, page tokens, rate limit, payment release, daily audit). |
 | [`payment/`](payment/) | Payment | 3 | 3 | The payment inbox (payment_event), the at-most-once authorisation step and the alert-only reconciler for paid orders that never started fulfilment. |
 | [`notifications/`](notifications/) | Customer notifications | 3 | 3 | Who hears about an order (subscriptions), what happened (customer events) and one delivery record per event and subscription (outbox). |
 | [`delivery/`](delivery/) | Delivery orders | 6 | 12 | The delivery order as fulfilment sees it (delivery_summary), its priced vehicle options and the 5-second job that opens the next option or times the order out. |
 | [`dispatch/`](dispatch/) | Rider dispatch | 12 | 24 | Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep. |
 | [`takeaway/`](takeaway/) | Takeaway (collection) | 2 | 7 | The collection order (takeaway_summary), its creation and the triggers that tell admins and customers about it. |
-| [`restaurant_admin/`](restaurant_admin/) | Restaurant admin actions | 8 | 33 | Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout, receipts and notices. New Telegram receipts and notices exclude paused admins. |
-| [`telegram/`](telegram/) | Telegram layer | 7 | 33 | Admin and rider links, the protected update inbox, order cards, alert destinations, admin pause RPCs and the sent-message ledger. |
+| [`restaurant_admin/`](restaurant_admin/) | Restaurant admin actions | 11 | 59 | Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout, receipts and notices (new Telegram ones exclude paused admins). Also the admin roster with overwatch linking, and the restaurant dashboard's audited settings: acceptance policy, closed dates in service hours, My alerts, with sys-admin undo. |
+| [`telegram/`](telegram/) | Telegram layer | 7 | 33 | Admin and rider links, the protected update inbox, order cards, alert destinations, admin pause RPCs and the sent-message ledger. Portal links for the bots are issued by admin_dashboard/auth_sessions.sql. |
 | [`rider_location/`](rider_location/) | Rider location | 6 | 9 | OwnTracks GPS fixes and region events from a pgmq queue, plus correlated on-demand WhatsApp and Telegram location replies. |
-| [`availability/`](availability/) | Rider shifts and availability pauses | 3 | 9 | WhatsApp rider shifts and mandatory-end pauses for riders and restaurant admins. is_paused() computes availability from the clock; job_pause_sweep() only closes expired rows and asks the app to send ends-soon and back-on messages (ADR 0013). |
+| [`availability/`](availability/) | Rider shifts and availability pauses | 3 | 9 | WhatsApp rider shifts and mandatory-end pauses for riders and restaurant admins (from the bots or the restaurant dashboard). is_paused() computes availability from the clock; job_pause_sweep() only closes expired rows and asks the app to send ends-soon and back-on messages (ADR 0013). |
 | [`agent_threads/`](agent_threads/) | Agent threads | 5 | 15 | Reading LangGraph checkpoints and closing idle conversation threads (OrdeloAgent and restaurant-agents). |
-| [`admin_dashboard/`](admin_dashboard/) | Admin dashboard | 4 | 12 | Magic-link sessions, the order views behind the restaurant dashboard and the rider payout report. |
+| [`admin_dashboard/`](admin_dashboard/) | Admin dashboard | 5 | 24 | Portal-link sessions for the rider portal, restaurant dashboard and system dashboard (issued only through SQL mints that check authority; access re-checked on every request; ADR 0017), the order views behind the restaurant dashboard, its operational report with decision milestones, and the rider payout report. |
 | [`platform/`](platform/) | Platform and operations | 6 | 7 | HTTP helpers, cron housekeeping and the Fly.io / AWS App Runner switches. |
 | [`byteloop_agent/`](byteloop_agent/) | Byteloop agent | 2 | 4 | Tables and vector search used by the separate Byteloop agent. |
 | [`test_support/`](test_support/) | Test support | 12 | 4 | Helpers and harness scripts for resetting and replaying orders. Not part of production flows. |
 | [`_orphans/`](_orphans/) | Orphan candidates | 10 | 25 | Live objects with no caller found in OrdeloAgent, restaurant-frontend or restaurant-agents. Captured exactly as live; keep or drop is an owner decision (docs/to-do.md). |
-| [`migrations/`](migrations/) | Migrations (history) | 23 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
+| [`migrations/`](migrations/) | Migrations (history) | 28 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
 
 ## Flows
 
@@ -73,6 +73,28 @@ One set of SQL rules for both channels. The Telegram wrappers authorise the tapp
 - **Kitchen receipts** — New Telegram receipts use t_alert_destinations() to exclude paused admins. Existing receipt copies remain live: job_t_receipt_refresh() (5 s) finds stale copies with t_receipts_stale() / t_receipts_take() and Python edits them. (`t_alert_destinations`, `t_receipt_status`, `t_receipt_snapshot`, `t_receipt_sent`, `t_receipts_stale`, `t_receipts_take`, `job_t_receipt_refresh`)
 - **Plain notices** — t_notice_targets() uses t_alert_destinations() for new Telegram notices, leaving out paused admins; WhatsApp notices are unchanged. (`t_notice_targets`, `t_alert_destinations`)
 - **Daily availability** — enquire_admin_availability() asks each restaurant's admins every morning whether they are open. (`enquire_admin_availability`)
+
+### Portal links and dashboard sessions
+
+One verified identity per phone; restaurant and system rights are re-derived on every link and request (ADR 0017).
+
+- **Link** — A Telegram account links by sharing its own contact. t_admin_link() admits a phone that is on a restaurant's admin list or in overwatch (is_overwatch()); t_admin_profile() answers ok, ops_only, not_linked or not_on_roster. (`t_admin_link`, `t_admin_profile`, `is_overwatch`, `admin_roster`)
+- **Issue** — ordelo/dashboard_links.py asks portal_access() what the actor may open, then mints one link per portal with rest_admin_dashboard_mint(), sys_admin_dashboard_mint() or rider_dashboard_mint(). Each mint re-checks authority and stores only the token hash in auth_sessions. (`portal_access`, `admin_actor_phone`, `rest_admin_dashboard_mint`, `sys_admin_dashboard_mint`, `rider_dashboard_mint`, `auth_sessions`)
+- **Open and use** — The link's page auto-POSTs; admin_dashboard_activate() / rider_dashboard_activate() consume it once. admin_dashboard_touch() validates every request and re-checks roster or overwatch membership through admin_session_authorised(). (`admin_dashboard_activate`, `admin_dashboard_touch`, `admin_session_authorised`, `rider_dashboard_activate`, `rider_dashboard_touch`)
+- **Revoke** — Relinking a phone to another Telegram account, or admin_unlink_telegram(), revokes that phone's rest_admin and sys_admin sessions and unused links with auth_sessions_revoke_phone(). (`auth_sessions_revoke_phone`, `admin_unlink_telegram`)
+
+### Restaurant dashboard settings, closures and reports
+
+Every write is session-bound and audited; closed dates and hidden items are enforced at order creation for both channels.
+
+- **Session actor** — Each dashboard RPC takes the session id and calls rest_admin_session_actor(), which re-derives the phone and restaurant and re-checks membership. (`rest_admin_session_actor`)
+- **Audited write** — restaurant_setting_change() writes one setting and its restaurant_settings_audit row in one transaction; sys-admin lists changes with restaurant_settings_changes() and undoes one with restaurant_setting_revert(). (`restaurant_setting_change`, `restaurant_settings_audit`, `restaurant_settings_changes`, `restaurant_setting_revert`)
+- **Acceptance policy** — rest_admin_acceptance_set() changes auto_accept and the default pickup minutes atomically; restaurant_default_pickup_minutes() resolves them exactly as order creation does. (`rest_admin_acceptance_get`, `rest_admin_acceptance_set`, `restaurant_acceptance_apply`, `restaurant_default_pickup_minutes`)
+- **My alerts** — rest_admin_alerts_* change the signed-in admin's channels (admin_set_channels) and pause (pause_start / pause_end with the last-admin guard), the same rules as the bot's /channels, /off and /on. (`rest_admin_alerts_get`, `rest_admin_alerts_set_channels`, `rest_admin_alerts_pause`, `rest_admin_alerts_resume`)
+- **Closed dates** — rest_admin_hours_* store one-date overrides in service_hours_json.dates (gated by hours_edits_enabled()); service_hours_open() is the shared reading rule. (`rest_admin_hours_close_date`, `rest_admin_hours_set_date`, `rest_admin_hours_clear_date`, `rest_admin_hours_set_weekly`, `service_hours_open`, `hours_edits_enabled`)
+- **Hidden items** — rest_admin_menu_set_hidden() adds or removes menu_item_hidden rows keyed by menu_item_key(title); the storefront reads menu_hidden_keys(). (`rest_admin_menu_list`, `rest_admin_menu_set_hidden`, `menu_item_hidden`, `menu_hidden_keys`)
+- **Order guard** — create_food_order_with_items() calls order_intake_block() first and refuses with P0C01 (closed date, via restaurant_closed_by_override()) or P0C02 (hidden item). (`create_food_order_with_items`, `order_intake_block`, `restaurant_closed_by_override`)
+- **Reports** — order_milestone_capture() stamps the first restaurant decision into order_milestone; rest_admin_report_operations() reports acceptance and pickup against the first and latest promise. (`order_milestone`, `order_milestone_capture`, `rest_admin_report_operations`)
 
 ### Telegram layer
 
@@ -160,8 +182,14 @@ Admin dashboard reads and platform helpers.
 | [`food_order_additions.sql`](ordering/food_order_additions.sql) | `order_item` | additions | indexes     idx_order_item_order_id |
 | [`food_order_additions.sql`](ordering/food_order_additions.sql) | `forbid_food_order_origin_change` | function | Trigger function: RAISE if an UPDATE changes food_order.origin_channel or storefront. |
 | [`food_order_additions.sql`](ordering/food_order_additions.sql) | `food_order_origin_immutable` | trigger | BEFORE UPDATE OF origin_channel, storefront on food_order: runs forbid_food_order_origin_change(). |
+| [`menu_item_visibility.sql`](ordering/menu_item_visibility.sql) | `menu_item_hidden` | table | One row per hidden item of a restaurant; no row = visible. |
+| [`menu_item_visibility.sql`](ordering/menu_item_visibility.sql) | `menu_item_key` | function | The item key shared by menus and orders: the normalised title (lower case, single spaces, trimmed). |
+| [`menu_item_visibility.sql`](ordering/menu_item_visibility.sql) | `menu_hidden_keys` | function | The hidden item keys of a restaurant (storefront and menu readers filter with it). |
+| [`menu_item_visibility.sql`](ordering/menu_item_visibility.sql) | `rest_admin_menu_list` | function | The signed-in admin's menu (from <rest_ref>_menu) with a hidden flag per item. |
+| [`menu_item_visibility.sql`](ordering/menu_item_visibility.sql) | `rest_admin_menu_set_hidden` | function | Hide or show items (audited, idempotent). |
 | [`order_access_grant.sql`](ordering/order_access_grant.sql) | `order_access_grant` | table | Hash-only secret for an order-tracking link; verified on every page view (utils_common/web_ordering/order_access.py). |
 | [`order_has_test_item.sql`](ordering/order_has_test_item.sql) | `order_has_test_item` | function | Return whether the order has a 'TEST3100' line; NULL means the order does not exist. |
+| [`order_intake_guard.sql`](ordering/order_intake_guard.sql) | `order_intake_block` | function | ok \| closed_date \| hidden_items (+ the hidden titles) for a new order; never raises. |
 | [`web_monitor_run.sql`](ordering/web_monitor_run.sql) | `web_monitor_run` | table | Daily audit ledger: the first worker to claim run_day runs the audit; alert_orders lists what it flagged. |
 | [`web_order_lookup.sql`](ordering/web_order_lookup.sql) | `web_house_key` | function |  |
 | [`web_order_lookup.sql`](ordering/web_order_lookup.sql) | `web_order_lookup` | function |  |
@@ -250,6 +278,7 @@ Admin dashboard reads and platform helpers.
 | File | Object | Kind | What it does |
 |---|---|---|---|
 | [`admin_roster.sql`](restaurant_admin/admin_roster.sql) | `admin_phone_digits` | function | Digits only; NULL unless 8-15 digits. The one phone rule of the roster. |
+| [`admin_roster.sql`](restaurant_admin/admin_roster.sql) | `is_overwatch` | function | The one overwatch membership rule (ordelo_config.overwatch_list); grants the sys-admin dashboard. |
 | [`admin_roster.sql`](restaurant_admin/admin_roster.sql) | `restaurant_admin` | table | The admin record: one row per phone (channels, Telegram link). Confers no authority (D3). |
 | [`admin_roster.sql`](restaurant_admin/admin_roster.sql) | `admin_roster` | view | One row per (restaurant, phone) on a restaurant's admin list, with that phone's admin record. |
 | [`admin_roster.sql`](restaurant_admin/admin_roster.sql) | `admin_recipients` | function | Who gets a NEW message on this channel: on the list, channel chosen, not paused, (Telegram) linked. |
@@ -263,6 +292,10 @@ Admin dashboard reads and platform helpers.
 | [`job_restaurant_confirmation_timeout.sql`](restaurant_admin/job_restaurant_confirmation_timeout.sql) | `job_restaurant_confirmation_timeout` | function | Time out unconfirmed delivery orders (optionally one restaurant) with a 25-minute default prep time; returns what changed. |
 | [`process_restaurant_confirmation.sql`](restaurant_admin/process_restaurant_confirmation.sql) | `process_restaurant_confirmation` | function | Mark overdue unanswered restaurant confirmations for delivery and takeaway: 'restaurant_timedout', or 'auto_decline' + status 'declined' where the restaurant declines on silence; returns the orders it changed. |
 | [`resolve_initial_restaurant_acceptance.sql`](restaurant_admin/resolve_initial_restaurant_acceptance.sql) | `resolve_initial_restaurant_acceptance` | function | Return (auto_accept, pickup_minutes, pickup_time) for a new order of kind 'delivery' or 'collection'. |
+| [`rest_admin_dashboard_alerts.sql`](restaurant_admin/rest_admin_dashboard_alerts.sql) | `rest_admin_alerts_get` | function | The signed-in admin's channels, Telegram link, current pause for this restaurant and the pause lengths. |
+| [`rest_admin_dashboard_alerts.sql`](restaurant_admin/rest_admin_dashboard_alerts.sql) | `rest_admin_alerts_set_channels` | function | Change where the signed-in admin's alerts go (same rule as Telegram /channels). |
+| [`rest_admin_dashboard_alerts.sql`](restaurant_admin/rest_admin_dashboard_alerts.sql) | `rest_admin_alerts_pause` | function | Pause the signed-in admin's alerts for this restaurant (same rule as Telegram /off). |
+| [`rest_admin_dashboard_alerts.sql`](restaurant_admin/rest_admin_dashboard_alerts.sql) | `rest_admin_alerts_resume` | function | End that pause early (same rule as Telegram /on). |
 | [`restaurant_confirmation_policy.sql`](restaurant_admin/restaurant_confirmation_policy.sql) | `restaurant_confirmation_policy` | function | Return (timeout_minutes, timeout_action) for one restaurant; timeout_action is 'accept' or 'decline'. |
 | [`restaurant_order_decision.sql`](restaurant_admin/restaurant_order_decision.sql) | `restaurant_admin_label` | function | Return the 'by X' label for an admin phone: the Telegram first name of its latest claimed invite, else '...' + last 4 digits. |
 | [`restaurant_order_decision.sql`](restaurant_admin/restaurant_order_decision.sql) | `restaurant_order_decide` | function | Accept or decline an undecided order once (first decision wins); a decline also makes the order terminal. |
@@ -282,6 +315,27 @@ Admin dashboard reads and platform helpers.
 | [`restaurant_ready_adjust_notices.sql`](restaurant_admin/restaurant_ready_adjust_notices.sql) | `t_notice_targets` | function | Return the destinations and reply target for a plain notice to a restaurant's Telegram admins (D36). |
 | [`restaurant_ready_adjust_notices.sql`](restaurant_admin/restaurant_ready_adjust_notices.sql) | `t_notice_sent` | function | Write an audit row for a sent notice, closed at once (nothing to edit or delete later). |
 | [`restaurant_ready_adjust_notices.sql`](restaurant_admin/restaurant_ready_adjust_notices.sql) | `job_t_receipt_refresh` | function | Every 5 seconds: POST orders with stale receipt copies to /telegram/rest-admin/order-alerts (only when there are any). |
+| [`restaurant_service_hours.sql`](restaurant_admin/restaurant_service_hours.sql) | `service_hours_day` | function | The interval list that applies on one London date: its override (marker = []) or the weekday's. |
+| [`restaurant_service_hours.sql`](restaurant_admin/restaurant_service_hours.sql) | `service_hours_open` | function | Open at that moment, with the date-override and overnight-spill rule shared by every reader. |
+| [`restaurant_service_hours.sql`](restaurant_admin/restaurant_service_hours.sql) | `restaurant_closed_by_override` | function | true only when a date override closes a time the weekly hours would have open (the order guard). |
+| [`restaurant_service_hours.sql`](restaurant_admin/restaurant_service_hours.sql) | `service_hours_valid_day` | function | An interval list is well formed: [["HH:MM","HH:MM"], ...], start < 24:00, start < end <= 48:00, no overlap. |
+| [`restaurant_service_hours.sql`](restaurant_admin/restaurant_service_hours.sql) | `hours_edits_enabled` | function | The rollout gate for dashboard hours writes (ordelo_config REST_DASHBOARD_HOURS_EDITS). |
+| [`restaurant_service_hours.sql`](restaurant_admin/restaurant_service_hours.sql) | `rest_admin_hours_get` | function | Weekly hours, upcoming date overrides and whether editing is enabled, for the signed-in admin's restaurant. |
+| [`restaurant_service_hours.sql`](restaurant_admin/restaurant_service_hours.sql) | `rest_admin_hours_close_date` | function | Close all day (p_from NULL) or from a local time on one date. |
+| [`restaurant_service_hours.sql`](restaurant_admin/restaurant_service_hours.sql) | `rest_admin_hours_set_date` | function | Special hours for one date ([] = closed all day). |
+| [`restaurant_service_hours.sql`](restaurant_admin/restaurant_service_hours.sql) | `rest_admin_hours_clear_date` | function | Remove a date override: the weekly hours apply again. |
+| [`restaurant_service_hours.sql`](restaurant_admin/restaurant_service_hours.sql) | `rest_admin_hours_set_weekly` | function | Change one weekday's regular hours. |
+| [`restaurant_settings.sql`](restaurant_admin/restaurant_settings.sql) | `restaurant_settings_audit` | table | One row per changed restaurant setting: who, when, via what, old -> new, and its undo. |
+| [`restaurant_settings.sql`](restaurant_admin/restaurant_settings.sql) | `restaurant_setting_value` | function | The current value of one audited setting (NULL = not set / inherited). |
+| [`restaurant_settings.sql`](restaurant_admin/restaurant_settings.sql) | `restaurant_setting_write` | function | Store one audited setting value (internal; only restaurant_setting_change calls it). |
+| [`restaurant_settings.sql`](restaurant_admin/restaurant_settings.sql) | `restaurant_setting_change` | function | Write one setting and its audit row in the caller's transaction; false when nothing changed. |
+| [`restaurant_settings.sql`](restaurant_admin/restaurant_settings.sql) | `restaurant_default_pickup_minutes` | function | The effective default pickup minutes (restaurant key, else global), as order creation resolves them. |
+| [`restaurant_settings.sql`](restaurant_admin/restaurant_settings.sql) | `restaurant_acceptance_state` | function | Auto-accept, both default pickup times (own or inherited) and a version for stale-edit checks. |
+| [`restaurant_settings.sql`](restaurant_admin/restaurant_settings.sql) | `restaurant_acceptance_apply` | function | Validate and apply the acceptance policy atomically, audited. |
+| [`restaurant_settings.sql`](restaurant_admin/restaurant_settings.sql) | `rest_admin_acceptance_get` | function | Restaurant dashboard read of the acceptance policy, bound to the signed-in session. |
+| [`restaurant_settings.sql`](restaurant_admin/restaurant_settings.sql) | `rest_admin_acceptance_set` | function | Restaurant dashboard write of the acceptance policy, bound to the signed-in session. |
+| [`restaurant_settings.sql`](restaurant_admin/restaurant_settings.sql) | `restaurant_settings_changes` | function | Sys-admin: recent audited changes of one restaurant, newest first. |
+| [`restaurant_settings.sql`](restaurant_admin/restaurant_settings.sql) | `restaurant_setting_revert` | function | Sys-admin undo of one change when the value is still what that change set. |
 
 ### Telegram layer (`telegram/`)
 
@@ -378,9 +432,21 @@ Admin dashboard reads and platform helpers.
 | [`auth_sessions.sql`](admin_dashboard/auth_sessions.sql) | `rider_dashboard_activate` | function | Consume one rider token after explicit browser POST. |
 | [`auth_sessions.sql`](admin_dashboard/auth_sessions.sql) | `rider_dashboard_session` | function | Read a complete valid rider session and its verified current linkage. |
 | [`auth_sessions.sql`](admin_dashboard/auth_sessions.sql) | `rider_dashboard_touch` | function | Validate and execute the idle heartbeat without extending the absolute expiry. |
+| [`auth_sessions.sql`](admin_dashboard/auth_sessions.sql) | `auth_sessions_revoke_phone` | function | Revoke every rest_admin / sys_admin session and unused link of a phone (relink / unlink). |
+| [`auth_sessions.sql`](admin_dashboard/auth_sessions.sql) | `admin_actor_phone` | function | The verified phone of a Telegram or WhatsApp actor; locks its admin record. |
+| [`auth_sessions.sql`](admin_dashboard/auth_sessions.sql) | `admin_session_authorised` | function | The one authority test: roster membership (rest_admin) or overwatch (sys_admin). |
+| [`auth_sessions.sql`](admin_dashboard/auth_sessions.sql) | `portal_access` | function | What a verified actor may open: its restaurants and whether it is sys-admin. |
+| [`auth_sessions.sql`](admin_dashboard/auth_sessions.sql) | `rest_admin_dashboard_mint` | function | Mint a 30-minute restaurant-dashboard link after re-checking membership. |
+| [`auth_sessions.sql`](admin_dashboard/auth_sessions.sql) | `sys_admin_dashboard_mint` | function | Mint a 30-minute sys-admin link after re-checking overwatch. |
+| [`auth_sessions.sql`](admin_dashboard/auth_sessions.sql) | `admin_dashboard_activate` | function | Consume one rest_admin / sys_admin link after explicit browser POST. |
+| [`auth_sessions.sql`](admin_dashboard/auth_sessions.sql) | `admin_dashboard_touch` | function | Validate a rest_admin / sys_admin cookie, re-check authority, execute the heartbeat. |
+| [`auth_sessions.sql`](admin_dashboard/auth_sessions.sql) | `rest_admin_session_actor` | function | Phone and restaurant of a live, authorised rest_admin session, else RAISE not_authorised. |
 | [`get_rider_jobs.sql`](admin_dashboard/get_rider_jobs.sql) | `get_rider_jobs` | function | One statement snapshot of rider jobs, aggregates and pagination; no customer details. |
 | [`get_rider_jobs.sql`](admin_dashboard/get_rider_jobs.sql) | `get_rider_profile` | function | Read only the session rider's name/town/vehicle and masked bank account suffix. |
 | [`get_rider_payout_report.sql`](admin_dashboard/get_rider_payout_report.sql) | `get_rider_payout_report` | function | Return one payable row per completed dispatch between p_start and p_end, excluding the given rider ids. |
+| [`rest_admin_reports.sql`](admin_dashboard/rest_admin_reports.sql) | `order_milestone` | table | First-occurrence facts of an order that later updates would otherwise overwrite (restaurant decision). |
+| [`rest_admin_reports.sql`](admin_dashboard/rest_admin_reports.sql) | `order_milestone_capture` | function | Stamps the restaurant's first decision on delivery_summary / takeaway_summary; never fails the update. trigger delivery_summary_milestones, takeaway_summary_milestones AFTER UPDATE OF restaurant_confirmation_status on the two summary tables. |
+| [`rest_admin_reports.sql`](admin_dashboard/rest_admin_reports.sql) | `rest_admin_report_operations` | function | Acceptance and pickup measures for the signed-in admin's restaurant over London creation dates. |
 | [`v_admin_orders.sql`](admin_dashboard/v_admin_orders.sql) | `v_admin_orders` | view | Delivery and takeaway orders as one list for the admin dashboard, with money and London-local day columns. |
 | [`v_admin_orders.sql`](admin_dashboard/v_admin_orders.sql) | `v_admin_order_items` | view | Order lines (order_item) with their order number and restaurant, for the dashboard order detail. |
 | [`v_admin_orders.sql`](admin_dashboard/v_admin_orders.sql) | `v_admin_orders_daily` | view | Per restaurant, local day and type: order count, gross and the restaurant's cut. |
@@ -423,7 +489,7 @@ Admin dashboard reads and platform helpers.
 | [`test_restaurant_notices.sql`](test_support/test_restaurant_notices.sql) | | script | TEST HARNESS (not a migration): fake STRK orders to try the kitchen receipt, Ready / +10 / +20 and the restaurant |
 | [`test_rider_onboarding.sql`](test_support/test_rider_onboarding.sql) | | script | TEST HARNESS (not a migration): exercise the rider bot onboarding functions, the pauses and the R1 dispatch gate on the |
 | [`test_rider_pauses_and_locations.sql`](test_support/test_rider_pauses_and_locations.sql) | | script | TEST HARNESS (not a migration): Telegram breaks and locations for riders, alert pauses for restaurant admins (phases |
-| [`test_rider_telegram_jobs.sql`](test_support/test_rider_telegram_jobs.sql) | | script | TEST HARNESS (not a migration): a rider job on TELEGRAM end to end (phases R2-R4 of plans/telegram-rider-bot-plan.md): |
+| [`test_rider_telegram_jobs.sql`](test_support/test_rider_telegram_jobs.sql) | | script | TEST HARNESS (not a migration): a rider job on TELEGRAM end to end (phases R2-R4 of docs/telegram-layer.md): |
 
 ### Orphan candidates (`_orphans/`)
 
@@ -471,8 +537,12 @@ Admin dashboard reads and platform helpers.
 | [`migrations/ordelo_agg_r1.sql`](migrations/ordelo_agg_r1.sql) | Applied, except the pg_cron schedule for job_payment_init_reconciler (not in cron.job; docs/to-do.md). | notifications/notification_outbox.sql, notifications/order_customer_event.sql, notifications/order_notification_subscription.sql, ordering/create_food_order_with_items.sql, ordering/food_order_additions.sql, payment/job_payment_init_reconciler.sql, payment/payment_event.sql, payment/record_payment_authorised.sql, restaurant-agents (food_order) |
 | [`migrations/ordelo_agg_r1_test_payment.sql`](migrations/ordelo_agg_r1_test_payment.sql) | Applied: every object it creates exists live (checked 2026-10-16). | ordering/create_food_order_with_items.sql, ordering/food_order_additions.sql, restaurant-agents (food_order) |
 | [`migrations/ordelo_agg_r3.sql`](migrations/ordelo_agg_r3.sql) | Applied: every object it creates exists live (checked 2026-10-16). | agent_threads/job_close_thread.sql, core/restaurant_master.sql, ordering/create_food_order_with_items.sql, ordering/order_access_grant.sql, ordering/web_monitor_run.sql, ordering/web_order_request.sql, ordering/web_payment_release.sql, ordering/web_rate_limit.sql, ordering/web_session_meta.sql |
+| [`migrations/order_intake_guard_p1.sql`](migrations/order_intake_guard_p1.sql) | 2026-11-19 (agent, owner-authorised implementation run, during the owner's verification window) | restaurant_admin/restaurant_service_hours.sql, ordering/menu_item_visibility.sql,, ordering/order_intake_guard.sql, ordering/create_food_order_with_items.sql |
+| [`migrations/rest_admin_alerts_p1.sql`](migrations/rest_admin_alerts_p1.sql) | 2026-11-19 (agent, owner-authorised implementation run, during the owner's verification window) | restaurant_admin/rest_admin_dashboard_alerts.sql; availability/pauses.sql (CHECK) |
+| [`migrations/rest_admin_reports_p1.sql`](migrations/rest_admin_reports_p1.sql) | 2026-11-19 (agent, owner-authorised implementation run, during the owner's verification window) | admin_dashboard/rest_admin_reports.sql |
 | [`migrations/restaurant_accept_pickup_grace.sql`](migrations/restaurant_accept_pickup_grace.sql) | NOT YET (prepared 2026-11-17; the owner applies it himself) | restaurant_admin/process_restaurant_confirmation.sql |
 | [`migrations/restaurant_confirmation_timeout_action.sql`](migrations/restaurant_confirmation_timeout_action.sql) | 2026-11-16 (owner-confirmed) | restaurant_admin/restaurant_confirmation_policy.sql, restaurant_admin/process_restaurant_confirmation.sql,, delivery/delivery_summary.sql, takeaway/takeaway_summary.sql, delivery/process_delivery.sql, telegram/t_order_alerts.sql |
+| [`migrations/restaurant_settings_p1.sql`](migrations/restaurant_settings_p1.sql) | 2026-11-19 (agent, owner-authorised implementation run, during the owner's verification window) | restaurant_admin/restaurant_settings.sql |
 | [`migrations/rider_dashboard_cutover.sql`](migrations/rider_dashboard_cutover.sql) | 2026-10-26 (owner-confirmed). | admin_dashboard/auth_sessions.sql, admin_dashboard/get_rider_jobs.sql, agent_threads/rider_job_history_access.sql, core/rider_master.sql, core/rider_registrations.sql, core/ordelo_config.sql, core/restaurant_master.sql, dispatch/delivery_dispatch.sql, delivery/delivery_summary.sql, delivery/delivery_detail.sql, dispatch/delivery_inflight.sql, ordering/food_order_additions.sql, admin_dashboard/v_admin_orders.sql, admin_dashboard/get_rider_payout_report.sql |
 | [`migrations/rider_offer_alerts.sql`](migrations/rider_offer_alerts.sql) | 2026-10-27 (owner-confirmed; cron job_rider_offer_alerts scheduled, every 5 seconds). | dispatch/rider_offer_alert.sql, dispatch/job_rider_offer_alerts.sql |
 | [`migrations/rider_offer_alerts_r2.sql`](migrations/rider_offer_alerts_r2.sql) | 2026-10-27 (owner-confirmed). | dispatch/rider_offer_alert.sql (table, indexes), dispatch/job_rider_offer_alerts.sql (job) |
@@ -480,6 +550,7 @@ Admin dashboard reads and platform helpers.
 | [`migrations/rider_telegram_r1.sql`](migrations/rider_telegram_r1.sql) | Applied by the owner on 2026-10-22 (steps 0-6); onboarding tested live the same day. Next: rider_telegram_r2_r4.sql. | core/rider_master.sql, telegram/t_rider_onboarding.sql, availability/pauses.sql, dispatch/job_create_dispatch.sql |
 | [`migrations/rider_telegram_r2_r4.sql`](migrations/rider_telegram_r2_r4.sql) | Applied by the owner on 2026-10-22 (steps 0-4, VERIFY 3/1/6/0); code deployed and a rider job tested live on Telegram and WhatsApp. | dispatch/delivery_dispatch.sql, agent_threads/rider_threads.sql |
 | [`migrations/rider_telegram_r5_r6.sql`](migrations/rider_telegram_r5_r6.sql) | Steps 1-3 verified on 2026-10-22 (VERIFY true / 7 / true / true / 4 / 0 after the owner applied restaurant_ready_adjust_notices.sql). Code and both command menus deployed per owner. Step 6 done: job_pause_sweep is scheduled (owner, 2026-10-23); live tests and drift_check passed. | rider_location/wa_location.sql, availability/pauses.sql, availability/rider_shift.sql,, dispatch/enquire_shift_availability.sql, telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql,, telegram/t_admin_pauses.sql, availability/job_pause_sweep.sql |
+| [`migrations/telegram_portals_p1.sql`](migrations/telegram_portals_p1.sql) | 2026-11-19 (agent, during the owner's verification window; owner-authorised implementation run) | restaurant_admin/admin_roster.sql (is_overwatch, t_admin_link, t_admin_profile,, admin_unlink_telegram); admin_dashboard/auth_sessions.sql (portal access, admin mints, admin sessions, revocation) |
 | [`migrations/test3100_order_routing.sql`](migrations/test3100_order_routing.sql) | Applied: every object it creates exists live (checked 2026-10-16). | dispatch/job_create_dispatch.sql, ordering/create_food_order_with_items.sql, ordering/order_has_test_item.sql |
 | [`migrations/web_order_lookup_backfill.sql`](migrations/web_order_lookup_backfill.sql) | pending owner application. | ordering/web_order_request.sql |
 

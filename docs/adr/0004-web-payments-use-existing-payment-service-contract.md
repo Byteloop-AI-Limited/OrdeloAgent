@@ -48,3 +48,7 @@ controls.
 - **Forged payment-complete events are an accepted risk.** One for an unpaid
   order would start fulfilment; capture then fails at the capture point and
   alerts.
+
+## Reading this decision in the current workflow
+
+Read “payment complete” in the order intake contract as authorization. Capture follows rider assignment for delivery or the first scheduled pickup time for collection. [ADR 0010](0010-test-payments-selected-by-order-items.md) governs payment routing for new orders.

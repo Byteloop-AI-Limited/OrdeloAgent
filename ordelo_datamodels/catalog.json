@@ -962,23 +962,43 @@
    "called_by": {
     "auth_sessions": [
      {
-      "text": "watomation/routers/rest_admin_auth_session.py: mint_dashboard_session_for() (via mint_dashboard_session() for WhatsApp /login; directly from channels/telegram/rest_admin/manage.py for Telegram /manage)",
+      "text": "every mint / activate / touch RPC below (no Python code inserts rows directly)",
+      "via": "sql"
+     },
+     {
+      "text": "watomation/routers/sys_admin_auth_session.py: require_sys_admin() (reads the payout proxy credential)",
       "via": "python"
      },
      {
-      "text": "ordelo/rider_dashboard.py: issue_link()",
+      "text": "restaurant-frontend lib/rest-admin-session.ts, lib/sys-admin-session.ts, lib/rider-session.ts (logout) Rider RPCs: ordelo/dashboard_links.py issue(\"rider\"); restaurant-frontend/lib/rider-session.ts. portal_access, rest_admin_dashboard_mint, sys_admin_dashboard_mint:",
+      "via": "frontend"
+     },
+     {
+      "text": "ordelo/dashboard_links.py: access(), issue() admin_dashboard_activate, admin_dashboard_touch:",
       "via": "python"
      },
      {
-      "text": "watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session() Rider RPCs: ordelo/rider_dashboard.py issue_link(); restaurant-frontend/lib/rider-session.ts.",
-      "via": "python"
+      "text": "restaurant-frontend/lib/rest-admin-session.ts, lib/sys-admin-session.ts (activateToken, validateCookieAndTouch)",
+      "via": "frontend"
+     }
+    ],
+    "auth_sessions_revoke_phone": [
+     {
+      "text": "t_admin_link() (relinked), admin_unlink_telegram() (restaurant_admin/admin_roster.sql)",
+      "via": "sql"
+     }
+    ],
+    "rest_admin_session_actor": [
+     {
+      "text": "every rest_admin_* settings RPC (restaurant_admin/restaurant_settings.sql and siblings)",
+      "via": "sql"
      }
     ]
    },
    "cron": [],
    "folder": "admin_dashboard",
-   "header_lines": 38,
-   "lines": 271,
+   "header_lines": 68,
+   "lines": 583,
    "objects": [
     {
      "description": "One login session: role, principal and scope, phone, token/cookie hashes, expiries, binding and revocation.",
@@ -1009,12 +1029,67 @@
      "kind": "function",
      "name": "rider_dashboard_touch",
      "signature": "rider_dashboard_touch(p_cookie_hash text, p_ua_hash text) -> jsonb"
+    },
+    {
+     "description": "Revoke every rest_admin / sys_admin session and unused link of a phone (relink / unlink).",
+     "kind": "function",
+     "name": "auth_sessions_revoke_phone",
+     "signature": "auth_sessions_revoke_phone(p_phone text, p_reason text) -> integer"
+    },
+    {
+     "description": "The verified phone of a Telegram or WhatsApp actor; locks its admin record.",
+     "kind": "function",
+     "name": "admin_actor_phone",
+     "signature": "admin_actor_phone(p_tuid bigint, p_phone text) -> text"
+    },
+    {
+     "description": "The one authority test: roster membership (rest_admin) or overwatch (sys_admin).",
+     "kind": "function",
+     "name": "admin_session_authorised",
+     "signature": "admin_session_authorised(p_role text, p_principal text, p_scope text) -> boolean"
+    },
+    {
+     "description": "What a verified actor may open: its restaurants and whether it is sys-admin.",
+     "kind": "function",
+     "name": "portal_access",
+     "signature": "portal_access(p_tuid bigint, p_phone text) -> jsonb"
+    },
+    {
+     "description": "Mint a 30-minute restaurant-dashboard link after re-checking membership.",
+     "kind": "function",
+     "name": "rest_admin_dashboard_mint",
+     "signature": "rest_admin_dashboard_mint(p_tuid bigint, p_phone text, p_rest_ref text, p_token_hash text) -> jsonb"
+    },
+    {
+     "description": "Mint a 30-minute sys-admin link after re-checking overwatch.",
+     "kind": "function",
+     "name": "sys_admin_dashboard_mint",
+     "signature": "sys_admin_dashboard_mint(p_tuid bigint, p_phone text, p_token_hash text) -> jsonb"
+    },
+    {
+     "description": "Consume one rest_admin / sys_admin link after explicit browser POST.",
+     "kind": "function",
+     "name": "admin_dashboard_activate",
+     "signature": "admin_dashboard_activate(p_role text, p_token_hash text, p_cookie_hash text, p_ua_hash text, p_ip text) -> jsonb"
+    },
+    {
+     "description": "Validate a rest_admin / sys_admin cookie, re-check authority, execute the heartbeat.",
+     "kind": "function",
+     "name": "admin_dashboard_touch",
+     "signature": "admin_dashboard_touch(p_role text, p_cookie_hash text, p_ua_hash text) -> jsonb"
+    },
+    {
+     "description": "Phone and restaurant of a live, authorised rest_admin session, else RAISE not_authorised.",
+     "kind": "function",
+     "name": "rest_admin_session_actor",
+     "signature": "rest_admin_session_actor(p_session_id uuid, OUT phone text, OUT rest_ref text) -> record"
     }
    ],
    "path": "admin_dashboard/auth_sessions.sql",
    "path_line": "ordelo_datamodels/admin_dashboard/auth_sessions.sql",
    "requires": [
-    "core/rider_master.sql"
+    "core/rider_master.sql",
+    "restaurant_admin/admin_roster.sql (admin_roster, restaurant_admin, admin_phone_digits, is_overwatch)"
    ],
    "role": "definition",
    "section_order": [
@@ -1033,26 +1108,27 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "auth_sessions:\n  python    watomation/routers/rest_admin_auth_session.py: mint_dashboard_session_for() (via mint_dashboard_session()\n              for WhatsApp /login; directly from channels/telegram/rest_admin/manage.py for Telegram /manage)\n  python    ordelo/rider_dashboard.py: issue_link()\n  python    watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session()\nRider RPCs: ordelo/rider_dashboard.py issue_link(); restaurant-frontend/lib/rider-session.ts.",
+    "CALLED BY": "auth_sessions:\n  sql       every mint / activate / touch RPC below (no Python code inserts rows directly)\n  python    watomation/routers/sys_admin_auth_session.py: require_sys_admin() (reads the payout proxy credential)\n  frontend  restaurant-frontend lib/rest-admin-session.ts, lib/sys-admin-session.ts, lib/rider-session.ts (logout)\nRider RPCs: ordelo/dashboard_links.py issue(\"rider\"); restaurant-frontend/lib/rider-session.ts.\nportal_access, rest_admin_dashboard_mint, sys_admin_dashboard_mint:\n  python    ordelo/dashboard_links.py: access(), issue()\nadmin_dashboard_activate, admin_dashboard_touch:\n  frontend  restaurant-frontend/lib/rest-admin-session.ts, lib/sys-admin-session.ts (activateToken,\n            validateCookieAndTouch)\nauth_sessions_revoke_phone:\n  sql       t_admin_link() (relinked), admin_unlink_telegram() (restaurant_admin/admin_roster.sql)\nrest_admin_session_actor:\n  sql       every rest_admin_* settings RPC (restaurant_admin/restaurant_settings.sql and siblings)",
     "GOTCHAS": "Only hashes are stored (sha256), never raw tokens.\nLive grants were open on 2026-10-26; do not deploy without the reviewed access cutover.",
-    "HOW IT FITS": "OrdeloAgent issues a WhatsApp magic link, or for restaurant admins also a Telegram /manage one\n  (watomation/routers/rest_admin_auth_session.py, ordelo/rider_dashboard.py, sys_admin_auth_session.py): a row with token_hash and a 30-minute expires_at. Opening the link activates it: token_hash\n  is cleared, cookie_hash set, hard_expires_at = activated_at + 4 h. restaurant-frontend's dashboards send the cookie on\n  every request; last_seen_at is updated. Revoking a person's sessions = revoked_at on their rows.",
+    "HOW IT FITS": "OrdeloAgent issues portal links (ordelo/dashboard_links.py, for Telegram /manage, /sysadmin, /portal, /my_jobs and\n  WhatsApp /login, /sysadmin) through the mint RPCs below: a row with token_hash and a 30-minute expires_at. Opening\n  the link shows a page that POSTs to activate it (restaurant-frontend lib/dashboard-activation.ts): token_hash\n  is cleared, cookie_hash set, hard_expires_at = activated_at + 4 h. restaurant-frontend's dashboards send the cookie on\n  every request; last_seen_at is updated. Revoking a person's sessions = revoked_at on their rows.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "created (link sent) -> activated (cookie issued) -> expired (expires_at / hard_expires_at) or revoked.",
     "LIVE CHECK": "Table columns verified read-only 2026-10-26. Rider RPCs and restricted grants below are proposed, not applied.",
-    "OBJECTS": "table  auth_sessions\n    One login session: role, principal and scope, phone, token/cookie hashes, expiries, binding and revocation.\nfn     rider_dashboard_mint(p_tuid bigint, p_token_hash text) -> jsonb\n    Atomically authorize the linked Telegram rider and mint a 30-minute credential.\nfn     rider_dashboard_activate(p_token_hash text, p_cookie_hash text, p_ua_hash text) -> jsonb\n    Consume one rider token after explicit browser POST.\nfn     rider_dashboard_session(p_cookie_hash text, p_ua_hash text) -> jsonb\n    Read a complete valid rider session and its verified current linkage.\nfn     rider_dashboard_touch(p_cookie_hash text, p_ua_hash text) -> jsonb\n    Validate and execute the idle heartbeat without extending the absolute expiry.",
-    "PYTHON MODEL": "ordelo/rider_dashboard.py DashboardLink",
-    "REQUIRES": "core/rider_master.sql",
-    "SECURITY": "Table and rider RPCs are service-role only; RLS enabled. Apply reviewed cutover before code deployment.",
+    "OBJECTS": "table  auth_sessions\n    One login session: role, principal and scope, phone, token/cookie hashes, expiries, binding and revocation.\nfn     rider_dashboard_mint(p_tuid bigint, p_token_hash text) -> jsonb\n    Atomically authorize the linked Telegram rider and mint a 30-minute credential.\nfn     rider_dashboard_activate(p_token_hash text, p_cookie_hash text, p_ua_hash text) -> jsonb\n    Consume one rider token after explicit browser POST.\nfn     rider_dashboard_session(p_cookie_hash text, p_ua_hash text) -> jsonb\n    Read a complete valid rider session and its verified current linkage.\nfn     rider_dashboard_touch(p_cookie_hash text, p_ua_hash text) -> jsonb\n    Validate and execute the idle heartbeat without extending the absolute expiry.\nfn     auth_sessions_revoke_phone(p_phone text, p_reason text) -> integer\n    Revoke every rest_admin / sys_admin session and unused link of a phone (relink / unlink).\nfn     admin_actor_phone(p_tuid bigint, p_phone text) -> text\n    The verified phone of a Telegram or WhatsApp actor; locks its admin record.\nfn     admin_session_authorised(p_role text, p_principal text, p_scope text) -> boolean\n    The one authority test: roster membership (rest_admin) or overwatch (sys_admin).\nfn     portal_access(p_tuid bigint, p_phone text) -> jsonb\n    What a verified actor may open: its restaurants and whether it is sys-admin.\nfn     rest_admin_dashboard_mint(p_tuid bigint, p_phone text, p_rest_ref text, p_token_hash text) -> jsonb\n    Mint a 30-minute restaurant-dashboard link after re-checking membership.\nfn     sys_admin_dashboard_mint(p_tuid bigint, p_phone text, p_token_hash text) -> jsonb\n    Mint a 30-minute sys-admin link after re-checking overwatch.\nfn     admin_dashboard_activate(p_role text, p_token_hash text, p_cookie_hash text, p_ua_hash text, p_ip text) -> jsonb\n    Consume one rest_admin / sys_admin link after explicit browser POST.\nfn     admin_dashboard_touch(p_role text, p_cookie_hash text, p_ua_hash text) -> jsonb\n    Validate a rest_admin / sys_admin cookie, re-check authority, execute the heartbeat.\nfn     rest_admin_session_actor(p_session_id uuid, OUT phone text, OUT rest_ref text) -> record\n    Phone and restaurant of a live, authorised rest_admin session, else RAISE not_authorised.",
+    "PYTHON MODEL": "ordelo/dashboard_links.py (Actor, PortalAccess, PortalLink, Issued)",
+    "REQUIRES": "core/rider_master.sql\nrestaurant_admin/admin_roster.sql (admin_roster, restaurant_admin, admin_phone_digits, is_overwatch)",
+    "SECURITY": "Table and every RPC are service-role only; RLS enabled. Helpers are granted to service_role because\nnested SECURITY INVOKER calls run as the caller.",
     "SEE ALSO": "test_support/test_magic_link.sql\n_archive/dashboard_sessions.sql (the table this replaced; not live)",
     "SIDE EFFECTS": "none",
-    "TESTS": "tests/sql/test_rider_dashboard_sql.py"
+    "TESTS": "tests/sql/test_rider_dashboard_sql.py\ntests/sql/test_admin_dashboard_sql.py"
    },
    "see_also": [
     "test_support/test_magic_link.sql",
     "_archive/dashboard_sessions.sql (the table this replaced; not live)"
    ],
    "tests": [
-    "tests/sql/test_rider_dashboard_sql.py"
+    "tests/sql/test_rider_dashboard_sql.py",
+    "tests/sql/test_admin_dashboard_sql.py"
    ],
    "title": "Magic-link login sessions for every dashboard role (restaurant admin, rider, sys-admin)."
   },
@@ -1190,6 +1266,92 @@
    ],
    "tests": [],
    "title": "Rider payout report: one row per completed dispatch in a date window, with rider identity and bank details."
+  },
+  {
+   "called_by": {
+    "order_milestone_capture": [
+     {
+      "text": "triggers delivery_summary_milestones, takeaway_summary_milestones",
+      "via": "sql"
+     }
+    ],
+    "rest_admin_report_operations": [
+     {
+      "text": "restaurant-frontend/lib/rest-admin-rpc.ts (app/api/rest-admin/reports/operations/route.ts)",
+      "via": "frontend"
+     }
+    ]
+   },
+   "cron": [],
+   "folder": "admin_dashboard",
+   "header_lines": 46,
+   "lines": 188,
+   "objects": [
+    {
+     "description": "First-occurrence facts of an order that later updates would otherwise overwrite (restaurant decision).",
+     "kind": "table",
+     "name": "order_milestone",
+     "signature": "order_milestone"
+    },
+    {
+     "description": "Stamps the restaurant's first decision on delivery_summary / takeaway_summary; never fails the update. trigger delivery_summary_milestones, takeaway_summary_milestones AFTER UPDATE OF restaurant_confirmation_status on the two summary tables.",
+     "kind": "function",
+     "name": "order_milestone_capture",
+     "signature": "order_milestone_capture() -> trigger"
+    },
+    {
+     "description": "Acceptance and pickup measures for the signed-in admin's restaurant over London creation dates.",
+     "kind": "function",
+     "name": "rest_admin_report_operations",
+     "signature": "rest_admin_report_operations(p_session_id uuid, p_from date, p_to date, p_kind text) -> jsonb"
+    }
+   ],
+   "path": "admin_dashboard/rest_admin_reports.sql",
+   "path_line": "ordelo_datamodels/admin_dashboard/rest_admin_reports.sql",
+   "requires": [
+    "delivery/delivery_summary.sql, takeaway/takeaway_summary.sql",
+    "notifications/order_customer_event.sql (food_collected: the verified collection fact)",
+    "ordering/order_has_test_item.sql (test orders are left out)",
+    "admin_dashboard/auth_sessions.sql (rest_admin_session_actor)"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "rest_admin_report_operations:\n  frontend  restaurant-frontend/lib/rest-admin-rpc.ts (app/api/rest-admin/reports/operations/route.ts)\norder_milestone_capture:\n  sql       triggers delivery_summary_milestones, takeaway_summary_milestones",
+    "GOTCHAS": "The capture trigger swallows every error (it must never block an order update); a missing milestone only\n  lowers the report's measured sample. Coverage before the apply date comes from restaurant_update_dtts and\n  only for orders never adjusted afterwards.",
+    "HOW IT FITS": "Cohort: an order belongs to the London date of its summary row's dtts (creation). Test orders (TEST3100) are\n  excluded. Measures (owner decision 19 Nov):\n  acceptance   manual (restaurant_accept / restaurant_pickuptime_adjusted, not configured_auto),\n               configured auto-accept (rest_confirmation_method = 'configured_auto'), timeout fallback\n               (auto_accept without that method), declined (restaurant_decline / auto_decline), no answer\n               (restaurant_timedout / unconfirmed). Manual acceptance minutes = first decision time - dtts,\n               where the first decision time is order_milestone 'decided' (captured from this file's\n               apply date) or, for older orders still in plain restaurant_accept, restaurant_update_dtts.\n  pickup       delivery only: food_collected (order_customer_event, not an estimate) - dtts; and minutes\n               early (-) or late (+) against the ORIGINAL promise (coalesce(pickup_time_initial, pickup_time))\n               and the LATEST promise in force at collection (pickup_time). E.g. collected 18:45, original\n               18:30, latest 18:50 -> +15 and -5. Medians are over orders; each measure reports its sample.",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.",
+    "LIFECYCLE": "RESULT VOCABULARY: ok | bad_range (to < from, or more than 366 days) | not_authorised",
+    "LIVE CHECK": "Live since 19 Nov 2026 (applied with migrations/rest_admin_reports_p1.sql; live body compared with this file).\norder_milestone capture starts on 19 Nov 2026 (no backfill). docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md",
+    "OBJECTS": "table  order_milestone\n    First-occurrence facts of an order that later updates would otherwise overwrite (restaurant decision).\nfn     order_milestone_capture() -> trigger\n    Stamps the restaurant's first decision on delivery_summary / takeaway_summary; never fails the update.\ntrigger delivery_summary_milestones, takeaway_summary_milestones\n    AFTER UPDATE OF restaurant_confirmation_status on the two summary tables.\nfn     rest_admin_report_operations(p_session_id uuid, p_from date, p_to date, p_kind text) -> jsonb\n    Acceptance and pickup measures for the signed-in admin's restaurant over London creation dates.",
+    "PYTHON MODEL": "none",
+    "REQUIRES": "delivery/delivery_summary.sql, takeaway/takeaway_summary.sql\nnotifications/order_customer_event.sql (food_collected: the verified collection fact)\nordering/order_has_test_item.sql (test orders are left out)\nadmin_dashboard/auth_sessions.sql (rest_admin_session_actor)",
+    "SECURITY": "Table: RLS on, no policies, REVOKE ALL FROM anon, authenticated. The report: REVOKE ALL FROM PUBLIC, anon,\nauthenticated; granted to service_role. The trigger function runs as the updating role.",
+    "SEE ALSO": "admin_dashboard/v_admin_orders.sql (the financial views), docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md",
+    "SIDE EFFECTS": "Creates the empty table order_milestone and two AFTER UPDATE triggers.",
+    "TESTS": "tests/sql/test_rest_admin_reports_sql.py"
+   },
+   "see_also": [
+    "admin_dashboard/v_admin_orders.sql (the financial views), docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md"
+   ],
+   "tests": [
+    "tests/sql/test_rest_admin_reports_sql.py"
+   ],
+   "title": "Restaurant dashboard operational report: how fast orders are accepted and how pickups compare with their promise."
   },
   {
    "called_by": {
@@ -1429,7 +1591,7 @@
    "sections": {
     "CALLED BY": "job_close_thread:\n  python    watomation/routers/delivery_hooks.py: close_threads()",
     "GOTCHAS": "The body was taken from live on 2026-10-16 (the previous agent_threads copy differed; the migrations/ordelo_agg_r3.sql copy matched).",
-    "HOW IT FITS": "Agent threads (the LangGraph conversation per WhatsApp user and agent):\n  thread (owned by restaurant-agents) maps (recipient, agent) to a LangGraph thread_id; the checkpoint tables are\n  written by LangGraph's AsyncPostgresSaver. OrdeloAgent reads the latest state for debugging and closes idle threads:\n    job_close_thread()                       idle OrdeloAgent threads -> POST /delivery-hooks/close-threads\n    job_terminate_stale_active_threads_new() idle restaurant threads  -> POST <REST>_APP_URL/thread-hooks/<rest>/terminate-stale-active-threads\n                                             (restaurant-agents), per restaurant, every minute\n    get_latest_state(_by_thread)()           read a thread's latest checkpoint as JSON (debug endpoints, rider agent)\n  job_close_thread(): active threads whose last_access_dtts is older than ordelo_config THREAD_INACTIVE_TIME_INTERVAL\n  minutes (default 5) -> POST /delivery-hooks/close-threads. Called from Python (delivery_hooks.py), not by pg_cron.\nRider dispatch threads (ORDELO-dispatch-<id>, since R2 of plans/telegram-rider-bot-plan.md) are in the same payload;\n  close_threads() closes exactly that thread (rider_thread_close, agent_threads/rider_threads.sql) whether or not a\n  cancel reason was given, and says goodbye on the job's channel (WhatsApp or Telegram). Other threads close as before.",
+    "HOW IT FITS": "Agent threads (the LangGraph conversation per WhatsApp user and agent):\n  thread (owned by restaurant-agents) maps (recipient, agent) to a LangGraph thread_id; the checkpoint tables are\n  written by LangGraph's AsyncPostgresSaver. OrdeloAgent reads the latest state for debugging and closes idle threads:\n    job_close_thread()                       idle OrdeloAgent threads -> POST /delivery-hooks/close-threads\n    job_terminate_stale_active_threads_new() idle restaurant threads  -> POST <REST>_APP_URL/thread-hooks/<rest>/terminate-stale-active-threads\n                                             (restaurant-agents), per restaurant, every minute\n    get_latest_state(_by_thread)()           read a thread's latest checkpoint as JSON (debug endpoints, rider agent)\n  job_close_thread(): active threads whose last_access_dtts is older than ordelo_config THREAD_INACTIVE_TIME_INTERVAL\n  minutes (default 5) -> POST /delivery-hooks/close-threads. Called from Python (delivery_hooks.py), not by pg_cron.\nRider dispatch threads (ORDELO-dispatch-<id>, since R2 of docs/adr/0012-rider-threads-follow-dispatch-assignments.md) are in the same payload;\n  close_threads() closes exactly that thread (rider_thread_close, agent_threads/rider_threads.sql) whether or not a\n  cancel reason was given, and says goodbye on the job's channel (WhatsApp or Telegram). Other threads close as before.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none",
     "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
@@ -1897,7 +2059,7 @@
    "cron": [],
    "folder": "availability",
    "header_lines": 96,
-   "lines": 458,
+   "lines": 464,
    "objects": [
     {
      "description": "One row per pause: who (audience + principal [+ scope]), from, until (mandatory), and how it ended.",
@@ -2776,8 +2938,8 @@
       "via": "python"
      },
      {
-      "text": "watomation/routers/rest_admin_auth_session.py: mint_dashboard_session()",
-      "via": "python"
+      "text": "admin_roster (restaurant_admin/admin_roster.sql): who may open a restaurant dashboard (portal_access, rest_admin_dashboard_mint in admin_dashboard/auth_sessions.sql)",
+      "via": "sql"
      },
      {
       "text": "watomation/routers/takeaway_hooks.py: RestaurantMasterData(), _post_pickup_time_event(), pickup_time_updated_hook()",
@@ -2835,8 +2997,8 @@
    },
    "cron": [],
    "folder": "core",
-   "header_lines": 71,
-   "lines": 139,
+   "header_lines": 72,
+   "lines": 140,
    "objects": [
     {
      "description": "Master record per restaurant; rest_ref (e.g. ELAS) is the key and the prefix of every order number.",
@@ -2865,7 +3027,7 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "restaurant_master:\n  sql       enquire_admin_availability(), init_delivery(), init_takeaway(), insert_delivery_detail()\n            job_rider_pickup_alerts(), job_terminate_stale_active_threads_new()\n            resolve_initial_restaurant_acceptance(), restaurant_confirmation_whook()\n            restaurant_updates_whook(), t_claim_invite(), t_invite_preview(), t_linked_restaurants()\n            t_order_admin_phone(), t_order_card_destinations(), takeaway_pickup_time_whook()\n            takeaway_restaurant_updates_whook()\n  python    config/tgram_setting.py (module-level SQL)\n  python    ordelo/wa_location.py: WaLocation._load_delivery_context()\n  python    utils_common/order_management/order_service.py: _resolve_restaurant_coordinates()\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    utils_common/web_ordering/availability.py: restaurant()\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/fapp_ordelo_agent.py: reset_restaurant_base_url_cache_endpoint()\n  python    watomation/routers/delivery_hooks.py: RestaurantMasterData(), restaurant_confirmation_flow()\n  python    watomation/routers/rest_admin_auth_session.py: mint_dashboard_session()\n  python    watomation/routers/takeaway_hooks.py: RestaurantMasterData(), _post_pickup_time_event(), pickup_time_updated_hook()\n  frontend  restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/route.ts\n  frontend  restaurant-frontend/app/api/sys-admin/restaurants/route.ts\n  frontend  restaurant-frontend/lib/restaurantHours.ts\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/operational_lookup_cache.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/ordelo_service/datamodels/restaurant_master_pymodel.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/order_management/takeaway_pymodels.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/waba_callback.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/watomation/routers/rider_event_hooks.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/web/app_factory.py\n  r-agents  restaurant-agents/tests/services/test_operational_diagnostics.py\n  r-agents  restaurant-agents/tests/services/test_operational_lookup_cache.py\n  r-agents  restaurant-agents/tests/test_waba_callback.py",
+    "CALLED BY": "restaurant_master:\n  sql       enquire_admin_availability(), init_delivery(), init_takeaway(), insert_delivery_detail()\n            job_rider_pickup_alerts(), job_terminate_stale_active_threads_new()\n            resolve_initial_restaurant_acceptance(), restaurant_confirmation_whook()\n            restaurant_updates_whook(), t_claim_invite(), t_invite_preview(), t_linked_restaurants()\n            t_order_admin_phone(), t_order_card_destinations(), takeaway_pickup_time_whook()\n            takeaway_restaurant_updates_whook()\n  python    config/tgram_setting.py (module-level SQL)\n  python    ordelo/wa_location.py: WaLocation._load_delivery_context()\n  python    utils_common/order_management/order_service.py: _resolve_restaurant_coordinates()\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    utils_common/web_ordering/availability.py: restaurant()\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/fapp_ordelo_agent.py: reset_restaurant_base_url_cache_endpoint()\n  python    watomation/routers/delivery_hooks.py: RestaurantMasterData(), restaurant_confirmation_flow()\n  sql       admin_roster (restaurant_admin/admin_roster.sql): who may open a restaurant dashboard (portal_access,\n            rest_admin_dashboard_mint in admin_dashboard/auth_sessions.sql)\n  python    watomation/routers/takeaway_hooks.py: RestaurantMasterData(), _post_pickup_time_event(), pickup_time_updated_hook()\n  frontend  restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/route.ts\n  frontend  restaurant-frontend/app/api/sys-admin/restaurants/route.ts\n  frontend  restaurant-frontend/lib/restaurantHours.ts\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/operational_lookup_cache.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/ordelo_service/datamodels/restaurant_master_pymodel.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/services/order_management/takeaway_pymodels.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/waba_callback.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/watomation/routers/rider_event_hooks.py\n  r-agents  restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/web/app_factory.py\n  r-agents  restaurant-agents/tests/services/test_operational_diagnostics.py\n  r-agents  restaurant-agents/tests/services/test_operational_lookup_cache.py\n  r-agents  restaurant-agents/tests/test_waba_callback.py",
     "GOTCHAS": "service_hours_json is the opening-hours source for restaurant-agents; restaurant_start_time / restaurant_end_time are\n  older float hours (21.30 means 21:30), still set by the test/prod switch scripts in .claude/skills/database-operations.\nRead with the anon key by restaurant-frontend and RLS is off: see docs/to-do.md (security review).",
     "HOW IT FITS": "Every order table points back here through rest_ref (the 4-letter code, e.g. ELAS) or rest_id.\n  init_delivery() / init_takeaway() copy name, address and coordinates into the order summary row, and\n  resolve_initial_restaurant_acceptance() reads auto_accept to decide whether a new order skips the admin prompt.\n  admins (text[] of phone numbers) is the authoritative admin list; each phone's Telegram link and channels live in\n  restaurant_admin / admin_roster (restaurant_admin/admin_roster.sql).\n  The per-restaurant behaviour switches live in ordelo_config as '<REST_REF>_<KEY>' rows, not in this table.\n  restaurant-frontend reads it for the storefront and the admin dashboard; restaurant-agents reads it for menus,\n  service hours and agent routing.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
@@ -3875,7 +4037,7 @@
    "sections": {
     "CALLED BY": "delivery_dispatch_whook_statement:\n  trigger   trigger_delivery_dispatch_whook on delivery_dispatch\ndelivery_dispatch_stamp_channel:\n  trigger   trigger_delivery_dispatch_stamp_channel on delivery_dispatch\ndelivery_dispatch:\n  sql       assign_accepted_dispatch(), cleanup_delivery_order(), clear_dispatch()\n            complete_dispatch(), dispatch_accept_func(), dispatch_cancel_before_pickup()\n            dispatch_complete_func(), get_available_riders(), get_rider_payout_report()\n            job_create_dispatch(), job_rider_pickup_alerts(), notify_missed_dispatches()\n            rider_offer_state(), rider_offer_order_open(), rider_offer_reminder_snapshot(),\n            rider_offer_reminder_sent(), job_rider_offer_alerts()\n            notify_missed_dispatches_for_order(), overwatch_view(), restaurant_order_adjust_pickup()\n            restaurant_order_ready(), t_receipt_snapshot(), t_receipt_status()\n            test_reset_order_and_dispatch()\n  python    ordelo/agent_app_handlers.py: _send_delivery_instructions(), initial_handle_of_rider_response(), process_dispatch_response_from_rider_sync()\n  python    ordelo/agents/agent_runner.py: is_food_already_picked_up()\n  python    ordelo/agents/rider_agent.py: capture_reason_for_cancel_before_pickup(), terminate_delivery_job(), verify_restaurant_confirmation_code()\n  python    ordelo/delivery_progress.py: check_delivery_progress()\n  python    ordelo/dispatch_actions.py: respond_to_offer(), close_open_offers()\n  python    ordelo/rider_messaging/factory.py: for_dispatch(), dispatch_channel()\n  sql       rider_thread_open(), rider_thread_touch(), rider_thread_active(), rider_thread_describe()\n  python    ordelo/wa_location.py: WaLocation._load_delivery_context()\n  python    utils_common/order_management/restaurant_actions.py (module-level SQL)\n  python    utils_common/web_ordering/customer_order_view.py: get_view()\n  python    watomation/routers/delivery_hooks.py: delivery_dispatch_hook(), notify_missed_dispatches_hook()\n  python    watomation/routers/sys_admin_auth_session.py: get_rider_payout(), update_paid_status()\n  frontend  restaurant-frontend/app/api/rider/jobs/route.ts\n  frontend  restaurant-frontend/app/api/rider/jobs/summary/route.ts\n  frontend  restaurant-frontend/app/api/sys-admin/rider-payouts/summary/route.ts\n  frontend  restaurant-frontend/app/rider/jobs/_lib/server-fetcher.ts",
     "GOTCHAS": "No foreign keys to delivery_summary or rider_master: the links are by order_number and rider_id only.\nrider_pickup_alert has ON DELETE CASCADE to dispatch_id: deleting a dispatch (cancel before pickup) removes its alert ledger.",
-    "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> rider offer); unanswered Telegram offers are reminded\n             by job_rider_offer_alerts() (dispatch/job_rider_offer_alerts.sql).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.\n  The statement-level trigger below batches every offer inserted by one job_create_dispatch() run into one\n  POST /delivery-hooks/delivery-dispatch, which sends each rider a WhatsApp offer with Accept / Decline buttons.\n  The rider dashboard and sys-admin payouts (restaurant-frontend) read paid_status / paid_dtts.\n  Rider bot (plans/telegram-rider-bot-plan.md): channel is stamped from rider_master.channel when the offer row is\n  inserted and never changes (D44): the offer, Accept and the whole job conversation use it\n  (ordelo/rider_messaging/factory.for_dispatch). channel_msg_ref is the MsgRef of the offer message\n  (WhatsApp wamid or 'tg:<tcid>:<message_id>'), written by delivery_hooks after sending, so a closed Telegram offer\n  can be edited in place (D49). thread_id is the rider agent thread of an assigned dispatch\n  ('ORDELO-dispatch-<dispatch_id>'), written by rider_thread_open() (agent_threads/rider_threads.sql, D46).",
+    "HOW IT FITS": "Delivery order journey (statuses in delivery_summary.status unless noted):\n  1 create   /payment-hooks/payment-complete -> init_delivery() inserts the summary:\n             'restaurant_unconfirmed', or 'unassigned' with a pickup time when the restaurant auto-accepts.\n  2 confirm  trigger_restaurant_updates -> POST /delivery-hooks/restaurant-confirmation-request -> admins asked\n             (WhatsApp buttons; Telegram cards via job_t_order_alerts). restaurant_order_decide() records accept /\n             decline ('declined' is terminal); restaurant_order_set_pickup() sets pickup_time and 'unassigned'.\n             process_restaurant_confirmation() (cron 10 s) marks unanswered orders 'restaurant_timedout'; Python then\n             sets a default pickup time and 'unassigned'.\n  3 options  process_delivery() (cron 5 s) adds delivery_detail rows, one vehicle type at a time by delivery_option rank,\n             and marks the summary 'timedout' when every vehicle type timed out (trigger -> /delivery-hooks/delivery-timedout).\n  4 offers   job_create_dispatch() (cron 5 s) inserts delivery_dispatch offers for available riders\n             (trigger -> /delivery-hooks/delivery-dispatch -> rider offer); unanswered Telegram offers are reminded\n             by job_rider_offer_alerts() (dispatch/job_rider_offer_alerts.sql).\n  5 assign   a rider taps Accept (dispatch 'accepted'); job_assign_dispatch() (cron 5 s) gives the order to the first\n             acceptance: dispatch/detail/summary 'assigned' + delivery_inflight row\n             (trigger -> /delivery-hooks/delivery-inflight-graph-init starts the rider agent; other riders told they missed it).\n  6 deliver  rider agent: pickup code check ('pickedup'), dispatch_cancel_before_pickup() re-offers the order,\n             dispatch_complete_func() marks everything 'completed' and removes the inflight row.\n  Around it: job_rider_pickup_alerts() reminders, kitchen Ready / +10 / +20 (restaurant_admin/), Telegram receipts.\n  The statement-level trigger below batches every offer inserted by one job_create_dispatch() run into one\n  POST /delivery-hooks/delivery-dispatch, which sends each rider a WhatsApp offer with Accept / Decline buttons.\n  The rider dashboard and sys-admin payouts (restaurant-frontend) read paid_status / paid_dtts.\n  Rider bot (docs/adr/0011-telegram-operations-messaging-stays-in-ordeloagent.md): channel is stamped from rider_master.channel when the offer row is\n  inserted and never changes (D44): the offer, Accept and the whole job conversation use it\n  (ordelo/rider_messaging/factory.for_dispatch). channel_msg_ref is the MsgRef of the offer message\n  (WhatsApp wamid or 'tg:<tcid>:<message_id>'), written by delivery_hooks after sending, so a closed Telegram offer\n  can be edited in place (D49). thread_id is the rider agent thread of an assigned dispatch\n  ('ORDELO-dispatch-<dispatch_id>'), written by rider_thread_open() (agent_threads/rider_threads.sql, D46).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "channel: set once at INSERT. channel_msg_ref: set after the offer, moved on each Telegram reminder.\nthread_id: set once when the dispatch is assigned and its rider thread opens; kept after completion (audit).\ndelivery_dispatch.status (one row per offer of an order to one rider):\n  unassigned (offer sent) -> accepted (rider tapped Accept) -> assigned (won the order) -> pickedup -> completed\n  unassigned -> declined (rider said no, or cancelled before pickup) | missed (another rider won) | timedout\npaid_status: unpaid -> paid (sys-admin marks payouts paid; paid_dtts set).",
     "LIVE CHECK": "Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).\n  thread_id, delivery_dispatch_thread_id_idx and trigger_delivery_dispatch_stamp_channel (migrations/rider_telegram_r2_r4.sql,\n  applied by the owner on 2026-10-22; a rider job was tested live on Telegram and WhatsApp the same day).",
@@ -5026,6 +5188,58 @@
    "cron": [],
    "folder": "migrations",
    "header_lines": 0,
+   "lines": 537,
+   "migration": {
+    "applied": "2026-11-19 (agent, owner-authorised implementation run, during the owner's verification window)",
+    "current": [
+     "restaurant_admin/restaurant_service_hours.sql, ordering/menu_item_visibility.sql,",
+     "ordering/order_intake_guard.sql, ordering/create_food_order_with_items.sql"
+    ],
+    "purpose": "docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md: one-date service-hour overrides (closed dates, early close) with the dashboard editor (writes gated by ordelo_config REST_DASHBOARD_HOURS_EDITS, absent = off), hidden menu items, and the new-order guard inside create_food_order_with_items (P0C01 closed_date, P0C02 hidden_items). Compatibility: with no \"dates\" key and no hidden rows the guard returns ok and create_food_order_with_items behaves exactly as before; any error inside the guard allows the order. New objects are additive. VERIFY:  every live restaurant: SELECT order_intake_block(rest_ref, now(), '[]') -> ok; a rolled-back test order succeeds. Then:    python scripts/datamodels/drift_check.py"
+   },
+   "objects": [],
+   "path": "migrations/order_intake_guard_p1.sql",
+   "role": "migration",
+   "title": "docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md: one-date service-hour overrides (closed dates, early close) with the dashboard editor (writes gated by ordelo_config REST_DASHBOARD_HOURS_EDITS, absent = off), hidden menu items, and the new-order guard inside create_food_order_with_items (P0C01 closed_date, P0C02 hidden_items). Compatibility: with no \"dates\" key and no hidden rows the guard returns ok and create_food_order_with_items behaves exactly as before; any error inside the guard allows the order. New objects are additive. VERIFY:  every live restaurant: SELECT order_intake_block(rest_ref, now(), '[]') -> ok; a rolled-back test order succeeds. Then:    python scripts/datamodels/drift_check.py"
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
+   "lines": 110,
+   "migration": {
+    "applied": "2026-11-19 (agent, owner-authorised implementation run, during the owner's verification window)",
+    "current": [
+     "restaurant_admin/rest_admin_dashboard_alerts.sql; availability/pauses.sql (CHECK)"
+    ],
+    "purpose": "docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md: restaurant dashboard \"My alerts\" (channels, pause). pauses.created_via also accepts 'dashboard' (CHECK relaxed, never narrowed). Additive functions only. VERIFY:  SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'pauses_created_via_check';  -- has dashboard Then:    python scripts/datamodels/drift_check.py"
+   },
+   "objects": [],
+   "path": "migrations/rest_admin_alerts_p1.sql",
+   "role": "migration",
+   "title": "docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md: restaurant dashboard \"My alerts\" (channels, pause). pauses.created_via also accepts 'dashboard' (CHECK relaxed, never narrowed). Additive functions only. VERIFY:  SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'pauses_created_via_check';  -- has dashboard Then:    python scripts/datamodels/drift_check.py"
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
+   "lines": 150,
+   "migration": {
+    "applied": "2026-11-19 (agent, owner-authorised implementation run, during the owner's verification window)",
+    "current": [
+     "admin_dashboard/rest_admin_reports.sql"
+    ],
+    "purpose": "restaurant dashboard operational report (owner decision O9', 19 Nov): order_milestone + first-decision capture triggers on delivery_summary / takeaway_summary (AFTER UPDATE OF restaurant_confirmation_status; every error is swallowed so an order update can never fail because of it) and rest_admin_report_operations(). VERIFY:  SELECT tgname FROM pg_trigger WHERE tgname LIKE '%_summary_milestones';  -- 2 rows Then:    python scripts/datamodels/drift_check.py"
+   },
+   "objects": [],
+   "path": "migrations/rest_admin_reports_p1.sql",
+   "role": "migration",
+   "title": "restaurant dashboard operational report (owner decision O9', 19 Nov): order_milestone + first-decision capture triggers on delivery_summary / takeaway_summary (AFTER UPDATE OF restaurant_confirmation_status; every error is swallowed so an order update can never fail because of it) and rest_admin_report_operations(). VERIFY:  SELECT tgname FROM pg_trigger WHERE tgname LIKE '%_summary_milestones';  -- 2 rows Then:    python scripts/datamodels/drift_check.py"
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
    "lines": 127,
    "migration": {
     "applied": "NOT YET (prepared 2026-11-17; the owner applies it himself)",
@@ -5056,6 +5270,23 @@
    "path": "migrations/restaurant_confirmation_timeout_action.sql",
    "role": "migration",
    "title": "restaurant confirmation timeout action (plans/restaurant-confirmation-timeout-action-plan.md). {REF}_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION = 'decline' makes a never-answered order 'auto_decline' + status 'declined' instead of being auto-accepted. One shared policy function; the rider-search clock now starts when the order became dispatchable (affects every restaurant). No table, index or constraint change ('auto_decline' is already allowed). Nothing changes for a restaurant with no action key, except the rider-search clock. Requires: nothing else. Apply BEFORE deploying the code that calls restaurant_confirmation_policy()."
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
+   "lines": 376,
+   "migration": {
+    "applied": "2026-11-19 (agent, owner-authorised implementation run, during the owner's verification window)",
+    "current": [
+     "restaurant_admin/restaurant_settings.sql"
+    ],
+    "purpose": "docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md: audited restaurant-dashboard settings (acceptance policy), sys-admin change list and undo. Additive only: a new table and new functions; no existing object changes. Requires: telegram_portals_p1.sql (rest_admin_session_actor). VERIFY:  SELECT restaurant_acceptance_state('STRK')->>'result';   -- ok Then:    python scripts/datamodels/drift_check.py"
+   },
+   "objects": [],
+   "path": "migrations/restaurant_settings_p1.sql",
+   "role": "migration",
+   "title": "docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md: audited restaurant-dashboard settings (acceptance policy), sys-admin change list and undo. Additive only: a new table and new functions; no existing object changes. Requires: telegram_portals_p1.sql (rest_admin_session_actor). VERIFY:  SELECT restaurant_acceptance_state('STRK')->>'result';   -- ok Then:    python scripts/datamodels/drift_check.py"
   },
   {
    "cron": [],
@@ -5176,12 +5407,30 @@
      "dispatch/enquire_shift_availability.sql, telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql,",
      "telegram/t_admin_pauses.sql, availability/job_pause_sweep.sql"
     ],
-    "purpose": "Telegram rider bot R5-R6 (plans/telegram-rider-bot-plan.md). R5: Telegram location replies are stored as 'telegram_current'; riders' shift start/end goes through one RPC with the status gate; only WhatsApp riders get the daily shift question; Telegram riders are switched on once; the pause sweep is scheduled. R6: restaurant admins can pause their Telegram alerts (last-admin guard), and new cards, receipts and notices skip paused admins."
+    "purpose": "Telegram rider bot R5-R6 (docs/adr/0013-pauses-have-a-mandatory-end-and-are-computed.md). R5: Telegram location replies are stored as 'telegram_current'; riders' shift start/end goes through one RPC with the status gate; only WhatsApp riders get the daily shift question; Telegram riders are switched on once; the pause sweep is scheduled. R6: restaurant admins can pause their Telegram alerts (last-admin guard), and new cards, receipts and notices skip paused admins."
    },
    "objects": [],
    "path": "migrations/rider_telegram_r5_r6.sql",
    "role": "migration",
-   "title": "Telegram rider bot R5-R6 (plans/telegram-rider-bot-plan.md). R5: Telegram location replies are stored as 'telegram_current'; riders' shift start/end goes through one RPC with the status gate; only WhatsApp riders get the daily shift question; Telegram riders are switched on once; the pause sweep is scheduled. R6: restaurant admins can pause their Telegram alerts (last-admin guard), and new cards, receipts and notices skip paused admins."
+   "title": "Telegram rider bot R5-R6 (docs/adr/0013-pauses-have-a-mandatory-end-and-are-computed.md). R5: Telegram location replies are stored as 'telegram_current'; riders' shift start/end goes through one RPC with the status gate; only WhatsApp riders get the daily shift question; Telegram riders are switched on once; the pause sweep is scheduled. R6: restaurant admins can pause their Telegram alerts (last-admin guard), and new cards, receipts and notices skip paused admins."
+  },
+  {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
+   "lines": 395,
+   "migration": {
+    "applied": "2026-11-19 (agent, during the owner's verification window; owner-authorised implementation run)",
+    "current": [
+     "restaurant_admin/admin_roster.sql (is_overwatch, t_admin_link, t_admin_profile,",
+     "admin_unlink_telegram); admin_dashboard/auth_sessions.sql (portal access, admin mints, admin sessions, revocation)"
+    ],
+    "purpose": "portal links and dashboard sessions, docs/adr/0017-portal-access-is-decided-per-request-in-sql.md. . overwatch phones can link to the restaurant bot with no restaurant (t_admin_link / t_admin_profile 'ops_only') . relink to another Telegram account / unlink revokes the phone's rest_admin + sys_admin sessions and unused links . portal_access(), rest_admin_dashboard_mint(), sys_admin_dashboard_mint(): issuance with the authority check and the insert in one transaction (Telegram actor by tuid, WhatsApp actor by phone) . admin_dashboard_activate() / admin_dashboard_touch(): GET-safe activation and per-request re-check of roster / overwatch membership for the restaurant-frontend admin dashboards . rest_admin_session_actor(): the session-bound actor for every restaurant-dashboard settings RPC Compatibility: additive functions; the changed t_admin_* bodies keep every existing result value (new: 'ops_only' and the 'sys_admin' field). Deployed code that does not know them treats an ops-only person as not linked. Requires: restaurant_admin/admin_roster.sql P1 (live), admin_dashboard/auth_sessions.sql table (live). VERIFY:  SELECT is_overwatch('<an overwatch phone>'), portal_access(NULL, '447700900999')->>'result';  -- true, ok Then:    python scripts/datamodels/drift_check.py No COMMENT ON statements here (Gate 2: catalogue comments need owner approval)."
+   },
+   "objects": [],
+   "path": "migrations/telegram_portals_p1.sql",
+   "role": "migration",
+   "title": "portal links and dashboard sessions, docs/adr/0017-portal-access-is-decided-per-request-in-sql.md. . overwatch phones can link to the restaurant bot with no restaurant (t_admin_link / t_admin_profile 'ops_only') . relink to another Telegram account / unlink revokes the phone's rest_admin + sys_admin sessions and unused links . portal_access(), rest_admin_dashboard_mint(), sys_admin_dashboard_mint(): issuance with the authority check and the insert in one transaction (Telegram actor by tuid, WhatsApp actor by phone) . admin_dashboard_activate() / admin_dashboard_touch(): GET-safe activation and per-request re-check of roster / overwatch membership for the restaurant-frontend admin dashboards . rest_admin_session_actor(): the session-bound actor for every restaurant-dashboard settings RPC Compatibility: additive functions; the changed t_admin_* bodies keep every existing result value (new: 'ops_only' and the 'sys_admin' field). Deployed code that does not know them treats an ops-only person as not linked. Requires: restaurant_admin/admin_roster.sql P1 (live), admin_dashboard/auth_sessions.sql table (live). VERIFY:  SELECT is_overwatch('<an overwatch phone>'), portal_access(NULL, '447700900999')->>'result';  -- true, ok Then:    python scripts/datamodels/drift_check.py No COMMENT ON statements here (Gate 2: catalogue comments need owner approval)."
   },
   {
    "cron": [],
@@ -5447,8 +5696,8 @@
    },
    "cron": [],
    "folder": "ordering",
-   "header_lines": 36,
-   "lines": 102,
+   "header_lines": 39,
+   "lines": 119,
    "objects": [
     {
      "description": "Insert one food_order row and its order_item rows in one transaction and return {order, item_count}.",
@@ -5459,7 +5708,9 @@
    ],
    "path": "ordering/create_food_order_with_items.sql",
    "path_line": "ordelo_datamodels/ordering/create_food_order_with_items.sql",
-   "requires": [],
+   "requires": [
+    "ordering/order_intake_guard.sql (order_intake_block; called at run time, missing = no refusal)"
+   ],
    "role": "definition",
    "section_order": [
     "LIVE CHECK",
@@ -5478,18 +5729,18 @@
    ],
    "sections": {
     "CALLED BY": "create_food_order_with_items:\n  python    utils_common/order_management/order_service.py: _insert_order_rpc()\n  python    utils_common/web_ordering/web_checkout.py: create()",
-    "GOTCHAS": "payment_mode is never chosen by the caller: any item named 'TEST3100' makes the order 'test' (Stripe test keys),\n  otherwise 'live'. See plans/test3100-payment-routing-plan.md.\nFour frozen copies of this function live in migrations/ (ordelo_agg_r1, r1_test_payment, r3, test3100); they are history.\n  This file is the current definition.",
+    "GOTCHAS": "A new order is refused (nothing written) with SQLSTATE P0C01 'order_refused: closed_date' or P0C02\n  'order_refused: hidden_items' (DETAIL = the guard's JSON) when order_intake_block() says so; callers map them.\npayment_mode is never chosen by the caller: any item named 'TEST3100' makes the order 'test' (Stripe test keys),\n  otherwise 'live'. See docs/adr/0010-test-payments-selected-by-order-items.md.\nFour frozen copies of this function live in migrations/ (ordelo_agg_r1, r1_test_payment, r3, test3100); they are history.\n  This file is the current definition.",
     "HOW IT FITS": "Order creation, both channels:\n  WhatsApp: restaurant-agents builds the basket -> utils_common/order_management/order_service.py\n  Web:      utils_common/web_ordering/web_checkout.py (restaurant-frontend checkout)\n    -> get_next_daily_seq() (restaurant-agents) for the order number\n    -> create_food_order_with_items(): food_order + order_item in one transaction\n    -> payment link; the payment callback records the authorisation (record_payment_authorised)\n    -> /payment-hooks/payment-complete -> init_delivery() or init_takeaway() starts fulfilment.\n  food_order and order_item are defined by restaurant-agents; OrdeloAgent adds columns to food_order in\n  ordering/food_order_additions.sql (origin_channel, storefront, payment_mode, idempotency_key).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "food_order.payment_status starts at the caller's value (default 'requires_payment'); payment moves it on.",
     "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
     "OBJECTS": "fn     create_food_order_with_items(p_order jsonb, p_items jsonb) -> jsonb\n    Insert one food_order row and its order_item rows in one transaction and return {order, item_count}.",
     "PYTHON MODEL": "none",
-    "REQUIRES": "none",
+    "REQUIRES": "ordering/order_intake_guard.sql (order_intake_block; called at run time, missing = no refusal)",
     "SECURITY": "create_food_order_with_items(): executable by PUBLIC (default)",
     "SEE ALSO": "ordering/food_order_additions.sql\nordering/order_has_test_item.sql\ndocs/test-orders.md\ndocs/web-ordering-playground.md",
     "SIDE EFFECTS": "Each call inserts one food_order row and one order_item row per item (when the file is applied: none).",
-    "TESTS": "tests/utils_common/order_management/test_order_service.py"
+    "TESTS": "tests/utils_common/order_management/test_order_service.py\ntests/sql/test_order_intake_guard_sql.py (the refusal: SQLSTATE P0C01 closed_date, P0C02 hidden_items)"
    },
    "see_also": [
     "ordering/food_order_additions.sql",
@@ -5498,7 +5749,8 @@
     "docs/web-ordering-playground.md"
    ],
    "tests": [
-    "tests/utils_common/order_management/test_order_service.py"
+    "tests/utils_common/order_management/test_order_service.py",
+    "tests/sql/test_order_intake_guard_sql.py (the refusal: SQLSTATE P0C01 closed_date, P0C02 hidden_items)"
    ],
    "title": "Create an order (food_order) and its lines (order_item) atomically, choosing the payment environment from the items."
   },
@@ -5584,6 +5836,102 @@
    ],
    "tests": [],
    "title": "Columns, constraints, an index and a guard trigger that OrdeloAgent adds to restaurant-agents' food_order / order_item."
+  },
+  {
+   "called_by": {
+    "menu_hidden_keys": [
+     {
+      "text": "restaurant-frontend/lib/hiddenMenuItems.ts (app/api/menu/route.ts)",
+      "via": "frontend"
+     }
+    ],
+    "menu_item_key": [
+     {
+      "text": "order_intake_block(), the functions above",
+      "via": "sql"
+     }
+    ]
+   },
+   "cron": [],
+   "folder": "ordering",
+   "header_lines": 48,
+   "lines": 171,
+   "objects": [
+    {
+     "description": "One row per hidden item of a restaurant; no row = visible.",
+     "kind": "table",
+     "name": "menu_item_hidden",
+     "signature": "menu_item_hidden"
+    },
+    {
+     "description": "The item key shared by menus and orders: the normalised title (lower case, single spaces, trimmed).",
+     "kind": "function",
+     "name": "menu_item_key",
+     "signature": "menu_item_key(p_title text) -> text"
+    },
+    {
+     "description": "The hidden item keys of a restaurant (storefront and menu readers filter with it).",
+     "kind": "function",
+     "name": "menu_hidden_keys",
+     "signature": "menu_hidden_keys(p_rest_ref text) -> text[]"
+    },
+    {
+     "description": "The signed-in admin's menu (from <rest_ref>_menu) with a hidden flag per item.",
+     "kind": "function",
+     "name": "rest_admin_menu_list",
+     "signature": "rest_admin_menu_list(p_session_id uuid, p_search text) -> jsonb"
+    },
+    {
+     "description": "Hide or show items (audited, idempotent).",
+     "kind": "function",
+     "name": "rest_admin_menu_set_hidden",
+     "signature": "rest_admin_menu_set_hidden(p_session_id uuid, p_titles text[], p_hidden boolean) -> jsonb"
+    }
+   ],
+   "path": "ordering/menu_item_visibility.sql",
+   "path_line": "ordelo_datamodels/ordering/menu_item_visibility.sql",
+   "requires": [
+    "core/menus.sql (<rest_ref>_menu tables), restaurant_admin/restaurant_settings.sql (restaurant_setting_change),",
+    "admin_dashboard/auth_sessions.sql (rest_admin_session_actor)"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "rest_admin_menu_list, rest_admin_menu_set_hidden:\n  frontend  restaurant-frontend/lib/rest-admin-rpc.ts (app/api/rest-admin/settings/menu/route.ts)\nmenu_hidden_keys:\n  frontend  restaurant-frontend/lib/hiddenMenuItems.ts (app/api/menu/route.ts)\nmenu_item_key:\n  sql       order_intake_block(), the functions above",
+    "GOTCHAS": "CHKS (Wings and Things) orders are numbered ELAS-...: the order guard checks the ELAS list for them, so a\n  CHKS-only hidden item is enforced by the CHKS storefront menu, not by the guard.\nThe menu table name is built from the session's rest_ref only (format %I), never from the browser.",
+    "HOW IT FITS": "The <rest_ref>_menu tables are bulk-replaced on menu refresh, so visibility lives here, keyed by the item TITLE\n  (owner check P-4: elas_menu has no sku column; every menu has title and every order line has product_name).\n  Hiding never touches the menu row (its stock/availability stays as it is); showing again deletes the row\n  here, so the item is back with whatever stock status the menu has. Only an explicit show clears it (O7').\nEnforced by: order_intake_block() (ordering/order_intake_guard.sql) inside create_food_order_with_items()\n  for both channels; the storefront menu route (restaurant-frontend app/api/menu/route.ts) filters with\n  menu_hidden_keys(). WhatsApp menu tools that read MENU_API_URL are not covered until that service's owner\n  filters too (plan P-5); the order guard is the backstop there.\nEvery change goes through restaurant_setting_change() ('menu_hidden', key = item key): audited, undoable.",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
+    "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  rest_admin_menu_list:       ok | no_menu (no <rest_ref>_menu table) | not_authorised\n  rest_admin_menu_set_hidden: ok (changed: n) | bad_items (empty, > 50, or a title not on the menu) |\n                              no_menu | not_authorised",
+    "LIVE CHECK": "Live since 19 Nov 2026 (applied with migrations/order_intake_guard_p1.sql; live body compared with this file). docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md",
+    "OBJECTS": "table  menu_item_hidden\n    One row per hidden item of a restaurant; no row = visible.\nfn     menu_item_key(p_title text) -> text\n    The item key shared by menus and orders: the normalised title (lower case, single spaces, trimmed).\nfn     menu_hidden_keys(p_rest_ref text) -> text[]\n    The hidden item keys of a restaurant (storefront and menu readers filter with it).\nfn     rest_admin_menu_list(p_session_id uuid, p_search text) -> jsonb\n    The signed-in admin's menu (from <rest_ref>_menu) with a hidden flag per item.\nfn     rest_admin_menu_set_hidden(p_session_id uuid, p_titles text[], p_hidden boolean) -> jsonb\n    Hide or show items (audited, idempotent).",
+    "PYTHON MODEL": "none",
+    "REQUIRES": "core/menus.sql (<rest_ref>_menu tables), restaurant_admin/restaurant_settings.sql (restaurant_setting_change),\nadmin_dashboard/auth_sessions.sql (rest_admin_session_actor)",
+    "SECURITY": "Table: RLS on, no policies, REVOKE ALL FROM anon, authenticated. Functions: REVOKE ALL FROM PUBLIC, anon,\nauthenticated; granted to service_role.",
+    "SEE ALSO": "ordering/order_intake_guard.sql, core/menus.sql",
+    "SIDE EFFECTS": "Creates the empty table menu_item_hidden.",
+    "TESTS": "tests/sql/test_order_intake_guard_sql.py (hide / show / list / audit and the order refusal)"
+   },
+   "see_also": [
+    "ordering/order_intake_guard.sql, core/menus.sql"
+   ],
+   "tests": [
+    "tests/sql/test_order_intake_guard_sql.py (hide / show / list / audit and the order refusal)"
+   ],
+   "title": "Hidden menu items: a restaurant admin hides an item until an admin explicitly shows it again."
   },
   {
    "called_by": {
@@ -5708,20 +6056,86 @@
     "PYTHON MODEL": "none",
     "REQUIRES": "restaurant-agents: food_order\nrestaurant-agents: order_item",
     "SECURITY": "order_has_test_item(): executable by PUBLIC (default)",
-    "SEE ALSO": "dispatch/job_create_dispatch.sql (get_available_riders)\nplans/test3100-payment-routing-plan.md\ndocs/test-orders.md",
+    "SEE ALSO": "dispatch/job_create_dispatch.sql (get_available_riders)\ndocs/test-orders.md\ndocs/adr/0010-test-payments-selected-by-order-items.md",
     "SIDE EFFECTS": "none",
     "TESTS": "tests/utils_common/order_management/test_test_order_dispatch.py\ntests/watomation/routers/test_delivery_hooks.py"
    },
    "see_also": [
     "dispatch/job_create_dispatch.sql (get_available_riders)",
-    "plans/test3100-payment-routing-plan.md",
-    "docs/test-orders.md"
+    "docs/test-orders.md",
+    "docs/adr/0010-test-payments-selected-by-order-items.md"
    ],
    "tests": [
     "tests/utils_common/order_management/test_test_order_dispatch.py",
     "tests/watomation/routers/test_delivery_hooks.py"
    ],
    "title": "Is this order a TEST3100 test order? (true / false, NULL when the order does not exist)"
+  },
+  {
+   "called_by": {
+    "order_intake_block": [
+     {
+      "text": "create_food_order_with_items() (ordering/create_food_order_with_items.sql)",
+      "via": "sql"
+     }
+    ]
+   },
+   "cron": [],
+   "folder": "ordering",
+   "header_lines": 33,
+   "lines": 68,
+   "objects": [
+    {
+     "description": "ok | closed_date | hidden_items (+ the hidden titles) for a new order; never raises.",
+     "kind": "function",
+     "name": "order_intake_block",
+     "signature": "order_intake_block(p_rest_ref text, p_at timestamptz, p_items jsonb) -> jsonb"
+    }
+   ],
+   "path": "ordering/order_intake_guard.sql",
+   "path_line": "ordelo_datamodels/ordering/order_intake_guard.sql",
+   "requires": [
+    "restaurant_admin/restaurant_service_hours.sql (restaurant_closed_by_override)",
+    "ordering/menu_item_visibility.sql (menu_item_hidden, menu_item_key)"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "order_intake_block:\n  sql       create_food_order_with_items() (ordering/create_food_order_with_items.sql)",
+    "GOTCHAS": "Both callers run create_food_order_with_items() as the service role (order_service.py client_ordelo, a\n  service-keyed client since the 26 Oct cutover) or as the database owner (web_checkout.py pool), so the\n  guard is granted to service_role only. An anon caller of create_food_order_with_items (still executable by\n  PUBLIC, docs/to-do.md) gets permission denied on the guard inside and its order fails: intended.",
+    "HOW IT FITS": "create_food_order_with_items() (ordering/create_food_order_with_items.sql) calls this first for BOTH channels\n  (WhatsApp: utils_common/order_management/order_service.py; web: utils_common/web_ordering/web_checkout.py)\n  and RAISEs SQLSTATE P0C01 (closed_date) or P0C02 (hidden_items) with the JSON outcome as DETAIL. The callers\n  map those to typed refusals. It only refuses on a POSITIVE decision: no override and no hidden row means\n  exactly the old behaviour, and any error inside means \"ok\" (the guard can never stop orders by itself).\n  Weekly opening hours are NOT checked here (they never were); only a date override that closes a time the\n  weekly hours had open (restaurant_closed_by_override) and hidden items.\np_rest_ref: the order's restaurant (callers pass the order_number prefix, e.g. 'STRK' from 'STRK-...').\np_items: the create_food_order_with_items p_items array ([{product_name, ...}, ...]).",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE OR REPLACE.",
+    "LIFECYCLE": "RESULT VOCABULARY: ok | closed_date {reopens: null} | hidden_items {hidden: [titles]}",
+    "LIVE CHECK": "Live since 19 Nov 2026 (applied with migrations/order_intake_guard_p1.sql; live body compared with this file). docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md\n(which also replaces create_food_order_with_items to call it).",
+    "OBJECTS": "fn     order_intake_block(p_rest_ref text, p_at timestamptz, p_items jsonb) -> jsonb\n    ok | closed_date | hidden_items (+ the hidden titles) for a new order; never raises.",
+    "PYTHON MODEL": "none (callers read the SQLSTATE: order_service.py, web_checkout.py)",
+    "REQUIRES": "restaurant_admin/restaurant_service_hours.sql (restaurant_closed_by_override)\nordering/menu_item_visibility.sql (menu_item_hidden, menu_item_key)",
+    "SECURITY": "REVOKE ALL FROM PUBLIC, anon, authenticated; granted to service_role.",
+    "SEE ALSO": "restaurant_admin/restaurant_service_hours.sql, ordering/menu_item_visibility.sql",
+    "SIDE EFFECTS": "none",
+    "TESTS": "tests/sql/test_order_intake_guard_sql.py"
+   },
+   "see_also": [
+    "restaurant_admin/restaurant_service_hours.sql, ordering/menu_item_visibility.sql"
+   ],
+   "tests": [
+    "tests/sql/test_order_intake_guard_sql.py"
+   ],
+   "title": "The one new-order refusal rule: a date override closed the restaurant, or the basket has a hidden item."
   },
   {
    "called_by": {
@@ -6802,6 +7216,16 @@
       "via": "python"
      }
     ],
+    "is_overwatch": [
+     {
+      "text": "t_admin_link(), t_admin_profile(), portal_access(), sys_admin_dashboard_mint(), admin_session_authorised() (admin_dashboard/auth_sessions.sql)",
+      "via": "sql"
+     },
+     {
+      "text": "watomation/routers/sys_admin_auth_session.py: _ensure_sys_admin()",
+      "via": "python"
+     }
+    ],
     "t_admin_link": [
      {
       "text": "channels/telegram/admin_links.py: link()",
@@ -6817,14 +7241,20 @@
    },
    "cron": [],
    "folder": "restaurant_admin",
-   "header_lines": 89,
-   "lines": 432,
+   "header_lines": 100,
+   "lines": 481,
    "objects": [
     {
      "description": "Digits only; NULL unless 8-15 digits. The one phone rule of the roster.",
      "kind": "function",
      "name": "admin_phone_digits",
      "signature": "admin_phone_digits(p_phone text) -> text"
+    },
+    {
+     "description": "The one overwatch membership rule (ordelo_config.overwatch_list); grants the sys-admin dashboard.",
+     "kind": "function",
+     "name": "is_overwatch",
+     "signature": "is_overwatch(p_phone text) -> boolean"
     },
     {
      "description": "The admin record: one row per phone (channels, Telegram link). Confers no authority (D3).",
@@ -6886,7 +7316,8 @@
    "requires": [
     "core/restaurant_master.sql",
     "availability/pauses.sql",
-    "telegram/t_invites.sql"
+    "telegram/t_invites.sql",
+    "(runtime only: admin_dashboard/auth_sessions.sql for auth_sessions_revoke_phone(), called by plpgsql)"
    ],
    "role": "definition",
    "section_order": [
@@ -6905,15 +7336,15 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "admin_phone_digits:\n  sql       admin_roster, t_admin_link(), admin_roster_status(), admin_set_channels(), admin_unlink_telegram(),\n            t_order_card_destinations(), t_order_admin_phone(), restaurant_admin_label()\nadmin_roster:\n  sql       admin_recipients(), admin_for_tuid(), t_admin_link(), t_admin_profile(), t_order_card_destinations(),\n            t_admin_restaurants()\nadmin_recipients:\n  python    ordelo/admin_roster.py: whatsapp_phones() (P2)\nadmin_for_tuid:\n  sql       t_order_admin_phone() (restaurant_admin/restaurant_order_decision.sql)\nt_admin_link:\n  python    channels/telegram/admin_links.py: link()\nt_admin_profile:\n  python    channels/telegram/admin_links.py: profile()\nadmin_set_channels:\n  python    channels/telegram/admin_links.py: set_channels(); restaurant-frontend sys-admin admins route\nadmin_unlink_telegram:\n  python    channels/telegram/admin_links.py: unlink()\nadmin_roster_status:\n  python    ordelo/admin_roster.py: status()",
+    "CALLED BY": "is_overwatch:\n  sql       t_admin_link(), t_admin_profile(), portal_access(), sys_admin_dashboard_mint(),\n            admin_session_authorised() (admin_dashboard/auth_sessions.sql)\n  python    watomation/routers/sys_admin_auth_session.py: _ensure_sys_admin()\nadmin_phone_digits:\n  sql       admin_roster, t_admin_link(), admin_roster_status(), admin_set_channels(), admin_unlink_telegram(),\n            t_order_card_destinations(), t_order_admin_phone(), restaurant_admin_label()\nadmin_roster:\n  sql       admin_recipients(), admin_for_tuid(), t_admin_link(), t_admin_profile(), t_order_card_destinations(),\n            t_admin_restaurants()\nadmin_recipients:\n  python    ordelo/admin_roster.py: whatsapp_phones() (P2)\nadmin_for_tuid:\n  sql       t_order_admin_phone() (restaurant_admin/restaurant_order_decision.sql)\nt_admin_link:\n  python    channels/telegram/admin_links.py: link()\nt_admin_profile:\n  python    channels/telegram/admin_links.py: profile()\nadmin_set_channels:\n  python    channels/telegram/admin_links.py: set_channels(); restaurant-frontend sys-admin admins route\nadmin_unlink_telegram:\n  python    channels/telegram/admin_links.py: unlink()\nadmin_roster_status:\n  python    ordelo/admin_roster.py: status()",
     "GOTCHAS": "An admins[] entry that admin_phone_digits() rejects is NOT on the roster (and so gets no Telegram); the\n  migration's PRE-CHECK 1 lists them. WhatsApp keeps reading the raw list until P2.\nA phone shared on two restaurants has ONE record (D3): linking it links every restaurant it is on.\nUnlinking or removing a phone from every list is the off switch; there is no \"delete the record\" function.",
     "HOW IT FITS": "restaurant_master.admins stays the authority on WHO is an admin of a restaurant (D3). restaurant_admin holds\n  what is true of the PERSON (phone): the Telegram account that proved the number and the channels they\n  want. A restaurant owner opens the restaurant bot, shares their own phone number with Telegram's button;\n  the router accepts it only when contact.user_id == from_user.id and calls t_admin_link(). A phone that is\n  on no restaurant's list is refused (not_on_roster), so a stranger who shares a number gets nothing.\n  Linking moves the admin to Telegram only (D6); admin_set_channels() can put WhatsApp back.\n  The t_* destination functions (telegram/t_order_alerts.sql, restaurant_admin/restaurant_order_decision.sql,\n  telegram/t_admin_pauses.sql) read admin_roster; while an admin has no record they keep reading claimed\n  invites (TRANSITION branches, removed in P3).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
-    "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  t_admin_link:          linked          first link for this phone; channels := {telegram}\n                         relinked        another Telegram account proved this phone; link moved (previous_tuid /\n                                         previous_username returned for the ops alert)\n                         already_linked  same phone, same account; chat / username / first name refreshed\n                         not_on_roster   the phone is on no restaurant's admin list; nothing written\n                         tuid_taken      this Telegram account is linked to a DIFFERENT phone; refused\n                         bad_phone       not 8-15 digits, or ids missing\n  t_admin_profile:       ok | not_linked | not_on_roster\n  admin_set_channels:    ok | not_found | bad_channels | not_linked\n  admin_unlink_telegram: ok | not_found | not_linked",
-    "LIVE CHECK": "NOT YET APPLIED. Written for plans/restaurant-admin-roster-onboarding-plan.md (P1); the owner applies it with\nmigrations/admin_roster_p1.sql and runs test_support/test_admin_onboarding.sql.",
-    "OBJECTS": "fn     admin_phone_digits(p_phone text) -> text\n    Digits only; NULL unless 8-15 digits. The one phone rule of the roster.\ntable  restaurant_admin\n    The admin record: one row per phone (channels, Telegram link). Confers no authority (D3).\nview   admin_roster\n    One row per (restaurant, phone) on a restaurant's admin list, with that phone's admin record.\nfn     admin_recipients(p_rest_ref text, p_channel text) -> TABLE(phone text, tcid bigint, tuid bigint, label text)\n    Who gets a NEW message on this channel: on the list, channel chosen, not paused, (Telegram) linked.\nfn     admin_for_tuid(p_tuid bigint, p_rest_ref text) -> text\n    The admin phone of this Telegram user for this restaurant, else NULL.\nfn     t_admin_link(p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text) -> jsonb\n    Link a Telegram account to an admin phone (the phone was shared by the sender, never typed).\nfn     t_admin_profile(p_tuid bigint) -> jsonb\n    Who this Telegram account is as an admin (phone, channels, restaurants); read-only.\nfn     admin_set_channels(p_phone text, p_channels text[], p_by text) -> jsonb\n    Change where an admin's messages go.\nfn     admin_unlink_telegram(p_phone text, p_by text) -> jsonb\n    Clear the Telegram link; the admin goes back to WhatsApp only.\nfn     admin_roster_status(p_rest_ref text) -> jsonb\n    One restaurant's admin list with link and channel state, for the sys-admin page.",
+    "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  t_admin_link:          linked          first link for this phone; channels := {telegram}\n                         relinked        another Telegram account proved this phone; link moved (previous_tuid /\n                                         previous_username returned for the ops alert)\n                         already_linked  same phone, same account; chat / username / first name refreshed\n                         not_on_roster   the phone is on no restaurant's admin list and not overwatch; nothing\n                                         written (an overwatch-only phone links with restaurants = [])\n                         tuid_taken      this Telegram account is linked to a DIFFERENT phone; refused\n                         bad_phone       not 8-15 digits, or ids missing\n                         (every success also returns sys_admin; relinked revokes the phone's dashboard\n                         sessions and unused links)\n  t_admin_profile:       ok | ops_only | not_linked | not_on_roster   (+ sys_admin)\n  admin_set_channels:    ok | not_found | bad_channels | not_linked\n  admin_unlink_telegram: ok | not_found | not_linked",
+    "LIVE CHECK": "P1 is live: every function body compared read-only with the live catalogue on 19 Nov 2026 (identical).\nis_overwatch and the overwatch / revocation changes (docs/adr/0017-portal-access-is-decided-per-request-in-sql.md)\nare live since 19 Nov 2026 (migrations/telegram_portals_p1.sql).",
+    "OBJECTS": "fn     admin_phone_digits(p_phone text) -> text\n    Digits only; NULL unless 8-15 digits. The one phone rule of the roster.\nfn     is_overwatch(p_phone text) -> boolean\n    The one overwatch membership rule (ordelo_config.overwatch_list); grants the sys-admin dashboard.\ntable  restaurant_admin\n    The admin record: one row per phone (channels, Telegram link). Confers no authority (D3).\nview   admin_roster\n    One row per (restaurant, phone) on a restaurant's admin list, with that phone's admin record.\nfn     admin_recipients(p_rest_ref text, p_channel text) -> TABLE(phone text, tcid bigint, tuid bigint, label text)\n    Who gets a NEW message on this channel: on the list, channel chosen, not paused, (Telegram) linked.\nfn     admin_for_tuid(p_tuid bigint, p_rest_ref text) -> text\n    The admin phone of this Telegram user for this restaurant, else NULL.\nfn     t_admin_link(p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text) -> jsonb\n    Link a Telegram account to an admin phone (the phone was shared by the sender, never typed).\nfn     t_admin_profile(p_tuid bigint) -> jsonb\n    Who this Telegram account is as an admin (phone, channels, restaurants); read-only.\nfn     admin_set_channels(p_phone text, p_channels text[], p_by text) -> jsonb\n    Change where an admin's messages go.\nfn     admin_unlink_telegram(p_phone text, p_by text) -> jsonb\n    Clear the Telegram link; the admin goes back to WhatsApp only.\nfn     admin_roster_status(p_rest_ref text) -> jsonb\n    One restaurant's admin list with link and channel state, for the sys-admin page.",
     "PYTHON MODEL": "channels/telegram/admin_links.py (AdminLink, AdminProfile outcome dataclasses)",
-    "REQUIRES": "core/restaurant_master.sql\navailability/pauses.sql\ntelegram/t_invites.sql",
+    "REQUIRES": "core/restaurant_master.sql\navailability/pauses.sql\ntelegram/t_invites.sql\n(runtime only: admin_dashboard/auth_sessions.sql for auth_sessions_revoke_phone(), called by plpgsql)",
     "SECURITY": "Every function: REVOKE ALL FROM PUBLIC, anon, authenticated; called with client_ordelo_service only.\nrestaurant_admin has RLS on and no policies; admin_roster is security_invoker.",
     "SEE ALSO": "telegram/t_invites.sql\ntelegram/t_order_alerts.sql\nrestaurant_admin/restaurant_order_decision.sql\ntelegram/t_admin_pauses.sql\ntest_support/test_admin_onboarding.sql\nplans/restaurant-admin-roster-onboarding-plan.md",
     "SIDE EFFECTS": "Creates the table restaurant_admin (empty) and one ordelo_config row (ON CONFLICT DO NOTHING).",
@@ -7216,6 +7647,85 @@
     "tests/ordelo_datamodels/test_auto_accept_sql.py"
    ],
    "title": "Decide at order creation whether the restaurant auto-accepts, and with which pickup time."
+  },
+  {
+   "called_by": {},
+   "cron": [],
+   "folder": "restaurant_admin",
+   "header_lines": 42,
+   "lines": 141,
+   "objects": [
+    {
+     "description": "The signed-in admin's channels, Telegram link, current pause for this restaurant and the pause lengths.",
+     "kind": "function",
+     "name": "rest_admin_alerts_get",
+     "signature": "rest_admin_alerts_get(p_session_id uuid) -> jsonb"
+    },
+    {
+     "description": "Change where the signed-in admin's alerts go (same rule as Telegram /channels).",
+     "kind": "function",
+     "name": "rest_admin_alerts_set_channels",
+     "signature": "rest_admin_alerts_set_channels(p_session_id uuid, p_channels text[]) -> jsonb"
+    },
+    {
+     "description": "Pause the signed-in admin's alerts for this restaurant (same rule as Telegram /off).",
+     "kind": "function",
+     "name": "rest_admin_alerts_pause",
+     "signature": "rest_admin_alerts_pause(p_session_id uuid, p_duration text) -> jsonb"
+    },
+    {
+     "description": "End that pause early (same rule as Telegram /on).",
+     "kind": "function",
+     "name": "rest_admin_alerts_resume",
+     "signature": "rest_admin_alerts_resume(p_session_id uuid) -> jsonb"
+    }
+   ],
+   "path": "restaurant_admin/rest_admin_dashboard_alerts.sql",
+   "path_line": "ordelo_datamodels/restaurant_admin/rest_admin_dashboard_alerts.sql",
+   "requires": [
+    "restaurant_admin/admin_roster.sql (admin_set_channels, restaurant_admin)",
+    "availability/pauses.sql (pause_start, pause_end, pause_current, pause_options)",
+    "admin_dashboard/auth_sessions.sql (rest_admin_session_actor)",
+    "restaurant_admin/restaurant_settings.sql (restaurant_settings_audit)"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "all four:\n  frontend  restaurant-frontend/lib/rest-admin-rpc.ts (app/api/rest-admin/settings/alerts/route.ts)",
+    "GOTCHAS": "A pause stops NEW Telegram alerts only; WhatsApp admin alerts are unchanged (ADR 0013 Amendment 1).\npauses.created_via gained 'dashboard' (availability/pauses.sql).",
+    "HOW IT FITS": "The dashboard twin of the restaurant bot's /channels (channels.py) and /off, /on (pauses.py): the same SQL\n  rules decide (admin_set_channels; pause_start with the last-admin guard D52 and pause_end), so a change made\n  in the dashboard is what the bot shows next, and the reverse. The person is the session's verified phone\n  (rest_admin_session_actor); the browser sends no phone. Channels belong to the PERSON (every restaurant they\n  admin); a pause belongs to the person AND this restaurant. Each change is written to restaurant_settings_audit\n  (setting alert_channels / alert_pause, key = phone; not revertible by sys-admin: personal choices).",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE OR REPLACE.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
+    "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  rest_admin_alerts_get:          ok | not_authorised\n  rest_admin_alerts_set_channels: ok | bad_channels | not_found (no admin record: WhatsApp only, link Telegram\n                                  first) | not_linked (Telegram chosen, no Telegram link) | not_authorised\n  rest_admin_alerts_pause:        paused | extended | bad_duration | not_allowed (last unpaused admin) |\n                                  not_admin | not_authorised\n  rest_admin_alerts_resume:       resumed | not_paused | not_authorised",
+    "LIVE CHECK": "Live since 19 Nov 2026 (applied with migrations/rest_admin_alerts_p1.sql; live body compared with this file). docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md.",
+    "OBJECTS": "fn     rest_admin_alerts_get(p_session_id uuid) -> jsonb\n    The signed-in admin's channels, Telegram link, current pause for this restaurant and the pause lengths.\nfn     rest_admin_alerts_set_channels(p_session_id uuid, p_channels text[]) -> jsonb\n    Change where the signed-in admin's alerts go (same rule as Telegram /channels).\nfn     rest_admin_alerts_pause(p_session_id uuid, p_duration text) -> jsonb\n    Pause the signed-in admin's alerts for this restaurant (same rule as Telegram /off).\nfn     rest_admin_alerts_resume(p_session_id uuid) -> jsonb\n    End that pause early (same rule as Telegram /on).",
+    "PYTHON MODEL": "none",
+    "REQUIRES": "restaurant_admin/admin_roster.sql (admin_set_channels, restaurant_admin)\navailability/pauses.sql (pause_start, pause_end, pause_current, pause_options)\nadmin_dashboard/auth_sessions.sql (rest_admin_session_actor)\nrestaurant_admin/restaurant_settings.sql (restaurant_settings_audit)",
+    "SECURITY": "Every function: REVOKE ALL FROM PUBLIC, anon, authenticated; granted to service_role.",
+    "SEE ALSO": "channels/telegram/rest_admin/channels.py, channels/telegram/rest_admin/pauses.py, docs/adr/0013-*.md",
+    "SIDE EFFECTS": "none",
+    "TESTS": "tests/sql/test_rest_admin_dashboard_alerts_sql.py"
+   },
+   "see_also": [
+    "channels/telegram/rest_admin/channels.py, channels/telegram/rest_admin/pauses.py, docs/adr/0013-*.md"
+   ],
+   "tests": [
+    "tests/sql/test_rest_admin_dashboard_alerts_sql.py"
+   ],
+   "title": "Restaurant dashboard \"My alerts\": the signed-in admin's own alert channels and their alert pause for this restaurant."
   },
   {
    "called_by": {
@@ -7730,6 +8240,273 @@
     "tests/watomation/test_on_callback_wa_handler.py"
    ],
    "title": "Kitchen actions shared by WhatsApp and Telegram (Ready, +10 / +20 pickup), Telegram kitchen receipts and plain notices."
+  },
+  {
+   "called_by": {
+    "restaurant_closed_by_override": [
+     {
+      "text": "order_intake_block() (ordering/order_intake_guard.sql) service_hours_day, service_hours_open, service_hours_valid_day, hours_edits_enabled:",
+      "via": "sql"
+     },
+     {
+      "text": "the functions above",
+      "via": "sql"
+     }
+    ]
+   },
+   "cron": [],
+   "folder": "restaurant_admin",
+   "header_lines": 71,
+   "lines": 374,
+   "objects": [
+    {
+     "description": "The interval list that applies on one London date: its override (marker = []) or the weekday's.",
+     "kind": "function",
+     "name": "service_hours_day",
+     "signature": "service_hours_day(p_hours jsonb, p_date date, p_use_dates boolean) -> jsonb"
+    },
+    {
+     "description": "Open at that moment, with the date-override and overnight-spill rule shared by every reader.",
+     "kind": "function",
+     "name": "service_hours_open",
+     "signature": "service_hours_open(p_hours jsonb, p_at timestamptz, p_use_dates boolean) -> boolean"
+    },
+    {
+     "description": "true only when a date override closes a time the weekly hours would have open (the order guard).",
+     "kind": "function",
+     "name": "restaurant_closed_by_override",
+     "signature": "restaurant_closed_by_override(p_rest_ref text, p_at timestamptz) -> boolean"
+    },
+    {
+     "description": "An interval list is well formed: [[\"HH:MM\",\"HH:MM\"], ...], start < 24:00, start < end <= 48:00, no overlap.",
+     "kind": "function",
+     "name": "service_hours_valid_day",
+     "signature": "service_hours_valid_day(p_intervals jsonb) -> boolean"
+    },
+    {
+     "description": "The rollout gate for dashboard hours writes (ordelo_config REST_DASHBOARD_HOURS_EDITS).",
+     "kind": "function",
+     "name": "hours_edits_enabled",
+     "signature": "hours_edits_enabled(p_rest_ref text) -> boolean"
+    },
+    {
+     "description": "Weekly hours, upcoming date overrides and whether editing is enabled, for the signed-in admin's restaurant.",
+     "kind": "function",
+     "name": "rest_admin_hours_get",
+     "signature": "rest_admin_hours_get(p_session_id uuid) -> jsonb"
+    },
+    {
+     "description": "Close all day (p_from NULL) or from a local time on one date.",
+     "kind": "function",
+     "name": "rest_admin_hours_close_date",
+     "signature": "rest_admin_hours_close_date(p_session_id uuid, p_date date, p_from text) -> jsonb"
+    },
+    {
+     "description": "Special hours for one date ([] = closed all day).",
+     "kind": "function",
+     "name": "rest_admin_hours_set_date",
+     "signature": "rest_admin_hours_set_date(p_session_id uuid, p_date date, p_intervals jsonb) -> jsonb"
+    },
+    {
+     "description": "Remove a date override: the weekly hours apply again.",
+     "kind": "function",
+     "name": "rest_admin_hours_clear_date",
+     "signature": "rest_admin_hours_clear_date(p_session_id uuid, p_date date) -> jsonb"
+    },
+    {
+     "description": "Change one weekday's regular hours.",
+     "kind": "function",
+     "name": "rest_admin_hours_set_weekly",
+     "signature": "rest_admin_hours_set_weekly(p_session_id uuid, p_day text, p_intervals jsonb) -> jsonb"
+    }
+   ],
+   "path": "restaurant_admin/restaurant_service_hours.sql",
+   "path_line": "ordelo_datamodels/restaurant_admin/restaurant_service_hours.sql",
+   "requires": [
+    "core/restaurant_master.sql, core/ordelo_config.sql",
+    "admin_dashboard/auth_sessions.sql (rest_admin_session_actor)",
+    "restaurant_admin/restaurant_settings.sql (restaurant_setting_change: settings hours_date / hours_weekly)"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "rest_admin_hours_*:\n  frontend  restaurant-frontend/lib/rest-admin-rpc.ts (app/api/rest-admin/settings/hours/route.ts)\nrestaurant_closed_by_override:\n  sql       order_intake_block() (ordering/order_intake_guard.sql)\nservice_hours_day, service_hours_open, service_hours_valid_day, hours_edits_enabled:\n  sql       the functions above",
+    "GOTCHAS": "Deployed readers that predate \"dates\": restaurant-agents parse_week() RAISES on any non-weekday key, so a\n  date override on ELAS/CHKS, BNAT or SFCS breaks WhatsApp ordering until restaurant-agents with the new\n  schedule.py is deployed. The gate REST_DASHBOARD_HOURS_EDITS ('all' or a comma list of rest_refs; absent =\n  off) must list only restaurants whose every reader is upgraded. The old frontend ignores \"dates\" (no crash,\n  but shows weekly hours), so deploy the frontend too before enabling.\nThe sys-admin restaurant editor (restaurant-frontend app/api/sys-admin/restaurants/[rest_ref]/route.ts)\n  keeps the stored \"dates\" when it saves weekly hours.",
+    "HOW IT FITS": "Storage (restaurant_master.service_hours_json), owner-confirmed shape:\n  {\"mon\": [[\"12:00\",\"22:00\"]], ..., \"sun\": [...], \"dates\": {\"2026-12-25\": [[\"00:00\",\"00:01\"]],\n                                                          \"2026-12-24\": [[\"12:00\",\"18:00\"]]}}\nA date in \"dates\" is a London calendar date. Its list REPLACES that weekday's hours for that date only.\n[[\"00:00\",\"00:01\"]] (the owner's all-day marker) and [] both mean closed all day. Spill-over rule shared by\nevery reader: a date with an override is described ONLY by its own list (yesterday's past-midnight hours do not\nspill into it); an override's own interval may run past 24:00 into the next day unless that day has an\noverride too. Readers: restaurant-frontend utils/openingHours.ts (resolveServiceHoursForWeek),\nOrdeloAgent utils_common/web_ordering/availability.py (opening), restaurant-agents\nservices/service_hours/schedule.py (WeeklySchedule.from_dict), and restaurant_closed_by_override() here,\nwhich create_food_order_with_items() calls through order_intake_block() (ordering/order_intake_guard.sql)\nso a closed date also refuses an order from a stale screen. The guard only refuses what an override closed:\nit never adds the weekly-hours check the database has never made.\nEarly close: keep the earlier intervals of that date, cut the one containing the time, drop later ones.\nEvery write goes through restaurant_setting_change() (audited, sys-admin undo).",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE OR REPLACE.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
+    "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  rest_admin_hours_get:          ok | not_authorised\n  rest_admin_hours_close_date / _set_date / _clear_date / _set_weekly:\n      ok | disabled (gate off) | bad_date (past or > 90 days) | bad_time | bad_intervals | bad_day |\n      unchanged | not_authorised",
+    "LIVE CHECK": "Live since 19 Nov 2026 (applied with migrations/order_intake_guard_p1.sql; live body compared with this file).\nDashboard writes stay OFF until the readers are deployed: ordelo_config REST_DASHBOARD_HOURS_EDITS (see\nGOTCHAS). Owner decision (closures as date overrides): docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md",
+    "OBJECTS": "fn     service_hours_day(p_hours jsonb, p_date date, p_use_dates boolean) -> jsonb\n    The interval list that applies on one London date: its override (marker = []) or the weekday's.\nfn     service_hours_open(p_hours jsonb, p_at timestamptz, p_use_dates boolean) -> boolean\n    Open at that moment, with the date-override and overnight-spill rule shared by every reader.\nfn     restaurant_closed_by_override(p_rest_ref text, p_at timestamptz) -> boolean\n    true only when a date override closes a time the weekly hours would have open (the order guard).\nfn     service_hours_valid_day(p_intervals jsonb) -> boolean\n    An interval list is well formed: [[\"HH:MM\",\"HH:MM\"], ...], start < 24:00, start < end <= 48:00, no overlap.\nfn     hours_edits_enabled(p_rest_ref text) -> boolean\n    The rollout gate for dashboard hours writes (ordelo_config REST_DASHBOARD_HOURS_EDITS).\nfn     rest_admin_hours_get(p_session_id uuid) -> jsonb\n    Weekly hours, upcoming date overrides and whether editing is enabled, for the signed-in admin's restaurant.\nfn     rest_admin_hours_close_date(p_session_id uuid, p_date date, p_from text) -> jsonb\n    Close all day (p_from NULL) or from a local time on one date.\nfn     rest_admin_hours_set_date(p_session_id uuid, p_date date, p_intervals jsonb) -> jsonb\n    Special hours for one date ([] = closed all day).\nfn     rest_admin_hours_clear_date(p_session_id uuid, p_date date) -> jsonb\n    Remove a date override: the weekly hours apply again.\nfn     rest_admin_hours_set_weekly(p_session_id uuid, p_day text, p_intervals jsonb) -> jsonb\n    Change one weekday's regular hours.",
+    "PYTHON MODEL": "none",
+    "REQUIRES": "core/restaurant_master.sql, core/ordelo_config.sql\nadmin_dashboard/auth_sessions.sql (rest_admin_session_actor)\nrestaurant_admin/restaurant_settings.sql (restaurant_setting_change: settings hours_date / hours_weekly)",
+    "SECURITY": "Every function: REVOKE ALL FROM PUBLIC, anon, authenticated; granted to service_role.",
+    "SEE ALSO": "ordering/order_intake_guard.sql, restaurant_admin/restaurant_settings.sql",
+    "SIDE EFFECTS": "none (the gate row is created by the operator when enabling)",
+    "TESTS": "tests/sql/test_restaurant_service_hours_sql.py"
+   },
+   "see_also": [
+    "ordering/order_intake_guard.sql, restaurant_admin/restaurant_settings.sql"
+   ],
+   "tests": [
+    "tests/sql/test_restaurant_service_hours_sql.py"
+   ],
+   "title": "Service hours with one-date overrides (closed all day, early close, special hours) and the restaurant-dashboard editor."
+  },
+  {
+   "called_by": {
+    "restaurant_acceptance_apply": [
+     {
+      "text": "rest_admin_acceptance_set()",
+      "via": "sql"
+     },
+     {
+      "text": "restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/acceptance/route.ts (via 'sys-admin') restaurant_settings_changes, restaurant_setting_revert:",
+      "via": "frontend"
+     },
+     {
+      "text": "restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/changes/ (route.ts, [id]/revert)",
+      "via": "frontend"
+     }
+    ],
+    "restaurant_setting_change": [
+     {
+      "text": "restaurant_acceptance_apply(), restaurant_setting_revert(), rest_admin_hours_*(), rest_admin_menu_*()",
+      "via": "sql"
+     }
+    ]
+   },
+   "cron": [],
+   "folder": "restaurant_admin",
+   "header_lines": 73,
+   "lines": 441,
+   "objects": [
+    {
+     "description": "One row per changed restaurant setting: who, when, via what, old -> new, and its undo.",
+     "kind": "table",
+     "name": "restaurant_settings_audit",
+     "signature": "restaurant_settings_audit"
+    },
+    {
+     "description": "The current value of one audited setting (NULL = not set / inherited).",
+     "kind": "function",
+     "name": "restaurant_setting_value",
+     "signature": "restaurant_setting_value(p_rest_ref text, p_setting text, p_key text) -> jsonb"
+    },
+    {
+     "description": "Store one audited setting value (internal; only restaurant_setting_change calls it).",
+     "kind": "function",
+     "name": "restaurant_setting_write",
+     "signature": "restaurant_setting_write(p_rest_ref text, p_setting text, p_key text, p_value jsonb) -> void"
+    },
+    {
+     "description": "Write one setting and its audit row in the caller's transaction; false when nothing changed.",
+     "kind": "function",
+     "name": "restaurant_setting_change",
+     "signature": "restaurant_setting_change(p_rest_ref text, p_setting text, p_key text, p_new jsonb, p_by text, p_via text, p_session uuid) -> boolean"
+    },
+    {
+     "description": "The effective default pickup minutes (restaurant key, else global), as order creation resolves them.",
+     "kind": "function",
+     "name": "restaurant_default_pickup_minutes",
+     "signature": "restaurant_default_pickup_minutes(p_rest_ref text, p_kind text) -> TABLE(minutes integer, inherited boolean)"
+    },
+    {
+     "description": "Auto-accept, both default pickup times (own or inherited) and a version for stale-edit checks.",
+     "kind": "function",
+     "name": "restaurant_acceptance_state",
+     "signature": "restaurant_acceptance_state(p_rest_ref text) -> jsonb"
+    },
+    {
+     "description": "Validate and apply the acceptance policy atomically, audited.",
+     "kind": "function",
+     "name": "restaurant_acceptance_apply",
+     "signature": "restaurant_acceptance_apply(p_rest_ref text, p_auto_accept boolean, p_delivery_minutes integer, p_collection_minutes integer, p_version text, p_by text, p_via text, p_session uuid) -> jsonb"
+    },
+    {
+     "description": "Restaurant dashboard read of the acceptance policy, bound to the signed-in session.",
+     "kind": "function",
+     "name": "rest_admin_acceptance_get",
+     "signature": "rest_admin_acceptance_get(p_session_id uuid) -> jsonb"
+    },
+    {
+     "description": "Restaurant dashboard write of the acceptance policy, bound to the signed-in session.",
+     "kind": "function",
+     "name": "rest_admin_acceptance_set",
+     "signature": "rest_admin_acceptance_set(p_session_id uuid, p_auto_accept boolean, p_delivery_minutes integer, p_collection_minutes integer, p_version text) -> jsonb"
+    },
+    {
+     "description": "Sys-admin: recent audited changes of one restaurant, newest first.",
+     "kind": "function",
+     "name": "restaurant_settings_changes",
+     "signature": "restaurant_settings_changes(p_rest_ref text, p_limit integer) -> jsonb"
+    },
+    {
+     "description": "Sys-admin undo of one change when the value is still what that change set.",
+     "kind": "function",
+     "name": "restaurant_setting_revert",
+     "signature": "restaurant_setting_revert(p_audit_id bigint, p_by text) -> jsonb"
+    }
+   ],
+   "path": "restaurant_admin/restaurant_settings.sql",
+   "path_line": "ordelo_datamodels/restaurant_admin/restaurant_settings.sql",
+   "requires": [
+    "core/restaurant_master.sql",
+    "core/ordelo_config.sql",
+    "admin_dashboard/auth_sessions.sql (rest_admin_session_actor)"
+   ],
+   "role": "definition",
+   "section_order": [
+    "LIVE CHECK",
+    "OBJECTS",
+    "REQUIRES",
+    "HOW TO RUN",
+    "SIDE EFFECTS",
+    "HOW IT FITS",
+    "LIFECYCLE",
+    "CALLED BY",
+    "PYTHON MODEL",
+    "SECURITY",
+    "TESTS",
+    "GOTCHAS",
+    "SEE ALSO"
+   ],
+   "sections": {
+    "CALLED BY": "rest_admin_acceptance_get, rest_admin_acceptance_set:\n  frontend  restaurant-frontend/lib/rest-admin-rpc.ts (app/api/rest-admin/settings/acceptance/route.ts)\nrestaurant_acceptance_apply:\n  sql       rest_admin_acceptance_set()\n  frontend  restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/acceptance/route.ts (via 'sys-admin')\nrestaurant_settings_changes, restaurant_setting_revert:\n  frontend  restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/changes/ (route.ts, [id]/revert)\nrestaurant_setting_change:\n  sql       restaurant_acceptance_apply(), restaurant_setting_revert(), rest_admin_hours_*(), rest_admin_menu_*()",
+    "GOTCHAS": "restaurant_default_pickup_minutes() repeats the lookup inside resolve_initial_restaurant_acceptance() instead of\n  that live order-creation function being changed; tests/sql/test_restaurant_settings_sql.py asserts they\n  agree for every case. Change both together.\nA setting row change locks restaurant_master FOR UPDATE: changes to one restaurant are serialised.",
+    "HOW IT FITS": "Any admin on a restaurant's admins[] list may change that restaurant's operating settings from the\n  restaurant dashboard (owner decision O6). The browser never sends a rest_ref or phone: the frontend passes the\n  session id its middleware stamped, rest_admin_session_actor() re-derives (phone, rest_ref) and re-checks\n  membership. Every change goes through restaurant_setting_change(), which writes the value and its audit\n  row in one transaction, so no change escapes the audit. Sys-admin lists changes and undoes one with\n  restaurant_setting_revert(), which re-applies the old value only if nobody has changed it since.\nSettings (setting / key):\n  auto_accept / -                 restaurant_master.auto_accept\n  delivery_pickup_minutes / -     ordelo_config <REST>_DEFAULT_DELIVERY_PICKUP_TIME (NULL = inherit global)\n  collection_pickup_minutes / -   ordelo_config <REST>_DEFAULT_COLLECTION_PICKUP_TIME (NULL = inherit global)\n  hours_date / YYYY-MM-DD         restaurant_master.service_hours_json -> 'dates' -> key (restaurant_service_hours.sql)\n  hours_weekly / mon..sun         restaurant_master.service_hours_json -> key        (restaurant_service_hours.sql)\n  menu_hidden / item_key          menu_item_hidden row present                       (ordering/menu_item_visibility.sql)\nOrder creation reads the policy at creation time (ADR 0001), so a change affects new orders only.",
+    "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
+    "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  rest_admin_acceptance_get:  ok | not_authorised\n  rest_admin_acceptance_set / restaurant_acceptance_apply:\n                              ok | stale | bad_minutes | needs_defaults | not_found | not_authorised\n  restaurant_setting_revert:  ok | not_found | already_reverted | changed_since | not_revertible",
+    "LIVE CHECK": "Live since 19 Nov 2026 (applied with migrations/restaurant_settings_p1.sql; live body compared with this file). docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md",
+    "OBJECTS": "table  restaurant_settings_audit\n    One row per changed restaurant setting: who, when, via what, old -> new, and its undo.\nfn     restaurant_setting_value(p_rest_ref text, p_setting text, p_key text) -> jsonb\n    The current value of one audited setting (NULL = not set / inherited).\nfn     restaurant_setting_write(p_rest_ref text, p_setting text, p_key text, p_value jsonb) -> void\n    Store one audited setting value (internal; only restaurant_setting_change calls it).\nfn     restaurant_setting_change(p_rest_ref text, p_setting text, p_key text, p_new jsonb, p_by text, p_via text, p_session uuid) -> boolean\n    Write one setting and its audit row in the caller's transaction; false when nothing changed.\nfn     restaurant_default_pickup_minutes(p_rest_ref text, p_kind text) -> TABLE(minutes integer, inherited boolean)\n    The effective default pickup minutes (restaurant key, else global), as order creation resolves them.\nfn     restaurant_acceptance_state(p_rest_ref text) -> jsonb\n    Auto-accept, both default pickup times (own or inherited) and a version for stale-edit checks.\nfn     restaurant_acceptance_apply(p_rest_ref text, p_auto_accept boolean, p_delivery_minutes integer, p_collection_minutes integer, p_version text, p_by text, p_via text, p_session uuid) -> jsonb\n    Validate and apply the acceptance policy atomically, audited.\nfn     rest_admin_acceptance_get(p_session_id uuid) -> jsonb\n    Restaurant dashboard read of the acceptance policy, bound to the signed-in session.\nfn     rest_admin_acceptance_set(p_session_id uuid, p_auto_accept boolean, p_delivery_minutes integer, p_collection_minutes integer, p_version text) -> jsonb\n    Restaurant dashboard write of the acceptance policy, bound to the signed-in session.\nfn     restaurant_settings_changes(p_rest_ref text, p_limit integer) -> jsonb\n    Sys-admin: recent audited changes of one restaurant, newest first.\nfn     restaurant_setting_revert(p_audit_id bigint, p_by text) -> jsonb\n    Sys-admin undo of one change when the value is still what that change set.",
+    "PYTHON MODEL": "none (the restaurant-frontend server calls these RPCs with the service-role key)",
+    "REQUIRES": "core/restaurant_master.sql\ncore/ordelo_config.sql\nadmin_dashboard/auth_sessions.sql (rest_admin_session_actor)",
+    "SECURITY": "Table: RLS on, no policies, REVOKE ALL FROM anon, authenticated. Every function: REVOKE ALL FROM PUBLIC, anon,\nauthenticated; granted to service_role (helpers too: nested SECURITY INVOKER calls run as the caller).",
+    "SEE ALSO": "restaurant_admin/resolve_initial_restaurant_acceptance.sql, docs/adr/0001-configured-restaurant-auto-accept.md\ndocs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md",
+    "SIDE EFFECTS": "Creates the empty table restaurant_settings_audit.",
+    "TESTS": "tests/sql/test_restaurant_settings_sql.py"
+   },
+   "see_also": [
+    "restaurant_admin/resolve_initial_restaurant_acceptance.sql, docs/adr/0001-configured-restaurant-auto-accept.md",
+    "docs/adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md"
+   ],
+   "tests": [
+    "tests/sql/test_restaurant_settings_sql.py"
+   ],
+   "title": "Restaurant-dashboard settings: the audited write path, the acceptance policy (auto-accept + default pickup minutes), the sys-admin change list and undo."
   },
   {
    "called_by": {
@@ -9614,10 +10391,40 @@
    "objects": [],
    "path": "test_support/test_rider_telegram_jobs.sql",
    "role": "script",
-   "title": "TEST HARNESS (not a migration): a rider job on TELEGRAM end to end (phases R2-R4 of plans/telegram-rider-bot-plan.md):"
+   "title": "TEST HARNESS (not a migration): a rider job on TELEGRAM end to end (phases R2-R4 of docs/telegram-layer.md):"
   }
  ],
  "objects": {
+  "admin_actor_phone": {
+   "called_by": [],
+   "description": "The verified phone of a Telegram or WhatsApp actor; locks its admin record.",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 326,
+   "role": "definition",
+   "signature": "admin_actor_phone(p_tuid bigint, p_phone text) -> text"
+  },
+  "admin_dashboard_activate": {
+   "called_by": [],
+   "description": "Consume one rest_admin / sys_admin link after explicit browser POST.",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 458,
+   "role": "definition",
+   "signature": "admin_dashboard_activate(p_role text, p_token_hash text, p_cookie_hash text, p_ua_hash text, p_ip text) -> jsonb"
+  },
+  "admin_dashboard_touch": {
+   "called_by": [],
+   "description": "Validate a rest_admin / sys_admin cookie, re-check authority, execute the heartbeat.",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 498,
+   "role": "definition",
+   "signature": "admin_dashboard_touch(p_role text, p_cookie_hash text, p_ua_hash text) -> jsonb"
+  },
   "admin_for_tuid": {
    "called_by": [
     {
@@ -9629,7 +10436,7 @@
    "file": "restaurant_admin/admin_roster.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 202,
+   "line": 238,
    "role": "definition",
    "signature": "admin_for_tuid(p_tuid bigint, p_rest_ref text) -> text"
   },
@@ -9644,7 +10451,7 @@
    "file": "restaurant_admin/admin_roster.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 96,
+   "line": 107,
    "role": "definition",
    "signature": "admin_phone_digits(p_phone text) -> text"
   },
@@ -9659,7 +10466,7 @@
    "file": "restaurant_admin/admin_roster.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 170,
+   "line": 206,
    "role": "definition",
    "signature": "admin_recipients(p_rest_ref text, p_channel text) -> TABLE(phone text, tcid bigint, tuid bigint, label text)"
   },
@@ -9674,7 +10481,7 @@
    "file": "restaurant_admin/admin_roster.sql",
    "folder": "restaurant_admin",
    "kind": "view",
-   "line": 139,
+   "line": 175,
    "role": "definition",
    "signature": "admin_roster"
   },
@@ -9689,9 +10496,19 @@
    "file": "restaurant_admin/admin_roster.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 380,
+   "line": 429,
    "role": "definition",
    "signature": "admin_roster_status(p_rest_ref text) -> jsonb"
+  },
+  "admin_session_authorised": {
+   "called_by": [],
+   "description": "The one authority test: roster membership (rest_admin) or overwatch (sys_admin).",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 351,
+   "role": "definition",
+   "signature": "admin_session_authorised(p_role text, p_principal text, p_scope text) -> boolean"
   },
   "admin_set_channels": {
    "called_by": [
@@ -9704,7 +10521,7 @@
    "file": "restaurant_admin/admin_roster.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 319,
+   "line": 366,
    "role": "definition",
    "signature": "admin_set_channels(p_phone text, p_channels text[], p_by text) -> jsonb"
   },
@@ -9719,7 +10536,7 @@
    "file": "restaurant_admin/admin_roster.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 351,
+   "line": 399,
    "role": "definition",
    "signature": "admin_unlink_telegram(p_phone text, p_by text) -> jsonb"
   },
@@ -9764,25 +10581,48 @@
   "auth_sessions": {
    "called_by": [
     {
-     "text": "watomation/routers/rest_admin_auth_session.py: mint_dashboard_session_for() (via mint_dashboard_session() for WhatsApp /login; directly from channels/telegram/rest_admin/manage.py for Telegram /manage)",
+     "text": "every mint / activate / touch RPC below (no Python code inserts rows directly)",
+     "via": "sql"
+    },
+    {
+     "text": "watomation/routers/sys_admin_auth_session.py: require_sys_admin() (reads the payout proxy credential)",
      "via": "python"
     },
     {
-     "text": "ordelo/rider_dashboard.py: issue_link()",
+     "text": "restaurant-frontend lib/rest-admin-session.ts, lib/sys-admin-session.ts, lib/rider-session.ts (logout) Rider RPCs: ordelo/dashboard_links.py issue(\"rider\"); restaurant-frontend/lib/rider-session.ts. portal_access, rest_admin_dashboard_mint, sys_admin_dashboard_mint:",
+     "via": "frontend"
+    },
+    {
+     "text": "ordelo/dashboard_links.py: access(), issue() admin_dashboard_activate, admin_dashboard_touch:",
      "via": "python"
     },
     {
-     "text": "watomation/routers/sys_admin_auth_session.py: create_sys_admin_dashboard_session() Rider RPCs: ordelo/rider_dashboard.py issue_link(); restaurant-frontend/lib/rider-session.ts.",
-     "via": "python"
+     "text": "restaurant-frontend/lib/rest-admin-session.ts, lib/sys-admin-session.ts (activateToken, validateCookieAndTouch)",
+     "via": "frontend"
     }
    ],
    "description": "One login session: role, principal and scope, phone, token/cookie hashes, expiries, binding and revocation.",
    "file": "admin_dashboard/auth_sessions.sql",
    "folder": "admin_dashboard",
    "kind": "table",
-   "line": 44,
+   "line": 74,
    "role": "definition",
    "signature": "auth_sessions"
+  },
+  "auth_sessions_revoke_phone": {
+   "called_by": [
+    {
+     "text": "t_admin_link() (relinked), admin_unlink_telegram() (restaurant_admin/admin_roster.sql)",
+     "via": "sql"
+    }
+   ],
+   "description": "Revoke every rest_admin / sys_admin session and unused link of a phone (relink / unlink).",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 306,
+   "role": "definition",
+   "signature": "auth_sessions_revoke_phone(p_phone text, p_reason text) -> integer"
   },
   "bnat_menu": {
    "called_by": [
@@ -9889,7 +10729,7 @@
    "file": "ordering/create_food_order_with_items.sql",
    "folder": "ordering",
    "kind": "function",
-   "line": 47,
+   "line": 50,
    "role": "definition",
    "signature": "create_food_order_with_items(p_order jsonb, p_items jsonb) -> jsonb"
   },
@@ -10737,6 +11577,16 @@
    "role": "orphan",
    "signature": "handle_restaurant_confirmation(p_order_number character varying, p_prep_time_minutes integer) -> boolean"
   },
+  "hours_edits_enabled": {
+   "called_by": [],
+   "description": "The rollout gate for dashboard hours writes (ordelo_config REST_DASHBOARD_HOURS_EDITS).",
+   "file": "restaurant_admin/restaurant_service_hours.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 182,
+   "role": "definition",
+   "signature": "hours_edits_enabled(p_rest_ref text) -> boolean"
+  },
   "init_delivery": {
    "called_by": [
     {
@@ -10805,6 +11655,25 @@
    "role": "orphan",
    "signature": "insert_delivery_detail(p_cust_id character varying, p_order_number character varying, p_vehicle_type character varying) -> void"
   },
+  "is_overwatch": {
+   "called_by": [
+    {
+     "text": "t_admin_link(), t_admin_profile(), portal_access(), sys_admin_dashboard_mint(), admin_session_authorised() (admin_dashboard/auth_sessions.sql)",
+     "via": "sql"
+    },
+    {
+     "text": "watomation/routers/sys_admin_auth_session.py: _ensure_sys_admin()",
+     "via": "python"
+    }
+   ],
+   "description": "The one overwatch membership rule (ordelo_config.overwatch_list); grants the sys-admin dashboard.",
+   "file": "restaurant_admin/admin_roster.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 125,
+   "role": "definition",
+   "signature": "is_overwatch(p_phone text) -> boolean"
+  },
   "is_paused": {
    "called_by": [
     {
@@ -10824,7 +11693,7 @@
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 212,
+   "line": 218,
    "role": "definition",
    "signature": "is_paused(p_audience text, p_principal text, p_scope text) -> boolean"
   },
@@ -11131,6 +12000,46 @@
    "role": "definition",
    "signature": "match_documents(query_embedding vector, filter jsonb) -> TABLE(id uuid, content text, metadata jsonb, similarity double precision)"
   },
+  "menu_hidden_keys": {
+   "called_by": [
+    {
+     "text": "restaurant-frontend/lib/hiddenMenuItems.ts (app/api/menu/route.ts)",
+     "via": "frontend"
+    }
+   ],
+   "description": "The hidden item keys of a restaurant (storefront and menu readers filter with it).",
+   "file": "ordering/menu_item_visibility.sql",
+   "folder": "ordering",
+   "kind": "function",
+   "line": 69,
+   "role": "definition",
+   "signature": "menu_hidden_keys(p_rest_ref text) -> text[]"
+  },
+  "menu_item_hidden": {
+   "called_by": [],
+   "description": "One row per hidden item of a restaurant; no row = visible.",
+   "file": "ordering/menu_item_visibility.sql",
+   "folder": "ordering",
+   "kind": "table",
+   "line": 50,
+   "role": "definition",
+   "signature": "menu_item_hidden"
+  },
+  "menu_item_key": {
+   "called_by": [
+    {
+     "text": "order_intake_block(), the functions above",
+     "via": "sql"
+    }
+   ],
+   "description": "The item key shared by menus and orders: the normalised title (lower case, single spaces, trimmed).",
+   "file": "ordering/menu_item_visibility.sql",
+   "folder": "ordering",
+   "kind": "function",
+   "line": 60,
+   "role": "definition",
+   "signature": "menu_item_key(p_title text) -> text"
+  },
   "notification_outbox": {
    "called_by": [
     {
@@ -11338,6 +12247,21 @@
    "role": "definition",
    "signature": "order_has_test_item(p_order_number text) -> boolean"
   },
+  "order_intake_block": {
+   "called_by": [
+    {
+     "text": "create_food_order_with_items() (ordering/create_food_order_with_items.sql)",
+     "via": "sql"
+    }
+   ],
+   "description": "ok | closed_date | hidden_items (+ the hidden titles) for a new order; never raises.",
+   "file": "ordering/order_intake_guard.sql",
+   "folder": "ordering",
+   "kind": "function",
+   "line": 35,
+   "role": "definition",
+   "signature": "order_intake_block(p_rest_ref text, p_at timestamptz, p_items jsonb) -> jsonb"
+  },
   "order_item_v2": {
    "called_by": [
     {
@@ -11352,6 +12276,31 @@
    "line": 31,
    "role": "orphan",
    "signature": "order_item_v2"
+  },
+  "order_milestone": {
+   "called_by": [],
+   "description": "First-occurrence facts of an order that later updates would otherwise overwrite (restaurant decision).",
+   "file": "admin_dashboard/rest_admin_reports.sql",
+   "folder": "admin_dashboard",
+   "kind": "table",
+   "line": 48,
+   "role": "definition",
+   "signature": "order_milestone"
+  },
+  "order_milestone_capture": {
+   "called_by": [
+    {
+     "text": "triggers delivery_summary_milestones, takeaway_summary_milestones",
+     "via": "sql"
+    }
+   ],
+   "description": "Stamps the restaurant's first decision on delivery_summary / takeaway_summary; never fails the update. trigger delivery_summary_milestones, takeaway_summary_milestones AFTER UPDATE OF restaurant_confirmation_status on the two summary tables.",
+   "file": "admin_dashboard/rest_admin_reports.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 59,
+   "role": "definition",
+   "signature": "order_milestone_capture() -> trigger"
   },
   "order_notification_subscription": {
    "called_by": [
@@ -11413,7 +12362,7 @@
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 240,
+   "line": 246,
    "role": "definition",
    "signature": "pause_current(p_audience text, p_principal text, p_scope text) -> jsonb"
   },
@@ -11428,7 +12377,7 @@
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 153,
+   "line": 159,
    "role": "definition",
    "signature": "pause_duration(p_audience text, p_duration text) -> interval"
   },
@@ -11447,7 +12396,7 @@
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 385,
+   "line": 391,
    "role": "definition",
    "signature": "pause_end(p_audience text, p_principal text, p_scope text, p_reason text) -> jsonb"
   },
@@ -11466,7 +12415,7 @@
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 183,
+   "line": 189,
    "role": "definition",
    "signature": "pause_options(p_audience text) -> jsonb"
   },
@@ -11485,7 +12434,7 @@
    "file": "availability/pauses.sql",
    "folder": "availability",
    "kind": "function",
-   "line": 272,
+   "line": 278,
    "role": "definition",
    "signature": "pause_start(p_audience text, p_principal text, p_scope text, p_duration text, p_via text, p_by text) -> jsonb"
   },
@@ -11541,6 +12490,16 @@
    "line": 39,
    "role": "definition",
    "signature": "payment_event"
+  },
+  "portal_access": {
+   "called_by": [],
+   "description": "What a verified actor may open: its restaurants and whether it is sys-admin.",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 368,
+   "role": "definition",
+   "signature": "portal_access(p_tuid bigint, p_phone text) -> jsonb"
   },
   "process_delivery": {
    "called_by": [
@@ -11625,13 +12584,216 @@
    "role": "definition",
    "signature": "resolve_initial_restaurant_acceptance(p_rest_ref character varying, p_order_kind text, p_created_at timestamp with time zone) -> TABLE(auto_accept boolean, pickup_minutes integer, pickup_time timestamp with time zone)"
   },
+  "rest_admin_acceptance_get": {
+   "called_by": [],
+   "description": "Restaurant dashboard read of the acceptance policy, bound to the signed-in session.",
+   "file": "restaurant_admin/restaurant_settings.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 329,
+   "role": "definition",
+   "signature": "rest_admin_acceptance_get(p_session_id uuid) -> jsonb"
+  },
+  "rest_admin_acceptance_set": {
+   "called_by": [],
+   "description": "Restaurant dashboard write of the acceptance policy, bound to the signed-in session.",
+   "file": "restaurant_admin/restaurant_settings.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 346,
+   "role": "definition",
+   "signature": "rest_admin_acceptance_set(p_session_id uuid, p_auto_accept boolean, p_delivery_minutes integer, p_collection_minutes integer, p_version text) -> jsonb"
+  },
+  "rest_admin_alerts_get": {
+   "called_by": [],
+   "description": "The signed-in admin's channels, Telegram link, current pause for this restaurant and the pause lengths.",
+   "file": "restaurant_admin/rest_admin_dashboard_alerts.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 44,
+   "role": "definition",
+   "signature": "rest_admin_alerts_get(p_session_id uuid) -> jsonb"
+  },
+  "rest_admin_alerts_pause": {
+   "called_by": [],
+   "description": "Pause the signed-in admin's alerts for this restaurant (same rule as Telegram /off).",
+   "file": "restaurant_admin/rest_admin_dashboard_alerts.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 92,
+   "role": "definition",
+   "signature": "rest_admin_alerts_pause(p_session_id uuid, p_duration text) -> jsonb"
+  },
+  "rest_admin_alerts_resume": {
+   "called_by": [],
+   "description": "End that pause early (same rule as Telegram /on).",
+   "file": "restaurant_admin/rest_admin_dashboard_alerts.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 115,
+   "role": "definition",
+   "signature": "rest_admin_alerts_resume(p_session_id uuid) -> jsonb"
+  },
+  "rest_admin_alerts_set_channels": {
+   "called_by": [],
+   "description": "Change where the signed-in admin's alerts go (same rule as Telegram /channels).",
+   "file": "restaurant_admin/rest_admin_dashboard_alerts.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 68,
+   "role": "definition",
+   "signature": "rest_admin_alerts_set_channels(p_session_id uuid, p_channels text[]) -> jsonb"
+  },
+  "rest_admin_dashboard_mint": {
+   "called_by": [],
+   "description": "Mint a 30-minute restaurant-dashboard link after re-checking membership.",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 399,
+   "role": "definition",
+   "signature": "rest_admin_dashboard_mint(p_tuid bigint, p_phone text, p_rest_ref text, p_token_hash text) -> jsonb"
+  },
+  "rest_admin_hours_clear_date": {
+   "called_by": [],
+   "description": "Remove a date override: the weekly hours apply again.",
+   "file": "restaurant_admin/restaurant_service_hours.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 312,
+   "role": "definition",
+   "signature": "rest_admin_hours_clear_date(p_session_id uuid, p_date date) -> jsonb"
+  },
+  "rest_admin_hours_close_date": {
+   "called_by": [],
+   "description": "Close all day (p_from NULL) or from a local time on one date.",
+   "file": "restaurant_admin/restaurant_service_hours.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 270,
+   "role": "definition",
+   "signature": "rest_admin_hours_close_date(p_session_id uuid, p_date date, p_from text) -> jsonb"
+  },
+  "rest_admin_hours_get": {
+   "called_by": [],
+   "description": "Weekly hours, upcoming date overrides and whether editing is enabled, for the signed-in admin's restaurant.",
+   "file": "restaurant_admin/restaurant_service_hours.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 197,
+   "role": "definition",
+   "signature": "rest_admin_hours_get(p_session_id uuid) -> jsonb"
+  },
+  "rest_admin_hours_set_date": {
+   "called_by": [],
+   "description": "Special hours for one date ([] = closed all day).",
+   "file": "restaurant_admin/restaurant_service_hours.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 242,
+   "role": "definition",
+   "signature": "rest_admin_hours_set_date(p_session_id uuid, p_date date, p_intervals jsonb) -> jsonb"
+  },
+  "rest_admin_hours_set_weekly": {
+   "called_by": [],
+   "description": "Change one weekday's regular hours.",
+   "file": "restaurant_admin/restaurant_service_hours.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 336,
+   "role": "definition",
+   "signature": "rest_admin_hours_set_weekly(p_session_id uuid, p_day text, p_intervals jsonb) -> jsonb"
+  },
+  "rest_admin_menu_list": {
+   "called_by": [],
+   "description": "The signed-in admin's menu (from <rest_ref>_menu) with a hidden flag per item.",
+   "file": "ordering/menu_item_visibility.sql",
+   "folder": "ordering",
+   "kind": "function",
+   "line": 88,
+   "role": "definition",
+   "signature": "rest_admin_menu_list(p_session_id uuid, p_search text) -> jsonb"
+  },
+  "rest_admin_menu_set_hidden": {
+   "called_by": [],
+   "description": "Hide or show items (audited, idempotent).",
+   "file": "ordering/menu_item_visibility.sql",
+   "folder": "ordering",
+   "kind": "function",
+   "line": 123,
+   "role": "definition",
+   "signature": "rest_admin_menu_set_hidden(p_session_id uuid, p_titles text[], p_hidden boolean) -> jsonb"
+  },
+  "rest_admin_report_operations": {
+   "called_by": [
+    {
+     "text": "restaurant-frontend/lib/rest-admin-rpc.ts (app/api/rest-admin/reports/operations/route.ts)",
+     "via": "frontend"
+    }
+   ],
+   "description": "Acceptance and pickup measures for the signed-in admin's restaurant over London creation dates.",
+   "file": "admin_dashboard/rest_admin_reports.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 92,
+   "role": "definition",
+   "signature": "rest_admin_report_operations(p_session_id uuid, p_from date, p_to date, p_kind text) -> jsonb"
+  },
+  "rest_admin_session_actor": {
+   "called_by": [
+    {
+     "text": "every rest_admin_* settings RPC (restaurant_admin/restaurant_settings.sql and siblings)",
+     "via": "sql"
+    }
+   ],
+   "description": "Phone and restaurant of a live, authorised rest_admin session, else RAISE not_authorised.",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 534,
+   "role": "definition",
+   "signature": "rest_admin_session_actor(p_session_id uuid, OUT phone text, OUT rest_ref text) -> record"
+  },
+  "restaurant_acceptance_apply": {
+   "called_by": [
+    {
+     "text": "rest_admin_acceptance_set()",
+     "via": "sql"
+    },
+    {
+     "text": "restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/acceptance/route.ts (via 'sys-admin') restaurant_settings_changes, restaurant_setting_revert:",
+     "via": "frontend"
+    },
+    {
+     "text": "restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/changes/ (route.ts, [id]/revert)",
+     "via": "frontend"
+    }
+   ],
+   "description": "Validate and apply the acceptance policy atomically, audited.",
+   "file": "restaurant_admin/restaurant_settings.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 285,
+   "role": "definition",
+   "signature": "restaurant_acceptance_apply(p_rest_ref text, p_auto_accept boolean, p_delivery_minutes integer, p_collection_minutes integer, p_version text, p_by text, p_via text, p_session uuid) -> jsonb"
+  },
+  "restaurant_acceptance_state": {
+   "called_by": [],
+   "description": "Auto-accept, both default pickup times (own or inherited) and a version for stale-edit checks.",
+   "file": "restaurant_admin/restaurant_settings.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 253,
+   "role": "definition",
+   "signature": "restaurant_acceptance_state(p_rest_ref text) -> jsonb"
+  },
   "restaurant_admin": {
    "called_by": [],
    "description": "The admin record: one row per phone (channels, Telegram link). Confers no authority (D3).",
    "file": "restaurant_admin/admin_roster.sql",
    "folder": "restaurant_admin",
    "kind": "table",
-   "line": 111,
+   "line": 147,
    "role": "definition",
    "signature": "restaurant_admin"
   },
@@ -11670,6 +12832,25 @@
    "role": "definition",
    "signature": "restaurant_admin_label(p_phone text) -> text"
   },
+  "restaurant_closed_by_override": {
+   "called_by": [
+    {
+     "text": "order_intake_block() (ordering/order_intake_guard.sql) service_hours_day, service_hours_open, service_hours_valid_day, hours_edits_enabled:",
+     "via": "sql"
+    },
+    {
+     "text": "the functions above",
+     "via": "sql"
+    }
+   ],
+   "description": "true only when a date override closes a time the weekly hours would have open (the order guard).",
+   "file": "restaurant_admin/restaurant_service_hours.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 128,
+   "role": "definition",
+   "signature": "restaurant_closed_by_override(p_rest_ref text, p_at timestamptz) -> boolean"
+  },
   "restaurant_confirmation_policy": {
    "called_by": [
     {
@@ -11703,6 +12884,16 @@
    "line": 370,
    "role": "orphan",
    "signature": "restaurant_confirmation_whook() -> trigger"
+  },
+  "restaurant_default_pickup_minutes": {
+   "called_by": [],
+   "description": "The effective default pickup minutes (restaurant key, else global), as order creation resolves them.",
+   "file": "restaurant_admin/restaurant_settings.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 221,
+   "role": "definition",
+   "signature": "restaurant_default_pickup_minutes(p_rest_ref text, p_kind text) -> TABLE(minutes integer, inherited boolean)"
   },
   "restaurant_master": {
    "called_by": [
@@ -11743,8 +12934,8 @@
      "via": "python"
     },
     {
-     "text": "watomation/routers/rest_admin_auth_session.py: mint_dashboard_session()",
-     "via": "python"
+     "text": "admin_roster (restaurant_admin/admin_roster.sql): who may open a restaurant dashboard (portal_access, rest_admin_dashboard_mint in admin_dashboard/auth_sessions.sql)",
+     "via": "sql"
     },
     {
      "text": "watomation/routers/takeaway_hooks.py: RestaurantMasterData(), _post_pickup_time_event(), pickup_time_updated_hook()",
@@ -11803,7 +12994,7 @@
    "file": "core/restaurant_master.sql",
    "folder": "core",
    "kind": "table",
-   "line": 80,
+   "line": 81,
    "role": "definition",
    "signature": "restaurant_master"
   },
@@ -11887,6 +13078,71 @@
    "role": "definition",
    "signature": "restaurant_order_set_pickup(p_order_number text, p_order_type text, p_pickup_time timestamp with time zone, p_admin_phone text, p_channel text) -> jsonb"
   },
+  "restaurant_setting_change": {
+   "called_by": [
+    {
+     "text": "restaurant_acceptance_apply(), restaurant_setting_revert(), rest_admin_hours_*(), rest_admin_menu_*()",
+     "via": "sql"
+    }
+   ],
+   "description": "Write one setting and its audit row in the caller's transaction; false when nothing changed.",
+   "file": "restaurant_admin/restaurant_settings.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 191,
+   "role": "definition",
+   "signature": "restaurant_setting_change(p_rest_ref text, p_setting text, p_key text, p_new jsonb, p_by text, p_via text, p_session uuid) -> boolean"
+  },
+  "restaurant_setting_revert": {
+   "called_by": [],
+   "description": "Sys-admin undo of one change when the value is still what that change set.",
+   "file": "restaurant_admin/restaurant_settings.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 389,
+   "role": "definition",
+   "signature": "restaurant_setting_revert(p_audit_id bigint, p_by text) -> jsonb"
+  },
+  "restaurant_setting_value": {
+   "called_by": [],
+   "description": "The current value of one audited setting (NULL = not set / inherited).",
+   "file": "restaurant_admin/restaurant_settings.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 101,
+   "role": "definition",
+   "signature": "restaurant_setting_value(p_rest_ref text, p_setting text, p_key text) -> jsonb"
+  },
+  "restaurant_setting_write": {
+   "called_by": [],
+   "description": "Store one audited setting value (internal; only restaurant_setting_change calls it).",
+   "file": "restaurant_admin/restaurant_settings.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 136,
+   "role": "definition",
+   "signature": "restaurant_setting_write(p_rest_ref text, p_setting text, p_key text, p_value jsonb) -> void"
+  },
+  "restaurant_settings_audit": {
+   "called_by": [],
+   "description": "One row per changed restaurant setting: who, when, via what, old -> new, and its undo.",
+   "file": "restaurant_admin/restaurant_settings.sql",
+   "folder": "restaurant_admin",
+   "kind": "table",
+   "line": 78,
+   "role": "definition",
+   "signature": "restaurant_settings_audit"
+  },
+  "restaurant_settings_changes": {
+   "called_by": [],
+   "description": "Sys-admin: recent audited changes of one restaurant, newest first.",
+   "file": "restaurant_admin/restaurant_settings.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 367,
+   "role": "definition",
+   "signature": "restaurant_settings_changes(p_rest_ref text, p_limit integer) -> jsonb"
+  },
   "restaurant_updates_whook": {
    "called_by": [
     {
@@ -11908,7 +13164,7 @@
    "file": "admin_dashboard/auth_sessions.sql",
    "folder": "admin_dashboard",
    "kind": "function",
-   "line": 134,
+   "line": 164,
    "role": "definition",
    "signature": "rider_dashboard_activate(p_token_hash text, p_cookie_hash text, p_ua_hash text) -> jsonb"
   },
@@ -11918,7 +13174,7 @@
    "file": "admin_dashboard/auth_sessions.sql",
    "folder": "admin_dashboard",
    "kind": "function",
-   "line": 101,
+   "line": 131,
    "role": "definition",
    "signature": "rider_dashboard_mint(p_tuid bigint, p_token_hash text) -> jsonb"
   },
@@ -11938,7 +13194,7 @@
    "file": "admin_dashboard/auth_sessions.sql",
    "folder": "admin_dashboard",
    "kind": "function",
-   "line": 197,
+   "line": 227,
    "role": "definition",
    "signature": "rider_dashboard_session(p_cookie_hash text, p_ua_hash text) -> jsonb"
   },
@@ -11948,7 +13204,7 @@
    "file": "admin_dashboard/auth_sessions.sql",
    "folder": "admin_dashboard",
    "kind": "function",
-   "line": 226,
+   "line": 256,
    "role": "definition",
    "signature": "rider_dashboard_touch(p_cookie_hash text, p_ua_hash text) -> jsonb"
   },
@@ -12318,6 +13574,36 @@
    "role": "definition",
    "signature": "search_documents(query_embedding vector, match_threshold double precision, match_count integer, metadata_filter jsonb) -> TABLE(id text, content text, metadata jsonb, similarity double precision)"
   },
+  "service_hours_day": {
+   "called_by": [],
+   "description": "The interval list that applies on one London date: its override (marker = []) or the weekday's.",
+   "file": "restaurant_admin/restaurant_service_hours.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 76,
+   "role": "definition",
+   "signature": "service_hours_day(p_hours jsonb, p_date date, p_use_dates boolean) -> jsonb"
+  },
+  "service_hours_open": {
+   "called_by": [],
+   "description": "Open at that moment, with the date-override and overnight-spill rule shared by every reader.",
+   "file": "restaurant_admin/restaurant_service_hours.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 90,
+   "role": "definition",
+   "signature": "service_hours_open(p_hours jsonb, p_at timestamptz, p_use_dates boolean) -> boolean"
+  },
+  "service_hours_valid_day": {
+   "called_by": [],
+   "description": "An interval list is well formed: [[\"HH:MM\",\"HH:MM\"], ...], start < 24:00, start < end <= 48:00, no overlap.",
+   "file": "restaurant_admin/restaurant_service_hours.sql",
+   "folder": "restaurant_admin",
+   "kind": "function",
+   "line": 151,
+   "role": "definition",
+   "signature": "service_hours_valid_day(p_intervals jsonb) -> boolean"
+  },
   "sfcs_menu": {
    "called_by": [
     {
@@ -12363,6 +13649,16 @@
    "role": "orphan",
    "signature": "sync_delivery_inflight() -> trigger"
   },
+  "sys_admin_dashboard_mint": {
+   "called_by": [],
+   "description": "Mint a 30-minute sys-admin link after re-checking overwatch.",
+   "file": "admin_dashboard/auth_sessions.sql",
+   "folder": "admin_dashboard",
+   "kind": "function",
+   "line": 428,
+   "role": "definition",
+   "signature": "sys_admin_dashboard_mint(p_tuid bigint, p_phone text, p_token_hash text) -> jsonb"
+  },
   "t_admin_link": {
    "called_by": [
     {
@@ -12374,7 +13670,7 @@
    "file": "restaurant_admin/admin_roster.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 224,
+   "line": 264,
    "role": "definition",
    "signature": "t_admin_link(p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text) -> jsonb"
   },
@@ -12434,7 +13730,7 @@
    "file": "restaurant_admin/admin_roster.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 291,
+   "line": 335,
    "role": "definition",
    "signature": "t_admin_profile(p_tuid bigint) -> jsonb"
   },

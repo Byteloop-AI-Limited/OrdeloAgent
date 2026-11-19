@@ -5,7 +5,7 @@
 -- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
 -- OBJECTS       fn     create_food_order_with_items(p_order jsonb, p_items jsonb) -> jsonb
 --                   Insert one food_order row and its order_item rows in one transaction and return {order, item_count}.
--- REQUIRES      none
+-- REQUIRES      ordering/order_intake_guard.sql (order_intake_block; called at run time, missing = no refusal)
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
 -- SIDE EFFECTS  Each call inserts one food_order row and one order_item row per item (when the file is applied: none).
@@ -25,8 +25,11 @@
 -- PYTHON MODEL  none
 -- SECURITY      create_food_order_with_items(): executable by PUBLIC (default)
 -- TESTS         tests/utils_common/order_management/test_order_service.py
--- GOTCHAS       payment_mode is never chosen by the caller: any item named 'TEST3100' makes the order 'test' (Stripe test keys),
---                 otherwise 'live'. See plans/test3100-payment-routing-plan.md.
+--               tests/sql/test_order_intake_guard_sql.py (the refusal: SQLSTATE P0C01 closed_date, P0C02 hidden_items)
+-- GOTCHAS       A new order is refused (nothing written) with SQLSTATE P0C01 'order_refused: closed_date' or P0C02
+--                 'order_refused: hidden_items' (DETAIL = the guard's JSON) when order_intake_block() says so; callers map them.
+--               payment_mode is never chosen by the caller: any item named 'TEST3100' makes the order 'test' (Stripe test keys),
+--                 otherwise 'live'. See docs/adr/0010-test-payments-selected-by-order-items.md.
 --               Four frozen copies of this function live in migrations/ (ordelo_agg_r1, r1_test_payment, r3, test3100); they are history.
 --                 This file is the current definition.
 -- SEE ALSO      ordering/food_order_additions.sql
@@ -51,9 +54,23 @@ CREATE OR REPLACE FUNCTION public.create_food_order_with_items (p_order jsonb, p
 DECLARE
     v_order jsonb;
     v_items integer;
+    v_block jsonb;
 BEGIN
     IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0 THEN
         RAISE EXCEPTION 'create_food_order_with_items: p_items must be a non-empty array';
+    END IF;
+    -- New-order refusal (ordering/order_intake_guard.sql): a date override closed the restaurant, or a hidden item.
+    -- The restaurant is the order number's prefix ('STRK-...' -> STRK). Any failure of the guard itself allows the order.
+    BEGIN
+        v_block := order_intake_block (upper(split_part(p_order ->> 'order_number', '-', 1)), now(), p_items);
+    EXCEPTION
+        WHEN OTHERS THEN
+            v_block := NULL;
+    END;
+    IF v_block ->> 'result' = 'closed_date' THEN
+        RAISE EXCEPTION 'order_refused: closed_date' USING ERRCODE = 'P0C01', DETAIL = v_block::text;
+    ELSIF v_block ->> 'result' = 'hidden_items' THEN
+        RAISE EXCEPTION 'order_refused: hidden_items' USING ERRCODE = 'P0C02', DETAIL = v_block::text;
     END IF;
 
     INSERT INTO public.food_order (order_id, order_number, seq_id, recipient, notes, thread_id, action, total_price, payment_status, origin_channel, storefront, payment_mode, idempotency_key)

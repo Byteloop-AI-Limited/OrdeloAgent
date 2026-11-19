@@ -21,7 +21,7 @@ Fulfilment in which the customer collects food from the restaurant. Takeaway is 
 _Avoid_: pickup when the collector could be either customer or rider
 
 **Rider**:
-The person assigned to collect food from a restaurant and deliver it to a customer.
+A person who can be offered delivery work or is carrying out a delivery. Use **assigned rider** or **inflight rider** for the rider currently on an active delivery.
 _Avoid_: customer, restaurant admin
 
 **Restaurant admin**:
@@ -37,7 +37,7 @@ A restaurant's customer-facing WhatsApp conversation service. It is distinct fro
 _Avoid_: restaurant admin, kitchen
 
 **Overwatch**:
-The operations audience responsible for monitoring fulfilment and investigating escalations.
+The operations audience responsible for monitoring fulfilment and investigating escalations. Membership also gives access to the system dashboard, never restaurant rights.
 _Avoid_: all admins, restaurant staff
 
 **Overwatch rider**:
@@ -133,7 +133,7 @@ A payment that can authorize, charge or return real customer money.
 _Avoid_: web payment, production order when referring only to money
 
 **Detail level**:
-The amount of order information a viewer or subscriber may see: full details or status only.
+How much of an order a grant permits someone to see. **Full** can include the customer delivery confirmation code, **recovered** includes private order details with the code withheld, and **status-only** limits access to basic progress.
 _Avoid_: proof of ownership
 
 **Order access grant**:
@@ -157,7 +157,7 @@ Returning money after it has been charged.
 _Avoid_: payment release
 
 **Pickup-time boundary**:
-The point at which a collection order first has its pickup time finalized.
+The point at which a collection order first receives its scheduled pickup time.
 _Avoid_: actual collection time
 
 **Reconciliation**:
@@ -189,7 +189,7 @@ A restaurant policy that accepts new orders without asking staff to confirm each
 _Avoid_: timeout auto-accept
 
 **Timeout auto-accept**:
-Acceptance used as a fallback when a manually confirmed order reaches its confirmation deadline.
+Acceptance with a default pickup time after the restaurant confirmation deadline or the grace period for an admin who already accepted and still needs to set a time.
 _Avoid_: configured auto-accept
 
 **Configured-auto order**:
@@ -225,9 +225,222 @@ The fulfilment milestone at which an authorized payment is charged: rider assign
 _Avoid_: checkout, actual food delivery
 
 **Payment-complete event**:
-The notice that payment has been authorized for an order. Its name does not mean later capture has occurred.
+In the order intake contract, the notice that payment has been authorized for an order awaiting fulfilment.
 _Avoid_: payment captured
 
 **Hand-off code**:
 A one-time proof intended to attach a WhatsApp sender to an existing order's progress. It is distinct from the customer's delivery confirmation code.
 _Avoid_: delivery code, order reference
+
+## Dispatch and availability
+
+**Offer**:
+A delivery job proposed to one rider.
+_Avoid_: assignment, job card
+
+**Offer acceptance**:
+A rider's response that they are willing to take an offered job. Several riders may accept before one is assigned.
+_Avoid_: assignment
+
+**Assignment**:
+The selection of one rider to carry out the delivery, starting the inflight job.
+_Avoid_: offer acceptance
+
+**Dispatch round**:
+One cycle of offering a delivery and selecting a rider. Cancelling an assignment before pickup can reopen dispatch for a new round.
+
+**Inflight delivery**:
+A delivery with an active assignment, including the leg before the rider picks up the food.
+
+**Pre-pickup cancellation**:
+Ending an assignment before the rider collects the food. The order can return to dispatch.
+
+**Offer reminder**:
+A repeat prompt to a rider who has yet to answer an offer.
+
+**Job card**:
+The assigned rider's message with pickup details and job actions.
+
+**Rider thread**:
+The rider agent's conversation for an assignment, including any remaining cancellation discussion.
+_Avoid_: rider account, checkout session
+
+**Shift**:
+A rider's on-duty or off-duty state.
+
+**Pause**:
+A temporary break with a required end time. A rider pause suppresses new offers, and an admin pause suppresses new alerts for the affected restaurants through channel-aware routing.
+_Avoid_: shift, unlink
+
+**Availability**:
+Whether someone is currently able to receive work or operational alerts, taking their role, shift and pause into account.
+
+**Dispatch eligibility**:
+Whether a rider qualifies for a particular delivery offer given the rider's availability and the order's requirements.
+
+## Restaurant decisions and kitchen
+
+**Restaurant decision**:
+A restaurant admin's acceptance or decline of an order. The admin can set the scheduled pickup time after accepting.
+
+**Timeout action**:
+The restaurant policy that determines whether an unanswered order is accepted or declined at the confirmation deadline.
+
+**Timeout auto-decline**:
+Declining an unanswered order because the restaurant's configured timeout action is decline.
+
+**Default pickup time**:
+The scheduled time applied by an acceptance rule when staff do not choose a time.
+
+**Scheduled pickup time**:
+When the food is expected to be ready for the rider or the collecting customer.
+_Avoid_: actual pickup time
+
+**Rider pickup**:
+The rider's physical collection of the order from the restaurant.
+_Avoid_: customer collection, scheduled pickup time
+
+**Original pickup promise**:
+The first scheduled pickup time an order received. Reports compare rider pickup with it.
+_Avoid_: latest pickup promise
+
+**Latest pickup promise**:
+The scheduled pickup time in force when the rider collected the order, after any adjustment. It equals the original promise when the time never changed.
+
+**Manual acceptance time**:
+Minutes from an order's creation to a restaurant admin's first accept or decline. Configured and timeout auto-accepts are counted separately, not timed.
+
+**Ready for collection**:
+The order is prepared and available for the customer to collect.
+
+**Order card**:
+The restaurant admin's Telegram message showing an order and the actions available to staff.
+
+**Order-card reminder**:
+A repeated prompt to restaurant admins while an order is waiting for a decision.
+
+**Kitchen instruction**:
+A direction to hold preparation, start preparing, or stop because the order was cancelled.
+
+**Kitchen receipt**:
+The preparation instruction sent to restaurant staff. For delivery it follows a rider assignment, and its arrival tells staff to start preparing the food.
+_Avoid_: payment receipt, order card
+
+**Payment receipt**:
+The customer's record of payment.
+_Avoid_: kitchen receipt
+
+**Printed receipt**:
+The physical receipt produced by the payment service's print workflow.
+
+**Pay at restaurant**:
+An order payment arrangement in which the restaurant collects payment directly from the customer.
+
+## Identity, access and tracking
+
+**Order reference**:
+A number identifying an order.
+_Avoid_: order access grant
+
+**Customer contact**:
+A way to reach the person who placed the order.
+
+**Order page link**:
+A private link that opens the order status page under the permissions of its access grant.
+_Avoid_: live map link
+
+**Lookup postcode**:
+The postcode used to find a web order. It comes from the locked delivery postcode or the optional postcode supplied for a collection order.
+
+**Order lookup**:
+Finding recent web orders for a restaurant and postcode with status-only access.
+
+**House proof**:
+Matching the house number or name saved for a delivery order when requesting recovered access.
+
+**Order unlock**:
+Using house proof to obtain a recovered grant for a found delivery order.
+
+**Admin roster**:
+The people authorized to act as restaurant admins for a restaurant.
+
+**Admin record**:
+The person-level record of an admin's contact, links and messaging channels. Roster membership determines the restaurants they may act for.
+
+**Admin link**:
+The binding between a Telegram account and a restaurant admin's identity, proved by sharing the account's own phone number. An overwatch member who admins no restaurant may also link; they get only the system dashboard. Moving the link to another account ends that phone's dashboard sessions.
+
+**Admin channels**:
+The messaging destinations selected for an admin, which can include WhatsApp, Telegram or both.
+
+**Rider link**:
+The binding between a Telegram account and a rider's identity.
+
+**Rider channel**:
+The messaging destination used for a rider, either WhatsApp or Telegram. An assigned job keeps the channel of its offer.
+
+**Telegram invite**:
+A legacy, expiring invitation allowing a restaurant admin to link a Telegram account for one restaurant.
+
+**Last-admin guard**:
+The rule that prevents an admin pause from leaving a restaurant without an unpaused admin.
+
+**Current-location request**:
+A request for the rider to share a current position.
+
+**Location observation**:
+A recorded report of a rider's position at a point in time.
+
+**Live tracking**:
+An ongoing feed of a rider's position during a delivery.
+
+**Zone event**:
+A recorded transition in the rider's position relative to a defined area.
+
+**Live map link**:
+A link to the rider's reported position for a delivery.
+_Avoid_: order page link
+
+## Onboarding and reporting
+
+**Restaurant onboarding**:
+Preparing a restaurant to accept Ordelo orders in its selected ordering channels.
+
+**Rider registration**:
+An application to become a rider.
+_Avoid_: rider link, shift
+
+**Restaurant dashboard session**:
+Temporary access to the operations dashboard for a restaurant.
+_Avoid_: checkout session
+
+**Portal link**:
+A single-use, 30-minute link that opens one portal (rider portal, restaurant dashboard or system dashboard) for the verified person who asked for it on Telegram or WhatsApp. Opening the page does not use it; the browser's automatic confirmation does.
+_Avoid_: magic link (in new text), login URL
+
+**System dashboard**:
+The operations portal for overwatch members (sys-admin). Access is re-checked against the overwatch list on every request.
+_Avoid_: admin panel
+
+**Closed date**:
+A London calendar date on which a restaurant's own hours replace its weekly hours: closed all day, closing early or special hours. A closed date refuses new orders on every channel.
+_Avoid_: holiday flag, pause
+
+**Hidden item**:
+A menu item a restaurant admin has taken off sale until an admin shows it again. Its stock status is unchanged.
+_Avoid_: out of stock, deleted item
+
+**Settings audit**:
+The record of every restaurant setting changed from the restaurant dashboard (who, when, old and new value), from which sys-admin can undo a change.
+
+**Rider payout**:
+Compensation owed to a rider for delivery work.
+_Avoid_: restaurant payout, customer delivery fee
+
+**Restaurant payout**:
+Funds transferred to the restaurant for an order.
+_Avoid_: rider payout, payment capture
+
+**Delivery fee**:
+The delivery charge presented to the customer.
+_Avoid_: rider payout

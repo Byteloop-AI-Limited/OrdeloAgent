@@ -2,18 +2,18 @@
   "_about": "Hand-written content for ordelo-database-guide.{md,html}. Everything else in the guide is read from the SQL file headers. Every object named in 'flows' must exist in a SQL file or in external_objects.json (tests/test_datamodels_standard.py). Rebuild: python scripts/datamodels/build_guide.py",
   "capabilities": [
     {"folder": "core", "title": "Core master data", "summary": "Restaurants, customers, riders, menus and the key/value runtime configuration (ordelo_config) that every other area reads."},
-    {"folder": "ordering", "title": "Ordering and web checkout", "summary": "Creating an order and its items in one transaction, the columns OrdeloAgent adds to restaurant-agents' food_order, and the web checkout tables (session draft, idempotency, page tokens, rate limit, payment release, daily audit)."},
+    {"folder": "ordering", "title": "Ordering and web checkout", "summary": "Creating an order and its items in one transaction (refused on a closed date or for a hidden item by order_intake_block), the columns OrdeloAgent adds to restaurant-agents' food_order, hidden menu items, and the web checkout tables (session draft, idempotency, page tokens, rate limit, payment release, daily audit)."},
     {"folder": "payment", "title": "Payment", "summary": "The payment inbox (payment_event), the at-most-once authorisation step and the alert-only reconciler for paid orders that never started fulfilment."},
     {"folder": "notifications", "title": "Customer notifications", "summary": "Who hears about an order (subscriptions), what happened (customer events) and one delivery record per event and subscription (outbox)."},
     {"folder": "delivery", "title": "Delivery orders", "summary": "The delivery order as fulfilment sees it (delivery_summary), its priced vehicle options and the 5-second job that opens the next option or times the order out."},
     {"folder": "dispatch", "title": "Rider dispatch", "summary": "Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep."},
     {"folder": "takeaway", "title": "Takeaway (collection)", "summary": "The collection order (takeaway_summary), its creation and the triggers that tell admins and customers about it."},
-    {"folder": "restaurant_admin", "title": "Restaurant admin actions", "summary": "Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout, receipts and notices. New Telegram receipts and notices exclude paused admins."},
-    {"folder": "telegram", "title": "Telegram layer", "summary": "Admin and rider links, the protected update inbox, order cards, alert destinations, admin pause RPCs and the sent-message ledger."},
+    {"folder": "restaurant_admin", "title": "Restaurant admin actions", "summary": "Rules shared by WhatsApp and Telegram: accept / decline, pickup time, Ready and +10 / +20, the confirmation timeout, receipts and notices (new Telegram ones exclude paused admins). Also the admin roster with overwatch linking, and the restaurant dashboard's audited settings: acceptance policy, closed dates in service hours, My alerts, with sys-admin undo."},
+    {"folder": "telegram", "title": "Telegram layer", "summary": "Admin and rider links, the protected update inbox, order cards, alert destinations, admin pause RPCs and the sent-message ledger. Portal links for the bots are issued by admin_dashboard/auth_sessions.sql."},
     {"folder": "rider_location", "title": "Rider location", "summary": "OwnTracks GPS fixes and region events from a pgmq queue, plus correlated on-demand WhatsApp and Telegram location replies."},
-    {"folder": "availability", "title": "Rider shifts and availability pauses", "summary": "WhatsApp rider shifts and mandatory-end pauses for riders and restaurant admins. is_paused() computes availability from the clock; job_pause_sweep() only closes expired rows and asks the app to send ends-soon and back-on messages (ADR 0013)."},
+    {"folder": "availability", "title": "Rider shifts and availability pauses", "summary": "WhatsApp rider shifts and mandatory-end pauses for riders and restaurant admins (from the bots or the restaurant dashboard). is_paused() computes availability from the clock; job_pause_sweep() only closes expired rows and asks the app to send ends-soon and back-on messages (ADR 0013)."},
     {"folder": "agent_threads", "title": "Agent threads", "summary": "Reading LangGraph checkpoints and closing idle conversation threads (OrdeloAgent and restaurant-agents)."},
-    {"folder": "admin_dashboard", "title": "Admin dashboard", "summary": "Magic-link sessions, the order views behind the restaurant dashboard and the rider payout report."},
+    {"folder": "admin_dashboard", "title": "Admin dashboard", "summary": "Portal-link sessions for the rider portal, restaurant dashboard and system dashboard (issued only through SQL mints that check authority; access re-checked on every request; ADR 0017), the order views behind the restaurant dashboard, its operational report with decision milestones, and the rider payout report."},
     {"folder": "platform", "title": "Platform and operations", "summary": "HTTP helpers, cron housekeeping and the Fly.io / AWS App Runner switches."},
     {"folder": "byteloop_agent", "title": "Byteloop agent", "summary": "Tables and vector search used by the separate Byteloop agent."},
     {"folder": "test_support", "title": "Test support", "summary": "Helpers and harness scripts for resetting and replaying orders. Not part of production flows."},
@@ -69,6 +69,32 @@
         {"title": "Kitchen receipts", "text": "New Telegram receipts use t_alert_destinations() to exclude paused admins. Existing receipt copies remain live: job_t_receipt_refresh() (5 s) finds stale copies with t_receipts_stale() / t_receipts_take() and Python edits them.", "objects": ["t_alert_destinations", "t_receipt_status", "t_receipt_snapshot", "t_receipt_sent", "t_receipts_stale", "t_receipts_take", "job_t_receipt_refresh"]},
         {"title": "Plain notices", "text": "t_notice_targets() uses t_alert_destinations() for new Telegram notices, leaving out paused admins; WhatsApp notices are unchanged.", "objects": ["t_notice_targets", "t_alert_destinations"]},
         {"title": "Daily availability", "text": "enquire_admin_availability() asks each restaurant's admins every morning whether they are open.", "objects": ["enquire_admin_availability"]}
+      ]
+    },
+    {
+      "id": "portal-access",
+      "title": "Portal links and dashboard sessions",
+      "summary": "One verified identity per phone; restaurant and system rights are re-derived on every link and request (ADR 0017).",
+      "steps": [
+        {"title": "Link", "text": "A Telegram account links by sharing its own contact. t_admin_link() admits a phone that is on a restaurant's admin list or in overwatch (is_overwatch()); t_admin_profile() answers ok, ops_only, not_linked or not_on_roster.", "objects": ["t_admin_link", "t_admin_profile", "is_overwatch", "admin_roster"]},
+        {"title": "Issue", "text": "ordelo/dashboard_links.py asks portal_access() what the actor may open, then mints one link per portal with rest_admin_dashboard_mint(), sys_admin_dashboard_mint() or rider_dashboard_mint(). Each mint re-checks authority and stores only the token hash in auth_sessions.", "objects": ["portal_access", "admin_actor_phone", "rest_admin_dashboard_mint", "sys_admin_dashboard_mint", "rider_dashboard_mint", "auth_sessions"]},
+        {"title": "Open and use", "text": "The link's page auto-POSTs; admin_dashboard_activate() / rider_dashboard_activate() consume it once. admin_dashboard_touch() validates every request and re-checks roster or overwatch membership through admin_session_authorised().", "objects": ["admin_dashboard_activate", "admin_dashboard_touch", "admin_session_authorised", "rider_dashboard_activate", "rider_dashboard_touch"]},
+        {"title": "Revoke", "text": "Relinking a phone to another Telegram account, or admin_unlink_telegram(), revokes that phone's rest_admin and sys_admin sessions and unused links with auth_sessions_revoke_phone().", "objects": ["auth_sessions_revoke_phone", "admin_unlink_telegram"]}
+      ]
+    },
+    {
+      "id": "restaurant-settings",
+      "title": "Restaurant dashboard settings, closures and reports",
+      "summary": "Every write is session-bound and audited; closed dates and hidden items are enforced at order creation for both channels.",
+      "steps": [
+        {"title": "Session actor", "text": "Each dashboard RPC takes the session id and calls rest_admin_session_actor(), which re-derives the phone and restaurant and re-checks membership.", "objects": ["rest_admin_session_actor"]},
+        {"title": "Audited write", "text": "restaurant_setting_change() writes one setting and its restaurant_settings_audit row in one transaction; sys-admin lists changes with restaurant_settings_changes() and undoes one with restaurant_setting_revert().", "objects": ["restaurant_setting_change", "restaurant_settings_audit", "restaurant_settings_changes", "restaurant_setting_revert"]},
+        {"title": "Acceptance policy", "text": "rest_admin_acceptance_set() changes auto_accept and the default pickup minutes atomically; restaurant_default_pickup_minutes() resolves them exactly as order creation does.", "objects": ["rest_admin_acceptance_get", "rest_admin_acceptance_set", "restaurant_acceptance_apply", "restaurant_default_pickup_minutes"]},
+        {"title": "My alerts", "text": "rest_admin_alerts_* change the signed-in admin's channels (admin_set_channels) and pause (pause_start / pause_end with the last-admin guard), the same rules as the bot's /channels, /off and /on.", "objects": ["rest_admin_alerts_get", "rest_admin_alerts_set_channels", "rest_admin_alerts_pause", "rest_admin_alerts_resume"]},
+        {"title": "Closed dates", "text": "rest_admin_hours_* store one-date overrides in service_hours_json.dates (gated by hours_edits_enabled()); service_hours_open() is the shared reading rule.", "objects": ["rest_admin_hours_close_date", "rest_admin_hours_set_date", "rest_admin_hours_clear_date", "rest_admin_hours_set_weekly", "service_hours_open", "hours_edits_enabled"]},
+        {"title": "Hidden items", "text": "rest_admin_menu_set_hidden() adds or removes menu_item_hidden rows keyed by menu_item_key(title); the storefront reads menu_hidden_keys().", "objects": ["rest_admin_menu_list", "rest_admin_menu_set_hidden", "menu_item_hidden", "menu_hidden_keys"]},
+        {"title": "Order guard", "text": "create_food_order_with_items() calls order_intake_block() first and refuses with P0C01 (closed date, via restaurant_closed_by_override()) or P0C02 (hidden item).", "objects": ["create_food_order_with_items", "order_intake_block", "restaurant_closed_by_override"]},
+        {"title": "Reports", "text": "order_milestone_capture() stamps the first restaurant decision into order_milestone; rest_admin_report_operations() reports acceptance and pickup against the first and latest promise.", "objects": ["order_milestone", "order_milestone_capture", "rest_admin_report_operations"]}
       ]
     },
     {

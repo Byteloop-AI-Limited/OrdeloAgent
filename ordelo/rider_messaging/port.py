@@ -1,6 +1,6 @@
 """The RiderMessenger interface: everything the rider agent, its tools and the delivery hooks need to SAY to a rider.
 
-Design (plans/telegram-rider-bot-plan.md D45; ADR 0011 Amendment 3):
+Design (ADR 0011, Amendment 3 (D45)):
     . One messenger is bound to one rider on one channel; callers never pass a phone, chat id, client or keyboard.
       Build it with ordelo.rider_messaging.for_rider(rider_id) (R1) or for_dispatch(dispatch_id) (R3, channel fixed per
       dispatch, D44).

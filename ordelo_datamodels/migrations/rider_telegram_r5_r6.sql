@@ -5,7 +5,7 @@
 -- Current definitions now live in: rider_location/wa_location.sql, availability/pauses.sql, availability/rider_shift.sql,
 --   dispatch/enquire_shift_availability.sql, telegram/t_order_alerts.sql, restaurant_admin/restaurant_ready_adjust_notices.sql,
 --   telegram/t_admin_pauses.sql, availability/job_pause_sweep.sql
--- Purpose: Telegram rider bot R5-R6 (plans/telegram-rider-bot-plan.md). R5: Telegram location replies are stored as
+-- Purpose: Telegram rider bot R5-R6 (docs/adr/0013-pauses-have-a-mandatory-end-and-are-computed.md). R5: Telegram location replies are stored as
 --          'telegram_current'; riders' shift start/end goes through one RPC with the status gate; only WhatsApp riders get the
 --          daily shift question; Telegram riders are switched on once; the pause sweep is scheduled. R6: restaurant admins can
 --          pause their Telegram alerts (last-admin guard), and new cards, receipts and notices skip paused admins.

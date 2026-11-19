@@ -34,7 +34,10 @@ def test_callback_families_have_an_explicit_inbox_policy():
     """A new callback family needs a conscious protected/unprotected decision."""
     protected = {"OrderAction", "RiderSignup", "RiderOffer", "RiderJobAction", "RiderCancelConfirm", "RiderPause", "AdminPause", "AdminChannels"}
     # InviteDecision is retired (TRANSITION, P3 removes): a tap writes nothing any more, so neither y nor n is protected.
-    conditional = {"InviteDecision": {"y": False, "n": False}}
+    conditional = {"InviteDecision": {"y": False, "n": False},
+                   # SysAdminLink only mints a fresh 30-minute link for the tapping person (like /manage): a redelivery at
+                   # worst sends a second single-use link, so it is deliberately unprotected.
+                   "SysAdminLink": {"go": False}}
     actual = {
         name for name, value in vars(callbacks).items()
         if inspect.isclass(value) and issubclass(value, CallbackData) and value.__module__ == callbacks.__name__
@@ -76,7 +79,7 @@ async def test_protected_admin_link_redelivery_runs_once_across_dispatchers(reco
     payload = contact_update("447700900111", update_id=41)
     await feed(bot, build_rest_admin_dispatcher(SETTINGS), payload)
     await feed(bot, build_rest_admin_dispatcher(SETTINGS), payload)
-    assert admin_db.rpc_names == ["t_admin_link"]
+    assert admin_db.rpc_names == ["t_admin_link", "portal_access"]  # portal_access: the menu reconcile after linking
     assert inbox_db.rpc_names == ["t_inbox_claim", "t_inbox_finish", "t_inbox_claim"]
     assert inbox_db.rows[("rest_admin", 41)]["kind"] == "message"
     assert inbox_db.rows[("rest_admin", 41)]["tuid"] == 111

@@ -1,14 +1,9 @@
 ## ordelo-agg
 
 ### Go live
-1. “Delivery from” on the restaurant cards is meant to be a guide delivery price for the customer’s postcode, but it shows £0.00 because the live backend sends estimated_delivery_fee: 0 for every open restaurant (checked against BR6 0AB). The likely cause is that eligibility() in utils_common/web_ordering/availability.py asks the external pricing service for a quote on a £0 basket (pricing(row, location, total=0)), while the fee actually charged is recalculated at checkout from the real basket total in food_order_pymodel.py. So the card is only right if the delivery fee doesn’t depend on basket value, and I can’t confirm that because the pricing service isn’t in any of our repos. To find out, look at delivery_fee on a few recent paid web delivery orders in food_order. If those are 0 too, the card should say “Free delivery”. If not, the quote should be taken at the restaurant’s minimum order value instead of £0. Separately, the card never shows distance because eligibility() doesn’t pass on the distance_miles that the pricing service already returns.
-
-2. 
-
-
-
-
-
+1. Call riders
+2. Look for Deccan
+3. Call Vinay
 
 
 ## Test the deploye of these apps on fly.io

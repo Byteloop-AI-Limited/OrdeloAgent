@@ -1,5 +1,5 @@
 -- =============================================================================================
--- TEST HARNESS (not a migration): a rider job on TELEGRAM end to end (phases R2-R4 of plans/telegram-rider-bot-plan.md):
+-- TEST HARNESS (not a migration): a rider job on TELEGRAM end to end (phases R2-R4 of docs/telegram-layer.md):
 -- the offer, Accept, the job card, the rider agent in Telegram, completion, and the other riders' offers being closed.
 -- =============================================================================================
 -- It works TOGETHER with test_restaurant_notices.sql, which creates the fake STRK-TEST-* order and releases it to riders

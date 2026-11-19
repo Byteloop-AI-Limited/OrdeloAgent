@@ -1,5 +1,9 @@
 # ADR 0012: Rider graph threads follow dispatch assignments
 
+## Current implementation
+
+The current [rider thread wrapper](../../ordelo/agents/rider_threads.py) and [SQL](../../ordelo_datamodels/agent_threads/rider_threads.sql) implement Amendment 1. Threads belong to dispatch assignments. Active legacy threads remain discoverable, closed threads stay closed, and a replacement assignment can close an open cancellation-aftercare thread.
+
 ## Status
 
 Selected design (2026-10-15); implementation deferred to the rider migration.
@@ -147,8 +151,7 @@ read-only exact debug, and historical lookup after dispatch cleanup.
 
 ## Amendment 1 - 22 October 2026 (thread id format; shared table untouched)
 
-Decided with the owner in the rider grilling session
-([rider plan](../../plans/telegram-rider-bot-plan.md), D46, D47).
+Decided with the owner on 22 October 2026 (D46, D47).
 
 - **Format.** New rider threads use `thread_id = ORDELO-dispatch-<dispatch_id>`, not
   `ordelo:rider:dispatch:<id>`. The `thread` table is shared with restaurant-agents

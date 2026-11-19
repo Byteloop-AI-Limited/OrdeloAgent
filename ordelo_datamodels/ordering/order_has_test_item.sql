@@ -23,8 +23,8 @@
 --               tests/watomation/routers/test_delivery_hooks.py
 -- GOTCHAS       Exact match on order_item.product_name = 'TEST3100'; a renamed product is no longer a test order.
 -- SEE ALSO      dispatch/job_create_dispatch.sql (get_available_riders)
---               plans/test3100-payment-routing-plan.md
 --               docs/test-orders.md
+--               docs/adr/0010-test-payments-selected-by-order-items.md
 -- =============================================================================================
 
 -- ---------------------------------------------------------------------------------------------

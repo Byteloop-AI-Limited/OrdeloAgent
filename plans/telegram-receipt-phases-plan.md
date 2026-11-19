@@ -5,7 +5,7 @@
 HTML fallback; `docs/telegram-layer.md` change log 2026-10-23). That change must be committed (or at least present) before this one starts.
 **Related:** [`telegram-phase-7-8-kitchen-actions-and-notices.md`](telegram-phase-7-8-kitchen-actions-and-notices.md) (receipt origin, D28–D38),
 [`telegram-rest-admin-scaffold-plan.md`](telegram-rest-admin-scaffold-plan.md) (rules, D11–D27), project doc `claude/telegram-group-chats-status.md`.
-Decision numbers continue after D54 (`telegram-rider-bot-plan.md`).
+Decision numbers continue after D54 ([ADR 0011, Amendment 3](../docs/adr/0011-telegram-operations-messaging-stays-in-ordeloagent.md#amendment-3---22-october-2026-rider-bot-phases-r0-r6)).
 
 ---
 

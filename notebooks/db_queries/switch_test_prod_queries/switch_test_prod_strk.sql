@@ -3,7 +3,7 @@
 -- ============================================================
 
 select admins, city, * from restaurant_master; 
-select admins, city, * from restaurant_master where rest_ref in ('SFCS'); 
+select admins, city, * from restaurant_master where city='dummy'; 
 
 select * from ordelo_config where config_key like '%SFCS_APP_URL';
 select * from strk_menu where title='TEST3101' and sku='test_3101';

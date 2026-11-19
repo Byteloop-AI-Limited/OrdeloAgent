@@ -12,7 +12,10 @@ CREATE TABLE IF NOT EXISTS public.ordelo_config (
 CREATE TABLE IF NOT EXISTS public.restaurant_master (
     rest_ref  varchar(4) PRIMARY KEY,
     rest_name text NOT NULL,
-    admins    text[] NOT NULL DEFAULT '{}'
+    admins    text[] NOT NULL DEFAULT '{}',
+    -- live columns used by the restaurant-dashboard settings RPCs (restaurant_admin/restaurant_settings.sql and siblings)
+    auto_accept boolean NOT NULL DEFAULT FALSE,
+    service_hours_json jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
 -- The summary tables mirror the live shape defined in ordelo_datamodels/delivery/delivery_summary.sql and
@@ -46,6 +49,7 @@ CREATE TABLE IF NOT EXISTS public.delivery_summary (
     pickup_time_initial timestamptz,
     pickup_adjusted_by text,
     pickup_adjusted_at timestamptz,
+    rest_confirmation_method text,
     rest_ref       varchar(20) GENERATED ALWAYS AS (split_part(order_number, '-', 1)) STORED,
     dtts           timestamptz  NOT NULL DEFAULT now()
 );
@@ -67,6 +71,7 @@ CREATE TABLE IF NOT EXISTS public.takeaway_summary (
     rest_confirmation_code integer NOT NULL DEFAULT 42,
     ready_at       timestamptz,
     ready_by       text,
+    rest_confirmation_method text,
     rest_ref       varchar(20) GENERATED ALWAYS AS (split_part(order_number, '-', 1)) STORED,
     dtts           timestamptz  NOT NULL DEFAULT now()
 );

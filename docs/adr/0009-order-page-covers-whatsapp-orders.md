@@ -1,6 +1,6 @@
 # The order page also tracks WhatsApp orders
 
-Status: accepted, implemented locally on `feature/wa-order-tracking`, 8 October 2026 (not yet deployed). Amends the web-only scope of D34 in `plans/ordelo-agg-plan-cc.md`; [ADR 0003](0003-web-orders-never-reach-restaurant-apps.md) and [ADR 0005](0005-web-orders-use-synthetic-keys-and-no-contact.md) still hold.
+Status: accepted 8 October 2026. The OrdeloAgent change merged on 12 October 2026. Amends the web-only scope of D34 in `plans/ordelo-agg-plan-cc.md`. [ADR 0003](0003-web-orders-never-reach-restaurant-apps.md) and [ADR 0005](0005-web-orders-use-synthetic-keys-and-no-contact.md) still hold.
 
 The customer order page (`/town/<town>/orders/<N>`) was web-only. A WhatsApp customer had no way to see rider status except by asking in the chat. The status derivation (`customer_order_view.derive()`) already works for any order that has `food_order`, summary, dispatch and `order_customer_event` rows, so the page now serves WhatsApp orders too.
 
@@ -15,4 +15,12 @@ Orders paid before release have no link; one can be minted by hand (see `claude/
 
 Rejected: putting the link in the LLM context (the model could alter or leak it), a capped number of grants per order, storing the raw token to re-send later, and a separate WhatsApp-only tracking page.
 
-Sources: [order_access.py](../../utils_common/web_ordering/order_access.py), [web_hooks.py](../../watomation/routers/web_hooks.py), [customer_order_view.py](../../utils_common/web_ordering/customer_order_view.py), [return_urls.py](../../utils_common/payment_ms/return_urls.py), [plan](../../plans/order-tracking-page-for-whatsapp.md).
+Sources: [order_access.py](../../utils_common/web_ordering/order_access.py), [web_hooks.py](../../watomation/routers/web_hooks.py), [customer_order_view.py](../../utils_common/web_ordering/customer_order_view.py), [return_urls.py](../../utils_common/payment_ms/return_urls.py).
+
+## Reading this decision in the current workflow
+
+WhatsApp-origin orders use the private receipt link under this decision. Restaurant-and-postcode discovery in [ADR 0016](0016-orders-are-found-by-postcode-and-unlocked-by-house.md) applies to web-origin orders. See [Order page link and Order lookup](../../GLOSSARY.md#identity-access-and-tracking).
+
+## Rollout and verification
+
+Deploy OrdeloAgent and the restaurant frontend before enabling receipt links in restaurant-agents. Set `ordelo_web_key` in the restaurant-agents environment to match OrdeloAgent's `ORDELO_WEB_KEY`. For an end-to-end test, use a fresh WhatsApp order with the exact `TEST3100` item under [ADR 0010](0010-test-payments-selected-by-order-items.md). Check the receipt button, private order page, support link and a status transition for delivery and collection. Check that receipts still send if link issuance fails and that service logs omit the raw token. Confirm that existing web checkout links still work. A source merge alone does not establish production rollout.

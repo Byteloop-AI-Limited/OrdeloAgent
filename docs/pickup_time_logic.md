@@ -1,5 +1,7 @@
 # Pickup Time Logic
 
+A delivery kitchen receipt follows rider assignment. Staff start preparation when the receipt arrives. The scheduled pickup time also anchors timing alerts and can be adjusted after assignment. See [ADR 0015](adr/0015-the-kitchen-receipt-is-the-start-signal.md).
+
 Runtime flow for `pickup_time` in `delivery_summary` and `takeaway_summary`.
 
 ---

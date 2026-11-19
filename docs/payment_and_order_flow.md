@@ -1,5 +1,7 @@
 # Ordelo Payment and Order Flow
 
+Use the [canonical glossary](../GLOSSARY.md) for authorization, capture, release and refund. Payment-service printing and the staff kitchen receipt can both follow an assignment. Staff use the kitchen receipt as their preparation instruction.
+
 > Current test-order policy: new orders use Stripe test only with an exact `TEST3100` item. Test delivery offers go only to eligible overwatch riders. See [test-orders.md](test-orders.md) for the fixed payment environment and deployment cutover.
 
 **Version:** 1.0
@@ -146,7 +148,7 @@ Validates a UK postcode using the address resolver and returns the resolved addr
 2. **Order reference**: Uses `new_order_reference()` to derive phone-based references or generate random references for synthetic web customer keys.
 3. **Order ID**: `{order_reference}-{seq_number}` (e.g., `KDDV-21`)
 4. **Order number**: `{REST_REF}-{order_reference}-{seq_number}` (e.g., `ELAS-KDDV-21`)
-5. **Atomic creation RPC**: `create_food_order_with_items` inserts `food_order` with `payment_status = 'requires_payment'`, the requested fulfilment action and item-derived `payment_mode`: exact `TEST3100` means test; otherwise live.
+5. **Atomic creation RPC**: `create_food_order_with_items` inserts `food_order` with `payment_status = 'requires_payment'`, the requested fulfilment action and item-derived `payment_mode`: exact `TEST3100` means test; otherwise live. Before inserting it calls `order_intake_block` (`ordering/order_intake_guard.sql`) for the order number's restaurant: a closed date (`service_hours_json.dates`) refuses with SQLSTATE P0C01 and a hidden menu item with P0C02. WhatsApp orders map these to `restaurant_closed` / `items_unavailable` in `order_service._insert_order_rpc`; any error inside the guard allows the order.
 6. **order_item INSERT**: The same RPC inserts all items linked to the order_id. Any failure rolls back the transaction; no separate compensating delete is used.
 7. **Final order value**: After insert, `FoodOrder.from_order_id()` is called, which triggers `update_final_order_value_in_db()` for delivery orders (calls pricing microservice to calculate fees)
 
