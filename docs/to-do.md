@@ -114,3 +114,55 @@ Not fixed by that plan unless a phase says so.
 
 - WhatsApp and Telegram job cards have no Cancel button; riders request cancellation by typing or by declining an existing offer.
 - Protect `dispatch_cancel_before_pickup` against a concurrent pickup with a database-level atomic transition; the existing status check and update are separate.
+
+## Telegram portal links and restaurant dashboard (added 19 Nov 2026)
+
+Built and verified on 19 Nov (offline, isolated SQL and live through the tunnel; see the implementation log in `plans/telegram-portal-links-and-dashboard-plan.md`). The SQL is applied live; the code is NOT deployed.
+
+- [ ] **Deploy order.** restaurant-frontend first (GET-safe activation, settings pages; works with old links), then OrdeloAgent (`/sysadmin`, `/portal`, dashboard_links), then restaurant-agents (date-aware `service_hours`). After OrdeloAgent: republish both default bot menus (`notebooks/telegram/tgram_setup_bot.py`; the rider menu gains `/portal`).
+- [ ] **Scoped menu already set.** The live check set the `/sysadmin` scoped menu in the owner's private restaurant-bot chat. Until OrdeloAgent is deployed, production answers `/sysadmin` with the text fallback.
+- [ ] **Closed dates gate.** `ordelo_config.REST_DASHBOARD_HOURS_EDITS` is `''` (off). restaurant-agents' old `parse_week` RAISES on a `dates` key, so do not list ELAS/CHKS, BNAT or SFCS until the new restaurant-agents is deployed. Then set it to `all`.
+- [ ] **Hidden items on WhatsApp.** The `MENU_API_URL` service (restaurant.byteloop.ai) is not in any connected repo; it does not filter hidden items. The order guard refuses them at order creation; filtering the WhatsApp menu needs the service's owner.
+- [ ] **Unrelated, seen during the live check:** `web_order_lookup(...)` is missing on live (UndefinedFunction 500s from the order-lookup feature).
+- [ ] **drift_check.py** could not run locally (scratch Postgres has no pgvector/PostGIS). A targeted read-only comparison of all 47 new or changed functions found no drift.
+
+**Owner live testing, 19 Nov.** Passed: Telegram taps (`/manage`, the System dashboard button, `/sysadmin`, the scoped menu, rider `/portal` and `/my_jobs`), My alerts round trip, orders still created, access removal, Reports, menu hide, restaurant-admin updates in sys-admin, and config edits. Two tests are still pending:
+
+- [ ] **Test closed dates (owner live test pending).** Use the STRK test restaurant only. Do not enable ELAS/CHKS, BNAT or SFCS until the new restaurant-agents is deployed: its old reader crashes on a `dates` key and would stop WhatsApp ordering.
+  1. Turn editing on: `UPDATE ordelo_config SET config_value = 'STRK' WHERE config_key = 'REST_DASHBOARD_HOURS_EDITS';`
+     - Expected: the STRK dashboard's Actions, "Closed dates and hours" card no longer shows "Editing hours … is not switched on" and its Save buttons are enabled.
+  2. Close **today** from a time that has already passed: "Close early at…" with a past time, then Save date.
+     - Expected: "Closing at HH:MM on <date>." The date is listed under the form.
+     - Expected: `restaurant_master.service_hours_json -> 'dates' -> '<today>'` holds today's earlier intervals cut at that time.
+     - Expected: sys-admin, Restaurants, STRK, "Recent changes" shows `Hours on date (<today>)` by your number via dashboard.
+  3. Open the STRK storefront through the tunnel.
+     - Expected: it shows closed, and the next opening skips today.
+  4. Try a web checkout with a `TEST3100` basket (or use a checkout tab opened before step 2).
+     - Expected: refused with `restaurant_closed`. No `food_order` row is created. In SQL, `create_food_order_with_items` raises `P0C01 order_refused: closed_date`.
+     - Also check the message the customer sees: that copy is untested.
+  5. Close a future date "Closed all day".
+     - Expected: stored as `[["00:00","00:01"]]` and listed as "Closed all day".
+     - Expected: the evening before that date stops at midnight (no overnight spill into it).
+     - Expected: the day after uses the normal weekly hours.
+  6. In sys-admin, Restaurants, STRK, save the weekly hours unchanged.
+     - Expected: the `dates` overrides are still there afterwards.
+  7. Remove both dates with "Remove", then undo one of the earlier changes from "Recent changes".
+     - Expected: after Remove, `service_hours_json` has no `dates` key and the STRK weekly hours are exactly as before.
+     - Expected: undoing a change that is no longer current says "changed since".
+  8. Turn editing off: `UPDATE ordelo_config SET config_value = '' WHERE config_key = 'REST_DASHBOARD_HOURS_EDITS';`
+     - Expected: the card shows the "not switched on" note again, and a save answers `disabled` (HTTP 403).
+- [ ] **Test WhatsApp `/login` and `/sysadmin` (owner live test pending).** These only exercise the new code when Meta's WhatsApp webhook for the Ordelo number points at the tunnel (`https://rider-agent-test.ordelo.app`), or after OrdeloAgent is deployed. Otherwise the old production code answers.
+  1. From an admin number that admins several restaurants (…0754), send `/login`.
+     - Expected: one message, "Here's your dashboard. Each link expires in 30 minutes and works once:", then one `Manage <restaurant>: <link>` line per restaurant (no separate CHKS line; ELAS covers it).
+     - Expected: each link opens the right restaurant's dashboard, and a second open shows "Session expired".
+     - Expected: `auth_sessions` gets one `rest_admin` row per restaurant with `principal_id` = the WhatsApp number.
+  2. From a number on no restaurant's admin list, send `/login`.
+     - Expected: "You are not a registered restaurant admin." and no `auth_sessions` row.
+  3. From an overwatch number, send `/sysadmin`.
+     - Expected: "Here's your sys-admin dashboard. Link expires in 30 minutes and works once:" with one `/sys-admin/activate/…` link that opens the system dashboard and works once.
+     - Expected: one `sys_admin` row in `auth_sessions`.
+  4. From an admin number that is not in overwatch, send `/sysadmin`.
+     - Expected: "You are not authorized as sys-admin." and no row.
+  5. WhatsApp link previews.
+     - Expected: the preview WhatsApp fetches must not use the link up. It is still unused until you tap it (the page only activates on the browser's automatic POST).
+

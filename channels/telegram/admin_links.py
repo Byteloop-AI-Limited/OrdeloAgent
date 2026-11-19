@@ -4,8 +4,11 @@ Restaurant-admin bot identity: link a Telegram account to an admin record by a v
     . RPCs are DEFINED in: ordelo_datamodels/restaurant_admin/admin_roster.sql
       (keep this list and that file's header in sync whenever either changes)
     . Python function -> RPC it calls:
-        link    -> t_admin_link(p_tuid, p_tcid, p_phone, p_username, p_first_name)   link / move; refuses unknown phones
+        link    -> t_admin_link(p_tuid, p_tcid, p_phone, p_username, p_first_name)   link / move; refuses phones on no list
+                                                                                     and not in overwatch_list
         profile -> t_admin_profile(p_tuid)                                           who this Telegram account is
+    . sys_admin (both outcomes): the phone is in ordelo_config.overwatch_list (is_overwatch). An overwatch phone on no
+      restaurant list links with restaurants=() and profiles as 'ops_only': it may open the sys-admin dashboard only.
     . Table behind them: restaurant_admin (restaurant_admin/admin_roster.sql): tuid authorises, tcid addresses
     . Callers MUST have checked contact.user_id == from_user.id before link(); the phone is never taken from text
     . Called by: channels/telegram/rest_admin/router.py, channels/telegram/rest_admin/channels.py
@@ -13,7 +16,7 @@ Restaurant-admin bot identity: link a Telegram account to an admin record by a v
     . Supabase REST is synchronous, so every call runs in asyncio.to_thread (CLAUDE.md rule)
     . Mirrors channels/telegram/rider_links.py (the rider bot's identity wrapper)
   Classes/Functions:
-    . AdminRestaurant, AdminLink, AdminProfile
+    . AdminRestaurant, AdminLink, AdminProfile (is_admin, is_ops_only)
     . link, profile
 
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
@@ -51,6 +54,7 @@ class AdminLink:
     previous_tuid: int | None = None
     previous_username: str | None = None
     phone_last4: str | None = None
+    sys_admin: bool = False
 
     @property
     def is_linked(self) -> bool:
@@ -61,15 +65,21 @@ class AdminLink:
 class AdminProfile:
     """Outcome of t_admin_profile."""
 
-    result: str  # ok | not_linked | not_on_roster
+    result: str  # ok | ops_only | not_linked | not_on_roster
     phone: str | None = None
     channels: tuple[str, ...] = ()
     t_first_name: str | None = None
     restaurants: tuple[AdminRestaurant, ...] = ()
+    sys_admin: bool = False
 
     @property
     def is_admin(self) -> bool:
         return self.result == "ok"
+
+    @property
+    def is_ops_only(self) -> bool:
+        """Linked overwatch member who admins no restaurant: sys-admin dashboard only."""
+        return self.result == "ops_only"
 
 
 def _checked(data: Any) -> dict:
@@ -102,6 +112,7 @@ async def link(tuid: int, tcid: int, phone: str, username: str | None, first_nam
         previous_tuid=data.get("previous_tuid"),
         previous_username=data.get("previous_username"),
         phone_last4=data.get("phone_last4"),
+        sys_admin=bool(data.get("sys_admin")),
     )
 
 
@@ -113,4 +124,5 @@ async def profile(tuid: int) -> AdminProfile:
         channels=tuple(data.get("channels") or ()),
         t_first_name=data.get("t_first_name"),
         restaurants=_restaurants(data),
+        sys_admin=bool(data.get("sys_admin")),
     )

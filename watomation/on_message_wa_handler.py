@@ -20,7 +20,7 @@ WhatsApp message handler for Ordelo delivery system
     . clear_dispatch - Clears active dispatch assignments
     . send_live_map_location - Shares live location map with rider
     . handle_callback_button - Handles rider responses to dispatches
-    . handle_login_wa_msg - Mints rest_admin dashboard magic link on `/login`
+    . handle_login_wa_msg - Mints rest_admin dashboard magic links (one per restaurant) on `/login`
     . handle_sysadmin_wa_msg - Mints sys_admin dashboard magic link on `/sysadmin`
 
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
@@ -337,19 +337,22 @@ LOGIN_FILTER = filters.startswith("/login", ignore_case=True)
 
 
 async def handle_login_wa_msg(wa: WhatsApp, msg: Message):
-    from watomation.routers.rest_admin_auth_session import mint_dashboard_session
+    """WhatsApp `/login`: one restaurant-dashboard link per restaurant this number admins (ordelo/dashboard_links.py)."""
+    from ordelo.dashboard_links import Actor, issue
 
     wa_number = msg.from_user.wa_id
     try:
-        url = await mint_dashboard_session(wa_number)
+        out = await issue("rest_admin", Actor(wa_phone=wa_number))
+        if not out.ok:
+            await wa.send_message(to=wa_number, text="You are not a registered restaurant admin.")
+            return
+        lines = [f"{link.label}:\n{link.url}" for link in out.links]
         await wa.send_message(
             to=wa_number,
-            text=f"Here's your dashboard. Link expires in 30 minutes and works once:\n{url}",
+            text="Here's your dashboard. Each link expires in 30 minutes and works once:\n\n" + "\n\n".join(lines),
         )
-    except ValueError:
-        await wa.send_message(to=wa_number, text="You are not a registered restaurant admin.")
-    except Exception as e:
-        logger.error(f"mint_dashboard_session failed for {wa_number}: {e}")
+    except Exception:
+        logger.error(f"/login dashboard link failed for …{wa_number[-4:]}")
         await wa.send_message(to=wa_number, text="Something went wrong. Please try again.")
 
 
@@ -358,29 +361,21 @@ SYSADMIN_FILTER = filters.startswith("/sysadmin", ignore_case=True)
 
 
 async def handle_sysadmin_wa_msg(wa: WhatsApp, msg: Message):
-    from fastapi import HTTPException
-    from watomation.routers.sys_admin_auth_session import (
-        create_sys_admin_dashboard_session,
-    )
+    """WhatsApp `/sysadmin`: one sys-admin link for an overwatch number (ordelo/dashboard_links.py)."""
+    from ordelo.dashboard_links import Actor, issue
 
     wa_number = msg.from_user.wa_id
     try:
-        session = await create_sys_admin_dashboard_session(wa_number=wa_number)
+        out = await issue("sys_admin", Actor(wa_phone=wa_number))
+        if not out.ok:
+            await wa.send_message(to=wa_number, text="You are not authorized as sys-admin.")
+            return
         await wa.send_message(
             to=wa_number,
-            text=(
-                "Here's your sys-admin dashboard. Link expires in 30 minutes and works once:\n"
-                f"{session.url}"
-            ),
+            text=f"Here's your sys-admin dashboard. Link expires in 30 minutes and works once:\n{out.links[0].url}",
         )
-    except HTTPException as e:
-        if e.status_code == 403:
-            await wa.send_message(to=wa_number, text="You are not authorized as sys-admin.")
-        else:
-            logger.error(f"sys_admin session mint HTTPException for {wa_number}: {e.detail}")
-            await wa.send_message(to=wa_number, text="Something went wrong. Please try again.")
-    except Exception as e:
-        logger.error(f"create_sys_admin_dashboard_session failed for {wa_number}: {e}")
+    except Exception:
+        logger.error(f"/sysadmin dashboard link failed for …{wa_number[-4:]}")
         await wa.send_message(to=wa_number, text="Something went wrong. Please try again.")
 
 

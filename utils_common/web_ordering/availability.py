@@ -1,4 +1,4 @@
-"""Fail-closed web availability, London hours/overnight cutoff and typed pricing.
+"""Fail-closed web availability, London hours/overnight cutoff (with one-date overrides) and typed pricing.
 
 Existing WhatsApp minimum-spend and opening-hour paths are unchanged. Web uses
 fresh restaurant/config reads so a pause takes effect without a deployment.
@@ -42,22 +42,46 @@ def minute(value):
     return result
 
 
+ALL_DAY_CLOSED = [["00:00", "00:01"]]  # the owner's all-day holiday marker in service_hours_json["dates"]
+
+
+def day_intervals(schedule, day):
+    """The interval list that applies on one London date, and whether it is a date override.
+
+    service_hours_json may hold {"dates": {"YYYY-MM-DD": [[open, close], ...]}} beside the weekday keys: a date's list
+    replaces that weekday's hours for that date only, and the all-day marker (or []) means closed all day. The same rule
+    is implemented in SQL (restaurant_admin/restaurant_service_hours.sql), the frontend (utils/openingHours.ts) and
+    restaurant-agents (service_hours/schedule.py).
+    """
+    dates = (schedule or {}).get("dates")
+    override = dates.get(day.isoformat()) if isinstance(dates, dict) else None
+    if isinstance(override, list):
+        return ([] if override == ALL_DAY_CLOSED else override), True
+    return (schedule or {}).get(DAYS[day.weekday()], []), False
+
+
 def opening(schedule, at=None, cutoff=15):
-    """Return (accepting, next_open_iso) for a London weekly service schedule.
+    """Return (accepting, next_open_iso) for a London weekly service schedule with date overrides.
 
     Include yesterday's overnight span and the next seven days. Intervals use
     minute offsets from local midnight; touching windows are merged, and the cutoff
-    removes the end of each continuous window.
+    removes the end of each continuous window. A date override replaces that date's
+    hours, and yesterday's past-midnight hours never spill into an overridden date
+    (they are cut at midnight); an override's own hours may run past midnight.
     Malformed intervals raise ValueError; no future window returns None.
     """
     local = (at or utcnow()).astimezone(UK)
     intervals = []
     for offset in range(-1, 8):
         day = local.date() + timedelta(days=offset)
-        for start, end in (schedule or {}).get(DAYS[day.weekday()], []):
+        own, _ = day_intervals(schedule, day)
+        _, next_overridden = day_intervals(schedule, day + timedelta(days=1))
+        for start, end in own:
             begin, finish = minute(start), minute(end)
             if not 0 <= begin < 1440 or not begin < finish <= 2880:
                 raise ValueError("Invalid service interval")
+            if next_overridden:
+                finish = min(finish, 1440)
             base = datetime.combine(day, time(), UK)
             intervals.append(
                 (base + timedelta(minutes=begin), base + timedelta(minutes=finish))

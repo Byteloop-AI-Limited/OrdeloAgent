@@ -208,6 +208,16 @@ async def _insert_order_rpc(
         )
     except Exception as e:
         error_message = str(e)
+        refusal = order_refusal(error_message)
+        if refusal:
+            # order_intake_block (ordering/order_intake_guard.sql): a closed date or a hidden item. Nothing was written.
+            logger.info(f"Order {order_id} refused by the intake guard: {refusal}")
+            return {
+                "success": False,
+                "error": refusal,
+                "details": REFUSAL_MESSAGES[refusal],
+                "duplicate_order_id": False,
+            }
         logger.error(f"Error creating order {order_id} via RPC: {error_message}")
         return {
             "success": False,
@@ -216,6 +226,22 @@ async def _insert_order_rpc(
             "duplicate_order_id": _is_duplicate_key_error(error_message),
         }
     return {"success": True}
+
+
+# create_food_order_with_items refuses a new order with SQLSTATE P0C01 / P0C02 (ordering/order_intake_guard.sql).
+REFUSAL_MESSAGES = {
+    "restaurant_closed": "Sorry, the restaurant is closed today and is not taking new orders.",
+    "items_unavailable": "Sorry, some items in your basket are not available right now. Please remove them and try again.",
+}
+
+
+def order_refusal(error_message: str) -> Optional[str]:
+    """Map a create_food_order_with_items refusal to 'restaurant_closed' / 'items_unavailable', else None."""
+    if "P0C01" in error_message or "order_refused: closed_date" in error_message:
+        return "restaurant_closed"
+    if "P0C02" in error_message or "order_refused: hidden_items" in error_message:
+        return "items_unavailable"
+    return None
 
 
 async def create_order_with_items(

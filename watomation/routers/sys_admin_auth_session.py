@@ -1,5 +1,6 @@
-"""Authenticated sys-admin payout endpoints and trusted internal magic-link minting.
-    . Mints sessions only through the authenticated WhatsApp helper; no public HTTP mint endpoint
+"""Authenticated sys-admin payout endpoints.
+    . Sys-admin links are minted by ordelo/dashboard_links.py issue("sys_admin") (WhatsApp and Telegram /sysadmin);
+      there is no HTTP mint endpoint
     . require_sys_admin validates the forwarded browser credential and UA, expiry, revocation and overwatch membership
     . Returns the rider payout report by delegating the join to the `get_rider_payout_report`
       Postgres function (see ordelo_datamodels/admin_dashboard/get_rider_payout_report.sql),
@@ -12,10 +13,8 @@
     . _ensure_sys_admin
     . _payee_key
     . fetch_payouts
-    . CreateSysAdminSessionResponse
     . UpdatePaidRequest
     . UpdatePaidResponse
-    . create_sys_admin_dashboard_session - importable; accepts wa_number directly
     . get_rider_payout
     . update_paid_status
   Key Endpoints:
@@ -23,8 +22,8 @@
     . POST /sys-admin/update-paid       - mark dispatch_ids as paid
 
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
-  . auth_sessions (table, ordelo_datamodels/admin_dashboard/auth_sessions.sql): inserts, named in code (passed to a query helper)
-  . ordelo_config (table, ordelo_datamodels/core/ordelo_config.sql): reads the current overwatch authorization allowlist
+  . auth_sessions (table, ordelo_datamodels/admin_dashboard/auth_sessions.sql): reads, named in code (passed to a query helper)
+  . is_overwatch (function, ordelo_datamodels/restaurant_admin/admin_roster.sql): calls (name passed to a helper)
   . delivery_dispatch (table, ordelo_datamodels/dispatch/delivery_dispatch.sql): named in code (passed to a query helper), updates
   . get_rider_payout_report (function, ordelo_datamodels/admin_dashboard/get_rider_payout_report.sql): calls (name passed to a helper)
 (end of database objects)
@@ -32,7 +31,6 @@ Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamod
 
 import asyncio
 import hashlib
-import secrets
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
@@ -41,7 +39,6 @@ from fastapi import APIRouter, HTTPException, Query, Depends, Header
 from pydantic import BaseModel, Field
 
 from config import client_ordelo, client_ordelo_service, logger
-from config.params import get_dashboard_app_url_async
 
 async def require_sys_admin(
     authorization: str | None = Header(default=None),
@@ -75,8 +72,6 @@ async def require_sys_admin(
 
 router = APIRouter(prefix="/sys-admin", tags=["sys_admin"], dependencies=[Depends(require_sys_admin)])
 
-LINK_TTL_MINUTES = 30
-
 # Internal test accounts omitted from payouts. Passed to get_rider_payout_report so the
 # list can change here without a DB migration.
 EXCLUDE_RIDER_IDS = ["447448440754"]
@@ -89,59 +84,20 @@ def _sha256_hex(value: str) -> str:
 
 
 async def _ensure_sys_admin(wa_number: str) -> str:
-    """Authorize against the current allowlist; the alerts cache is not an authorization cache."""
+    """Authorize against the current overwatch list via is_overwatch() (restaurant_admin/admin_roster.sql), the same rule
+    Telegram and WhatsApp issuance use. Read fresh: the alerts cache is not an authorization cache."""
     principal_id = wa_number.lstrip("+")
     try:
-        response = await asyncio.to_thread(lambda: client_ordelo_service.table("ordelo_config")
-            .select("config_value").eq("config_key", "overwatch_list").limit(1).execute())
-        overwatch = [value.strip() for value in response.data[0]["config_value"].split(",") if value.strip()]
+        response = await asyncio.to_thread(
+            lambda: client_ordelo_service.rpc("is_overwatch", {"p_phone": principal_id}).execute())
+        allowed = response.data
     except Exception:
         raise HTTPException(status_code=503, detail="authorization_store_unavailable") from None
-    if principal_id not in overwatch:
+    if not isinstance(allowed, bool):
+        raise HTTPException(status_code=503, detail="authorization_store_unavailable")
+    if not allowed:
         raise HTTPException(status_code=403, detail="sys_admin_not_authorized")
     return principal_id
-
-
-# ---------------------------------------------------------------------------
-# Endpoint 1: dashboard-session
-# ---------------------------------------------------------------------------
-
-
-class CreateSysAdminSessionResponse(BaseModel):
-    url: str
-    expires_at: datetime
-
-
-async def create_sys_admin_dashboard_session(wa_number: str) -> CreateSysAdminSessionResponse:
-    principal_id = await _ensure_sys_admin(wa_number)
-    app_url = await get_dashboard_app_url_async("sys_admin")
-
-    token = secrets.token_urlsafe(32)
-    token_hash = _sha256_hex(token)
-    now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(minutes=LINK_TTL_MINUTES)
-
-    await asyncio.to_thread(
-        lambda: client_ordelo.table("auth_sessions").insert({
-            "role":         "sys_admin",
-            "principal_id": principal_id,
-            "scope_ref":    None,
-            "wa_number":    principal_id,
-            "token_hash":   token_hash,
-            "created_at":   now.isoformat(),
-            "expires_at":   expires_at.isoformat(),
-        }).execute()
-    )
-
-    logger.info(
-        f"[sys_admin.session.mint] principal_hash={_sha256_hex(principal_id)[:8]} "
-        f"expires={expires_at.isoformat()}"
-    )
-
-    return CreateSysAdminSessionResponse(
-        url=f"{app_url}/sys-admin/activate/{token}",
-        expires_at=expires_at,
-    )
 
 
 # ---------------------------------------------------------------------------

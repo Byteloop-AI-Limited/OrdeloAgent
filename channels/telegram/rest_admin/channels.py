@@ -35,6 +35,7 @@ from .order_cards.model import TROUBLE
 WHATSAPP_FOLLOWS_CHANNELS = False
 
 NOT_LINKED = "This chat isn't linked yet. Tap <b>Share my phone number</b> below to link it."
+OPS_ONLY = "You don't admin a restaurant, so there are no order alerts to route. For the system dashboard send /sysadmin."
 NO_LONGER_ADMIN = "This number isn't on any restaurant's admin list any more. Ask your Ordelo contact if that's wrong."
 OPTION_GONE = "That option isn't available any more. Send /channels to pick again."
 P1_NOTE = "<i>Telegram follows this at once; WhatsApp will follow it from the next Ordelo update.</i>"
@@ -65,6 +66,9 @@ async def cmd_channels(message: Message, tgram_settings: TgramBotSettings):
         return
     if prof.result == "not_on_roster":
         await message.answer(NO_LONGER_ADMIN)
+        return
+    if prof.is_ops_only:
+        await message.answer(OPS_ONLY)
         return
     lines = [f"Order alerts now: <b>{escape(channels_label(prof.channels))}</b>.", "Where should they go?"]
     if not WHATSAPP_FOLLOWS_CHANNELS:

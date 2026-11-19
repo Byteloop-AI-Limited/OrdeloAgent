@@ -6,7 +6,9 @@ sender's own), then t_admin_link() decides: linked | relinked (ops alert) | alre
 tuid_taken (ops alert) | bad_phone. Typed or forwarded numbers are never accepted. Linking moves the admin's alerts to Telegram
 only; /channels (channels.py) changes that. Invite links are retired (TRANSITION, removed in P3): an old "Link this chat?"
 button gets a "not used any more" answer and an old claimed invite is told to share its number once.
-Dashboard link (/manage): manage.py. Order buttons: orders.py. Alert pauses (/off, /on, phase R6 of
+Dashboard link (/manage): manage.py. Sys-admin link (/sysadmin + the System dashboard button, overwatch only): sysadmin.py;
+the per-chat command menu that advertises it: menu.py. An overwatch phone on no restaurant list links too (t_admin_link) and
+then has only the sys-admin option. Order buttons: orders.py. Alert pauses (/off, /on, phase R6 of
 plans/telegram-rider-bot-plan.md): pauses.py. The text fallback is a sub-router included LAST, because aiogram tries a
 router's own handlers before its included routers (a fallback registered here would swallow /off and /on).
 """
@@ -29,11 +31,15 @@ from ..keyboards import contact_request_kb
 from ..ops_alerts import alert_ops, mask
 from ..replies import answer_quietly
 from .channels import build_channels_router
+from ordelo.dashboard_links import Actor, access
+
 from .commands import HELP_TEXT
 from .manage import build_manage_router
+from .menu import help_text, sync_admin_menu
 from .order_cards.model import TROUBLE
 from .orders import build_orders_router
 from .pauses import build_pauses_router
+from .sysadmin import build_sysadmin_router
 
 
 
@@ -55,6 +61,8 @@ NOT_ON_ROSTER = (
     "This number isn't set up as a restaurant admin. Ask your Ordelo contact to add it, then send /start again."
 )
 NO_LONGER_ADMIN = "This number isn't on any restaurant's admin list any more. Ask your Ordelo contact if that's wrong."
+OPS_LINKED = "✅ Linked as Ordelo operations. Send /sysadmin for the system dashboard."
+OPS_ONLY_START = "✅ You're linked as Ordelo operations. Send /sysadmin for the system dashboard."
 TUID_TAKEN = "This Telegram account is already linked to another admin. Please contact Ordelo."
 BAD_PHONE = "That number doesn't look like a mobile number we can use. Please contact Ordelo."
 INVITE_RETIRED = "Invite links aren't used any more. Tap <b>Share my phone number</b> below to link this chat."
@@ -72,7 +80,8 @@ def restaurants_text(restaurants) -> str:
 def linked_text(out, again: bool) -> str:
     head = "✅ You're already linked." if again else "✅ You're linked."
     where = CHANNEL_LABELS.get(tuple(sorted(out.channels)), ", ".join(out.channels))
-    return f"{head}\n{restaurants_text(out.restaurants)}\nOrder alerts: <b>{escape(where)}</b>. Change with /channels."
+    text = f"{head}\n{restaurants_text(out.restaurants)}\nOrder alerts: <b>{escape(where)}</b>. Change with /channels."
+    return text + ("\nSystem dashboard: /sysadmin" if getattr(out, "sys_admin", False) else "")
 
 
 # ---- /start --------------------------------------------------------------------------------------------------------
@@ -88,8 +97,12 @@ async def cmd_start(message: Message, command: CommandObject, tgram_settings: Tg
         logger.exception(f"telegram[{tgram_settings.bot_key}]: /start profile lookup failed for user {user.id}")
         await message.answer(TROUBLE)
         return
+    if prof.is_admin or prof.is_ops_only:
+        await _sync_menu(message, tgram_settings)
     if prof.is_admin:
         await message.answer(linked_text(prof, again=True))
+    elif prof.is_ops_only:
+        await message.answer(OPS_ONLY_START)
     elif prof.result == "not_on_roster":
         await message.answer(NO_LONGER_ADMIN)
     elif legacy:  # TRANSITION (P3 removes)
@@ -137,7 +150,19 @@ async def _link_contact(message: Message, tgram_settings: TgramBotSettings):
     if out.result == "relinked":
         prev = f"@{out.previous_username}" if out.previous_username else str(out.previous_tuid)
         await alert_ops(f"Restaurant bot: admin {mask(out.phone)} re-linked from Telegram {prev} to {who}.")
-    await message.answer(linked_text(out, again=out.result == "already_linked"), reply_markup=ReplyKeyboardRemove())
+    if out.restaurants:
+        await message.answer(linked_text(out, again=out.result == "already_linked"), reply_markup=ReplyKeyboardRemove())
+    else:  # an overwatch phone on no restaurant list (t_admin_link admits it): sys-admin dashboard only
+        await message.answer(OPS_LINKED, reply_markup=ReplyKeyboardRemove())
+    await _sync_menu(message, tgram_settings)
+
+
+async def _sync_menu(message: Message, tgram_settings: TgramBotSettings):
+    """Reconcile this chat's command menu with what the sender may open (menu.py). Never fails the caller."""
+    try:
+        await sync_admin_menu(message.bot, message.chat.id, await access(Actor(tuid=message.from_user.id)))
+    except Exception:
+        logger.warning(f"telegram[{tgram_settings.bot_key}]: menu reconcile failed for user {message.from_user.id}")
 
 
 # ---- old invite buttons (TRANSITION, P3 removes) -------------------------------------------------------------------
@@ -162,8 +187,17 @@ async def on_invite_decision(query: CallbackQuery, callback_data: InviteDecision
         await answered
 
 
-async def cmd_help(message: Message):
-    await message.answer(HELP_TEXT)
+async def cmd_help(message: Message, tgram_settings: TgramBotSettings):
+    if message.chat.type != "private":
+        await message.answer(HELP_TEXT)
+        return
+    try:
+        acc = await access(Actor(tuid=message.from_user.id))
+    except Exception:
+        await message.answer(HELP_TEXT)
+        return
+    await sync_admin_menu(message.bot, message.chat.id, acc)
+    await message.answer(help_text(acc))
 
 
 async def cmd_whoami(message: Message, tgram_settings: TgramBotSettings):
@@ -174,12 +208,16 @@ async def cmd_whoami(message: Message, tgram_settings: TgramBotSettings):
     except Exception:
         logger.exception(f"telegram[{tgram_settings.bot_key}]: /whoami lookup failed for user {u.id}")
         prof, legacy = None, None
+    if message.chat.type == "private" and prof is not None and prof.result != "not_linked":
+        await _sync_menu(message, tgram_settings)
     channels_line = "-"
     if prof is None:
         link_line = "unavailable (try again)"
     elif prof.is_admin:
         link_line = ", ".join(f"{r.rest_name} ({r.rest_ref})" for r in prof.restaurants)
         channels_line = CHANNEL_LABELS.get(tuple(sorted(prof.channels)), ", ".join(prof.channels))
+    elif prof.is_ops_only:
+        link_line = "linked as Ordelo operations (no restaurant)"
     elif prof.result == "not_on_roster":
         link_line = "linked, but this number is on no admin list"
     elif legacy:  # TRANSITION (P3 removes)
@@ -193,6 +231,7 @@ async def cmd_whoami(message: Message, tgram_settings: TgramBotSettings):
         f"username (mutable):        @{escape(u.username or '-')}",
         f"Ordelo link: {escape(link_line)}",
         f"Order alerts: {escape(channels_line)}",
+        f"Sys-admin:  {'yes' if prof is not None and prof.sys_admin else 'no'}",
     ]
     await message.answer("<pre>" + "\n".join(lines) + "</pre>")
 
@@ -213,6 +252,7 @@ def build_router() -> Router:
     router.include_router(build_pauses_router())  # R6: /off (+ length taps), /on
     router.include_router(build_channels_router())  # /channels + its 'ac1:' buttons
     router.include_router(build_manage_router())  # /manage: one-time dashboard link (WhatsApp /login twin)
+    router.include_router(build_sysadmin_router())  # /sysadmin + System dashboard button (overwatch only)
     last = Router(name="rest_admin_fallback")  # last: swallows any other text
     last.message.register(fallback, F.text)
     router.include_router(last)

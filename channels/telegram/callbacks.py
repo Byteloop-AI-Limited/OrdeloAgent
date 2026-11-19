@@ -111,3 +111,11 @@ class AdminPause(CallbackData, prefix="ap1"):
     """
 
     k: str
+
+
+class SysAdminLink(CallbackData, prefix="sa1"):
+    """The "System dashboard" button under /manage on the restaurant bot: 'sa1:go'.
+    Carries no identity and no token: the handler asks dashboard_links.issue("sys_admin") for the TAPPING person
+    (from_user.id), which re-checks overwatch membership in SQL, so an old button on a removed member gets nothing.
+    """
+    a: Literal["go"] = "go"
