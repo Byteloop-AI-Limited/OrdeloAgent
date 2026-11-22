@@ -186,3 +186,6 @@ restaurant_agents-env.json
 
 # Local Claude Code settings (per developer)
 .claude/settings.local.json
+
+# understand-anything scratch output
+**/.understand-anything/tmp/
