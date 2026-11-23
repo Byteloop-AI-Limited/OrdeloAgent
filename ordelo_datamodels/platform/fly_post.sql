@@ -2,7 +2,7 @@
 -- ordelo_datamodels/platform/fly_post.sql
 -- Helper: start / stop / suspend a Fly.io machine through the Fly Machines API using the token in fly_config.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16), whose grants are wider than intended: see SECURITY.
+-- LIVE CHECK    matches live on 2026-11-23: body identical, EXECUTE only for postgres and service_role (anon gets 42501).
 -- OBJECTS       fn     fly_post(p_app_name text, p_action text) -> TABLE(status integer, content text)
 --                   Call the Fly Machines API action for an app's machine using fly_config; returns the HTTP status and body.
 -- REQUIRES      none
@@ -16,9 +16,9 @@
 -- CALLED BY     fly_post:
 --                 sql       fly_idle_suspend() (platform/fly_config.sql)
 -- PYTHON MODEL  none
--- SECURITY      fly_post(): executable by PUBLIC (default); SECURITY DEFINER
+-- SECURITY      fly_post(): SECURITY DEFINER; EXECUTE revoked from PUBLIC, anon, authenticated; granted to service_role.
 -- TESTS         none
--- GOTCHAS       URGENT (docs/to-do.md): the REVOKE below is commented because it is not live; anon can execute this function.
+-- GOTCHAS       DROP + CREATE resets grants: always run the REVOKE/GRANT below with it (whole file).
 -- SEE ALSO      platform/fly_config.sql
 --               docs/fly.io-deploy-guide.md
 -- =============================================================================================
@@ -81,12 +81,10 @@ BEGIN
 END;
 $$;
 
--- NOT APPLIED LIVE (2026-10-16): this REVOKE is the intended access rule, but the live function is still
--- executable by PUBLIC/anon/authenticated. Tracked in docs/to-do.md. Kept commented so this file matches live.
 -- CRITICAL: a SECURITY DEFINER function in public is auto-exposed as a PostgREST RPC
 -- and EXECUTE defaults to PUBLIC (anon/authenticated). Without this, anyone with the
 -- anon key could stop prod, and the table RLS would NOT help (function reads as owner).
--- REVOKE EXECUTE ON FUNCTION fly_post(text, text) FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION fly_post (text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION fly_post (text, text) TO service_role;
 
 -- ---------------------------------------------------------------------------------------------

@@ -6891,15 +6891,15 @@
     ],
     "fly_idle_suspend": [
      {
-      "text": "'job_fly_idle_suspend' */10 * * * * (NOT SCHEDULED: see the commented example at the end of this file)",
+      "text": "'job_fly_idle_suspend' */15 * * * * (active on live, 2026-11-23)",
       "via": "cron"
      }
     ]
    },
    "cron": [],
    "folder": "platform",
-   "header_lines": 46,
-   "lines": 274,
+   "header_lines": 47,
+   "lines": 275,
    "objects": [
     {
      "description": "One row per Fly app: app-scoped API token, machine id, region, description and the last idle check.",
@@ -6942,16 +6942,16 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "fly_config:\n  sql       fly_post(), fly_idle_suspend()\nfly_idle_suspend:\n  cron      'job_fly_idle_suspend' */10 * * * * (NOT SCHEDULED: see the commented example at the end of this file)",
+    "CALLED BY": "fly_config:\n  sql       fly_post(), fly_idle_suspend()\nfly_idle_suspend:\n  cron      'job_fly_idle_suspend' */15 * * * * (active on live, 2026-11-23)",
     "GOTCHAS": "updated_at is not maintained automatically; set it by hand on UPDATE (fly_idle_suspend does not touch it).\nmachine_id is not refreshed automatically: a redeploy that replaces the machine needs the row updated\n  (fly machine list -a <app>), otherwise the state check returns 404 and the app is never suspended.\nThe agent URL is derived as https://<app_name>.fly.dev.\nidle_seconds restarts from 0 when the agent process starts or resumes, so a woken machine waits a full\n  p_min_idle_seconds before it can be suspended again.",
     "HOW IT FITS": "fly_post(app, action) reads the app's api_token and machine_id here and calls the Fly Machines API (start / stop /\n  suspend). fly_idle_suspend() is the idle-aware caller meant for pg_cron (every 10 min):\n    1. GET https://api.machines.dev/v1/apps/<app>/machines/<id>; skip unless state = 'started'\n       (calling the agent while suspended would wake it: auto_start_machines = true).\n    2. GET https://<app>.fly.dev/internal/activity (restaurant-agents runtime, app_factory.py).\n    3. If active_requests, active_jobs, active_agent_runs are 0, draining is false and\n       idle_seconds >= p_min_idle_seconds (default 3600), call fly_post(app, 'suspend').\n  The next WhatsApp webhook wakes the machine again (Fly auto-start). See docs/fly.io-deploy-guide.md.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none",
-    "LIVE CHECK": "table DDL matched live on 2026-10-16. NOT YET APPLIED TO LIVE (2026-11-16): the RLS lock-down, the two\n  last_idle_check columns and fly_idle_suspend(). Apply this whole file, then tick the item in docs/to-do.md.",
+    "LIVE CHECK": "matches live on 2026-11-23: RLS on, anon/authenticated revoked (PostgREST answers 42501), both\n  last_idle_check columns, fly_idle_suspend() body and grants, and job_fly_idle_suspend (*/15) all present.\n  The two Fly tokens have NOT been rotated yet (updated_at 2026-07/08): see docs/to-do.md.",
     "OBJECTS": "table  fly_config\n    One row per Fly app: app-scoped API token, machine id, region, description and the last idle check.\nalter  fly_config ADD COLUMN last_idle_check, last_idle_check_at\n    Outcome of the most recent fly_idle_suspend() run for the app.\nfn     fly_idle_suspend(p_min_idle_seconds integer, p_dry_run boolean) -> jsonb\n    Suspend each started Fly machine whose agent reports no work and idle_seconds >= p_min_idle_seconds.",
     "PYTHON MODEL": "none",
     "REQUIRES": "platform/fly_post.sql (fly_idle_suspend calls fly_post to send the suspend)",
-    "SECURITY": "fly_config: RLS on with no policies; ALL revoked from anon, authenticated (tokens readable by the owner only).\nfly_idle_suspend(): SECURITY DEFINER; EXECUTE revoked from PUBLIC, anon, authenticated; granted to service_role.\nUntil this file is applied, live still lets anon read the tokens (docs/to-do.md): rotate them after applying.",
+    "SECURITY": "fly_config: RLS on with no policies; ALL revoked from anon, authenticated (tokens readable by the owner only).\nfly_idle_suspend(): SECURITY DEFINER; EXECUTE revoked from PUBLIC, anon, authenticated; granted to service_role.\nApplied live; anon could read the tokens before 2026-11, so rotate them (docs/to-do.md).",
     "SEE ALSO": "platform/fly_post.sql\ndocs/fly.io-deploy-guide.md\nrestaurant-agents: docs/webhook_endpoints.md (Activity Endpoint), watomation/activity.py",
     "SIDE EFFECTS": "fly_idle_suspend makes, per app: one GET to the Fly Machines API, one GET to the agent's /internal/activity\n  (only when the machine is started) and, when idle, one POST suspend via fly_post (can suspend production).\n  It writes last_idle_check / last_idle_check_at on fly_config and a RAISE LOG line per app.",
     "TESTS": "none"
@@ -6976,7 +6976,7 @@
    "cron": [],
    "folder": "platform",
    "header_lines": 24,
-   "lines": 103,
+   "lines": 101,
    "objects": [
     {
      "description": "Call the Fly Machines API action for an app's machine using fly_config; returns the HTTP status and body.",
@@ -7006,15 +7006,15 @@
    ],
    "sections": {
     "CALLED BY": "fly_post:\n  sql       fly_idle_suspend() (platform/fly_config.sql)",
-    "GOTCHAS": "URGENT (docs/to-do.md): the REVOKE below is commented because it is not live; anon can execute this function.",
+    "GOTCHAS": "DROP + CREATE resets grants: always run the REVOKE/GRANT below with it (whole file).",
     "HOW IT FITS": "SELECT * FROM fly_post('sfcs-agent', 'stop');   -- start | stop | suspend\n  SECURITY DEFINER so callers never hold the token; needs the pgsql-http extension (search_path includes extensions).\n  Run by hand or from a cron job; none is scheduled on 16 Oct 2026.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none",
-    "LIVE CHECK": "matches the live database (2026-10-16), whose grants are wider than intended: see SECURITY.",
+    "LIVE CHECK": "matches live on 2026-11-23: body identical, EXECUTE only for postgres and service_role (anon gets 42501).",
     "OBJECTS": "fn     fly_post(p_app_name text, p_action text) -> TABLE(status integer, content text)\n    Call the Fly Machines API action for an app's machine using fly_config; returns the HTTP status and body.",
     "PYTHON MODEL": "none",
     "REQUIRES": "none",
-    "SECURITY": "fly_post(): executable by PUBLIC (default); SECURITY DEFINER",
+    "SECURITY": "fly_post(): SECURITY DEFINER; EXECUTE revoked from PUBLIC, anon, authenticated; granted to service_role.",
     "SEE ALSO": "platform/fly_config.sql\ndocs/fly.io-deploy-guide.md",
     "SIDE EFFECTS": "Each call makes one HTTP request to the Fly Machines API (can stop production).",
     "TESTS": "none"
@@ -11408,14 +11408,14 @@
    "file": "platform/fly_config.sql",
    "folder": "platform",
    "kind": "table",
-   "line": 52,
+   "line": 53,
    "role": "definition",
    "signature": "fly_config"
   },
   "fly_idle_suspend": {
    "called_by": [
     {
-     "text": "'job_fly_idle_suspend' */10 * * * * (NOT SCHEDULED: see the commented example at the end of this file)",
+     "text": "'job_fly_idle_suspend' */15 * * * * (active on live, 2026-11-23)",
      "via": "cron"
     }
    ],
@@ -11423,7 +11423,7 @@
    "file": "platform/fly_config.sql",
    "folder": "platform",
    "kind": "function",
-   "line": 104,
+   "line": 105,
    "role": "definition",
    "signature": "fly_idle_suspend(p_min_idle_seconds integer, p_dry_run boolean) -> jsonb"
   },

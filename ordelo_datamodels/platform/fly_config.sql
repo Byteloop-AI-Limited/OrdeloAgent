@@ -2,8 +2,9 @@
 -- ordelo_datamodels/platform/fly_config.sql
 -- Fly.io control config per app (API token + target machine), and the idle-suspend job that uses it.
 -- =============================================================================================
--- LIVE CHECK    table DDL matched live on 2026-10-16. NOT YET APPLIED TO LIVE (2026-11-16): the RLS lock-down, the two
---                 last_idle_check columns and fly_idle_suspend(). Apply this whole file, then tick the item in docs/to-do.md.
+-- LIVE CHECK    matches live on 2026-11-23: RLS on, anon/authenticated revoked (PostgREST answers 42501), both
+--                 last_idle_check columns, fly_idle_suspend() body and grants, and job_fly_idle_suspend (*/15) all present.
+--                 The two Fly tokens have NOT been rotated yet (updated_at 2026-07/08): see docs/to-do.md.
 -- OBJECTS       table  fly_config
 --                   One row per Fly app: app-scoped API token, machine id, region, description and the last idle check.
 --               alter  fly_config ADD COLUMN last_idle_check, last_idle_check_at
@@ -28,11 +29,11 @@
 -- CALLED BY     fly_config:
 --                 sql       fly_post(), fly_idle_suspend()
 --               fly_idle_suspend:
---                 cron      'job_fly_idle_suspend' */10 * * * * (NOT SCHEDULED: see the commented example at the end of this file)
+--                 cron      'job_fly_idle_suspend' */15 * * * * (active on live, 2026-11-23)
 -- PYTHON MODEL  none
 -- SECURITY      fly_config: RLS on with no policies; ALL revoked from anon, authenticated (tokens readable by the owner only).
 --               fly_idle_suspend(): SECURITY DEFINER; EXECUTE revoked from PUBLIC, anon, authenticated; granted to service_role.
---               Until this file is applied, live still lets anon read the tokens (docs/to-do.md): rotate them after applying.
+--               Applied live; anon could read the tokens before 2026-11, so rotate them (docs/to-do.md).
 -- TESTS         none
 -- GOTCHAS       updated_at is not maintained automatically; set it by hand on UPDATE (fly_idle_suspend does not touch it).
 --               machine_id is not refreshed automatically: a redeploy that replaces the machine needs the row updated
@@ -252,7 +253,7 @@ COMMENT ON FUNCTION public.fly_idle_suspend (p_min_idle_seconds integer, p_dry_r
 --        description = EXCLUDED.description,
 --        updated_at  = CURRENT_TIMESTAMP;
 
-select * from fly_config;
+-- SELECT app_name, machine_id, region, updated_at FROM fly_config;   -- never select api_token into shared output
 
 -- Idle suspend: try it first without suspending anything, then for real.
 -- SELECT fly_idle_suspend();              -- checks only; result 'would_suspend' when idle enough

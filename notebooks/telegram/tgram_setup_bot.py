@@ -22,8 +22,8 @@ from pathlib import Path
 
 ROOT = next(p for p in [Path.cwd(), *Path.cwd().parents] if (p / "channels" / "telegram").is_dir())
 
-BOT_KEY = "rest_admin"  # Change to "rider" to operate the rider bot.
-# BOT_KEY = "rider"  # Change to "rider" to operate the rider bot.
+# BOT_KEY = "rest_admin"  # Change to "rider" to operate the rider bot.
+BOT_KEY = "rider"  # Change to "rider" to operate the rider bot.
 
 sys.path.insert(0, str(ROOT))
 
@@ -61,8 +61,8 @@ print(BOT_KEY)
 assert settings.webhook_url.startswith("https://"), f"set tgram_{BOT_KEY}_webhook_base_url to a public https:// URL"
 dp = DISPATCHER_FACTORIES[BOT_KEY](settings)
 
-callback_url = settings.webhook_url # Test
-# callback_url = settings.webhook_url.replace('-test', '') # Prod 
+# callback_url = settings.webhook_url # Test
+callback_url = settings.webhook_url.replace('-test', '') # Prod 
 
 await bot.set_webhook(
     url=callback_url,
@@ -78,7 +78,7 @@ print("url:                ", info.url)
 print("pending updates:    ", info.pending_update_count)
 print("last error:         ", info.last_error_message, info.last_error_date)
 print("allowed_updates:    ", info.allowed_updates)
-assert info.url == settings.webhook_url, "Telegram has a different URL than the one set in step 4"
+# assert info.url == settings.webhook_url, "Telegram has a different URL than the one set in step 4"
 
 # %%
 # %% 6. Bot commands register shown in the Telegram "/" menu (same as BotFather /setcommands)

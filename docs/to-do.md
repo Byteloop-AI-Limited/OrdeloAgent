@@ -9,13 +9,10 @@ Found while organising `ordelo_datamodels/` (plan: [`plans/ordelo-database-organ
 evidence: [`plans/ordelo-database-gate1-review.md`](../plans/ordelo-database-gate1-review.md) section B). The owner chose to
 record these as follow-ups; the organisation work documents them but does not change live behaviour.
 
-- [ ] **URGENT: lock down `fly_config` and rotate the Fly tokens.** `fly_config` holds the Fly API tokens that can stop and
-  start production machines (2 rows with tokens on 16 Oct 2026). Live has RLS **off** and default grants, so the
-  public anon key can read them through PostgREST. Since 16 Nov 2026 the lock-down (`ALTER TABLE public.fly_config ENABLE
-  ROW LEVEL SECURITY;` and `REVOKE ALL ON TABLE public.fly_config FROM anon, authenticated;`) is active in
-  `platform/fly_config.sql`, together with `fly_idle_suspend()`, but the file has not been applied to live yet. Done when
-  the file is applied, both tokens are rotated, and the LIVE CHECK line in the file is updated. Apply this before
-  scheduling `job_fly_idle_suspend` (docs/fly.io-deploy-guide.md §10g).
+- [ ] **URGENT: rotate the Fly tokens.** The `fly_config` lock-down is live (checked 23 Nov 2026: RLS on, anon and
+  authenticated get 42501, `fly_idle_suspend()` and `job_fly_idle_suspend` at `*/15` active), but before that the anon key
+  could read both tokens (`bnat-agent`, `sfcs-agent`; `updated_at` still July/August 2026). Done when both tokens are
+  replaced (`fly tokens create deploy -a <app>`, update the row and `updated_at`, revoke the old token in Fly).
 
 - [ ] **Schedule `job_payment_init_reconciler`.** `migrations/ordelo_agg_r1.sql` says to run it every 2 minutes, but
   `cron.job` has no such job, so payment-init reconciliation is not running. Done when the job is scheduled (or the
@@ -35,10 +32,9 @@ record these as follow-ups; the organisation work documents them but does not ch
   (byteloop_agent/documents.sql).
 - [ ] **Apply or drop the unapplied indexes.** `idx_thread_active_rest_ref_last_access`
   (`migrations/add_stale_thread_dispatch_index.sql`) and the two `rider_location` indexes were never created live.
-- [ ] **Lock down `fly_post()`.** It is `SECURITY DEFINER`, reads the Fly API token from `fly_config`, and is still
-  executable by PUBLIC/anon/authenticated on live: the `REVOKE` in `platform/fly_post.sql` was never applied (it is
-  kept commented there so the file matches live). `job_process_owntracks()` is also `SECURITY DEFINER` with default
-  grants. Done when both are revoked from PUBLIC/anon/authenticated live and the files carry the active `REVOKE`.
+- [ ] **Lock down `job_process_owntracks()`.** It is `SECURITY DEFINER` and still executable by PUBLIC/anon/authenticated
+  on live. (`fly_post()` was confirmed locked down on 23 Nov 2026 and its file now carries the active `REVOKE`.) Done when
+  it is revoked from PUBLIC/anon/authenticated live and its file carries the active `REVOKE`.
 - [ ] **Security review of row-level security.** RLS is off on most tables (`rider_master`, `restaurant_master`,
   `customer_master`, `delivery_*`, `takeaway_summary` …) while restaurant-frontend reads several of them with the
   publishable (anon) key. Only `t_*`, `web_*`, `wa_location_*` and `order_access_grant` have RLS.
