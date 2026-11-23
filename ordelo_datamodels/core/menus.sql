@@ -26,6 +26,9 @@
 --                 config/restaurants.ts. utils_common/web_ordering/monitoring.py audits web prices against them.
 --                 Onboarding a restaurant creates its table (.claude/skills/ordelo-restaurant-onboarding).
 -- LIFECYCLE     loaded and refreshed from the restaurant's menu source (e.g. the Deliveroo menu downloader); rows replaced in bulk.
+--               bnat_menu is refreshed against Deliveroo by .claude/skills/ordelo-menu-refresh (not replaced in bulk): price holds the
+--                 Deliveroo reference ("was") price, discounted_price (text) the BNAT price customers pay, and items Deliveroo no
+--                 longer sells are availability = 'out of stock' rather than deleted. A bulk reload would undo this.
 -- CALLED BY     crms_menu:
 --                 frontend  restaurant-frontend/app/test-crms-menu/page.tsx
 --               elas_menu:
@@ -52,7 +55,12 @@
 -- GOTCHAS       The column sets differ between restaurants (each was created from that restaurant's source); there is no shared shape.
 --               id is NOT NULL but none of these tables has a primary key.
 --               elas_menu_before_march is an old copy kept in _orphans/core.sql.
+--               The web price audit (utils_common/web_ordering/monitoring.py MENU_FLOOR) uses discounted_price when it is numeric,
+--                 else price.
+--               bnat_menu's column defaults are stale copies from sfcs_menu (branch_link https://sfc-salisbury.co.uk, branch_name
+--                 Salisbury); inserts must set both. Recorded in docs/to-do.md; no DDL change yet.
 -- SEE ALSO      .claude/skills/ordelo-restaurant-onboarding/SKILL.md
+--               .claude/skills/ordelo-menu-refresh/SKILL.md
 --               _orphans/core.sql
 -- =============================================================================================
 

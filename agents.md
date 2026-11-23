@@ -26,6 +26,7 @@ Trace cross-project issues through these folders as needed, reading each project
 ## Project Skills
 
 - **[telegram-api](.claude/skills/telegram-api/SKILL.md)** — Use for migrating this project's WhatsApp/PyWa messaging and handlers to Telegram with aiogram 3.31.0, or implementing Telegram interactions. Includes the Ordelo message inventory, official API documentation links, implementation examples, and source references for six FastAPI/aiogram repositories. Read the skill before Telegram migration work; preserve existing delivery/payment rules and LangGraph state.
+- **[ordelo-menu-refresh](.claude/skills/ordelo-menu-refresh/SKILL.md)** — Use to re-price a `<rest_ref>_menu` against the restaurant's Deliveroo capture: Deliveroo list price in `price`, our price in `discounted_price`, items no longer sold go out of stock (never deleted), new items inserted, missing images mirrored to S3, with snapshot, guarded SQL and rollback.
 - **[Telegram Vertification Loop](.claude/skills/telegram-vertification-loop/SKILL.md)** — Use to verify aiogram handlers, callbacks, webhooks, and database-backed Telegram actions with offline tests and clearly scoped live evidence.
 
 
