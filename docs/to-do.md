@@ -177,3 +177,11 @@ Rollback, if needed after deploy:
      - Expected: the preview WhatsApp fetches must not use the link up. It is still unused until you tap it (the page only activates on the browser's automatic POST).
 - [ ] **pgFormatter breaks some SQL that `format_sql.py` does not catch.** On 19 Nov, formatting the new files changed the JSONB operator `#-` into `# -` (`restaurant_setting_write`) and broke the `%%` escapes inside a dollar-quoted `format()` string (`rest_admin_menu_list`). The guard compares code with whitespace removed, so it missed both; `tests/sql` caught them and the files were restored unformatted. Until `scripts/datamodels/format_sql.py` keeps operator tokens and dollar-quoted bodies intact, do not run it on `restaurant_admin/restaurant_settings.sql`, `restaurant_admin/restaurant_service_hours.sql` or `ordering/menu_item_visibility.sql`, and always run `pytest tests/sql` after formatting. These 11 files are deliberately unformatted: `admin_dashboard/auth_sessions.sql`, `admin_dashboard/rest_admin_reports.sql`, `availability/pauses.sql`, `core/restaurant_master.sql`, `ordering/create_food_order_with_items.sql`, `ordering/menu_item_visibility.sql`, `ordering/order_intake_guard.sql`, `restaurant_admin/admin_roster.sql`, `restaurant_admin/rest_admin_dashboard_alerts.sql`, `restaurant_admin/restaurant_service_hours.sql`, `restaurant_admin/restaurant_settings.sql`. Fifteen other files were already unformatted before this work.
 
+## Menu tables (added 23 Nov 2026)
+
+- [ ] **Fix the stale `bnat_menu` column defaults.** `bnat_menu` was created as a copy of `sfcs_menu`, so `branch_link`
+  defaults to `https://sfc-salisbury.co.uk` and `branch_name` to `Salisbury` (and its table comment says "This is a
+  duplicate of sfcs_menu"). Every live row sets both explicitly and the ordelo-menu-refresh inserts do too, so nothing is
+  wrong today. Done when `ordelo_datamodels/core/menus.sql` and live use BNAT defaults (Orpington and the BNAT site link)
+  or drop the defaults, applied with owner approval.
+
