@@ -169,6 +169,20 @@ async def unlock_order(order_number: str, body: OrderUnlock, request: Request):
     return JSONResponse(await order_lookup.unlock(order_number, body.postcode, body.house, identity), 201, headers=PRIVATE)
 
 
+@router.post("/orders/{order_number}/quote")
+async def pending_quote(order_number: str, body: ResumeSession, request: Request, handoff: bool = False):
+    grant = await order_access.verify(request.headers.get("X-Order-Access", ""), order_number)
+    if grant["detail_level"] != "full":
+        raise WebError("forbidden", 403)
+    quote = await web_checkout.pending_quote(
+        body.thread_id, body.cust_id, order_number, start_payment=handoff
+    )
+    if handoff:
+        return JSONResponse({"payment_url": quote["payment_url"]}, headers=PRIVATE)
+    view = await customer_order_view.get_view(order_number)
+    return JSONResponse({**quote, "page_path": view["page_path"], "items": view["items"]}, headers=PRIVATE)
+
+
 @router.get("/orders/{order_number}")
 async def view(order_number: str, request: Request):
     grant = await order_access.verify(

@@ -512,11 +512,45 @@ async def create(req, key):
                 )
     return {
         **quote,
+        "handoff_supported": True,
         "access": {
             "token": token,
             "page_path": f"/town/{co['town_slug']}/orders/{attempt['order_number']}",
         },
     }
+
+
+async def pending_quote(thread_id, cust_id, order_number, *, start_payment=False):
+    """Read an owned quote and optionally record its payment handoff."""
+    co = await session(thread_id, cust_id)
+    if start_payment:
+        await availability.available(co["rest_ref"], co["mode"])
+    pool = await pg_settings.get_pool()
+    async with pool.connection() as conn:
+        async with conn.transaction(), conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                """SELECT r.quote, f.payment_status
+                   FROM web_order_request r JOIN food_order f USING (order_number)
+                   WHERE r.thread_id=%s AND r.order_number=%s AND f.origin_channel='web'
+                   FOR UPDATE OF f""",
+                (thread_id, order_number),
+            )
+            row = await cur.fetchone()
+            if not row or not row["quote"]:
+                raise WebError("not_found", 404)
+            if row["payment_status"] != "requires_payment":
+                raise WebError("payment_already_processed", 409)
+            deadline = await _accept_by(cur, order_number)
+            if deadline is None or utcnow() >= deadline:
+                raise WebError("quote_expired", 410)
+            if start_payment:
+                await cur.execute(
+                    """INSERT INTO order_customer_event (order_number,event_key,event_type)
+                       VALUES (%s,'payment_handoff_started','payment_handoff_started')
+                       ON CONFLICT (order_number,event_key) DO NOTHING""",
+                    (order_number,),
+                )
+            return {**row["quote"], "handoff_supported": True}
 
 
 async def _accept_by(cur, order_number):
