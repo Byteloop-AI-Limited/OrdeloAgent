@@ -113,7 +113,7 @@ Not fixed by that plan unless a phase says so.
 
 ## Telegram portal links and restaurant dashboard (added 19 Nov 2026)
 
-Built and verified on 19 Nov (offline, isolated SQL and live through the tunnel). The decisions and verification evidence are in [ADR 0017](adr/0017-portal-access-is-decided-per-request-in-sql.md) (portal links) and [ADR 0018](adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md) (dashboard settings, closures, hidden items, reports). The live verification loop is in `agents.md`. The SQL is applied live; the code is NOT deployed.
+Built and verified on 19 Nov (offline, isolated SQL and live through the tunnel). The decisions and verification evidence are in [ADR 0017](adr/0017-portal-access-is-decided-per-request-in-sql.md) (portal links) and [ADR 0018](adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md) (dashboard settings, closures, hidden items, reports). The live verification loop is the [verify-test-order-local-setup skill](../.claude/skills/verify-test-order-local-setup/SKILL.md). The SQL is applied live; the code is NOT deployed.
 
 Failures that predate this work (seen 19 Nov; treat any other failure as new):
 - `tests/ordelo_datamodels/test_master_pymodels.py::test_restaurant_master_get_admins_fetches_live_column`
@@ -203,3 +203,15 @@ Active work is tracked in [Web storefront controls and audit alignment](../plans
   flows using the intended channels. Rehearse the per-restaurant web pause and confirm an order already in
   progress remains trackable. Keep confirmation of message delivery separate from successful transport calls.
 
+## Found by the local test order run (25 Nov 2026)
+
+Evidence is in the [25 November report](releases/verify-test-order-local-setup-2026-11-25.md).
+
+- [x] **Retire the checkout session once its order is paid.** Fixed and verified locally on 25 Nov, not yet committed or
+  deployed. `web_checkout.resume()` refuses a checkout with a paid order, so the storefront starts a new one; `create()`
+  refuses to replay a paid order's key. Deploy OrdeloAgent first; the frontend change is only the message for a stale tab.
+- [ ] **Decide whether declined and no-rider orders count in the restaurant dashboard totals.** `v_admin_orders_daily`
+  sums gross and "your cut" over every order in `v_admin_orders`, including declined and timed-out ones (STRK on 25 Nov:
+  `STRK-MZTY-22` and `STRK-UCBX-23` counted).
+- [ ] **Reword the fallback card after an admin accepted.** When an admin taps Accept but picks no pickup time, the card
+  says "Auto-accepted (no answer in time)" and the kitchen receipt says "Accepted automatically".
