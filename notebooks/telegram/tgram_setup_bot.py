@@ -22,8 +22,8 @@ from pathlib import Path
 
 ROOT = next(p for p in [Path.cwd(), *Path.cwd().parents] if (p / "channels" / "telegram").is_dir())
 
-# BOT_KEY = "rest_admin"  # Change to "rider" to operate the rider bot.
-BOT_KEY = "rider"  # Change to "rider" to operate the rider bot.
+BOT_KEY = "rest_admin"  # Change to "rider" to operate the rider bot.
+# BOT_KEY = "rider"  # Change to "rider" to operate the rider bot.
 
 sys.path.insert(0, str(ROOT))
 
@@ -42,8 +42,13 @@ assert settings is not None and bot is not None, f"{BOT_KEY} bot is not configur
 print("bot_key:      ", BOT_KEY)
 print("token set:    ", bool(settings.bot_token))
 print("secret set:   ", bool(settings.webhook_secret))
-print("webhook URL:  ", settings.webhook_url or f"(tgram_{BOT_KEY}_webhook_base_url not set)")
+# print("webhook URL:  ", settings.webhook_url or f"(tgram_{BOT_KEY}_webhook_base_url not set)")
 
+info = await bot.get_webhook_info()
+print("url:                ", info.url)
+print("pending updates:    ", info.pending_update_count)
+print("last error:         ", info.last_error_message, info.last_error_date)
+print("allowed_updates:    ", info.allowed_updates)
 # %% 2. Validate the token
 me = await bot.get_me()
 print(f"OK token valid -> @{me.username} id={me.id} name={me.first_name!r}")

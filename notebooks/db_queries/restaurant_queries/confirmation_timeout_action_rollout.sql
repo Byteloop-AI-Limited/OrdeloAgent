@@ -1,3 +1,4 @@
+-- Historical rollout. For the current policy use web_storefront_confirmation_policy.sql.
 -- Web-only restaurants (STRK, CRDO, CRMS, BNAT): silence means DECLINE, a longer answer time, more admin reminders.
 -- Plan: plans/restaurant-confirmation-timeout-action-plan.md.   Run block by block in the Supabase SQL editor.
 -- ORDER: 1) apply ordelo_datamodels/migrations/restaurant_confirmation_timeout_action.sql  2) deploy the code

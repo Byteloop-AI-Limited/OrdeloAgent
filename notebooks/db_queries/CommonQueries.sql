@@ -20,8 +20,10 @@ exclude_list = ['447919202938', '447448440754', '447446933210'];
 
 select * from delivery_option where order_number like 'ELAS-DDJV-22%' order by id desc;
 select * from delivery_dispatch where order_number like 'ELAS-XBKV-20%' ;
-select * from delivery_summary where order_number like 'ELAS-%' order by dtts desc limit 1;
+select * from delivery_summary where order_number like 'SFCS-%' order by dtts desc limit 1;
 select * from customer_master;
+select * from food_order where order_number like 'SFCS-%' order by order_dtts desc limit 1;
+select * from takeaway_summary where order_number like 'SFCS-%' order by dtts desc limit 1;
 select rest_ref, count(*) from cust_rest_map where has_consent group by rest_ref;
 -- Check and close thread
 select * from thread where is_active order by dtts desc;
