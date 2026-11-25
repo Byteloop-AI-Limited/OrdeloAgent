@@ -111,8 +111,7 @@ class ResumeSession(BaseModel):
 
 @router.post("/checkout-sessions/resume")
 async def resume(body: ResumeSession):
-    current = await web_checkout.session(body.thread_id, body.cust_id)
-    await availability.available(current["rest_ref"], current["mode"])
+    await web_checkout.resume(body.thread_id, body.cust_id)
     return JSONResponse({"ok": True}, headers=PRIVATE)
 
 

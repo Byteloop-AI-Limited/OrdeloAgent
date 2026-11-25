@@ -161,6 +161,29 @@ async def session(thread_id, cust_id):
     return row
 
 
+async def resume(thread_id, cust_id):
+    """Confirm a checkout can take the customer back to the same order.
+
+    A checkout is reusable only while every order it created is unpaid: reuse
+    gives the same basket the same Idempotency-Key, so a repeat order after
+    payment would reopen the paid order. Once one order has left
+    requires_payment, raise payment_already_processed (409); the storefront
+    answers a 409 by starting a new checkout. Payment status decides, not
+    thread.is_active, which stale-thread jobs also clear.
+    """
+    co = await session(thread_id, cust_id)
+    paid = await one(
+        """SELECT r.order_number
+           FROM web_order_request r JOIN food_order f USING (order_number)
+           WHERE r.thread_id=%s AND f.payment_status IS DISTINCT FROM 'requires_payment'
+           LIMIT 1""",
+        (thread_id,),
+    )
+    if paid:
+        raise WebError("payment_already_processed", 409)
+    await availability.available(co["rest_ref"], co["mode"])
+
+
 def address_display(value):
     """Join the customer's address parts into one line, skipping empty parts."""
     keys = ("flat", "building", "house_number", "street", "town", "postcode")
@@ -325,6 +348,7 @@ async def create(req, key):
     retry with the same key; provider-session uniqueness is not guaranteed by
     this local lock. Accepted client item prices remain unchanged (decision D8).
     Issue a fresh order-access token even when returning a cached quote.
+    A key whose order has already been paid raises payment_already_processed (409).
     """
     co = await session(req.thread_id, req.cust_id)
     lookup = co.get("postcode") if co["mode"] == "delivery" else normalise_postcode(req.lookup_postcode)
@@ -364,6 +388,14 @@ async def create(req, key):
                     or not fingerprint_matches(attempt["body_hash"], req, addr)
                 ):
                     raise WebError("idempotency_conflict", 409)
+                # A retry may only return an order that still needs paying. A tab left
+                # open after payment must not show the paid order as a new quote.
+                await cur.execute(
+                    "SELECT payment_status FROM food_order WHERE order_number=%s",
+                    (attempt["order_number"],),
+                )
+                if (await cur.fetchone())["payment_status"] != "requires_payment":
+                    raise WebError("payment_already_processed", 409)
             else:
                 # Bound abandoned orders per checkout; idempotent retries do not consume this budget.
                 await cur.execute(
