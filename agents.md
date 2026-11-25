@@ -27,6 +27,7 @@ Trace cross-project issues through these folders as needed, reading each project
 
 - **[telegram-api](.claude/skills/telegram-api/SKILL.md)** — Use for migrating this project's WhatsApp/PyWa messaging and handlers to Telegram with aiogram 3.31.0, or implementing Telegram interactions. Includes the Ordelo message inventory, official API documentation links, implementation examples, and source references for six FastAPI/aiogram repositories. Read the skill before Telegram migration work; preserve existing delivery/payment rules and LangGraph state.
 - **[ordelo-menu-refresh](.claude/skills/ordelo-menu-refresh/SKILL.md)** — Use to re-price a `<rest_ref>_menu` against the restaurant's Deliveroo capture: Deliveroo list price in `price`, our price in `discounted_price`, items no longer sold go out of stock (never deleted), new items inserted, missing images mirrored to S3, with snapshot, guarded SQL and rollback.
+- **[Verify test order on local setup](.claude/skills/verify-test-order-local-setup/SKILL.md)** — Use to verify a change end to end on the local setup: place a TEST3100 order on the Strikers storefront, simulate payment, accept/decline and deliver through Telegram Web, and check the tracking page, logs and database.
 - **[Telegram Vertification Loop](.claude/skills/telegram-vertification-loop/SKILL.md)** — Use to verify aiogram handlers, callbacks, webhooks, and database-backed Telegram actions with offline tests and clearly scoped live evidence.
 
 
@@ -300,39 +301,9 @@ INSTALL_DEV=1 source run_setup.sh
 
 > **📖 For detailed cloud session setup instructions, see [`.claude/CLOUD_SESSION_SETUP.md`](.claude/CLOUD_SESSION_SETUP.md)**
 
-## Live verification loop (verify your own work end to end)
+## Live verification loop
 
-When a change touches a Telegram bot, a dashboard magic link, or a frontend↔backend call, verify it live through the local services as well as offline. The full procedure is in the [Telegram Vertification Loop skill](.claude/skills/telegram-vertification-loop/SKILL.md). The facts an agent needs are:
-
-- **One database: the production Supabase.** There is no separate test database. The local services, deployed production and every bot share it. Isolated SQL tests use the throwaway Postgres from the `ordelo-sql-test-db` skill. Anything applied to Supabase is live for real restaurants.
-- **The owner runs the local services in the Rex session `RunServices`.** The Rex CLI is at `/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex`; read its `__internal skill` guide.
-  - List panes: `rex ls --json` and `rex block ls -s <session> --json`.
-  - Read logs: `rex capture -s <session> -b <block> --trim`.
-  - The pane running `uvicorn` is the OrdeloAgent backend (port 3100). The pane running `next dev` is restaurant-frontend (port 3000).
-  - Both reload on save, so **every file you save is immediately served to live traffic**. Keep each save importable, and apply new SQL to the database before saving code that calls it.
-  - Never stop or restart those processes unless the owner asks.
-- **Cloudflare Tunnel hostnames**:
-  - `https://rider-agent-test.ordelo.app` → `localhost:3100`
-  - `https://restaurant-test.ordelo.app` → `localhost:3000`
-
-  During a verification window the owner sets:
-  ```sql
-  UPDATE ordelo_config SET config_value = 'https://rider-agent-test.ordelo.app' WHERE config_key = 'ORDELO_APP_URL';
-  UPDATE ordelo_config SET config_value = 'https://restaurant-test.ordelo.app' WHERE config_key = 'RESTAURANT_MENU_APP_URL';
-  ```
-  Both bot webhooks (@OrdeloRestaurantBot and @ByteloopRidersBot, the **production** bots) also point at `rider-agent-test.ordelo.app/telegram/<bot>/webhook`. Then:
-  - Telegram commands reach the local backend.
-  - Magic links open the local frontend.
-  - The frontend calls the local backend.
-
-  Check this before relying on it: `getWebhookInfo` for each bot, and `SELECT` both config rows. Production values are `https://rider-agent.ordelo.app` and `https://restaurant.ordelo.app` ([runbook §7](docs/local-testing-runbook.md)). Agents do not switch these unless the owner asks.
-- **Telegram desktop is open in a split view.** Drive it with computer use (the `computer-use` skill), acting as the owner's Telegram account. Send a command or tap a button, then confirm the outcome three ways: the visible reply, the backend pane log, and the database row (read-only queries). Open magic links from the chat, and check that the page lands on the right portal and that a second tap of the same link is refused.
-- **Order of evidence**:
-  1. offline tests (`pytest`, frontend `vitest`/`lint`/`build`)
-  2. isolated SQL (`pytest tests/sql`)
-  3. live Telegram + browser
-  
-  Label each result. Record the pre-existing failures before you change anything. Test data written to real restaurants must be reverted afterwards; prefer the `STRK` test restaurant and `STRK-TEST-*` fake orders ([live-order-test-harness.md](docs/live-order-test-harness.md)).
+When a change touches a Telegram bot, a dashboard magic link, checkout, order tracking or a frontend↔backend call, verify it live through the local services as well as offline. Follow the [verify-test-order-local-setup skill](.claude/skills/verify-test-order-local-setup/SKILL.md): it owns the routing facts, the server logs, placing TEST3100 orders, acting in Telegram, and the evidence rules. Agents never switch the shared URLs or bot webhooks, or restart the local servers, unless the owner asks.
 
 ## Running Locally
 
