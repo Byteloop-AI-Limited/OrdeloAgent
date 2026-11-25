@@ -81,6 +81,22 @@ def test_policy_action_is_per_restaurant_only(db):
 
 
 @pytest.mark.parametrize("kind", ["delivery", "takeaway"])
+@pytest.mark.parametrize("sweep_first", [False, True])
+def test_two_minute_policy_acceptance_races_with_sweep(db, kind, sweep_first):
+    config(db, "ZZZZ_RESTAURANT_CONFIRMATION_TIMEOUT_TIME", "2")
+    config(db, "ZZZZ_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION", "decline")
+    number = old_order(db, kind, minutes_old="2.05")  # 2:03
+    if sweep_first:
+        run_job(db)
+    decision = fetch_one(
+        db, "SELECT public.restaurant_order_decide(%s, %s, 'accept', '447700900123', 'test')",
+        (number, kind),
+    )
+    assert decision["result"] == ("already_decided" if sweep_first else "ok")
+    assert state(db, kind, number)[0] == ("auto_decline" if sweep_first else "restaurant_accept")
+
+
+@pytest.mark.parametrize("kind", ["delivery", "takeaway"])
 def test_silence_declines_when_policy_says_decline(db, kind):
     config(db, "ZZZZ_RESTAURANT_CONFIRMATION_TIMEOUT_ACTION", "decline")
     config(db, "ZZZZ_RESTAURANT_CONFIRMATION_TIMEOUT_TIME", "3")

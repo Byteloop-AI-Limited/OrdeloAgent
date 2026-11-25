@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -81,6 +82,26 @@ async def test_decide_rejects_unknown_result(monkeypatch):
         await rd.decide("ELAS-ABCD-1", "delivery", "accept", "447700900123", "whatsapp")
 
 
+# ---- default pickup ------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("rows, expected", [([{"minutes": 25}], 25), ([{"minutes": None}], 30)])
+async def test_default_pickup_minutes_uses_the_effective_rpc(monkeypatch, rows, expected):
+    rpc = AsyncMock(return_value=rows)
+    monkeypatch.setattr(rd, "_rpc", rpc)
+    assert await rd.default_pickup_minutes("STRK", "takeaway") == expected
+    rpc.assert_awaited_once_with(
+        "restaurant_default_pickup_minutes", {"p_rest_ref": "STRK", "p_kind": "takeaway"}
+    )
+
+
+@pytest.mark.parametrize("rows", [[], [{}], [{"minutes": "30"}], [{"minutes": 0}]])
+async def test_default_pickup_minutes_rejects_invalid_rpc_result(monkeypatch, rows):
+    monkeypatch.setattr(rd, "_rpc", AsyncMock(return_value=rows))
+    with pytest.raises(RuntimeError):
+        await rd.default_pickup_minutes("STRK", "delivery")
+
+
 # ---- set_pickup ----------------------------------------------------------------------------------
 
 
@@ -128,7 +149,7 @@ async def test_set_pickup_not_found_and_naive_datetime_rejected(decision_db):
         ("restaurant_decline", None, "declined"),
         ("restaurant_timedout", None, "auto-accepted (no answer in time)"),
         ("auto_accept", "Ada", "auto-accepted (no answer in time)"),
-        ("auto_decline", None, "auto-declined"),
+        ("auto_decline", None, "auto-declined (no answer in time)"),
         ("restaurant_unconfirmed", None, "decided"),
         ("something_new", None, "decided"),
     ],

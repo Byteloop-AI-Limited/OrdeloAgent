@@ -121,24 +121,25 @@ def test_session_binding_and_removed_admin(db):
     assert get(db, "00000000-0000-0000-0000-000000000000") == {"result": "not_authorised"}
 
 
+@pytest.mark.parametrize("kind, suffix", [("delivery", "DELIVERY"), ("takeaway", "COLLECTION")])
 @pytest.mark.parametrize("own, glob, expected", [
     ("20", "30", (20, False)), ("", "30", (30, True)), (" 7 ", "30", (7, False)), ("0", "30", (30, True)),
     ("abc", "30", (30, True)), (None, "30", (30, True)), (None, None, (None, True)), ("15", "x", (15, False)),
 ])
-def test_default_minutes_agree_with_order_creation(db, own, glob, expected):
+def test_default_minutes_agree_with_order_creation(db, own, glob, expected, kind, suffix):
     db.execute("DELETE FROM public.ordelo_config WHERE config_key = ANY(%s)", (list(KEYS),))
     if own is not None:
-        db.execute("INSERT INTO public.ordelo_config VALUES ('SET1_DEFAULT_DELIVERY_PICKUP_TIME', %s)", (own,))
+        db.execute("INSERT INTO public.ordelo_config VALUES (%s, %s)", (f"SET1_DEFAULT_{suffix}_PICKUP_TIME", own))
     if glob is not None:
-        db.execute("INSERT INTO public.ordelo_config VALUES ('DEFAULT_DELIVERY_PICKUP_TIME', %s)", (glob,))
-    got = db.execute("SELECT minutes, inherited FROM public.restaurant_default_pickup_minutes('SET1', 'delivery')").fetchone()
+        db.execute("INSERT INTO public.ordelo_config VALUES (%s, %s)", (f"DEFAULT_{suffix}_PICKUP_TIME", glob))
+    got = db.execute("SELECT minutes, inherited FROM public.restaurant_default_pickup_minutes('SET1', %s)", (kind,)).fetchone()
     assert got == expected
     db.execute("UPDATE public.restaurant_master SET auto_accept = true WHERE rest_ref = 'SET1'")
     if expected[0] is None:
         with pytest.raises(Exception):
-            db.execute("SELECT * FROM public.resolve_initial_restaurant_acceptance('SET1', 'delivery', now())")
+            db.execute("SELECT * FROM public.resolve_initial_restaurant_acceptance('SET1', %s, now())", (kind,))
     else:
-        live = db.execute("SELECT pickup_minutes FROM public.resolve_initial_restaurant_acceptance('SET1', 'delivery', now())").fetchone()[0]
+        live = db.execute("SELECT pickup_minutes FROM public.resolve_initial_restaurant_acceptance('SET1', %s, now())", (kind,)).fetchone()[0]
         assert live == expected[0]
 
 

@@ -706,15 +706,26 @@ async def test_handle_restaurant_pickuptime_adjusted_skips_when_progress_unknown
     assert calls == []
 
 
+@pytest.fixture
+def pickup_defaults(monkeypatch, patch_supabase_client):
+    monkeypatch.setattr(delivery_hooks.restaurant_decision, "client_ordelo_service", patch_supabase_client)
+
+    def register(minutes, *, inherited=True):
+        patch_supabase_client.register_rpc(
+            "restaurant_default_pickup_minutes",
+            FakeSupabaseResponse(data=[{"minutes": minutes, "inherited": inherited}]),
+        )
+
+    register(None)
+    return register
+
+
 async def test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_config(
+    pickup_defaults,
     monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
 ) -> None:
     monkeypatch.setattr(delivery_hooks, "client_ordelo", patch_supabase_client)
-    patch_supabase_client.register(
-        table="ordelo_config",
-        verb="select",
-        response=FakeSupabaseResponse(data=[{"config_value": "45"}]),
-    )
+    pickup_defaults(45, inherited=False)
     patch_supabase_client.register(
         table="delivery_summary",
         verb="update",
@@ -733,6 +744,7 @@ async def test_handle_restaurant_timedout_uses_rest_specific_delivery_pickup_con
 
 
 async def test_handle_restaurant_timedout_notifies_after_the_update_with_an_exact_notice(
+    pickup_defaults,
     monkeypatch, patch_supabase_client
 ) -> None:
     """The auto-accept notice goes out AFTER the UPDATE, so a failed send can never stop the auto-accept."""
@@ -755,6 +767,7 @@ async def test_handle_restaurant_timedout_notifies_after_the_update_with_an_exac
 
 
 async def test_handle_restaurant_timedout_still_updates_when_the_notice_cannot_be_sent(
+    pickup_defaults,
     monkeypatch, patch_supabase_client, patch_async_wa_client
 ) -> None:
     monkeypatch.setattr(delivery_hooks, "client_ordelo", patch_supabase_client)
@@ -778,16 +791,12 @@ async def test_handle_restaurant_timedout_still_updates_when_the_notice_cannot_b
 
 
 async def test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_config(
+    pickup_defaults,
     monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
 ) -> None:
     monkeypatch.setattr(delivery_hooks, "client_ordelo", patch_supabase_client)
 
-    def config_response(call):
-        if call.filters.get("eq:config_key") == "ELAS_DELIVERY_PICKUP_DEFAULT_TIME":
-            return FakeSupabaseResponse(data=[])
-        return FakeSupabaseResponse(data=[{"config_value": "20"}])
-
-    patch_supabase_client.register(table="ordelo_config", verb="select", response=config_response)
+    pickup_defaults(20)
     patch_supabase_client.register(
         table="delivery_summary",
         verb="update",
@@ -803,6 +812,7 @@ async def test_handle_restaurant_timedout_falls_back_to_global_delivery_pickup_c
 
 
 async def test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_delivery(
+    pickup_defaults,
     monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
 ) -> None:
     monkeypatch.setattr(delivery_hooks, "client_ordelo", patch_supabase_client)
@@ -818,6 +828,28 @@ async def test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes_del
 
     update_call = next(c for c in patch_supabase_client.calls if c.table == "delivery_summary")
     assert update_call.payload["pickup_time"] == "2026-05-09T11:30:00+01:00"
+
+
+async def test_timeout_replay_does_not_replace_pickup_or_send_notice(
+    pickup_defaults, monkeypatch, patch_supabase_client
+) -> None:
+    async def unexpected_notice(_notice):
+        pytest.fail("A timeout replay must not send another notice")
+
+    monkeypatch.setattr(restaurant_notifier, "notify", unexpected_notice)
+    patch_supabase_client.register(
+        table="delivery_summary", verb="update", response=FakeSupabaseResponse(data=[])
+    )
+    row = _summary_row()
+    for field in ("pickup_time", "pickup_date", "dt", "dtts"):
+        row[field] = row[field].isoformat()
+    result = await delivery_hooks._handle_restaurant_timedout(
+        delivery_hooks.DeliverySummaryData(**row), ["ADMIN01"]
+    )
+    assert result["action"] == "auto_accept_skipped"
+    update_call = next(c for c in patch_supabase_client.calls if c.verb == "update")
+    assert update_call.filters["eq:restaurant_confirmation_status"] == "restaurant_timedout"
+    assert update_call.filters["is:pickup_time"] == "null"
 
 
 def _alert(**overrides):
