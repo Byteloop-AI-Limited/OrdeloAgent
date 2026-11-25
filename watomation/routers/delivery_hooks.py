@@ -83,6 +83,7 @@ Called by database (SQL triggers / pg_cron jobs POST to these routes):
 """
 
 from utils_common.order_management.customer_keys import is_web_customer_key
+from utils_common.order_management import restaurant_decision
 from utils_common.notify import customer_notifier, restaurant_notifier
 from utils_common.notify.restaurant_notifier import AutoAccepted, AutoDeclined, KitchenReceipt, NoRiderFound, RiderAlert
 from channels.telegram.ops_alerts import alert_ops
@@ -1534,20 +1535,6 @@ async def _handle_restaurant_decline(
     }
 
 
-def _get_delivery_pickup_default_minutes(rest_ref: str) -> int:
-    for key in [f"{rest_ref.upper()}_DEFAULT_DELIVERY_PICKUP_TIME", "DEFAULT_DELIVERY_PICKUP_TIME"]:
-        resp = (
-            client_ordelo.table("ordelo_config")
-            .select("config_value")
-            .eq("config_key", key)
-            .limit(1)
-            .execute()
-        )
-        if resp.data:
-            return int(float(resp.data[0]["config_value"]))
-    return 30
-
-
 async def _handle_restaurant_timedout(
     delivery_summary: DeliverySummaryData,
     restaurant_admins: List[str],
@@ -1566,7 +1553,7 @@ async def _handle_restaurant_timedout(
         f"rest_id={delivery_summary.rest_id}, rest_name={delivery_summary.rest_name}"
     )
     rest_ref = delivery_summary.rest_ref or delivery_summary.order_number.split("-")[0]
-    pickup_minutes = await asyncio.to_thread(_get_delivery_pickup_default_minutes, rest_ref)
+    pickup_minutes = await restaurant_decision.default_pickup_minutes(rest_ref, "delivery")
 
     order_time = parse_db_iso(delivery_summary.dtts).astimezone(UK_TZ)
     new_pickuptime = (order_time + timedelta(minutes=pickup_minutes)).isoformat()
@@ -1580,15 +1567,19 @@ async def _handle_restaurant_timedout(
 
     order_number = delivery_summary.order_number
 
-    # pylint: disable=unused-variable
     result = await asyncio.to_thread(
         lambda: (
             client_ordelo.table("delivery_summary")
             .update(update_vals)
             .eq("order_number", order_number)
+            .eq("restaurant_confirmation_status", "restaurant_timedout")
+            .filter("pickup_time", "is", "null")
             .execute()
         )
     )
+
+    if not result.data:
+        return {"status": "skipped", "action": "auto_accept_skipped"}
 
     # Tell the admins (WhatsApp and Telegram) AFTER the update: a failed send can no longer stop the auto-accept.
     await restaurant_notifier.notify(

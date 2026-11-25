@@ -10,6 +10,8 @@ Restaurant decision on an order: accept, decline, choose the pickup time (shared
                        the same UPDATE (R1-a: a declined delivery order is never dispatchable).
         set_pickup  -> restaurant_order_set_pickup(p_order_number, p_order_type, p_pickup_time, p_admin_phone, p_channel)
                        ok | already_set | not_accepted | not_found
+        default_pickup_minutes -> restaurant_default_pickup_minutes(p_rest_ref, p_kind)
+                       Defined in ordelo_datamodels/restaurant_admin/restaurant_settings.sql.
       describe() is pure text for the "already decided" reply and calls nothing.
     . Tables behind them: delivery_summary (ordelo_datamodels/delivery/delivery_summary.sql), takeaway_summary
       (ordelo_datamodels/takeaway/takeaway_summary.sql); the "by X" label comes from t_invites (ordelo_datamodels/telegram/t_invites.sql)
@@ -39,6 +41,8 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
+
+from loguru import logger
 
 from config import client_ordelo_service
 
@@ -114,6 +118,24 @@ async def decide(
         decided_by_phone=data.get("decided_by_phone"),
         pickup_time=data.get("pickup_time"),
     )
+
+
+async def default_pickup_minutes(rest_ref: str, order_type: OrderType) -> int:
+    """Resolve the effective timeout pickup default for this restaurant and mode."""
+    _check_order_type(order_type)
+    rows = await _rpc(
+        "restaurant_default_pickup_minutes",
+        {"p_rest_ref": rest_ref, "p_kind": order_type},
+    )
+    if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
+        raise RuntimeError("Unexpected restaurant_default_pickup_minutes response")
+    minutes = rows[0].get("minutes")
+    if "minutes" in rows[0] and minutes is None:
+        logger.warning("No valid pickup default for {} ({}); using 30 minutes", rest_ref, order_type)
+        return 30
+    if type(minutes) is not int or minutes <= 0:
+        raise RuntimeError("Invalid minutes from restaurant_default_pickup_minutes")
+    return minutes
 
 
 async def set_pickup(
