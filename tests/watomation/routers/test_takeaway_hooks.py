@@ -31,6 +31,7 @@ from types import SimpleNamespace
 
 import httpx
 import respx
+import pytest
 
 from tests.fixtures.fake_supabase import FakeSupabaseResponse
 from tests.fixtures.fake_wa import FakeAsyncWhatsApp
@@ -107,7 +108,21 @@ class _CaptureFoodOrder:
         }
 
 
-async def test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins(monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp) -> None:
+@pytest.fixture
+def pickup_defaults(monkeypatch, patch_supabase_client):
+    monkeypatch.setattr(takeaway_hooks.restaurant_decision, "client_ordelo_service", patch_supabase_client)
+
+    def register(minutes, *, inherited=True):
+        patch_supabase_client.register_rpc(
+            "restaurant_default_pickup_minutes",
+            FakeSupabaseResponse(data=[{"minutes": minutes, "inherited": inherited}]),
+        )
+
+    register(None)
+    return register
+
+
+async def test_handle_restaurant_timedout_updates_only_null_pickup_time_and_notifies_admins(pickup_defaults, monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp) -> None:
     monkeypatch.setattr(takeaway_hooks, "client_ordelo", patch_supabase_client)
     patch_supabase_client.register(table="takeaway_summary", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
     summary = takeaway_hooks.TakeawaySummaryData(**_takeaway_summary_row())
@@ -123,7 +138,7 @@ async def test_handle_restaurant_timedout_updates_only_null_pickup_time_and_noti
     assert [sent.kwargs["to"] for sent in patch_async_wa_client.sent[-2:]] == ["ADMIN01", "ADMIN02"]
 
 
-async def test_handle_restaurant_timedout_skips_admin_notifications_when_update_matches_no_rows(monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp) -> None:
+async def test_handle_restaurant_timedout_skips_admin_notifications_when_update_matches_no_rows(pickup_defaults, monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp) -> None:
     monkeypatch.setattr(takeaway_hooks, "client_ordelo", patch_supabase_client)
     patch_supabase_client.register(table="takeaway_summary", verb="update", response=FakeSupabaseResponse(data=[]))
     summary = takeaway_hooks.TakeawaySummaryData(**_takeaway_summary_row())
@@ -326,14 +341,11 @@ async def test_pickup_time_updated_hook_schedules_admin_receipt_for_configured_a
 
 
 async def test_handle_restaurant_timedout_uses_rest_specific_pickup_config(
+    pickup_defaults,
     monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
 ) -> None:
     monkeypatch.setattr(takeaway_hooks, "client_ordelo", patch_supabase_client)
-    patch_supabase_client.register(
-        table="ordelo_config",
-        verb="select",
-        response=FakeSupabaseResponse(data=[{"config_value": "45"}]),
-    )
+    pickup_defaults(45, inherited=False)
     patch_supabase_client.register(
         table="takeaway_summary",
         verb="update",
@@ -350,16 +362,12 @@ async def test_handle_restaurant_timedout_uses_rest_specific_pickup_config(
 
 
 async def test_handle_restaurant_timedout_falls_back_to_global_pickup_config(
+    pickup_defaults,
     monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
 ) -> None:
     monkeypatch.setattr(takeaway_hooks, "client_ordelo", patch_supabase_client)
 
-    def config_response(call):
-        if call.filters.get("eq:config_key") == "ELAS_PICKUP_DEFAULT_TIME":
-            return FakeSupabaseResponse(data=[])
-        return FakeSupabaseResponse(data=[{"config_value": "20"}])
-
-    patch_supabase_client.register(table="ordelo_config", verb="select", response=config_response)
+    pickup_defaults(20)
     patch_supabase_client.register(
         table="takeaway_summary",
         verb="update",
@@ -374,6 +382,7 @@ async def test_handle_restaurant_timedout_falls_back_to_global_pickup_config(
 
 
 async def test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes(
+    pickup_defaults,
     monkeypatch, patch_supabase_client, patch_async_wa_client: FakeAsyncWhatsApp
 ) -> None:
     monkeypatch.setattr(takeaway_hooks, "client_ordelo", patch_supabase_client)
@@ -390,7 +399,7 @@ async def test_handle_restaurant_timedout_falls_back_to_hardcoded_30_minutes(
     assert update_call.payload["pickup_time"] == "2026-05-09T11:30:00+01:00"
 
 
-async def test_handle_restaurant_timedout_hands_an_exact_auto_accepted_notice_to_the_notifier(monkeypatch, patch_supabase_client) -> None:
+async def test_handle_restaurant_timedout_hands_an_exact_auto_accepted_notice_to_the_notifier(pickup_defaults, monkeypatch, patch_supabase_client) -> None:
     monkeypatch.setattr(takeaway_hooks, "client_ordelo", patch_supabase_client)
     patch_supabase_client.register(table="takeaway_summary", verb="update", response=FakeSupabaseResponse(data=[{"ok": True}]))
     seen = []

@@ -60,7 +60,9 @@
 --                 frontend  restaurant-frontend/app/api/sys-admin/restaurants/[rest_ref]/changes/ (route.ts, [id]/revert)
 --               restaurant_setting_change:
 --                 sql       restaurant_acceptance_apply(), restaurant_setting_revert(), rest_admin_hours_*(), rest_admin_menu_*()
--- PYTHON MODEL  none (the restaurant-frontend server calls these RPCs with the service-role key)
+--                 python    utils_common/order_management/restaurant_decision.py: default_pickup_minutes()
+--                           calls restaurant_default_pickup_minutes() for delivery and takeaway timeout hooks.
+-- PYTHON MODEL  none (the restaurant-frontend server also calls these RPCs with the service-role key)
 -- SECURITY      Table: RLS on, no policies, REVOKE ALL FROM anon, authenticated. Every function: REVOKE ALL FROM PUBLIC, anon,
 --               authenticated; granted to service_role (helpers too: nested SECURITY INVOKER calls run as the caller).
 -- TESTS         tests/sql/test_restaurant_settings_sql.py

@@ -48,6 +48,10 @@ new web ordering paused until menu, payment, fulfilment, and operational evidenc
 supports the requested launch. Web-only restaurants have no `{REF}_APP_URL` and
 need no restaurant-agents app.
 
+To refresh or re-price an onboarded menu against Deliveroo (Deliveroo price as the struck-through price, items no longer
+sold marked out of stock, new items inserted, missing images copied to `s3://ordelo-restaurants/<ref>/`), use the
+[ordelo-menu-refresh](../ordelo-menu-refresh/SKILL.md) skill.
+
 ## Report the outcome
 
 Link the plan, SQL bundle, and changed code. Distinguish generated from executed

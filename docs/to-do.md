@@ -113,7 +113,7 @@ Not fixed by that plan unless a phase says so.
 
 ## Telegram portal links and restaurant dashboard (added 19 Nov 2026)
 
-Built and verified on 19 Nov (offline, isolated SQL and live through the tunnel). The decisions and verification evidence are in [ADR 0017](adr/0017-portal-access-is-decided-per-request-in-sql.md) (portal links) and [ADR 0018](adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md) (dashboard settings, closures, hidden items, reports). The live verification loop is in `agents.md`. The SQL is applied live; the code is NOT deployed.
+Built and verified on 19 Nov (offline, isolated SQL and live through the tunnel). The decisions and verification evidence are in [ADR 0017](adr/0017-portal-access-is-decided-per-request-in-sql.md) (portal links) and [ADR 0018](adr/0018-restaurant-dashboard-settings-are-audited-and-enforced-at-order-creation.md) (dashboard settings, closures, hidden items, reports). The live verification loop is the [verify-test-order-local-setup skill](../.claude/skills/verify-test-order-local-setup/SKILL.md). The SQL is applied live; the code is NOT deployed.
 
 Failures that predate this work (seen 19 Nov; treat any other failure as new):
 - `tests/ordelo_datamodels/test_master_pymodels.py::test_restaurant_master_get_admins_fetches_live_column`
@@ -128,11 +128,9 @@ Rollback, if needed after deploy:
 3. If a closed date or hidden item is active, clear the data (Remove / Show) rather than reverting the guard.
 4. The audit, milestone and hidden-item tables are additive; keep them.
 
-- [ ] **Deploy order.** restaurant-frontend first (GET-safe activation, settings pages; works with old links), then OrdeloAgent (`/sysadmin`, `/portal`, dashboard_links), then restaurant-agents (date-aware `service_hours`). After OrdeloAgent: republish both default bot menus (`notebooks/telegram/tgram_setup_bot.py`; the rider menu gains `/portal`).
-- [ ] **Scoped menu already set.** The live check set the `/sysadmin` scoped menu in the owner's private restaurant-bot chat. Until OrdeloAgent is deployed, production answers `/sysadmin` with the text fallback.
+- [ ] **Deploy order: restaurant-agents left.** Checked 23-24 Nov 2026: restaurant-frontend and OrdeloAgent (`27e6928`) are deployed and both default bot menus are republished (restaurant bot has `/manage`, rider bot has `/portal`). Still to do: commit and deploy restaurant-agents' date-aware `service_hours` (uncommitted on 23 Nov) to `sfcs-agent`, `bnat-agent` and the ELAS/CHKS service.
 - [ ] **Closed dates gate.** `ordelo_config.REST_DASHBOARD_HOURS_EDITS` is `''` (off). restaurant-agents' old `parse_week` RAISES on a `dates` key, so do not list ELAS/CHKS, BNAT or SFCS until the new restaurant-agents is deployed. Then set it to `all`.
 - [ ] **Hidden items on WhatsApp.** The `MENU_API_URL` service (restaurant.byteloop.ai) is not in any connected repo; it does not filter hidden items. The order guard refuses them at order creation; filtering the WhatsApp menu needs the service's owner.
-- [ ] **Unrelated, seen during the live check:** `web_order_lookup(...)` is missing on live (UndefinedFunction 500s from the order-lookup feature).
 - [ ] **drift_check.py** could not run locally (scratch Postgres has no pgvector/PostGIS). A targeted read-only comparison of all 47 new or changed functions found no drift.
 
 **Owner live testing, 19 Nov.** Passed: Telegram taps (`/manage`, the System dashboard button, `/sysadmin`, the scoped menu, rider `/portal` and `/my_jobs`), My alerts round trip, orders still created, access removal, Reports, menu hide, restaurant-admin updates in sys-admin, and config edits. Two tests are still pending:
@@ -177,3 +175,43 @@ Rollback, if needed after deploy:
      - Expected: the preview WhatsApp fetches must not use the link up. It is still unused until you tap it (the page only activates on the browser's automatic POST).
 - [ ] **pgFormatter breaks some SQL that `format_sql.py` does not catch.** On 19 Nov, formatting the new files changed the JSONB operator `#-` into `# -` (`restaurant_setting_write`) and broke the `%%` escapes inside a dollar-quoted `format()` string (`rest_admin_menu_list`). The guard compares code with whitespace removed, so it missed both; `tests/sql` caught them and the files were restored unformatted. Until `scripts/datamodels/format_sql.py` keeps operator tokens and dollar-quoted bodies intact, do not run it on `restaurant_admin/restaurant_settings.sql`, `restaurant_admin/restaurant_service_hours.sql` or `ordering/menu_item_visibility.sql`, and always run `pytest tests/sql` after formatting. These 11 files are deliberately unformatted: `admin_dashboard/auth_sessions.sql`, `admin_dashboard/rest_admin_reports.sql`, `availability/pauses.sql`, `core/restaurant_master.sql`, `ordering/create_food_order_with_items.sql`, `ordering/menu_item_visibility.sql`, `ordering/order_intake_guard.sql`, `restaurant_admin/admin_roster.sql`, `restaurant_admin/rest_admin_dashboard_alerts.sql`, `restaurant_admin/restaurant_service_hours.sql`, `restaurant_admin/restaurant_settings.sql`. Fifteen other files were already unformatted before this work.
 
+## Menu tables (added 23 Nov 2026)
+
+- [ ] **Fix the stale `bnat_menu` column defaults.** `bnat_menu` was created as a copy of `sfcs_menu`, so `branch_link`
+  defaults to `https://sfc-salisbury.co.uk` and `branch_name` to `Salisbury` (and its table comment says "This is a
+  duplicate of sfcs_menu"). Every live row sets both explicitly and the ordelo-menu-refresh inserts do too, so nothing is
+  wrong today. Done when `ordelo_datamodels/core/menus.sql` and live use BNAT defaults (Orpington and the BNAT site link)
+  or drop the defaults, applied with owner approval.
+
+## Web storefront launch (24 Nov 2026)
+
+Active work is tracked in [Web storefront controls and audit alignment](../plans/web-storefront-controls-and-audit.md).
+
+- [ ] **Prepare Strikers for real orders after the test period.** The owner is using STRK for testing.
+  Keep its storefront, `dummy` rider town and `TEST3100` item available for that work. At commercial cutover,
+  set `restaurant_master.city` to Orpington, agree trading hours and order cutoffs, take the test item off public sale,
+  and verify an ordinary STRK delivery goes to Orpington riders.
+- [ ] **Verify the payment service before promoting the storefronts.** A colleague is working on it. Confirm explicit
+  CRMS, CRDO and STRK merchant routing and check BNAT's live route. Done when each merchant's authorization, correct
+  payout, return links, receipt, delivery and collection capture, and decline/no-rider release are proven. Verify
+  the corresponding Wren test flow where it is used for launch tests.
+- [ ] **Agree and verify delivery pricing.** A colleague is working on the pricing service. Review the shared
+  CRMS/CRDO/STRK profile and BNAT's separate profile with them. Done when intended areas, minimums, fees and rider
+  payouts are verified with representative local and boundary quotes for each venue.
+- [ ] **Confirm staff and rider readiness.** Name the staff covering each venue and the rider cover for each
+  launch window. Verify the restaurant's alert, acceptance, pickup-time selection, kitchen receipt and escalation
+  flows using the intended channels. Rehearse the per-restaurant web pause and confirm an order already in
+  progress remains trackable. Keep confirmation of message delivery separate from successful transport calls.
+
+## Found by the local test order run (25 Nov 2026)
+
+Evidence is in the [25 November report](releases/verify-test-order-local-setup-2026-11-25.md).
+
+- [x] **Retire the checkout session once its order is paid.** Fixed and verified locally on 25 Nov, not yet committed or
+  deployed. `web_checkout.resume()` refuses a checkout with a paid order, so the storefront starts a new one; `create()`
+  refuses to replay a paid order's key. Deploy OrdeloAgent first; the frontend change is only the message for a stale tab.
+- [ ] **Decide whether declined and no-rider orders count in the restaurant dashboard totals.** `v_admin_orders_daily`
+  sums gross and "your cut" over every order in `v_admin_orders`, including declined and timed-out ones (STRK on 25 Nov:
+  `STRK-MZTY-22` and `STRK-UCBX-23` counted).
+- [ ] **Reword the fallback card after an admin accepted.** When an admin taps Accept but picks no pickup time, the card
+  says "Auto-accepted (no answer in time)" and the kitchen receipt says "Accepted automatically".

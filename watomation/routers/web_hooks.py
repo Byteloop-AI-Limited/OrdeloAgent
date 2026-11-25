@@ -111,8 +111,7 @@ class ResumeSession(BaseModel):
 
 @router.post("/checkout-sessions/resume")
 async def resume(body: ResumeSession):
-    current = await web_checkout.session(body.thread_id, body.cust_id)
-    await availability.available(current["rest_ref"], current["mode"])
+    await web_checkout.resume(body.thread_id, body.cust_id)
     return JSONResponse({"ok": True}, headers=PRIVATE)
 
 
@@ -167,6 +166,20 @@ async def unlock_order(order_number: str, body: OrderUnlock, request: Request):
     if not re.fullmatch(r"[A-Z0-9]+-[A-Z]{4}-\d+", order_number):
         raise WebError("not_found", 404)
     return JSONResponse(await order_lookup.unlock(order_number, body.postcode, body.house, identity), 201, headers=PRIVATE)
+
+
+@router.post("/orders/{order_number}/quote")
+async def pending_quote(order_number: str, body: ResumeSession, request: Request, handoff: bool = False):
+    grant = await order_access.verify(request.headers.get("X-Order-Access", ""), order_number)
+    if grant["detail_level"] != "full":
+        raise WebError("forbidden", 403)
+    quote = await web_checkout.pending_quote(
+        body.thread_id, body.cust_id, order_number, start_payment=handoff
+    )
+    if handoff:
+        return JSONResponse({"payment_url": quote["payment_url"]}, headers=PRIVATE)
+    view = await customer_order_view.get_view(order_number)
+    return JSONResponse({**quote, "page_path": view["page_path"], "items": view["items"]}, headers=PRIVATE)
 
 
 @router.get("/orders/{order_number}")

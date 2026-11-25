@@ -280,6 +280,14 @@ Account for the same cache expiry/restart behavior on restoration. Verify produc
 
 Source references: [`fapp_ordelo_agent.py`](../watomation/fapp_ordelo_agent.py), [`config/params.py`](../config/params.py), and the sibling frontend's `package.json`, `lib/config.ts`, `lib/supabase.ts`, and `app/api/menu/route.ts`. Tunnel mappings were checked against the local Cloudflare configuration when this guide was written.
 
+## Automatic test orders through Chrome and Telegram
+
+To verify a change by placing your own orders, use the
+[verify-test-order-local-setup skill](../.claude/skills/verify-test-order-local-setup/SKILL.md): it places a TEST3100 order on
+the Strikers storefront, simulates payment, accepts or declines it in the restaurant bot, completes the rider job in the
+rider bot, and checks the tracking page, logs and database. The URL switch in section 5 does not move the bot webhooks;
+the skill explains what that means for the evidence.
+
 ## Reusable order-testing skill and configuration SQL
 
 For restaurant-admin journeys (order card, kitchen receipt, Ready / +10 / +20, rider alerts, notices) use the fake-row script described in [live-order-test-harness.md](live-order-test-harness.md).

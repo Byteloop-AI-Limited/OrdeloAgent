@@ -3,6 +3,16 @@
 This alerts on client-computed prices; it does not alter the accepted D8 pricing
 contract. Missing menu matches are reported as unverifiable, never as valid.
 
+  Menu floor
+    . MENU_FLOOR: the lowest matching menu row's selling price, i.e. discounted_price
+      when it holds a plain number (the column is text), else price. Menus refreshed by
+      the ordelo-menu-refresh skill keep the Deliveroo reference price in price and the
+      restaurant's own price in discounted_price; a stray non-numeric discount falls back
+      to price instead of breaking the audit.
+  Functions/Classes
+    . below_floor
+    . sweep
+
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
   . food_order (table, restaurant-agents): reads (SQL)
   . ordelo_config (table, ordelo_datamodels/core/ordelo_config.sql): reads (SQL)
@@ -15,6 +25,11 @@ from decimal import Decimal
 from .common import RESTAURANTS, query, one, utcnow
 from .availability import UK
 from loguru import logger
+
+MENU_FLOOR = (
+    r"min(COALESCE(CASE WHEN m.discounted_price ~ '^[0-9]+(\.[0-9]+)?$'"
+    r" THEN m.discounted_price::numeric END, m.price))"
+)
 
 
 def below_floor(actual, menu_price, max_discount=0):
@@ -33,8 +48,8 @@ def below_floor(actual, menu_price, max_discount=0):
 async def sweep():
     """Claim and run one price audit per London day across registered restaurants.
 
-    Compare the last 24 hours of web order lines with the lowest menu price
-    matching their product name; unmatched lines also require review. Missing
+    Compare the last 24 hours of web order lines with the lowest menu selling
+    price (MENU_FLOOR) matching their product name; unmatched lines also require review. Missing
     maximum-discount config means zero. Record unique flagged orders and alert
     ops without changing prices. Delete an unfinished claim on exception so a
     later sweep can retry; a process crash can leave an unfinished claim behind.
@@ -61,7 +76,9 @@ async def sweep():
             # the selected product name for all restaurants, with ambiguity
             # handled conservatively by taking the lowest matching menu price.
             rows = await query(
-                """SELECT f.order_number,i.product_name,i.price,min(m.price) AS menu_price
+                "SELECT f.order_number,i.product_name,i.price,"
+                + MENU_FLOOR
+                + """ AS menu_price
                 FROM food_order f JOIN order_item i ON i.order_id=f.order_id
                 LEFT JOIN """
                 + ref.lower()

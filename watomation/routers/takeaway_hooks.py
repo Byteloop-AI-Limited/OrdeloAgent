@@ -38,6 +38,7 @@ Called by database (SQL triggers / pg_cron jobs POST to these routes):
 """
 
 from utils_common.order_management.customer_keys import is_web_customer_key
+from utils_common.order_management import restaurant_decision
 from utils_common.notify import customer_notifier
 from utils_common.notify.customer_notifier import CustomerOrderEvent
 # %%
@@ -282,27 +283,12 @@ async def _handle_restaurant_decline(
     }
 
 
-def _get_pickup_default_minutes(rest_ref: str) -> int:
-    for key in [f"{rest_ref.upper()}_DEFAULT_COLLECTION_PICKUP_TIME", "DEFAULT_COLLECTION_PICKUP_TIME"]:
-        resp = (
-            client_ordelo.table("ordelo_config")
-            .select("config_value")
-            .eq("config_key", key)
-            .limit(1)
-            .execute()
-        )
-        logger.info(f"Config response for {key}: {resp.data}")
-        if resp.data:
-            return int(float(resp.data[0]["config_value"]))
-    return 30
-
-
 async def _handle_restaurant_timedout(
     takeaway_summary: TakeawaySummaryData,
     restaurant_admins: List[str],
 ) -> dict:
     rest_ref = takeaway_summary.rest_ref or takeaway_summary.order_number.split("-")[0]
-    pickup_minutes = await asyncio.to_thread(_get_pickup_default_minutes, rest_ref)
+    pickup_minutes = await restaurant_decision.default_pickup_minutes(rest_ref, "takeaway")
     logger.info(f"Pickup minutes for {rest_ref}: {pickup_minutes}")
 
     order_time = parse_db_iso(takeaway_summary.dtts).astimezone(UK_TZ)

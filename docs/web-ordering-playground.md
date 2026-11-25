@@ -51,7 +51,7 @@ Reads: `restaurant_master`, `ordelo_config`; external geocoding/pricing. Source:
 
 `POST /web/checkout-sessions` requires a proxy-supplied 64-character visitor hash. The router counts attempts in `web_rate_limit` and allows 20 per identity/hour. `web_checkout.start` checks restaurant/town/availability, calls `create_thread('WEB', NULL)`, generates a checkout W key and writes `web_session_meta` with a two-hour expiry.
 
-These thread and metadata writes are separate transactions. `session` validates thread + checkout customer key + expiry; it does not require `thread.is_active=true`. Resume also rechecks availability. There is no one-order-per-thread constraint; up to ten distinct order requests may be created from a checkout.
+These thread and metadata writes are separate transactions. `session` validates thread + checkout customer key + expiry; it does not require `thread.is_active=true`. Resume also rechecks availability, and refuses with `409 payment_already_processed` once any order of the checkout has left `requires_payment`: the storefront then starts a new checkout, so the same basket ordered again becomes a new order. While its orders are unpaid the checkout is reused, so a retry reaches the same order. Payment status decides, not `thread.is_active`. There is no one-order-per-thread constraint; up to ten distinct order requests may be created from a checkout.
 
 Writes: `thread`, `web_session_meta`, `web_rate_limit`. Source: [web_hooks.py](../watomation/routers/web_hooks.py), [web_checkout.py](../utils_common/web_ordering/web_checkout.py).
 
@@ -67,7 +67,7 @@ This is an editable draft until copied during order creation. Frontend coordinat
 
 A fingerprint binds the full serialized input and address to `Idempotency-Key`. Transaction A takes a request advisory lock; a new request also locks its checkout and enforces the ten-order budget. It inserts a fresh per-order W customer, allocates a daily sequence, calls `create_food_order_with_items` and inserts `web_order_request` with its address copy. `create_food_order_with_items` first asks `order_intake_block` (`ordering/order_intake_guard.sql`): a closed date refuses with SQLSTATE P0C01 (`WebError restaurant_closed`) and a hidden menu item with P0C02 (`WebError items_unavailable`, HTTP 409, `items` lists the titles); nothing is written. An idempotent retry of an order created before the closure is answered from `web_order_request` before the insert, so it still succeeds. All these changes commit together. `food_order` starts at `requires_payment`, web origin, Ordelo storefront and selected payment mode.
 
-Same key + same input resumes the existing order. Same key + changed thread/input/address gives `409 idempotency_conflict`, subject to session/availability checks that run first. A new key means a new order; one checkout may legitimately have several orders. The client estimate is part of the fingerprint even though it does not set authoritative fees.
+Same key + same input resumes the existing order while it is unpaid; once it is paid the replay gives `409 payment_already_processed` (for example a tab left open after payment). Same key + changed thread/input/address gives `409 idempotency_conflict`, subject to session/availability checks that run first. A new key means a new order; one checkout may legitimately have several orders. The client estimate is part of the fingerprint even though it does not set authoritative fees.
 
 Writes: `customer_master`, `daily_seq_last_value` + `daily_seq` sequence, `food_order`, `order_item`, `web_order_request`. Sources: `web_checkout.create`; [R3 migration](../ordelo_datamodels/migrations/ordelo_agg_r3.sql); [order SQL](../utils_common/order_management/food_order.sql).
 
@@ -264,7 +264,7 @@ All routes below require `X-Ordelo-Web-Key`; these are server-to-server contract
 | `POST /web/eligibility` | Delivery postcode estimates or collection eligibility | UK postcode shape, bounded refs, registered refs filtered |
 | `POST /web/availability` | Collection availability without postcode | Registered refs filtered; no delivery geocode |
 | `POST /web/checkout-sessions` | New checkout | Visitor hash, 20/hour, restaurant/town/hours/pause; IDs and expiry |
-| `POST /web/checkout-sessions/resume` | Validate reusable checkout | Thread/key/expiry and availability |
+| `POST /web/checkout-sessions/resume` | Validate reusable checkout | Thread/key/expiry, no paid order on the checkout, and availability |
 | `POST /web/address` | Store complete geocoded draft address | Internal thread/customer keys and bounded fields |
 | `POST /web/orders` | Persist or retry order, create/cache payment URL | `Idempotency-Key` 16–100 URL-safe characters; quote and access grant |
 | `GET /web/orders/{order_number}` | Private status and receipt projection | Order-bound access token, ETag/304 |

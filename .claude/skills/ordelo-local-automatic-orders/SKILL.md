@@ -1,6 +1,6 @@
 ---
 name: ordelo-local-automatic-orders
-description: Run and document Ordelo local order tests using Chrome computer use, FastAPI Swagger, the restaurant frontend, database order tracking and Stripe test-mode verification. Use for local web or WhatsApp regression tests, R2 payment checks, and reversible test/production routing preparation.
+description: Run and document Ordelo local order tests that need a real Stripe sandbox payment, FastAPI Swagger order creation or WhatsApp, with database and Stripe test-mode verification. Use for R2 payment checks, WhatsApp regression tests, and reversible test/production routing preparation. For storefront orders with simulated payment and Telegram accept/decline/delivery use verify-test-order-local-setup.
 ---
 
 # Ordelo Local Automatic Orders
@@ -8,6 +8,9 @@ description: Run and document Ordelo local order tests using Chrome computer use
 Complete the requested test with current runtime evidence and a restoration record.
 Choose the relevant path: fixture UI, real web-origin payment test, or WhatsApp
 regression. A passing fixture checkout does not prove a real order or payment.
+
+For a storefront journey with simulated payment and Telegram actions, use
+[verify-test-order-local-setup](../verify-test-order-local-setup/SKILL.md) instead.
 
 ## Establish the current contract
 

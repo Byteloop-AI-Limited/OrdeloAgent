@@ -102,8 +102,10 @@ def derive(food, summary, dispatch, events, release=None, at=None):
         status = "looking_for_rider" if food["action"] == "delivery" else "preparing"
     elif authorised:
         status = "waiting_for_restaurant"
-    elif (at or utcnow()) > food["order_dtts"] + timedelta(minutes=35):
+    elif (at or utcnow()) >= food["order_dtts"] + timedelta(minutes=35):
         status = "payment_not_completed"
+    elif food.get("origin_channel") == "web":
+        status = "payment_in_progress" if "payment_handoff_started" in types else "awaiting_payment"
     else:
         status = "confirming_payment"
     state = (

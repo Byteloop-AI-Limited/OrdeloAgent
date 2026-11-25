@@ -13,7 +13,7 @@
 -- SIDE EFFECTS  none
 -- HOW IT FITS   Web checkout (restaurant-frontend -> OrdeloAgent /web routes, utils_common/web_ordering/*):
 --                 start   -> thread (agent 'WEB') + web_session_meta (the editable checkout draft, 2 h)
---                 create  -> web_order_request (idempotency: same key + body returns the same order) -> food_order
+--                 create  -> web_order_request (idempotency: same key + body returns the same order until it is paid) -> food_order
 --                 page    -> order_access_grant (hash of the secret in the order-tracking link)
 --                 payment -> payment_event; a cancelled/late payment is retried through web_payment_release
 --                 limits  -> web_rate_limit (hourly session-create counter); daily audit -> web_monitor_run
@@ -23,11 +23,13 @@
 --                utils_common/web_ordering/order_lookup.py; ordering/web_order_lookup.sql.
 --                 python    ordelo/agents/rider_agent.py: _web_pin_warning()
 --                 python    utils_common/web_ordering/customer_order_view.py: get_view()
---                 python    utils_common/web_ordering/web_checkout.py: create()
+--                 python    utils_common/web_ordering/web_checkout.py: create(), pending_quote(), resume()
 -- PYTHON MODEL  none
 -- SECURITY      web_order_request: RLS ON; service role only (anon/authenticated revoked)
 -- TESTS         tests/ordelo/agents/test_rider_agent.py
 --               tests/utils_common/web_ordering/test_web_contract.py
+--               tests/utils_common/web_ordering/test_checkout_reuse.py
+--               tests/sql/test_web_checkout_reuse_sql.py
 -- GOTCHAS       Captured from live on 2026-10-16; first created by migrations/ordelo_agg_r3.sql (history).
 --                lookup_postcode CHECK is NOT VALID for historical rows; canonical postcode only.
 -- SEE ALSO      docs/web-ordering-playground.md

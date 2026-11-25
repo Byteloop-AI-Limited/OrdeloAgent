@@ -19,27 +19,19 @@ For each state-changing action, choose cases from the actual rule: allowed actor
 2. Exercise routing through the real aiogram `Dispatcher` using `tests/channels/telegram/conftest.py` update builders and `RecordingSession`. Assert the Bot API method, destination, content, keyboard, callback answer, and number of sends that matter to the scenario. Test byte limits and escaping when callback data or rendered text changes. Mock external boundaries, not the router being verified.
 3. Exercise the FastAPI webhook with the minimal test app in `tests/watomation/routers/test_telegram_webhook.py` when ingress changes. Cover bot selection, secret rejection, malformed updates, handler errors, and timeout as applicable. The current route returns HTTP 200 after handler failure; record the update's actual outcome rather than treating 200 as processed. For protected handlers, verify inbox persistence, deduplication, retry, and worker restart; verify unprotected handlers make no inbox calls.
 4. When an RPC contract changes, update the fake to match every `result` value, then verify the actual SQL against an isolated database before claiming database behavior. Test authorization and concurrent claims or transitions where they matter. Follow the database-operations skill for database access; preparing tests or SQL does not authorize executing migrations or changing shared data.
-5. Run the live check when the change has a user-visible Telegram, magic-link or frontend↔backend effect. Read the "Live verification loop" section of `agents.md` first. Summary:
-   - The database is the **production** Supabase (no test database).
-   - The bots are the production @OrdeloRestaurantBot and @ByteloopRidersBot.
-   - During a verification window the owner points both webhooks and `ordelo_config.ORDELO_APP_URL` / `RESTAURANT_MENU_APP_URL` at the Cloudflare Tunnel hostnames `https://rider-agent-test.ordelo.app` (backend, `localhost:3100`) and `https://restaurant-test.ordelo.app` (frontend, `localhost:3000`). Commands, magic links and frontend→backend calls then all run on the local code.
-   - Confirm this with `getWebhookInfo` and a `SELECT` before relying on it. Do not change the webhook or the URLs unless the owner asks. `docs/local-testing-runbook.md` §5–7 has the switch and restore SQL.
+5. Run the live check when the change has a user-visible Telegram, magic-link or frontend↔backend effect. Follow the [verify-test-order-local-setup skill](../verify-test-order-local-setup/SKILL.md): preflight (shared URLs **and** both bot webhooks), TEST3100 orders, Telegram Web taps, server logs and restoration. A Telegram handler change is verified live only while that bot's webhook is on `rider-agent-test.ordelo.app`; otherwise the deployed bot handled the tap.
 
-   Telegram desktop is open in a split view: use the `computer-use` skill to type a command or tap a button as the owner's Telegram user, then inspect the visible reply. Open magic links from the chat and confirm:
+   For magic links also confirm:
    - the GET page does not use up the link
    - the auto-POST lands on the right portal
    - a second tap is refused
 
-   Bot-side `sendMessage` calls and an aiogram MCP event feed cannot simulate that user action. Treat a successful Bot API response as API acceptance, not confirmed human delivery.
-6. Read the backend and frontend logs from the owner's Rex session **`RunServices`**. The CLI is `/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex`.
-   - Run `rex ls --json`, then `rex block ls -s <session> --json`.
-   - Find the pane whose output shows `uvicorn` (OrdeloAgent) and the one showing `next dev` (frontend), then `rex capture -s <session> -b <block> --trim`.
-   - Both servers hot-reload on save and are serving live traffic, so keep every saved file importable. Apply SQL before the code that calls it. Never restart these processes.
-   - Correlate the Telegram action with the webhook update, the handler result and the database row in a bounded, read-only snapshot. A quiet pane or HTTP 200 alone does not prove the action completed. (Earlier runs used the Herdr pane `localOrdeloRun`; use whichever the owner has running.)
+   Bot-side `sendMessage` calls and an aiogram MCP event feed cannot simulate the user action. Treat a successful Bot API response as API acceptance, not confirmed human delivery.
+6. Correlate the Telegram action with the webhook update, the handler result and the database row in a bounded, read-only snapshot. A quiet log pane or HTTP 200 alone does not prove the action completed.
 7. Rerun the focused checks after the fix and the wider affected Telegram suite before reporting completion. Keep unrelated existing failures explicit. Update `docs/telegram-layer.md` and its change log when the Telegram layer itself changes.
 
 ## Report evidence
 
-For each checked scenario, report the boundary, command or live action, observed result, and any remaining unverified boundary. For a live browser check, pair the visible Telegram result with the matching Herdr log evidence when available. Label evidence **offline**, **isolated database**, or **live Telegram**. Do not claim SQL, webhook durability, user-visible delivery, payment, or fulfilment from mocked Bot API calls or an HTTP 200 alone.
+For each checked scenario, report the boundary, command or live action, observed result, and any remaining unverified boundary. For a live browser check, pair the visible Telegram result with the matching server log evidence when available. Label evidence **offline**, **isolated database**, or **live Telegram**. Do not claim SQL, webhook durability, user-visible delivery, payment, or fulfilment from mocked Bot API calls or an HTTP 200 alone.
 
 An aiogram MCP server can help observe an isolated live bot. It is optional and provides no replacement for user-driven Telegram checks, the dispatcher harness, or durable application state.

@@ -204,6 +204,39 @@ def test_waiting_payment_window_is_35_minutes():
     )
 
 
+@pytest.mark.parametrize(
+    ("event_types", "minutes", "expected"),
+    [
+        ([], 0, "awaiting_payment"),
+        (["payment_handoff_started"], 0, "payment_in_progress"),
+        ([], 35, "payment_not_completed"),
+        (["payment_handoff_started", "payment_authorised"], 1, "waiting_for_restaurant"),
+    ],
+)
+def test_web_payment_progress_uses_payment_handoff_evidence(event_types, minutes, expected):
+    food = FOOD | {"origin_channel": "web"}
+    events = [{"event_type": event_type} for event_type in event_types]
+    status, *_ = customer_order_view.derive(
+        food, {}, {}, events, at=NOW + timedelta(minutes=minutes)
+    )
+    assert status == expected
+
+
+async def test_status_only_grant_cannot_resume_quote(monkeypatch):
+    verify = AsyncMock(return_value={"detail_level": "status_only"})
+    lookup = AsyncMock()
+    monkeypatch.setattr(order_access, "verify", verify)
+    monkeypatch.setattr(web_checkout, "pending_quote", lookup)
+    request = SimpleNamespace(headers={"X-Order-Access": "token"})
+    session = web_hooks.ResumeSession(thread_id="checkout", cust_id="customer")
+
+    with pytest.raises(WebError) as exc:
+        await web_hooks.pending_quote("BNAT-TEST-1", session, request)
+
+    assert exc.value.status == 403
+    lookup.assert_not_awaited()
+
+
 async def test_web_rider_contact_never_sends_invalid_card(
     patch_supabase_client, fake_async_wa
 ):
@@ -337,10 +370,10 @@ def _confirmation_view_fakes(monkeypatch, summary, policy):
 async def test_view_has_absolute_confirmation_deadline_for_decline_policy(monkeypatch, detail):
     placed = NOW + timedelta(minutes=1)
     summary = {"dtts": placed, "restaurant_confirmation_status": "restaurant_unconfirmed", "customer_address": "x"}
-    _confirmation_view_fakes(monkeypatch, summary, {"timeout_minutes": 3, "timeout_action": "decline"})
+    _confirmation_view_fakes(monkeypatch, summary, {"timeout_minutes": 2, "timeout_action": "decline"})
     view = await customer_order_view.get_view("ELAS-ABCD-1", detail)
     assert view["display_status"] == "waiting_for_restaurant"
-    assert view["confirmation"] == {"deadline_at": customer_order_view.iso(placed + timedelta(minutes=3)), "on_timeout": "decline"}
+    assert view["confirmation"] == {"deadline_at": customer_order_view.iso(placed + timedelta(minutes=2)), "on_timeout": "decline"}
     # The ETag covers the whole view, so the deadline must not move between two reads.
     again = await customer_order_view.get_view("ELAS-ABCD-1", detail)
     assert again["confirmation"] == view["confirmation"]

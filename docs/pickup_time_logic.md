@@ -92,8 +92,11 @@ receipt.
   `c_pickup_grace` in `process_restaurant_confirmation()`, fixed by owner decision (17 Nov 2026), not a config key. With the
   10-second cron it takes effect 15-25 s after the accept, and never later than the usual timeout. A pickup tap after that is
   answered `already_set` (the default pickup time stands).
-- Web-only restaurants (STRK, CRDO, CRMS, BNAT) run with 3 minutes and `decline`
-  (`notebooks/db_queries/restaurant_queries/confirmation_timeout_action_rollout.sql`).
+- The [storefront rollout](../notebooks/db_queries/restaurant_queries/web_storefront_confirmation_policy.sql)
+  sets CRDO, CRMS and STRK to two minutes and `decline`, and BNAT to configured auto-accept.
+  At two minutes the order becomes eligible for the sweep. An admin can still accept until
+  the sweep commits the decline. The tracking page checks for the result at zero and uses
+  the same cancellation message for a manual decline and a timeout auto-decline.
 
 ### 3b) Timeout auto-decline
 
@@ -105,13 +108,16 @@ receipt.
 ### 4) Auto-accept on timeout
 
 - `watomation/routers/delivery_hooks.py` in `_handle_restaurant_timedout()` sets:
-  - `pickup_time = dtts + N minutes` where N comes from `ordelo_config` (Europe/London timezone handling):
+  - `pickup_time = dtts + N minutes` where both timeout handlers call
+    `restaurant_default_pickup_minutes` (Europe/London timezone handling). A blank or invalid
+    restaurant override inherits the corresponding global value:
     1. `{rest_ref}_DEFAULT_DELIVERY_PICKUP_TIME` (restaurant-specific override)
     2. `DEFAULT_DELIVERY_PICKUP_TIME` (global default)
     3. hardcoded fallback `30` minutes
   - `restaurant_confirmation_status = 'auto_accept'`
   - `status = 'unassigned'`
-- Admins are notified with the auto-assigned pickup time.
+- The update requires the timeout state and an unset pickup time. Only the update that
+  sets pickup sends the notice.
 
 ### 5) Admin adjustment after inflight (mid-delivery pickup-time change)
 
