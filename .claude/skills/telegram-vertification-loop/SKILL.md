@@ -9,7 +9,7 @@ Use this skill to build and run a repeatable verification loop for this project'
 
 ## Set the boundary
 
-Trace the changed path from incoming update or domain event through the webhook, dispatcher, handler, domain wrapper, SQL RPC, and outgoing Bot API call. State the observable result and durable state change for each relevant actor. Keep the restaurant-admin and future rider bots separate. A green test at one boundary does not prove the next boundary.
+Trace the changed path from incoming update or domain event through the webhook, dispatcher, handler, domain wrapper, SQL RPC, and outgoing Bot API call. State the observable result and durable state change for each relevant actor. Keep the restaurant-admin and rider bots separate. A green test at one boundary does not prove the next boundary.
 
 For each state-changing action, choose cases from the actual rule: allowed actor, wrong actor, expired or revoked identity, stale button, repeated update, competing requests, and downstream failure. Check the `from_user.id` actor independently from `chat.id` and Ordelo identity. Verify callback acknowledgement and the separate business outcome. Add only cases relevant to the change.
 

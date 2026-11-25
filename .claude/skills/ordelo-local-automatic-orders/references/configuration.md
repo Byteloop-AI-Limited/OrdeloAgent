@@ -36,8 +36,9 @@ RIDER_AGENT_URL=https://rider-agent-test.ordelo.app
 ```
 
 The backend fallback is used only when the DB lookup fails. `MENU_API_URL` is
-separate; read its current authorized value rather than inventing one. Restart
-Next.js after environment changes. The town slug is from `config/restaurants.ts`;
+separate; read its current authorized value rather than inventing one. After
+environment changes, ask the owner to restart Next.js, unless this session
+started it. The town slug is from `config/restaurants.ts`;
 the ELAS fixture town is `/town/salisbury`, not `/town/orpington`.
 
 Before production web wiring is approved, keep the production web-ordering mode

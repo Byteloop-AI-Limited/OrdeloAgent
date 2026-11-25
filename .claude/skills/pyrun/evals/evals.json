@@ -3,23 +3,23 @@
   "evals": [
     {
       "id": 1,
-      "name": "simple-db-query",
-      "prompt": "Run a quick Python snippet to check how many active riders are currently in shift for the ELAS restaurant",
-      "expected_output": "Python code that queries rider_master for ELAS restaurant with is_in_shift=true, returns count and list of riders",
+      "name": "simple-calculation",
+      "prompt": "Run a quick Python snippet to work out 30% commission and a 1.5% + 20p card fee on a £19.00 order",
+      "expected_output": "A short snippet is run and reports £5.70 commission and £0.485 card fee",
       "files": []
     },
     {
       "id": 2,
-      "name": "fallback-when-config-fails",
-      "prompt": "The config module is failing due to missing AWS credentials. Write a Python snippet that still queries the delivery_dispatch table for recent orders without using the config module. Use env.json directly.",
-      "expected_output": "Python code using direct Supabase client from env.json credentials, successfully queries delivery_dispatch table",
+      "name": "inspect-project-settings",
+      "prompt": "Use a Python snippet to show the project root that project_settings resolves to",
+      "expected_output": "Prepares the shell (venv, PYTHONPATH, envLoad), imports project_settings from config and prints project_root, without opening env.json",
       "files": []
     },
     {
       "id": 3,
-      "name": "multi-step-inspection",
-      "prompt": "Run a Python script that: 1) gets the ordelo_config value for ELAS_DELIVERY_TIMEOUT_TIME, 2) counts how many ELAS orders are in 'assigned' status, 3) lists those order numbers",
-      "expected_output": "Three results shown: config timeout value, count of assigned orders, list of order_number values",
+      "name": "database-work-goes-elsewhere",
+      "prompt": "How many active riders are in shift for the ELAS restaurant?",
+      "expected_output": "Uses the database-operations skill, not pyrun",
       "files": []
     }
   ]

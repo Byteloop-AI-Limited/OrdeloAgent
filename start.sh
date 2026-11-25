@@ -1,11 +1,10 @@
 #! /usr/bin/env sh
 set -e
 
-# Display the contents of the .env file if it exists
+# Report whether the .env file exists (never print it: it holds secrets)
 ENV_FILE=${ENV_FILE:-"/app/.env"}  # Change this path according to where your .env is located
 if [ -f "$ENV_FILE" ]; then
-    echo "Displaying contents of $ENV_FILE:"
-    cat "$ENV_FILE"
+    echo "Found .env file at $ENV_FILE"
 else
     echo "No .env file found at $ENV_FILE"
 fi

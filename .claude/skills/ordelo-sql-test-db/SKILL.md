@@ -93,5 +93,3 @@ When the work happens in the Claude cloud container instead (no access to the Ma
 ## Reporting
 
 Label the evidence **isolated database** (not live Supabase, not live Telegram). Report the pass/fail counts and the exact failing test names.
-
-Known result (23 Oct 2026, cloud container, Postgres 16): 360 passed, 2 failed. The two failures are `test_restaurant_notices_script_sql.py::test_stage0_wipes_only_strk_test_rows_in_every_table` and `::test_stage0_copies_the_linked_chat_to_strk_only_once`. They fail identically on the committed HEAD SQL, so they were not caused by that day's change; the cause was not found (the cloud run packaged only `tests/sql` and `ordelo_datamodels`, so check them first on the Mac with the full repo). Treat any NEW failure as real, and compare against this list before blaming a change.

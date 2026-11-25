@@ -5,8 +5,7 @@ description: Refresh an Ordelo restaurant menu table (<rest_ref>_menu) against t
 
 # Ordelo menu refresh (undercut Deliveroo)
 
-First used for BNAT (`plans/bnat-menu-undercut-plan.md`, worked folder
-`notebooks/db_queries/restaurant_queries/onboarding_bnat/`). The scripts are generic; restaurant decisions live in that
+Worked example: BNAT, in `notebooks/db_queries/restaurant_queries/onboarding_bnat/`. The scripts are generic; restaurant decisions live in that
 restaurant's `menu_overrides.json`.
 
 ## Rules (do not change without the owner)

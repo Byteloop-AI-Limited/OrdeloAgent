@@ -22,7 +22,7 @@ Read the current release gate and local source entrypoints, not just old reports
 Inspect the sibling frontend's relevant routing/configuration files. Batch
 independent reads; avoid importing application startup/WA utility examples merely
 to inspect data. `aws_setting.py` currently exports `agent_env` and
-`get_agent_env`; the older `ordelo_agent_env` example in another skill is stale.
+`get_agent_env`.
 
 Follow `docs/local-testing-runbook.md` for shell setup. Each Python command needs
 an activated repo venv, `PYTHONPATH="$PWD"`, and `.env` loaded through `envLoad`.
@@ -69,8 +69,9 @@ Inspect `lib/web/mode.ts`, `lib/web/api.ts`, the town catalog and actual route
 files. On 2026-10-02 the known fixture UI required
 `NEXT_PUBLIC_WEB_ORDERING_MODE=fixtures`; absent/`off` failed closed with 404.
 `live` existed as a mode but had no implemented live proxy. ELAS's configured town
-was `/town/salisbury`; `/town/orpington` was not a configured town. Restart Next.js
-after changing `.env.local`, or rebuild if testing a production bundle.
+was `/town/salisbury`; `/town/orpington` was not a configured town. After
+changing `.env.local`, ask the owner to restart Next.js, unless this session
+started it; rebuild if testing a production bundle.
 
 Exercise discovery, restaurant/menu, item choices, basket, delivery/collection,
 address/eligibility, fees and checkout, then the order status/receipt. Check the

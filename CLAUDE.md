@@ -59,9 +59,9 @@ The core agent is in `ordelo/agents/rider_agent.py`. It manages the inflight del
 - **State** (`AgentState`): messages, dispatch_id, rider_name, confirmation codes, cancel state
 - **Tools**: `send_delivery_instructions`, `verify_restaurant_confirmation_code`, `verify_customer_confirmation_code`, `cancel_delivery_before_pickup`, `terminate_delivery_job`
 - **Nodes**: `agent_node` → `ToolNode` → `respond_node`
-- **Persistence**: `AsyncPostgresSaver` (PostgreSQL checkpointer), thread-per-rider mapping
+- **Persistence**: `AsyncPostgresSaver` (PostgreSQL checkpointer), one thread per dispatch assignment (`ordelo/agents/rider_threads.py`, ADR 0012)
 
-`ordelo/agents/agent_runner.py` contains helpers to invoke the graph (`run_rider_graph`), initialize state for new deliveries (`init_ordelo_graph`), and debug state (`debug_state`).
+`ordelo/agents/agent_runner.py` contains helpers to invoke the graph (`run_rider_agent`, `run_rider_agent_w_custom_msg`), initialize state for new deliveries (`init_ordelo_graph`), and debug state (`debug_state`).
 
 ### WhatsApp Message Flow
 
@@ -70,8 +70,8 @@ WhatsApp current location → on_wa_location_handler.handle_wa_location_message(
   → WaLocation correlation and routing (only for a pending authorised request)
 
 Other WhatsApp Message → on_message_wa_handler.process_wa_msg()
-  → ThreadHandler.get_thread() (LangGraph thread lookup)
-  → run_rider_agent_w_custom_msg(recipient, human_msg)
+  → rider_threads.active_for_rider() (the rider's open LangGraph thread)
+  → run_rider_agent_w_custom_msg(recipient, human_msg, thread_id=...)
   → rider_agent graph invocation
   → WhatsApp response
 ```
@@ -110,7 +110,7 @@ Full details in `docs/delivery_process.md`.
 
 - **PostgreSQL via Supabase** — primary data store
 - **Async pool**: `AsyncConnectionPool` (1–5 connections) via `pg_settings`
-- **REST clients**: `client_ordelo` (Supabase REST, anon key) for CRUD operations; `client_ordelo_service` (service-role key, bypasses RLS) only for server-only objects such as the `t_invites` RPCs — **synchronous/blocking**; always wrap in `asyncio.to_thread()` when calling from an `async def`. The codebase has existing violations of this rule, but all new or changed code must follow it.
+- **REST clients**: `client_ordelo` (`pg_settings.client`) for CRUD operations and `client_ordelo_service` only for server-only objects such as the `t_invites` RPCs. Both use the service-role key and bypass RLS; for an anonymous client see the database-operations skill. Both are **synchronous/blocking**; always wrap in `asyncio.to_thread()` when calling from an `async def`. The codebase has existing violations of this rule, but all new or changed code must follow it.
 - **Pydantic models** in `ordelo_datamodels/` with class methods like `.from_rest_ref()`, `.from_customer_id()`
 - **No full ORM** — mix of Pydantic + raw SQL + Supabase REST
 
@@ -126,7 +126,7 @@ When a feature needs rules or multi-step changes in the database, put that logic
    - The SQL file's **header** names the Python module and functions that call each RPC.
    - The feature's doc (for Telegram: `docs/telegram-layer.md` section 6, and its HTML companion) has a row per database object with its defining file, Python caller and tests.
    - When you add, rename or change an RPC or table, update all of these together. Never leave a docstring pointing at an old name.
-5. **Lock server-only objects.** Enable RLS on the table, `REVOKE ALL ... FROM PUBLIC, anon, authenticated` on its functions and views, and call them with `client_ordelo_service`. The anon `client_ordelo` is denied by design.
+5. **Lock server-only objects.** Enable RLS on the table, `REVOKE ALL ... FROM PUBLIC, anon, authenticated` on its functions and views, and call them with `client_ordelo_service`. An anon-key client is denied by design; `client_ordelo` is a service-role client, so it does not test that denial.
 6. **Tests fake the RPC contract.** Mimic the RPC's return shapes in a fake (see `FakeInviteDb`), cover every `result` value, and change the fake whenever the RPC changes.
 7. **Apply the SQL before deploying** the code that calls it, run `python scripts/datamodels/drift_check.py` afterwards, and provide a drop/cleanup script when you rename database objects. After changing any SQL header run `python scripts/datamodels/build_guide.py` (never hand-edit the generated guide and `catalog.json`).
 
@@ -134,7 +134,7 @@ When a feature needs rules or multi-step changes in the database, put that logic
 
 ### Configuration
 
-All secrets loaded via `config/aws_setting.py` from AWS Secrets Manager with fallback to local `.env_ordelo_agent`, `.env_ssm`, `env.json`. Key config modules:
+All secrets loaded via the root `aws_setting.py` (`agent_env`) from AWS Secrets Manager, using the `AWS_SETTINGS_*` variables; it raises if the secret cannot be read, with no local-file fallback. Key config modules:
 
 - `config/pg_setting.py` — DB URI, Supabase client, async pool
 - `config/waba_setting.py` — WhatsApp Business Account credentials
@@ -146,10 +146,9 @@ Runtime configuration stored in `ordelo_config` DB table, keyed by restaurant (e
 
 ## Conventions
 
-- **Python 3.13.11** required (`pyproject.toml`)
+- **Python >=3.11** required (`pyproject.toml`)
 - **UV** for dependency management
 - **Hatchling** build backend
-- **Service naming**: `{Domain}Service` suffix, PascalCase (e.g., `DispatchService`)
 - **Async-first**: handlers use `async/await` throughout
 - **Linting**: Ruff with `F` rules only (`F704` ignored)
 - **Testing**: pytest + pytest-asyncio, tests in `tests/`, mocks for external deps (psycopg, langgraph, pywa, config)

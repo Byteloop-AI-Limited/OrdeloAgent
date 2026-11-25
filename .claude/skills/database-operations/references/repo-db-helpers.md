@@ -2,7 +2,7 @@
 
 ## Primary clients
 
-- Supabase REST clients (wired in `config/pg_setting.py`): `from config import client_ordelo` (anon key, use first) and `client_ordelo_service` (service-role key, only after a permission error; see SKILL.md)
+- Supabase REST clients: for ad-hoc work use an explicit anonymous client first, `create_client(pg_settings.rest_url, pg_settings.rest_key)`, then `client_ordelo_service` only after a permission error (see SKILL.md). `client_ordelo` (wired in `config/pg_setting.py`) also uses the service-role key.
 - Async Postgres pool: `await pg_settings.get_pool()` (also in `config/pg_setting.py`)
 
 ## Helpers

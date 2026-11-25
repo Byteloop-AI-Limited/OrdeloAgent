@@ -48,7 +48,12 @@ client the rules above select.
 
 ```sh
 ./run_setup.sh               # creates .venv, runs uv sync, validates AWS vars
-source .venv/bin/activate
+```
+
+Then prepare each new shell (see `docs/local-testing-runbook.md`):
+
+```sh
+source .venv/bin/activate && export PYTHONPATH="$PWD" && envLoad
 ```
 
 After activation, all imports work normally:
@@ -66,7 +71,7 @@ PY
 
 ### Step 2 — Lightweight bootstrap (no venv, quicker for one-off queries)
 
-Use when you need a fast one-off query without installing Python 3.13.11.
+Use when you need a fast one-off query without creating the venv.
 Installs packages into system Python, then loads secrets from AWS Secrets Manager:
 
 ```sh
@@ -74,8 +79,8 @@ uv pip install \
   pydantic-settings boto3 loguru supabase "pywa==3.6.1" \
   "pandas==2.2.3" gspread "duckdb==1.4.3" \
   "psycopg[binary]" psycopg-pool \
-  "langchain==1.2.1" "langchain-openai==1.1.7" \
-  "langgraph==1.0.5" "langgraph-checkpoint-postgres==3.0.2" \
+  "langchain==1.2.15" "langchain-openai==1.1.14" \
+  "langgraph==1.1.5" "langgraph-checkpoint-postgres==3.0.5" \
   -q
 ```
 
@@ -84,16 +89,16 @@ Then query using the AWS-backed config:
 ```sh
 PYTHONPATH=$(git rev-parse --show-toplevel) python3 - <<'PY'
 import sys; sys.path.insert(0, ".")
-from aws_setting import ordelo_agent_env          # fetches secrets from AWS Secrets Manager
+from aws_setting import agent_env          # fetches secrets from AWS Secrets Manager
 from supabase import create_client
-client = create_client(ordelo_agent_env["sbase_ordelo_rest_url"], ordelo_agent_env["sbase_ordelo_rest_key"])  # anon key; use sbase_ordelo_service_key only after a permission error
+client = create_client(agent_env["sbase_ordelo_rest_url"], agent_env["sbase_ordelo_rest_key"])  # anon key; use sbase_ordelo_service_key only after a permission error
 resp = client.table("delivery_summary").select("*").eq("order_number", "ELAS-CEKT-22").execute()
 print(resp.data)
 PY
 ```
 
 > **Note:** `env.json` does not exist locally — credentials always come from AWS Secrets Manager
-> via `aws_setting.ordelo_agent_env`. Never attempt to open `env.json`.
+> via `aws_setting.agent_env`. Never attempt to open `env.json`.
 
 ## Query Patterns
 

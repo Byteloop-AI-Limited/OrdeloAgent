@@ -47,8 +47,8 @@ Trace cross-project issues through these folders as needed, reading each project
   - Location hooks: `watomation/routers/location_hooks.py`
   - Twilio/web onboarding helpers: `watomation/routers/twilio_webhook.py`
 - WhatsApp handlers:
-  - Messages: `watomation/on_message_wa_handler.py:40` (`process_wa_msg`), plus utility commands (`/test`, `/reset`, `/live`, `/flow`).
-  - Callback buttons: `watomation/on_callback_wa_handler.py:28` (`dispatch_response`) for Accept/Decline dispatch; `:85` (`rider_request_location`).
+  - Messages: `watomation/on_message_wa_handler.py` (`process_wa_msg`), plus utility commands (`/test`, `/reset`, `/live`, `/flow`).
+  - Callback buttons: `watomation/on_callback_wa_handler.py` (`dispatch_response`) for Accept/Decline dispatch; `rider_request_location`.
   - Flows (WA Flows): `watomation/on_flow_request_wa_handler.py` (Customer address capture) and `watomation/on_flow_request_postcode_search.py` (Postcode search).
 
 2) Agents (LangGraph/LangChain)
@@ -63,19 +63,19 @@ Trace cross-project issues through these folders as needed, reading each project
     - `request_rider_current_location` — sends the WhatsApp current-location prompt; only called when `wa_location_request_id` is set in graph state (see `ordelo/wa_location.py`'s `WaLocation._prompt_rider_via_agent`), so every location ask stays in the agent's thread history.
     - Graph control nodes: `agent_node`, `respond_node`, `ToolNode`.
   - Runner helpers: `ordelo/agents/agent_runner.py` —
-    - Invoke graph per message: `:71` (`run_rider_graph`)
-    - Initialize graph for accepted job: `:109` (`init_ordelo_graph`)
+    - Invoke graph per message: `run_rider_agent_w_custom_msg`
+    - Initialize graph for accepted job: `init_ordelo_graph`
 - General chat (Byteloop): `ordelo/agents/byteloop_agent.py` — minimal ReAct agent used for non‑delivery conversations.
 - Shared LLM/utilities: `utils_common/lg_utils.py` — prompt builders, LLM instance, config/thread helpers, message/state utilities.
 
 3) Application Handlers (Delivery Utilities)
 - `ordelo/agent_app_handlers.py` — glue between graph tools, WhatsApp, and DB/Webhooks:
-  - Generate OwnTracks start/stop config URLs: `:148` (`create_start_job_config`), `:204` (`create_stop_job_config`)
-  - Delivery instructions: `:308` (`_send_delivery_instructions`)
-  - Rider event webhooks: `:403` (`post_rider_event_customer_cc`), `:428` (`post_rider_event_restaurant_cc`)
-  - Live map URL: `:258` (`get_live_map_location_url`)
-  - Initial accept/decline handler: `:176` (`initial_handle_of_rider_response`)
-  - Live location check: `:291` (`is_live_location_enabled`)
+  - Generate OwnTracks start/stop config URLs: `create_start_job_config`, `create_stop_job_config`
+  - Delivery instructions: `_send_delivery_instructions`
+  - Rider event webhooks: `post_rider_event_customer_cc`, `post_rider_event_restaurant_cc`
+  - Live map URL: `get_live_map_location_url`
+  - Initial accept/decline handler: `initial_handle_of_rider_response`
+  - Live location check: `is_live_location_enabled`
 
 4) Webhooks and Routers
 - Delivery hooks: `watomation/routers/delivery_hooks.py`
@@ -92,7 +92,7 @@ Trace cross-project issues through these folders as needed, reading each project
   - Live map redirect (Google Maps or map page): `live_location_map`
   - Rider zone events to restaurant webhooks: `notify_rider_location_event`
   - Prompt rider if tracking null/outdated: `notify_rider_null_or_outdated_location`
-- Twilio/web onboarding: `watomation/routers/twilio_webhook.py` and `watomation/routers/twilio_webhook_utils.py`
+- Twilio/web onboarding: `watomation/routers/twilio_webhook.py` and `utils_common/waba_es/`
   - WhatsApp Embedded Signup page + callback pipeline
   - Facebook Graph API integrations to onboard phone numbers and verify setup
 
@@ -120,11 +120,11 @@ Trace cross-project issues through these folders as needed, reading each project
 - Webhook URL building: `config/params.py` (`get_webhook_url(rest_ref, type)`)
 - LLM model/keys: `config/llm_setting.py`
 - Logger wiring: `config/logger_setting.py`
-- AWS Secrets loader: `aws_setting.py` (loads all env into `ordelo_agent_env`)
+- AWS Secrets loader: `aws_setting.py` (loads all env into `agent_env`)
 
 7) Edge Functions (Supabase Deno)
-- App Runner manager: `utils_common/db_utils/edge_app_runner_manager.ts` — pause/resume AWS App Runner services via signed edge function.
-- OwnTracks ingest: `utils_common/db_utils/edge_owntracks-webhook.ts` — push incoming OwnTracks JSON to `pgmq_public.send('owntracks')` queue.
+- App Runner manager: `utils_common/edge_functions_sbase/edge_app_runner_manager.ts` — pause/resume AWS App Runner services via signed edge function.
+- OwnTracks ingest: `utils_common/edge_functions_sbase/edge_owntracks-webhook.ts` — push incoming OwnTracks JSON to `pgmq_public.send('owntracks')` queue.
 
 
 ## End‑to‑End: How the Pieces Work Together
@@ -160,17 +160,17 @@ Trace cross-project issues through these folders as needed, reading each project
   - Pre‑pickup cancellation:
     - `cancel_delivery_before_pickup` calls `dispatch_cancel_before_pickup`, reopens dispatching, and asks the rider for a reason.
     - `capture_reason_for_cancel_before_pickup` writes `reason_for_decline` and closes the rider job.
-- On each incoming rider message, the WA handler `process_wa_msg` locates the active thread for that rider and runs `run_rider_graph(recipient, human_msg=...)`.
+- On each incoming rider message, the WA handler `process_wa_msg` locates the active thread for that rider and runs `run_rider_agent_w_custom_msg(recipient, human_msg=..., thread_id=...)`.
 - The agent responds either directly (respond node → WhatsApp) or by executing tools (ToolNode), which themselves perform WhatsApp sends and DB operations.
 
 4) Live Location
-- The agent’s “Start live tracking” sends an OwnTracks configuration URL; the rider app begins publishing.
+- The rider agent asks for a WhatsApp current location when an authorised request is pending (`request_rider_current_location`). It has no tool that starts or stops OwnTracks; `send_start_live_tracking_link` and `end_delivery` are defined but not registered in `_rider_agent_tools`.
 - OwnTracks webhook (either custom or Supabase edge) enqueues location; separate processes persist to `rider_location` and/or emit zone transitions into `rider_location_event`.
 - Restaurant/customer webhooks for zone transitions are emitted from `location_hooks.notify_rider_location_event`.
 - Live map URL can be requested: `/location-hooks/live-location-map/{order_number}` resolves current lat/lon and redirects to Google Maps.
 
 5) Ending the Job
-- After successful customer confirmation code verification, the agent calls DB function `dispatch_complete_func` and marks WA thread inactive. A “Stop live tracking” link is sent.
+- After successful customer confirmation code verification, the agent calls DB function `dispatch_complete_func` and marks WA thread inactive.
 - `/reset` command exists to force thread reset; `/cleardis` calls a Supabase RPC to clear dispatch for testing.
 
 6) Scheduled Availability Enquiries (DB → API → WhatsApp)
@@ -230,7 +230,7 @@ The [glossary](GLOSSARY.md) owns business vocabulary. The [database capability i
 
 ## Configuration and Secrets
 
-- All secrets/envs are loaded via `aws_setting.py` → `ordelo_agent_env` (Secrets Manager). Local fallback files: `.env_ordelo_agent` as a source to generate JSON (`upload_secrets.sh`).
+- All secrets/envs are loaded via `aws_setting.py` → `agent_env` (Secrets Manager); there is no local-file fallback. `upload_secrets.sh` builds the secret JSON from `.env_ordelo_agent`.
 - Critical config modules:
   - `config/waba_setting.py` — WABA credentials, clients, catalog helpers.
   - `config/pg_setting.py` — `db_uri`, `rest_url`, `rest_key`, `service_key`, async pool.
@@ -242,17 +242,19 @@ The [glossary](GLOSSARY.md) owns business vocabulary. The [database capability i
 
 ### Quick Setup (Recommended)
 
-Use the automated setup script to create and configure the Python virtual environment:
+Run the setup script once to create or sync the Python virtual environment. Run it, do not source it: its `set -euo pipefail` would change your shell.
 
 ```bash
-source run_setup.sh
+./run_setup.sh
 ```
 
-**What it does:**
+Then prepare each new shell as described in the [local testing runbook](docs/local-testing-runbook.md): activate the venv, set `PYTHONPATH`, run `envLoad`.
+
+**What the script does:**
 1. Verifies `uv` is installed (modern package manager, 10-100x faster than pip)
 2. Creates `.venv` using `uv venv`
 3. Activates the virtual environment
-4. Installs all dependencies from `requirements.txt` using `uv pip`
+4. Installs dependencies from `pyproject.toml` with `uv sync`
 5. Sets `PYTHONPATH` to the project root
 6. Verifies AWS environment variables are configured
 
@@ -285,11 +287,11 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 - `AWS_SETTINGS_REGION`
 - `AWS_SETTINGS_SECRET_NAME`
 
-These are used by `aws_setting.py` to fetch secrets from AWS Systems Manager (SSM). They should be available in cloud sessions by default.
+These are used by `aws_setting.py` to fetch secrets from AWS Secrets Manager. They should be available in cloud sessions by default.
 
 **Optional development dependencies:**
 ```bash
-INSTALL_DEV=1 source run_setup.sh
+INSTALL_DEV=1 ./run_setup.sh
 ```
 
 ### Cloud Session Notes
@@ -344,18 +346,17 @@ When a change touches a Telegram bot, a dashboard magic link, checkout, order tr
 
 ## Quick Search Map (Common Tasks)
 
-- Initialize graph after rider accepts: `ordelo/agents/agent_runner.py:109`
-- Send delivery instructions: `ordelo/agents/rider_agent.py:245`
-- Send start live tracking link: `ordelo/agents/rider_agent.py:277`
-- Verify restaurant/customer confirmation codes: `ordelo/agents/rider_agent.py:322`, `:419`
+- Initialize graph after rider accepts: `init_ordelo_graph` in `ordelo/agents/agent_runner.py`
+- Send delivery instructions: `send_delivery_instructions` in `ordelo/agents/rider_agent.py`
+- Verify restaurant/customer confirmation codes: `verify_restaurant_confirmation_code`, `verify_customer_confirmation_code` in `ordelo/agents/rider_agent.py`
 - Pre‑pickup cancel + reason capture: `ordelo/agents/rider_agent.py` tools `cancel_delivery_before_pickup` and `capture_reason_for_cancel_before_pickup`
-- Mark job complete and stop tracking: `ordelo/agents/rider_agent.py:560`
+- Mark job complete: `verify_customer_confirmation_code` in `ordelo/agents/rider_agent.py`
 - Rider location prompt (agent tool): `ordelo/agents/rider_agent.py` tool `request_rider_current_location`, invoked from `ordelo/wa_location.py`'s `WaLocation._prompt_rider_via_agent`
-- Generate OwnTracks config link: `ordelo/agent_app_handlers.py:148`
-- Live map URL (server URL to maps page): `watomation/routers/location_hooks.py:74`
-- Rider zone event → restaurant webhook: `watomation/routers/location_hooks.py:229`
+- Generate OwnTracks config link: `create_start_job_config` in `ordelo/agent_app_handlers.py`
+- Live map URL (server URL to maps page): `live_location_map` in `watomation/routers/location_hooks.py`
+- Rider zone event → restaurant webhook: `notify_rider_location_event` in `watomation/routers/location_hooks.py`
 - Dispatch webhook entry: `watomation/routers/delivery_hooks.py` (see route definitions)
-- WhatsApp message entrypoint: `watomation/on_message_wa_handler.py:40`
+- WhatsApp message entrypoint: `process_wa_msg` in `watomation/on_message_wa_handler.py`
 - Rider thread lookup and lifecycle: [rider_threads.py](ordelo/agents/rider_threads.py)
 - Supabase REST call helpers: `utils_common/db_utils/sbase_rest_ops.py`
 - Dashboard / portal links (rider, restaurant, system) for Telegram and WhatsApp: [dashboard_links.py](ordelo/dashboard_links.py); SQL mints and sessions in [auth_sessions.sql](ordelo_datamodels/admin_dashboard/auth_sessions.sql)
@@ -363,12 +364,12 @@ When a change touches a Telegram bot, a dashboard magic link, checkout, order tr
 
 ## Pyrun Notes
 
-Use pyrun for ad-hoc Python snippets. The skill assumes the environment is already set up.
-If your pyrun attempt fails with an import error or missing module, run the setup script
-and try again:
+Use pyrun for ad-hoc Python snippets, after preparing the shell as described in the local testing runbook.
+If your pyrun attempt fails with an import error or missing module, run the setup script,
+prepare the shell again and retry:
 
 ```bash
-source run_setup.sh
+./run_setup.sh
 ```
 
 Example (WABA webhook configuration via `config/waba_setting.py`):
@@ -382,7 +383,7 @@ print(business_phone_number.webhook_configuration)
 PY
 ```
 
-Note: Ensure AWS secrets are loaded so `ordelo_agent_env` can populate settings.
+Note: Ensure AWS secrets are loaded so `agent_env` can populate settings.
 
 
 ## Notable Details and Caveats
@@ -415,7 +416,7 @@ Note: Ensure AWS secrets are loaded so `ordelo_agent_env` can populate settings.
   - `config/waba_setting.py` — WA clients (sync/async), catalog helpers
   - `config/pg_setting.py` — Supabase + psycopg_pool settings
   - `config/params.py` — webhook URL mapping per restaurant
-  - `aws_setting.py` — secret loading to `ordelo_agent_env`
+  - `aws_setting.py` — secret loading to `agent_env`
 
 - DB and models
   - `utils_common/db_utils/sbase_rest_ops.py` — REST helpers
@@ -424,8 +425,8 @@ Note: Ensure AWS secrets are loaded so `ordelo_agent_env` can populate settings.
   - `ordelo_datamodels/delivery_pymodels.py`, `location_pymodels.py`
 
 - Edge functions
-  - `utils_common/db_utils/edge_app_runner_manager.ts` — AWS App Runner control
-  - `utils_common/db_utils/edge_owntracks-webhook.ts` — OwnTracks → pgmq queue
+  - `utils_common/edge_functions_sbase/edge_app_runner_manager.ts` — AWS App Runner control
+  - `utils_common/edge_functions_sbase/edge_owntracks-webhook.ts` — OwnTracks → pgmq queue
 
 
 ## ordelo_datamodels SQL standard
@@ -443,5 +444,3 @@ Everything under `ordelo_datamodels/` follows this standard. Overview and how to
 9. **Drift.** After any change to the live database run `python scripts/datamodels/drift_check.py` (needs `ORDELO_LIVE_DB_URI`, used read-only, and `ORDELO_TEST_DB_URI`, a LOCAL scratch Postgres that is reset). Exit 0 means the files match live.
 10. **Safety.** Live access for documentation work is read-only. Writing to live (including `COMMENT ON`) needs the owner's approval. Never run a DELETE without explicit approval. Documentation work never drops an object; orphan candidates and production findings go to `docs/to-do.md` for the owner to decide.
 
----
-If you want, I can add sequence diagrams (Mermaid) or short runnable examples per endpoint/tool to further accelerate onboarding.
