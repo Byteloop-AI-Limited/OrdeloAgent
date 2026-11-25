@@ -9,7 +9,9 @@ press or set-value on one freshly found element. Usage (see ../SKILL.md):
   chrome_order.py close WIN                                 close a window this run opened
   chrome_order.py dump WIN [--grep RE]                      text and controls of the visible page
   chrome_order.py click WIN ROLE NAME                       press the only element with this role and exact name
-  chrome_order.py order WIN Collection|Delivery [--qty 2]   TEST3100 x qty -> review -> Simulate payment
+  chrome_order.py order Collection|Delivery [--qty 2] [--review-only]
+                                                            new window: TEST3100 x qty -> review -> Simulate payment;
+                                                            prints "ORDER WIN" (WIN = its tracking page)
   chrome_order.py watch-page WIN SECONDS                    print the tracking page's wording as it changes
   chrome_order.py tg-read WIN BOT [--tail 30]
   chrome_order.py tg-tap WIN BOT ORDER LABEL_RE             press a button belonging to ORDER in the open bot chat
@@ -110,18 +112,22 @@ def has(role, name):
     return lambda nodes: any(n.get("role") == role and (n.get("name") or "").strip() == name for n in nodes)
 
 
-def cmd_open(a):
+def open_window(address):
+    """A new window, never a tab: Chrome puts tabs in whichever window it thinks was used last."""
     before = set(windows())
-    subprocess.run([CHROME, "--new-window", a.url], capture_output=True)
+    subprocess.run([CHROME, "--new-window", address], capture_output=True)
     end = time.time() + 15
     while time.time() < end:
         new = [w for w in windows() if w not in before]
         if new:
             time.sleep(5)
-            print(new[0])
-            return
+            return new[0]
         time.sleep(0.5)
     die("no new Chrome window")
+
+
+def cmd_open(a):
+    print(open_window(a.url))
 
 
 def cmd_close(a):
@@ -144,10 +150,7 @@ def cmd_dump(a):
 
 
 def cmd_order(a):
-    win = a.win
-    focus(win)
-    _, before_url = page(win)
-    subprocess.run([CHROME, STORE], capture_output=True)  # new tab in the focused window
+    win = open_window(STORE)
     wait_for(win, has("checkbox", a.mode), 20, "storefront")
     time.sleep(2)
     nodes, where = page(win)
@@ -185,16 +188,16 @@ def cmd_order(a):
     nodes = wait_for(win, has("button", "Simulate payment"), 25, "Simulate payment")
     if not any(TEST_NOTICE in text(n) for n in nodes):
         die("the review page does not say this is a test order")
+    if a.review_only:
+        print("at-review", win)
+        return
     press(win, "button", "Simulate payment")
     end = time.time() + 25
     while time.time() < end:
         where = url(snapshot(win))
         found = re.search(r"orders/([A-Z]{4}-[A-Z]{4}-\d+)", where)
         if found:
-            number = found[1]
-            if number in before_url:
-                die(f"{number} is the order already open: the checkout session was reused. Change --qty.")
-            print(number)
+            print(found[1], win)
             return
         time.sleep(0.7)
     die("no order page; look up the order in the database before retrying")
@@ -280,10 +283,10 @@ def main():
     add("dump", cmd_dump, "win").add_argument("--grep")
     add("click", lambda a: (focus(a.win), press(a.win, a.role, a.name)), "win", "role", "name")
     s = sub.add_parser("order")
-    s.add_argument("win")
     s.add_argument("mode", choices=("Collection", "Delivery"))
     s.add_argument("--qty", type=int, default=2)
     s.add_argument("--house", default="1")
+    s.add_argument("--review-only", action="store_true", help="stop before payment; the order exists and is unpaid")
     s.set_defaults(fn=cmd_order)
     s = sub.add_parser("watch-page")
     s.add_argument("win")

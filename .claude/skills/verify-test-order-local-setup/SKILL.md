@@ -60,7 +60,6 @@ Leave the owner's Telegram split view alone. It can hold a second account and pe
 
 ```zsh
 co() { python3 $SK/chrome_order.py "$@" }
-STORE=$(co open https://restaurant-test.ordelo.app/town/orpington/strk)
 KITCHEN=$(co open "https://web.telegram.org/k/#@OrdeloRestaurantBot")
 RIDER=$(co open "https://web.telegram.org/k/#@ByteloopRidersBot")
 ```
@@ -76,12 +75,12 @@ nohup python $SK/db_evidence.py watch 2400 > "$SCRATCH/watch.log" 2>&1 &
 ## 3. Place the order
 
 ```zsh
-O=$(co order $STORE Collection --qty 2); echo $O      # or Delivery; prints STRK-XXXX-NN
+read O STORE < <(co order Collection --qty 2); echo $O $STORE      # or Delivery; STORE = its tracking window
 ```
 
 It sets TEST3100 to the quantity, goes to review, **stops unless the page says "This is a test order"**, then presses Simulate payment. Delivery needs a saved postcode (BR6 6DN works) and fills house number `1`.
 
-**Change the quantity on every order in the same run.** A repeat of the same restaurant, mode and basket within about 35 minutes reuses the checkout and returns the earlier order ([to-do](../../../docs/to-do.md#found-by-the-local-test-order-run-25-nov-2026)). The script stops if it lands on the order already open.
+Each call opens its own storefront window. `--review-only` stops before payment: run it twice and the same unpaid order must come back (one `food_order` row). After payment the same basket must create a new order. If a call prints an order number you already have, the checkout was reused after payment, which is a defect.
 
 After an ambiguous result, look the order up in the database before trying again.
 
