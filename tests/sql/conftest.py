@@ -85,6 +85,10 @@ MIGRATION_FILES = [
     "app_hook_post.sql",
     "t_rider_invites.sql",
     "job_rider_invite_alerts.sql",
+    # Phase 2: the customer notifier sweeps (option B, docs/to-do.md): woken every minute / daily, they read no table.
+    "job_customer_outbox_sweep.sql",
+    "job_web_lifecycle_sweep.sql",
+    "job_web_price_audit.sql",
     "job_pause_sweep.sql",
     # Rider bot phases R2-R4: thread per dispatch (the thread table itself comes from minimal_schema.sql).
     "rider_threads.sql",
