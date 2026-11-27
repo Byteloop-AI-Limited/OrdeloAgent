@@ -14,12 +14,12 @@
 -- LIFECYCLE     none
 -- CALLED BY     app_hook_post:
 --                 sql       job_rider_invite_alerts() (telegram/job_rider_invite_alerts.sql)
---                 (older functions still build the URL inline: docs/to-do.md "Moving SQL hook calls to app_hook_post()")
 -- PYTHON MODEL  watomation/routers/sweep_hooks.py (the routes it calls)
 -- SECURITY      PUBLIC, anon and authenticated revoked; service role only.
 -- TESTS         tests/sql/test_app_hook_post_sql.py
 -- GOTCHAS       Falls back to https://agent.ordelo.app when ORDELO_APP_URL is empty, like the inline copies.
 --               The curl timeout is reset after a normal call; pg_cron opens a fresh session per run in any case.
+--               Older functions still build the hook URL inline; they move here when next edited (docs/to-do.md).
 -- SEE ALSO      platform/ordelo_post.sql (operator helper, different contract)
 --               docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md
 -- =============================================================================================
