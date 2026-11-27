@@ -2,6 +2,8 @@
 
 > **Telegram layer:** [interactive guide](docs/telegram-layer.html) and [agent context](docs/telegram-layer.md) cover the restaurant-admin and rider bots, webhook routes, the bot registry, invite and rider-link flows, database-function (RPC) pattern and R5-R6 availability pauses. Add to the change log there whenever the Telegram layer changes.
 
+> **Rider invite links:** given a rider phone number, run `python scripts/create_rider_invite.py <phone>` (venv active, `PYTHONPATH="$PWD"`) and return the printed `t.me/ByteloopRidersBot?start=ri_...` URL; it is personal (send privately), and `?start=join` is the common link that still asks for the phone. Details: `.claude/skills/database-operations/SKILL.md` ("Rider invites").
+
 > **Alerts and notifications:** [interactive guide](docs/alerts-and-notifications.html), [agent context](docs/alerts-and-notifications.md), and [canonical vocabulary](GLOSSARY.md) cover customer progress, restaurant-app callbacks, rider/admin alerts and overwatch. Existing transport statuses must not be described as confirmed message delivery.
 
 > **Web ordering implementation:** see the [interactive playground](docs/web-ordering-playground.html) and [matching agent context](docs/web-ordering-playground.md) for checkout identity, tables, payment/fulfilment flows and differences from the separate proposal.
