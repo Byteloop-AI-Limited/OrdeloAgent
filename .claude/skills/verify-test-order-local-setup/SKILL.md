@@ -1,6 +1,6 @@
 ---
 name: verify-test-order-local-setup
-description: Verify Ordelo changes end to end on the local setup (localhost behind the Cloudflare test hostnames) by placing TEST3100 orders on the Strikers web storefront, simulating payment, and acting as the owner in Telegram Web to accept, decline, choose a pickup time, mark ready, and complete the rider job. Use when asked to verify a change live, place a test order automatically, run the verification loop, or check the local test setup. For Stripe sandbox, Swagger or WhatsApp order tests use ordelo-local-automatic-orders.
+description: Verify Ordelo changes end to end through the local Cloudflare test hosts. Covers Strikers TEST3100 checkout and simulated payment, Telegram Web kitchen and rider actions, and pg_cron hooks and Overwatch alerts. For Stripe sandbox, Swagger or WhatsApp order tests use ordelo-local-automatic-orders.
 ---
 
 # Verify a test order on the local setup
@@ -44,15 +44,9 @@ agent-desktop permissions                    # accessibility must be granted; sc
 - Confirm the running backend is this checkout: `lsof -a -p $(lsof -tiTCP:3100 -sTCP:LISTEN | head -1) -d cwd`, and that the code under test is in it.
 - Write down the timeout minutes and action, and any setting you will change. Expected timings come from these values.
 
-Find the server logs in the owner's Rex session `RunServices`:
+Use [Rex CLI for Ordelo verification](../rex-cli-verification/SKILL.md) to locate `uvicorn` (3100) and `next dev` (3000), capture compact log evidence, and set up a reusable approval tab if the owner chooses Rex. Check the running checkout and commit independently of the worktree holding the implementation and SQL files.
 
-```zsh
-REX="/Applications/Rex.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex"   # "Rex Beta.app" on older installs
-"$REX" ls --json; "$REX" block ls -s <session> --json
-"$REX" capture -s <session> -b <block> --trim    # uvicorn = backend, next dev = frontend
-```
-
-Log lines wrap at the pane width; join them (`tr -d '\n'`) before searching for a URL.
+If SQL is absent from the running checkout, resolve the files from the intended worktree and show the path and commit before approval. Check live object definitions before deciding whether an earlier migration needs applying.
 
 ## 2. Open the windows
 
@@ -72,7 +66,7 @@ Overwatch alerts (ops alerts, invite-claim alerts, escalations, payment and capt
 
 - **Only the `ByteLoop Ai` chat.** Ordelo's WhatsApp Business number shows as the contact `ByteLoop Ai`. Search for that exact name, open that chat, and read only its latest messages. Never scan the chat list, open another chat, or type, react or send anything in WhatsApp.
 - **Use agent-desktop first, computer use as a fallback.** Chrome tabs appear as `radiobutton` elements: `agent-desktop find --app "Google Chrome" --role radiobutton`. WhatsApp Web runs in one tab only, so do not open a second WhatsApp window. Bring the existing tab to the front, read it, then select the tab that was active before.
-- **Evidence.** Record the alert text with phone numbers masked, the time and the count (for example, one message per claim and none after a replay). Cross-check with the database row (for invite claims, `t_invites.rider_alert_result` and `rider_alert_accepted`) and the local send log. WhatsApp API acceptance proves only that the message was accepted, while the chat proves it arrived.
+- **Evidence.** Record the alert text with phone numbers masked, the time and the count (for example, one message per claim and none after a replay). Cross-check with the database row (for invite claims, `t_invites.rider_alert_result` and `rider_alert_accepted`) and the local send log. If the chat looks unchanged, bring Chrome and that tab to the front and refresh the accessibility snapshot before recording an absence. Record API acceptance and the arrival observed in the monitored chat separately.
 
 Start the watcher in the background and keep its log:
 
@@ -86,11 +80,13 @@ nohup python $SK/db_evidence.py watch 2400 > "$SCRATCH/watch.log" 2>&1 &
 read O STORE < <(co order Collection --qty 2); echo $O $STORE      # or Delivery; STORE = its tracking window
 ```
 
-It sets TEST3100 to the quantity, goes to review, **stops unless the page says "This is a test order"**, then presses Simulate payment. Delivery needs a saved postcode (BR6 6DN works) and fills house number `1`.
+Chrome windows in the same profile share the persisted STRK basket. Record any pre-existing contents before editing them. The helper opens the basket, requires `TEST3100` as the sole item, sets the quantity, and checks the exact item line on checkout before **Continue to review**, which can create an order. It then requires the test-order notice and **Simulate payment** before simulating. Delivery needs a saved postcode (BR6 6DN works) and fills house number `1`.
 
-Each call opens its own storefront window. `--review-only` stops before payment: run it twice and the same unpaid order must come back (one `food_order` row). After payment the same basket must create a new order. If a call prints an order number you already have, the checkout was reused after payment, which is a defect.
+If a mixed basket blocks the run, leave it intact until you have the owner's approval to edit it. Restore its original lines and quantities at the end. Confirm the basket and checkout each show exactly the intended item and quantity if driving them manually.
 
-After an ambiguous result, look the order up in the database before trying again.
+Each call opens its own storefront window. `--review-only` stops before payment and prints `at-review WIN`. When checking idempotency, compare the database result of two review-only runs for the same checkout. Both should resolve to the same unpaid `food_order` row. After payment the same basket must create a new order.
+
+After an ambiguous result, look the order up in the database before retrying. If an unintended unpaid draft exists, record its order number and payment state in the report and avoid paying it.
 
 ## 4. Act as the restaurant
 
@@ -135,12 +131,19 @@ python $SK/db_evidence.py order $O
 
 For each scenario record: order number, what the page and chat showed, the log line that proves local code ran, and the row. Label evidence **offline**, **isolated database** or **live local**, and name the code that handled Telegram taps.
 
+### Scheduled work
+
+For a cron-backed change, capture the target job's schedule and active flag in `cron.job` and correlate actual ticks in `cron.job_run_details` with the local hook and the durable result. A successful cron run or HTTP 200 shows one boundary completed. Use the background completion log and the affected row to check work was processed. Use `cron.job` for the actual cadence and check the job's SQL for its due condition.
+
+- **Idle and due cases.** For a due-only job (invite alerts or price audit), prove quiet ticks with no work due and observe a due tick separately. An already-completed price audit proves the skip case. The customer outbox and web lifecycle jobs POST even when idle by design. A `web_page` outbox row may be `skipped` while the tracking page shows the event through polling.
+- **Recovery.** Prove scheduled retry in isolated tests first. When the live plan calls for an approved outage, bound it to the target job and an agreed restoration time. Capture unchanged pending work during the pause, followed by the first restored tick, local sweep completion, final row state and subsequent quiet ticks. For invite claims, follow the [Telegram invite verification steps](../telegram-vertification-loop/SKILL.md#rider-invites-and-overwatch-alerts).
+
 Limits of simulated payment:
 - No PaymentIntent exists, so capture returns 500 and logs `Payment capture failed` (overwatch is alerted). This is expected. Any other `ERROR` or traceback is not.
-- It proves nothing about Stripe authorisation, capture or payout. Use `ordelo-local-automatic-orders` for that.
+- A decline showing “Payment released” proves simulated order and customer state. The test decline releases inline and creates no `web_payment_release` row. To claim scheduled release recovery, show a due queue row, a lifecycle tick that processes it, and the resulting row transition. Use isolated tests for the queued path and `ordelo-local-automatic-orders` for real Stripe sandbox evidence.
 - Test orders appear in the STRK dashboard and the nightly price audit.
 
-Before finishing: no STRK order awaiting a decision or an inflight rider job (a collection ends at `pickup_confirmed` with `ready_at` set), settings restored, watcher stopped, your windows closed with `co close WIN` (leave the owner's), the owner's previously active Chrome tab selected again if you switched to WhatsApp, report written to `docs/releases/verify-test-order-local-setup-<date>.md`. Leave the routing as it is and remind the owner to restore it.
+Before finishing, confirm no order from this run awaits a decision or has an inflight rider job (a successful collection ends at `pickup_confirmed` with `ready_at` set). Verify any temporary schedule, basket and setting changes were restored and report the final job state. Stop your watcher, close your windows with `co close WIN`, and reselect the owner's previous Chrome tab if you switched to WhatsApp. Write the report to `docs/releases/verify-test-order-local-setup-<date>.md`. Leave shared routing for the owner to restore.
 
 ## When something goes wrong
 

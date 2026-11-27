@@ -30,6 +30,7 @@ STORE = "https://restaurant-test.ordelo.app/town/orpington/strk"
 BOTS = ("OrdeloRestaurantBot", "ByteloopRidersBot")
 ORDER_RE = re.compile(r"\b[A-Z]{4}-[A-Z]{4}-\d{2,3}\b")
 TEST_NOTICE = "This is a test order"
+TEST_ITEM = "TEST3100"
 
 
 def die(message):
@@ -149,7 +150,26 @@ def cmd_dump(a):
             print(re.sub(r"(activate|/o)/[\w-]+", r"\1/***", line))
 
 
+def test_basket_quantity(win):
+    nodes, _ = page(win)
+    if not has("heading", "Your basket")(nodes):
+        die(f"{win}: open the STRK basket before continuing")
+    buttons = [(i, (n.get("name") or "").strip()) for i, n in enumerate(nodes) if n.get("role") == "button"]
+    remove_buttons = [name for _, name in buttons if name.startswith("Remove ")]
+    if remove_buttons != [f"Remove {TEST_ITEM}"]:
+        die(f"{win}: the basket must contain only {TEST_ITEM}; inspect it before continuing")
+    decrease = next((i for i, name in buttons if name == f"Decrease {TEST_ITEM} quantity"), None)
+    increase = next((i for i, name in buttons if name == f"Increase {TEST_ITEM} quantity"), None)
+    if decrease is not None and increase is not None and decrease < increase:
+        quantities = [text(n) for n in nodes[decrease + 1:increase] if n.get("role") == "statictext"]
+        if len(quantities) == 1 and re.fullmatch(r"[1-9][0-9]*", quantities[0]):
+            return int(quantities[0])
+    die(f"{win}: could not read the {TEST_ITEM} basket quantity")
+
+
 def cmd_order(a):
+    if a.qty < 1:
+        die("order quantity must be at least one")
     win = open_window(STORE)
     wait_for(win, has("checkbox", a.mode), 20, "storefront")
     time.sleep(2)
@@ -159,22 +179,21 @@ def cmd_order(a):
     press(win, "checkbox", a.mode)
     time.sleep(1)
     nodes, _ = page(win)
-    if has("button", "Add TEST3100")(nodes):
-        press(win, "button", "Add TEST3100")
-        time.sleep(1.5)
-    count = 0
-    for _ in range(a.qty + 5):
-        nodes, _u = page(win)
-        status = next((text(n) for n in nodes if "Basket updated" in text(n)), "")
-        count = int((re.search(r"(\d+) items?", status) or [0, 0])[1])
-        if count == a.qty:
-            break
-        press(win, "button", ("Increase" if count < a.qty else "Decrease") + " TEST3100 quantity")
-        time.sleep(1.5)
-    if count != a.qty:
-        die(f"basket has {count} items, wanted {a.qty}; remove anything other than TEST3100")
+    if not has("button", "View basket")(nodes):
+        press(win, "button", f"Add {TEST_ITEM}")
+        wait_for(win, has("button", "View basket"), 10, "basket")
     press(win, "button", "View basket")
-    time.sleep(1)
+    wait_for(win, has("heading", "Your basket"), 10, "open basket")
+    quantity = test_basket_quantity(win)
+    for _ in range(abs(a.qty - quantity)):
+        if quantity == a.qty:
+            break
+        adjustment = "Increase" if quantity < a.qty else "Decrease"
+        press(win, "button", f"{adjustment} {TEST_ITEM} quantity")
+        time.sleep(0.8)
+        quantity = test_basket_quantity(win)
+    if quantity != a.qty:
+        die(f"{win}: expected {TEST_ITEM} × {a.qty} before checkout")
     press(win, "button", "Go to checkout")
     wait_for(win, has("button", "Continue to review"), 25, "checkout")
     if a.mode == "Delivery":
@@ -184,6 +203,10 @@ def cmd_order(a):
             die("house number field not found; set a delivery postcode on the storefront first")
         if not house[0].get("value"):
             ad("set-value", house[0]["ref_id"], a.house)
+    nodes, _ = page(win)
+    order_lines = [text(n) for n in nodes if n.get("role") == "statictext" and re.match(r"^\d+\s*×\s+", text(n))]
+    if order_lines != [f"{a.qty} × {TEST_ITEM}"]:
+        die(f"{win}: checkout must show only {TEST_ITEM} × {a.qty} before review")
     press(win, "button", "Continue to review")
     nodes = wait_for(win, has("button", "Simulate payment"), 25, "Simulate payment")
     if not any(TEST_NOTICE in text(n) for n in nodes):

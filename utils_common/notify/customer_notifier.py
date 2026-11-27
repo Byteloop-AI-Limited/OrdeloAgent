@@ -342,4 +342,3 @@ async def sweep_pending() -> int:
         await dispatch(row["id"])
         count += 1
     return count
-
