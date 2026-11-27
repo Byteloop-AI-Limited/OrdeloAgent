@@ -34,6 +34,8 @@ def clean(db):
                "ON CONFLICT (config_key) DO UPDATE SET config_value = EXCLUDED.config_value", (BASE,))
     yield
     db.execute("UPDATE public.http_stub_status SET status = 200")
+    # later files (test_order_cards_sql.py) expect the production fallback URL, so leave no ORDELO_APP_URL behind
+    db.execute("DELETE FROM public.ordelo_config WHERE config_key = 'ORDELO_APP_URL'")
 
 
 def run(db, fn):
