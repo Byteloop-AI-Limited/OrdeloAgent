@@ -2,8 +2,9 @@
 
 This alerts on client-computed prices; it does not alter the accepted D8 pricing
 contract. Missing menu matches are reported as unverifiable, never as valid.
-pg_cron wakes sweep() daily at 00:05 UTC (job_web_price_audit -> POST /web-hooks/price-audit,
-watomation/routers/sweep_hooks.py); there is no in-process loop (ADR 0019).
+pg_cron runs job_web_price_audit hourly at :05 UTC; it POSTs /web-hooks/price-audit (watomation/routers/sweep_hooks.py)
+only when today's London web_monitor_run row is missing, so sweep() is woken once per London day, and again within the
+hour after a failed audit. There is no in-process loop (ADR 0019).
 
   Menu floor
     . MENU_FLOOR: the lowest matching menu row's selling price, i.e. discounted_price
@@ -50,13 +51,15 @@ def below_floor(actual, menu_price, max_discount=0):
 async def sweep():
     """Claim and run one price audit per London day across registered restaurants.
 
-    Woken daily at 00:05 UTC by pg_cron (job_web_price_audit -> POST /web-hooks/price-audit).
+    Woken by pg_cron (job_web_price_audit, hourly at :05 -> POST /web-hooks/price-audit) when today's
+    London web_monitor_run row is missing.
 
     Compare the last 24 hours of web order lines with the lowest menu selling
     price (MENU_FLOOR) matching their product name; unmatched lines also require review. Missing
     maximum-discount config means zero. Record unique flagged orders and alert
-    ops without changing prices. Delete an unfinished claim on exception so a
-    later sweep can retry; a process crash can leave an unfinished claim behind.
+    ops without changing prices. Delete an unfinished claim on exception so the
+    next hourly job run can retry; a process crash can leave an unfinished claim
+    behind, and the job skips that day until the row is deleted.
     """
     day = utcnow().astimezone(UK).date()
     claimed = await query(
@@ -111,7 +114,7 @@ async def sweep():
             )
         logger.info("web price audit day={} flagged_orders={}", day, len(set(alerts)))
     except Exception:
-        # Allow the next minute's sweep to recover an unfinished audit.
+        # Delete the claim so the next hourly job run (job_web_price_audit) sees no row and retries.
         await query(
             "DELETE FROM web_monitor_run WHERE run_day=%s AND completed_at IS NULL",
             (day,),
