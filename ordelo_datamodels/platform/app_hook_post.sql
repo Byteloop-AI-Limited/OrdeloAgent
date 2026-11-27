@@ -18,7 +18,9 @@
 -- SECURITY      PUBLIC, anon and authenticated revoked; service role only.
 -- TESTS         tests/sql/test_app_hook_post_sql.py
 -- GOTCHAS       Falls back to https://agent.ordelo.app when ORDELO_APP_URL is empty, like the inline copies.
---               The curl timeout is reset after a normal call; pg_cron opens a fresh session per run in any case.
+--               The curl timeout is reset after every call, failed ones too: curlopts are C-level session state that the
+--                 EXCEPTION rollback does not undo, so a reused session (SQL editor) would keep CURLOPT_TIMEOUT and cut off
+--                 later http_post calls. pg_cron opens a fresh session per run in any case.
 --               Older functions still build the hook URL inline; they move here when next edited (docs/to-do.md).
 -- SEE ALSO      platform/ordelo_post.sql (operator helper, different contract)
 --               docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md
@@ -28,7 +30,8 @@
 -- function app_hook_post(p_path text, p_payload jsonb, p_timeout_secs integer) -> integer
 --   Build ORDELO_APP_URL (trailing slash trimmed) + '/' + p_path (leading slash trimmed), POST the payload as JSON with a
 --   curl timeout of p_timeout_secs (minimum 1), and return the status. Returns NULL instead of raising, so a job's own
---   bookkeeping never rolls back because the app is down. The caller decides what a non-2xx means.
+--   bookkeeping never rolls back because the app is down. The caller decides what a non-2xx means. The curl timeout is
+--   reset on both paths; the reset in the EXCEPTION handler has its own BEGIN/EXCEPTION so it cannot raise either.
 --   Data: reads ordelo_config. HTTP: POST {ORDELO_APP_URL}/<p_path>.
 -- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.app_hook_post (p_path text, p_payload jsonb DEFAULT '{}'::jsonb, p_timeout_secs integer DEFAULT 5)
@@ -55,6 +58,12 @@ BEGIN
 EXCEPTION
     WHEN OTHERS THEN
         RAISE NOTICE 'app_hook_post: POST % failed: %', v_url, SQLERRM;
+        BEGIN
+            PERFORM http_reset_curlopt();
+        EXCEPTION
+            WHEN OTHERS THEN
+                NULL;
+        END;
         RETURN NULL;
 END;
 $$;

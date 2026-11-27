@@ -70,6 +70,28 @@ def test_a_failed_call_returns_null_and_never_raises(db):
     # the EXCEPTION block rolls back the stub's own inserts, so nothing is asserted about http_calls here
 
 
+def test_a_failed_call_still_resets_the_curl_timeout(db):
+    # curlopts are session state the EXCEPTION rollback does not undo, so the handler must reset them too
+    set_url(db, "https://app.example.test")
+    db.execute("UPDATE public.http_stub_status SET status = -1")   # the stub raises
+    assert post(db, timeout=7) is None
+    # the CURLOPT_TIMEOUT row is rolled back with the failed block; the handler's RESET survives
+    assert db.execute("SELECT opt, val FROM public.http_curlopts ORDER BY id").fetchall() == [("RESET", None)]
+
+
+def test_a_raising_reset_in_the_handler_is_swallowed(db):
+    set_url(db, "https://app.example.test")
+    db.execute("UPDATE public.http_stub_status SET status = -1")
+    db.execute("ALTER FUNCTION public.http_reset_curlopt() RENAME TO http_reset_curlopt_saved")
+    db.execute("CREATE FUNCTION public.http_reset_curlopt() RETURNS boolean LANGUAGE plpgsql AS $$ "
+               "BEGIN RAISE EXCEPTION 'reset failed'; END $$")
+    try:
+        assert post(db) is None
+    finally:
+        db.execute("DROP FUNCTION public.http_reset_curlopt()")
+        db.execute("ALTER FUNCTION public.http_reset_curlopt_saved() RENAME TO http_reset_curlopt")
+
+
 def test_timeout_is_set_before_the_post_and_reset_after(db):
     set_url(db, "https://app.example.test")
     post(db, timeout=7)

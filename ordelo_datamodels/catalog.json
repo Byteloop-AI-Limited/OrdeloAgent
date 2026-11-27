@@ -6803,8 +6803,8 @@
    },
    "cron": [],
    "folder": "platform",
-   "header_lines": 25,
-   "lines": 66,
+   "header_lines": 27,
+   "lines": 75,
    "objects": [
     {
      "description": "POST p_payload to ORDELO_APP_URL + p_path; return the HTTP status, NULL when the call failed. Never raises.",
@@ -6837,7 +6837,7 @@
    ],
    "sections": {
     "CALLED BY": "app_hook_post:\n  sql       job_rider_invite_alerts() (telegram/job_rider_invite_alerts.sql)",
-    "GOTCHAS": "Falls back to https://agent.ordelo.app when ORDELO_APP_URL is empty, like the inline copies.\nThe curl timeout is reset after a normal call; pg_cron opens a fresh session per run in any case.\nOlder functions still build the hook URL inline; they move here when next edited (docs/to-do.md).",
+    "GOTCHAS": "Falls back to https://agent.ordelo.app when ORDELO_APP_URL is empty, like the inline copies.\nThe curl timeout is reset after every call, failed ones too: curlopts are C-level session state that the\n  EXCEPTION rollback does not undo, so a reused session (SQL editor) would keep CURLOPT_TIMEOUT and cut off\n  later http_post calls. pg_cron opens a fresh session per run in any case.\nOlder functions still build the hook URL inline; they move here when next edited (docs/to-do.md).",
     "HOW IT FITS": "pg_cron job_*() -> app_hook_post('/<area>-hooks/<name>', payload) -> thin FastAPI route -> BackgroundTasks.\n  ORDELO_APP_URL decides which server does the work (production, or a local tunnel during tests).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run. No BEGIN/COMMIT.",
     "LIFECYCLE": "none",
@@ -10876,7 +10876,7 @@
    "file": "platform/app_hook_post.sql",
    "folder": "platform",
    "kind": "function",
-   "line": 34,
+   "line": 37,
    "role": "definition",
    "signature": "app_hook_post(p_path text, p_payload jsonb, p_timeout_secs integer) -> integer"
   },
