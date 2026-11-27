@@ -447,7 +447,7 @@ SELECT cron.schedule('job_customer_outbox_sweep', '* * * * *', 'SELECT public.jo
 +    """Called by database: job_customer_outbox_sweep() (notifications/job_customer_outbox_sweep.sql), every minute."""
 +    from utils_common.notify.customer_notifier import sweep_pending
 +
-+    background_tasks.add_task(_run, "customer_outbox", sweep_pending)
++    background_tasks.add_task(_run, "customer_outbox_sweep", sweep_pending)
 +    return {"status": "accepted"}
 +
 +
@@ -456,7 +456,7 @@ SELECT cron.schedule('job_customer_outbox_sweep', '* * * * *', 'SELECT public.jo
 +    """Called by database: job_web_lifecycle_sweep() (ordering/job_web_lifecycle_sweep.sql), every minute."""
 +    from utils_common.web_ordering.lifecycle import sweep
 +
-+    background_tasks.add_task(_run, "web_lifecycle", sweep)
++    background_tasks.add_task(_run, "web_lifecycle_sweep", sweep)
 +    return {"status": "accepted"}
 +
 +

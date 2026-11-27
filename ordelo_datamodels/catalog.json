@@ -168,7 +168,7 @@
    "file": "ordering/job_web_price_audit.sql",
    "function": "job_web_price_audit",
    "job": "job_web_price_audit",
-   "line": 70,
+   "line": 71,
    "schedule": "5 * * * *"
   },
   {
@@ -6074,13 +6074,13 @@
      "file": "ordering/job_web_price_audit.sql",
      "function": "job_web_price_audit",
      "job": "job_web_price_audit",
-     "line": 70,
+     "line": 71,
      "schedule": "5 * * * *"
     }
    ],
    "folder": "ordering",
-   "header_lines": 33,
-   "lines": 75,
+   "header_lines": 34,
+   "lines": 76,
    "objects": [
     {
      "description": "POST /web-hooks/price-audit unless today's London web_monitor_run row exists; true when skipped or 2xx.",
@@ -6092,7 +6092,8 @@
    "path": "ordering/job_web_price_audit.sql",
    "path_line": "ordelo_datamodels/ordering/job_web_price_audit.sql",
    "requires": [
-    "platform/app_hook_post.sql"
+    "platform/app_hook_post.sql",
+    "ordering/web_monitor_run.sql (the due check reads run_day)"
    ],
    "role": "definition",
    "section_order": [
@@ -6119,7 +6120,7 @@
     "LIVE CHECK": "not applied yet (plans/telegram-rider-invite-alert-schedule.md, phase 2).",
     "OBJECTS": "fn     job_web_price_audit() -> boolean\n    POST /web-hooks/price-audit unless today's London web_monitor_run row exists; true when skipped or 2xx.",
     "PYTHON MODEL": "watomation/routers/sweep_hooks.py: web_price_audit(); utils_common/web_ordering/monitoring.py: sweep()",
-    "REQUIRES": "platform/app_hook_post.sql",
+    "REQUIRES": "platform/app_hook_post.sql\nordering/web_monitor_run.sql (the due check reads run_day)",
     "SECURITY": "PUBLIC, anon and authenticated revoked; service role only.",
     "SEE ALSO": "docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md\ndocs/to-do.md\nordering/web_monitor_run.sql",
     "SIDE EFFECTS": "Schedules the pg_cron job 'job_web_price_audit' (hourly at :05). At most one HTTP POST per run, none when\n  today's audit is already claimed. Writes nothing: the Python sweep owns every claim and update.",
@@ -6442,13 +6443,17 @@
      {
       "text": "utils_common/web_ordering/monitoring.py: sweep()",
       "via": "python"
+     },
+     {
+      "text": "job_web_price_audit() (ordering/job_web_price_audit.sql): reads run_day (due check)",
+      "via": "sql"
      }
     ]
    },
    "cron": [],
    "folder": "ordering",
-   "header_lines": 30,
-   "lines": 52,
+   "header_lines": 31,
+   "lines": 53,
    "objects": [
     {
      "description": "Daily audit ledger: the first worker to claim run_day runs the audit; alert_orders lists what it flagged.",
@@ -6477,7 +6482,7 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "web_monitor_run:\n  python    utils_common/web_ordering/monitoring.py: sweep()",
+    "CALLED BY": "web_monitor_run:\n  python    utils_common/web_ordering/monitoring.py: sweep()\n  sql       job_web_price_audit() (ordering/job_web_price_audit.sql): reads run_day (due check)",
     "GOTCHAS": "Captured from live on 2026-10-16; first created by migrations/ordelo_agg_r3.sql (history).",
     "HOW IT FITS": "Web checkout (restaurant-frontend -> OrdeloAgent /web routes, utils_common/web_ordering/*):\n  start   -> thread (agent 'WEB') + web_session_meta (the editable checkout draft, 2 h)\n  create  -> web_order_request (idempotency: same key + body returns the same order) -> food_order\n  page    -> order_access_grant (hash of the secret in the order-tracking link)\n  payment -> payment_event; a cancelled/late payment is retried through web_payment_release\n  limits  -> web_rate_limit (hourly session-create counter); daily audit -> web_monitor_run\n  All six tables are server-only (RLS on, anon/authenticated revoked) and reached with client_ordelo_service.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
@@ -12652,7 +12657,7 @@
    "file": "ordering/job_web_price_audit.sql",
    "folder": "ordering",
    "kind": "function",
-   "line": 45,
+   "line": 46,
    "role": "definition",
    "signature": "job_web_price_audit() -> boolean"
   },
@@ -15632,13 +15637,17 @@
     {
      "text": "utils_common/web_ordering/monitoring.py: sweep()",
      "via": "python"
+    },
+    {
+     "text": "job_web_price_audit() (ordering/job_web_price_audit.sql): reads run_day (due check)",
+     "via": "sql"
     }
    ],
    "description": "Daily audit ledger: the first worker to claim run_day runs the audit; alert_orders lists what it flagged.",
    "file": "ordering/web_monitor_run.sql",
    "folder": "ordering",
    "kind": "table",
-   "line": 36,
+   "line": 37,
    "role": "definition",
    "signature": "web_monitor_run"
   },

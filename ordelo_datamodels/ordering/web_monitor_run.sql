@@ -19,6 +19,7 @@
 -- LIFECYCLE     see docs/web-ordering-playground.md (Tables section) for who writes and reads each column.
 -- CALLED BY     web_monitor_run:
 --                 python    utils_common/web_ordering/monitoring.py: sweep()
+--                 sql       job_web_price_audit() (ordering/job_web_price_audit.sql): reads run_day (due check)
 -- PYTHON MODEL  none
 -- SECURITY      web_monitor_run: RLS ON; service role only (anon/authenticated revoked)
 -- TESTS         tests/utils_common/web_ordering/test_web_contract.py

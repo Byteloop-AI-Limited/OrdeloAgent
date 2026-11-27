@@ -6,6 +6,7 @@
 -- OBJECTS       fn     job_web_price_audit() -> boolean
 --                   POST /web-hooks/price-audit unless today's London web_monitor_run row exists; true when skipped or 2xx.
 -- REQUIRES      platform/app_hook_post.sql
+--               ordering/web_monitor_run.sql (the due check reads run_day)
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run (cron.schedule with an existing name updates in place).
 -- SIDE EFFECTS  Schedules the pg_cron job 'job_web_price_audit' (hourly at :05). At most one HTTP POST per run, none when
 --                 today's audit is already claimed. Writes nothing: the Python sweep owns every claim and update.
