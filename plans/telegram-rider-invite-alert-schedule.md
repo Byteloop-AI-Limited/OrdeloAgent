@@ -194,6 +194,7 @@ CREATE OR REPLACE FUNCTION public.job_rider_invite_alerts ()
     AS $$
 DECLARE
     v_due integer;
+    v_status integer;
 BEGIN
     SELECT count(*) INTO v_due
     FROM public.t_invites
@@ -201,8 +202,10 @@ BEGIN
     IF v_due = 0 THEN
         RETURN TRUE;                                               -- nothing due: the app is not called
     END IF;
-    RETURN coalesce(public.app_hook_post('/rider-hooks/invite-alerts',
-        jsonb_build_object('event_type', 'rider_invite_alerts', 'due', v_due)) BETWEEN 200 AND 299, FALSE);
+    -- Keep the status in a variable: `f() BETWEEN a AND b` expands to two calls of f(), so it would POST twice.
+    v_status := public.app_hook_post('/rider-hooks/invite-alerts',
+        jsonb_build_object('event_type', 'rider_invite_alerts', 'due', v_due));
+    RETURN coalesce(v_status BETWEEN 200 AND 299, FALSE);
 END;
 $$;
 
@@ -405,9 +408,13 @@ CREATE OR REPLACE FUNCTION public.job_customer_outbox_sweep ()
     LANGUAGE plpgsql
     SET search_path = public
     AS $$
+DECLARE
+    v_status integer;
 BEGIN
-    RETURN coalesce(public.app_hook_post('/customer-hooks/outbox-sweep',
-        jsonb_build_object('event_type', 'customer_outbox_sweep')) BETWEEN 200 AND 299, FALSE);
+    -- Never `app_hook_post(...) BETWEEN …`: BETWEEN evaluates its left side twice (two POSTs).
+    v_status := public.app_hook_post('/customer-hooks/outbox-sweep',
+        jsonb_build_object('event_type', 'customer_outbox_sweep'));
+    RETURN coalesce(v_status BETWEEN 200 AND 299, FALSE);
 END;
 $$;
 REVOKE ALL ON FUNCTION public.job_customer_outbox_sweep () FROM PUBLIC, anon, authenticated;
@@ -552,7 +559,7 @@ Remove `suppress` and `asyncio` from the imports only if nothing else in the fil
 
 | Test file | Cases |
 | --- | --- |
-| `tests/sql/test_customer_sweep_jobs_sql.py` | Each job POSTs exactly once to its path with its `event_type`, returns true on 200, false on 500 and false when the stub raises, without an exception. Grants are checked. Each file's `cron.schedule` line has the agreed schedule (parse the file text). |
+| `tests/sql/test_customer_sweep_jobs_sql.py` | Each job POSTs exactly once (assert `count(*) FROM http_calls = 1`, to catch the BETWEEN double call) to its path with its `event_type`, returns true on 200, false on 500 and false when the stub raises, without an exception. Grants are checked. Each file's `cron.schedule` line has the agreed schedule (parse the file text). |
 | `tests/watomation/routers/test_sweep_hooks.py` | Three new routes, each scheduling the right sweep. An exception in one does not affect another request. |
 | `tests/utils_common/test_customer_notifier.py` | Unchanged behaviour. Add one assert for the new log line when rows exist. |
 | `tests/watomation/test_no_lifespan_loops.py` | Remove the phase 1 allowance: `lifespan` has no `create_task`. |
