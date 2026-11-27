@@ -6,7 +6,6 @@
 -- OBJECTS       fn     job_web_price_audit() -> boolean
 --                   POST /web-hooks/price-audit once a day; true when the app answered 2xx.
 -- REQUIRES      platform/app_hook_post.sql
---               ordering/web_monitor_run.sql
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run (cron.schedule with an existing name updates in place).
 -- SIDE EFFECTS  Schedules the pg_cron job 'job_web_price_audit' (daily at 00:05 UTC). Exactly one HTTP POST per run. Writes nothing:
 --                 the Python sweep owns every claim and update.

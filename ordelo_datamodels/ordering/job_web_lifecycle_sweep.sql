@@ -6,10 +6,6 @@
 -- OBJECTS       fn     job_web_lifecycle_sweep() -> boolean
 --                   POST /web-hooks/lifecycle-sweep every run; true when the app answered 2xx.
 -- REQUIRES      platform/app_hook_post.sql
---               ordering/web_payment_release.sql
---               ordering/web_session_meta.sql
---               ordering/web_rate_limit.sql
---               ordering/order_access_grant.sql
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run (cron.schedule with an existing name updates in place).
 -- SIDE EFFECTS  Schedules the pg_cron job 'job_web_lifecycle_sweep' (every minute). Exactly one HTTP POST per run. Writes nothing:
 --                 the Python sweep owns every claim and update.
@@ -34,6 +30,9 @@
 --               docs/to-do.md
 --               ordering/web_payment_release.sql
 --               docs/web-ordering-playground.md
+--               ordering/web_session_meta.sql
+--               ordering/web_rate_limit.sql
+--               ordering/order_access_grant.sql
 -- =============================================================================================
 
 -- ---------------------------------------------------------------------------------------------

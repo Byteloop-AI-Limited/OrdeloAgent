@@ -78,7 +78,7 @@
    "file": "notifications/job_customer_outbox_sweep.sql",
    "function": "job_customer_outbox_sweep",
    "job": "job_customer_outbox_sweep",
-   "line": 64,
+   "line": 63,
    "schedule": "* * * * *"
   },
   {
@@ -159,7 +159,7 @@
    "file": "ordering/job_web_lifecycle_sweep.sql",
    "function": "job_web_lifecycle_sweep",
    "job": "job_web_lifecycle_sweep",
-   "line": 67,
+   "line": 66,
    "schedule": "* * * * *"
   },
   {
@@ -168,7 +168,7 @@
    "file": "ordering/job_web_price_audit.sql",
    "function": "job_web_price_audit",
    "job": "job_web_price_audit",
-   "line": 60,
+   "line": 59,
    "schedule": "5 0 * * *"
   },
   {
@@ -5542,13 +5542,13 @@
      "file": "notifications/job_customer_outbox_sweep.sql",
      "function": "job_customer_outbox_sweep",
      "job": "job_customer_outbox_sweep",
-     "line": 64,
+     "line": 63,
      "schedule": "* * * * *"
     }
    ],
    "folder": "notifications",
-   "header_lines": 34,
-   "lines": 69,
+   "header_lines": 33,
+   "lines": 68,
    "objects": [
     {
      "description": "POST /customer-hooks/outbox-sweep every run; true when the app answered 2xx.",
@@ -5560,10 +5560,7 @@
    "path": "notifications/job_customer_outbox_sweep.sql",
    "path_line": "ordelo_datamodels/notifications/job_customer_outbox_sweep.sql",
    "requires": [
-    "platform/app_hook_post.sql",
-    "notifications/notification_outbox.sql",
-    "notifications/order_notification_subscription.sql",
-    "notifications/order_customer_event.sql"
+    "platform/app_hook_post.sql"
    ],
    "role": "definition",
    "section_order": [
@@ -5590,16 +5587,18 @@
     "LIVE CHECK": "not applied yet (plans/telegram-rider-invite-alert-schedule.md, phase 2).",
     "OBJECTS": "fn     job_customer_outbox_sweep() -> boolean\n    POST /customer-hooks/outbox-sweep every run; true when the app answered 2xx.",
     "PYTHON MODEL": "watomation/routers/sweep_hooks.py: customer_outbox_sweep(); utils_common/notify/customer_notifier.py: sweep_pending()",
-    "REQUIRES": "platform/app_hook_post.sql\nnotifications/notification_outbox.sql\nnotifications/order_notification_subscription.sql\nnotifications/order_customer_event.sql",
+    "REQUIRES": "platform/app_hook_post.sql",
     "SECURITY": "PUBLIC, anon and authenticated revoked; service role only.",
-    "SEE ALSO": "docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md\ndocs/to-do.md\nnotifications/notification_outbox.sql",
+    "SEE ALSO": "docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md\ndocs/to-do.md\nnotifications/notification_outbox.sql\nnotifications/order_notification_subscription.sql\nnotifications/order_customer_event.sql",
     "SIDE EFFECTS": "Schedules the pg_cron job 'job_customer_outbox_sweep' (every minute). Exactly one HTTP POST per run. Writes nothing:\n  the Python sweep owns every claim and update.",
     "TESTS": "tests/sql/test_customer_sweep_jobs_sql.py\ntests/watomation/routers/test_sweep_hooks.py"
    },
    "see_also": [
     "docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md",
     "docs/to-do.md",
-    "notifications/notification_outbox.sql"
+    "notifications/notification_outbox.sql",
+    "notifications/order_notification_subscription.sql",
+    "notifications/order_customer_event.sql"
    ],
    "tests": [
     "tests/sql/test_customer_sweep_jobs_sql.py",
@@ -5993,13 +5992,13 @@
      "file": "ordering/job_web_lifecycle_sweep.sql",
      "function": "job_web_lifecycle_sweep",
      "job": "job_web_lifecycle_sweep",
-     "line": 67,
+     "line": 66,
      "schedule": "* * * * *"
     }
    ],
    "folder": "ordering",
-   "header_lines": 37,
-   "lines": 72,
+   "header_lines": 36,
+   "lines": 71,
    "objects": [
     {
      "description": "POST /web-hooks/lifecycle-sweep every run; true when the app answered 2xx.",
@@ -6011,11 +6010,7 @@
    "path": "ordering/job_web_lifecycle_sweep.sql",
    "path_line": "ordelo_datamodels/ordering/job_web_lifecycle_sweep.sql",
    "requires": [
-    "platform/app_hook_post.sql",
-    "ordering/web_payment_release.sql",
-    "ordering/web_session_meta.sql",
-    "ordering/web_rate_limit.sql",
-    "ordering/order_access_grant.sql"
+    "platform/app_hook_post.sql"
    ],
    "role": "definition",
    "section_order": [
@@ -6042,9 +6037,9 @@
     "LIVE CHECK": "not applied yet (plans/telegram-rider-invite-alert-schedule.md, phase 2).",
     "OBJECTS": "fn     job_web_lifecycle_sweep() -> boolean\n    POST /web-hooks/lifecycle-sweep every run; true when the app answered 2xx.",
     "PYTHON MODEL": "watomation/routers/sweep_hooks.py: web_lifecycle_sweep(); utils_common/web_ordering/lifecycle.py: sweep(), release()",
-    "REQUIRES": "platform/app_hook_post.sql\nordering/web_payment_release.sql\nordering/web_session_meta.sql\nordering/web_rate_limit.sql\nordering/order_access_grant.sql",
+    "REQUIRES": "platform/app_hook_post.sql",
     "SECURITY": "PUBLIC, anon and authenticated revoked; service role only.",
-    "SEE ALSO": "docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md\ndocs/to-do.md\nordering/web_payment_release.sql\ndocs/web-ordering-playground.md",
+    "SEE ALSO": "docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md\ndocs/to-do.md\nordering/web_payment_release.sql\ndocs/web-ordering-playground.md\nordering/web_session_meta.sql\nordering/web_rate_limit.sql\nordering/order_access_grant.sql",
     "SIDE EFFECTS": "Schedules the pg_cron job 'job_web_lifecycle_sweep' (every minute). Exactly one HTTP POST per run. Writes nothing:\n  the Python sweep owns every claim and update.",
     "TESTS": "tests/sql/test_customer_sweep_jobs_sql.py\ntests/watomation/routers/test_sweep_hooks.py"
    },
@@ -6052,7 +6047,10 @@
     "docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md",
     "docs/to-do.md",
     "ordering/web_payment_release.sql",
-    "docs/web-ordering-playground.md"
+    "docs/web-ordering-playground.md",
+    "ordering/web_session_meta.sql",
+    "ordering/web_rate_limit.sql",
+    "ordering/order_access_grant.sql"
    ],
    "tests": [
     "tests/sql/test_customer_sweep_jobs_sql.py",
@@ -6076,13 +6074,13 @@
      "file": "ordering/job_web_price_audit.sql",
      "function": "job_web_price_audit",
      "job": "job_web_price_audit",
-     "line": 60,
+     "line": 59,
      "schedule": "5 0 * * *"
     }
    ],
    "folder": "ordering",
-   "header_lines": 30,
-   "lines": 65,
+   "header_lines": 29,
+   "lines": 64,
    "objects": [
     {
      "description": "POST /web-hooks/price-audit once a day; true when the app answered 2xx.",
@@ -6094,8 +6092,7 @@
    "path": "ordering/job_web_price_audit.sql",
    "path_line": "ordelo_datamodels/ordering/job_web_price_audit.sql",
    "requires": [
-    "platform/app_hook_post.sql",
-    "ordering/web_monitor_run.sql"
+    "platform/app_hook_post.sql"
    ],
    "role": "definition",
    "section_order": [
@@ -6122,7 +6119,7 @@
     "LIVE CHECK": "not applied yet (plans/telegram-rider-invite-alert-schedule.md, phase 2).",
     "OBJECTS": "fn     job_web_price_audit() -> boolean\n    POST /web-hooks/price-audit once a day; true when the app answered 2xx.",
     "PYTHON MODEL": "watomation/routers/sweep_hooks.py: web_price_audit(); utils_common/web_ordering/monitoring.py: sweep()",
-    "REQUIRES": "platform/app_hook_post.sql\nordering/web_monitor_run.sql",
+    "REQUIRES": "platform/app_hook_post.sql",
     "SECURITY": "PUBLIC, anon and authenticated revoked; service role only.",
     "SEE ALSO": "docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md\ndocs/to-do.md\nordering/web_monitor_run.sql",
     "SIDE EFFECTS": "Schedules the pg_cron job 'job_web_price_audit' (daily at 00:05 UTC). Exactly one HTTP POST per run. Writes nothing:\n  the Python sweep owns every claim and update.",
@@ -7071,13 +7068,25 @@
      {
       "text": "job_rider_invite_alerts() (telegram/job_rider_invite_alerts.sql)",
       "via": "sql"
+     },
+     {
+      "text": "job_customer_outbox_sweep() (notifications/job_customer_outbox_sweep.sql)",
+      "via": "sql"
+     },
+     {
+      "text": "job_web_lifecycle_sweep() (ordering/job_web_lifecycle_sweep.sql)",
+      "via": "sql"
+     },
+     {
+      "text": "job_web_price_audit() (ordering/job_web_price_audit.sql)",
+      "via": "sql"
      }
     ]
    },
    "cron": [],
    "folder": "platform",
-   "header_lines": 27,
-   "lines": 75,
+   "header_lines": 32,
+   "lines": 80,
    "objects": [
     {
      "description": "POST p_payload to ORDELO_APP_URL + p_path; return the HTTP status, NULL when the call failed. Never raises.",
@@ -7109,7 +7118,7 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "app_hook_post:\n  sql       job_rider_invite_alerts() (telegram/job_rider_invite_alerts.sql)",
+    "CALLED BY": "app_hook_post:\n  sql       job_rider_invite_alerts() (telegram/job_rider_invite_alerts.sql)\n  sql       job_customer_outbox_sweep() (notifications/job_customer_outbox_sweep.sql)\n  sql       job_web_lifecycle_sweep() (ordering/job_web_lifecycle_sweep.sql)\n  sql       job_web_price_audit() (ordering/job_web_price_audit.sql)",
     "GOTCHAS": "Falls back to https://agent.ordelo.app when ORDELO_APP_URL is empty, like the inline copies.\nThe curl timeout is reset after every call, failed ones too: curlopts are C-level session state that the\n  EXCEPTION rollback does not undo, so a reused session (SQL editor) would keep CURLOPT_TIMEOUT and cut off\n  later http_post calls. pg_cron opens a fresh session per run in any case.\nOlder functions still build the hook URL inline; they move here when next edited (docs/to-do.md).",
     "HOW IT FITS": "pg_cron job_*() -> app_hook_post('/<area>-hooks/<name>', payload) -> thin FastAPI route -> BackgroundTasks.\n  ORDELO_APP_URL decides which server does the work (production, or a local tunnel during tests).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run. No BEGIN/COMMIT.",
@@ -7121,14 +7130,16 @@
     "SECURITY": "PUBLIC, anon and authenticated revoked; service role only.",
     "SEE ALSO": "platform/ordelo_post.sql (operator helper, different contract)\ndocs/adr/0019-scheduled-work-is-owned-by-pg-cron.md",
     "SIDE EFFECTS": "One HTTP POST per call; a NOTICE when the answer is not 2xx or the call fails.",
-    "TESTS": "tests/sql/test_app_hook_post_sql.py"
+    "TESTS": "tests/sql/test_app_hook_post_sql.py\ntests/sql/test_rider_invites_sql.py (job_rider_invite_alerts)\ntests/sql/test_customer_sweep_jobs_sql.py (the three customer sweep jobs)"
    },
    "see_also": [
     "platform/ordelo_post.sql (operator helper, different contract)",
     "docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md"
    ],
    "tests": [
-    "tests/sql/test_app_hook_post_sql.py"
+    "tests/sql/test_app_hook_post_sql.py",
+    "tests/sql/test_rider_invites_sql.py (job_rider_invite_alerts)",
+    "tests/sql/test_customer_sweep_jobs_sql.py (the three customer sweep jobs)"
    ],
    "title": "The one way SQL wakes OrdeloAgent: POST JSON to {ORDELO_APP_URL}<path> with a timeout (ADR 0019)."
   },
@@ -11143,13 +11154,25 @@
     {
      "text": "job_rider_invite_alerts() (telegram/job_rider_invite_alerts.sql)",
      "via": "sql"
+    },
+    {
+     "text": "job_customer_outbox_sweep() (notifications/job_customer_outbox_sweep.sql)",
+     "via": "sql"
+    },
+    {
+     "text": "job_web_lifecycle_sweep() (ordering/job_web_lifecycle_sweep.sql)",
+     "via": "sql"
+    },
+    {
+     "text": "job_web_price_audit() (ordering/job_web_price_audit.sql)",
+     "via": "sql"
     }
    ],
    "description": "POST p_payload to ORDELO_APP_URL + p_path; return the HTTP status, NULL when the call failed. Never raises.",
    "file": "platform/app_hook_post.sql",
    "folder": "platform",
    "kind": "function",
-   "line": 37,
+   "line": 42,
    "role": "definition",
    "signature": "app_hook_post(p_path text, p_payload jsonb, p_timeout_secs integer) -> integer"
   },
@@ -12400,7 +12423,7 @@
    "file": "notifications/job_customer_outbox_sweep.sql",
    "folder": "notifications",
    "kind": "function",
-   "line": 45,
+   "line": 44,
    "role": "definition",
    "signature": "job_customer_outbox_sweep() -> boolean"
   },
@@ -12614,7 +12637,7 @@
    "file": "ordering/job_web_lifecycle_sweep.sql",
    "folder": "ordering",
    "kind": "function",
-   "line": 48,
+   "line": 47,
    "role": "definition",
    "signature": "job_web_lifecycle_sweep() -> boolean"
   },
@@ -12629,7 +12652,7 @@
    "file": "ordering/job_web_price_audit.sql",
    "folder": "ordering",
    "kind": "function",
-   "line": 41,
+   "line": 40,
    "role": "definition",
    "signature": "job_web_price_audit() -> boolean"
   },

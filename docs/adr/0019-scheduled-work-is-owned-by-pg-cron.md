@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted 27 Nov 2026 (owner decision in the scheduling design session). Not built yet. The plan is [`plans/telegram-rider-invite-alert-schedule.md`](../../plans/telegram-rider-invite-alert-schedule.md), and the rule for contributors is in `agents.md` ("Add scheduled or retried work").
+Accepted 27 Nov 2026 (owner decision in the scheduling design session). Built on branch `feature/pgcron-schedules` (phases 1 and 2: four jobs, no `lifespan` loop left); the job SQL is not applied to live yet. The plan is [`plans/telegram-rider-invite-alert-schedule.md`](../../plans/telegram-rider-invite-alert-schedule.md), and the rule for contributors is in `agents.md` ("Add scheduled or retried work").
 
 ## Context
 

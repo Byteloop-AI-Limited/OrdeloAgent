@@ -14,9 +14,14 @@
 -- LIFECYCLE     none
 -- CALLED BY     app_hook_post:
 --                 sql       job_rider_invite_alerts() (telegram/job_rider_invite_alerts.sql)
+--                 sql       job_customer_outbox_sweep() (notifications/job_customer_outbox_sweep.sql)
+--                 sql       job_web_lifecycle_sweep() (ordering/job_web_lifecycle_sweep.sql)
+--                 sql       job_web_price_audit() (ordering/job_web_price_audit.sql)
 -- PYTHON MODEL  watomation/routers/sweep_hooks.py (the routes it calls)
 -- SECURITY      PUBLIC, anon and authenticated revoked; service role only.
 -- TESTS         tests/sql/test_app_hook_post_sql.py
+--               tests/sql/test_rider_invites_sql.py (job_rider_invite_alerts)
+--               tests/sql/test_customer_sweep_jobs_sql.py (the three customer sweep jobs)
 -- GOTCHAS       Falls back to https://agent.ordelo.app when ORDELO_APP_URL is empty, like the inline copies.
 --               The curl timeout is reset after every call, failed ones too: curlopts are C-level session state that the
 --                 EXCEPTION rollback does not undo, so a reused session (SQL editor) would keep CURLOPT_TIMEOUT and cut off

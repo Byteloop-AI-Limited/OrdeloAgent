@@ -6,9 +6,6 @@
 -- OBJECTS       fn     job_customer_outbox_sweep() -> boolean
 --                   POST /customer-hooks/outbox-sweep every run; true when the app answered 2xx.
 -- REQUIRES      platform/app_hook_post.sql
---               notifications/notification_outbox.sql
---               notifications/order_notification_subscription.sql
---               notifications/order_customer_event.sql
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run (cron.schedule with an existing name updates in place).
 -- SIDE EFFECTS  Schedules the pg_cron job 'job_customer_outbox_sweep' (every minute). Exactly one HTTP POST per run. Writes nothing:
 --                 the Python sweep owns every claim and update.
@@ -31,6 +28,8 @@
 -- SEE ALSO      docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md
 --               docs/to-do.md
 --               notifications/notification_outbox.sql
+--               notifications/order_notification_subscription.sql
+--               notifications/order_customer_event.sql
 -- =============================================================================================
 
 -- ---------------------------------------------------------------------------------------------
