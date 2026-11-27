@@ -199,6 +199,9 @@ def test_job_failure_returns_false_and_changes_nothing(db, status):
     before = alert_row(db)
     db.execute("UPDATE public.http_stub_status SET status = %s", (status,))
     assert job(db) is False
+    # 500: the status is read once, so exactly one POST (a second evaluation would POST twice).
+    # -1: the raising stub's own insert is rolled back inside app_hook_post, so no row is left.
+    assert len(posts(db)) == (1 if status == 500 else 0)
     assert alert_row(db) == before
 
 
