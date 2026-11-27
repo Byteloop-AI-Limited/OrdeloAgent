@@ -56,8 +56,20 @@
 --               docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md
 -- =============================================================================================
 
--- Issue an invite under the same phone lock used by contact linking, claim and revoke.
--- Returns {result: ok, code} or {result: bad_phone}. Only the CLI should display the code.
+-- ---------------------------------------------------------------------------------------------
+-- function t_rider_invite_issue(p_phone text) -> jsonb
+--   Return the pending personal rider invite for a phone, creating it (and a placeholder rider) when there is none.
+--   Arguments: p_phone, the rider's phone in any common format (+, spaces, brackets, dots, dashes); normalised to digits by
+--     t_rider_phone_digits(). It must start with a non-zero digit after an optional '+'.
+--   Returns {result: 'ok', code}: the one pending rider code for the phone, reused when it exists, otherwise a new
+--     'ri_' + 32 URL-safe characters; or {result: 'bad_phone'} when the phone cannot be normalised.
+--   Data: takes advisory lock (81071, hashtext(phone)); writes rider_master (inserts rider_id = digits, name / town /
+--     vehicle 'TBD', status 'inactive', only when no row exists); reads t_invites (pending rider row for the phone);
+--     writes t_invites (new rider row, rest_ref and expires_at NULL; retried on a code collision). Calls gen_random_bytes.
+--   Why: one personal link per phone, idempotent so the operator CLI (scripts/create_rider_invite.py) can be re-run to
+--     show the same link. This is the only function that returns a code; only the CLI displays it, never log it.
+--     The lock is shared with contact linking, claim and revoke, so they cannot interleave for one phone.
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_rider_invite_issue (p_phone text)
     RETURNS jsonb
     LANGUAGE plpgsql
@@ -90,7 +102,17 @@ BEGIN
 END;
 $$;
 
--- Revoke only a pending rider invite for this phone. Returns ok | bad_phone | no_pending.
+-- ---------------------------------------------------------------------------------------------
+-- function t_rider_invite_revoke(p_phone text) -> jsonb
+--   Revoke the pending personal rider invite for a phone. A claimed or already revoked invite is left alone.
+--   Arguments: p_phone, normalised as in t_rider_invite_issue().
+--   Returns {result}: 'ok' (the pending invite is now revoked) | 'no_pending' (nothing pending for the phone) |
+--     'bad_phone' (the phone cannot be normalised).
+--   Data: takes advisory lock (81071, hashtext(phone)); writes t_invites.status = 'revoked' on the pending rider row.
+--     rider_master is not touched: a placeholder rider stays inactive.
+--   Why: operator cleanup of an unused link (for example one sent to the wrong number) without deleting rows; a later
+--     issue creates a fresh code.
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_rider_invite_revoke (p_phone text)
     RETURNS jsonb
     LANGUAGE plpgsql
@@ -109,9 +131,27 @@ BEGIN
 END;
 $$;
 
--- Claim and queue the ops alert atomically. The update ID distinguishes a webhook retry
--- (same actor and code) from a fresh attempt using an already claimed invite.
--- Returns ok | replay | unavailable | tuid_taken. Never returns the code.
+-- ---------------------------------------------------------------------------------------------
+-- function t_rider_invite_claim(p_code text, p_update_id bigint, p_tuid bigint, p_tcid bigint, p_username text,
+--                                p_first_name text) -> jsonb
+--   Claim a personal rider link from the rider bot's /start ri_... and queue one ops alert, in one transaction.
+--   Arguments: p_code, the ri_ code from the /start payload; p_update_id, the Telegram update_id (the retry identity);
+--     p_tuid / p_tcid, the Telegram user and chat ids; p_username, p_first_name, as Telegram sent them.
+--   Returns {result}, never the code:
+--     'ok'          the rider is linked and the alert is queued;
+--     'replay'      the same update from the same Telegram user already claimed this code (a webhook retry): nothing changes;
+--     'unavailable' a missing or malformed argument or code, an unknown, claimed or revoked code, no rider_master row for
+--                   the phone, or the update id already used by another claim;
+--     'tuid_taken'  this Telegram user is already linked to a different rider.
+--   Data: takes advisory lock (81071, hashtext(phone)); reads and locks t_invites and rider_master (FOR UPDATE);
+--     writes rider_master (tuid, tcid, t_username, t_first_name, t_linked_at; phone_verified kept only for the same
+--     already linked actor; channel 'telegram' on a first link; rider_name from the first name while 'TBD'; while town or
+--     vehicle is 'TBD': status 'inactive' and invite_profile_update_id = p_update_id, which t_rider_set_invite_profile()
+--     fences on); writes t_invites (status 'claimed', claimed_at, Telegram ids, rider_claim_update_id, the previous
+--     Telegram account when the link moves, rider_alert_result 'pending', rider_alert_next_at = now).
+--   Why: linking and queueing the alert in one transaction means a crash can never link a rider without telling ops.
+--     The update id tells a webhook retry (replay) from a second person using an already claimed link (unavailable).
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_rider_invite_claim (
     p_code text, p_update_id bigint, p_tuid bigint, p_tcid bigint, p_username text, p_first_name text
 )
@@ -187,8 +227,18 @@ EXCEPTION
 END;
 $$;
 
--- Lease one due logical alert. SKIP LOCKED allows concurrent app workers.
--- A lease that expires in flight is observable as ambiguous and the alert is retried.
+-- ---------------------------------------------------------------------------------------------
+-- function t_rider_invite_alert_take(p_lease uuid) -> jsonb
+--   Lease the next due rider invite alert to the caller, without returning the code or the full phone.
+--   Arguments: p_lease, a fresh uuid per attempt; it is the fencing token t_rider_invite_alert_finish() checks.
+--   Returns {result: 'ok', update_id, phone_tail (last 4 digits), tuid, username, previous_tuid, previous_username,
+--     accepted (recipients that already accepted this alert)}; or {result: 'empty'} when nothing is due or p_lease is NULL.
+--   Data: reads the earliest due rider row of t_invites (rider_alert_next_at <= now; FOR UPDATE SKIP LOCKED); writes
+--     rider_alert_result 'sending', rider_alert_lease = p_lease, rider_alert_next_at = now + 2 minutes, and
+--     rider_alert_ambiguous_count + 1 when the previous lease expired while still 'sending'.
+--   Why: several app workers (gunicorn) may sweep at once; SKIP LOCKED and the lease keep them off the same alert.
+--     A sender that dies loses its lease after 2 minutes, the alert is taken again and counted as ambiguous.
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_rider_invite_alert_take (p_lease uuid)
     RETURNS jsonb
     LANGUAGE plpgsql
@@ -218,9 +268,20 @@ BEGIN
 END;
 $$;
 
--- Complete or reschedule the alert using the current lease as a fencing token.
--- 'accepted' means API acceptance, 'retry' means failure before a send, and 'ambiguous' means at least one
--- send could not be confirmed. The latter can retry, so the transport is at least once.
+-- ---------------------------------------------------------------------------------------------
+-- function t_rider_invite_alert_finish(p_update_id bigint, p_lease uuid, p_result text, p_accepted text[]) -> jsonb
+--   Record the outcome of one leased send attempt, or reschedule it.
+--   Arguments: p_update_id and p_lease, from t_rider_invite_alert_take(); p_result: 'accepted' (the API accepted the send
+--     to every pending recipient), 'retry' (failed before any send, for example an empty overwatch list) or 'ambiguous'
+--     (at least one send could not be confirmed); p_accepted, the recipients that accepted on this attempt.
+--   Returns {result}: 'ok' (recorded) | 'stale' (no rider row with this update id holds this lease: it expired and was
+--     taken again, so nothing is written) | 'invalid' (p_result is not one of the three values).
+--   Data: writes t_invites: rider_alert_result = p_result, rider_alert_lease = NULL, rider_alert_next_at NULL on
+--     'accepted' or now + 1 minute otherwise, rider_alert_accepted = distinct union with p_accepted (so a retry sends
+--     only to the rest), rider_alert_ambiguous_count + 1 on 'ambiguous'.
+--   Why: the lease is a fencing token, so a late finisher cannot overwrite a newer attempt. 'retry' and 'ambiguous' are
+--     sent again a minute later, so the transport is at least once.
+-- ---------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.t_rider_invite_alert_finish (
     p_update_id bigint, p_lease uuid, p_result text, p_accepted text[]
 )

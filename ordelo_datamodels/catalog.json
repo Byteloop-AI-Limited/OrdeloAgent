@@ -10062,7 +10062,7 @@
    "cron": [],
    "folder": "telegram",
    "header_lines": 57,
-   "lines": 259,
+   "lines": 320,
    "objects": [
     {
      "description": "Return the pending personal rider invite, creating a placeholder rider and invite if needed.",
@@ -14755,7 +14755,7 @@
    "file": "telegram/t_rider_invites.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 224,
+   "line": 285,
    "role": "definition",
    "signature": "t_rider_invite_alert_finish(p_update_id bigint, p_lease uuid, p_result text, p_accepted text[]) -> jsonb"
   },
@@ -14770,7 +14770,7 @@
    "file": "telegram/t_rider_invites.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 192,
+   "line": 242,
    "role": "definition",
    "signature": "t_rider_invite_alert_take(p_lease uuid) -> jsonb"
   },
@@ -14785,7 +14785,7 @@
    "file": "telegram/t_rider_invites.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 115,
+   "line": 155,
    "role": "definition",
    "signature": "t_rider_invite_claim(p_code text, p_update_id bigint, p_tuid bigint, p_tcid bigint, p_username text, p_first_name text) -> jsonb"
   },
@@ -14800,7 +14800,7 @@
    "file": "telegram/t_rider_invites.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 61,
+   "line": 73,
    "role": "definition",
    "signature": "t_rider_invite_issue(p_phone text) -> jsonb"
   },
@@ -14815,7 +14815,7 @@
    "file": "telegram/t_rider_invites.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 94,
+   "line": 116,
    "role": "definition",
    "signature": "t_rider_invite_revoke(p_phone text) -> jsonb"
   },
