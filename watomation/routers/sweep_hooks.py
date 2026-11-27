@@ -17,7 +17,7 @@ Called by database (SQL triggers / pg_cron jobs POST to these routes):
   . rider_invite_alerts(): job_rider_invite_alerts() in ordelo_datamodels/telegram/job_rider_invite_alerts.sql via pg_cron 'job_rider_invite_alerts' (* * * * *)
   . customer_outbox_sweep(): job_customer_outbox_sweep() in ordelo_datamodels/notifications/job_customer_outbox_sweep.sql via pg_cron 'job_customer_outbox_sweep' (* * * * *)
   . web_lifecycle_sweep(): job_web_lifecycle_sweep() in ordelo_datamodels/ordering/job_web_lifecycle_sweep.sql via pg_cron 'job_web_lifecycle_sweep' (* * * * *)
-  . web_price_audit(): job_web_price_audit() in ordelo_datamodels/ordering/job_web_price_audit.sql via pg_cron 'job_web_price_audit' (5 0 * * *)
+  . web_price_audit(): job_web_price_audit() in ordelo_datamodels/ordering/job_web_price_audit.sql via pg_cron 'job_web_price_audit' (5 * * * *, POSTs only when today's London audit is due)
 (end of database objects)
 """
 
@@ -58,7 +58,7 @@ async def customer_outbox_sweep(background_tasks: BackgroundTasks):
     """
     from utils_common.notify.customer_notifier import sweep_pending
 
-    background_tasks.add_task(_run, "customer_outbox", sweep_pending)
+    background_tasks.add_task(_run, "customer_outbox_sweep", sweep_pending)
     return {"status": "accepted"}
 
 
@@ -70,7 +70,7 @@ async def web_lifecycle_sweep(background_tasks: BackgroundTasks):
     """
     from utils_common.web_ordering.lifecycle import sweep
 
-    background_tasks.add_task(_run, "web_lifecycle", sweep)
+    background_tasks.add_task(_run, "web_lifecycle_sweep", sweep)
     return {"status": "accepted"}
 
 
@@ -78,7 +78,7 @@ async def web_lifecycle_sweep(background_tasks: BackgroundTasks):
 async def web_price_audit(background_tasks: BackgroundTasks):
     """
     Called by database:
-      . job_web_price_audit() in ordelo_datamodels/ordering/job_web_price_audit.sql via pg_cron 'job_web_price_audit' (5 0 * * *)
+      . job_web_price_audit() in ordelo_datamodels/ordering/job_web_price_audit.sql via pg_cron 'job_web_price_audit' (5 * * * *, POSTs only when today's London audit is due)
     """
     from utils_common.web_ordering.monitoring import sweep
 

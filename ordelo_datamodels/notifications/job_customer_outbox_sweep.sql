@@ -24,7 +24,7 @@
 --                 is due, because the Python sweep also does work no SQL count can see:
 --                 subscription and outbox seeding, interrupted-attempt failure.
 --                 A-lite / A in docs/to-do.md move that work to SQL so the job can POST only when due.
---               Keep the app_hook_post() result in a variable: BETWEEN repeats its operand, so a volatile call would POST twice.
+--               Status handling: see the app_hook_post.sql GOTCHAS (keep the result in a variable).
 -- SEE ALSO      docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md
 --               docs/to-do.md
 --               notifications/notification_outbox.sql
@@ -49,7 +49,7 @@ CREATE OR REPLACE FUNCTION public.job_customer_outbox_sweep ()
 DECLARE
     v_status integer;
 BEGIN
-    -- Into a variable first: "app_hook_post(...) BETWEEN 200 AND 299" would expand to two calls, so two POSTs.
+    -- see app_hook_post.sql GOTCHAS
     v_status := public.app_hook_post('/customer-hooks/outbox-sweep',
         jsonb_build_object('event_type', 'customer_outbox_sweep'));
     RETURN coalesce(v_status BETWEEN 200 AND 299, FALSE);

@@ -26,6 +26,9 @@
 --               The curl timeout is reset after every call, failed ones too: curlopts are C-level session state that the
 --                 EXCEPTION rollback does not undo, so a reused session (SQL editor) would keep CURLOPT_TIMEOUT and cut off
 --                 later http_post calls. pg_cron opens a fresh session per run in any case.
+--               Callers: keep the result in a variable before testing it ("v_status := app_hook_post(...)"). Never write
+--                 "app_hook_post(...) BETWEEN 200 AND 299": BETWEEN repeats its operand, so the volatile call runs, and
+--                 POSTs, twice. Every job_*() that calls this function points here instead of repeating the warning.
 --               Older functions still build the hook URL inline; they move here when next edited (docs/to-do.md).
 -- SEE ALSO      platform/ordelo_post.sql (operator helper, different contract)
 --               docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md

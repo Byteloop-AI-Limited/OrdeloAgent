@@ -20,8 +20,8 @@ URL = "/rider-hooks/invite-alerts"
 
 # phase 2 (option B): (path, module, attribute, log name)
 CUSTOMER_ROUTES = [
-    ("/customer-hooks/outbox-sweep", customer_notifier, "sweep_pending", "customer_outbox"),
-    ("/web-hooks/lifecycle-sweep", lifecycle, "sweep", "web_lifecycle"),
+    ("/customer-hooks/outbox-sweep", customer_notifier, "sweep_pending", "customer_outbox_sweep"),
+    ("/web-hooks/lifecycle-sweep", lifecycle, "sweep", "web_lifecycle_sweep"),
     ("/web-hooks/price-audit", monitoring, "sweep", "web_price_audit"),
 ]
 ALL_PATHS = [URL] + [r[0] for r in CUSTOMER_ROUTES]
