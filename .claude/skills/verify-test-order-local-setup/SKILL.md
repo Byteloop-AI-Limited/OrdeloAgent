@@ -66,6 +66,14 @@ RIDER=$(co open "https://web.telegram.org/k/#@ByteloopRidersBot")
 
 The `/k/` URL without `?account=` is the first account (`lohith`: linked STRK admin and overwatch rider). Confirm recent STRK or ELAS cards are in the chat. The script refuses any chat other than these two bots. Never type in a person's chat.
 
+### Overwatch alerts on WhatsApp Web
+
+Overwatch alerts (ops alerts, invite-claim alerts, escalations, payment and capture warnings) go to the overwatch numbers on **WhatsApp**, not Telegram. The owner keeps `https://web.whatsapp.com/` logged in as an overwatch number, as a tab (tab title `WhatsApp`, often with an unread count) in the same Chrome window as the Telegram Web split view.
+
+- **Only the `ByteLoop Ai` chat.** Ordelo's WhatsApp Business number shows as the contact `ByteLoop Ai`. Search for that exact name, open that chat, and read only its latest messages. Never scan the chat list, open another chat, or type, react or send anything in WhatsApp.
+- **Use agent-desktop first, computer use as a fallback.** Chrome tabs appear as `radiobutton` elements: `agent-desktop find --app "Google Chrome" --role radiobutton`. WhatsApp Web runs in one tab only, so do not open a second WhatsApp window. Bring the existing tab to the front, read it, then select the tab that was active before.
+- **Evidence.** Record the alert text with phone numbers masked, the time and the count (for example, one message per claim and none after a replay). Cross-check with the database row (for invite claims, `t_invites.rider_alert_result` and `rider_alert_accepted`) and the local send log. WhatsApp API acceptance proves only that the message was accepted, while the chat proves it arrived.
+
 Start the watcher in the background and keep its log:
 
 ```zsh
@@ -132,7 +140,7 @@ Limits of simulated payment:
 - It proves nothing about Stripe authorisation, capture or payout. Use `ordelo-local-automatic-orders` for that.
 - Test orders appear in the STRK dashboard and the nightly price audit.
 
-Before finishing: no STRK order awaiting a decision or an inflight rider job (a collection ends at `pickup_confirmed` with `ready_at` set), settings restored, watcher stopped, your windows closed with `co close WIN` (leave the owner's), report written to `docs/releases/verify-test-order-local-setup-<date>.md`. Leave the routing as it is and remind the owner to restore it.
+Before finishing: no STRK order awaiting a decision or an inflight rider job (a collection ends at `pickup_confirmed` with `ready_at` set), settings restored, watcher stopped, your windows closed with `co close WIN` (leave the owner's), the owner's previously active Chrome tab selected again if you switched to WhatsApp, report written to `docs/releases/verify-test-order-local-setup-<date>.md`. Leave the routing as it is and remind the owner to restore it.
 
 ## When something goes wrong
 
