@@ -39,7 +39,7 @@ def calls(db):
 def test_url_joins_base_and_path_with_one_slash(db, base, path):
     set_url(db, base)
     assert post(db, path) == 200
-    assert calls(db)[0][0] == "https://app.example.test/rider-hooks/invite-alerts"
+    assert [c[0] for c in calls(db)] == ["https://app.example.test/rider-hooks/invite-alerts"]   # exactly one POST
 
 
 @pytest.mark.parametrize("value", [None, "", "   "])

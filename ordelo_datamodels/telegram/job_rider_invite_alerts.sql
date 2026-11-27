@@ -20,6 +20,7 @@
 -- SECURITY      PUBLIC, anon and authenticated revoked; service role only.
 -- TESTS         tests/sql/test_rider_invites_sql.py
 -- GOTCHAS       A row in 'sending' is not due until its lease expires (2 min), so a slow sweep is not woken twice for it.
+--               Keep the app_hook_post() result in a variable: BETWEEN repeats its operand, so a volatile call would POST twice.
 --               The count reads due rider rows only; it never selects invite_code.
 -- SEE ALSO      docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md
 -- =============================================================================================
@@ -39,6 +40,7 @@ CREATE OR REPLACE FUNCTION public.job_rider_invite_alerts ()
     AS $$
 DECLARE
     v_due integer;
+    v_status integer;
 BEGIN
     SELECT count(*) INTO v_due
     FROM public.t_invites
@@ -46,8 +48,10 @@ BEGIN
     IF v_due = 0 THEN
         RETURN TRUE;                                               -- nothing due: the app is not called
     END IF;
-    RETURN coalesce(public.app_hook_post('/rider-hooks/invite-alerts',
-        jsonb_build_object('event_type', 'rider_invite_alerts', 'due', v_due)) BETWEEN 200 AND 299, FALSE);
+    -- Into a variable first: "app_hook_post(...) BETWEEN 200 AND 299" would expand to two calls, so two POSTs.
+    v_status := public.app_hook_post('/rider-hooks/invite-alerts',
+        jsonb_build_object('event_type', 'rider_invite_alerts', 'due', v_due));
+    RETURN coalesce(v_status BETWEEN 200 AND 299, FALSE);
 END;
 $$;
 
