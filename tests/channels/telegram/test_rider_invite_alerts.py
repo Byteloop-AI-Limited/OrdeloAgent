@@ -143,5 +143,23 @@ async def test_claim_log_line_names_the_update_and_never_a_code(env, logs):
     assert "ri_" not in joined and "start=" not in joined
 
 
+async def test_a_lease_lost_before_finish_is_logged_as_stale_and_does_not_raise(env, logs):
+    """Another sweep re-took the alert (lease expired) while this one was sending, so finish answers stale."""
+    db, wa = env()
+    send = wa.send_message
+
+    async def send_then_lose_the_lease(to, text):
+        await send(to, text)
+        db.alerts[1000]["lease"] = "taken-by-another-sweep"
+
+    wa.send_message = send_then_lose_the_lease
+    assert await invite_alerts.sweep_pending() == 1   # no exception, the alert still counts as processed
+    assert sorted(to for to, _ in wa.sent) == OPS
+    finishes = [args for name, args in db.calls if name == "t_rider_invite_alert_finish"]
+    assert len(finishes) == 1
+    a = db.alerts[1000]
+    assert (a["result"], a["accepted"]) == ("sending", [])   # the fenced finish recorded nothing
+    assert any("invite alert update 1000 transport=accepted recorded=stale" in line for line in logs)
+
 def test_there_is_no_in_process_loop():
     assert not hasattr(invite_alerts, "run_sweeper")
