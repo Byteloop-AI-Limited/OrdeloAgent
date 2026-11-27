@@ -174,7 +174,7 @@ Sources: [timing SQL](../ordelo_datamodels/dispatch/job_rider_pickup_alerts.sql)
 | Authorized order with no summary after two minutes | SQL payment-init reconciler → `/payment-hooks/init-reconciler` | Alert-only recovery; logger notice/warning, no automatic fulfilment replay |
 | Web hold release still failing | `lifecycle.release` | Alerts on claimed job attempts 1 and 3; cancellation retries have their own durable queue |
 | Collection capture requires reconciliation | `takeaway_hooks._notify_capture_reconciliation` | Calls `notify_overwatch` after applicable lookup/capture failures; not proof capture/refund happened |
-| Daily web price-floor audit | `monitoring.sweep` | Alerts on unmatched menu products or below-floor prices; optional per-restaurant discount allowance, no repricing |
+| Daily web price-floor audit | `monitoring.sweep`, woken by pg_cron `job_web_price_audit` at 00:05 UTC | Alerts on unmatched menu products or below-floor prices; optional per-restaurant discount allowance, no repricing |
 
 `WALogger._send` uses `asyncio.gather(..., return_exceptions=True)` without checking individual results. A caller that labels its result “sent” after this await cannot establish each recipient received it. There is no WALogger outbox or durable per-recipient receipt ledger here. Missing/failed overwatch lookup and aggregate call exceptions can be logged, but swallowed recipient failures are not promoted to that level automatically.
 
@@ -211,7 +211,7 @@ Sources: [WALogger](../config/waba_setting.py), [recipient lookup](../config/par
 | Path | Recovery behavior | Tradeoff / limitation |
 |---|---|---|
 | Customer event recording | Pool transaction; on error, REST upsert of the event with ignore_duplicates | If both fail, logs manual reconciliation; publish normally suppresses errors rather than failing fulfilment |
-| Missing subscription/outbox | App-owned sweep about every 60 s repairs from committed events | Repairs communication intent without re-emitting order state |
+| Missing subscription/outbox | pg_cron `job_customer_outbox_sweep` wakes `customer_notifier.sweep_pending` every minute, which repairs from committed events | Repairs communication intent without re-emitting order state |
 | Unattempted restaurant-app callback | Sweep handles pending attempts=0, up to 100 selected rows | Progresses committed-but-unattempted work |
 | Attempted/ambiguous restaurant-app callback | **No retry**; stale claimed pending rows become failed after five minutes | At-most-once attempt favors avoiding duplicated conversation/message side effects over guaranteed update delivery |
 | Web-page update | No send; browser polls event/state projection | Event may exist while page closed; no push or reader acknowledgement |

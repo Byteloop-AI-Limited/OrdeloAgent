@@ -256,8 +256,8 @@ its `tests/sql` test still passes, and its header names the helper under `REQUIR
 ## Customer notifier sweeps: move SQL-only steps out of Python (added 27 Nov 2026)
 
 Phase 2 of [the scheduling plan](../plans/telegram-rider-invite-alert-schedule.md) uses **option B**. pg_cron
-replaces the `lifespan` loop (`customer_notifier.run_sweeper`), but the Python sweeps stay as they are and the
-jobs wake the app **every minute, even with nothing due**. This is a temporary exception to the "POST only when
+replaced the `lifespan` loop (`customer_notifier.run_sweeper`, now deleted), but the Python sweeps stay as they are and
+`job_customer_outbox_sweep` / `job_web_lifecycle_sweep` wake the app **every minute, even with nothing due**. This is a temporary exception to the "POST only when
 something is due" rule in `agents.md`. Each minute adds one HTTP request and one sweep.
 
 - [ ] **A-lite: housekeeping to SQL.** Move WEB-thread expiry (`web_session_meta.expires_at`) and the

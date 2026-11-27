@@ -27,6 +27,7 @@
 -- SEE ALSO      docs/web-ordering-playground.md
 --               docs/web-ordering-architecture.html
 --               ordering/create_food_order_with_items.sql
+--               ordering/job_web_lifecycle_sweep.sql (pg_cron wakes lifecycle.sweep(), the only release of held payments)
 -- =============================================================================================
 
 -- ---------------------------------------------------------------------------------------------

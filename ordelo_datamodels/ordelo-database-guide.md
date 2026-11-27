@@ -5,16 +5,16 @@
 
 The SQL under `ordelo_datamodels/` is organised by capability. Each file starts with a fixed header (live check, objects, how to run, side effects, how it fits, lifecycle, callers, Python model, security, tests, gotchas, see also). The file is the authority; this guide only indexes it.
 
-**146 SQL files · 278 objects** 198 functions · 61 tables · 13 triggers · 6 views · 18 cron jobs
+**149 SQL files · 281 objects** 201 functions · 61 tables · 13 triggers · 6 views · 21 cron jobs
 
 ## Capability map
 
 | Folder | Capability | Files | Objects | What it covers |
 |---|---|---:|---:|---|
 | [`core/`](core/) | Core master data | 9 | 18 | Restaurants, customers, riders, menus and the key/value runtime configuration (ordelo_config) that every other area reads. |
-| [`ordering/`](ordering/) | Ordering and web checkout | 12 | 21 | Creating an order and its items in one transaction (refused on a closed date or for a hidden item by order_intake_block), the columns OrdeloAgent adds to restaurant-agents' food_order, hidden menu items, and the web checkout tables (session draft, idempotency, page tokens, rate limit, payment release, daily audit). |
+| [`ordering/`](ordering/) | Ordering and web checkout | 14 | 23 | Creating an order and its items in one transaction (refused on a closed date or for a hidden item by order_intake_block), the columns OrdeloAgent adds to restaurant-agents' food_order, hidden menu items, and the web checkout tables (session draft, idempotency, page tokens, rate limit, payment release, daily audit). |
 | [`payment/`](payment/) | Payment | 3 | 3 | The payment inbox (payment_event), the at-most-once authorisation step and the alert-only reconciler for paid orders that never started fulfilment. |
-| [`notifications/`](notifications/) | Customer notifications | 3 | 3 | Who hears about an order (subscriptions), what happened (customer events) and one delivery record per event and subscription (outbox). |
+| [`notifications/`](notifications/) | Customer notifications | 4 | 4 | Who hears about an order (subscriptions), what happened (customer events) and one delivery record per event and subscription (outbox). |
 | [`delivery/`](delivery/) | Delivery orders | 6 | 12 | The delivery order as fulfilment sees it (delivery_summary), its priced vehicle options and the 5-second job that opens the next option or times the order out. |
 | [`dispatch/`](dispatch/) | Rider dispatch | 12 | 24 | Offering jobs to riders, assigning the first acceptance, the in-flight job, completion and cancellation, and the rider pickup reminder sweep. |
 | [`takeaway/`](takeaway/) | Takeaway (collection) | 2 | 7 | The collection order (takeaway_summary), its creation and the triggers that tell admins and customers about it. |
@@ -41,7 +41,7 @@ Both channels create the order the same way; payment authorisation is applied on
 - **Authorisation** — The payment callback calls record_payment_authorised(): a payment_event row per provider event and food_order.payment_status requires_payment -> requires_capture, at most once. (`record_payment_authorised`, `payment_event`)
 - **Start fulfilment** — /payment-hooks/payment-complete calls init_delivery() or init_takeaway(); see the delivery and takeaway flows. (`init_delivery`, `init_takeaway`)
 - **Safety net** — job_payment_init_reconciler() would alert overwatch about paid orders with no summary row. It is NOT scheduled on live (docs/to-do.md). (`job_payment_init_reconciler`)
-- **Late or failed web payments** — Cancellations that must be retried are queued in web_payment_release and worked by the Python lifecycle sweeper. (`web_payment_release`)
+- **Late or failed web payments** — Cancellations that must be retried are queued in web_payment_release and worked by the Python lifecycle sweep, which pg_cron job_web_lifecycle_sweep wakes every minute. (`web_payment_release`, `job_web_lifecycle_sweep`)
 
 ### Delivery order, from payment to doorstep
 
@@ -182,6 +182,8 @@ Admin dashboard reads and platform helpers.
 | [`food_order_additions.sql`](ordering/food_order_additions.sql) | `order_item` | additions | indexes     idx_order_item_order_id |
 | [`food_order_additions.sql`](ordering/food_order_additions.sql) | `forbid_food_order_origin_change` | function | Trigger function: RAISE if an UPDATE changes food_order.origin_channel or storefront. |
 | [`food_order_additions.sql`](ordering/food_order_additions.sql) | `food_order_origin_immutable` | trigger | BEFORE UPDATE OF origin_channel, storefront on food_order: runs forbid_food_order_origin_change(). |
+| [`job_web_lifecycle_sweep.sql`](ordering/job_web_lifecycle_sweep.sql) | `job_web_lifecycle_sweep` | function | POST /web-hooks/lifecycle-sweep every run; true when the app answered 2xx. |
+| [`job_web_price_audit.sql`](ordering/job_web_price_audit.sql) | `job_web_price_audit` | function | POST /web-hooks/price-audit once a day; true when the app answered 2xx. |
 | [`menu_item_visibility.sql`](ordering/menu_item_visibility.sql) | `menu_item_hidden` | table | One row per hidden item of a restaurant; no row = visible. |
 | [`menu_item_visibility.sql`](ordering/menu_item_visibility.sql) | `menu_item_key` | function | The item key shared by menus and orders: the normalised title (lower case, single spaces, trimmed). |
 | [`menu_item_visibility.sql`](ordering/menu_item_visibility.sql) | `menu_hidden_keys` | function | The hidden item keys of a restaurant (storefront and menu readers filter with it). |
@@ -211,6 +213,7 @@ Admin dashboard reads and platform helpers.
 
 | File | Object | Kind | What it does |
 |---|---|---|---|
+| [`job_customer_outbox_sweep.sql`](notifications/job_customer_outbox_sweep.sql) | `job_customer_outbox_sweep` | function | POST /customer-hooks/outbox-sweep every run; true when the app answered 2xx. |
 | [`notification_outbox.sql`](notifications/notification_outbox.sql) | `notification_outbox` | table | One row per (event, subscription): status pending \| sent \| failed \| skipped, with attempts and last error. |
 | [`order_customer_event.sql`](notifications/order_customer_event.sql) | `order_customer_event` | table | One progress fact per order and event_key (e.g. 'payment_authorised', 'rider_assigned:<dispatch_id>'), with a safe data payload. |
 | [`order_notification_subscription.sql`](notifications/order_notification_subscription.sql) | `order_notification_subscription` | table | Subscription of a destination to an order's events. channel: whatsapp_restaurant \| whatsapp_agg \| web_page; detail_level: full \| status_only. |
@@ -577,6 +580,7 @@ Schedule and state below come from the runnable SQL files; they are targets, not
 | `job_aws_runner_switch_pause` | 0 23 * * * | inactive | `job_awsrunner_switch` | [`platform/job_awsrunner_switch.sql`](platform/job_awsrunner_switch.sql) |
 | `job_awsrunner_switch_resume` | 0 6 * * * | inactive | `job_awsrunner_switch` | [`platform/job_awsrunner_switch.sql`](platform/job_awsrunner_switch.sql) |
 | `job_create_dispatch` | 5 seconds | active | `job_create_dispatch` | [`dispatch/job_create_dispatch.sql`](dispatch/job_create_dispatch.sql) |
+| `job_customer_outbox_sweep` | * * * * * | inactive | `job_customer_outbox_sweep` | [`notifications/job_customer_outbox_sweep.sql`](notifications/job_customer_outbox_sweep.sql) |
 | `job_null_or_outdated_location` | * * * * * | inactive | `job_null_or_outdated_location` | [`rider_location/job_null_or_outdated_location.sql`](rider_location/job_null_or_outdated_location.sql) |
 | `job_pause_sweep` | * * * * * | active | `job_pause_sweep` | [`availability/job_pause_sweep.sql`](availability/job_pause_sweep.sql) |
 | `job_process_owntracks` | 30 seconds | active | `job_process_owntracks` | [`rider_location/job_process_owntracks.sql`](rider_location/job_process_owntracks.sql) |
@@ -585,6 +589,8 @@ Schedule and state below come from the runnable SQL files; they are targets, not
 | `job_rider_pickup_alert` | */5 * * * * | active | `job_rider_pickup_alerts` | [`dispatch/job_rider_pickup_alerts.sql`](dispatch/job_rider_pickup_alerts.sql) |
 | `job_t_receipt_refresh` | 5 seconds | active | `job_t_receipt_refresh` | [`restaurant_admin/restaurant_ready_adjust_notices.sql`](restaurant_admin/restaurant_ready_adjust_notices.sql) |
 | `job_terminate_stale_active_threads` | */3 * * * * | inactive | `job_terminate_stale_active_threads` | [`agent_threads/job_terminate_stale_active_threads.sql`](agent_threads/job_terminate_stale_active_threads.sql) |
+| `job_web_lifecycle_sweep` | * * * * * | inactive | `job_web_lifecycle_sweep` | [`ordering/job_web_lifecycle_sweep.sql`](ordering/job_web_lifecycle_sweep.sql) |
+| `job_web_price_audit` | 5 0 * * * | inactive | `job_web_price_audit` | [`ordering/job_web_price_audit.sql`](ordering/job_web_price_audit.sql) |
 | `process_delivery` | 5 seconds | active | `process_delivery` | [`delivery/process_delivery.sql`](delivery/process_delivery.sql) |
 | `process_restaurant_confirmation` | 10 seconds | active | `process_restaurant_confirmation` | [`restaurant_admin/process_restaurant_confirmation.sql`](restaurant_admin/process_restaurant_confirmation.sql) |
 

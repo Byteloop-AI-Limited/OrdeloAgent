@@ -121,7 +121,7 @@ The page reads `order_customer_event`. A `web_page` outbox delivery performs no 
 
 ### 9. Maintain and audit
 
-The app-owned notifier sweeper runs approximately every 60 seconds: recover unattempted outbox rows, run `lifecycle.sweep`, then `monitoring.sweep`. A failure in an earlier step skips later steps in that iteration.
+pg_cron wakes three independent sweeps through `watomation/routers/sweep_hooks.py` ([ADR 0019](adr/0019-scheduled-work-is-owned-by-pg-cron.md)): `job_customer_outbox_sweep` every minute recovers unattempted outbox rows (`/customer-hooks/outbox-sweep`), `job_web_lifecycle_sweep` every minute runs `lifecycle.sweep` (`/web-hooks/lifecycle-sweep`) and `job_web_price_audit` at 00:05 UTC runs `monitoring.sweep` (`/web-hooks/price-audit`). Each runs in its own background task, so one failing sweep does not skip the others. The two per-minute jobs POST even when nothing is due (option B in `docs/to-do.md`). There is no in-process loop.
 
 Lifecycle expiry deactivates WEB threads and deletes rate counters older than two days. It claims up to ten due cancellation jobs with `FOR UPDATE SKIP LOCKED`, schedules a one-minute claim lease and performs cancellation outside the claim transaction. Each release invocation tries delays 0/2/5/15 seconds. Continued failure schedules five minutes later and alerts on job attempts one and three. This is cancellation of a hold, not an implemented post-capture refund workflow.
 

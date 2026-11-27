@@ -27,6 +27,7 @@
 -- SEE ALSO      notifications/order_customer_event.sql
 --               notifications/order_notification_subscription.sql
 --               docs/alerts-and-notifications.md
+--               notifications/job_customer_outbox_sweep.sql (pg_cron wakes customer_notifier.sweep_pending() every minute)
 -- =============================================================================================
 
 -- ---------------------------------------------------------------------------------------------

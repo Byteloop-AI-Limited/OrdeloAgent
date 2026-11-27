@@ -31,7 +31,7 @@
         {"title": "Authorisation", "text": "The payment callback calls record_payment_authorised(): a payment_event row per provider event and food_order.payment_status requires_payment -> requires_capture, at most once.", "objects": ["record_payment_authorised", "payment_event"]},
         {"title": "Start fulfilment", "text": "/payment-hooks/payment-complete calls init_delivery() or init_takeaway(); see the delivery and takeaway flows.", "objects": ["init_delivery", "init_takeaway"]},
         {"title": "Safety net", "text": "job_payment_init_reconciler() would alert overwatch about paid orders with no summary row. It is NOT scheduled on live (docs/to-do.md).", "objects": ["job_payment_init_reconciler"]},
-        {"title": "Late or failed web payments", "text": "Cancellations that must be retried are queued in web_payment_release and worked by the Python lifecycle sweeper.", "objects": ["web_payment_release"]}
+        {"title": "Late or failed web payments", "text": "Cancellations that must be retried are queued in web_payment_release and worked by the Python lifecycle sweep, which pg_cron job_web_lifecycle_sweep wakes every minute.", "objects": ["web_payment_release", "job_web_lifecycle_sweep"]}
       ]
     },
     {

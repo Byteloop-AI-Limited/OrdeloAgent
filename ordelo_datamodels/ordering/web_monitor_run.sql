@@ -26,6 +26,7 @@
 -- SEE ALSO      docs/web-ordering-playground.md
 --               docs/web-ordering-architecture.html
 --               ordering/create_food_order_with_items.sql
+--               ordering/job_web_price_audit.sql (pg_cron wakes monitoring.sweep() daily at 00:05 UTC)
 -- =============================================================================================
 
 -- ---------------------------------------------------------------------------------------------
