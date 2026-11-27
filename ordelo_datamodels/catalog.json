@@ -7998,8 +7998,8 @@
    },
    "cron": [],
    "folder": "restaurant_admin",
-   "header_lines": 88,
-   "lines": 500,
+   "header_lines": 89,
+   "lines": 501,
    "objects": [
     {
      "description": "Return the 'by X' label for an admin phone: the Telegram first name of its latest claimed invite, else '...' + last 4 digits.",
@@ -8074,7 +8074,7 @@
     "SECURITY": "Every function is revoked from PUBLIC/anon/authenticated: only the service key (client_ordelo_service) can call them.\nThe shared functions trust p_admin_phone; the t_ wrappers authorise first (claimed invite + phone in restaurant_master.admins).",
     "SEE ALSO": "restaurant_admin/restaurant_ready_adjust_notices.sql\ntelegram/t_order_alerts.sql\ntelegram/t_invites.sql\ndocs/telegram-layer.md",
     "SIDE EFFECTS": "none when applied (functions only). Each decision UPDATE fires the restaurant trigger webhook.",
-    "TESTS": "tests/sql/test_restaurant_decision_sql.py, tests/sql/test_order_taps_sql.py (loads this file into a throwaway Postgres)\ntests/channels/telegram/test_order_card_store.py\ntests/channels/telegram/test_order_taps.py\ntests/sql/test_order_taps_sql.py\ntests/sql/test_order_test_script_sql.py\ntests/sql/test_restaurant_decision_sql.py\ntests/utils_common/order_management/test_restaurant_decision.py\ntests/watomation/test_on_callback_wa_handler.py"
+    "TESTS": "tests/sql/test_restaurant_decision_sql.py, tests/sql/test_order_taps_sql.py (loads this file into a throwaway Postgres)\ntests/channels/telegram/test_order_card_store.py\ntests/channels/telegram/test_order_taps.py\ntests/sql/test_rider_invites_sql.py (restaurant_admin_label ignores rider rows)\ntests/sql/test_order_taps_sql.py\ntests/sql/test_order_test_script_sql.py\ntests/sql/test_restaurant_decision_sql.py\ntests/utils_common/order_management/test_restaurant_decision.py\ntests/watomation/test_on_callback_wa_handler.py"
    },
    "see_also": [
     "restaurant_admin/restaurant_ready_adjust_notices.sql",
@@ -8086,6 +8086,7 @@
     "tests/sql/test_restaurant_decision_sql.py, tests/sql/test_order_taps_sql.py (loads this file into a throwaway Postgres)",
     "tests/channels/telegram/test_order_card_store.py",
     "tests/channels/telegram/test_order_taps.py",
+    "tests/sql/test_rider_invites_sql.py (restaurant_admin_label ignores rider rows)",
     "tests/sql/test_order_taps_sql.py",
     "tests/sql/test_order_test_script_sql.py",
     "tests/sql/test_restaurant_decision_sql.py",
@@ -9376,8 +9377,8 @@
    },
    "cron": [],
    "folder": "telegram",
-   "header_lines": 61,
-   "lines": 255,
+   "header_lines": 62,
+   "lines": 256,
    "objects": [
     {
      "description": "Pause this Telegram user's alerts for every restaurant they are a linked admin of, one pause per restaurant.",
@@ -9449,7 +9450,7 @@
     "SECURITY": "Every function: REVOKE ALL FROM PUBLIC, anon, authenticated (service role only; client_ordelo_service).",
     "SEE ALSO": "availability/pauses.sql\navailability/job_pause_sweep.sql\ntelegram/t_order_alerts.sql\ndocs/adr/0013-pauses-have-a-mandatory-end-and-are-computed.md",
     "SIDE EFFECTS": "none when applied (functions only).",
-    "TESTS": "tests/sql/test_admin_pauses_sql.py\ntests/channels/telegram/test_rest_admin_pauses.py"
+    "TESTS": "tests/sql/test_admin_pauses_sql.py\ntests/channels/telegram/test_rest_admin_pauses.py\ntests/sql/test_rider_invites_sql.py (t_admin_restaurants ignores rider rows)"
    },
    "see_also": [
     "availability/pauses.sql",
@@ -9459,7 +9460,8 @@
    ],
    "tests": [
     "tests/sql/test_admin_pauses_sql.py",
-    "tests/channels/telegram/test_rest_admin_pauses.py"
+    "tests/channels/telegram/test_rest_admin_pauses.py",
+    "tests/sql/test_rider_invites_sql.py (t_admin_restaurants ignores rider rows)"
    ],
    "title": "Restaurant admins pause and resume their Telegram order alerts (/off, /on on the restaurant bot; phase R6)."
   },
@@ -10028,7 +10030,7 @@
    "called_by": {
     "t_rider_invite_alert_finish": [
      {
-      "text": "channels/telegram/rider_invites.py: finish_alert() (from channels/telegram/rider/invite_alerts.py) (job_rider_invite_alerts() reads the due index only; it calls none of these)",
+      "text": "channels/telegram/rider_invites.py: finish_alert() (from channels/telegram/rider/invite_alerts.py)",
       "via": "python"
      }
     ],
@@ -10118,8 +10120,8 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "t_rider_invite_issue:\n  python    channels/telegram/rider_invites.py: issue() (from scripts/create_rider_invite.py)\nt_rider_invite_revoke:\n  python    channels/telegram/rider_invites.py: revoke()\nt_rider_invite_claim:\n  python    channels/telegram/rider_invites.py: claim() (from channels/telegram/rider/router.py)\nt_rider_invite_alert_take:\n  python    channels/telegram/rider_invites.py: take_alert() (from channels/telegram/rider/invite_alerts.py)\nt_rider_invite_alert_finish:\n  python    channels/telegram/rider_invites.py: finish_alert() (from channels/telegram/rider/invite_alerts.py)\n(job_rider_invite_alerts() reads the due index only; it calls none of these)",
-    "GOTCHAS": "take/finish never return invite_code. Transport is at least once: an ambiguous send is retried.\nOnly issue returns the code; never log it or select invite_code when inspecting rider rows.",
+    "CALLED BY": "t_rider_invite_issue:\n  python    channels/telegram/rider_invites.py: issue() (from scripts/create_rider_invite.py)\nt_rider_invite_revoke:\n  python    channels/telegram/rider_invites.py: revoke()\nt_rider_invite_claim:\n  python    channels/telegram/rider_invites.py: claim() (from channels/telegram/rider/router.py)\nt_rider_invite_alert_take:\n  python    channels/telegram/rider_invites.py: take_alert() (from channels/telegram/rider/invite_alerts.py)\nt_rider_invite_alert_finish:\n  python    channels/telegram/rider_invites.py: finish_alert() (from channels/telegram/rider/invite_alerts.py)",
+    "GOTCHAS": "take/finish never return invite_code. Transport is at least once: an ambiguous send is retried.\nOnly issue returns the code; never log it or select invite_code when inspecting rider rows.\njob_rider_invite_alerts() reads the due index only; it calls none of these functions.",
     "HOW IT FITS": "scripts/create_rider_invite.py -> t_rider_invite_issue -> https://t.me/ByteloopRidersBot?start=ri_...\n/start ri_... -> t_rider_invite_claim (links rider_master and queues the alert in one transaction:\n  t_invites.rider_alert_next_at = now) -> pg_cron job_rider_invite_alerts (telegram/job_rider_invite_alerts.sql)\n  -> /rider-hooks/invite-alerts -> invite_alerts.sweep_pending() -> t_rider_invite_alert_take (lease, +2 min)\n  -> WhatsApp overwatch -> t_rider_invite_alert_finish (accepted | retry +1 min | ambiguous +1 min)\nIssue, revoke and claim share the per-phone advisory lock 81071 with contact linking.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE OR REPLACE only. No BEGIN/COMMIT.\nApply the REQUIRES files (on live: migrations/telegram_rider_invites.sql) first.",
     "LIFECYCLE": "invite: pending -> claimed | revoked.   alert: pending -> sending -> accepted | retry | ambiguous (-> sending ...)\nRESULT VOCABULARY (jsonb {result, ...})\n  issue:  ok (+ code) | bad_phone          revoke: ok | bad_phone | no_pending\n  claim:  ok | replay | unavailable | tuid_taken\n  take:   ok (+ update_id, phone_tail, tuid, username, previous_tuid, previous_username, accepted) | empty\n  finish: ok | stale | invalid",
@@ -10194,8 +10196,8 @@
    },
    "cron": [],
    "folder": "telegram",
-   "header_lines": 78,
-   "lines": 413,
+   "header_lines": 79,
+   "lines": 414,
    "objects": [
     {
      "description": "Normalise a phone number to digits only (Telegram sends '+44...' or '44...'); NULL when it cannot be a rider_id.",
@@ -10269,7 +10271,7 @@
     "SECURITY": "Every function: REVOKE ALL FROM PUBLIC, anon, authenticated; called with client_ordelo_service only.",
     "SEE ALSO": "core/rider_master.sql\ntelegram/t_invites.sql\ntelegram/t_rider_invites.sql\ntest_support/test_rider_onboarding.sql",
     "SIDE EFFECTS": "none when applied (functions only).",
-    "TESTS": "tests/sql/test_rider_onboarding_sql.py\ntests/channels/telegram/test_rider_router.py\ntests/channels/telegram/test_rider_links.py"
+    "TESTS": "tests/sql/test_rider_onboarding_sql.py\ntests/channels/telegram/test_rider_router.py\ntests/channels/telegram/test_rider_links.py\ntests/sql/test_rider_invites_sql.py (t_rider_set_invite_profile: stale, activation; invite_claim)"
    },
    "see_also": [
     "core/rider_master.sql",
@@ -10280,7 +10282,8 @@
    "tests": [
     "tests/sql/test_rider_onboarding_sql.py",
     "tests/channels/telegram/test_rider_router.py",
-    "tests/channels/telegram/test_rider_links.py"
+    "tests/channels/telegram/test_rider_links.py",
+    "tests/sql/test_rider_invites_sql.py (t_rider_set_invite_profile: stale, activation; invite_claim)"
    ],
    "title": "Rider bot onboarding: link a Telegram account to rider_master by a shared, verified phone number, or register a new rider."
   },
@@ -13180,7 +13183,7 @@
    "file": "restaurant_admin/restaurant_order_decision.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 100,
+   "line": 101,
    "role": "definition",
    "signature": "restaurant_admin_label(p_phone text) -> text"
   },
@@ -13388,7 +13391,7 @@
    "file": "restaurant_admin/restaurant_order_decision.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 156,
+   "line": 157,
    "role": "definition",
    "signature": "restaurant_order_decide(p_order_number text, p_order_type text, p_decision text, p_admin_phone text, p_channel text) -> jsonb"
   },
@@ -13426,7 +13429,7 @@
    "file": "restaurant_admin/restaurant_order_decision.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 256,
+   "line": 257,
    "role": "definition",
    "signature": "restaurant_order_set_pickup(p_order_number text, p_order_type text, p_pickup_time timestamp with time zone, p_admin_phone text, p_channel text) -> jsonb"
   },
@@ -14041,7 +14044,7 @@
    "file": "telegram/t_admin_pauses.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 109,
+   "line": 110,
    "role": "definition",
    "signature": "t_admin_pause(p_bot_key text, p_tuid bigint, p_duration text) -> jsonb"
   },
@@ -14056,7 +14059,7 @@
    "file": "telegram/t_admin_pauses.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 216,
+   "line": 217,
    "role": "definition",
    "signature": "t_admin_pause_chats(p_bot_key text, p_phone text, p_rest_ref text) -> jsonb"
   },
@@ -14071,7 +14074,7 @@
    "file": "telegram/t_admin_pauses.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 179,
+   "line": 180,
    "role": "definition",
    "signature": "t_admin_pause_status(p_bot_key text, p_tuid bigint) -> jsonb"
   },
@@ -14096,7 +14099,7 @@
    "file": "telegram/t_admin_pauses.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 68,
+   "line": 69,
    "role": "definition",
    "signature": "t_admin_restaurants(p_bot_key text, p_tuid bigint) -> TABLE(rest_ref text, rest_name text, phone text)"
   },
@@ -14111,7 +14114,7 @@
    "file": "telegram/t_admin_pauses.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 144,
+   "line": 145,
    "role": "definition",
    "signature": "t_admin_resume(p_bot_key text, p_tuid bigint) -> jsonb"
   },
@@ -14387,7 +14390,7 @@
    "file": "restaurant_admin/restaurant_order_decision.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 343,
+   "line": 344,
    "role": "definition",
    "signature": "t_order_admin_phone(p_bot_key text, p_tuid bigint, p_rest_ref text) -> text"
   },
@@ -14593,7 +14596,7 @@
    "file": "restaurant_admin/restaurant_order_decision.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 388,
+   "line": 389,
    "role": "definition",
    "signature": "t_order_decide(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text, p_decision text) -> jsonb"
   },
@@ -14631,7 +14634,7 @@
    "file": "restaurant_admin/restaurant_order_decision.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 438,
+   "line": 439,
    "role": "definition",
    "signature": "t_order_set_pickup(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text, p_minutes integer) -> jsonb"
   },
@@ -14737,14 +14740,14 @@
    "file": "telegram/t_rider_onboarding.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 228,
+   "line": 229,
    "role": "definition",
    "signature": "t_rider_choices() -> jsonb"
   },
   "t_rider_invite_alert_finish": {
    "called_by": [
     {
-     "text": "channels/telegram/rider_invites.py: finish_alert() (from channels/telegram/rider/invite_alerts.py) (job_rider_invite_alerts() reads the due index only; it calls none of these)",
+     "text": "channels/telegram/rider_invites.py: finish_alert() (from channels/telegram/rider/invite_alerts.py)",
      "via": "python"
     }
    ],
@@ -14827,7 +14830,7 @@
    "file": "telegram/t_rider_onboarding.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 109,
+   "line": 110,
    "role": "definition",
    "signature": "t_rider_link(p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text) -> jsonb"
   },
@@ -14842,7 +14845,7 @@
    "file": "telegram/t_rider_onboarding.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 84,
+   "line": 85,
    "role": "definition",
    "signature": "t_rider_phone_digits(p_phone text) -> text"
   },
@@ -14857,7 +14860,7 @@
    "file": "telegram/t_rider_onboarding.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 360,
+   "line": 361,
    "role": "definition",
    "signature": "t_rider_profile(p_tuid bigint) -> jsonb"
   },
@@ -14876,7 +14879,7 @@
    "file": "telegram/t_rider_onboarding.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 266,
+   "line": 267,
    "role": "definition",
    "signature": "t_rider_set_invite_profile(p_tuid bigint, p_town text, p_vehicle_type text, p_claim_update_id bigint) -> jsonb"
   },
@@ -14891,7 +14894,7 @@
    "file": "telegram/t_rider_onboarding.sql",
    "folder": "telegram",
    "kind": "function",
-   "line": 343,
+   "line": 344,
    "role": "definition",
    "signature": "t_rider_set_profile(p_tuid bigint, p_town text, p_vehicle_type text) -> jsonb"
   },

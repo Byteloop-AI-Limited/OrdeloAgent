@@ -50,6 +50,7 @@
 -- SECURITY      Every function: REVOKE ALL FROM PUBLIC, anon, authenticated (service role only; client_ordelo_service).
 -- TESTS         tests/sql/test_admin_pauses_sql.py
 --               tests/channels/telegram/test_rest_admin_pauses.py
+--               tests/sql/test_rider_invites_sql.py (t_admin_restaurants ignores rider rows)
 -- GOTCHAS       One /off pauses every restaurant the person is an admin of; a restaurant where they are the last unpaused
 --                 admin answers not_allowed and stays on, the others are paused.
 --               Restaurants are visited in rest_ref order, so two admins of the same two restaurants take the per-restaurant

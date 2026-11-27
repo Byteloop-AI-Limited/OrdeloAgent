@@ -42,13 +42,13 @@
 --                 python    channels/telegram/rider_invites.py: take_alert() (from channels/telegram/rider/invite_alerts.py)
 --               t_rider_invite_alert_finish:
 --                 python    channels/telegram/rider_invites.py: finish_alert() (from channels/telegram/rider/invite_alerts.py)
---               (job_rider_invite_alerts() reads the due index only; it calls none of these)
 -- PYTHON MODEL  channels/telegram/rider_invites.py (RiderInviteClaim, RiderInviteAlert outcome dataclasses)
 -- SECURITY      RLS on t_invites; PUBLIC, anon and authenticated revoked; service role only (client_ordelo_service).
 -- TESTS         tests/sql/test_rider_invites_sql.py
 --               tests/channels/telegram/test_rider_invite_alerts.py
 -- GOTCHAS       take/finish never return invite_code. Transport is at least once: an ambiguous send is retried.
 --               Only issue returns the code; never log it or select invite_code when inspecting rider rows.
+--               job_rider_invite_alerts() reads the due index only; it calls none of these functions.
 -- SEE ALSO      telegram/t_invites.sql
 --               telegram/job_rider_invite_alerts.sql
 --               telegram/t_rider_onboarding.sql (t_rider_set_invite_profile)

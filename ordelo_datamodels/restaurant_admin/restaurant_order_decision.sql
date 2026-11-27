@@ -74,6 +74,7 @@
 -- TESTS         tests/sql/test_restaurant_decision_sql.py, tests/sql/test_order_taps_sql.py (loads this file into a throwaway Postgres)
 --               tests/channels/telegram/test_order_card_store.py
 --               tests/channels/telegram/test_order_taps.py
+--               tests/sql/test_rider_invites_sql.py (restaurant_admin_label ignores rider rows)
 --               tests/sql/test_order_taps_sql.py
 --               tests/sql/test_order_test_script_sql.py
 --               tests/sql/test_restaurant_decision_sql.py

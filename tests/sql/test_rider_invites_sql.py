@@ -127,6 +127,24 @@ def test_claim_refuses_reuse_bad_codes_and_a_taken_telegram_account(db):
     assert claim(db, code, update_id=1001, tuid=TUID + 2) == "unavailable"   # same update, different person
 
 
+# ---- invite profile (t_rider_set_invite_profile, telegram/t_rider_onboarding.sql) --------------------------------------
+
+def test_invite_claim_profile_is_fenced_by_the_claim_and_activates_on_the_final_choice(db):
+    db.execute("INSERT INTO public.rider_master (rider_id, rider_name, town, vehicle_type, status) VALUES (%s, 'Seed', 'Testtown', 'bike', 'active')",
+               (OTHER_PHONE,))                                  # gives t_rider_choices() a town and a vehicle to offer
+    assert claim(db, issue(db)) == "ok"
+    assert rpc(db, "SELECT public.t_rider_profile(%s)", (TUID,))["invite_claim"] == 1001
+    sip = "SELECT public.t_rider_set_invite_profile(%s, %s, %s, %s)"
+    assert rpc(db, sip, (TUID, "testtown", None, 9999))["result"] == "stale"
+    assert rpc(db, "SELECT public.t_rider_set_profile(%s, %s, NULL)", (TUID, "testtown"))["result"] == "stale"   # ordinary path fenced too
+    first = rpc(db, sip, (TUID, "testtown", None, 1001))
+    assert (first["result"], first["town"], first["status"], first["needs_profile"]) == ("ok", "Testtown", "inactive", True)
+    final = rpc(db, sip, (TUID, None, "bike", 1001))
+    assert (final["result"], final["vehicle_type"], final["status"], final["needs_profile"]) == ("ok", "bike", "active", False)
+    assert rpc(db, "SELECT invite_profile_update_id FROM public.rider_master WHERE rider_id = %s", (PHONE,)) is None
+    assert rpc(db, sip, (TUID, None, "bike", 1001))["result"] == "stale"   # the claim reference is spent
+
+
 # ---- legacy restaurant path never sees rider rows -----------------------------------------------------------------------
 
 def test_rest_admin_readers_ignore_rider_rows(db):
@@ -137,6 +155,9 @@ def test_rest_admin_readers_ignore_rider_rows(db):
     assert rpc(db, "SELECT public.t_linked_restaurants('rider', %s)", (TUID,)) == []
     assert rpc(db, "SELECT count(*) FROM public.t_invites_shareable WHERE bot_key = 'rider'") == 0
     assert db.execute("SELECT * FROM public.t_admin_restaurants('rider', %s)", (TUID,)).fetchall() == []
+    # The one phone-keyed legacy reader: a claimed rider row for the same phone never names the rider in "by X".
+    assert rpc(db, "SELECT public.restaurant_admin_label(%s)", (PHONE,)) == "…" + PHONE[-4:]
+    # admin_roster_status, t_order_admin_phone and t_order_card_destinations join on rest_ref, which rider rows never have.
 
 
 def test_scope_checks_reject_mixed_rows(db):

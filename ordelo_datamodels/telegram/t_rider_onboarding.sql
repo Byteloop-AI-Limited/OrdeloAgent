@@ -66,6 +66,7 @@
 -- TESTS         tests/sql/test_rider_onboarding_sql.py
 --               tests/channels/telegram/test_rider_router.py
 --               tests/channels/telegram/test_rider_links.py
+--               tests/sql/test_rider_invites_sql.py (t_rider_set_invite_profile: stale, activation; invite_claim)
 -- GOTCHAS       rider_master has RLS OFF (see core/rider_master.sql): these functions are the only intended writers of the
 --                 Telegram columns, but a direct anon write is not blocked until the security review lands (docs/to-do.md).
 --               A Telegram contact's phone_number may start with '+' or not; t_rider_phone_digits() strips everything that is
