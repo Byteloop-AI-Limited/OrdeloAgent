@@ -2,6 +2,8 @@
 
 This alerts on client-computed prices; it does not alter the accepted D8 pricing
 contract. Missing menu matches are reported as unverifiable, never as valid.
+pg_cron wakes sweep() daily at 00:05 UTC (job_web_price_audit -> POST /web-hooks/price-audit,
+watomation/routers/sweep_hooks.py); there is no in-process loop (ADR 0019).
 
   Menu floor
     . MENU_FLOOR: the lowest matching menu row's selling price, i.e. discounted_price
@@ -48,6 +50,8 @@ def below_floor(actual, menu_price, max_discount=0):
 async def sweep():
     """Claim and run one price audit per London day across registered restaurants.
 
+    Woken daily at 00:05 UTC by pg_cron (job_web_price_audit -> POST /web-hooks/price-audit).
+
     Compare the last 24 hours of web order lines with the lowest menu selling
     price (MENU_FLOOR) matching their product name; unmatched lines also require review. Missing
     maximum-discount config means zero. Record unique flagged orders and alert
@@ -61,7 +65,9 @@ async def sweep():
         (day,),
     )
     if not claimed:
+        logger.info("web price audit: day {} already claimed", day)
         return
+    logger.info("web price audit: claimed day {}", day)
     try:
         alerts = []
         for ref in RESTAURANTS:

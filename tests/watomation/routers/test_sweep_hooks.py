@@ -12,9 +12,19 @@ from fastapi.testclient import TestClient
 from loguru import logger
 
 from channels.telegram.rider import invite_alerts
+from utils_common.notify import customer_notifier
+from utils_common.web_ordering import lifecycle, monitoring
 from watomation.routers import sweep_hooks
 
 URL = "/rider-hooks/invite-alerts"
+
+# phase 2 (option B): (path, module, attribute, log name)
+CUSTOMER_ROUTES = [
+    ("/customer-hooks/outbox-sweep", customer_notifier, "sweep_pending", "customer_outbox"),
+    ("/web-hooks/lifecycle-sweep", lifecycle, "sweep", "web_lifecycle"),
+    ("/web-hooks/price-audit", monitoring, "sweep", "web_price_audit"),
+]
+ALL_PATHS = [URL] + [r[0] for r in CUSTOMER_ROUTES]
 
 
 @pytest.fixture
@@ -59,5 +69,50 @@ def test_a_failing_sweep_is_logged_by_class_not_raised(client, monkeypatch, logs
     assert "ri_should_not_be_logged" not in "\n".join(logs)
 
 
-def test_the_route_is_hidden_from_the_schema(client):
-    assert URL not in client.get("/openapi.json").json().get("paths", {})
+def test_the_routes_are_hidden_from_the_schema(client):
+    paths = client.get("/openapi.json").json().get("paths", {})
+    assert not [p for p in ALL_PATHS if p in paths]
+
+
+# ---- phase 2: customer outbox, web lifecycle, price audit -------------------------------------------------------------
+
+def _recorder(calls, name, result=None, error=None):
+    async def sweep():
+        calls.append(name)
+        if error is not None:
+            raise error
+        return result
+
+    return sweep
+
+
+@pytest.mark.parametrize("path, module, attr, name", CUSTOMER_ROUTES, ids=[r[3] for r in CUSTOMER_ROUTES])
+@pytest.mark.parametrize("body", [None, {"event_type": "anything"}])
+def test_each_customer_route_schedules_only_its_own_sweep(client, monkeypatch, logs, path, module, attr, name, body):
+    calls = []
+    for _, m, a, n in CUSTOMER_ROUTES:
+        monkeypatch.setattr(m, a, _recorder(calls, n, result=2))
+    monkeypatch.setattr(invite_alerts, "sweep_pending", _recorder(calls, "rider_invite_alerts"))
+    r = client.post(path, json=body) if body is not None else client.post(path)
+    assert r.status_code == 200 and r.json() == {"status": "accepted"}
+    assert calls == [name]
+    assert any(f"sweep[{name}]: done result=2" in line for line in logs)
+
+
+@pytest.mark.parametrize("failing", [r[3] for r in CUSTOMER_ROUTES])
+def test_one_failing_customer_sweep_does_not_affect_the_others(client, monkeypatch, logs, failing):
+    calls = []
+    for _, m, a, n in CUSTOMER_ROUTES:
+        err = RuntimeError("detail that must not be logged") if n == failing else None
+        monkeypatch.setattr(m, a, _recorder(calls, n, result=0, error=err))
+    for path, *_ in CUSTOMER_ROUTES:
+        r = client.post(path)
+        assert r.status_code == 200 and r.json() == {"status": "accepted"}
+    assert calls == [r[3] for r in CUSTOMER_ROUTES]   # every sweep ran, the failing one included
+    text = "\n".join(logs)
+    for *_, n in CUSTOMER_ROUTES:
+        if n == failing:
+            assert f"sweep[{n}]: failed error_type=RuntimeError" in text
+        else:
+            assert f"sweep[{n}]: done result=0" in text
+    assert "must not be logged" not in text
