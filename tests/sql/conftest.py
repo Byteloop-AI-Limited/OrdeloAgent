@@ -80,6 +80,11 @@ MIGRATION_FILES = [
     "rider_registrations.sql",
     "get_rider_jobs.sql",
     "t_rider_onboarding.sql",
+    # pg_cron schedules (docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md): the shared hook seam, then the rider invite RPCs
+    # (plpgsql, after t_invites.sql and t_rider_onboarding.sql) and the job that wakes their alert sweep.
+    "app_hook_post.sql",
+    "t_rider_invites.sql",
+    "job_rider_invite_alerts.sql",
     "job_pause_sweep.sql",
     # Rider bot phases R2-R4: thread per dispatch (the thread table itself comes from minimal_schema.sql).
     "rider_threads.sql",
@@ -107,6 +112,13 @@ MIGRATION_FILES = [
 ]
 
 
+def invite_profile_column_sql() -> str:
+    """migrations/telegram_rider_invites.sql's rider_master column: the current owner files (rider_master.sql COMMENT ON COLUMN,
+    t_rider_onboarding.sql t_rider_profile) need it, and live gets it from that migration, not from rider_master.sql."""
+    text = (MIGRATIONS / "telegram_rider_invites.sql").read_text()
+    return next(ln for ln in text.splitlines() if ln.startswith("ALTER TABLE public.rider_master ADD COLUMN IF NOT EXISTS invite_profile_update_id"))
+
+
 def dispatch_channel_trigger_sql() -> str:
     """Only the channel-stamping row trigger from dispatch/delivery_dispatch.sql (R2-R4).
 
@@ -125,7 +137,9 @@ _PGCRYPTO_STATEMENT = "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
 _GEN_RANDOM_BYTES_STUB = """
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE OR REPLACE FUNCTION extensions.gen_random_bytes(n int) RETURNS bytea LANGUAGE sql VOLATILE AS $$
-    SELECT decode(substr(md5(random()::text || clock_timestamp()::text), 1, n * 2), 'hex')
+    -- exactly n bytes, like pgcrypto (rider invite codes take 24 bytes: one md5 gives only 16)
+    SELECT decode(substr(string_agg(md5(random()::text || clock_timestamp()::text || g::text), ''), 1, n * 2), 'hex')
+    FROM generate_series(1, (n + 15) / 16) AS g
 $$;
 """
 

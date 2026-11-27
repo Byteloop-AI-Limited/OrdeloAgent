@@ -3,6 +3,7 @@
 -- Accept / decline and pickup-time rules shared by WhatsApp and Telegram, plus the Telegram wrappers that authorise first.
 -- =============================================================================================
 -- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+--               restaurant_admin_label, t_order_admin_phone: pending owner rollout of migrations/telegram_rider_invites.sql (now reads bot_key = 'rest_admin' invites only).
 -- OBJECTS       fn     restaurant_admin_label(p_phone text) -> text
 --                   Return the 'by X' label for an admin phone: the Telegram first name of its latest claimed invite, else '...' + last 4 digits.
 --               fn     restaurant_order_decide(p_order_number text, p_order_type text, p_decision text, p_admin_phone text, p_channel text) -> jsonb
@@ -119,6 +120,7 @@ CREATE OR REPLACE FUNCTION public.restaurant_admin_label (p_phone text)
                     public.t_invites i
                 WHERE
                     i.phone_number = p_phone
+                    AND i.bot_key = 'rest_admin'
                     AND i.status = 'claimed'
                     AND i.telegram_first_name IS NOT NULL
                 ORDER BY
@@ -356,6 +358,7 @@ CREATE OR REPLACE FUNCTION public.t_order_admin_phone (p_bot_key text, p_tuid bi
                         AND r.phone = public.admin_phone_digits (i.phone_number)
                 WHERE
                     i.bot_key = p_bot_key
+                    AND i.bot_key = 'rest_admin'
                     AND i.telegram_user_id = p_tuid
                     AND i.rest_ref = p_rest_ref
                     AND i.status = 'claimed'

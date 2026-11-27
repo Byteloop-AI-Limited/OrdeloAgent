@@ -3,17 +3,21 @@
 -- Rider bot onboarding: link a Telegram account to rider_master by a shared, verified phone number, or register a new rider.
 -- =============================================================================================
 -- LIVE CHECK    Live since 2026-10-22 (migrations/rider_telegram_r1.sql step 4); onboarding tested live the same day.
+--               t_rider_link, t_rider_set_invite_profile, t_rider_set_profile, t_rider_profile and the grants: pending owner
+--                 rollout of migrations/telegram_rider_invites.sql (copied from it byte for byte).
 -- OBJECTS       fn     t_rider_phone_digits(p_phone text) -> text
 --                   Normalise a phone number to digits only (Telegram sends '+44...' or '44...'); NULL when it cannot be a rider_id.
 --               fn     t_rider_link(p_tuid bigint, p_tcid bigint, p_phone text, p_username text, p_first_name text) -> jsonb
 --                   Link this Telegram account to the rider with this (verified) phone, move an older link, or register a new rider.
+--               fn     t_rider_set_invite_profile(p_tuid bigint, p_town text, p_vehicle_type text, p_claim_update_id bigint) -> jsonb
+--                   Apply a choice for the current invite claim (stale otherwise) and activate the rider on completion.
 --               fn     t_rider_set_profile(p_tuid bigint, p_town text, p_vehicle_type text) -> jsonb
 --                   Store the town and/or vehicle a new rider picked; only fills values that are still 'TBD'.
 --               fn     t_rider_choices() -> jsonb
 --                   The towns and vehicle types a sign-up can pick: distinct values already in rider_master (never 'TBD').
 --               fn     t_rider_profile(p_tuid bigint) -> jsonb
 --                   Who this Telegram account is as a rider (rider_id, name, status, town, vehicle, channel, shift); read-only.
--- REQUIRES      core/rider_master.sql
+-- REQUIRES      core/rider_master.sql (including invite_profile_update_id)
 --               migrations/rider_telegram_r1.sql
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
@@ -39,15 +43,21 @@
 --                 Every non-error result carries the rider snapshot: rider_id, rider_name, status, town, vehicle_type,
 --                 needs_profile (town or vehicle still 'TBD').
 --                 t_rider_set_profile: ok | not_linked | bad_town | bad_vehicle | locked (the value is no longer 'TBD')
+--                 t_rider_set_invite_profile: the same, plus stale (the claim reference no longer matches the rider row)
+--                 Personal invite (telegram/t_rider_invites.sql): t_rider_invite_claim stores the claim's update_id in
+--                 rider_master.invite_profile_update_id while town or vehicle is 'TBD'; the final choice activates the rider.
 --                 t_rider_profile:     ok | not_linked
 -- CALLED BY     t_rider_phone_digits:
 --                 sql       t_rider_link() (telegram/t_rider_onboarding.sql)
 --               t_rider_link:
 --                 python    channels/telegram/rider_links.py: link()
+--               t_rider_set_invite_profile:
+--                 sql       t_rider_set_profile() (telegram/t_rider_onboarding.sql)
+--                 python    channels/telegram/rider_links.py: set_profile() (with a claim reference)
 --               t_rider_set_profile:
 --                 python    channels/telegram/rider_links.py: set_profile()
 --               t_rider_choices:
---                 sql       t_rider_set_profile() (telegram/t_rider_onboarding.sql)
+--                 sql       t_rider_set_invite_profile() (telegram/t_rider_onboarding.sql)
 --                 python    channels/telegram/rider_links.py: choices()
 --               t_rider_profile:
 --                 python    channels/telegram/rider_links.py: profile()
@@ -63,6 +73,7 @@
 --               Moving a link (relinked) does NOT notify the old chat: the old account can no longer prove the number.
 -- SEE ALSO      core/rider_master.sql
 --               telegram/t_invites.sql
+--               telegram/t_rider_invites.sql
 --               test_support/test_rider_onboarding.sql
 -- =============================================================================================
 
@@ -111,6 +122,7 @@ BEGIN
     IF v_phone IS NULL OR p_tuid IS NULL OR p_tcid IS NULL THEN
         RETURN jsonb_build_object('result', 'bad_phone');
     END IF;
+    PERFORM pg_advisory_xact_lock(81071, hashtext(v_phone));
     -- 1. This Telegram account already belongs to another rider row: a human decides (D42).
     SELECT
         rider_id INTO v_other
@@ -153,7 +165,8 @@ BEGIN
             t_linked_at = now(),
             phone_verified = TRUE,
             channel = 'telegram',
-            is_in_shift = TRUE
+            is_in_shift = TRUE,
+            invite_profile_update_id = NULL
         WHERE
             id = v_row.id
         RETURNING
@@ -166,7 +179,9 @@ BEGIN
         SET
             tcid = p_tcid,
             t_username = p_username,
-            t_first_name = p_first_name
+            t_first_name = p_first_name,
+            phone_verified = TRUE,
+            t_linked_at = coalesce(v_row.t_linked_at, clock_timestamp())
         WHERE
             id = v_row.id
         RETURNING
@@ -185,6 +200,7 @@ BEGIN
             t_first_name = p_first_name,
             t_linked_at = now(),
             phone_verified = TRUE,
+            invite_profile_update_id = NULL,
             channel = 'telegram'
         WHERE
             id = v_row.id
@@ -192,7 +208,7 @@ BEGIN
             * INTO v_row;
         v_result := 'relinked';
     END IF;
-    RETURN jsonb_build_object('result', v_result, 'rider_id', v_row.rider_id, 'rider_name', v_row.rider_name, 'status', v_row.status, 'town', v_row.town, 'vehicle_type', v_row.vehicle_type, 'needs_profile', (v_row.town = 'TBD' OR v_row.vehicle_type = 'TBD'), 'previous_tuid', v_prev_tuid, 'previous_username', v_prev_username);
+    RETURN jsonb_build_object('result', v_result, 'rider_id', v_row.rider_id, 'rider_name', v_row.rider_name, 'status', v_row.status, 'town', v_row.town, 'vehicle_type', v_row.vehicle_type, 'needs_profile', (v_row.town = 'TBD' OR v_row.vehicle_type = 'TBD'), 'invite_claim', v_row.invite_profile_update_id, 'previous_tuid', v_prev_tuid, 'previous_username', v_prev_username);
 EXCEPTION
     WHEN unique_violation THEN
         -- rider_master_tuid_uidx: the same Telegram account was linked to another row by a concurrent call.
@@ -239,14 +255,15 @@ $$;
 REVOKE ALL ON FUNCTION public.t_rider_choices () FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
--- function t_rider_set_profile(p_tuid bigint, p_town text, p_vehicle_type text) -> jsonb
+-- function t_rider_set_invite_profile(p_tuid bigint, p_town text, p_vehicle_type text, p_claim_update_id bigint) -> jsonb
 --   Fill the town and/or vehicle of the rider linked to p_tuid. A NULL argument leaves that value alone. A value is
 --   accepted only if t_rider_choices() lists it (towns case-insensitively; the listed spelling is stored), and only while the
 --   stored value is still 'TBD': an operator-set town or vehicle is never changed from the bot (locked).
---   Returns {result, town, vehicle_type, needs_profile}.
+--   An invite profile requires the claim reference on the current rider row, and activates on the final choice.
+--   Returns {result, town, vehicle_type, needs_profile, status}, or stale when the claim no longer matches.
 --   Data: reads/writes rider_master; calls t_rider_choices().
 -- ---------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.t_rider_set_profile (p_tuid bigint, p_town text, p_vehicle_type text)
+CREATE OR REPLACE FUNCTION public.t_rider_set_invite_profile (p_tuid bigint, p_town text, p_vehicle_type text, p_claim_update_id bigint)
     RETURNS jsonb
     LANGUAGE plpgsql
     SET search_path = public
@@ -256,6 +273,7 @@ DECLARE
     v_choices jsonb := t_rider_choices ();
     v_town text;
     v_vehicle text;
+    v_complete boolean;
 BEGIN
     SELECT
         * INTO v_row
@@ -266,6 +284,9 @@ BEGIN
     FOR UPDATE;
     IF NOT FOUND THEN
         RETURN jsonb_build_object('result', 'not_linked');
+    END IF;
+    IF v_row.invite_profile_update_id IS DISTINCT FROM p_claim_update_id THEN
+        RETURN jsonb_build_object('result', 'stale');
     END IF;
     IF p_town IS NOT NULL THEN
         SELECT
@@ -295,19 +316,39 @@ BEGIN
             RETURN jsonb_build_object('result', 'locked', 'town', v_row.town, 'vehicle_type', v_row.vehicle_type);
         END IF;
     END IF;
+    v_complete := coalesce(v_town, v_row.town) <> 'TBD' AND coalesce(v_vehicle, v_row.vehicle_type) <> 'TBD'
+        AND ((v_town IS NOT NULL AND v_row.town = 'TBD') OR (v_vehicle IS NOT NULL AND v_row.vehicle_type = 'TBD'));
     UPDATE
         rider_master
     SET
         town = coalesce(v_town, town),
-        vehicle_type = coalesce(v_vehicle, vehicle_type)
+        vehicle_type = coalesce(v_vehicle, vehicle_type),
+        status = CASE WHEN p_claim_update_id IS NOT NULL AND v_complete AND status = 'inactive' THEN 'active' ELSE status END,
+        invite_profile_update_id = CASE WHEN v_complete THEN NULL ELSE invite_profile_update_id END
     WHERE
         id = v_row.id
     RETURNING
         * INTO v_row;
-    RETURN jsonb_build_object('result', 'ok', 'town', v_row.town, 'vehicle_type', v_row.vehicle_type, 'needs_profile', (v_row.town = 'TBD' OR v_row.vehicle_type = 'TBD'));
+    RETURN jsonb_build_object('result', 'ok', 'town', v_row.town, 'vehicle_type', v_row.vehicle_type, 'needs_profile', (v_row.town = 'TBD' OR v_row.vehicle_type = 'TBD'), 'status', v_row.status);
 END;
 $$;
 
+-- ---------------------------------------------------------------------------------------------
+-- function t_rider_set_profile(p_tuid bigint, p_town text, p_vehicle_type text) -> jsonb
+--   The ordinary contact sign-up path: t_rider_set_invite_profile() with no claim reference, minus the status key.
+--   Same validation and locking; never activates (an operator activates, D41).
+--   Returns {result, town, vehicle_type, needs_profile}. Data: through t_rider_set_invite_profile().
+-- ---------------------------------------------------------------------------------------------
+-- Ordinary contact sign-up uses the same choice validation; it retains operator activation.
+CREATE OR REPLACE FUNCTION public.t_rider_set_profile (p_tuid bigint, p_town text, p_vehicle_type text)
+    RETURNS jsonb
+    LANGUAGE sql
+    SET search_path = public, pg_temp
+    AS $$
+    SELECT public.t_rider_set_invite_profile(p_tuid, p_town, p_vehicle_type, NULL) - 'status';
+$$;
+
+REVOKE ALL ON FUNCTION public.t_rider_set_invite_profile (bigint, text, text, bigint) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.t_rider_set_profile (bigint, text, text) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
@@ -325,13 +366,18 @@ CREATE OR REPLACE FUNCTION public.t_rider_profile (p_tuid bigint)
     SELECT
         coalesce((
             SELECT
-                jsonb_build_object('result', 'ok', 'rider_id', r.rider_id, 'rider_name', r.rider_name, 'status', r.status, 'town', r.town, 'vehicle_type', r.vehicle_type, 'channel', r.channel, 'is_in_shift', r.is_in_shift, 'tcid', r.tcid, 'needs_profile', (r.town = 'TBD' OR r.vehicle_type = 'TBD'))
+                jsonb_build_object('result', 'ok', 'rider_id', r.rider_id, 'rider_name', r.rider_name, 'status', r.status, 'town', r.town, 'vehicle_type', r.vehicle_type, 'channel', r.channel, 'is_in_shift', r.is_in_shift, 'tcid', r.tcid, 'invite_claim', r.invite_profile_update_id, 'phone_verified', (r.phone_verified AND r.t_linked_at IS NOT NULL), 'needs_profile', (r.town = 'TBD' OR r.vehicle_type = 'TBD'))
             FROM rider_master r
             WHERE
                 r.tuid = p_tuid), jsonb_build_object('result', 'not_linked'));
 $$;
 
 REVOKE ALL ON FUNCTION public.t_rider_profile (bigint) FROM PUBLIC, anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+GRANT EXECUTE ON FUNCTION public.t_rider_phone_digits (text), public.t_rider_link (bigint, bigint, text, text, text),
+    public.t_rider_choices (), public.t_rider_set_profile (bigint, text, text),
+    public.t_rider_set_invite_profile (bigint, text, text, bigint), public.t_rider_profile (bigint) TO service_role;
 
 -- ---------------------------------------------------------------------------------------------
 -- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
@@ -344,6 +390,8 @@ COMMENT ON FUNCTION public.t_rider_link (p_tuid bigint, p_tcid bigint, p_phone t
 COMMENT ON FUNCTION public.t_rider_choices () IS 'The towns and vehicle types a sign-up can pick: distinct values already in rider_master (never TBD).';
 
 COMMENT ON FUNCTION public.t_rider_set_profile (p_tuid bigint, p_town text, p_vehicle_type text) IS 'Store the town and/or vehicle a new rider picked; only fills values that are still TBD.';
+
+COMMENT ON FUNCTION public.t_rider_set_invite_profile (bigint, text, text, bigint) IS 'Apply a choice for the current invite claim and activate on completion.';
 
 COMMENT ON FUNCTION public.t_rider_profile (p_tuid bigint) IS 'Who this Telegram account is as a rider; read-only.';
 

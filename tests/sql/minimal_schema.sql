@@ -137,6 +137,7 @@ CREATE TABLE IF NOT EXISTS public.rider_master (
     t_first_name text,
     t_linked_at  timestamptz,
     phone_verified boolean NOT NULL DEFAULT false,
+    invite_profile_update_id bigint,  -- migrations/telegram_rider_invites.sql
     CONSTRAINT rider_master_rider_id_key UNIQUE (rider_id),
     CONSTRAINT rider_master_tg_link_complete CHECK ((tuid IS NULL) = (tcid IS NULL))
 );
@@ -186,8 +187,22 @@ DECLARE s int;
 BEGIN
     INSERT INTO public.http_calls (url, body) VALUES (uri, content);
     SELECT status INTO s FROM public.http_stub_status LIMIT 1;
+    IF s < 0 THEN
+        RAISE EXCEPTION 'http stub: connection refused';   -- a negative stub status exercises the caller's exception path
+    END IF;
     RETURN ROW(s, 'application/json', NULL, '{}')::public.http_response;
 END $$;
+-- http_set_curlopt / http_reset_curlopt (pgsql-http >= 1.3): each call is appended to http_curlopts so tests can see
+-- that a timeout was set and then reset, in that order.
+CREATE TABLE IF NOT EXISTS public.http_curlopts (id serial PRIMARY KEY, opt text, val text);
+CREATE OR REPLACE FUNCTION public.http_set_curlopt(curlopt text, value text) RETURNS boolean LANGUAGE sql AS $$
+    INSERT INTO public.http_curlopts (opt, val) VALUES (curlopt, value);
+    SELECT true;
+$$;
+CREATE OR REPLACE FUNCTION public.http_reset_curlopt() RETURNS boolean LANGUAGE sql AS $$
+    INSERT INTO public.http_curlopts (opt, val) VALUES ('RESET', NULL);
+    SELECT true;
+$$;
 
 -- Verbatim from ordelo_datamodels/dispatch/job_rider_pickup_alerts.sql (section 3).
 CREATE OR REPLACE FUNCTION parse_alert_offsets(p_config_key text)

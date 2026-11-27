@@ -1,7 +1,8 @@
 -- MIGRATION (history; do not edit the statements below after application)
 -- Applied to live: pending owner rollout. Tested on throwaway PostgreSQL 17.
--- Current definitions now live in: telegram/t_invites.sql, telegram/t_rider_onboarding.sql, core/rider_master.sql
--- and the restaurant legacy readers named below.
+-- Current definitions now live in: telegram/t_invites.sql, telegram/t_rider_invites.sql, telegram/t_rider_onboarding.sql,
+-- core/rider_master.sql and the restaurant legacy readers named below. Alerts are woken by pg_cron
+-- (telegram/job_rider_invite_alerts.sql, ADR 0019), never by an app loop.
 -- Purpose: personal one-time rider invites, transactional profile activation and durable claim alerts.
 -- Prerequisites: rider Telegram R1, restaurant admin roster P1, rider dashboard cutover (including the
 -- rider_master revocation trigger), and pgcrypto. Apply before enabling the CLI or deploying the code.

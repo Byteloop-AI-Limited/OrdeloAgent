@@ -3,6 +3,7 @@
 -- Restaurant admins pause and resume their Telegram order alerts (/off, /on on the restaurant bot; phase R6).
 -- =============================================================================================
 -- LIVE CHECK    Live on 2026-10-22: all four t_admin_pause* functions were verified against the R6 definitions.
+--               t_admin_restaurants: pending owner rollout of migrations/telegram_rider_invites.sql (now reads bot_key = 'rest_admin' invites only).
 -- OBJECTS       fn     t_admin_pause(p_bot_key text, p_tuid bigint, p_duration text) -> jsonb
 --                   Pause this Telegram user's alerts for every restaurant they are a linked admin of, one pause per restaurant.
 --               fn     t_admin_resume(p_bot_key text, p_tuid bigint) -> jsonb
@@ -92,6 +93,7 @@ CREATE OR REPLACE FUNCTION public.t_admin_restaurants (p_bot_key text, p_tuid bi
         JOIN public.restaurant_master rm ON rm.rest_ref = i.rest_ref
     WHERE
         i.bot_key = p_bot_key
+        AND i.bot_key = 'rest_admin'
         AND i.telegram_user_id = p_tuid
         AND i.status = 'claimed'
         AND public.t_order_admin_phone (p_bot_key, p_tuid, i.rest_ref) IS NOT NULL

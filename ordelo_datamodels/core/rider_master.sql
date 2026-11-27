@@ -3,6 +3,7 @@
 -- One row per rider: phone (rider_id), vehicle, town, status, shift flag, channel and Telegram link.
 -- =============================================================================================
 -- LIVE CHECK    Existing definitions retained; new dashboard access restrictions/revocation are not applied (2026-10-26).
+--               invite_profile_update_id: pending owner rollout of migrations/telegram_rider_invites.sql.
 --                 channel, tuid, tcid, t_username, t_first_name, t_linked_at, phone_verified, rider_master_tuid_uidx), and the
 --                 Telegram onboarding was tested live the same day (existing and new riders).
 -- OBJECTS       table  rider_master
@@ -15,6 +16,7 @@
 -- HOW TO RUN    Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.
 --               Apply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.
 --               On the existing live table the CREATE TABLE is a no-op: the R1 columns come from migrations/rider_telegram_r1.sql.
+--                 invite_profile_update_id comes from migrations/telegram_rider_invites.sql.
 -- SIDE EFFECTS  none (DDL only)
 -- HOW IT FITS   get_available_riders() (dispatch/job_create_dispatch.sql) picks riders here: status = 'active', same town
 --                 (case-insensitive), same vehicle_type, is_in_shift = true, not paused (availability/pauses.sql is_paused()), not
@@ -32,6 +34,8 @@
 -- LIFECYCLE     Riders are added by (a) the web onboarding form (rider_registrations -> manual insert) or (b) the rider bot's
 --                 /start for an unknown phone: t_rider_link() inserts status = 'inactive', town/vehicle_type 'TBD', then
 --                 t_rider_set_profile() stores the chosen town and vehicle. An operator activates: status = 'active'.
+--               Personal invite: t_rider_invite_claim() (telegram/t_rider_invites.sql) links the row and, while town or
+--                 vehicle is 'TBD', stores invite_profile_update_id; t_rider_set_invite_profile() activates on the final choice.
 --               Telegram link: t_rider_link() sets tuid/tcid/t_*/phone_verified and channel = 'telegram' (and is_in_shift = true
 --                 once, for an existing rider); a later contact share by a different Telegram account MOVES the link (D42).
 --               is_in_shift: WhatsApp riders: reset to false every day by the shift enquiry, back to true on 'yes'.
@@ -40,6 +44,7 @@
 --                           get_available_riders(), get_rider_payout_report(), job_rider_pickup_alerts()
 --                           t_receipt_snapshot()
 --                           t_rider_link(), t_rider_set_profile(), t_rider_choices(), t_rider_profile()
+--                           t_rider_set_invite_profile(), t_rider_invite_issue(), t_rider_invite_claim()
 --                 python    utils_common/notify/restaurant_notifier.py (module-level SQL)
 --                 python    utils_common/waba_utils/wa_senders.py: notify_ops_rider_alert(), notify_rest_admins_rider_alert()
 --                 python    utils_common/web_ordering/customer_order_view.py: get_view()
@@ -57,6 +62,7 @@
 --               tests/sql/test_restaurant_notices_script_sql.py
 --               tests/sql/test_restaurant_ready_adjust_notices_sql.py
 --               tests/sql/test_rider_onboarding_sql.py
+--               tests/sql/test_rider_invites_sql.py
 --               tests/utils_common/test_restaurant_notifier.py
 --               tests/watomation/routers/test_delivery_hooks.py
 --               tests/watomation/test_on_message_wa_handler.py
@@ -71,6 +77,7 @@
 --               dispatch/enquire_shift_availability.sql
 --               core/rider_registrations.sql
 --               telegram/t_rider_onboarding.sql
+--               telegram/t_rider_invites.sql
 --               availability/pauses.sql
 --               migrations/rider_telegram_r1.sql
 -- =============================================================================================
@@ -100,6 +107,7 @@ CREATE TABLE IF NOT EXISTS public.rider_master (
     t_first_name text, -- Telegram first name at the last link/refresh; display only
     t_linked_at timestamp with time zone, -- when tuid was (re)linked
     phone_verified boolean NOT NULL DEFAULT FALSE, -- true once a Telegram contact share proved the phone belongs to tuid
+    invite_profile_update_id bigint, -- update_id of the invite claim allowed to fill the 'TBD' profile; NULL otherwise
     CONSTRAINT rider_master_pkey PRIMARY KEY (id),
     CONSTRAINT rider_master_rider_id_key UNIQUE (rider_id),
     CONSTRAINT rider_master_channel_check CHECK ((channel = ANY (ARRAY['whatsapp'::text, 'telegram'::text]))),
@@ -125,6 +133,8 @@ COMMENT ON COLUMN public.rider_master.tuid IS 'Telegram user id (from_user.id); 
 COMMENT ON COLUMN public.rider_master.tcid IS 'Telegram chat id the rider bot sends to; NULL = not linked';
 
 COMMENT ON COLUMN public.rider_master.phone_verified IS 'true once a Telegram contact share proved this phone belongs to tuid';
+
+COMMENT ON COLUMN public.rider_master.invite_profile_update_id IS 'Current rider invite claim permitted to fill the missing profile fields.';
 
 -- Private dashboard source: legitimate runtime callers use server credentials.
 ALTER TABLE public.rider_master ENABLE ROW LEVEL SECURITY;
