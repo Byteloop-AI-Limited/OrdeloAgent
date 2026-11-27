@@ -4,7 +4,7 @@
    "active": true,
    "command": "DELETE FROM cron.job_run_details WHERE end_time < now() - interval '1 day'",
    "file": "platform/cron_housekeeping.sql",
-   "function": "now",
+   "function": null,
    "job": "delete-job-run-details",
    "line": 22,
    "schedule": "0 12 * * *"
@@ -15,7 +15,7 @@
    "file": "restaurant_admin/enquire_admin_availability.sql",
    "function": "enquire_admin_availability",
    "job": "enquire_admin_availability",
-   "line": 119,
+   "line": 120,
    "schedule": "0 11 * * *"
   },
   {
@@ -73,7 +73,7 @@
    "schedule": "5 seconds"
   },
   {
-   "active": false,
+   "active": true,
    "command": "SELECT public.job_customer_outbox_sweep()",
    "file": "notifications/job_customer_outbox_sweep.sql",
    "function": "job_customer_outbox_sweep",
@@ -109,7 +109,7 @@
    "schedule": "30 seconds"
   },
   {
-   "active": false,
+   "active": true,
    "command": "SELECT public.job_rider_invite_alerts()",
    "file": "telegram/job_rider_invite_alerts.sql",
    "function": "job_rider_invite_alerts",
@@ -154,7 +154,7 @@
    "schedule": "*/3 * * * *"
   },
   {
-   "active": false,
+   "active": true,
    "command": "SELECT public.job_web_lifecycle_sweep()",
    "file": "ordering/job_web_lifecycle_sweep.sql",
    "function": "job_web_lifecycle_sweep",
@@ -163,7 +163,7 @@
    "schedule": "* * * * *"
   },
   {
-   "active": false,
+   "active": true,
    "command": "SELECT public.job_web_price_audit()",
    "file": "ordering/job_web_price_audit.sql",
    "function": "job_web_price_audit",
@@ -190,11 +190,304 @@
    "schedule": "10 seconds"
   }
  ],
+ "cron_inventory": {
+  "checked": "2026-11-27",
+  "jobs": [
+   {
+    "command": "DELETE FROM cron.job_run_details WHERE end_time < now() - interval '1 day'",
+    "file": "platform/cron_housekeeping.sql",
+    "file_active": true,
+    "file_schedule": "0 12 * * *",
+    "function": null,
+    "job": "delete-job-run-details",
+    "line": 22,
+    "live_active": true,
+    "live_schedule": "0 12 * * *",
+    "purpose": "pg_cron housekeeping: delete cron run history older than a day."
+   },
+   {
+    "command": "select enquire_admin_availability(ARRAY['ELAS', 'SFCS', 'BNAT']);",
+    "file": "restaurant_admin/enquire_admin_availability.sql",
+    "file_active": true,
+    "file_schedule": "0 11 * * *",
+    "function": "enquire_admin_availability",
+    "job": "enquire_admin_availability",
+    "line": 120,
+    "live_active": true,
+    "live_schedule": "0 12 * * *",
+    "purpose": "POST the admins of the given restaurants (all when NULL) to the admin-availability webhook; returns true on success."
+   },
+   {
+    "command": "SELECT public.enquire_shift_availability()",
+    "file": "dispatch/enquire_shift_availability.sql",
+    "file_active": true,
+    "file_schedule": "0 11 * * *",
+    "function": "enquire_shift_availability",
+    "job": "enquire_shift_availability",
+    "line": 99,
+    "live_active": true,
+    "live_schedule": "0 12 * * *",
+    "purpose": "POST the active WhatsApp riders to the shift-availability webhook; returns true on success."
+   },
+   {
+    "command": "SELECT public.job_assign_dispatch()",
+    "file": "dispatch/job_assign_dispatch.sql",
+    "file_active": true,
+    "file_schedule": "5 seconds",
+    "function": "job_assign_dispatch",
+    "job": "job_assign_dispatch",
+    "line": 197,
+    "live_active": true,
+    "live_schedule": "5 seconds",
+    "purpose": "For every open order with an accepted dispatch, call assign_accepted_dispatch(); returns the orders it assigned."
+   },
+   {
+    "command": "SELECT job_awsrunner_switch('pause');",
+    "file": "platform/job_awsrunner_switch.sql",
+    "file_active": false,
+    "file_schedule": "0 23 * * *",
+    "function": "job_awsrunner_switch",
+    "job": "job_aws_runner_switch_pause",
+    "line": 84,
+    "live_active": false,
+    "live_schedule": "0 23 * * *",
+    "purpose": "Pause the Ordelo and elaib AWS App Runner services through the management Edge Function."
+   },
+   {
+    "command": "SELECT job_awsrunner_switch('resume');",
+    "file": "platform/job_awsrunner_switch.sql",
+    "file_active": false,
+    "file_schedule": "0 6 * * *",
+    "function": "job_awsrunner_switch",
+    "job": "job_awsrunner_switch_resume",
+    "line": 96,
+    "live_active": false,
+    "live_schedule": "0 6 * * *",
+    "purpose": "Resume the Ordelo and elaib AWS App Runner services through the management Edge Function."
+   },
+   {
+    "command": "SELECT public.job_create_dispatch()",
+    "file": "dispatch/job_create_dispatch.sql",
+    "file_active": true,
+    "file_schedule": "5 seconds",
+    "function": "job_create_dispatch",
+    "job": "job_create_dispatch",
+    "line": 242,
+    "live_active": true,
+    "live_schedule": "5 seconds",
+    "purpose": "Create the next batch of offers for every open delivery option, or time the vehicle type out; returns what it did."
+   },
+   {
+    "command": "SELECT public.job_customer_outbox_sweep()",
+    "file": "notifications/job_customer_outbox_sweep.sql",
+    "file_active": true,
+    "file_schedule": "* * * * *",
+    "function": "job_customer_outbox_sweep",
+    "job": "job_customer_outbox_sweep",
+    "line": 63,
+    "live_active": true,
+    "live_schedule": "* * * * *",
+    "purpose": "POST /customer-hooks/outbox-sweep every run; true when the app answered 2xx."
+   },
+   {
+    "command": "SELECT public.fly_idle_suspend()",
+    "file": "platform/fly_config.sql",
+    "file_active": null,
+    "file_schedule": null,
+    "function": "fly_idle_suspend",
+    "job": "job_fly_idle_suspend",
+    "line": 106,
+    "live_active": true,
+    "live_schedule": "*/15 * * * *",
+    "purpose": "Suspend each started Fly machine whose agent reports no work and idle_seconds >= p_min_idle_seconds."
+   },
+   {
+    "command": "SELECT public.job_null_or_outdated_location()",
+    "file": "rider_location/job_null_or_outdated_location.sql",
+    "file_active": false,
+    "file_schedule": "* * * * *",
+    "function": "job_null_or_outdated_location",
+    "job": "job_null_or_outdated_location",
+    "line": 129,
+    "live_active": false,
+    "live_schedule": "* * * * *",
+    "purpose": "POST live jobs whose rider location is missing or stale to the null-or-outdated-location hook; returns whether it posted."
+   },
+   {
+    "command": "SELECT public.job_pause_sweep()",
+    "file": "availability/job_pause_sweep.sql",
+    "file_active": true,
+    "file_schedule": "* * * * *",
+    "function": "job_pause_sweep",
+    "job": "job_pause_sweep",
+    "line": 144,
+    "live_active": true,
+    "live_schedule": "*/5 * * * *",
+    "purpose": "Close expired pauses, then POST the due \"ends soon\" and \"back on\" messages; mark them only on a 2xx reply."
+   },
+   {
+    "command": "SELECT public.job_process_owntracks()",
+    "file": "rider_location/job_process_owntracks.sql",
+    "file_active": true,
+    "file_schedule": "30 seconds",
+    "function": "job_process_owntracks",
+    "job": "job_process_owntracks",
+    "line": 157,
+    "live_active": true,
+    "live_schedule": "30 seconds",
+    "purpose": "Drain the 'owntracks' pgmq queue into rider_location / rider_location_event; returns how many messages it processed."
+   },
+   {
+    "command": "SELECT public.job_rider_invite_alerts()",
+    "file": "telegram/job_rider_invite_alerts.sql",
+    "file_active": true,
+    "file_schedule": "* * * * *",
+    "function": "job_rider_invite_alerts",
+    "job": "job_rider_invite_alerts",
+    "line": 62,
+    "live_active": true,
+    "live_schedule": "* * * * *",
+    "purpose": "POST /rider-hooks/invite-alerts when any rider alert is due; true when idle or answered 2xx."
+   },
+   {
+    "command": "SELECT public.job_rider_offer_alerts()",
+    "file": "dispatch/job_rider_offer_alerts.sql",
+    "file_active": true,
+    "file_schedule": "5 seconds",
+    "function": "job_rider_offer_alerts",
+    "job": "job_rider_offer_alerts",
+    "line": 266,
+    "live_active": true,
+    "live_schedule": "5 seconds",
+    "purpose": "Telegram rider offer reminders and the unanswered-order escalation."
+   },
+   {
+    "command": "select job_rider_pickup_alerts();",
+    "file": "dispatch/job_rider_pickup_alerts.sql",
+    "file_active": true,
+    "file_schedule": "*/5 * * * *",
+    "function": "job_rider_pickup_alerts",
+    "job": "job_rider_pickup_alert",
+    "line": 408,
+    "live_active": true,
+    "live_schedule": "*/5 * * * *",
+    "purpose": "Seed, resolve, POST and mark rider pickup/delivery reminder checkpoints; returns true when it sent something."
+   },
+   {
+    "command": "SELECT public.job_t_order_alerts()",
+    "file": "telegram/t_order_alerts.sql",
+    "file_active": null,
+    "file_schedule": null,
+    "function": "job_t_order_alerts",
+    "job": "job_t_order_alerts",
+    "line": 570,
+    "live_active": true,
+    "live_schedule": "5 seconds",
+    "purpose": "Every 5 seconds: seed, cancel, find due reminders and stale cards, POST them, and mark them on success."
+   },
+   {
+    "command": "SELECT public.job_t_receipt_refresh()",
+    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
+    "file_active": true,
+    "file_schedule": "5 seconds",
+    "function": "job_t_receipt_refresh",
+    "job": "job_t_receipt_refresh",
+    "line": 1057,
+    "live_active": true,
+    "live_schedule": "6 seconds",
+    "purpose": "POST orders with stale receipt copies to /telegram/rest-admin/order-alerts when any are due."
+   },
+   {
+    "command": "SELECT public.job_terminate_stale_active_threads()",
+    "file": "agent_threads/job_terminate_stale_active_threads.sql",
+    "file_active": false,
+    "file_schedule": "*/3 * * * *",
+    "function": "job_terminate_stale_active_threads",
+    "job": "job_terminate_stale_active_threads",
+    "line": 272,
+    "live_active": false,
+    "live_schedule": "*/3 * * * *",
+    "purpose": "Old version (cron inactive): POST stale threads to OrdeloAgent /thread-hooks/terminate-stale-active-threads."
+   },
+   {
+    "command": "SELECT public.job_web_lifecycle_sweep()",
+    "file": "ordering/job_web_lifecycle_sweep.sql",
+    "file_active": true,
+    "file_schedule": "* * * * *",
+    "function": "job_web_lifecycle_sweep",
+    "job": "job_web_lifecycle_sweep",
+    "line": 66,
+    "live_active": true,
+    "live_schedule": "* * * * *",
+    "purpose": "POST /web-hooks/lifecycle-sweep every run; true when the app answered 2xx."
+   },
+   {
+    "command": "SELECT public.job_web_price_audit()",
+    "file": "ordering/job_web_price_audit.sql",
+    "file_active": true,
+    "file_schedule": "5 * * * *",
+    "function": "job_web_price_audit",
+    "job": "job_web_price_audit",
+    "line": 71,
+    "live_active": true,
+    "live_schedule": "5 * * * *",
+    "purpose": "POST /web-hooks/price-audit unless today's London web_monitor_run row exists; true when skipped or 2xx."
+   },
+   {
+    "command": "SELECT job_terminate_stale_active_threads_new();",
+    "file": "agent_threads/job_terminate_stale_active_threads.sql",
+    "file_active": true,
+    "file_schedule": "* * * * *",
+    "function": "job_terminate_stale_active_threads_new",
+    "job": "jobTerminateStaleActiveThreadsNew",
+    "line": 284,
+    "live_active": true,
+    "live_schedule": "* * * * *",
+    "purpose": "Batch idle threads per restaurant and POST them to restaurant-agents for termination; returns a jsonb report."
+   },
+   {
+    "command": "SELECT public.process_delivery()",
+    "file": "delivery/process_delivery.sql",
+    "file_active": true,
+    "file_schedule": "5 seconds",
+    "function": "process_delivery",
+    "job": "process_delivery",
+    "line": 177,
+    "live_active": true,
+    "live_schedule": "5 seconds",
+    "purpose": "Advance every unassigned delivery: open the next vehicle-type option or time the order out; returns what it changed."
+   },
+   {
+    "command": "SELECT public.process_restaurant_confirmation()",
+    "file": "restaurant_admin/process_restaurant_confirmation.sql",
+    "file_active": true,
+    "file_schedule": "10 seconds",
+    "function": "process_restaurant_confirmation",
+    "job": "process_restaurant_confirmation",
+    "line": 152,
+    "live_active": true,
+    "live_schedule": "10 seconds",
+    "purpose": "Mark overdue unanswered restaurant confirmations for delivery and takeaway: 'restaurant_timedout', or 'auto_decline' + status 'declined' where the restaurant declines on silence; returns the orders it changed."
+   },
+   {
+    "command": "SELECT 1;",
+    "file": null,
+    "file_active": null,
+    "file_schedule": null,
+    "function": null,
+    "job": "test_123",
+    "line": null,
+    "live_active": true,
+    "live_schedule": "0 0 * * *",
+    "purpose": "Temporary diagnostic created to confirm SQL-registered jobs are visible in the Supabase Cron dashboard."
+   }
+  ],
+  "timezone": "GMT"
+ },
  "cron_notes": [
   "job_close_thread() has no pg_cron job (agent_threads/job_close_thread.sql).",
   "job_payment_init_reconciler() has no pg_cron job (payment/job_payment_init_reconciler.sql).",
   "job_restaurant_confirmation_timeout() has no pg_cron job (restaurant_admin/job_restaurant_confirmation_timeout.sql).",
-  "job_t_order_alerts() has no pg_cron job (telegram/t_order_alerts.sql).",
   "t_housekeeping() has no pg_cron job (telegram/t_housekeeping.sql)."
  ],
  "duplicates": [],
@@ -4429,7 +4722,7 @@
    ],
    "sections": {
     "CALLED BY": "enquire_shift_availability:\n  cron      'enquire_shift_availability' 0 11 * * *",
-    "GOTCHAS": "11:00 UTC is 12:00 in British Summer Time and 11:00 in winter.",
+    "GOTCHAS": "Live runs at 12:00 GMT as of 2026-11-27. The runnable schedule below still targets 11:00 UTC.",
     "HOW IT FITS": "cron 'enquire_shift_availability' (11:00 UTC) -> enquire_shift_availability() POSTs all rider_master rows with\n  status = 'active' AND channel = 'whatsapp' to /delivery-hooks/shift-availability-enquiry -> the endpoint sets\n  is_in_shift = false for them and sends the WhatsApp shift question; a 'yes' sets is_in_shift = true again through\n  rider_set_shift() (availability/rider_shift.sql; watomation/on_callback_wa_handler.py).\nTelegram riders (channel 'telegram') are never asked (D53): they can be messaged at any time, are on by default\n  and step away with /off (availability/pauses.sql, ADR 0013). The endpoint also switches off and asks only\n  rows that still say 'whatsapp', so a rider who moved to Telegram between the query and the POST is left alone.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none",
@@ -5537,7 +5830,7 @@
    },
    "cron": [
     {
-     "active": false,
+     "active": true,
      "command": "SELECT public.job_customer_outbox_sweep()",
      "file": "notifications/job_customer_outbox_sweep.sql",
      "function": "job_customer_outbox_sweep",
@@ -5584,7 +5877,7 @@
     "HOW IT FITS": "this job (every minute) -> app_hook_post -> /customer-hooks/outbox-sweep -> customer_notifier.sweep_pending():\n  seed missing order_notification_subscription and notification_outbox rows, fail interrupted attempts\n  (no retry after an HTTP attempt, ADR 0006), then dispatch up to 100 unattempted due rows.\n  Replaces the in-process 60-second customer_notifier.run_sweeper loop.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run (cron.schedule with an existing name updates in place).",
     "LIFECYCLE": "none: this job keeps no state. Outbox row states: notifications/notification_outbox.sql.",
-    "LIVE CHECK": "not applied yet (plans/telegram-rider-invite-alert-schedule.md, phase 2).",
+    "LIVE CHECK": "function checked at rollout and cron registration verified active (2026-11-27).",
     "OBJECTS": "fn     job_customer_outbox_sweep() -> boolean\n    POST /customer-hooks/outbox-sweep every run; true when the app answered 2xx.",
     "PYTHON MODEL": "watomation/routers/sweep_hooks.py: customer_outbox_sweep(); utils_common/notify/customer_notifier.py: sweep_pending()",
     "REQUIRES": "platform/app_hook_post.sql",
@@ -5987,7 +6280,7 @@
    },
    "cron": [
     {
-     "active": false,
+     "active": true,
      "command": "SELECT public.job_web_lifecycle_sweep()",
      "file": "ordering/job_web_lifecycle_sweep.sql",
      "function": "job_web_lifecycle_sweep",
@@ -6034,7 +6327,7 @@
     "HOW IT FITS": "The only code that cancels held web payments: restaurant decline, no rider and late payment queue a\n  web_payment_release row (lifecycle.queue_release() / reject_late()); this job (every minute) -> app_hook_post\n  -> /web-hooks/lifecycle-sweep -> web_ordering/lifecycle.sweep() claims up to ten due rows (SKIP LOCKED,\n  one-minute lease) and cancels each payment. The same sweep expires WEB threads (web_session_meta) and\n  prunes web_rate_limit and status-only order_access_grant rows. If this job stops, held payments stay held.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run (cron.schedule with an existing name updates in place).",
     "LIFECYCLE": "none: this job keeps no state. Release row states: ordering/web_payment_release.sql.",
-    "LIVE CHECK": "not applied yet (plans/telegram-rider-invite-alert-schedule.md, phase 2).",
+    "LIVE CHECK": "function checked at rollout and cron registration verified active (2026-11-27).",
     "OBJECTS": "fn     job_web_lifecycle_sweep() -> boolean\n    POST /web-hooks/lifecycle-sweep every run; true when the app answered 2xx.",
     "PYTHON MODEL": "watomation/routers/sweep_hooks.py: web_lifecycle_sweep(); utils_common/web_ordering/lifecycle.py: sweep(), release()",
     "REQUIRES": "platform/app_hook_post.sql",
@@ -6069,7 +6362,7 @@
    },
    "cron": [
     {
-     "active": false,
+     "active": true,
      "command": "SELECT public.job_web_price_audit()",
      "file": "ordering/job_web_price_audit.sql",
      "function": "job_web_price_audit",
@@ -6117,7 +6410,7 @@
     "HOW IT FITS": "this job (every hour at :05) -> due check: no web_monitor_run row for today's London date -> app_hook_post\n  -> /web-hooks/price-audit -> web_ordering/monitoring.sweep(): claim today's web_monitor_run row (London\n  date), compare the last 24 hours of web order lines with the menu floor, record flagged orders and alert\n  ops. Prices are never changed. The first run of each London day POSTs; the rest of that day skip in SQL.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run (cron.schedule with an existing name updates in place).",
     "LIFECYCLE": "none: this job keeps no state. Audit claim states: ordering/web_monitor_run.sql.",
-    "LIVE CHECK": "not applied yet (plans/telegram-rider-invite-alert-schedule.md, phase 2).",
+    "LIVE CHECK": "function checked at rollout and cron registration verified active (2026-11-27).",
     "OBJECTS": "fn     job_web_price_audit() -> boolean\n    POST /web-hooks/price-audit unless today's London web_monitor_run row exists; true when skipped or 2xx.",
     "PYTHON MODEL": "watomation/routers/sweep_hooks.py: web_price_audit(); utils_common/web_ordering/monitoring.py: sweep()",
     "REQUIRES": "platform/app_hook_post.sql\nordering/web_monitor_run.sql (the due check reads run_day)",
@@ -7220,7 +7513,7 @@
      "active": true,
      "command": "DELETE FROM cron.job_run_details WHERE end_time < now() - interval '1 day'",
      "file": "platform/cron_housekeeping.sql",
-     "function": "now",
+     "function": null,
      "job": "delete-job-run-details",
      "line": 22,
      "schedule": "0 12 * * *"
@@ -7287,8 +7580,8 @@
    },
    "cron": [],
    "folder": "platform",
-   "header_lines": 47,
-   "lines": 275,
+   "header_lines": 48,
+   "lines": 277,
    "objects": [
     {
      "description": "One row per Fly app: app-scoped API token, machine id, region, description and the last idle check.",
@@ -7333,7 +7626,7 @@
    "sections": {
     "CALLED BY": "fly_config:\n  sql       fly_post(), fly_idle_suspend()\nfly_idle_suspend:\n  cron      'job_fly_idle_suspend' */15 * * * * (active on live, 2026-11-23)",
     "GOTCHAS": "updated_at is not maintained automatically; set it by hand on UPDATE (fly_idle_suspend does not touch it).\nmachine_id is not refreshed automatically: a redeploy that replaces the machine needs the row updated\n  (fly machine list -a <app>), otherwise the state check returns 404 and the app is never suspended.\nThe agent URL is derived as https://<app_name>.fly.dev.\nidle_seconds restarts from 0 when the agent process starts or resumes, so a woken machine waits a full\n  p_min_idle_seconds before it can be suspended again.",
-    "HOW IT FITS": "fly_post(app, action) reads the app's api_token and machine_id here and calls the Fly Machines API (start / stop /\n  suspend). fly_idle_suspend() is the idle-aware caller meant for pg_cron (every 10 min):\n    1. GET https://api.machines.dev/v1/apps/<app>/machines/<id>; skip unless state = 'started'\n       (calling the agent while suspended would wake it: auto_start_machines = true).\n    2. GET https://<app>.fly.dev/internal/activity (restaurant-agents runtime, app_factory.py).\n    3. If active_requests, active_jobs, active_agent_runs are 0, draining is false and\n       idle_seconds >= p_min_idle_seconds (default 3600), call fly_post(app, 'suspend').\n  The next WhatsApp webhook wakes the machine again (Fly auto-start). See docs/fly.io-deploy-guide.md.",
+    "HOW IT FITS": "fly_post(app, action) reads the app's api_token and machine_id here and calls the Fly Machines API (start / stop /\n  suspend). pg_cron calls fly_idle_suspend() every 15 minutes on live:\n    1. GET https://api.machines.dev/v1/apps/<app>/machines/<id>; skip unless state = 'started'\n       (calling the agent while suspended would wake it: auto_start_machines = true).\n    2. GET https://<app>.fly.dev/internal/activity (restaurant-agents runtime, app_factory.py).\n    3. If active_requests, active_jobs, active_agent_runs are 0, draining is false and\n       idle_seconds >= p_min_idle_seconds (default 3600), call fly_post(app, 'suspend').\n  The next WhatsApp webhook wakes the machine again (Fly auto-start). See docs/fly.io-deploy-guide.md.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none",
     "LIVE CHECK": "matches live on 2026-11-23: RLS on, anon/authenticated revoked (PostgREST answers 42501), both\n  last_idle_check columns, fly_idle_suspend() body and grants, and job_fly_idle_suspend (*/15) all present.\n  The two Fly tokens have NOT been rotated yet (updated_at 2026-07/08): see docs/to-do.md.",
@@ -7341,14 +7634,15 @@
     "PYTHON MODEL": "none",
     "REQUIRES": "platform/fly_post.sql (fly_idle_suspend calls fly_post to send the suspend)",
     "SECURITY": "fly_config: RLS on with no policies; ALL revoked from anon, authenticated (tokens readable by the owner only).\nfly_idle_suspend(): SECURITY DEFINER; EXECUTE revoked from PUBLIC, anon, authenticated; granted to service_role.\nApplied live; anon could read the tokens before 2026-11, so rotate them (docs/to-do.md).",
-    "SEE ALSO": "platform/fly_post.sql\ndocs/fly.io-deploy-guide.md\nrestaurant-agents: docs/webhook_endpoints.md (Activity Endpoint), watomation/activity.py",
+    "SEE ALSO": "platform/fly_post.sql\ndocs/fly.io-deploy-guide.md\nrestaurant-agents/docs/webhook_endpoints.md (Activity Endpoint)\nrestaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/watomation/activity.py",
     "SIDE EFFECTS": "fly_idle_suspend makes, per app: one GET to the Fly Machines API, one GET to the agent's /internal/activity\n  (only when the machine is started) and, when idle, one POST suspend via fly_post (can suspend production).\n  It writes last_idle_check / last_idle_check_at on fly_config and a RAISE LOG line per app.",
     "TESTS": "none"
    },
    "see_also": [
     "platform/fly_post.sql",
     "docs/fly.io-deploy-guide.md",
-    "restaurant-agents: docs/webhook_endpoints.md (Activity Endpoint), watomation/activity.py"
+    "restaurant-agents/docs/webhook_endpoints.md (Activity Endpoint)",
+    "restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/watomation/activity.py"
    ],
    "tests": [],
    "title": "Fly.io control config per app (API token + target machine), and the idle-suspend job that uses it."
@@ -7774,13 +8068,13 @@
      "file": "restaurant_admin/enquire_admin_availability.sql",
      "function": "enquire_admin_availability",
      "job": "enquire_admin_availability",
-     "line": 119,
+     "line": 120,
      "schedule": "0 11 * * *"
     }
    ],
    "folder": "restaurant_admin",
-   "header_lines": 31,
-   "lines": 139,
+   "header_lines": 32,
+   "lines": 140,
    "objects": [
     {
      "description": "POST the admins of the given restaurants (all when NULL) to the admin-availability webhook; returns true on success.",
@@ -7811,7 +8105,7 @@
    "sections": {
     "CALLED BY": "enquire_admin_availability:\n  cron      'enquire_admin_availability' 0 11 * * *\n  python    utils_common/waba_utils/wa_senders.py (module-level SQL)",
     "GOTCHAS": "New restaurants are not asked until the cron command's restaurant list is edited.",
-    "HOW IT FITS": "Restaurant confirmation, delivery and takeaway alike:\n  new order -> init_delivery() / init_takeaway() -> resolve_initial_restaurant_acceptance():\n      auto_accept restaurants: order starts accepted with a default pickup time (no prompt)\n      otherwise: 'restaurant_unconfirmed' -> trigger -> admins prompted (WhatsApp buttons; Telegram order cards)\n  admin taps Accept / Decline -> restaurant_order_decide(); picks a pickup time -> restaurant_order_set_pickup()\n      (Telegram taps go through t_order_decide() / t_order_set_pickup(), which authorise the person first)\n  no answer -> process_restaurant_confirmation() (cron 10 s) -> 'restaurant_timedout' -> trigger -> Python sets a default\n      pickup time and makes the order dispatchable (delivery_hooks._handle_restaurant_timedout)\n  morning check -> enquire_admin_availability() (cron 11:00 UTC) asks admins whether the restaurant is open today.\n  cron 'enquire_admin_availability' runs it for ARRAY['ELAS','SFCS','BNAT'] (hard-coded in the cron command).",
+    "HOW IT FITS": "Restaurant confirmation, delivery and takeaway alike:\n  new order -> init_delivery() / init_takeaway() -> resolve_initial_restaurant_acceptance():\n      auto_accept restaurants: order starts accepted with a default pickup time (no prompt)\n      otherwise: 'restaurant_unconfirmed' -> trigger -> admins prompted (WhatsApp buttons; Telegram order cards)\n  admin taps Accept / Decline -> restaurant_order_decide(); picks a pickup time -> restaurant_order_set_pickup()\n      (Telegram taps go through t_order_decide() / t_order_set_pickup(), which authorise the person first)\n  no answer -> process_restaurant_confirmation() (cron 10 s) -> 'restaurant_timedout' -> trigger -> Python sets a default\n      pickup time and makes the order dispatchable (delivery_hooks._handle_restaurant_timedout)\n  Daily check -> enquire_admin_availability() asks admins whether the restaurant is open today.\n  Live runs at 12:00 GMT as of 2026-11-27. The runnable schedule below still targets 11:00 UTC.\n  cron 'enquire_admin_availability' runs it for ARRAY['ELAS','SFCS','BNAT'] (hard-coded in the cron command).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "none",
     "LIVE CHECK": "matches the live database (2026-10-16): every object below was compared with the live catalogue.",
@@ -8496,7 +8790,7 @@
    ],
    "folder": "restaurant_admin",
    "header_lines": 120,
-   "lines": 1098,
+   "lines": 1099,
    "objects": [
     {
      "description": "Ready, shared by every channel: record the first Ready tap per dispatch (delivery) or per order (takeaway).",
@@ -8565,7 +8859,7 @@
      "signature": "t_notice_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_rest_ref text, p_order_number text, p_notice text) -> void"
     },
     {
-     "description": "Every 5 seconds: POST orders with stale receipt copies to /telegram/rest-admin/order-alerts (only when there are any).",
+     "description": "POST orders with stale receipt copies to /telegram/rest-admin/order-alerts when any are due.",
      "kind": "function",
      "name": "job_t_receipt_refresh",
      "signature": "job_t_receipt_refresh() -> boolean"
@@ -8604,7 +8898,7 @@
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run: CREATE ... IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS.\nApply the REQUIRES files first. No BEGIN/COMMIT: each statement stands alone.",
     "LIFECYCLE": "RESULT VOCABULARY (jsonb {result, ...})\n  restaurant_order_ready:          ok | already_ready | not_ready_state | not_found\n  restaurant_order_adjust_pickup:  ok | unchanged | not_ready_state | not_found\n  t_order_ready / t_order_adjust_pickup: the same, plus not_authorised (checked right after not_found)\nReceipt status keys (must match channels/telegram/rest_admin/receipts/model.py ReceiptStatus):\n  delivery: gone | done | picked_up | ready@HH:MI | open@HH:MI | rider_cancelled ; takeaway: gone | done | ready@HH:MI | open@HH:MI",
     "LIVE CHECK": "2026-10-23: t_receipt_snapshot() gained facts.accepted_by / accepted_at / accepted_auto (receipt progress flow,\nplans/telegram-receipt-phases-plan.md D58): read-only, from existing columns; PENDING until the owner applies this file.\naccepted_at is NULL once the pickup was moved (+10/+20 overwrite restaurant_update_dtts); \"accepted by\" is whoever\nlast set the pickup time. Python defaults the keys, so Python and SQL can deploy in either order.\nR6 t_receipt_snapshot() and t_notice_targets() verified live on 2026-10-22 after the owner applied this file;\nboth now use t_alert_destinations() for new sends. Other objects were last compared on 2026-10-16.",
-    "OBJECTS": "fn     restaurant_order_ready(p_order_number text, p_order_type text, p_admin_phone text, p_channel text) -> jsonb\n    Ready, shared by every channel: record the first Ready tap per dispatch (delivery) or per order (takeaway).\nfn     restaurant_order_adjust_pickup(p_order_number text, p_target timestamp with time zone, p_admin_phone text, p_channel text) -> jsonb\n    Move a live delivery's pickup to p_target (+10 / +20 from the original); a no-op repeat writes nothing.\nfn     t_order_ready(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text) -> jsonb\n    Telegram Ready: authorise the tapping person (D14), then restaurant_order_ready().\nfn     t_order_adjust_pickup(p_bot_key text, p_tuid bigint, p_order_number text, p_minutes integer) -> jsonb\n    Telegram +N: authorise, compute the target (original pickup + 10 or 20), then restaurant_order_adjust_pickup().\nfn     t_receipt_status(p_order_number text, p_order_type text, p_dispatch_id integer) -> text\n    Compute the receipt status key for an order from the database (gone, done, picked_up, ready@HH:MI, open@HH:MI, rider_cancelled).\nfn     t_receipt_snapshot(p_bot_key text, p_order_number text, p_order_type text, p_dispatch_id integer) -> jsonb\n    Return everything needed to draw one receipt, plus its destinations and reply targets, in one read.\nfn     t_receipt_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_order_number text, p_order_type text, p_rest_ref text, p_dispatch_id integer, p_status text) -> jsonb\n    Record a sent receipt copy and take OLDER receipt copies in that chat for deletion (D35).\nfn     t_receipts_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, dispatch_id integer, authorised boolean, viewer_phone text)\n    List receipt copies whose status key no longer matches the database (read-only).\nfn     t_receipts_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Claim one order's stale receipt copies for one refresh pass (state 'taken').\nfn     t_notice_targets(p_bot_key text, p_rest_ref text, p_order_number text, p_reply_kind text) -> TABLE(tcid bigint, tuid bigint, phone text, reply_to bigint)\n    Return the destinations and reply target for a plain notice to a restaurant's Telegram admins (D36).\nfn     t_notice_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_rest_ref text, p_order_number text, p_notice text) -> void\n    Write an audit row for a sent notice, closed at once (nothing to edit or delete later).\nfn     job_t_receipt_refresh() -> boolean\n    Every 5 seconds: POST orders with stale receipt copies to /telegram/rest-admin/order-alerts (only when there are any).",
+    "OBJECTS": "fn     restaurant_order_ready(p_order_number text, p_order_type text, p_admin_phone text, p_channel text) -> jsonb\n    Ready, shared by every channel: record the first Ready tap per dispatch (delivery) or per order (takeaway).\nfn     restaurant_order_adjust_pickup(p_order_number text, p_target timestamp with time zone, p_admin_phone text, p_channel text) -> jsonb\n    Move a live delivery's pickup to p_target (+10 / +20 from the original); a no-op repeat writes nothing.\nfn     t_order_ready(p_bot_key text, p_tuid bigint, p_order_number text, p_order_type text) -> jsonb\n    Telegram Ready: authorise the tapping person (D14), then restaurant_order_ready().\nfn     t_order_adjust_pickup(p_bot_key text, p_tuid bigint, p_order_number text, p_minutes integer) -> jsonb\n    Telegram +N: authorise, compute the target (original pickup + 10 or 20), then restaurant_order_adjust_pickup().\nfn     t_receipt_status(p_order_number text, p_order_type text, p_dispatch_id integer) -> text\n    Compute the receipt status key for an order from the database (gone, done, picked_up, ready@HH:MI, open@HH:MI, rider_cancelled).\nfn     t_receipt_snapshot(p_bot_key text, p_order_number text, p_order_type text, p_dispatch_id integer) -> jsonb\n    Return everything needed to draw one receipt, plus its destinations and reply targets, in one read.\nfn     t_receipt_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_order_number text, p_order_type text, p_rest_ref text, p_dispatch_id integer, p_status text) -> jsonb\n    Record a sent receipt copy and take OLDER receipt copies in that chat for deletion (D35).\nfn     t_receipts_stale(p_bot_key text, p_order_number text, p_order_type text) -> TABLE(id bigint, order_number text, order_type text, dispatch_id integer, authorised boolean, viewer_phone text)\n    List receipt copies whose status key no longer matches the database (read-only).\nfn     t_receipts_take(p_bot_key text, p_order_number text, p_order_type text) -> jsonb\n    Claim one order's stale receipt copies for one refresh pass (state 'taken').\nfn     t_notice_targets(p_bot_key text, p_rest_ref text, p_order_number text, p_reply_kind text) -> TABLE(tcid bigint, tuid bigint, phone text, reply_to bigint)\n    Return the destinations and reply target for a plain notice to a restaurant's Telegram admins (D36).\nfn     t_notice_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_rest_ref text, p_order_number text, p_notice text) -> void\n    Write an audit row for a sent notice, closed at once (nothing to edit or delete later).\nfn     job_t_receipt_refresh() -> boolean\n    POST orders with stale receipt copies to /telegram/rest-admin/order-alerts when any are due.",
     "PYTHON MODEL": "none",
     "REQUIRES": "dispatch/delivery_dispatch.sql\ndispatch/delivery_inflight.sql\ndelivery/delivery_summary.sql\ntakeaway/takeaway_summary.sql\ntelegram/t_order_alerts.sql\ntelegram/t_sent_messages.sql",
     "SECURITY": "Every function is revoked from PUBLIC/anon/authenticated: only the service key can call them.\nConcurrency: one conditional UPDATE decides each tap; receipt copies are claimed in SQL (state 'taken', FOR UPDATE SKIP LOCKED);\n  a claim not finished within 30 s is offered again; a newer receipt only deletes OLDER ones (id <).",
@@ -9571,7 +9865,7 @@
    },
    "cron": [
     {
-     "active": false,
+     "active": true,
      "command": "SELECT public.job_rider_invite_alerts()",
      "file": "telegram/job_rider_invite_alerts.sql",
      "function": "job_rider_invite_alerts",
@@ -9620,7 +9914,7 @@
     "HOW IT FITS": "t_rider_invite_claim sets rider_alert_next_at -> this job (every minute) -> app_hook_post -> /rider-hooks/invite-alerts\n  -> invite_alerts.sweep_pending() -> t_rider_invite_alert_take / _finish. A failed POST changes nothing.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run (cron.schedule with an existing name updates in place).",
     "LIFECYCLE": "see telegram/t_rider_invites.sql",
-    "LIVE CHECK": "not applied yet (plans/telegram-rider-invite-alert-schedule.md).",
+    "LIVE CHECK": "function checked at rollout and cron registration verified active (2026-11-27).",
     "OBJECTS": "fn     job_rider_invite_alerts() -> boolean\n    POST /rider-hooks/invite-alerts when any rider alert is due; true when idle or answered 2xx.",
     "PYTHON MODEL": "watomation/routers/sweep_hooks.py: rider_invite_alerts(); channels/telegram/rider/invite_alerts.py: sweep_pending()",
     "REQUIRES": "telegram/t_invites.sql (rider alert columns, t_invites_rider_alert_due_idx)\ntelegram/t_rider_invites.sql\nplatform/app_hook_post.sql",
@@ -12004,7 +12298,7 @@
    "file": "restaurant_admin/enquire_admin_availability.sql",
    "folder": "restaurant_admin",
    "kind": "function",
-   "line": 39,
+   "line": 40,
    "role": "definition",
    "signature": "enquire_admin_availability(p_rest_ref_list character varying[]) -> boolean"
   },
@@ -12049,7 +12343,7 @@
    "file": "platform/fly_config.sql",
    "folder": "platform",
    "kind": "table",
-   "line": 53,
+   "line": 54,
    "role": "definition",
    "signature": "fly_config"
   },
@@ -12064,7 +12358,7 @@
    "file": "platform/fly_config.sql",
    "folder": "platform",
    "kind": "function",
-   "line": 105,
+   "line": 106,
    "role": "definition",
    "signature": "fly_idle_suspend(p_min_idle_seconds integer, p_dry_run boolean) -> jsonb"
   },
@@ -12593,7 +12887,7 @@
      "via": "python"
     }
    ],
-   "description": "Every 5 seconds: POST orders with stale receipt copies to /telegram/rest-admin/order-alerts (only when there are any).",
+   "description": "POST orders with stale receipt copies to /telegram/rest-admin/order-alerts when any are due.",
    "file": "restaurant_admin/restaurant_ready_adjust_notices.sql",
    "folder": "restaurant_admin",
    "kind": "function",
@@ -15753,5 +16047,5 @@
   }
  },
  "source": "ordelo_datamodels/**/*.sql (except _archive/); built by scripts/datamodels/build_guide.py",
- "stamp": "Checked against the live database on 2026-11-16"
+ "stamp": "Checked against the live database on 2026-11-27"
 }

@@ -2,7 +2,7 @@
 -- ordelo_datamodels/telegram/job_rider_invite_alerts.sql
 -- Every minute: wake OrdeloAgent when a rider invite claim alert is due (ADR 0019).
 -- =============================================================================================
--- LIVE CHECK    not applied yet (plans/telegram-rider-invite-alert-schedule.md).
+-- LIVE CHECK    function checked at rollout and cron registration verified active (2026-11-27).
 -- OBJECTS       fn     job_rider_invite_alerts() -> boolean
 --                   POST /rider-hooks/invite-alerts when any rider alert is due; true when idle or answered 2xx.
 -- REQUIRES      telegram/t_invites.sql (rider alert columns, t_invites_rider_alert_due_idx)
@@ -59,7 +59,7 @@ REVOKE ALL ON FUNCTION public.job_rider_invite_alerts () FROM PUBLIC, anon, auth
 GRANT EXECUTE ON FUNCTION public.job_rider_invite_alerts () TO service_role;
 COMMENT ON FUNCTION public.job_rider_invite_alerts () IS 'Every minute: POST /rider-hooks/invite-alerts when any rider invite claim alert is due.';
 
--- pg_cron job 'job_rider_invite_alerts': runs every minute, INACTIVE on live until the owner applies this file (plan P1-1).
+-- pg_cron job 'job_rider_invite_alerts': runs every minute, active on live.
 SELECT cron.schedule('job_rider_invite_alerts', '* * * * *', 'SELECT public.job_rider_invite_alerts()');
 -- To stop:    SELECT cron.unschedule('job_rider_invite_alerts');
 -- To inspect: SELECT status, start_time, return_message FROM cron.job_run_details

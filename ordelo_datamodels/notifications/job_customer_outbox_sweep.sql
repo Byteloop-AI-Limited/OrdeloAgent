@@ -2,7 +2,7 @@
 -- ordelo_datamodels/notifications/job_customer_outbox_sweep.sql
 -- Every minute: wake OrdeloAgent to repair and recover the customer notification outbox (ADR 0019, option B).
 -- =============================================================================================
--- LIVE CHECK    not applied yet (plans/telegram-rider-invite-alert-schedule.md, phase 2).
+-- LIVE CHECK    function checked at rollout and cron registration verified active (2026-11-27).
 -- OBJECTS       fn     job_customer_outbox_sweep() -> boolean
 --                   POST /customer-hooks/outbox-sweep every run; true when the app answered 2xx.
 -- REQUIRES      platform/app_hook_post.sql
@@ -60,7 +60,7 @@ REVOKE ALL ON FUNCTION public.job_customer_outbox_sweep () FROM PUBLIC, anon, au
 GRANT EXECUTE ON FUNCTION public.job_customer_outbox_sweep () TO service_role;
 COMMENT ON FUNCTION public.job_customer_outbox_sweep () IS 'Every minute: POST /customer-hooks/outbox-sweep (customer outbox repair and recovery, option B).';
 
--- pg_cron job 'job_customer_outbox_sweep': runs every minute, INACTIVE on live until the owner applies this file (plan phase 2).
+-- pg_cron job 'job_customer_outbox_sweep': runs every minute, active on live.
 SELECT cron.schedule('job_customer_outbox_sweep', '* * * * *', 'SELECT public.job_customer_outbox_sweep()');
 -- To stop:    SELECT cron.unschedule('job_customer_outbox_sweep');
 -- To inspect: SELECT status, start_time, return_message FROM cron.job_run_details

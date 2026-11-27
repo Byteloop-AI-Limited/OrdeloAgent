@@ -2,7 +2,7 @@
 -- ordelo_datamodels/ordering/job_web_lifecycle_sweep.sql
 -- Every minute: wake OrdeloAgent to expire web checkouts, prune web counters and release held web payments (ADR 0019).
 -- =============================================================================================
--- LIVE CHECK    not applied yet (plans/telegram-rider-invite-alert-schedule.md, phase 2).
+-- LIVE CHECK    function checked at rollout and cron registration verified active (2026-11-27).
 -- OBJECTS       fn     job_web_lifecycle_sweep() -> boolean
 --                   POST /web-hooks/lifecycle-sweep every run; true when the app answered 2xx.
 -- REQUIRES      platform/app_hook_post.sql
@@ -63,7 +63,7 @@ REVOKE ALL ON FUNCTION public.job_web_lifecycle_sweep () FROM PUBLIC, anon, auth
 GRANT EXECUTE ON FUNCTION public.job_web_lifecycle_sweep () TO service_role;
 COMMENT ON FUNCTION public.job_web_lifecycle_sweep () IS 'Every minute: POST /web-hooks/lifecycle-sweep (WEB expiry, prunes and the only release of held web payments).';
 
--- pg_cron job 'job_web_lifecycle_sweep': runs every minute, INACTIVE on live until the owner applies this file (plan phase 2).
+-- pg_cron job 'job_web_lifecycle_sweep': runs every minute, active on live.
 SELECT cron.schedule('job_web_lifecycle_sweep', '* * * * *', 'SELECT public.job_web_lifecycle_sweep()');
 -- To stop:    SELECT cron.unschedule('job_web_lifecycle_sweep');
 -- To inspect: SELECT status, start_time, return_message FROM cron.job_run_details

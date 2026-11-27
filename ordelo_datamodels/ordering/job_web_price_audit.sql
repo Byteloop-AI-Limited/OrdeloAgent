@@ -2,7 +2,7 @@
 -- ordelo_datamodels/ordering/job_web_price_audit.sql
 -- Hourly at :05: wake OrdeloAgent to run the web price-floor audit when today's London audit is due (ADR 0019).
 -- =============================================================================================
--- LIVE CHECK    not applied yet (plans/telegram-rider-invite-alert-schedule.md, phase 2).
+-- LIVE CHECK    function checked at rollout and cron registration verified active (2026-11-27).
 -- OBJECTS       fn     job_web_price_audit() -> boolean
 --                   POST /web-hooks/price-audit unless today's London web_monitor_run row exists; true when skipped or 2xx.
 -- REQUIRES      platform/app_hook_post.sql
@@ -68,7 +68,7 @@ REVOKE ALL ON FUNCTION public.job_web_price_audit () FROM PUBLIC, anon, authenti
 GRANT EXECUTE ON FUNCTION public.job_web_price_audit () TO service_role;
 COMMENT ON FUNCTION public.job_web_price_audit () IS 'Hourly at :05: POST /web-hooks/price-audit only when today''s London web_monitor_run row is missing (one audit per London day).';
 
--- pg_cron job 'job_web_price_audit': runs every 5 * * * * (hourly at :05), INACTIVE on live until the owner applies this file (plan phase 2).
+-- pg_cron job 'job_web_price_audit': runs every 5 * * * * (hourly at :05), active on live.
 SELECT cron.schedule('job_web_price_audit', '5 * * * *', 'SELECT public.job_web_price_audit()');
 -- To stop:    SELECT cron.unschedule('job_web_price_audit');
 -- To inspect: SELECT status, start_time, return_message FROM cron.job_run_details

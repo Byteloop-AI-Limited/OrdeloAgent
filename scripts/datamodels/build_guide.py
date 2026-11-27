@@ -43,12 +43,42 @@ def object_line(name: str, kind: str, text: str, header_len: int) -> int | None:
 
 
 def cron_function(command: str) -> str | None:
-    m = re.search(r"(?:public\.)?([A-Za-z_][A-Za-z0-9_]*)\s*\(", command)
-    return m.group(1) if m and m.group(1).upper() != "SELECT" else None
+    m = re.match(r"\s*(?:select\s+(?:\*\s+from\s+)?|call\s+)(?:public\.)?([A-Za-z_]\w*)\s*\(", command, re.I)
+    return m.group(1) if m else None
+
+
+def cron_inventory(c: dict, snapshot: dict) -> dict:
+    """Join the dated live snapshot to the runnable SQL and its owning objects."""
+    live = {j["job"]: j for j in snapshot["jobs"]}
+    repo = {j["job"]: j for j in c["cron"]}
+    files = {f["path"]: f for f in c["files"]}
+    rows = []
+    for job in sorted(live.keys() | repo.keys(), key=str.casefold):
+        observed, source = live.get(job), repo.get(job)
+        command = (observed or source)["command"]
+        fn = cron_function(command)
+        obj = c["objects"].get(fn, {})
+        file = source["file"] if source else obj.get("file")
+        purpose = (observed or {}).get("purpose") or obj.get("description") or files.get(file, {}).get("title")
+        if not purpose:
+            raise ValueError(f"Missing purpose for cron job {job}")
+        rows.append({
+            "job": job,
+            "command": command,
+            "function": fn,
+            "purpose": purpose,
+            "file": file,
+            "line": source["line"] if source else obj.get("line"),
+            "live_schedule": observed["schedule"] if observed else None,
+            "live_active": observed["active"] if observed else None,
+            "file_schedule": source["schedule"] if source else None,
+            "file_active": source["active"] if source else None,
+        })
+    return {"checked": snapshot["checked"], "timezone": snapshot["timezone"], "jobs": rows}
 
 
 def unscheduled(c: dict) -> list[str]:
-    called = " ".join(j["command"] for j in c["cron"])
+    called = " ".join(j["command"] for j in c["cron_inventory"]["jobs"])
     notes = []
     for name, o in c["objects"].items():
         if o["kind"] == "function" and o["role"] == "definition" and (name.startswith("job_") or name == "t_housekeeping"):
@@ -64,7 +94,7 @@ def stamp(c: dict) -> str:
     return f"Checked against the live database on {max(dates)}" if dates else "Live check date unknown"
 
 
-def enrich(c: dict) -> dict:
+def enrich(c: dict, content: dict) -> dict:
     texts = {f["path"]: (DM / f["path"]).read_text(encoding="utf-8") for f in c["files"]}
     for f in c["files"]:
         f["header_lines"] = len(cat.header_lines(texts[f["path"]])) if f["role"] in ("definition", "orphan") else 0
@@ -74,6 +104,7 @@ def enrich(c: dict) -> dict:
         o["line"] = object_line(name, o["kind"], texts[o["file"]], f["header_lines"])
     for j in c["cron"]:
         j["function"] = cron_function(j["command"])
+    c["cron_inventory"] = cron_inventory(c, content["cron_live"])
     c["cron_notes"] = unscheduled(c)
     c["stamp"] = stamp(c)
     c["_texts"] = texts
@@ -103,7 +134,7 @@ def build_md(c: dict, content: dict, ext: dict) -> str:
     out += [
         f"**{len(c['files'])} SQL files · {len(c['objects'])} objects** "
         + " · ".join(f"{n} {k}s" for k, n in sorted(kinds.items()))
-        + f" · {len(c['cron'])} cron jobs",
+        + f" · {len(c['cron_inventory']['jobs'])} cron jobs",
         "",
         "## Capability map",
         "",
@@ -145,16 +176,22 @@ def build_md(c: dict, content: dict, ext: dict) -> str:
                 else:
                     out.append(f"| {link} | `{o['name']}` | {o['kind']} | {md_cell(o['description'])} |")
         out.append("")
+    inventory = c["cron_inventory"]
     out += [
         "## Cron jobs", "",
-        "Schedule and state below come from the runnable SQL files; they are targets, not a live catalog read. "
-        "At the 22 Oct R5-R6 check, `job_pause_sweep` was active on live every five minutes while its file targets every minute.",
-        "", "| Job | File schedule | File state | Runs | File |", "|---|---|---|---|---|",
+        f"Live schedule and state were read from `cron.job` on {inventory['checked']} ({inventory['timezone']}). "
+        "The SQL schedule column shows what the runnable repository statement registers. A dash means that source has no entry.",
+        "", "| Job | Live schedule | Live state | SQL schedule | Command | Purpose | Owner file |", "|---|---|---|---|---|---|---|",
     ]
-    for j in c["cron"]:
-        out.append(f"| `{j['job']}` | {j['schedule']} | {'active' if j['active'] else 'inactive'} | `{j['function'] or j['command']}` | [`{j['file']}`]({j['file']}) |")
+    for j in inventory["jobs"]:
+        state = "—" if j["live_active"] is None else ("active" if j["live_active"] else "inactive")
+        file = f"[`{j['file']}`]({j['file']})" if j["file"] else "—"
+        out.append(
+            f"| `{j['job']}` | {j['live_schedule'] or '—'} | {state} | {j['file_schedule'] or '—'} "
+            f"| `{md_cell(j['command'])}` | {md_cell(j['purpose'])} | {file} |"
+        )
     if c["cron_notes"]:
-        out += ["", "Job-style functions with no pg_cron job on live (some are called from Python instead):", ""] + [f"- {n}" for n in c["cron_notes"]]
+        out += ["", "Job-style functions with no schedule in either source:", ""] + [f"- {n}" for n in c["cron_notes"]]
     out += [
         "",
         "## Orphan candidates",
@@ -188,7 +225,7 @@ def build_html(c: dict, content: dict, ext: dict) -> str:
         "flows": content["flows"],
         "files": [{k: v for k, v in f.items() if k not in ("called_by", "see_also", "tests", "requires")} for f in c["files"]],
         "objects": c["objects"],
-        "cron": c["cron"],
+        "cron": c["cron_inventory"],
         "cron_notes": c["cron_notes"],
         "external": ext,
     }
@@ -203,7 +240,7 @@ def build_html(c: dict, content: dict, ext: dict) -> str:
 
 def build_all() -> dict[Path, str]:
     c, content, ext = load_inputs()
-    c = enrich(c)
+    c = enrich(c, content)
     texts = c.pop("_texts")
     pub = json.dumps({k: v for k, v in c.items()}, indent=1, ensure_ascii=False, sort_keys=True) + "\n"
     c["_texts"] = texts

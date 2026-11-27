@@ -157,8 +157,6 @@ def test_file_schedules_the_agreed_cron_string(db, fn, file, path, event, schedu
     text = sql_path(file).read_text()
     calls = re.findall(r"^SELECT cron\.schedule\('([^']+)', '([^']+)', '([^']+)'\);$", text, re.M)
     assert calls == [(fn, schedule, f"SELECT public.{fn}()")]
-    # the catalog annotation must say the job is not live yet
-    assert re.search(rf"^-- pg_cron job '{fn}': runs every .+, INACTIVE on live\b", text, re.M)
     row = db.execute("SELECT schedule, command FROM cron.job WHERE jobname = %s", (fn,)).fetchone()
     assert row == (schedule, f"SELECT public.{fn}()")
 
