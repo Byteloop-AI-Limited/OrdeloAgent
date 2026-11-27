@@ -5,6 +5,8 @@ FastAPI application for Ordelo WhatsApp automation service.
     . Exposes diagnostic endpoints for debugging agent state and flows
     . Serves as entry point when running OrdeloAgent with WhatsApp integration
     . Recovers unattempted customer notifications with an application-owned sweep
+    . Includes the pg_cron-woken sweep hooks (watomation/routers/sweep_hooks.py, ADR 0019); rider invite alerts have no
+      in-process loop. The customer notifier loop above is the last one and moves to pg_cron in phase 2.
     . Serves Telegram webhooks (restaurant-admin bot; rider bot when configured) and builds/closes the Telegram bot registry
   Functions/Classes:
     . app - FastAPI application instance
@@ -42,8 +44,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from config import waba_business_settings, pg_settings, client_ordelo
 from utils_common.notify.customer_notifier import run_sweeper
 from channels.telegram.bots import close_registry, default_registry
-from channels.telegram.rider.invite_alerts import run_sweeper as run_rider_invite_alerts
-from watomation.routers import pause_hooks, rider_offer_alerts, telegram_order_alerts, telegram_webhook, web_hooks
+from watomation.routers import pause_hooks, rider_offer_alerts, sweep_hooks, telegram_order_alerts, telegram_webhook, web_hooks
 from utils_common.web_ordering.common import WebError
 from ordelo.agents.rider_agent import builder
 from ordelo.agent_app_handlers import (
@@ -135,16 +136,12 @@ POOL_MAX_SIZE = 25
 async def lifespan(app):
     app.state.telegram_bots = default_registry()
     task = asyncio.create_task(run_sweeper())
-    invite_alert_task = asyncio.create_task(run_rider_invite_alerts())
     try:
         yield
     finally:
         task.cancel()
-        invite_alert_task.cancel()
         with suppress(asyncio.CancelledError):
             await task
-        with suppress(asyncio.CancelledError):
-            await invite_alert_task
         await close_registry(app.state.telegram_bots)
 
 
@@ -179,6 +176,7 @@ app.include_router(telegram_webhook.router)
 app.include_router(telegram_order_alerts.router)
 app.include_router(rider_offer_alerts.router)
 app.include_router(pause_hooks.router)  # POST /pause-hooks/sweep (job_pause_sweep, R5-R6)
+app.include_router(sweep_hooks.router)  # pg_cron-woken sweeps (ADR 0019)
 
 @app.exception_handler(WebError)
 async def web_error_handler(request, exc):

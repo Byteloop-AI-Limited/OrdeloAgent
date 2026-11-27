@@ -1,15 +1,15 @@
-"""Service-role RPCs defined in ordelo_datamodels/telegram/t_invites.sql.
+"""Service-role RPCs defined in ordelo_datamodels/telegram/t_rider_invites.sql (table: telegram/t_invites.sql).
 
 issue, revoke, claim, take_alert and finish_alert map to the corresponding
 t_rider_invite_* functions. The bearer is returned only by issue(). Transport
 errors must never be formatted with the request or its arguments.
 
 Database objects (definitions under ordelo_datamodels/):
-  . t_rider_invite_issue (function, ordelo_datamodels/telegram/t_invites.sql): calls
-  . t_rider_invite_revoke (function, ordelo_datamodels/telegram/t_invites.sql): calls
-  . t_rider_invite_claim (function, ordelo_datamodels/telegram/t_invites.sql): calls
-  . t_rider_invite_alert_take (function, ordelo_datamodels/telegram/t_invites.sql): calls
-  . t_rider_invite_alert_finish (function, ordelo_datamodels/telegram/t_invites.sql): calls
+  . t_rider_invite_issue (function, ordelo_datamodels/telegram/t_rider_invites.sql): calls
+  . t_rider_invite_revoke (function, ordelo_datamodels/telegram/t_rider_invites.sql): calls
+  . t_rider_invite_claim (function, ordelo_datamodels/telegram/t_rider_invites.sql): calls
+  . t_rider_invite_alert_take (function, ordelo_datamodels/telegram/t_rider_invites.sql): calls
+  . t_rider_invite_alert_finish (function, ordelo_datamodels/telegram/t_rider_invites.sql): calls
 (end of database objects)
 """
 

@@ -1,4 +1,8 @@
-"""Deliver durable invite claim alerts to the existing WhatsApp overwatch channel."""
+"""Deliver durable invite claim alerts to the existing WhatsApp overwatch channel.
+
+sweep_pending() is woken by pg_cron (job_rider_invite_alerts → POST /rider-hooks/invite-alerts,
+watomation/routers/sweep_hooks.py). There is no in-process loop (ADR 0019).
+"""
 
 import asyncio
 from uuid import uuid4
@@ -39,13 +43,14 @@ async def _deliver(alert: rider_invites.RiderInviteAlert) -> tuple[str, list[str
 
 
 async def sweep_pending() -> int:
-    """Drain a bounded batch. A worker crash leaves a recoverable database lease."""
+    """Drain a bounded batch. Called from the cron-woken hook; a crash leaves a recoverable database lease."""
     processed = 0
     for _ in range(20):
         lease = uuid4()
         alert = await rider_invites.take_alert(lease)
         if alert is None:
             break
+        logger.info("telegram[rider]: invite alert update {} claimed by sweep", alert.update_id)
         result, accepted = await _deliver(alert)
         finished = await rider_invites.finish_alert(alert.update_id, lease, result, accepted)
         if result != "accepted" or finished != "ok":
@@ -53,12 +58,3 @@ async def sweep_pending() -> int:
                            alert.update_id, result, finished)
         processed += 1
     return processed
-
-
-async def run_sweeper() -> None:
-    while True:
-        try:
-            await sweep_pending()
-        except Exception as exc:
-            logger.error("telegram[rider]: invite alert sweep failed error_type={}", type(exc).__name__)
-        await asyncio.sleep(10)
