@@ -5,6 +5,7 @@
 -- LIVE CHECK    P1 is live: every function body compared read-only with the live catalogue on 19 Nov 2026 (identical).
 --               is_overwatch and the overwatch / revocation changes (docs/adr/0017-portal-access-is-decided-per-request-in-sql.md)
 --               are live since 19 Nov 2026 (migrations/telegram_portals_p1.sql).
+--               admin_roster_status: pending owner rollout of migrations/telegram_rider_invites.sql (now reads bot_key = 'rest_admin' invites only).
 -- OBJECTS       fn     admin_phone_digits(p_phone text) -> text
 --                   Digits only; NULL unless 8-15 digits. The one phone rule of the roster.
 --               fn     is_overwatch(p_phone text) -> boolean
@@ -440,7 +441,7 @@ CREATE OR REPLACE FUNCTION public.admin_roster_status (p_rest_ref text)
             'channels', to_jsonb(coalesce(ra.channels, ARRAY['whatsapp']::text[])),
             'paused', p.phone IS NOT NULL AND public.is_paused ('rest_admin', p.phone, rm.rest_ref),
             'legacy_invite', ra.phone IS NULL AND EXISTS (SELECT 1 FROM public.t_invites i
-                                      WHERE i.rest_ref = rm.rest_ref AND i.status = 'claimed'
+                                      WHERE i.bot_key = 'rest_admin' AND i.rest_ref = rm.rest_ref AND i.status = 'claimed'
                                         AND public.admin_phone_digits (i.phone_number) = p.phone))
             ORDER BY a.ord), '[]'::jsonb)
     FROM

@@ -1,5 +1,35 @@
 {
-  "_about": "Hand-written content for ordelo-database-guide.{md,html}. Everything else in the guide is read from the SQL file headers. Every object named in 'flows' must exist in a SQL file or in external_objects.json (tests/test_datamodels_standard.py). Rebuild: python scripts/datamodels/build_guide.py",
+  "_about": "Hand-written content for ordelo-database-guide.{md,html}. Includes a dated read-only cron.job snapshot. SQL file headers supply the object and job descriptions. Every object named in 'flows' must exist in a SQL file or in external_objects.json (tests/test_datamodels_standard.py). Rebuild: python scripts/datamodels/build_guide.py",
+  "cron_live": {
+    "checked": "2026-11-27",
+    "timezone": "GMT",
+    "jobs": [
+      {"job": "delete-job-run-details", "schedule": "0 12 * * *", "command": "DELETE FROM cron.job_run_details WHERE end_time < now() - interval '1 day'", "active": true},
+      {"job": "enquire_admin_availability", "schedule": "0 12 * * *", "command": "select enquire_admin_availability(ARRAY['ELAS', 'SFCS', 'BNAT']);", "active": true},
+      {"job": "enquire_shift_availability", "schedule": "0 12 * * *", "command": "SELECT public.enquire_shift_availability()", "active": true},
+      {"job": "job_assign_dispatch", "schedule": "5 seconds", "command": "SELECT public.job_assign_dispatch()", "active": true},
+      {"job": "job_aws_runner_switch_pause", "schedule": "0 23 * * *", "command": "SELECT job_awsrunner_switch('pause');", "active": false, "purpose": "Pause the Ordelo and elaib AWS App Runner services through the management Edge Function."},
+      {"job": "job_awsrunner_switch_resume", "schedule": "0 6 * * *", "command": "SELECT job_awsrunner_switch('resume');", "active": false, "purpose": "Resume the Ordelo and elaib AWS App Runner services through the management Edge Function."},
+      {"job": "job_create_dispatch", "schedule": "5 seconds", "command": "SELECT public.job_create_dispatch()", "active": true},
+      {"job": "job_customer_outbox_sweep", "schedule": "* * * * *", "command": "SELECT public.job_customer_outbox_sweep()", "active": true},
+      {"job": "job_fly_idle_suspend", "schedule": "*/15 * * * *", "command": "SELECT public.fly_idle_suspend()", "active": true},
+      {"job": "job_null_or_outdated_location", "schedule": "* * * * *", "command": "SELECT public.job_null_or_outdated_location()", "active": false},
+      {"job": "job_pause_sweep", "schedule": "*/5 * * * *", "command": "SELECT public.job_pause_sweep()", "active": true},
+      {"job": "job_process_owntracks", "schedule": "30 seconds", "command": "SELECT public.job_process_owntracks()", "active": true},
+      {"job": "job_rider_invite_alerts", "schedule": "* * * * *", "command": "SELECT public.job_rider_invite_alerts()", "active": true},
+      {"job": "job_rider_offer_alerts", "schedule": "5 seconds", "command": "SELECT public.job_rider_offer_alerts()", "active": true},
+      {"job": "job_rider_pickup_alert", "schedule": "*/5 * * * *", "command": "select job_rider_pickup_alerts();", "active": true},
+      {"job": "job_terminate_stale_active_threads", "schedule": "*/3 * * * *", "command": "SELECT public.job_terminate_stale_active_threads()", "active": false},
+      {"job": "jobTerminateStaleActiveThreadsNew", "schedule": "* * * * *", "command": "SELECT job_terminate_stale_active_threads_new();", "active": true},
+      {"job": "job_t_order_alerts", "schedule": "5 seconds", "command": "SELECT public.job_t_order_alerts()", "active": true},
+      {"job": "job_t_receipt_refresh", "schedule": "6 seconds", "command": "SELECT public.job_t_receipt_refresh()", "active": true},
+      {"job": "job_web_lifecycle_sweep", "schedule": "* * * * *", "command": "SELECT public.job_web_lifecycle_sweep()", "active": true},
+      {"job": "job_web_price_audit", "schedule": "5 * * * *", "command": "SELECT public.job_web_price_audit()", "active": true},
+      {"job": "process_delivery", "schedule": "5 seconds", "command": "SELECT public.process_delivery()", "active": true},
+      {"job": "process_restaurant_confirmation", "schedule": "10 seconds", "command": "SELECT public.process_restaurant_confirmation()", "active": true},
+      {"job": "test_123", "schedule": "0 0 * * *", "command": "SELECT 1;", "active": true, "purpose": "Temporary diagnostic created to confirm SQL-registered jobs are visible in the Supabase Cron dashboard."}
+    ]
+  },
   "capabilities": [
     {"folder": "core", "title": "Core master data", "summary": "Restaurants, customers, riders, menus and the key/value runtime configuration (ordelo_config) that every other area reads."},
     {"folder": "ordering", "title": "Ordering and web checkout", "summary": "Creating an order and its items in one transaction (refused on a closed date or for a hidden item by order_intake_block), the columns OrdeloAgent adds to restaurant-agents' food_order, hidden menu items, and the web checkout tables (session draft, idempotency, page tokens, rate limit, payment release, daily audit)."},
@@ -31,7 +61,7 @@
         {"title": "Authorisation", "text": "The payment callback calls record_payment_authorised(): a payment_event row per provider event and food_order.payment_status requires_payment -> requires_capture, at most once.", "objects": ["record_payment_authorised", "payment_event"]},
         {"title": "Start fulfilment", "text": "/payment-hooks/payment-complete calls init_delivery() or init_takeaway(); see the delivery and takeaway flows.", "objects": ["init_delivery", "init_takeaway"]},
         {"title": "Safety net", "text": "job_payment_init_reconciler() would alert overwatch about paid orders with no summary row. It is NOT scheduled on live (docs/to-do.md).", "objects": ["job_payment_init_reconciler"]},
-        {"title": "Late or failed web payments", "text": "Cancellations that must be retried are queued in web_payment_release and worked by the Python lifecycle sweeper.", "objects": ["web_payment_release"]}
+        {"title": "Late or failed web payments", "text": "Cancellations that must be retried are queued in web_payment_release and worked by the Python lifecycle sweep, which pg_cron job_web_lifecycle_sweep wakes every minute.", "objects": ["web_payment_release", "job_web_lifecycle_sweep"]}
       ]
     },
     {
@@ -145,7 +175,7 @@
       "title": "Rider shifts and timed pauses",
       "summary": "The clock decides when a pause ends; the scheduled sweep handles bookkeeping and messages, not availability.",
       "steps": [
-        {"title": "Daily shift", "text": "enquire_shift_availability() asks active WhatsApp riders at 11:00 UTC. WhatsApp Yes/No and the rider bot /on use rider_set_shift(), which refuses a non-active rider's Yes and an off request during a job. Telegram riders do not get the daily question.", "objects": ["enquire_shift_availability", "rider_set_shift", "rider_master"]},
+        {"title": "Daily shift", "text": "enquire_shift_availability() asks active WhatsApp riders at 12:00 GMT on live as of 27 Nov 2026. WhatsApp Yes/No and the rider bot /on use rider_set_shift(), which refuses a non-active rider's Yes and an off request during a job. Telegram riders do not get the daily question.", "objects": ["enquire_shift_availability", "rider_set_shift", "rider_master"]},
         {"title": "Start or end pause", "text": "Rider bot /off and /on use pause_start() and pause_end(), which refuse the rider while a delivery_inflight row exists; an operator can still end a pause. Telegram also hides those commands in that rider's chat during the job. Restaurant bot /off and /on use t_admin_pause() and t_admin_resume(). Duration keys come from pause_options() and ordelo_config. is_paused() computes the current state from ends_at.", "objects": ["delivery_inflight", "pauses", "pause_options", "pause_start", "pause_end", "is_paused", "t_admin_pause", "t_admin_resume", "ordelo_config"]},
         {"title": "Sweep messages", "text": "job_pause_sweep() closes expired pause rows and POSTs due ends-soon and back-on messages to /pause-hooks/sweep. A successful HTTP response marks the rows; actual message delivery is not confirmed by that response. Live pg_cron is active every five minutes (23 Oct); the file targets every minute, not applied.", "objects": ["job_pause_sweep", "pauses"]}
       ]

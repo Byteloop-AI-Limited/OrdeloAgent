@@ -56,6 +56,14 @@ class RiderSignup(CallbackData, prefix="rsu"):
     v: str
 
 
+class RiderInviteSignup(CallbackData, prefix="ris"):
+    # Scope the choice to the non-secret reference of the current invite claim.
+
+    c: int
+    s: Literal["t", "v"]
+    v: str
+
+
 class RiderOffer(CallbackData, prefix="ro1"):
     """Accept (a) or decline (d) a job offer on the rider bot, e.g. 'ro1:84217:a' (phase R4, D48).
 

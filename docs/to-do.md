@@ -202,6 +202,10 @@ Active work is tracked in [Web storefront controls and audit alignment](../plans
   launch window. Verify the restaurant's alert, acceptance, pickup-time selection, kitchen receipt and escalation
   flows using the intended channels. Rehearse the per-restaurant web pause and confirm an order already in
   progress remains trackable. Keep confirmation of message delivery separate from successful transport calls.
+- [ ] **Add a second order-alert admin at Strikers, and check Creams.** The owner knows Strikers has a single admin and
+  expects that to change. On 25 Nov the live roster showed one Telegram recipient at STRK (plus one on WhatsApp) and one
+  Telegram recipient at CRMS (none on WhatsApp). Under the two-minute auto-decline, an alert that person misses is a lost
+  order. Done when each venue has at least two linked recipients and a test order reaches both.
 
 ## Found by the local test order run (25 Nov 2026)
 
@@ -215,3 +219,56 @@ Evidence is in the [25 November report](releases/verify-test-order-local-setup-2
   `STRK-MZTY-22` and `STRK-UCBX-23` counted).
 - [ ] **Reword the fallback card after an admin accepted.** When an admin taps Accept but picks no pickup time, the card
   says "Auto-accepted (no answer in time)" and the kitchen receipt says "Accepted automatically".
+
+## Moving SQL hook calls to `app_hook_post()` (added 27 Nov 2026)
+
+Decided in [the scheduling plan](../plans/telegram-rider-invite-alert-schedule.md). `platform/app_hook_post.sql` is the
+one place that reads `ORDELO_APP_URL`, applies the fallback and timeout, and POSTs to an OrdeloAgent hook. Only the new
+jobs from that plan use it at first. Move each function below the next time it is edited, not as one bulk change. Done
+for a function when its inline `ORDELO_APP_URL` lookup, slash trim and `http_post` are replaced by `app_hook_post()`,
+its `tests/sql` test still passes, and its header names the helper under `REQUIRES`.
+
+- [ ] **Cron jobs.**
+  - `dispatch/job_rider_offer_alerts.sql`: `job_rider_offer_alerts()` → `/rider-hooks/offer-alerts`
+  - `dispatch/job_rider_pickup_alerts.sql`: `job_rider_pickup_alerts()` → `/delivery-hooks/rider-pickup-alerts`
+    (six `ORDELO_APP_URL` references)
+  - `telegram/t_order_alerts.sql`: `job_t_order_alerts()`
+  - `restaurant_admin/restaurant_ready_adjust_notices.sql`: `job_t_receipt_refresh()` → `/telegram/rest-admin/order-alerts`
+  - `availability/job_pause_sweep.sql`: `job_pause_sweep()` → `/pause-hooks/sweep`
+  - `rider_location/job_null_or_outdated_location.sql`: `job_null_or_outdated_location()` → `/location-hooks/null-or-outdated-location`
+  - `payment/job_payment_init_reconciler.sql`: `job_payment_init_reconciler()` → `/payment-hooks/init-reconciler`
+    (also unscheduled, see above)
+  - `agent_threads/job_close_thread.sql`: `job_close_thread()` → `/thread-hooks/close-threads`
+  - `dispatch/enquire_shift_availability.sql`: `enquire_shift_availability()` → `/delivery-hooks/shift-availability-enquiry`
+  - `restaurant_admin/enquire_admin_availability.sql`: `enquire_admin_availability()` → `/delivery-hooks/admin-availability-enquiry`
+- [ ] **Trigger and workflow functions.**
+  - `delivery/delivery_summary.sql`: `restaurant_updates_whook()`, `delivery_summary_timedout_whook()`, `rider_pickup_alert_reschedule()`
+  - `dispatch/delivery_dispatch.sql`: `delivery_dispatch_whook_statement()` → `/delivery-hooks/delivery-dispatch`
+  - `dispatch/delivery_inflight.sql`: `delivery_inflight_whook()` → `/delivery-hooks/delivery-inflight-graph-init`
+  - `dispatch/notify_missed_dispatches.sql`: `notify_missed_dispatches()` → `/delivery-hooks/notify-missed-dispatches`
+  - `rider_location/rider_location_event.sql`: `rider_location_event_update()` → `/location-hooks/notify-rider-location-event`
+  - `takeaway/takeaway_summary.sql`: `takeaway_restaurant_updates_whook()`, `takeaway_pickup_time_whook()`
+  - `restaurant_admin/restaurant_ready_adjust_notices.sql`: the ready / adjust-pickup notice functions
+- [ ] **Out of scope for the helper.** `agent_threads/job_terminate_stale_active_threads.sql` posts to each
+  restaurant's own `base_url`, not `ORDELO_APP_URL`. `platform/fly_post.sql` calls the Fly API. Leave `platform/ordelo_post.sql`
+  as the operator helper. Functions in `_orphans/` are not migrated; decide on them under the orphan item above.
+
+## Customer notifier sweeps: move SQL-only steps out of Python (added 27 Nov 2026)
+
+Phase 2 of [the scheduling plan](../plans/telegram-rider-invite-alert-schedule.md) uses **option B**. pg_cron
+replaced the `lifespan` loop (`customer_notifier.run_sweeper`, now deleted), but the Python sweeps stay as they are and
+`job_customer_outbox_sweep` / `job_web_lifecycle_sweep` wake the app **every minute, even with nothing due**. This is a temporary exception to the "POST only when
+something is due" rule in `agents.md`. Each minute adds one HTTP request and one sweep.
+
+- [ ] **A-lite: housekeeping to SQL.** Move WEB-thread expiry (`web_session_meta.expires_at`) and the
+  `web_rate_limit` / `order_access_grant` (`status_only`) prunes from `web_ordering/lifecycle.sweep()` into the
+  cron job. The job then POSTs only when `web_payment_release` has due rows (`completed_at IS NULL AND
+  next_attempt_at <= now()`) or `notification_outbox` has unattempted due rows (`status='pending' AND attempts=0
+  AND next_attempt_at <= now()`). The release claim, the cancel calls and outbox dispatch stay in Python.
+- [ ] **A: outbox repair to SQL (optional, after A-lite).** Move subscription and outbox seeding and the
+  "interrupted attempt → failed" update from `customer_notifier.sweep_pending()` into SQL. This must keep ADR 0006
+  (no retry after an HTTP attempt). Needs `tests/sql` cases matching `tests/utils_common/test_customer_notifier.py`.
+- Impact to re-check before either step: customer status callbacks (web tracking page and the restaurant-agents
+  callback for WhatsApp orders), web payment release for restaurant-declined, no-rider and late-paid orders (the
+  sweep is the only code that cancels the payment), checkout session expiry, storefront rate limits and
+  tracking-page grants.

@@ -19,6 +19,7 @@
 -- LIFECYCLE     see docs/web-ordering-playground.md (Tables section) for who writes and reads each column.
 -- CALLED BY     web_monitor_run:
 --                 python    utils_common/web_ordering/monitoring.py: sweep()
+--                 sql       job_web_price_audit() (ordering/job_web_price_audit.sql): reads run_day (due check)
 -- PYTHON MODEL  none
 -- SECURITY      web_monitor_run: RLS ON; service role only (anon/authenticated revoked)
 -- TESTS         tests/utils_common/web_ordering/test_web_contract.py
@@ -26,6 +27,7 @@
 -- SEE ALSO      docs/web-ordering-playground.md
 --               docs/web-ordering-architecture.html
 --               ordering/create_food_order_with_items.sql
+--               ordering/job_web_price_audit.sql (pg_cron, hourly at :05, wakes monitoring.sweep() when today's London row is missing)
 -- =============================================================================================
 
 -- ---------------------------------------------------------------------------------------------

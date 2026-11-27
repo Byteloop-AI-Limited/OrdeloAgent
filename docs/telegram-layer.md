@@ -219,6 +219,16 @@ When you add, rename or change an RPC, update **all three** in the same change.
 | RPC `t_rider_choices()` | `telegram/t_rider_onboarding.sql` | `rider_links.choices` | sign-up buttons | same |
 | RPC `t_rider_profile(p_tuid)` | `telegram/t_rider_onboarding.sql` | `rider_links.profile` | `/start`, `/whoami`, fallback | same |
 | function `t_rider_phone_digits(p_phone)` | `telegram/t_rider_onboarding.sql` | none (inside `t_rider_link`) | n/a | SQL test |
+| columns `t_invites.rider_claim_update_id/rider_previous_tuid/rider_previous_username/rider_alert_*`, nullable `rest_ref`/`expires_at`, CHECKs `t_invites_bot_scope`/`t_invites_rider_claim_scope`, indexes `t_invites_rider_pending_phone_uidx`/`t_invites_rider_claim_update_uidx`/`t_invites_rider_alert_due_idx`; `rest_admin` filter on `t_invite_preview`, `t_claim_invite`, `t_linked_restaurants`, `t_invites_shareable` | `telegram/t_invites.sql` (+ `migrations/telegram_rider_invites.sql`) | none directly (through the RPCs) | n/a | `tests/sql/test_rider_invites_sql.py` (scope CHECKs, rider rows invisible to the restaurant path) |
+| column `rider_master.invite_profile_update_id` | `core/rider_master.sql` (+ `migrations/telegram_rider_invites.sql`) | none directly | n/a | `tests/sql/test_rider_invites_sql.py` |
+| RPC `t_rider_invite_issue(p_phone)` | `telegram/t_rider_invites.sql` | `rider_invites.issue` | `scripts/create_rider_invite.py` (operator CLI; only place the link is shown) | `tests/sql/test_rider_invites_sql.py` |
+| RPC `t_rider_invite_revoke(p_phone)` | `telegram/t_rider_invites.sql` | `rider_invites.revoke` | operator cleanup | `tests/sql/test_rider_invites_sql.py` |
+| RPC `t_rider_invite_claim(p_code, p_update_id, p_tuid, p_tcid, p_username, p_first_name)` | `telegram/t_rider_invites.sql` | `rider_invites.claim` | rider bot `/start ri_…` (`rider/router.py`) | `tests/sql/test_rider_invites_sql.py` (ok, replay, unavailable, tuid_taken) |
+| RPCs `t_rider_invite_alert_take(p_lease)`, `t_rider_invite_alert_finish(p_update_id, p_lease, p_result, p_accepted)` | `telegram/t_rider_invites.sql` | `rider_invites.take_alert` / `finish_alert` | `rider/invite_alerts.sweep_pending` (WhatsApp overwatch) | `test_rider_invite_alerts.py` (`FakeRiderInviteDb`), `tests/sql/test_rider_invites_sql.py` (every outcome, lease fencing) |
+| RPC `t_rider_set_invite_profile(p_tuid, p_town, p_vehicle_type, p_claim_update_id)` | `telegram/t_rider_onboarding.sql` | `rider_links.set_profile` (with a claim reference) | town / vehicle buttons after an invite claim | `tests/sql/test_rider_invites_sql.py` (stale claim, activation on the final choice), `tests/sql/test_rider_onboarding_sql.py` (through `t_rider_set_profile`) |
+| function `app_hook_post(p_path, p_payload, p_timeout_secs)` | `platform/app_hook_post.sql` | none (SQL only: the seam pg_cron jobs use to wake the app, ADR 0019) | n/a | `tests/sql/test_app_hook_post_sql.py` |
+| function `job_rider_invite_alerts()` | `telegram/job_rider_invite_alerts.sql` | none (pg_cron `job_rider_invite_alerts`, every minute) | POSTs `/rider-hooks/invite-alerts` only when an alert is due | `tests/sql/test_rider_invites_sql.py` (idle, due, sending, 5xx, exception, rest_admin rows) |
+| route `POST /rider-hooks/invite-alerts` | `watomation/routers/sweep_hooks.py` | `rider/invite_alerts.sweep_pending` (BackgroundTasks) | n/a | `tests/watomation/routers/test_sweep_hooks.py`, `tests/watomation/test_no_lifespan_loops.py` |
 | table `pauses`, functions `is_paused`, `pause_duration` | `availability/pauses.sql` | none directly; `get_available_riders()` calls `is_paused` | n/a | `tests/sql/test_pauses_sql.py`, `test_rider_onboarding_sql.py` (dispatch gate) |
 | RPCs `pause_start`, `pause_end`, `pause_current` | `availability/pauses.sql` | `ordelo/pauses.pause` / `resume` / `current` | `/off`, `/on`, `/shift` (R5) | `tests/ordelo/test_pauses.py`, `tests/sql/test_pauses_sql.py` |
 | function `job_pause_sweep()` | `availability/job_pause_sweep.sql` | none (live pg_cron every five minutes; file targets every minute, not applied) | POSTs `/pause-hooks/sweep` (R5) | `tests/sql/test_pauses_sql.py` (clock decides, marks only on 2xx) |
@@ -237,6 +247,20 @@ When you add, rename or change an RPC, update **all three** in the same change.
 Operators (and agents) create invites, read the link from `t_invites_shareable`, see who claimed what, and revoke, using the SQL in the footer of `telegram/t_invites.sql` and the **Telegram Invites** section of the [database-operations skill](../.claude/skills/database-operations/SKILL.md). Deleting rows needs explicit approval; revoke instead.
 
 Setup for a new bot or environment: add the AWS keys, set the `ordelo_config` username row, restart, run notebook cell 4 to set the webhook, then send `/start` with an invite link. Details in the [local testing runbook](local-testing-runbook.md).
+
+### Rider invite claim alerts (pg_cron, ADR 0019)
+
+A rider claim (`t_rider_invite_claim`) queues one alert in the same transaction (`t_invites.rider_alert_next_at = now`). pg_cron `job_rider_invite_alerts` runs every minute and POSTs `/rider-hooks/invite-alerts` (through `app_hook_post`, to the server in `ORDELO_APP_URL`) only when an alert is due; the route runs `invite_alerts.sweep_pending()`, which leases each alert (`t_rider_invite_alert_take`, 2 minutes), sends it to the WhatsApp overwatch list and records `accepted`, `retry` or `ambiguous` (`t_rider_invite_alert_finish`, retried a minute later). There is no app loop. To inspect, never select `invite_code` (a bearer secret):
+
+```sql
+SELECT rider_claim_update_id, right(phone_number, 4) AS tail, status, rider_alert_result, rider_alert_next_at,
+       rider_alert_accepted, rider_alert_ambiguous_count
+  FROM t_invites WHERE bot_key = 'rider' ORDER BY created_at DESC LIMIT 10;
+SELECT status, start_time, return_message FROM cron.job_run_details
+ WHERE jobid = (SELECT jobid FROM cron.job WHERE jobname = 'job_rider_invite_alerts') ORDER BY start_time DESC LIMIT 10;
+```
+
+Pause the alerts with `SELECT cron.unschedule('job_rider_invite_alerts');` (claims keep queueing; re-run the job file's `cron.schedule` line to resume). App log lines: `invite alert update <id> claimed by sweep` and `sweep[rider_invite_alerts]: done result=<n>`.
 
 ## 8. Testing
 
@@ -422,6 +446,8 @@ Status: derived from the SQL; not yet confirmed live with an auto-accept restaur
 - 2026-11-17: Kitchen start signal (ADR 0015): shared `kitchen_instructions` wording for delivery hold, receipt start and no-rider cancellation on Telegram and WhatsApp. Delivery pickup-set/auto-accepted cards stay terminal with hold lines; open receipts lead with a size-2 start heading and current pickup time, reverting after Ready. Takeaway never holds. No-rider admin notices restored for every delivery, including configured auto-accept; overwatch/customer/payment paths retained. Offline verification; phone notification preview and live harness checks remain pending. No SQL definitions or configuration changed.
 
 Add one line per change, newest first: date, what changed, files.
+
+- 2026-11-27: Rider invite claim alerts are woken by pg_cron ([ADR 0019](adr/0019-scheduled-work-is-owned-by-pg-cron.md)), not an app loop: `job_rider_invite_alerts` (every minute, POST only when due) → `app_hook_post` → `POST /rider-hooks/invite-alerts` → `invite_alerts.sweep_pending()`. The rider invite RPCs moved from the migration to `telegram/t_rider_invites.sql`; the owner files took the migration's other definitions byte for byte. Isolated-database and offline tests only; not applied to live. Files: `platform/app_hook_post.sql`, `telegram/{t_rider_invites,job_rider_invite_alerts,t_invites,t_rider_onboarding,t_order_alerts,t_admin_pauses}.sql`, `core/rider_master.sql`, `restaurant_admin/{admin_roster,restaurant_order_decision}.sql`, `watomation/routers/sweep_hooks.py`, `channels/telegram/rider/invite_alerts.py`, `watomation/fapp_ordelo_agent.py`, tests.
 
 - 2026-11-16: Clarified STRK's Telegram order-card offset schedule and its relationship to restaurant confirmation timeout; updated the STRK config update script's descriptions without changing live data.
 

@@ -15,7 +15,7 @@ from urllib.parse import urlparse, urlunparse
 import psycopg
 import pytest
 
-from .conftest import _GEN_RANDOM_BYTES_STUB, _PG_CRON_STUB, DATAMODELS, URI, _assert_local, sql_path
+from .conftest import _GEN_RANDOM_BYTES_STUB, _PG_CRON_STUB, DATAMODELS, URI, _assert_local, invite_profile_column_sql, sql_path
 
 pytestmark = pytest.mark.skipif(not URI, reason="ORDELO_TEST_DB_URI not set (isolated Postgres required)")
 
@@ -102,6 +102,7 @@ def mig():
 
 def apply_r1(conn):
     conn.execute(block(R1, "STEP 1"))
+    conn.execute(invite_profile_column_sql())  # later migration the current owner files need
     conn.execute(sql_path("rider_master.sql").read_text())
     conn.execute(sql_path("auth_sessions.sql").read_text())  # current rider owner includes link-session revocation
     conn.execute(sql_path("pauses.sql").read_text())

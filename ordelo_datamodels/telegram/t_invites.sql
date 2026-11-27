@@ -1,18 +1,19 @@
 -- =============================================================================================
 -- ordelo_datamodels/telegram/t_invites.sql
--- Telegram invite links that link a person's Telegram account to a restaurant (restaurant-admin bot; reusable for riders).
+-- Telegram invite links: legacy restaurant-admin invites and personal rider invites (rider RPCs: telegram/t_rider_invites.sql).
 -- BEING RETIRED for restaurant admins (plans/restaurant-admin-roster-onboarding-plan.md): no new invites; admins link by sharing
 -- their phone (restaurant_admin/admin_roster.sql). Claimed invites keep working until a person links; dropped in P3.
 -- =============================================================================================
--- LIVE CHECK    matches the live database (2026-10-16): every object below was compared with the live catalogue.
+-- LIVE CHECK    pending owner rollout of migrations/telegram_rider_invites.sql (rider columns, constraints, indexes, grants and the
+--                 rest_admin filters below). Before that, live matched the 2026-10-16 shape.
 -- OBJECTS       fn     t_new_invite_code() -> text
 --                   Generate a random URL-safe invite code (column default for t_invites.invite_code).
 --               table  t_invites
---                   One row per invite link: restaurant, intended phone, status, expiry and, once claimed, the Telegram ids.
+--                   Personal rider and legacy restaurant-admin invite rows, including claim audit and rider alert state.
 --               fn     t_invites_normalize_phone() -> trigger
 --                   Trigger function (trigger not live): keep t_invites.phone_number digits-only.
 --               view   t_invites_shareable
---                   t_invites plus the ready-to-send t.me invite_link (NULL when the bot username config row is missing).
+--                   Legacy restaurant-admin invites and their shareable links (rider rows are never listed).
 --               fn     t_invite_preview(p_code text, p_bot_key text, p_user_id bigint) -> jsonb
 --                   Read-only: what would happen if this Telegram user used this code (valid, expired, revoked, already yours ...).
 --               fn     t_claim_invite(p_code text, p_bot_key text, p_user_id bigint, p_chat_id bigint, p_username text, p_first_name text) -> jsonb
@@ -34,14 +35,23 @@
 --                   /start (no code), /whoami channels/telegram/invites.py linked_restaurants() -> t_linked_restaurants()
 --                 The RPCs are the only way the application touches t_invites. Order actions authorise against it through
 --                 t_order_admin_phone() (restaurant_admin/restaurant_order_decision.sql): claimed invite AND phone in restaurant_master.admins.
+--                 The three rest_admin RPCs and the view filter on bot_key = 'rest_admin', so a rider row is never previewed,
+--                 claimed or listed by the restaurant path.
+--                 Rider invites (bot_key = 'rider', no rest_ref, no expiry) are issued, claimed and alerted only through the
+--                 t_rider_invite_* RPCs in telegram/t_rider_invites.sql; pg_cron job_rider_invite_alerts
+--                 (telegram/job_rider_invite_alerts.sql) wakes the alert sweep when rider_alert_next_at is due.
 --                 Overview of the whole Telegram layer: docs/telegram-layer.md (and its HTML companion).
 -- LIFECYCLE     pending --(person confirms before expires_at)--> claimed ; pending --(expires_at passes)--> expired (recorded on the next
 --               claim attempt; also computed on the fly) ; pending | claimed --(operator)--> revoked. No path back to pending.
+--               Rider rows: pending --> claimed | revoked (never expire); claim alert lifecycle in telegram/t_rider_invites.sql.
 -- CALLED BY     t_new_invite_code:
 --                 nothing found (no code, trigger, cron job or other SQL refers to it)
 --               t_invites:
 --                 sql       restaurant_admin_label(), t_claim_invite(), t_invite_preview(), t_invites_shareable
 --                           t_linked_restaurants(), t_order_admin_phone(), t_order_card_destinations()
+--                           admin_roster_status(), t_admin_restaurants()
+--                           t_rider_invite_issue(), t_rider_invite_revoke(), t_rider_invite_claim()
+--                           t_rider_invite_alert_take(), t_rider_invite_alert_finish(), job_rider_invite_alerts()
 --                 python    utils_common/order_management/restaurant_decision.py (module-level SQL)
 --               t_invites_normalize_phone:
 --                 nothing found (no code, trigger, cron job or other SQL refers to it)
@@ -63,6 +73,7 @@
 -- TESTS         tests/sql (applied by conftest.py for every SQL test) (loads this file into a throwaway Postgres)
 --               tests/channels/telegram/conftest.py
 --               tests/sql/test_order_cards_sql.py
+--               tests/sql/test_rider_invites_sql.py
 --               tests/sql/test_order_taps_sql.py
 --               tests/sql/test_order_test_script_sql.py
 --               tests/sql/test_restaurant_decision_sql.py
@@ -73,7 +84,12 @@
 --                 commented in the examples below so this file matches live (docs/to-do.md).
 --               phone_verified is never set by any code (reserved for a later contact-share flow).
 --               No cleanup job: old rows are small and keep the audit trail.
--- SEE ALSO      restaurant_admin/restaurant_order_decision.sql (t_order_admin_phone)
+--               On the existing live table the CREATE TABLE is a no-op: the rider columns, nullable rest_ref / expires_at and the
+--                 two scope CHECKs come from migrations/telegram_rider_invites.sql.
+--               Never select invite_code when inspecting rider rows: it is a bearer secret.
+-- SEE ALSO      telegram/t_rider_invites.sql
+--               telegram/job_rider_invite_alerts.sql
+--               restaurant_admin/restaurant_order_decision.sql (t_order_admin_phone)
 --               telegram/t_order_alerts.sql
 --               docs/telegram-layer.md
 --               .claude/skills/database-operations (create / list / revoke invites)
@@ -115,19 +131,19 @@ $$;
 CREATE TABLE IF NOT EXISTS public.t_invites (
     -- The secret in the link (t.me/<bot>?start=<invite_code>). Generated by the database.
     invite_code text NOT NULL DEFAULT t_new_invite_code(),
-    -- Which Telegram bot the link is for; 'rest_admin' today, e.g. 'rider' later. A code is only
-    -- valid for the bot named here, so a restaurant link cannot be used on another bot.
+    -- Which Telegram bot the link is for: 'rest_admin' (legacy restaurant invites) or 'rider' (personal rider invites,
+    -- telegram/t_rider_invites.sql). A code is only valid for the bot named here.
     bot_key text NOT NULL DEFAULT 'rest_admin'::text,
-    -- The restaurant the person will be linked to. Must exist in restaurant_master.
-    rest_ref character varying(4) NOT NULL,
+    -- The restaurant the person will be linked to. Must exist in restaurant_master. NULL for rider invites (t_invites_bot_scope).
+    rest_ref character varying(4),
     -- Who the operator meant the link for (digits only, normalized by the trigger below).
     -- Informational for now: no code compares it to anything yet.
     phone_number text NOT NULL,
     -- Where the invite is in its lifecycle; see INVITE LIFECYCLE at the top of this file.
     status text NOT NULL DEFAULT 'pending'::text,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
-    -- The link stops working after this time. Default 48 hours; override per row if needed.
-    expires_at timestamp with time zone NOT NULL DEFAULT (now() + '48:00:00'::interval),
+    -- The link stops working after this time. Default 48 hours; override per row if needed. NULL for rider invites (no expiry).
+    expires_at timestamp with time zone DEFAULT (now() + '48:00:00'::interval),
     -- ---- The columns below are empty until the person confirms in the bot (filled in one UPDATE) ----
     claimed_at timestamp with time zone,
     telegram_user_id bigint, -- "TID": Telegram's id for the person (from_user.id); identifies the actor
@@ -136,11 +152,27 @@ CREATE TABLE IF NOT EXISTS public.t_invites (
     telegram_first_name text, -- first name at claim time; lets you spot an unexpected claimer
     -- Reserved for a later flow where the person proves their phone (Telegram contact share). Nothing sets it yet.
     phone_verified boolean NOT NULL DEFAULT false,
+    -- ---- Rider invites only (telegram/t_rider_invites.sql); NULL / default on rest_admin rows ----
+    rider_claim_update_id bigint, -- Telegram update_id of the claim: tells a webhook retry from a second use; the alert's key
+    rider_previous_tuid bigint, -- Telegram account the rider was linked to before this claim (shown in the ops alert)
+    rider_previous_username text, -- its @handle at claim time
+    rider_alert_result text, -- claim alert: pending | sending | accepted | retry | ambiguous
+    rider_alert_next_at timestamptz, -- when the alert is next due (NULL once accepted); job_rider_invite_alerts reads it
+    rider_alert_lease uuid, -- fencing token of the sweep currently sending the alert
+    rider_alert_accepted text[] NOT NULL DEFAULT '{}', -- overwatch numbers whose send the API accepted (never resent)
+    rider_alert_ambiguous_count integer NOT NULL DEFAULT 0, -- sends that could not be confirmed (expired lease or failed send)
     CONSTRAINT t_invites_pkey PRIMARY KEY (invite_code),
     CONSTRAINT t_invites_claimed_has_ids CHECK (((status <> 'claimed'::text) OR ((telegram_user_id IS NOT NULL) AND (telegram_chat_id IS NOT NULL) AND (claimed_at IS NOT NULL)))),
     CONSTRAINT t_invites_phone_digits CHECK ((phone_number ~ '^[0-9]{6,15}$'::text)),
     CONSTRAINT t_invites_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'claimed'::text, 'expired'::text, 'revoked'::text]))),
-    CONSTRAINT t_invites_rest_ref_fkey FOREIGN KEY (rest_ref) REFERENCES restaurant_master(rest_ref)
+    CONSTRAINT t_invites_rest_ref_fkey FOREIGN KEY (rest_ref) REFERENCES restaurant_master(rest_ref),
+    CONSTRAINT t_invites_bot_scope CHECK (
+        (bot_key = 'rest_admin' AND rest_ref IS NOT NULL AND expires_at IS NOT NULL)
+        OR (bot_key = 'rider' AND rest_ref IS NULL AND expires_at IS NULL AND invite_code ~ '^ri_[A-Za-z0-9_-]{32}$')
+    ),
+    CONSTRAINT t_invites_rider_claim_scope CHECK (
+        (rider_claim_update_id IS NOT NULL) = (bot_key = 'rider' AND status = 'claimed')
+    )
 );
 
 -- Index 2: fast "who is this Telegram user?" lookup (t_linked_restaurants, future authorization checks).
@@ -153,7 +185,21 @@ WHERE (status = 'claimed'::text);
 CREATE UNIQUE INDEX IF NOT EXISTS t_invites_one_claim_per_user_rest ON public.t_invites USING btree (bot_key, rest_ref, telegram_user_id)
 WHERE (status = 'claimed'::text);
 
+-- Rider invites: at most one pending invite per phone, one claim per Telegram update, and the due-alert index that
+-- job_rider_invite_alerts() and t_rider_invite_alert_take() read.
+CREATE UNIQUE INDEX IF NOT EXISTS t_invites_rider_pending_phone_uidx
+    ON public.t_invites (phone_number) WHERE bot_key = 'rider' AND status = 'pending';
+
+CREATE UNIQUE INDEX IF NOT EXISTS t_invites_rider_claim_update_uidx
+    ON public.t_invites (rider_claim_update_id) WHERE rider_claim_update_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS t_invites_rider_alert_due_idx
+    ON public.t_invites (rider_alert_next_at) WHERE rider_alert_next_at IS NOT NULL;
+
 ALTER TABLE public.t_invites ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON TABLE public.t_invites FROM PUBLIC, anon, authenticated;
+GRANT ALL ON TABLE public.t_invites TO service_role;
 
 -- ---------------------------------------------------------------------------------------------
 -- function t_invites_normalize_phone() -> trigger
@@ -172,6 +218,8 @@ BEGIN
     RETURN NEW;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.t_new_invite_code (), public.t_invites_normalize_phone () FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
 -- VIEW t_invites_shareable: t_invites plus invite_link, the URL you send to the person.
@@ -212,9 +260,11 @@ SELECT
 ) || '?start='::text) || i.invite_code AS invite_link
 FROM
     t_invites i
-    LEFT JOIN ordelo_config c ON c.config_key::text = (('TGRAM_'::text || upper(i.bot_key)) || '_BOT_USERNAME'::text);
+    LEFT JOIN ordelo_config c ON c.config_key::text = (('TGRAM_'::text || upper(i.bot_key)) || '_BOT_USERNAME'::text)
+WHERE i.bot_key = 'rest_admin';
 
-REVOKE ALL ON TABLE public.t_invites_shareable FROM anon, authenticated;
+REVOKE ALL ON TABLE public.t_invites_shareable FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.t_invites_shareable TO service_role;
 
 -- ---------------------------------------------------------------------------------------------
 -- function t_invite_preview(p_code text, p_bot_key text, p_user_id bigint) -> jsonb
@@ -252,6 +302,7 @@ BEGIN
         JOIN restaurant_master rm ON rm.rest_ref = i.rest_ref
     WHERE
         i.invite_code = p_code
+        AND i.bot_key = 'rest_admin'
         AND i.bot_key = p_bot_key;
 
     IF NOT FOUND THEN
@@ -317,6 +368,7 @@ BEGIN
         telegram_first_name = p_first_name
     WHERE
         invite_code = p_code
+        AND bot_key = 'rest_admin'
         AND bot_key = p_bot_key
         AND status = 'pending'
         AND expires_at > now()
@@ -339,6 +391,7 @@ BEGIN
         status = 'expired'
     WHERE
         invite_code = p_code
+        AND bot_key = 'rest_admin'
         AND bot_key = p_bot_key
         AND status = 'pending'
         AND expires_at <= now();
@@ -378,7 +431,8 @@ CREATE OR REPLACE FUNCTION public.t_linked_restaurants (p_bot_key text, p_user_i
         t_invites i
         JOIN restaurant_master rm ON rm.rest_ref = i.rest_ref
     WHERE
-        i.bot_key = p_bot_key
+        i.bot_key = 'rest_admin'
+        AND i.bot_key = p_bot_key
         AND i.telegram_user_id = p_user_id
         AND i.status = 'claimed';
 $$;
@@ -386,16 +440,20 @@ $$;
 REVOKE ALL ON FUNCTION public.t_linked_restaurants (text, bigint) FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------
+GRANT EXECUTE ON FUNCTION public.t_new_invite_code (), public.t_invite_preview (text, text, bigint),
+    public.t_claim_invite (text, text, bigint, bigint, text, text), public.t_linked_restaurants (text, bigint) TO service_role;
+
+-- ---------------------------------------------------------------------------------------------
 -- Database comments (COMMENT ON): the one-line descriptions above, stored in the catalogue so Supabase Studio
 -- shows them. Applied to live only with owner approval (plan Gate 2); until then they exist only in this file.
 -- ---------------------------------------------------------------------------------------------
 COMMENT ON FUNCTION public.t_new_invite_code () IS 'Generate a random URL-safe invite code (column default for t_invites.invite_code).';
 
-COMMENT ON TABLE public.t_invites IS 'One row per invite link: restaurant, intended phone, status, expiry and, once claimed, the Telegram ids.';
+COMMENT ON TABLE public.t_invites IS 'Personal rider and legacy restaurant-admin invite rows, including claim audit and rider alert state.';
 
 COMMENT ON FUNCTION public.t_invites_normalize_phone () IS 'Trigger function (trigger not live): keep t_invites.phone_number digits-only.';
 
-COMMENT ON VIEW public.t_invites_shareable IS 't_invites plus the ready-to-send t.me invite_link (NULL when the bot username config row is missing).';
+COMMENT ON VIEW public.t_invites_shareable IS 'Legacy restaurant-admin invites and their shareable links.';
 
 COMMENT ON FUNCTION public.t_invite_preview (p_code text, p_bot_key text, p_user_id bigint) IS 'Read-only: what would happen if this Telegram user used this code (valid, expired, revoked, already yours ...).';
 

@@ -37,6 +37,14 @@ Every file starts with a fixed header: `LIVE CHECK`, `OBJECTS`, `REQUIRES`, `HOW
 `CALLED BY`, `PYTHON MODEL`, `SECURITY`, `TESTS`, `GOTCHAS`, `SEE ALSO`. The standard (and why) is in `agents.md`, section
 "ordelo_datamodels SQL standard".
 
+## Cron jobs
+
+Use the [cron inventory](ordelo-database-guide.md#cron-jobs) for each job's purpose, command, owning SQL file and live schedule.
+The dated `cron_live` snapshot in `guide_content.json` records what was configured in `cron.job`. The guide also shows the
+schedule the runnable repository SQL would register, so cadence differences remain visible. Refresh the snapshot from a
+read-only catalog query after changing schedules, then regenerate the guide. Temporary dashboard tests can appear in the
+snapshot without a deployable SQL definition.
+
 ## Changing the database
 
 1. Change the owner file (DDL / function body) so it shows the new live shape. Add a migration file only for one-off steps.
@@ -50,4 +58,4 @@ Every file starts with a fixed header: `LIVE CHECK`, `OBJECTS`, `REQUIRES`, `HOW
 ## Files that are not hand-edited
 
 `catalog.json`, `ordelo-database-guide.md`, `ordelo-database-guide.html` (built by `scripts/datamodels/build_guide.py`).
-Hand-written inputs: `guide_content.json` (capabilities, flows), `external_objects.json` (objects owned elsewhere).
+Hand-written inputs: `guide_content.json` (capabilities, flows, dated live cron inventory), `external_objects.json` (objects owned elsewhere).

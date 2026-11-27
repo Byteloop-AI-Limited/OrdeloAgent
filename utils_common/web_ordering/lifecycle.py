@@ -3,6 +3,8 @@
 The late-authorisation decision and release intent commit before replying to
 Stripe; the sweep recovers crashes. This never initializes a rejected order.
 Retries here apply to payment cancellation, not restaurant-app notifications.
+pg_cron wakes sweep() every minute (job_web_lifecycle_sweep -> POST /web-hooks/lifecycle-sweep,
+watomation/routers/sweep_hooks.py); there is no in-process loop (ADR 0019).
 
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
   . food_order (table, restaurant-agents): reads (SQL)
@@ -115,6 +117,9 @@ async def reject_late(evt):
 async def sweep():
     """Expire WEB threads, prune rate counters and claim up to ten release jobs.
 
+    Woken every minute by pg_cron (job_web_lifecycle_sweep -> POST /web-hooks/lifecycle-sweep). This is the
+    only code that cancels held web payments queued by queue_release() / reject_late().
+
     Claim due jobs with SKIP LOCKED and a one-minute next-attempt lease, then
     perform cancellation I/O outside the transaction. Interrupted claims become
     due again. Prunes status-only grants expired for a day; retains orders and session metadata.
@@ -128,6 +133,7 @@ async def sweep():
         WHERE order_number IN (SELECT order_number FROM web_payment_release WHERE completed_at IS NULL AND next_attempt_at<=now()
         ORDER BY next_attempt_at LIMIT 10 FOR UPDATE SKIP LOCKED) RETURNING order_number,attempts""")
     for job in jobs:
+        logger.info("web lifecycle: release claimed order={} attempts={}", job["order_number"], job["attempts"])
         await release(job["order_number"], job["attempts"])
 
 

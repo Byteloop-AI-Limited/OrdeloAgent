@@ -4,7 +4,8 @@ FastAPI application for Ordelo WhatsApp automation service.
     . Manages PostgreSQL checkpoints and Supabase-backed thread access
     . Exposes diagnostic endpoints for debugging agent state and flows
     . Serves as entry point when running OrdeloAgent with WhatsApp integration
-    . Recovers unattempted customer notifications with an application-owned sweep
+    . Includes the pg_cron-woken sweep hooks (watomation/routers/sweep_hooks.py, ADR 0019): rider invite alerts, the
+      customer outbox, the web lifecycle and the daily price audit. The lifespan starts no background loop.
     . Serves Telegram webhooks (restaurant-admin bot; rider bot when configured) and builds/closes the Telegram bot registry
   Functions/Classes:
     . app - FastAPI application instance
@@ -25,8 +26,7 @@ Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamod
 """
 
 import logging
-import asyncio
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException, Depends
@@ -40,9 +40,8 @@ from pywa.types.flows import FlowRequestActionType
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from config import waba_business_settings, pg_settings, client_ordelo
-from utils_common.notify.customer_notifier import run_sweeper
 from channels.telegram.bots import close_registry, default_registry
-from watomation.routers import pause_hooks, rider_offer_alerts, telegram_order_alerts, telegram_webhook, web_hooks
+from watomation.routers import pause_hooks, rider_offer_alerts, sweep_hooks, telegram_order_alerts, telegram_webhook, web_hooks
 from utils_common.web_ordering.common import WebError
 from ordelo.agents.rider_agent import builder
 from ordelo.agent_app_handlers import (
@@ -133,13 +132,9 @@ POOL_MAX_SIZE = 25
 @asynccontextmanager
 async def lifespan(app):
     app.state.telegram_bots = default_registry()
-    task = asyncio.create_task(run_sweeper())
     try:
         yield
     finally:
-        task.cancel()
-        with suppress(asyncio.CancelledError):
-            await task
         await close_registry(app.state.telegram_bots)
 
 
@@ -174,6 +169,7 @@ app.include_router(telegram_webhook.router)
 app.include_router(telegram_order_alerts.router)
 app.include_router(rider_offer_alerts.router)
 app.include_router(pause_hooks.router)  # POST /pause-hooks/sweep (job_pause_sweep, R5-R6)
+app.include_router(sweep_hooks.router)  # pg_cron-woken sweeps (ADR 0019)
 
 @app.exception_handler(WebError)
 async def web_error_handler(request, exc):

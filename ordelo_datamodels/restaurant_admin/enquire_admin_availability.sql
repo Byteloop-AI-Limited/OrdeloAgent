@@ -17,7 +17,8 @@
 --                     (Telegram taps go through t_order_decide() / t_order_set_pickup(), which authorise the person first)
 --                 no answer -> process_restaurant_confirmation() (cron 10 s) -> 'restaurant_timedout' -> trigger -> Python sets a default
 --                     pickup time and makes the order dispatchable (delivery_hooks._handle_restaurant_timedout)
---                 morning check -> enquire_admin_availability() (cron 11:00 UTC) asks admins whether the restaurant is open today.
+--                 Daily check -> enquire_admin_availability() asks admins whether the restaurant is open today.
+--                 Live runs at 12:00 GMT as of 2026-11-27. The runnable schedule below still targets 11:00 UTC.
 --                 cron 'enquire_admin_availability' runs it for ARRAY['ELAS','SFCS','BNAT'] (hard-coded in the cron command).
 -- LIFECYCLE     none
 -- CALLED BY     enquire_admin_availability:

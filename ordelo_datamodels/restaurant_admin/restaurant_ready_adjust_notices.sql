@@ -31,7 +31,7 @@
 --               fn     t_notice_sent(p_bot_key text, p_tcid bigint, p_message_id bigint, p_tuid bigint, p_rest_ref text, p_order_number text, p_notice text) -> void
 --                   Write an audit row for a sent notice, closed at once (nothing to edit or delete later).
 --               fn     job_t_receipt_refresh() -> boolean
---                   Every 5 seconds: POST orders with stale receipt copies to /telegram/rest-admin/order-alerts (only when there are any).
+--                   POST orders with stale receipt copies to /telegram/rest-admin/order-alerts when any are due.
 -- REQUIRES      dispatch/delivery_dispatch.sql
 --               dispatch/delivery_inflight.sql
 --               delivery/delivery_summary.sql
@@ -1055,6 +1055,7 @@ $$;
 REVOKE ALL ON FUNCTION public.job_t_receipt_refresh () FROM PUBLIC, anon, authenticated;
 
 -- pg_cron job 'job_t_receipt_refresh': runs every 5 seconds, active on live.
+-- Live runs every 6 seconds as of 2026-11-27. The runnable schedule below remains at 5 seconds.
 -- cron.schedule() with an existing job name updates that job in place, so re-running is safe.
 SELECT
     cron.schedule ('job_t_receipt_refresh', '5 seconds', 'SELECT public.job_t_receipt_refresh()');

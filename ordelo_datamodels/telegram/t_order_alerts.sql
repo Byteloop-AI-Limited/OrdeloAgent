@@ -3,6 +3,7 @@
 -- Telegram order cards: the reminder schedule (t_order_alerts), the card functions and the 5-second sweep.
 -- =============================================================================================
 -- LIVE CHECK    R6 t_alert_destinations(), t_order_card_snapshot() and job_t_order_alerts() verified live on 2026-10-22.
+--               t_order_card_destinations: pending owner rollout of migrations/telegram_rider_invites.sql (now reads bot_key = 'rest_admin' invites only).
 -- OBJECTS       table  t_order_alerts
 --                   Reminder schedule: one row per order and offset (seconds after the order) with due time and status.
 --               fn     t_order_card_status(p_rcs text, p_pickup timestamp with time zone) -> text
@@ -294,6 +295,7 @@ CREATE OR REPLACE FUNCTION public.t_order_card_destinations (p_bot_key text, p_r
                 AND r.phone = public.admin_phone_digits (i.phone_number)
         WHERE
             i.bot_key = p_bot_key
+            AND i.bot_key = 'rest_admin'
             AND i.rest_ref = p_rest_ref
             AND i.status = 'claimed'
             AND i.telegram_chat_id IS NOT NULL

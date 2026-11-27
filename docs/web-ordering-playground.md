@@ -121,11 +121,11 @@ The page reads `order_customer_event`. A `web_page` outbox delivery performs no 
 
 ### 9. Maintain and audit
 
-The app-owned notifier sweeper runs approximately every 60 seconds: recover unattempted outbox rows, run `lifecycle.sweep`, then `monitoring.sweep`. A failure in an earlier step skips later steps in that iteration.
+pg_cron wakes three independent sweeps through `watomation/routers/sweep_hooks.py` ([ADR 0019](adr/0019-scheduled-work-is-owned-by-pg-cron.md)): `job_customer_outbox_sweep` every minute recovers unattempted outbox rows (`/customer-hooks/outbox-sweep`), `job_web_lifecycle_sweep` every minute runs `lifecycle.sweep` (`/web-hooks/lifecycle-sweep`) and `job_web_price_audit` hourly at :05 runs `monitoring.sweep` (`/web-hooks/price-audit`) only when today's London `web_monitor_run` row is missing. Each runs in its own background task, so one failing sweep does not skip the others. The two per-minute jobs POST even when nothing is due (option B in `docs/to-do.md`). There is no in-process loop.
 
 Lifecycle expiry deactivates WEB threads and deletes rate counters older than two days. It claims up to ten due cancellation jobs with `FOR UPDATE SKIP LOCKED`, schedules a one-minute claim lease and performs cancellation outside the claim transaction. Each release invocation tries delays 0/2/5/15 seconds. Continued failure schedules five minutes later and alerts on job attempts one and three. This is cancellation of a hold, not an implemented post-capture refund workflow.
 
-The price audit claims one `web_monitor_run` per London day, compares the previous 24 hours of order lines against `{ref}_menu` by normalized name and flags prices more than one penny below the allowed discount floor. Unmatched lines also need review. Missing `{REST}_WEB_MAX_DISCOUNT_PERCENT` means 0%. It never corrects a checkout price. Handled exceptions delete an unfinished claim; a process crash can leave a claim that blocks rerunning that day. The one-minute cancellation lease can expire while a slow worker is still running; it is not an end-to-end exactly-once financial guarantee.
+The price audit claims one `web_monitor_run` per London day, compares the previous 24 hours of order lines against `{ref}_menu` by normalized name and flags prices more than one penny below the allowed discount floor. Unmatched lines also need review. Missing `{REST}_WEB_MAX_DISCOUNT_PERCENT` means 0%. It never corrects a checkout price. Handled exceptions delete an unfinished claim, so the next hourly job run retries; a process crash can leave a claim that blocks rerunning that day. The one-minute cancellation lease can expire while a slow worker is still running; it is not an end-to-end exactly-once financial guarantee.
 
 ## Tables
 
@@ -140,7 +140,7 @@ This inventory covers direct web storage, shared order/payment/notification stat
 | `order_access_grant` | PK `id`; UNIQUE `secret_hash`; `order_number` → `food_order` | Hash-only page secrets, detail level and expiry; issue/verify. Schema permits `wa_handoff`, but current web code issues only `page_token` |
 | `web_rate_limit` | Composite PK `(identity_hash, window_start)` | Hourly session-create counter from trusted proxy hash; router increments, lifecycle prunes |
 | `web_payment_release` | PK/FK `order_number` → `food_order` | Durable cancel intent, reason, attempts, next attempt, completion/update times; late guard/failed cancellations enqueue, lifecycle executes, view reads |
-| `web_monitor_run` | PK `run_day` | One daily audit claim, completion and flagged order numbers; monitoring |
+| `web_monitor_run` | PK `run_day` | One daily audit claim, completion and flagged order numbers; monitoring writes, `job_web_price_audit`'s due check reads |
 
 R3 enables RLS and revokes anon/authenticated access to these six tables. Server-side database access performs the operations. This does not authenticate payment ingress. Source: [R3 migration](../ordelo_datamodels/migrations/ordelo_agg_r3.sql).
 
@@ -159,6 +159,16 @@ R3 enables RLS and revokes anon/authenticated access to these six tables. Server
 | `notification_outbox` | PK `id`; FKs event/subscription; UNIQUE `(event_id,subscription_id)` | Per-subscription dispatch bookkeeping; claim before I/O. Restaurant-app delivery is attempted once; web-page delivery is a no-op |
 
 Sources: [FoodOrder SQL](../utils_common/order_management/food_order.sql), [R1 migration](../ordelo_datamodels/migrations/ordelo_agg_r1.sql), [payment/payment_event.sql](../ordelo_datamodels/payment/payment_event.sql), [notification DDL](../ordelo_datamodels/notifications/notification_outbox.sql), [thread DDL](../utils_common/thread_management/thread_mgmnt_ddl.sql), [master data](../ordelo_datamodels/core/restaurant_master.sql).
+
+### Scheduled jobs (pg_cron)
+
+| Job (schedule) | Defining file | Route → Python sweep | Tests |
+|---|---|---|---|
+| `job_customer_outbox_sweep` (`* * * * *`; POSTs every run, option B) | [`notifications/job_customer_outbox_sweep.sql`](../ordelo_datamodels/notifications/job_customer_outbox_sweep.sql) | `/customer-hooks/outbox-sweep` → `customer_notifier.sweep_pending` | `tests/sql/test_customer_sweep_jobs_sql.py`, `tests/watomation/routers/test_sweep_hooks.py`, `tests/utils_common/test_customer_notifier.py` |
+| `job_web_lifecycle_sweep` (`* * * * *`; POSTs every run, option B) | [`ordering/job_web_lifecycle_sweep.sql`](../ordelo_datamodels/ordering/job_web_lifecycle_sweep.sql) | `/web-hooks/lifecycle-sweep` → `lifecycle.sweep` | `tests/sql/test_customer_sweep_jobs_sql.py`, `tests/watomation/routers/test_sweep_hooks.py`, `tests/utils_common/web_ordering/test_sweep_log_lines.py` |
+| `job_web_price_audit` (`5 * * * *`; POSTs only when `web_monitor_run` has no row for today's London date) | [`ordering/job_web_price_audit.sql`](../ordelo_datamodels/ordering/job_web_price_audit.sql) | `/web-hooks/price-audit` → `monitoring.sweep` | `tests/sql/test_customer_sweep_jobs_sql.py`, `tests/watomation/routers/test_sweep_hooks.py`, `tests/utils_common/web_ordering/test_price_audit_floor.py` |
+
+All three call `app_hook_post` ([`platform/app_hook_post.sql`](../ordelo_datamodels/platform/app_hook_post.sql)); the routes live in `watomation/routers/sweep_hooks.py`.
 
 ### Fulfilment and supporting records
 

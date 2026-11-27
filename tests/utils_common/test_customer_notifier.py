@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 import respx
+from loguru import logger
 
 from utils_common.notify import customer_notifier as n
 
@@ -111,9 +112,33 @@ async def test_sweep_only_recovers_pending_unattempted_rows(
     )
     dispatch = AsyncMock()
     monkeypatch.setattr(n, "dispatch", dispatch)
-    assert await n.sweep_pending() == 1
+    lines: list[str] = []
+    sink = logger.add(lambda m: lines.append(str(m)), level="INFO")
+    try:
+        assert await n.sweep_pending() == 1
+    finally:
+        logger.remove(sink)
     dispatch.assert_awaited_once_with(1)
     assert "attempts=0" in patch_pg_pool.all_executes[-1].sql
+    assert any("customer notifier: outbox sweep dispatching 1 unattempted rows ids=[1]" in line for line in lines)
+
+
+async def test_sweep_with_nothing_due_logs_no_dispatch_line(monkeypatch, patch_pg_pool, feature_flags):
+    dispatch = AsyncMock()
+    monkeypatch.setattr(n, "dispatch", dispatch)
+    lines: list[str] = []
+    sink = logger.add(lambda m: lines.append(str(m)), level="INFO")
+    try:
+        assert await n.sweep_pending() == 0
+    finally:
+        logger.remove(sink)
+    dispatch.assert_not_awaited()
+    assert not [line for line in lines if "outbox sweep dispatching" in line]
+
+
+def test_no_in_process_sweep_loop():
+    # ADR 0019: pg_cron job_customer_outbox_sweep wakes sweep_pending through /customer-hooks/outbox-sweep
+    assert not hasattr(n, "run_sweeper")
 
 
 async def test_origin_subscriptions_and_event_outbox_share_transaction(

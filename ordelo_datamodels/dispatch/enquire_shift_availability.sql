@@ -22,7 +22,7 @@
 -- PYTHON MODEL  none
 -- SECURITY      enquire_shift_availability(): executable by PUBLIC (default)
 -- TESTS         tests/sql/test_rider_shift_sql.py
--- GOTCHAS       11:00 UTC is 12:00 in British Summer Time and 11:00 in winter.
+-- GOTCHAS       Live runs at 12:00 GMT as of 2026-11-27. The runnable schedule below still targets 11:00 UTC.
 -- SEE ALSO      core/rider_master.sql
 --               availability/rider_shift.sql
 -- =============================================================================================

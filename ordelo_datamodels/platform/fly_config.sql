@@ -18,7 +18,7 @@
 --                 (only when the machine is started) and, when idle, one POST suspend via fly_post (can suspend production).
 --                 It writes last_idle_check / last_idle_check_at on fly_config and a RAISE LOG line per app.
 -- HOW IT FITS   fly_post(app, action) reads the app's api_token and machine_id here and calls the Fly Machines API (start / stop /
---                 suspend). fly_idle_suspend() is the idle-aware caller meant for pg_cron (every 10 min):
+--                 suspend). pg_cron calls fly_idle_suspend() every 15 minutes on live:
 --                   1. GET https://api.machines.dev/v1/apps/<app>/machines/<id>; skip unless state = 'started'
 --                      (calling the agent while suspended would wake it: auto_start_machines = true).
 --                   2. GET https://<app>.fly.dev/internal/activity (restaurant-agents runtime, app_factory.py).
@@ -43,7 +43,8 @@
 --                 p_min_idle_seconds before it can be suspended again.
 -- SEE ALSO      platform/fly_post.sql
 --               docs/fly.io-deploy-guide.md
---               restaurant-agents: docs/webhook_endpoints.md (Activity Endpoint), watomation/activity.py
+--               restaurant-agents/docs/webhook_endpoints.md (Activity Endpoint)
+--               restaurant-agents/packages/restaurant-agent-runtime/src/restaurant_agent_runtime/watomation/activity.py
 -- =============================================================================================
 
 -- ---------------------------------------------------------------------------------------------
@@ -266,8 +267,8 @@ COMMENT ON FUNCTION public.fly_idle_suspend (p_min_idle_seconds integer, p_dry_r
 --        last_idle_check -> 'activity' ->> 'idle_seconds' AS idle_seconds, last_idle_check
 -- FROM fly_config ORDER BY app_name;
 
--- Schedule every 10 minutes (cron.schedule with an existing name updates the job in place):
--- SELECT cron.schedule('job_fly_idle_suspend', '*/10 * * * *', 'SELECT fly_idle_suspend();');
+-- Live registration, verified 2026-11-27 (cron.schedule with an existing name updates the job in place):
+-- SELECT cron.schedule('job_fly_idle_suspend', '*/15 * * * *', 'SELECT public.fly_idle_suspend()');
 -- Pause it:   SELECT cron.alter_job(jobid, active := false) FROM cron.job WHERE jobname = 'job_fly_idle_suspend';
 -- Remove it:  SELECT cron.unschedule('job_fly_idle_suspend');
 -- Recent runs: SELECT status, return_message, start_time FROM cron.job_run_details

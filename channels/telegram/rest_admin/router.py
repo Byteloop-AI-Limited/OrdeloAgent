@@ -93,8 +93,10 @@ async def cmd_start(message: Message, command: CommandObject, tgram_settings: Tg
     try:
         prof = await admin_links.profile(user.id)
         legacy = [] if prof.result != "not_linked" else await invites.linked_restaurants(tgram_settings.bot_key, user.id)
-    except Exception:
-        logger.exception(f"telegram[{tgram_settings.bot_key}]: /start profile lookup failed for user {user.id}")
+    except Exception as exc:
+        # The command may carry a personal invite pasted into the wrong bot.
+        logger.warning("telegram[rest_admin]: /start profile lookup failed for user {} error_type={}",
+                       user.id, type(exc).__name__)
         await message.answer(TROUBLE)
         return
     if prof.is_admin or prof.is_ops_only:

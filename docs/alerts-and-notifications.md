@@ -174,7 +174,7 @@ Sources: [timing SQL](../ordelo_datamodels/dispatch/job_rider_pickup_alerts.sql)
 | Authorized order with no summary after two minutes | SQL payment-init reconciler → `/payment-hooks/init-reconciler` | Alert-only recovery; logger notice/warning, no automatic fulfilment replay |
 | Web hold release still failing | `lifecycle.release` | Alerts on claimed job attempts 1 and 3; cancellation retries have their own durable queue |
 | Collection capture requires reconciliation | `takeaway_hooks._notify_capture_reconciliation` | Calls `notify_overwatch` after applicable lookup/capture failures; not proof capture/refund happened |
-| Daily web price-floor audit | `monitoring.sweep` | Alerts on unmatched menu products or below-floor prices; optional per-restaurant discount allowance, no repricing |
+| Daily web price-floor audit | `monitoring.sweep`, woken by pg_cron `job_web_price_audit` (hourly at :05, only when today's London audit is due) | Alerts on unmatched menu products or below-floor prices; optional per-restaurant discount allowance, no repricing |
 
 `WALogger._send` uses `asyncio.gather(..., return_exceptions=True)` without checking individual results. A caller that labels its result “sent” after this await cannot establish each recipient received it. There is no WALogger outbox or durable per-recipient receipt ledger here. Missing/failed overwatch lookup and aggregate call exceptions can be logged, but swallowed recipient failures are not promoted to that level automatically.
 
@@ -190,7 +190,7 @@ Sources: [WALogger](../config/waba_setting.py), [recipient lookup](../config/par
 | `notification_outbox` | Unique event + subscription, attempts/status/error | Customer WhatsApp receipt or read state |
 | `rider_pickup_alert` | Dispatch + phase + audience + offset checkpoint | Actual rider/admin/overwatch message delivery after webhook 2xx |
 | `web_payment_release` | Durable cancel intent, retry schedule/completion | A general messaging outbox or implemented post-capture refund |
-| `web_monitor_run` | Daily price-audit claim/completion | End-to-end alert delivery to overwatch |
+| `web_monitor_run` | Daily price-audit claim/completion; the hourly job's due check | End-to-end alert delivery to overwatch |
 | `wa_location_request` + observation | Correlated rider location demand/result/prompt | Delivery of unrelated customer events |
 | `ordelo_config`, `restaurant_master`, `rider_master` | Recipient/policy/schedule and operational identities | Deployed cron/job/API reachability |
 
@@ -206,12 +206,22 @@ Sources: [WALogger](../config/waba_setting.py), [recipient lookup](../config/par
 | Message delivered/read | Requires provider-specific delivery/read evidence; the documented ledgers do not store this proof |
 | Order delivered | Food fulfilment completed; this is not a message delivery receipt |
 
+### Scheduled jobs (pg_cron)
+
+| Job (schedule) | Defining file | Route → Python sweep | Tests |
+|---|---|---|---|
+| `job_customer_outbox_sweep` (`* * * * *`; POSTs every run, option B) | [`notifications/job_customer_outbox_sweep.sql`](../ordelo_datamodels/notifications/job_customer_outbox_sweep.sql) | `/customer-hooks/outbox-sweep` → `customer_notifier.sweep_pending` | `tests/sql/test_customer_sweep_jobs_sql.py`, `tests/watomation/routers/test_sweep_hooks.py`, `tests/utils_common/test_customer_notifier.py` |
+| `job_web_lifecycle_sweep` (`* * * * *`; POSTs every run, option B) | [`ordering/job_web_lifecycle_sweep.sql`](../ordelo_datamodels/ordering/job_web_lifecycle_sweep.sql) | `/web-hooks/lifecycle-sweep` → `lifecycle.sweep` | `tests/sql/test_customer_sweep_jobs_sql.py`, `tests/watomation/routers/test_sweep_hooks.py`, `tests/utils_common/web_ordering/test_sweep_log_lines.py` |
+| `job_web_price_audit` (`5 * * * *`; POSTs only when `web_monitor_run` has no row for today's London date) | [`ordering/job_web_price_audit.sql`](../ordelo_datamodels/ordering/job_web_price_audit.sql) | `/web-hooks/price-audit` → `monitoring.sweep` | `tests/sql/test_customer_sweep_jobs_sql.py`, `tests/watomation/routers/test_sweep_hooks.py`, `tests/utils_common/web_ordering/test_price_audit_floor.py` |
+
+All three call `app_hook_post` ([`platform/app_hook_post.sql`](../ordelo_datamodels/platform/app_hook_post.sql)); the routes live in `watomation/routers/sweep_hooks.py`.
+
 ### Retry policies are intentionally different
 
 | Path | Recovery behavior | Tradeoff / limitation |
 |---|---|---|
 | Customer event recording | Pool transaction; on error, REST upsert of the event with ignore_duplicates | If both fail, logs manual reconciliation; publish normally suppresses errors rather than failing fulfilment |
-| Missing subscription/outbox | App-owned sweep about every 60 s repairs from committed events | Repairs communication intent without re-emitting order state |
+| Missing subscription/outbox | pg_cron `job_customer_outbox_sweep` wakes `customer_notifier.sweep_pending` every minute, which repairs from committed events | Repairs communication intent without re-emitting order state |
 | Unattempted restaurant-app callback | Sweep handles pending attempts=0, up to 100 selected rows | Progresses committed-but-unattempted work |
 | Attempted/ambiguous restaurant-app callback | **No retry**; stale claimed pending rows become failed after five minutes | At-most-once attempt favors avoiding duplicated conversation/message side effects over guaranteed update delivery |
 | Web-page update | No send; browser polls event/state projection | Event may exist while page closed; no push or reader acknowledgement |

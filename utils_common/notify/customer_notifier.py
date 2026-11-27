@@ -7,7 +7,9 @@ tables. Dispatch claims a row before I/O: restaurant retries are deliberately
 zero, including after ambiguous timeouts or process death. WebPageAdapter is
 a no-op until R3; web origins can never use RestaurantAppWebhookAdapter.
 notify_address handles the two pre-order address hooks, which cannot reference
-food_order yet. sweep_pending recovers unattempted rows, not failed deliveries.
+food_order yet. sweep_pending recovers unattempted rows, not failed deliveries;
+pg_cron wakes it every minute (job_customer_outbox_sweep -> POST /customer-hooks/outbox-sweep,
+watomation/routers/sweep_hooks.py). There is no in-process loop (ADR 0019).
 Since R3.1 (D35) the notifier is always on for every restaurant; there is no
 rollout flag or pilot list and no legacy direct restaurant-app call.
 
@@ -299,7 +301,10 @@ async def publish(order_number: str, event: CustomerOrderEvent) -> None:
 
 
 async def sweep_pending() -> int:
-    """Recover committed but unattempted events; never retry an HTTP attempt."""
+    """Recover committed but unattempted events; never retry an HTTP attempt.
+
+    Woken every minute by pg_cron (job_customer_outbox_sweep -> POST /customer-hooks/outbox-sweep).
+    """
     pool = await pg_settings.get_pool()
     async with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
         await cur.execute("""
@@ -327,24 +332,13 @@ async def sweep_pending() -> int:
             ORDER BY o.id LIMIT 100
         """)
         rows = await cur.fetchall()
+    if rows:
+        logger.info(
+            "customer notifier: outbox sweep dispatching {} unattempted rows ids={}",
+            len(rows), [r["id"] for r in rows],
+        )
     count = 0
     for row in rows:
         await dispatch(row["id"])
         count += 1
     return count
-
-
-async def run_sweeper() -> None:
-    """Application-owned 60-second sweep; no new SQL or cron registration."""
-    while True:
-        try:
-            await sweep_pending()
-            from utils_common.web_ordering.lifecycle import sweep
-            await sweep()
-            from utils_common.web_ordering.monitoring import sweep as audit_prices
-            await audit_prices()
-        except Exception as exc:
-            logger.error(
-                "customer notifier: sweep failed error_type={}", type(exc).__name__
-            )
-        await asyncio.sleep(60)
