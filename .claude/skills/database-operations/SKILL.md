@@ -256,6 +256,17 @@ Rules for agents:
 - Same phone + same Telegram account without an unlink returns `already_linked` (channels not
   reset) — unlink first to re-test the fresh-link path.
 
+## Rider invites (create a link from a phone number)
+
+When the user gives a rider phone number and asks for an invite link, run (venv active, `PYTHONPATH="$PWD"`):
+`python scripts/create_rider_invite.py <phone>` (international format, e.g. 447929843965). It prints one
+`https://t.me/ByteloopRidersBot?start=ri_...` URL, reuses the pending code if one exists, and creates a
+placeholder `rider_master` row (`TBD`, inactive) if the phone is new. Give the URL back as-is, say it is
+personal (send it only to that rider), and note the common link `https://t.me/ByteloopRidersBot?start=join`
+still asks for the phone number. Check the result in `t_invites` (`bot_key='rider'`, status `pending` then
+`claimed`) and `rider_master.tuid`. Never print or log a code beyond what the user asked for. Invites only work
+once the deployed image contains the rider invite code (see `build_push_deploy_dimage.sh`).
+
 ## Telegram Invites (`t_invites`) — legacy
 
 > Retired by the roster flow above (TRANSITION, removed in P3): the bot answers an old "Link this
