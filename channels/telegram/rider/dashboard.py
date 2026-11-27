@@ -10,6 +10,9 @@ from loguru import logger
 
 from ordelo.dashboard_links import Actor, issue
 
+from .. import rider_links
+from ..keyboards import contact_request_kb
+
 
 async def cmd_my_jobs(message: Message):
     if message.chat.type != "private":
@@ -20,7 +23,14 @@ async def cmd_my_jobs(message: Message):
     try:
         out = await issue("rider", Actor(tuid=message.from_user.id))
         if not out.ok:
-            await message.answer("Send /start to link your rider account, then /portal.")
+            profile = await rider_links.profile(message.from_user.id)
+            if profile.is_linked and not profile.phone_verified:
+                await message.answer(
+                    "To use the rider portal, share your own matching phone number below, then send /portal.",
+                    reply_markup=contact_request_kb(),
+                )
+            else:
+                await message.answer("Send /start to link your rider account, then /portal.")
             return
         await message.answer(
             "Your rider portal: jobs, earnings and payouts.\n"

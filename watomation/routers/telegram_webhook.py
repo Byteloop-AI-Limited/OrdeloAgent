@@ -7,7 +7,8 @@ Telegram webhook ingress for OrdeloAgent (thin route; logic lives in channels/te
       Telegram/DB call stall every later tap of that bot (the 25 s hang seen on answerCallbackQuery).
     . Consequence: updates of one bot may now run concurrently, so ordering is not guaranteed. Order actions are
       atomic SQL functions, so this is safe for taps; multi-step FSM flows from one user are the one thing to watch.
-    . Always 200 after the secret check: Telegram retries non-2xx and a failing update would loop
+    . Personal rider invite starts wait for the durable claim. Only this path returns a retryable
+      error after secret validation, so a crash before persistence cannot acknowledge the invite.
     . Selected consequential handlers deduplicate through channels/telegram/inbox.py; other updates run without an inbox claim
 """
 
@@ -21,6 +22,7 @@ from loguru import logger
 from pydantic import ValidationError
 
 from channels.telegram.bots import find_by_slug
+from channels.telegram.rider_invites import is_invite_start
 
 router = APIRouter(tags=["telegram"])
 
@@ -49,16 +51,32 @@ async def telegram_webhook(
         logger.warning(f"telegram[{tg.key}]: invalid update {update_id}")
         return {"ok": True}
 
-    background_tasks.add_task(_handle_update, tg, update)
+    message = update.message
+    personal_invite = bool(message and is_invite_start(message.text))
+    if tg.key == "rider" and personal_invite and message.chat.type == "private":
+        # A bearer can appear in an RPC exception or a diagnostic traceback. Log only update ID and error class.
+        try:
+            await asyncio.wait_for(tg.dp.feed_update(tg.bot, update), timeout=HANDLER_TIMEOUT_SECS)
+        except Exception as exc:
+            logger.warning("telegram[rider]: invite update {} needs retry error_type={}",
+                           update.update_id, type(exc).__name__)
+            raise HTTPException(503, "rider invite update needs retry") from None
+        return {"ok": True}
+
+    background_tasks.add_task(_handle_update, tg, update, personal_invite)
     return {"ok": True}
 
 
-async def _handle_update(tg, update: Update) -> None:
+async def _handle_update(tg, update: Update, personal_invite: bool = False) -> None:
     # Timing: `delivery_lag` = Telegram's message timestamp -> our receipt is no longer measurable here (the
     # route acks first); `handled_ms` = our own processing time (large => slow handler/DB/send).
     started = time.monotonic()
     try:
         await asyncio.wait_for(tg.dp.feed_update(tg.bot, update), timeout=HANDLER_TIMEOUT_SECS)
-    except Exception:  # includes TimeoutError
-        logger.exception(f"telegram[{tg.key}]: handler failed for update {update.update_id}")
+    except Exception as exc:  # includes TimeoutError
+        if personal_invite:
+            logger.warning("telegram[{}]: handler failed for update {} error_type={}",
+                           tg.key, update.update_id, type(exc).__name__)
+        else:
+            logger.exception(f"telegram[{tg.key}]: handler failed for update {update.update_id}")
     logger.info(f"telegram[{tg.key}]: update {update.update_id} handled_ms={(time.monotonic() - started) * 1000:.0f}")

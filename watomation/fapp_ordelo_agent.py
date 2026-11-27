@@ -42,6 +42,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from config import waba_business_settings, pg_settings, client_ordelo
 from utils_common.notify.customer_notifier import run_sweeper
 from channels.telegram.bots import close_registry, default_registry
+from channels.telegram.rider.invite_alerts import run_sweeper as run_rider_invite_alerts
 from watomation.routers import pause_hooks, rider_offer_alerts, telegram_order_alerts, telegram_webhook, web_hooks
 from utils_common.web_ordering.common import WebError
 from ordelo.agents.rider_agent import builder
@@ -134,12 +135,16 @@ POOL_MAX_SIZE = 25
 async def lifespan(app):
     app.state.telegram_bots = default_registry()
     task = asyncio.create_task(run_sweeper())
+    invite_alert_task = asyncio.create_task(run_rider_invite_alerts())
     try:
         yield
     finally:
         task.cancel()
+        invite_alert_task.cancel()
         with suppress(asyncio.CancelledError):
             await task
+        with suppress(asyncio.CancelledError):
+            await invite_alert_task
         await close_registry(app.state.telegram_bots)
 
 

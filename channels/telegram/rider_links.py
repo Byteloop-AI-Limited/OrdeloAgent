@@ -6,11 +6,12 @@ Rider bot identity: link a Telegram account to rider_master, register new riders
     . Python function -> RPC it calls:
         link        -> t_rider_link(p_tuid, p_tcid, p_phone, p_username, p_first_name)   link / move / register (D42)
         set_profile -> t_rider_set_profile(p_tuid, p_town, p_vehicle_type)              fill 'TBD' town / vehicle
+                    -> t_rider_set_invite_profile(..., p_claim_update_id)      current invite claim
         choices     -> t_rider_choices()                                                 towns + vehicle types to offer
         profile     -> t_rider_profile(p_tuid)                                           who this Telegram account is
     . Table behind them: rider_master (core/rider_master.sql): tuid authorises, tcid addresses (D25, D40)
     . Callers MUST have checked contact.user_id == from_user.id before link() (D39); the phone is never taken from text
-    . Called by: channels/telegram/rider/router.py
+    . Called by: channels/telegram/rider/router.py and channels/telegram/rider/dashboard.py
     . Uses client_ordelo_service: the RPCs are service-role only (anon is denied)
     . Supabase REST is synchronous, so every call runs in asyncio.to_thread (CLAUDE.md rule)
     . Overview and cross-reference table: docs/telegram-layer.md (section 6, rider bot rows)
@@ -21,6 +22,7 @@ Rider bot identity: link a Telegram account to rider_master, register new riders
 Database objects (definitions under ordelo_datamodels/; overview: ordelo_datamodels/ordelo-database-guide.md):
   . t_rider_link (function, ordelo_datamodels/telegram/t_rider_onboarding.sql): calls (name passed to a helper)
   . t_rider_set_profile (function, ordelo_datamodels/telegram/t_rider_onboarding.sql): calls (name passed to a helper)
+  . t_rider_set_invite_profile (function, ordelo_datamodels/telegram/t_rider_onboarding.sql): calls
   . t_rider_choices (function, ordelo_datamodels/telegram/t_rider_onboarding.sql): calls (name passed to a helper)
   . t_rider_profile (function, ordelo_datamodels/telegram/t_rider_onboarding.sql): calls (name passed to a helper)
 (end of database objects)
@@ -49,6 +51,7 @@ class RiderLink:
     town: str | None = None
     vehicle_type: str | None = None
     needs_profile: bool = False
+    invite_claim: int | None = None
     previous_tuid: int | None = None
     previous_username: str | None = None
 
@@ -72,6 +75,8 @@ class RiderProfile:
     channel: str | None = None
     is_in_shift: bool | None = None
     tcid: int | None = None
+    invite_claim: int | None = None
+    phone_verified: bool = False
     needs_profile: bool = False
 
     @property
@@ -109,8 +114,14 @@ async def link(tuid: int, tcid: int, phone: str, username: str | None, first_nam
     return _pick(RiderLink, _checked(data))
 
 
-async def set_profile(tuid: int, town: str | None = None, vehicle_type: str | None = None) -> RiderLink:
-    data = await _rpc("t_rider_set_profile", {"p_tuid": tuid, "p_town": town, "p_vehicle_type": vehicle_type})
+async def set_profile(
+    tuid: int, town: str | None = None, vehicle_type: str | None = None, *, invite_claim: int | None = None
+) -> RiderLink:
+    args = {"p_tuid": tuid, "p_town": town, "p_vehicle_type": vehicle_type}
+    if invite_claim is None:
+        data = await _rpc("t_rider_set_profile", args)
+    else:
+        data = await _rpc("t_rider_set_invite_profile", {**args, "p_claim_update_id": invite_claim})
     return _pick(RiderLink, _checked(data))
 
 

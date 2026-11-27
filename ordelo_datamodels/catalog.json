@@ -5470,6 +5470,24 @@
    "title": "recover lookup postcodes from locked historical delivery snapshots."
   },
   {
+   "cron": [],
+   "folder": "migrations",
+   "header_lines": 0,
+   "lines": 139,
+   "migration": {
+    "applied": "2026-11-25 (owner-run; settings confirmed read-only at 22:07 UK)",
+    "current": [
+     "restaurant_admin/restaurant_confirmation_policy.sql, restaurant_admin/restaurant_settings.sql,",
+     "core/ordelo_config.sql (this file changes rows only: no table, function, trigger or grant)"
+    ],
+    "purpose": "web storefront launch settings (plans/web-storefront-controls-and-audit.md, sections 2 and 3). PART A  CRDO, CRMS, STRK: auto-accept off, two minutes to answer, silence = auto-decline (delivery and collection). PART B  BNAT, CRDO, CRMS, ELAS, SFCS, STRK: the nightly price audit allows the 5% storefront offer. Requires: restaurant_setting_change() and restaurant_confirmation_policy() (both already live)."
+   },
+   "objects": [],
+   "path": "migrations/web_storefront_launch_settings.sql",
+   "role": "migration",
+   "title": "web storefront launch settings (plans/web-storefront-controls-and-audit.md, sections 2 and 3). PART A  CRDO, CRMS, STRK: auto-accept off, two minutes to answer, silence = auto-decline (delivery and collection). PART B  BNAT, CRDO, CRMS, ELAS, SFCS, STRK: the nightly price audit allows the 5% storefront offer. Requires: restaurant_setting_change() and restaurant_confirmation_policy() (both already live)."
+  },
+  {
    "called_by": {
     "notification_outbox": [
      {

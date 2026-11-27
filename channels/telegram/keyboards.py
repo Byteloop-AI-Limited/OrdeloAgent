@@ -7,7 +7,7 @@ queries, and work in private chats only.
 from aiogram.types import InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from .callbacks import AdminChannels, AdminPause, InviteDecision, RiderCancelConfirm, RiderJobAction, RiderOffer, RiderPause, RiderSignup
+from .callbacks import AdminChannels, AdminPause, InviteDecision, RiderCancelConfirm, RiderJobAction, RiderOffer, RiderPause, RiderSignup, RiderInviteSignup
 
 
 def contact_request_kb() -> ReplyKeyboardMarkup:
@@ -52,7 +52,7 @@ def location_request_kb() -> ReplyKeyboardMarkup:
     )
 
 
-def rider_choice_kb(step: str, values: list[str]) -> InlineKeyboardMarkup:
+def rider_choice_kb(step: str, values: list[str], invite_claim: int | None = None) -> InlineKeyboardMarkup:
     """Sign-up buttons for towns (step 't') or vehicle types (step 'v'), two per row.
 
     A value that cannot travel in callback data (over 64 bytes packed, or containing ':') is left out;
@@ -61,7 +61,8 @@ def rider_choice_kb(step: str, values: list[str]) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for v in values:
         try:
-            packed = RiderSignup(s=step, v=v).pack()  # raises ValueError for ':' in v or more than 64 bytes
+            choice = RiderSignup(s=step, v=v) if invite_claim is None else RiderInviteSignup(c=invite_claim, s=step, v=v)
+            packed = choice.pack()  # raises ValueError for ':' in v or more than 64 bytes
         except ValueError:
             continue
         b.button(text=v, callback_data=packed)

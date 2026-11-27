@@ -2,9 +2,12 @@
 offers, job-card buttons, /job, text to the rider agent). R5: availability.py (/shift, /off, /on) and location.py (a shared
 location answering a location request). dashboard.py provides /my_jobs (private read-only frontend access).
 
-Onboarding (ADR 0011, Amendment 3, D39-D42), one generic link for everybody, no per-phone invites:
+Onboarding (ADR 0011, Amendment 3, D39-D42), verified contact and personal invites:
 
-    /start (any payload, e.g. t.me/ByteloopRidersBot?start=join)
+    /start ri_<code> -> immediately claim a personal link by Telegram actor; the database records the alert.
+    Incomplete invite profiles use claim-scoped town and vehicle buttons and activate on the final choice.
+
+    /start (generic or unavailable payload, e.g. t.me/ByteloopRidersBot?start=join)
       already linked, profile complete -> "Welcome back"            already linked, town/vehicle 'TBD' -> next choice
       not linked -> "Share my phone number" button (request_contact)
     contact message
@@ -26,23 +29,23 @@ import asyncio
 from html import escape as _html_escape
 
 from aiogram import F, Router
-from .dashboard import build_dashboard_router
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove, Update
 from loguru import logger
 
 from config.tgram_setting import TgramBotSettings
 from ordelo import rider_shift
 
-from .. import rider_links
-from ..callbacks import RiderSignup
+from .. import rider_invites, rider_links
+from ..callbacks import RiderInviteSignup, RiderSignup
 from ..inbox import process_once
 from ..keyboards import contact_request_kb, rider_choice_kb
 from ..ops_alerts import alert_ops, mask as _mask
 from ..replies import answer_quietly
 from .availability import build_availability_router
 from .commands import HELP_TEXT, INFLIGHT_HELP_TEXT, set_inflight_menu
+from .dashboard import build_dashboard_router
 from .jobs import build_jobs_router
 from .location import build_location_router
 
@@ -66,6 +69,7 @@ TUID_TAKEN = "This Telegram account is already linked to another rider. Please c
 ASK_TOWN = "Which town will you ride in?"
 ASK_VEHICLE = "What will you ride?"
 NO_CHOICES = "We can't finish sign-ups right now. Byteloop has been told and will contact you."
+INVITE_NO_CHOICES = "We can't finish sign-ups right now. Please send /start again later."
 OPTION_GONE = "That option isn't available any more. Please pick again."
 NOT_LINKED = "Please send /start first to link your rider account."
 
@@ -86,24 +90,44 @@ def done_text(link: rider_links.RiderLink, name: str | None) -> str:
 
 
 # ---- /start --------------------------------------------------------------------------------------------------------
-async def cmd_start(message: Message, tgram_settings: TgramBotSettings):
+async def cmd_start(message: Message, command: CommandObject, event_update: Update):
     if message.chat.type != "private":
         await message.answer(PRIVATE_ONLY)
         return
     user = message.from_user
+    if user is None:
+        return
+
+    code = (command.args or "").strip()
+    invited = rider_invites.is_invite_code(code)
+    claimed = False
     try:
+        if invited:
+            out = await rider_invites.claim(
+                code, event_update.update_id, user.id, message.chat.id, user.username, user.first_name
+            )
+            if out.result == "tuid_taken":
+                await message.answer(TUID_TAKEN)
+                return
+            claimed = out.result in {"ok", "replay"}
         prof = await rider_links.profile(user.id)
     except Exception:
-        logger.exception(f"telegram[{tgram_settings.bot_key}]: /start profile lookup failed for user {user.id}")
+        # The RPC exception can include the bearer argument. Keep it out of logs.
+        logger.warning("telegram[rider]: /start failed for update {}", event_update.update_id)
         await message.answer(TROUBLE)
+        if invited:
+            raise RuntimeError("Rider invite start needs retry") from None
         return
     if not prof.is_linked:
         await message.answer(ASK_PHONE, reply_markup=contact_request_kb())
         return
     if prof.needs_profile:
-        await ask_next_choice(message, prof.town, prof.vehicle_type)
+        if claimed:
+            await message.answer(f"Welcome, {escape(prof.rider_name)}!", reply_markup=ReplyKeyboardRemove())
+        await ask_next_choice(message, prof.town, prof.invite_claim)
         return
-    await message.answer(linked_text(prof, again=True))
+    await message.answer(linked_text(prof, again=not claimed),
+                         reply_markup=ReplyKeyboardRemove() if claimed else None)
 
 
 # ---- contact share -------------------------------------------------------------------------------------------------
@@ -142,49 +166,57 @@ async def _link_contact(message: Message, tgram_settings: TgramBotSettings):
         await alert_ops(f"Rider bot: new sign-up {out.rider_name} ({out.rider_id}, Telegram {who}). "
                         "Status inactive; activate when ready.")
         await message.answer(f"Welcome, {escape(out.rider_name)}!", reply_markup=ReplyKeyboardRemove())
-        await ask_next_choice(message, out.town, out.vehicle_type)
+        await ask_next_choice(message, out.town)
         return
     if out.result == "relinked":
         prev = f"@{out.previous_username}" if out.previous_username else str(out.previous_tuid)
         await alert_ops(f"Rider bot: rider {out.rider_id} re-linked from Telegram {prev} to {who}.")
     if out.needs_profile:
         await message.answer(f"Hi {escape(out.rider_name)}!", reply_markup=ReplyKeyboardRemove())
-        await ask_next_choice(message, out.town, out.vehicle_type)
+        await ask_next_choice(message, out.town, out.invite_claim)
         return
     await message.answer(linked_text(out, again=out.result == "already_linked"), reply_markup=ReplyKeyboardRemove())
 
 
-async def ask_next_choice(message: Message, town: str | None, vehicle_type: str | None) -> None:
+async def ask_next_choice(
+    message: Message, town: str | None, invite_claim: int | None = None
+) -> None:
     """Show the next sign-up question (town first, then vehicle) as buttons from t_rider_choices()."""
     try:
         options = await rider_links.choices()
-    except Exception:
-        logger.exception("telegram[rider]: t_rider_choices failed")
+    except Exception as exc:
+        logger.warning("telegram[rider]: t_rider_choices failed error_type={}", type(exc).__name__)
         await message.answer(TROUBLE)
         return
     step, values, question = (
         ("t", options.towns, ASK_TOWN) if (town or "TBD") == "TBD" else ("v", options.vehicle_types, ASK_VEHICLE)
     )
-    kb = rider_choice_kb(step, values)
+    kb = rider_choice_kb(step, values, invite_claim)
     if not kb.inline_keyboard:
-        await message.answer(NO_CHOICES)
-        await alert_ops(f"Rider bot: no {'towns' if step == 't' else 'vehicle types'} to offer a sign-up "
-                        "(t_rider_choices() is empty).")
+        await message.answer(NO_CHOICES if invite_claim is None else INVITE_NO_CHOICES)
+        if invite_claim is None:
+            await alert_ops(f"Rider bot: no {'towns' if step == 't' else 'vehicle types'} to offer a sign-up "
+                            "(t_rider_choices() is empty).")
+        else:
+            logger.warning("telegram[rider]: no profile choices for invite claim {}", invite_claim)
         return
     await message.answer(question, reply_markup=kb)
 
 
 # ---- sign-up choices -----------------------------------------------------------------------------------------------
 async def on_signup_choice(
-    query: CallbackQuery, callback_data: RiderSignup, tgram_settings: TgramBotSettings, event_update: Update
+    query: CallbackQuery, callback_data: RiderSignup | RiderInviteSignup, tgram_settings: TgramBotSettings, event_update: Update
 ):
+    if not isinstance(query.message, Message) or query.message.chat.type != "private":
+        await answer_quietly(query)
+        return
     await process_once(
         tgram_settings.bot_key, event_update, query.from_user.id,
         lambda: _handle_signup_choice(query, callback_data, tgram_settings),
     )
 
 
-async def _handle_signup_choice(query: CallbackQuery, callback_data: RiderSignup, tgram_settings: TgramBotSettings):
+async def _handle_signup_choice(query: CallbackQuery, callback_data: RiderSignup | RiderInviteSignup, tgram_settings: TgramBotSettings):
     answered = asyncio.create_task(answer_quietly(query))
     try:
         await _apply_choice(query, callback_data, tgram_settings)
@@ -202,11 +234,13 @@ async def _edit(query: CallbackQuery, text: str, reply_markup=None) -> None:
     await query.bot.send_message(query.from_user.id, text, reply_markup=reply_markup)
 
 
-async def _apply_choice(query: CallbackQuery, data: RiderSignup, tgram_settings: TgramBotSettings) -> None:
+async def _apply_choice(query: CallbackQuery, data: RiderSignup | RiderInviteSignup, tgram_settings: TgramBotSettings) -> None:
     user = query.from_user
+    invite_claim = data.c if isinstance(data, RiderInviteSignup) else None
     try:
         out = await rider_links.set_profile(
-            user.id, town=data.v if data.s == "t" else None, vehicle_type=data.v if data.s == "v" else None
+            user.id, town=data.v if data.s == "t" else None, vehicle_type=data.v if data.s == "v" else None,
+            invite_claim=invite_claim,
         )
     except Exception:
         logger.exception(f"telegram[{tgram_settings.bot_key}]: set_profile failed for user {user.id}")
@@ -214,6 +248,9 @@ async def _apply_choice(query: CallbackQuery, data: RiderSignup, tgram_settings:
         return
     if out.result == "not_linked":
         await _edit(query, NOT_LINKED)
+        return
+    if out.result == "stale":
+        await _edit(query, "This choice is no longer current. Send /start to continue.")
         return
     if out.result == "locked":
         await _edit(query, f"Your town and vehicle are already set ({escape(out.town)}, {escape(out.vehicle_type)}). "
@@ -223,11 +260,20 @@ async def _apply_choice(query: CallbackQuery, data: RiderSignup, tgram_settings:
         await _edit(query, OPTION_GONE)
         prof = await rider_links.profile(user.id)
         if isinstance(query.message, Message):
-            await ask_next_choice(query.message, prof.town, prof.vehicle_type)
+            await ask_next_choice(query.message, prof.town, prof.invite_claim)
         return
     if out.needs_profile:
+        if out.town == "TBD":
+            # A valid vehicle choice can arrive first, for example from overlapping taps.
+            await ask_next_choice(query.message, out.town, invite_claim)
+            return
         options = await rider_links.choices()
-        await _edit(query, f"Town: <b>{escape(out.town)}</b>\n{ASK_VEHICLE}", rider_choice_kb("v", options.vehicle_types))
+        keyboard = rider_choice_kb("v", options.vehicle_types, invite_claim)
+        if not keyboard.inline_keyboard and invite_claim is not None:
+            logger.warning("telegram[rider]: no profile choices for invite claim {}", invite_claim)
+            await _edit(query, INVITE_NO_CHOICES)
+            return
+        await _edit(query, f"Town: <b>{escape(out.town)}</b>\n{ASK_VEHICLE}", keyboard)
         return
     prof = await rider_links.profile(user.id)
     await _edit(query, done_text(rider_links.RiderLink(result="ok", town=out.town, vehicle_type=out.vehicle_type,
@@ -288,6 +334,7 @@ def build_router() -> Router:
     router.message.register(cmd_whoami, Command("whoami"))
     router.message.register(on_contact, F.contact)
     router.callback_query.register(on_signup_choice, RiderSignup.filter())
+    router.callback_query.register(on_signup_choice, RiderInviteSignup.filter())
     router.include_router(build_dashboard_router())  # /my_jobs: private dashboard access, available during a job
     router.include_router(build_jobs_router())  # R4: offers, job-card buttons, /job, plain text -> the rider agent
     router.include_router(build_availability_router())  # R5: /shift, /off (+ break-length taps), /on

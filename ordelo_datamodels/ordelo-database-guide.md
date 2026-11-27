@@ -5,7 +5,7 @@
 
 The SQL under `ordelo_datamodels/` is organised by capability. Each file starts with a fixed header (live check, objects, how to run, side effects, how it fits, lifecycle, callers, Python model, security, tests, gotchas, see also). The file is the authority; this guide only indexes it.
 
-**142 SQL files · 270 objects** 190 functions · 61 tables · 13 triggers · 6 views · 17 cron jobs
+**143 SQL files · 270 objects** 190 functions · 61 tables · 13 triggers · 6 views · 17 cron jobs
 
 ## Capability map
 
@@ -28,7 +28,7 @@ The SQL under `ordelo_datamodels/` is organised by capability. Each file starts 
 | [`byteloop_agent/`](byteloop_agent/) | Byteloop agent | 2 | 4 | Tables and vector search used by the separate Byteloop agent. |
 | [`test_support/`](test_support/) | Test support | 12 | 4 | Helpers and harness scripts for resetting and replaying orders. Not part of production flows. |
 | [`_orphans/`](_orphans/) | Orphan candidates | 10 | 25 | Live objects with no caller found in OrdeloAgent, restaurant-frontend or restaurant-agents. Captured exactly as live; keep or drop is an owner decision (docs/to-do.md). |
-| [`migrations/`](migrations/) | Migrations (history) | 28 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
+| [`migrations/`](migrations/) | Migrations (history) | 29 | 0 | Frozen one-off change scripts. Their statements are history; the current definition of every object is in its capability folder. |
 
 ## Flows
 
@@ -553,6 +553,7 @@ Admin dashboard reads and platform helpers.
 | [`migrations/telegram_portals_p1.sql`](migrations/telegram_portals_p1.sql) | 2026-11-19 (agent, during the owner's verification window; owner-authorised implementation run) | restaurant_admin/admin_roster.sql (is_overwatch, t_admin_link, t_admin_profile,, admin_unlink_telegram); admin_dashboard/auth_sessions.sql (portal access, admin mints, admin sessions, revocation) |
 | [`migrations/test3100_order_routing.sql`](migrations/test3100_order_routing.sql) | Applied: every object it creates exists live (checked 2026-10-16). | dispatch/job_create_dispatch.sql, ordering/create_food_order_with_items.sql, ordering/order_has_test_item.sql |
 | [`migrations/web_order_lookup_backfill.sql`](migrations/web_order_lookup_backfill.sql) | pending owner application. | ordering/web_order_request.sql |
+| [`migrations/web_storefront_launch_settings.sql`](migrations/web_storefront_launch_settings.sql) | 2026-11-25 (owner-run; settings confirmed read-only at 22:07 UK) | restaurant_admin/restaurant_confirmation_policy.sql, restaurant_admin/restaurant_settings.sql,, core/ordelo_config.sql (this file changes rows only: no table, function, trigger or grant) |
 
 ## Cron jobs
 
