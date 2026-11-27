@@ -168,8 +168,8 @@
    "file": "ordering/job_web_price_audit.sql",
    "function": "job_web_price_audit",
    "job": "job_web_price_audit",
-   "line": 59,
-   "schedule": "5 0 * * *"
+   "line": 70,
+   "schedule": "5 * * * *"
   },
   {
    "active": true,
@@ -5580,7 +5580,7 @@
    ],
    "sections": {
     "CALLED BY": "job_customer_outbox_sweep:\n  cron      'job_customer_outbox_sweep' * * * * *",
-    "GOTCHAS": "Option B (ADR 0019 exception, docs/to-do.md \"Customer notifier sweeps\"): POSTs every minute even when nothing\n  is due, because the Python sweep also does work no SQL count can see:\n  subscription and outbox seeding, interrupted-attempt failure.\n  A-lite / A in docs/to-do.md move that work to SQL so the job can POST only when due.\nKeep the app_hook_post() result in a variable: BETWEEN repeats its operand, so a volatile call would POST twice.",
+    "GOTCHAS": "Option B (ADR 0019 exception, docs/to-do.md \"Customer notifier sweeps\"): POSTs every minute even when nothing\n  is due, because the Python sweep also does work no SQL count can see:\n  subscription and outbox seeding, interrupted-attempt failure.\n  A-lite / A in docs/to-do.md move that work to SQL so the job can POST only when due.\nStatus handling: see the app_hook_post.sql GOTCHAS (keep the result in a variable).",
     "HOW IT FITS": "this job (every minute) -> app_hook_post -> /customer-hooks/outbox-sweep -> customer_notifier.sweep_pending():\n  seed missing order_notification_subscription and notification_outbox rows, fail interrupted attempts\n  (no retry after an HTTP attempt, ADR 0006), then dispatch up to 100 unattempted due rows.\n  Replaces the in-process 60-second customer_notifier.run_sweeper loop.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run (cron.schedule with an existing name updates in place).",
     "LIFECYCLE": "none: this job keeps no state. Outbox row states: notifications/notification_outbox.sql.",
@@ -6030,7 +6030,7 @@
    ],
    "sections": {
     "CALLED BY": "job_web_lifecycle_sweep:\n  cron      'job_web_lifecycle_sweep' * * * * *",
-    "GOTCHAS": "Option B (ADR 0019 exception, docs/to-do.md \"Customer notifier sweeps\"): POSTs every minute even when nothing\n  is due, because the Python sweep also does work no SQL count can see:\n  WEB thread expiry and the counter and grant prunes.\n  A-lite / A in docs/to-do.md move that work to SQL so the job can POST only when due.\nKeep the app_hook_post() result in a variable: BETWEEN repeats its operand, so a volatile call would POST twice.",
+    "GOTCHAS": "Option B (ADR 0019 exception, docs/to-do.md \"Customer notifier sweeps\"): POSTs every minute even when nothing\n  is due, because the Python sweep also does work no SQL count can see:\n  WEB thread expiry and the counter and grant prunes.\n  A-lite / A in docs/to-do.md move that work to SQL so the job can POST only when due.\nStatus handling: see the app_hook_post.sql GOTCHAS (keep the result in a variable).",
     "HOW IT FITS": "The only code that cancels held web payments: restaurant decline, no rider and late payment queue a\n  web_payment_release row (lifecycle.queue_release() / reject_late()); this job (every minute) -> app_hook_post\n  -> /web-hooks/lifecycle-sweep -> web_ordering/lifecycle.sweep() claims up to ten due rows (SKIP LOCKED,\n  one-minute lease) and cancels each payment. The same sweep expires WEB threads (web_session_meta) and\n  prunes web_rate_limit and status-only order_access_grant rows. If this job stops, held payments stay held.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run (cron.schedule with an existing name updates in place).",
     "LIFECYCLE": "none: this job keeps no state. Release row states: ordering/web_payment_release.sql.",
@@ -6062,7 +6062,7 @@
    "called_by": {
     "job_web_price_audit": [
      {
-      "text": "'job_web_price_audit' 5 0 * * *",
+      "text": "'job_web_price_audit' 5 * * * *",
       "via": "cron"
      }
     ]
@@ -6074,16 +6074,16 @@
      "file": "ordering/job_web_price_audit.sql",
      "function": "job_web_price_audit",
      "job": "job_web_price_audit",
-     "line": 59,
-     "schedule": "5 0 * * *"
+     "line": 70,
+     "schedule": "5 * * * *"
     }
    ],
    "folder": "ordering",
-   "header_lines": 29,
-   "lines": 64,
+   "header_lines": 33,
+   "lines": 75,
    "objects": [
     {
-     "description": "POST /web-hooks/price-audit once a day; true when the app answered 2xx.",
+     "description": "POST /web-hooks/price-audit unless today's London web_monitor_run row exists; true when skipped or 2xx.",
      "kind": "function",
      "name": "job_web_price_audit",
      "signature": "job_web_price_audit() -> boolean"
@@ -6111,18 +6111,18 @@
     "SEE ALSO"
    ],
    "sections": {
-    "CALLED BY": "job_web_price_audit:\n  cron      'job_web_price_audit' 5 0 * * *",
-    "GOTCHAS": "web_monitor_run allows one run per London date: a second call that day returns without work. 00:05 UTC is\n00:05 or 01:05 London, so it never falls on the previous London date. A failed audit deletes its\nclaim; the retry is the next day's run, or SELECT public.job_web_price_audit() by hand the same day.\nKeep the app_hook_post() result in a variable: BETWEEN repeats its operand, so a volatile call would POST twice.",
-    "HOW IT FITS": "this job (00:05 UTC) -> app_hook_post -> /web-hooks/price-audit -> web_ordering/monitoring.sweep(): claim\n  today's web_monitor_run row (London date), compare the last 24 hours of web order lines with the menu\n  floor, record flagged orders and alert ops. Prices are never changed.",
+    "CALLED BY": "job_web_price_audit:\n  cron      'job_web_price_audit' 5 * * * *",
+    "GOTCHAS": "The due check reads only whether today's London row exists, not completed_at. A failed audit deletes its\n  claim, so the next hourly run POSTs again (retry within the hour). A crash mid-audit leaves the\n  unfinished claim behind, so that day is skipped until someone deletes the row; that was already true\n  of the sweep's own claim before this check.\nThe London date is (now() AT TIME ZONE 'Europe/London')::date, independent of the session TimeZone, so\n  the 23:05 UTC run during BST already belongs to the next London day.\nStatus handling: see the app_hook_post.sql GOTCHAS (keep the result in a variable).",
+    "HOW IT FITS": "this job (every hour at :05) -> due check: no web_monitor_run row for today's London date -> app_hook_post\n  -> /web-hooks/price-audit -> web_ordering/monitoring.sweep(): claim today's web_monitor_run row (London\n  date), compare the last 24 hours of web order lines with the menu floor, record flagged orders and alert\n  ops. Prices are never changed. The first run of each London day POSTs; the rest of that day skip in SQL.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run (cron.schedule with an existing name updates in place).",
     "LIFECYCLE": "none: this job keeps no state. Audit claim states: ordering/web_monitor_run.sql.",
     "LIVE CHECK": "not applied yet (plans/telegram-rider-invite-alert-schedule.md, phase 2).",
-    "OBJECTS": "fn     job_web_price_audit() -> boolean\n    POST /web-hooks/price-audit once a day; true when the app answered 2xx.",
+    "OBJECTS": "fn     job_web_price_audit() -> boolean\n    POST /web-hooks/price-audit unless today's London web_monitor_run row exists; true when skipped or 2xx.",
     "PYTHON MODEL": "watomation/routers/sweep_hooks.py: web_price_audit(); utils_common/web_ordering/monitoring.py: sweep()",
     "REQUIRES": "platform/app_hook_post.sql",
     "SECURITY": "PUBLIC, anon and authenticated revoked; service role only.",
     "SEE ALSO": "docs/adr/0019-scheduled-work-is-owned-by-pg-cron.md\ndocs/to-do.md\nordering/web_monitor_run.sql",
-    "SIDE EFFECTS": "Schedules the pg_cron job 'job_web_price_audit' (daily at 00:05 UTC). Exactly one HTTP POST per run. Writes nothing:\n  the Python sweep owns every claim and update.",
+    "SIDE EFFECTS": "Schedules the pg_cron job 'job_web_price_audit' (hourly at :05). At most one HTTP POST per run, none when\n  today's audit is already claimed. Writes nothing: the Python sweep owns every claim and update.",
     "TESTS": "tests/sql/test_customer_sweep_jobs_sql.py\ntests/watomation/routers/test_sweep_hooks.py"
    },
    "see_also": [
@@ -6134,7 +6134,7 @@
     "tests/sql/test_customer_sweep_jobs_sql.py",
     "tests/watomation/routers/test_sweep_hooks.py"
    ],
-   "title": "Daily at 00:05 UTC: wake OrdeloAgent to run the web price-floor audit (ADR 0019)."
+   "title": "Hourly at :05: wake OrdeloAgent to run the web price-floor audit when today's London audit is due (ADR 0019)."
   },
   {
    "called_by": {
@@ -6487,7 +6487,7 @@
     "PYTHON MODEL": "none",
     "REQUIRES": "none",
     "SECURITY": "web_monitor_run: RLS ON; service role only (anon/authenticated revoked)",
-    "SEE ALSO": "docs/web-ordering-playground.md\ndocs/web-ordering-architecture.html\nordering/create_food_order_with_items.sql\nordering/job_web_price_audit.sql (pg_cron wakes monitoring.sweep() daily at 00:05 UTC)",
+    "SEE ALSO": "docs/web-ordering-playground.md\ndocs/web-ordering-architecture.html\nordering/create_food_order_with_items.sql\nordering/job_web_price_audit.sql (pg_cron, hourly at :05, wakes monitoring.sweep() when today's London row is missing)",
     "SIDE EFFECTS": "none",
     "TESTS": "tests/utils_common/web_ordering/test_web_contract.py"
    },
@@ -6495,7 +6495,7 @@
     "docs/web-ordering-playground.md",
     "docs/web-ordering-architecture.html",
     "ordering/create_food_order_with_items.sql",
-    "ordering/job_web_price_audit.sql (pg_cron wakes monitoring.sweep() daily at 00:05 UTC)"
+    "ordering/job_web_price_audit.sql (pg_cron, hourly at :05, wakes monitoring.sweep() when today's London row is missing)"
    ],
    "tests": [
     "tests/utils_common/web_ordering/test_web_contract.py"
@@ -7085,8 +7085,8 @@
    },
    "cron": [],
    "folder": "platform",
-   "header_lines": 32,
-   "lines": 80,
+   "header_lines": 35,
+   "lines": 83,
    "objects": [
     {
      "description": "POST p_payload to ORDELO_APP_URL + p_path; return the HTTP status, NULL when the call failed. Never raises.",
@@ -7119,7 +7119,7 @@
    ],
    "sections": {
     "CALLED BY": "app_hook_post:\n  sql       job_rider_invite_alerts() (telegram/job_rider_invite_alerts.sql)\n  sql       job_customer_outbox_sweep() (notifications/job_customer_outbox_sweep.sql)\n  sql       job_web_lifecycle_sweep() (ordering/job_web_lifecycle_sweep.sql)\n  sql       job_web_price_audit() (ordering/job_web_price_audit.sql)",
-    "GOTCHAS": "Falls back to https://agent.ordelo.app when ORDELO_APP_URL is empty, like the inline copies.\nThe curl timeout is reset after every call, failed ones too: curlopts are C-level session state that the\n  EXCEPTION rollback does not undo, so a reused session (SQL editor) would keep CURLOPT_TIMEOUT and cut off\n  later http_post calls. pg_cron opens a fresh session per run in any case.\nOlder functions still build the hook URL inline; they move here when next edited (docs/to-do.md).",
+    "GOTCHAS": "Falls back to https://agent.ordelo.app when ORDELO_APP_URL is empty, like the inline copies.\nThe curl timeout is reset after every call, failed ones too: curlopts are C-level session state that the\n  EXCEPTION rollback does not undo, so a reused session (SQL editor) would keep CURLOPT_TIMEOUT and cut off\n  later http_post calls. pg_cron opens a fresh session per run in any case.\nCallers: keep the result in a variable before testing it (\"v_status := app_hook_post(...)\"). Never write\n  \"app_hook_post(...) BETWEEN 200 AND 299\": BETWEEN repeats its operand, so the volatile call runs, and\n  POSTs, twice. Every job_*() that calls this function points here instead of repeating the warning.\nOlder functions still build the hook URL inline; they move here when next edited (docs/to-do.md).",
     "HOW IT FITS": "pg_cron job_*() -> app_hook_post('/<area>-hooks/<name>', payload) -> thin FastAPI route -> BackgroundTasks.\n  ORDELO_APP_URL decides which server does the work (production, or a local tunnel during tests).",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run. No BEGIN/COMMIT.",
     "LIFECYCLE": "none",
@@ -9611,7 +9611,7 @@
    ],
    "sections": {
     "CALLED BY": "job_rider_invite_alerts:\n  cron      'job_rider_invite_alerts' * * * * *",
-    "GOTCHAS": "A row in 'sending' is not due until its lease expires (2 min), so a slow sweep is not woken twice for it.\nKeep the app_hook_post() result in a variable: BETWEEN repeats its operand, so a volatile call would POST twice.\nThe count reads due rider rows only; it never selects invite_code.",
+    "GOTCHAS": "A row in 'sending' is not due until its lease expires (2 min), so a slow sweep is not woken twice for it.\nStatus handling: see the app_hook_post.sql GOTCHAS (keep the result in a variable).\nThe count reads due rider rows only; it never selects invite_code.",
     "HOW IT FITS": "t_rider_invite_claim sets rider_alert_next_at -> this job (every minute) -> app_hook_post -> /rider-hooks/invite-alerts\n  -> invite_alerts.sweep_pending() -> t_rider_invite_alert_take / _finish. A failed POST changes nothing.",
     "HOW TO RUN": "Supabase SQL editor, whole file. Safe to re-run (cron.schedule with an existing name updates in place).",
     "LIFECYCLE": "see telegram/t_rider_invites.sql",
@@ -11172,7 +11172,7 @@
    "file": "platform/app_hook_post.sql",
    "folder": "platform",
    "kind": "function",
-   "line": 42,
+   "line": 45,
    "role": "definition",
    "signature": "app_hook_post(p_path text, p_payload jsonb, p_timeout_secs integer) -> integer"
   },
@@ -12644,15 +12644,15 @@
   "job_web_price_audit": {
    "called_by": [
     {
-     "text": "'job_web_price_audit' 5 0 * * *",
+     "text": "'job_web_price_audit' 5 * * * *",
      "via": "cron"
     }
    ],
-   "description": "POST /web-hooks/price-audit once a day; true when the app answered 2xx.",
+   "description": "POST /web-hooks/price-audit unless today's London web_monitor_run row exists; true when skipped or 2xx.",
    "file": "ordering/job_web_price_audit.sql",
    "folder": "ordering",
    "kind": "function",
-   "line": 40,
+   "line": 45,
    "role": "definition",
    "signature": "job_web_price_audit() -> boolean"
   },

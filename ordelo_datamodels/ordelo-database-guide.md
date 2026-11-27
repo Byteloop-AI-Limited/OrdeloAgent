@@ -183,7 +183,7 @@ Admin dashboard reads and platform helpers.
 | [`food_order_additions.sql`](ordering/food_order_additions.sql) | `forbid_food_order_origin_change` | function | Trigger function: RAISE if an UPDATE changes food_order.origin_channel or storefront. |
 | [`food_order_additions.sql`](ordering/food_order_additions.sql) | `food_order_origin_immutable` | trigger | BEFORE UPDATE OF origin_channel, storefront on food_order: runs forbid_food_order_origin_change(). |
 | [`job_web_lifecycle_sweep.sql`](ordering/job_web_lifecycle_sweep.sql) | `job_web_lifecycle_sweep` | function | POST /web-hooks/lifecycle-sweep every run; true when the app answered 2xx. |
-| [`job_web_price_audit.sql`](ordering/job_web_price_audit.sql) | `job_web_price_audit` | function | POST /web-hooks/price-audit once a day; true when the app answered 2xx. |
+| [`job_web_price_audit.sql`](ordering/job_web_price_audit.sql) | `job_web_price_audit` | function | POST /web-hooks/price-audit unless today's London web_monitor_run row exists; true when skipped or 2xx. |
 | [`menu_item_visibility.sql`](ordering/menu_item_visibility.sql) | `menu_item_hidden` | table | One row per hidden item of a restaurant; no row = visible. |
 | [`menu_item_visibility.sql`](ordering/menu_item_visibility.sql) | `menu_item_key` | function | The item key shared by menus and orders: the normalised title (lower case, single spaces, trimmed). |
 | [`menu_item_visibility.sql`](ordering/menu_item_visibility.sql) | `menu_hidden_keys` | function | The hidden item keys of a restaurant (storefront and menu readers filter with it). |
@@ -590,7 +590,7 @@ Schedule and state below come from the runnable SQL files; they are targets, not
 | `job_t_receipt_refresh` | 5 seconds | active | `job_t_receipt_refresh` | [`restaurant_admin/restaurant_ready_adjust_notices.sql`](restaurant_admin/restaurant_ready_adjust_notices.sql) |
 | `job_terminate_stale_active_threads` | */3 * * * * | inactive | `job_terminate_stale_active_threads` | [`agent_threads/job_terminate_stale_active_threads.sql`](agent_threads/job_terminate_stale_active_threads.sql) |
 | `job_web_lifecycle_sweep` | * * * * * | inactive | `job_web_lifecycle_sweep` | [`ordering/job_web_lifecycle_sweep.sql`](ordering/job_web_lifecycle_sweep.sql) |
-| `job_web_price_audit` | 5 0 * * * | inactive | `job_web_price_audit` | [`ordering/job_web_price_audit.sql`](ordering/job_web_price_audit.sql) |
+| `job_web_price_audit` | 5 * * * * | inactive | `job_web_price_audit` | [`ordering/job_web_price_audit.sql`](ordering/job_web_price_audit.sql) |
 | `process_delivery` | 5 seconds | active | `process_delivery` | [`delivery/process_delivery.sql`](delivery/process_delivery.sql) |
 | `process_restaurant_confirmation` | 10 seconds | active | `process_restaurant_confirmation` | [`restaurant_admin/process_restaurant_confirmation.sql`](restaurant_admin/process_restaurant_confirmation.sql) |
 

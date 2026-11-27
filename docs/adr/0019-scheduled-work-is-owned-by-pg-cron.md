@@ -28,8 +28,8 @@ Those loops caused four problems:
 
 ## Consequences
 
-- The rider invite alerts move to `job_rider_invite_alerts` (every minute). The customer notifier loop becomes three jobs: outbox sweep and web lifecycle sweep every minute, and the price audit daily at 00:05 UTC. The `lifespan` keeps only client setup.
-- **Temporary exception.** The two per-minute customer jobs wake the app every minute even when nothing is due (option B), because their Python sweeps are unchanged for now. Moving their SQL-only steps into the jobs is in `docs/to-do.md`.
+- The rider invite alerts move to `job_rider_invite_alerts` (every minute). The customer notifier loop becomes three jobs: outbox sweep and web lifecycle sweep every minute, and the price audit hourly at :05, which POSTs only when today's London audit is due (no `web_monitor_run` row for that date yet), so a failed audit is retried within the hour. The `lifespan` keeps only client setup.
+- **Temporary exception.** The two per-minute customer jobs (outbox and web lifecycle, not the price audit) wake the app every minute even when nothing is due (option B), because their Python sweeps are unchanged for now. Moving their SQL-only steps into the jobs is in `docs/to-do.md`.
 - Existing functions that build the hook URL inline move to `app_hook_post` when they are next edited (`docs/to-do.md`).
 - An alert can wait up to one cron interval longer than with a 10-second loop. That is accepted.
 

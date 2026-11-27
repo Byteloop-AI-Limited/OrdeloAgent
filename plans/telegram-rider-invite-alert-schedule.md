@@ -12,8 +12,8 @@ Already done in the design session: the `agents.md` rule, ADR 0019, two `docs/to
 | 2 | Which job wakes invite alerts | A new dedicated `job_rider_invite_alerts`, every minute (`* * * * *`). It does not piggyback on `job_rider_offer_alerts`. |
 | 3 | How SQL calls the app | A new `platform/app_hook_post.sql`, used by the new jobs only. The 17 older functions move when they are next edited (`docs/to-do.md`). `ordelo_post` stays an operator helper. |
 | 4 | Customer notifier logic | **Option B**: the Python sweeps stay unchanged and the jobs wake the app every minute. This is a temporary exception to "POST only when due". A-lite and A are in `docs/to-do.md`. |
-| 5 | Customer notifier jobs | Three jobs: outbox sweep and web lifecycle sweep every minute, price audit daily at 00:05 UTC. |
-| 6 | Live database writes | Allowed, with the owner's approval at each step (SQL apply, `cron.schedule`, `cron.unschedule`, invite issue). Failure cases run in the isolated `tests/sql` database first. Whether the phase 2 jobs are unscheduled after the local check is reopened at P2-6. |
+| 5 | Customer notifier jobs | Three jobs: outbox sweep and web lifecycle sweep every minute; price audit **hourly at :05 (`5 * * * *`), POSTing only when `web_monitor_run` has no row for today's London date** (owner, 27 Nov 2026), so a failed audit is retried within the hour. |
+| 6 | Live database writes | Allowed, with the owner's approval at each step (SQL apply, `cron.schedule`, `cron.unschedule`, invite issue). Failure cases run in the isolated `tests/sql` database first. **The phase 2 jobs stay scheduled after the local verification** (owner, 27 Nov 2026; P2-6 resolved). |
 | 7 | Overwatch alert evidence | Read WhatsApp Web (the `ByteLoop Ai` chat only) with `agent-desktop`, in addition to database and log evidence. |
 | 8 | Live phase 1 | A staged outage on claim 1, the normal path on claim 2, then reopen claim 2's link. |
 | 9 | Implementation | Claude agents in Rex panes, each in a git worktree, coordinated from the design thread (section 8). |
@@ -31,7 +31,7 @@ AFTER (one schedule, in Postgres, POSTs to the server named in ORDELO_APP_URL)
   job_rider_invite_alerts    * * * * *  → only if due → /rider-hooks/invite-alerts   → invite_alerts.sweep_pending()
   job_customer_outbox_sweep  * * * * *  → always (B)  → /customer-hooks/outbox-sweep → customer_notifier.sweep_pending()
   job_web_lifecycle_sweep    * * * * *  → always (B)  → /web-hooks/lifecycle-sweep  → lifecycle.sweep()
-  job_web_price_audit        5 0 * * *  → always      → /web-hooks/price-audit      → monitoring.sweep()
+  job_web_price_audit        5 * * * *  → only if due → /web-hooks/price-audit      → monitoring.sweep()
   every job → app_hook_post(path, payload) → http_post
 ```
 
@@ -426,7 +426,7 @@ SELECT cron.schedule('job_customer_outbox_sweep', '* * * * *', 'SELECT public.jo
 
 `ordelo_datamodels/ordering/job_web_lifecycle_sweep.sql` is the same, with the hook `/web-hooks/lifecycle-sweep`, `event_type` `web_lifecycle_sweep` and the schedule `* * * * *`. Its header must say **HOW IT FITS: the only code that cancels held web payments** (`web_payment_release`, queued by restaurant decline, no rider and late payment).
 
-`ordelo_datamodels/ordering/job_web_price_audit.sql` is the same, with the hook `/web-hooks/price-audit` and the schedule `5 0 * * *` (UTC). Its GOTCHAS says that `web_monitor_run` allows one run per London date, so a second call that day returns without work.
+`ordelo_datamodels/ordering/job_web_price_audit.sql` uses the hook `/web-hooks/price-audit` and the schedule `5 * * * *` (hourly at :05 UTC, owner decision 27 Nov 2026). Unlike the two option B jobs it has a due check: before calling `app_hook_post` it returns true when `EXISTS (SELECT 1 FROM public.web_monitor_run WHERE run_day = (now() AT TIME ZONE 'Europe/London')::date)`, so only the first run of each London day POSTs. Its GOTCHAS says that a failed audit deletes its claim and is retried by the next hourly run, while a crash mid-audit leaves the claim behind and skips that day (already true before). The status still goes into a variable (see the `app_hook_post.sql` GOTCHAS).
 
 ### 5.2 `watomation/routers/sweep_hooks.py` (phase 2 additions)
 
@@ -440,7 +440,7 @@ SELECT cron.schedule('job_customer_outbox_sweep', '* * * * *', 'SELECT public.jo
    . rider_invite_alerts(): job_rider_invite_alerts() in ordelo_datamodels/telegram/job_rider_invite_alerts.sql via pg_cron 'job_rider_invite_alerts' (every minute)
 +  . customer_outbox_sweep(): job_customer_outbox_sweep() in ordelo_datamodels/notifications/job_customer_outbox_sweep.sql via pg_cron 'job_customer_outbox_sweep' (every minute)
 +  . web_lifecycle_sweep(): job_web_lifecycle_sweep() in ordelo_datamodels/ordering/job_web_lifecycle_sweep.sql via pg_cron 'job_web_lifecycle_sweep' (every minute)
-+  . web_price_audit(): job_web_price_audit() in ordelo_datamodels/ordering/job_web_price_audit.sql via pg_cron 'job_web_price_audit' (00:05 UTC)
++  . web_price_audit(): job_web_price_audit() in ordelo_datamodels/ordering/job_web_price_audit.sql via pg_cron 'job_web_price_audit' (5 * * * *, only when due)
 @@
 +@router.post("/customer-hooks/outbox-sweep", include_in_schema=False)
 +async def customer_outbox_sweep(background_tasks: BackgroundTasks):
@@ -462,7 +462,7 @@ SELECT cron.schedule('job_customer_outbox_sweep', '* * * * *', 'SELECT public.jo
 +
 +@router.post("/web-hooks/price-audit", include_in_schema=False)
 +async def web_price_audit(background_tasks: BackgroundTasks):
-+    """Called by database: job_web_price_audit() (ordering/job_web_price_audit.sql), daily 00:05 UTC."""
++    """Called by database: job_web_price_audit() (ordering/job_web_price_audit.sql), hourly at :05 when today's London audit is due."""
 +    from utils_common.web_ordering.monitoring import sweep
 +
 +    background_tasks.add_task(_run, "web_price_audit", sweep)
@@ -528,7 +528,7 @@ Add `from loguru import logger` if it is not imported yet.
  async def sweep():
      """Claim and run one price audit per London day across registered restaurants.
 +
-+    Woken daily at 00:05 UTC by pg_cron (job_web_price_audit → POST /web-hooks/price-audit).
++    Woken by pg_cron (job_web_price_audit, hourly at :05 → POST /web-hooks/price-audit) when today's London audit is due.
 @@
      if not claimed:
 +        logger.info("web price audit: day {} already claimed", day)
@@ -635,7 +635,7 @@ Production still runs the old in-app loop against the same database, so it can c
 | P2-3 | **Customer updates do not regress.** Place a second TEST3100 collection order, Accept with a pickup time, then Ready. | The tracking page moves through accepted, pickup set and ready. `notification_outbox` rows are `sent` (dispatched straight away), and the sweep log does not re-dispatch them. | unchanged |
 | P2-4 🔒 | `SELECT public.job_web_price_audit()` once by hand | Log: `POST /web-hooks/price-audit` 200 and either `web price audit: day … already claimed` or `claimed day …`. If claimed, `ByteLoop Ai` shows the audit alert (test orders may be flagged), and `web_monitor_run` has today's row. | hook and claim work |
 | P2-5 | Isolation | Log: no `customer notifier: sweep failed` line (the old loop). The `ast` guard test is green. | no loop |
-| P2-6 🔒 | **Open, needs the owner's decision (it corrects decision 6).** After G3 the local server has no loop. Unscheduling here would leave nothing sweeping while routing points at local and production is idle-suspended, so web payments would stay held. Proposed: **keep the three jobs scheduled**. Unschedule only when the owner restores routing to production while production still runs the old code, which would answer 404 every minute until the deploy. | `cron.job` matches the decision | no window without a sweeper |
+| P2-6 | **Resolved (owner, 27 Nov 2026; decision 6): the three jobs stay scheduled.** After G3 the local server has no loop, so unscheduling would leave nothing sweeping while routing points at local and production is idle-suspended, and web payments would stay held. Do not unschedule after the local check. | `cron.job` still lists `job_customer_outbox_sweep`, `job_web_lifecycle_sweep` and `job_web_price_audit` (`5 * * * *`) | no window without a sweeper |
 
 **Phase 2 cleanup:**
 - No STRK order is waiting for a decision.
@@ -650,8 +650,8 @@ Production still runs the old in-app loop against the same database, so it can c
 ## 7. Production rollout and rollback
 
 1. **Phase 1.** Commit and merge, then apply the SQL from P1-1 to live, if the local run has not already done so. Then deploy. The invite job is idle until the first claim, so the order doesn't matter beyond "SQL before code".
-2. **Phase 2.** With routing on production:
-   1. Schedule the three jobs (🔒). Production answers 404 until the deploy, and its old loop covers the gap.
+2. **Phase 2.** The three jobs are already scheduled from P2-1 and stay scheduled (decision 6, P2-6); if the local run did not schedule them, schedule them now (🔒). With routing on production:
+   1. Until the deploy, production's old code answers 404 to each POST and its old loop covers the gap. Keep that window short: restore routing and deploy back to back.
    2. Deploy.
    3. Check for 200s in `cron.job_run_details` and the Fly logs. Check that the next web decline is released within a minute.
 3. The owner restores `ORDELO_APP_URL` and `RESTAURANT_MENU_APP_URL` after local testing (runbook §7).
